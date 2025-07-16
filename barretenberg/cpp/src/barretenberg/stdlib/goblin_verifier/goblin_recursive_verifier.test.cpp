@@ -31,6 +31,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         GoblinProof proof;
         Goblin::VerificationKey verifier_input;
         MergeVerificationData merge_verification_data;
+        RecursiveMergeVerificationData recursive_merge_verification_data;
     };
 
     /**
@@ -38,7 +39,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      *
      * @return ProverOutput
      */
-    static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
+    static ProverOutput create_goblin_prover_output(Builder* outer_builder = nullptr, const size_t NUM_CIRCUITS = 3)
     {
 
         Goblin goblin;
@@ -55,36 +56,27 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         builder.queue_ecc_no_op();
         GoblinMockCircuits::construct_simple_circuit(builder);
 
-        Builder outer_builder;
-
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
-        MergeVerifier::MergeVerificationData merge_verification_data;
+        MergeVerificationData merge_verification_data;
         auto t_current = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin_final.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_verification_data.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
         }
 
+        RecursiveMergeVerificationData recursive_merge_verification_data;
+        if (outer_builder != nullptr) {
+            for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+                recursive_merge_verification_data.t_commitments[idx] =
+                    RecursiveCommitment::from_witness(outer_builder, merge_verification_data.t_commitments[idx]);
+            }
+        }
+
         // Output is a goblin proof plus ECCVM/Translator verification keys
         return { goblin_final.prove(),
                  { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() },
-                 merge_verification_data };
-    }
-
-    /**
-     * @brief Build MergeVerificationData for recursive verification
-     *
-     */
-    static RecursiveMergeVerificationData construct_recursive_merge_verification_data(
-        Builder* builder, const MergeVerificationData& merge_verification_data)
-    {
-        RecursiveMergeVerificationData recursive_merge_verification_data;
-        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            recursive_merge_verification_data.t_commitments[idx] =
-                RecursiveCommitment::from_witness(builder, merge_verification_data.t_commitments[idx]);
-        }
-
-        return recursive_merge_verification_data;
+                 merge_verification_data,
+                 recursive_merge_verification_data };
     }
 };
 
@@ -94,7 +86,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
-    auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output();
+    auto [proof, verifier_input, merge_verification_data, _] = create_goblin_prover_output();
 
     std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
 
@@ -107,12 +99,10 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
  */
 TEST_F(GoblinRecursiveVerifierTests, Basic)
 {
-    auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output();
-
     Builder builder;
 
-    RecursiveMergeVerificationData recursive_merge_verification_data =
-        construct_recursive_merge_verification_data(&builder, merge_verification_data);
+    auto [proof, verifier_input, merge_verification_data, recursive_merge_verification_data] =
+        create_goblin_prover_output(&builder);
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_verification_data);
@@ -143,12 +133,10 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
     auto get_blocks = [](size_t inner_size)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
-        auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output(inner_size);
-
         Builder builder;
 
-        RecursiveMergeVerificationData recursive_merge_verification_data =
-            construct_recursive_merge_verification_data(&builder, merge_verification_data);
+        auto [proof, verifier_input, merge_verification_data, recursive_merge_verification_data] =
+            create_goblin_prover_output(&builder, inner_size);
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_verification_data);
@@ -178,12 +166,10 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
  */
 TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 {
-    auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output();
-
     Builder builder;
 
-    RecursiveMergeVerificationData recursive_merge_verification_data =
-        construct_recursive_merge_verification_data(&builder, merge_verification_data);
+    auto [proof, verifier_input, merge_verification_data, recursive_merge_verification_data] =
+        create_goblin_prover_output(&builder);
 
     // Tamper with the ECCVM proof
     for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
@@ -216,7 +202,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
  */
 TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 {
-    auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output();
+    auto [proof, verifier_input, merge_verification_data, _] = create_goblin_prover_output();
 
     // Tamper with the Translator proof preamble
     {
@@ -230,8 +216,11 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
 
-        RecursiveMergeVerificationData recursive_merge_verification_data =
-            construct_recursive_merge_verification_data(&builder, merge_verification_data);
+        RecursiveMergeVerificationData recursive_merge_verification_data;
+        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+            recursive_merge_verification_data.t_commitments[idx] =
+                RecursiveCommitment::from_witness(&builder, merge_verification_data.t_commitments[idx]);
+        }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         [[maybe_unused]] auto goblin_rec_verifier_output =
@@ -253,8 +242,11 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
 
-        RecursiveMergeVerificationData recursive_merge_verification_data =
-            construct_recursive_merge_verification_data(&builder, merge_verification_data);
+        RecursiveMergeVerificationData recursive_merge_verification_data;
+        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+            recursive_merge_verification_data.t_commitments[idx] =
+                RecursiveCommitment::from_witness(&builder, merge_verification_data.t_commitments[idx]);
+        }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         [[maybe_unused]] auto goblin_rec_verifier_output =
@@ -269,12 +261,10 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
  */
 TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 {
-    auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output();
-
     Builder builder;
 
-    RecursiveMergeVerificationData recursive_merge_verification_data =
-        construct_recursive_merge_verification_data(&builder, merge_verification_data);
+    auto [proof, verifier_input, merge_verification_data, recursive_merge_verification_data] =
+        create_goblin_prover_output(&builder);
 
     // Tamper with the evaluation of `op` witness. The index is computed manually.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
@@ -300,12 +290,10 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         using FF = TranslatorFlavor::FF;
         using BF = TranslatorFlavor::BF;
 
-        auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output();
-
         Builder builder;
 
-        RecursiveMergeVerificationData recursive_merge_verification_data =
-            construct_recursive_merge_verification_data(&builder, merge_verification_data);
+        auto [proof, verifier_input, merge_verification_data, recursive_merge_verification_data] =
+            create_goblin_prover_output(&builder);
 
         std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
 
