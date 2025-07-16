@@ -12,6 +12,20 @@
 
 namespace bb::avm2 {
 
+class TagMismatchException : public std::runtime_error {
+  public:
+    TagMismatchException()
+        : std::runtime_error("Mismatched tags")
+    {}
+};
+
+class InvalidOperationTag : public std::runtime_error {
+  public:
+    InvalidOperationTag(const std::string& msg)
+        : std::runtime_error("InvalidOperationTag: " + msg)
+    {}
+};
+
 enum class ValueTag {
     FF = MEM_TAG_FF,
     U1 = MEM_TAG_U1,
@@ -78,9 +92,11 @@ class TaggedValue {
     // Shift operations not valid for FF. They will throw.
     TaggedValue operator<<(const TaggedValue& other) const;
     TaggedValue operator>>(const TaggedValue& other) const;
-
-    bool operator==(const TaggedValue& other) const = default;
-    bool operator!=(const TaggedValue& other) const = default;
+    // Comparison operators. If the tags are not the same, false is returned
+    bool operator<(const TaggedValue& other) const;
+    bool operator<=(const TaggedValue& other) const;
+    bool operator==(const TaggedValue& other) const;
+    bool operator!=(const TaggedValue& other) const;
 
     // Converts any type to FF.
     FF as_ff() const;

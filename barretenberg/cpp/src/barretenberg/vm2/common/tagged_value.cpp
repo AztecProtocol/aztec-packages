@@ -44,6 +44,32 @@ struct shift_right {
     }
 };
 
+struct less_than {
+    template <typename T, typename U> bool operator()(const T& a, const U& b) const
+    {
+        if constexpr (std::is_same_v<T, FF>) {
+            // It can be argued that this should be disallowed since total ordering within a
+            // finite field is not well-defined. But practically, we do compare field-sized things
+            // we just do so over the integers
+            return static_cast<uint256_t>(a) < static_cast<uint256_t>(b);
+        } else {
+            return a < b;
+        }
+    }
+};
+
+struct less_than_equal {
+    template <typename T, typename U> bool operator()(const T& a, const U& b) const
+    {
+        if constexpr (std::is_same_v<T, FF>) {
+            // See less_than for the reasoning.
+            return static_cast<uint256_t>(a) <= static_cast<uint256_t>(b);
+        } else {
+            return a <= b;
+        }
+    }
+};
+
 template <typename Op>
 constexpr bool is_bitwise_operation_v =
     std::is_same_v<Op, std::bit_and<>> || std::is_same_v<Op, std::bit_or<>> || std::is_same_v<Op, std::bit_xor<>> ||
@@ -55,13 +81,13 @@ template <typename Op> struct BinaryOperationVisitor {
     {
         if constexpr (std::is_same_v<T, U>) {
             if constexpr (std::is_same_v<T, FF> && is_bitwise_operation_v<Op>) {
-                throw std::runtime_error("Bitwise operations not valid for FF");
+                throw InvalidOperationTag("Bitwise operations not valid for FF");
             } else {
                 // Note: IDK why this static_cast is needed, but if you remove it, operations seem to go through FF.
                 return static_cast<T>(Op{}(a, b));
             }
         } else {
-            throw std::runtime_error("Type mismatch in BinaryOperationVisitor!");
+            throw TagMismatchException();
         }
     }
 };
@@ -71,7 +97,7 @@ template <typename Op> struct ShiftOperationVisitor {
     template <typename T, typename U> TaggedValue::value_type operator()(const T& a, const U& b) const
     {
         if constexpr (std::is_same_v<T, FF> || std::is_same_v<U, FF>) {
-            throw std::runtime_error("Bitwise operations not valid for FF");
+            throw InvalidOperationTag("Bitwise operations not valid for FF");
         } else {
             return static_cast<T>(Op{}(a, b));
         }
@@ -83,10 +109,22 @@ template <typename Op> struct UnaryOperationVisitor {
     template <typename T> TaggedValue::value_type operator()(const T& a) const
     {
         if constexpr (std::is_same_v<T, FF> && is_bitwise_operation_v<Op>) {
-            throw std::runtime_error("Can't do unary bitwise operations on an FF");
+            throw InvalidOperationTag("Can't do unary bitwise operations on an FF");
         } else {
             // Note: IDK why this static_cast is needed, but if you remove it, operations seem to go through FF.
             return static_cast<T>(Op{}(a));
+        }
+    }
+};
+
+// Helper visitor for comparison operations. The result is a bool
+template <typename Op> struct ComparisonOperationVisitor {
+    template <typename T, typename U> bool operator()(const T& a, const U& b) const
+    {
+        if constexpr (std::is_same_v<T, U>) {
+            return Op{}(a, b);
+        } else {
+            return false;
         }
     }
 };
@@ -252,6 +290,12 @@ TaggedValue TaggedValue::operator^(const TaggedValue& other) const
     return std::visit(BinaryOperationVisitor<std::bit_xor<>>(), value, other.value);
 }
 
+TaggedValue TaggedValue::operator~() const
+{
+    return std::visit(UnaryOperationVisitor<std::bit_not<>>(), value);
+}
+
+// Shift Operations
 TaggedValue TaggedValue::operator<<(const TaggedValue& other) const
 {
     return std::visit(ShiftOperationVisitor<shift_left>(), value, other.value);
@@ -262,9 +306,29 @@ TaggedValue TaggedValue::operator>>(const TaggedValue& other) const
     return std::visit(ShiftOperationVisitor<shift_right>(), value, other.value);
 }
 
-TaggedValue TaggedValue::operator~() const
+// Comparison Operators
+bool TaggedValue::operator<(const TaggedValue& other) const
 {
-    return std::visit(UnaryOperationVisitor<std::bit_not<>>(), value);
+    // Cannot use std::less<> here because we need to handle FF specially.
+    return std::visit(ComparisonOperationVisitor<less_than>(), value, other.value);
+}
+
+bool TaggedValue::operator<=(const TaggedValue& other) const
+{
+    // Cannot use std::less_equal<> here because we need to handle FF specially.
+    return std::visit(ComparisonOperationVisitor<less_than_equal>(), value, other.value);
+}
+
+bool TaggedValue::operator==(const TaggedValue& other) const
+{
+    // We can use std::equal_to here because it is defined for all types.
+    return std::visit(ComparisonOperationVisitor<std::equal_to<>>(), value, other.value);
+}
+
+bool TaggedValue::operator!=(const TaggedValue& other) const
+{
+    // We can use std::not_equal_to here because it is defined for all types.
+    return std::visit(ComparisonOperationVisitor<std::not_equal_to<>>(), value, other.value);
 }
 
 FF TaggedValue::as_ff() const
