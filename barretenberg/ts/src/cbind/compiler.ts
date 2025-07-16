@@ -628,9 +628,9 @@ ${checkerSyntax()};
       const awaitKeyword = this.mode === 'async' ? 'await ' : '';
       const returnType = this.mode === 'async' ? `Promise<${respType.typeName}>` : respType.typeName;
       
-      this.funcDecls.push(`export ${asyncKeyword}function ${funcName}(wasm: ${wasmType}, command: ${cmdType.typeName}): ${returnType} {
+      this.funcDecls.push(`export ${asyncKeyword}function ${funcName}(wasm: ${wasmType}, requestId: Uint8Array, command: ${cmdType.typeName}): ${returnType} {
   const msgpackCommand = from${cmdType.typeName}(command);
-  const [variantName, result] = ${awaitKeyword}wasm.callCbind('bbapi', [["${commandName}", msgpackCommand]]);
+  const [variantName, result] = ${awaitKeyword}wasm.callCbind('bbapi', [requestId, ["${commandName}", msgpackCommand]]);
   if (variantName !== '${responseName}') {
     throw new Error(\`Expected variant name '${responseName}' but got '\${variantName}'\`);
   }
@@ -733,7 +733,13 @@ export type Fr = Buffer;
  * ${this.mode === 'sync' ? 'All methods are synchronous.' : 'All methods return promises.'}
  */
 export class ${className} {
-  constructor(protected wasm: ${wasmType}) {}
+  private requestId: Uint8Array;
+
+  constructor(protected wasm: ${wasmType}) {
+    // Generate a random 16-byte request ID
+    this.requestId = new Uint8Array(16);
+    crypto.getRandomValues(this.requestId);
+  }
 `;
 
     // Generate methods for each function
@@ -743,7 +749,7 @@ export class ${className} {
       
       classContent += `
   ${asyncKeyword}${func.name}(command: ${func.commandType}): ${returnType} {
-    return ${func.name}(this.wasm, command);
+    return ${func.name}(this.wasm, this.requestId, command);
   }
 `;
     }

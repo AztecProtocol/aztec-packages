@@ -1024,153 +1024,153 @@ export function fromClientIvcCheckPrecomputedVkResponse(o: ClientIvcCheckPrecomp
   valid: o.valid,};
 }
 
-export function circuitProve(wasm: BarretenbergWasmMain, command: CircuitProve): CircuitProveResponse {
+export function circuitProve(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitProve): CircuitProveResponse {
   const msgpackCommand = fromCircuitProve(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitProve", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitProve", msgpackCommand]]);
   if (variantName !== 'CircuitProveResponse') {
     throw new Error(`Expected variant name 'CircuitProveResponse' but got '${variantName}'`);
   }
   return toCircuitProveResponse(result);
 }
 
-export function circuitComputeVk(wasm: BarretenbergWasmMain, command: CircuitComputeVk): CircuitComputeVkResponse {
+export function circuitComputeVk(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitComputeVk): CircuitComputeVkResponse {
   const msgpackCommand = fromCircuitComputeVk(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitComputeVk", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitComputeVk", msgpackCommand]]);
   if (variantName !== 'CircuitComputeVkResponse') {
     throw new Error(`Expected variant name 'CircuitComputeVkResponse' but got '${variantName}'`);
   }
   return toCircuitComputeVkResponse(result);
 }
 
-export function circuitInfo(wasm: BarretenbergWasmMain, command: CircuitInfo): CircuitInfoResponse {
+export function circuitInfo(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitInfo): CircuitInfoResponse {
   const msgpackCommand = fromCircuitInfo(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitInfo", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitInfo", msgpackCommand]]);
   if (variantName !== 'CircuitInfoResponse') {
     throw new Error(`Expected variant name 'CircuitInfoResponse' but got '${variantName}'`);
   }
   return toCircuitInfoResponse(result);
 }
 
-export function circuitCheck(wasm: BarretenbergWasmMain, command: CircuitCheck): CircuitCheckResponse {
+export function circuitCheck(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitCheck): CircuitCheckResponse {
   const msgpackCommand = fromCircuitCheck(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitCheck", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitCheck", msgpackCommand]]);
   if (variantName !== 'CircuitCheckResponse') {
     throw new Error(`Expected variant name 'CircuitCheckResponse' but got '${variantName}'`);
   }
   return toCircuitCheckResponse(result);
 }
 
-export function circuitVerify(wasm: BarretenbergWasmMain, command: CircuitVerify): CircuitVerifyResponse {
+export function circuitVerify(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitVerify): CircuitVerifyResponse {
   const msgpackCommand = fromCircuitVerify(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitVerify", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitVerify", msgpackCommand]]);
   if (variantName !== 'CircuitVerifyResponse') {
     throw new Error(`Expected variant name 'CircuitVerifyResponse' but got '${variantName}'`);
   }
   return toCircuitVerifyResponse(result);
 }
 
-export function clientIvcComputeStandaloneVk(wasm: BarretenbergWasmMain, command: ClientIvcComputeStandaloneVk): ClientIvcComputeStandaloneVkResponse {
+export function clientIvcComputeStandaloneVk(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ClientIvcComputeStandaloneVk): ClientIvcComputeStandaloneVkResponse {
   const msgpackCommand = fromClientIvcComputeStandaloneVk(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ClientIvcComputeStandaloneVk", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ClientIvcComputeStandaloneVk", msgpackCommand]]);
   if (variantName !== 'ClientIvcComputeStandaloneVkResponse') {
     throw new Error(`Expected variant name 'ClientIvcComputeStandaloneVkResponse' but got '${variantName}'`);
   }
   return toClientIvcComputeStandaloneVkResponse(result);
 }
 
-export function clientIvcComputeIvcVk(wasm: BarretenbergWasmMain, command: ClientIvcComputeIvcVk): ClientIvcComputeIvcVkResponse {
+export function clientIvcComputeIvcVk(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ClientIvcComputeIvcVk): ClientIvcComputeIvcVkResponse {
   const msgpackCommand = fromClientIvcComputeIvcVk(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ClientIvcComputeIvcVk", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ClientIvcComputeIvcVk", msgpackCommand]]);
   if (variantName !== 'ClientIvcComputeIvcVkResponse') {
     throw new Error(`Expected variant name 'ClientIvcComputeIvcVkResponse' but got '${variantName}'`);
   }
   return toClientIvcComputeIvcVkResponse(result);
 }
 
-export function clientIvcStart(wasm: BarretenbergWasmMain, command: ClientIvcStart): ClientIvcStartResponse {
+export function clientIvcStart(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ClientIvcStart): ClientIvcStartResponse {
   const msgpackCommand = fromClientIvcStart(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ClientIvcStart", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ClientIvcStart", msgpackCommand]]);
   if (variantName !== 'ClientIvcStartResponse') {
     throw new Error(`Expected variant name 'ClientIvcStartResponse' but got '${variantName}'`);
   }
   return toClientIvcStartResponse(result);
 }
 
-export function clientIvcLoad(wasm: BarretenbergWasmMain, command: ClientIvcLoad): ClientIvcLoadResponse {
+export function clientIvcLoad(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ClientIvcLoad): ClientIvcLoadResponse {
   const msgpackCommand = fromClientIvcLoad(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ClientIvcLoad", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ClientIvcLoad", msgpackCommand]]);
   if (variantName !== 'ClientIvcLoadResponse') {
     throw new Error(`Expected variant name 'ClientIvcLoadResponse' but got '${variantName}'`);
   }
   return toClientIvcLoadResponse(result);
 }
 
-export function clientIvcAccumulate(wasm: BarretenbergWasmMain, command: ClientIvcAccumulate): ClientIvcAccumulateResponse {
+export function clientIvcAccumulate(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ClientIvcAccumulate): ClientIvcAccumulateResponse {
   const msgpackCommand = fromClientIvcAccumulate(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ClientIvcAccumulate", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ClientIvcAccumulate", msgpackCommand]]);
   if (variantName !== 'ClientIvcAccumulateResponse') {
     throw new Error(`Expected variant name 'ClientIvcAccumulateResponse' but got '${variantName}'`);
   }
   return toClientIvcAccumulateResponse(result);
 }
 
-export function clientIvcProve(wasm: BarretenbergWasmMain, command: ClientIvcProve): ClientIvcProveResponse {
+export function clientIvcProve(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ClientIvcProve): ClientIvcProveResponse {
   const msgpackCommand = fromClientIvcProve(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ClientIvcProve", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ClientIvcProve", msgpackCommand]]);
   if (variantName !== 'ClientIvcProveResponse') {
     throw new Error(`Expected variant name 'ClientIvcProveResponse' but got '${variantName}'`);
   }
   return toClientIvcProveResponse(result);
 }
 
-export function proofAsFields(wasm: BarretenbergWasmMain, command: ProofAsFields): ProofAsFieldsResponse {
+export function proofAsFields(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ProofAsFields): ProofAsFieldsResponse {
   const msgpackCommand = fromProofAsFields(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ProofAsFields", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ProofAsFields", msgpackCommand]]);
   if (variantName !== 'ProofAsFieldsResponse') {
     throw new Error(`Expected variant name 'ProofAsFieldsResponse' but got '${variantName}'`);
   }
   return toProofAsFieldsResponse(result);
 }
 
-export function vkAsFields(wasm: BarretenbergWasmMain, command: VkAsFields): VkAsFieldsResponse {
+export function vkAsFields(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: VkAsFields): VkAsFieldsResponse {
   const msgpackCommand = fromVkAsFields(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["VkAsFields", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["VkAsFields", msgpackCommand]]);
   if (variantName !== 'VkAsFieldsResponse') {
     throw new Error(`Expected variant name 'VkAsFieldsResponse' but got '${variantName}'`);
   }
   return toVkAsFieldsResponse(result);
 }
 
-export function circuitWriteSolidityVerifier(wasm: BarretenbergWasmMain, command: CircuitWriteSolidityVerifier): CircuitWriteSolidityVerifierResponse {
+export function circuitWriteSolidityVerifier(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitWriteSolidityVerifier): CircuitWriteSolidityVerifierResponse {
   const msgpackCommand = fromCircuitWriteSolidityVerifier(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitWriteSolidityVerifier", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitWriteSolidityVerifier", msgpackCommand]]);
   if (variantName !== 'CircuitWriteSolidityVerifierResponse') {
     throw new Error(`Expected variant name 'CircuitWriteSolidityVerifierResponse' but got '${variantName}'`);
   }
   return toCircuitWriteSolidityVerifierResponse(result);
 }
 
-export function circuitProveAndVerify(wasm: BarretenbergWasmMain, command: CircuitProveAndVerify): CircuitProveAndVerifyResponse {
+export function circuitProveAndVerify(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitProveAndVerify): CircuitProveAndVerifyResponse {
   const msgpackCommand = fromCircuitProveAndVerify(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitProveAndVerify", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitProveAndVerify", msgpackCommand]]);
   if (variantName !== 'CircuitProveAndVerifyResponse') {
     throw new Error(`Expected variant name 'CircuitProveAndVerifyResponse' but got '${variantName}'`);
   }
   return toCircuitProveAndVerifyResponse(result);
 }
 
-export function circuitBenchmark(wasm: BarretenbergWasmMain, command: CircuitBenchmark): CircuitBenchmarkResponse {
+export function circuitBenchmark(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: CircuitBenchmark): CircuitBenchmarkResponse {
   const msgpackCommand = fromCircuitBenchmark(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["CircuitBenchmark", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["CircuitBenchmark", msgpackCommand]]);
   if (variantName !== 'CircuitBenchmarkResponse') {
     throw new Error(`Expected variant name 'CircuitBenchmarkResponse' but got '${variantName}'`);
   }
   return toCircuitBenchmarkResponse(result);
 }
 
-export function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMain, command: ClientIvcCheckPrecomputedVk): ClientIvcCheckPrecomputedVkResponse {
+export function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMain, requestId: Uint8Array, command: ClientIvcCheckPrecomputedVk): ClientIvcCheckPrecomputedVkResponse {
   const msgpackCommand = fromClientIvcCheckPrecomputedVk(command);
-  const [variantName, result] = wasm.callCbind('bbapi', [["ClientIvcCheckPrecomputedVk", msgpackCommand]]);
+  const [variantName, result] = wasm.callCbind('bbapi', [requestId, ["ClientIvcCheckPrecomputedVk", msgpackCommand]]);
   if (variantName !== 'ClientIvcCheckPrecomputedVkResponse') {
     throw new Error(`Expected variant name 'ClientIvcCheckPrecomputedVkResponse' but got '${variantName}'`);
   }
@@ -1182,73 +1182,79 @@ export function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMain, command:
  * All methods are synchronous.
  */
 export class CbindApiSync {
-  constructor(protected wasm: BarretenbergWasmMain) {}
+  private requestId: Uint8Array;
+
+  constructor(protected wasm: BarretenbergWasmMain) {
+    // Generate a random 16-byte request ID
+    this.requestId = new Uint8Array(16);
+    crypto.getRandomValues(this.requestId);
+  }
 
   circuitProve(command: CircuitProve): CircuitProveResponse {
-    return circuitProve(this.wasm, command);
+    return circuitProve(this.wasm, this.requestId, command);
   }
 
   circuitComputeVk(command: CircuitComputeVk): CircuitComputeVkResponse {
-    return circuitComputeVk(this.wasm, command);
+    return circuitComputeVk(this.wasm, this.requestId, command);
   }
 
   circuitInfo(command: CircuitInfo): CircuitInfoResponse {
-    return circuitInfo(this.wasm, command);
+    return circuitInfo(this.wasm, this.requestId, command);
   }
 
   circuitCheck(command: CircuitCheck): CircuitCheckResponse {
-    return circuitCheck(this.wasm, command);
+    return circuitCheck(this.wasm, this.requestId, command);
   }
 
   circuitVerify(command: CircuitVerify): CircuitVerifyResponse {
-    return circuitVerify(this.wasm, command);
+    return circuitVerify(this.wasm, this.requestId, command);
   }
 
   clientIvcComputeStandaloneVk(command: ClientIvcComputeStandaloneVk): ClientIvcComputeStandaloneVkResponse {
-    return clientIvcComputeStandaloneVk(this.wasm, command);
+    return clientIvcComputeStandaloneVk(this.wasm, this.requestId, command);
   }
 
   clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk): ClientIvcComputeIvcVkResponse {
-    return clientIvcComputeIvcVk(this.wasm, command);
+    return clientIvcComputeIvcVk(this.wasm, this.requestId, command);
   }
 
   clientIvcStart(command: ClientIvcStart): ClientIvcStartResponse {
-    return clientIvcStart(this.wasm, command);
+    return clientIvcStart(this.wasm, this.requestId, command);
   }
 
   clientIvcLoad(command: ClientIvcLoad): ClientIvcLoadResponse {
-    return clientIvcLoad(this.wasm, command);
+    return clientIvcLoad(this.wasm, this.requestId, command);
   }
 
   clientIvcAccumulate(command: ClientIvcAccumulate): ClientIvcAccumulateResponse {
-    return clientIvcAccumulate(this.wasm, command);
+    return clientIvcAccumulate(this.wasm, this.requestId, command);
   }
 
   clientIvcProve(command: ClientIvcProve): ClientIvcProveResponse {
-    return clientIvcProve(this.wasm, command);
+    return clientIvcProve(this.wasm, this.requestId, command);
   }
 
   proofAsFields(command: ProofAsFields): ProofAsFieldsResponse {
-    return proofAsFields(this.wasm, command);
+    return proofAsFields(this.wasm, this.requestId, command);
   }
 
   vkAsFields(command: VkAsFields): VkAsFieldsResponse {
-    return vkAsFields(this.wasm, command);
+    return vkAsFields(this.wasm, this.requestId, command);
   }
 
   circuitWriteSolidityVerifier(command: CircuitWriteSolidityVerifier): CircuitWriteSolidityVerifierResponse {
-    return circuitWriteSolidityVerifier(this.wasm, command);
+    return circuitWriteSolidityVerifier(this.wasm, this.requestId, command);
   }
 
   circuitProveAndVerify(command: CircuitProveAndVerify): CircuitProveAndVerifyResponse {
-    return circuitProveAndVerify(this.wasm, command);
+    return circuitProveAndVerify(this.wasm, this.requestId, command);
   }
 
   circuitBenchmark(command: CircuitBenchmark): CircuitBenchmarkResponse {
-    return circuitBenchmark(this.wasm, command);
+    return circuitBenchmark(this.wasm, this.requestId, command);
   }
 
   clientIvcCheckPrecomputedVk(command: ClientIvcCheckPrecomputedVk): ClientIvcCheckPrecomputedVkResponse {
-    return clientIvcCheckPrecomputedVk(this.wasm, command);
+    return clientIvcCheckPrecomputedVk(this.wasm, this.requestId, command);
   }
 }
