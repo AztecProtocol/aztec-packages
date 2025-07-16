@@ -170,7 +170,7 @@ export class TXE implements TypedOracle {
   private authwits: Map<string, AuthWitness> = new Map();
 
   // Used by setSenderForTags and getSenderForTags oracles.
-  private senderForTags: AztecAddress | undefined = undefined;
+  private senderForTags?: AztecAddress;
 
   private constructor(
     private logger: Logger,
