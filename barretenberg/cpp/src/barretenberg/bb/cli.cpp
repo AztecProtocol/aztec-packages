@@ -21,11 +21,14 @@
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include <fstream>
+#include <iostream>
 
 namespace bb {
 // This is updated in-place by bootstrap.sh during the release process. This prevents
@@ -553,11 +556,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
-     * Subcommand: msgpack_schema
+     * Subcommand: msgpack
      ***************************************************************************************************************/
+    CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
+
+    // Subcommand: msgpack schema
     CLI::App* msgpack_schema_command =
-        app.add_subcommand("msgpack_schema", "Output a msgpack schema encoded as JSON to stdout.");
+        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
     add_verbose_flag(msgpack_schema_command);
+
+    // Subcommand: msgpack run
+    CLI::App* msgpack_run_command =
+        msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
+    add_verbose_flag(msgpack_run_command);
+    std::string msgpack_input_file;
+    msgpack_run_command->add_option(
+        "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
 
     /***************************************************************************************************************
      * Subcommand: prove_tube
@@ -636,9 +650,81 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
-        // MSGPACK SCHEMA
+        // MSGPACK
         if (msgpack_schema_command->parsed()) {
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
+            return 0;
+        } else if (msgpack_run_command->parsed()) {
+            // Process msgpack API commands from stdin or file
+            std::istream* input_stream = &std::cin;
+            std::ifstream file_stream;
+
+            if (!msgpack_input_file.empty()) {
+                file_stream.open(msgpack_input_file, std::ios::binary);
+                if (!file_stream.is_open()) {
+                    std::cerr << "Error: Could not open input file: " << msgpack_input_file << std::endl;
+                    return 1;
+                }
+                input_stream = &file_stream;
+            }
+
+            // Process length-encoded msgpack buffers
+            while (!input_stream->eof()) {
+                // Read 4-byte length prefix in little-endian format
+                uint32_t length = 0;
+                input_stream->read(reinterpret_cast<char*>(&length), sizeof(length));
+
+                if (input_stream->gcount() != sizeof(length)) {
+                    // End of stream or incomplete length
+                    break;
+                }
+
+                // Read the msgpack buffer
+                std::vector<uint8_t> buffer(length);
+                input_stream->read(reinterpret_cast<char*>(buffer.data()), length);
+
+                if (input_stream->gcount() != static_cast<std::streamsize>(length)) {
+                    std::cerr << "Error: Incomplete msgpack buffer read" << std::endl;
+                    return 1;
+                }
+
+                try {
+                    // Deserialize the msgpack buffer
+                    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+                    auto obj = unpacked.get();
+
+                    // Expected format: [request_id_bytes, command]
+                    if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
+                        std::cerr << "Error: Invalid msgpack format - expected array of size 2" << std::endl;
+                        return 1;
+                    }
+
+                    // Extract request ID and command
+                    std::vector<uint8_t> request_id;
+                    obj.via.array.ptr[0].convert(request_id);
+
+                    bb::bbapi::Command command;
+                    obj.via.array.ptr[1].convert(command);
+
+                    // Execute the command
+                    auto response = bbapi::bbapi(request_id, std::move(command));
+
+                    // Serialize the response
+                    msgpack::sbuffer response_buffer;
+                    msgpack::pack(response_buffer, response);
+
+                    // Write length-encoded response to stdout
+                    uint32_t response_length = static_cast<uint32_t>(response_buffer.size());
+                    std::cout.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
+                    std::cout.write(response_buffer.data(), static_cast<std::streamsize>(response_buffer.size()));
+                    std::cout.flush();
+
+                } catch (const std::exception& e) {
+                    std::cerr << "Error processing msgpack command: " << e.what() << std::endl;
+                    return 1;
+                }
+            }
+
             return 0;
         }
         // TUBE

@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 
 import { CbindCompiler } from './compiler.js';
+import { NativeCompiler } from './native_compiler.js';
 
 const execAsync = promisify(exec);
 
@@ -22,8 +23,8 @@ export async function main() {
   // We want to call 'bb msgpack_schema' and parse this schema using the CbindCompiler.
   const bbBuildPath = join(__dirname, '..', '..', '..', 'cpp', 'build', 'bin', 'bb');
 
-  // Execute bb msgpack_schema command
-  const { stdout } = await execAsync(`${bbBuildPath} msgpack_schema`);
+  // Execute bb msgpack schema command (note the new subcommand structure)
+  const { stdout } = await execAsync(`${bbBuildPath} msgpack schema`);
 
   // Parse the JSON schema
   const schema = JSON.parse(stdout.trim());
@@ -40,6 +41,12 @@ export async function main() {
     asyncCompiler.processApiSchema(schema.commands, schema.responses);
   }
 
+  // Process the schema with NativeCompiler
+  const nativeCompiler = new NativeCompiler();
+  if (schema.commands && schema.responses) {
+    nativeCompiler.processApiSchema(schema.commands, schema.responses);
+  }
+
   // Write the generated TypeScript code - sync version
   const syncOutputPath = join(__dirname, 'cbind.sync.gen.ts');
   writeFileSync(syncOutputPath, syncCompiler.compile());
@@ -47,7 +54,15 @@ export async function main() {
   // Write the generated TypeScript code - async version
   const asyncOutputPath = join(__dirname, 'cbind.async.gen.ts');
   writeFileSync(asyncOutputPath, asyncCompiler.compile());
-  console.log(`Generated TypeScript bindings at `, syncOutputPath, ' and ', asyncOutputPath);
+  
+  // Write the generated TypeScript code - native version
+  const nativeOutputPath = join(__dirname, 'native.gen.ts');
+  writeFileSync(nativeOutputPath, nativeCompiler.compile());
+  
+  console.log(`Generated TypeScript bindings:`);
+  console.log(`  - Sync: ${syncOutputPath}`);
+  console.log(`  - Async: ${asyncOutputPath}`);
+  console.log(`  - Native: ${nativeOutputPath}`);
 }
 
 // eslint-disable-next-line no-console

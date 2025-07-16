@@ -1,0 +1,205 @@
+import { CbindCompiler } from './compiler.js';
+
+/**
+ * Compiler for generating NativeApi TypeScript code from msgpack schemas.
+ * This extends CbindCompiler to generate a class that uses bb binary via stdin/stdout.
+ */
+export class NativeCompiler extends CbindCompiler {
+  constructor() {
+    super('async'); // Native API is always async
+  }
+
+  /**
+   * Generate the NativeApi class
+   */
+  private generateNativeApiClass(): string {
+    let classContent = `/**
+ * Native API wrapper for bb binary using msgpack over stdin/stdout.
+ * All methods return promises and handle length-encoded msgpack buffers.
+ */
+export class NativeApi {
+  private process: ChildProcess | null = null;
+  private requestId: Uint8Array;
+  private closed = false;
+  private pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void }>();
+  private responseBuffer = Buffer.alloc(0);
+
+  constructor(private bbPath: string = "bb") {
+    // Generate a random 16-byte request ID
+    this.requestId = new Uint8Array(16);
+    crypto.getRandomValues(this.requestId);
+  }
+
+  /**
+   * Initialize the bb process with msgpack run command
+   */
+  async init(): Promise<void> {
+    if (this.process) {
+      throw new Error("NativeApi already initialized");
+    }
+
+    this.process = spawn(this.bbPath, ["msgpack", "run"], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    // Handle process exit
+    this.process.on("exit", (code, signal) => {
+      this.closed = true;
+      const error = new Error(\`bb process exited with code \${code} and signal \${signal}\`);
+      // Reject all pending requests
+      for (const { reject } of this.pendingRequests.values()) {
+        reject(error);
+      }
+      this.pendingRequests.clear();
+    });
+
+    // Handle stderr
+    this.process.stderr?.on("data", (data) => {
+      console.error("bb stderr:", data.toString());
+    });
+
+    // Handle stdout responses
+    this.process.stdout?.on("data", (data) => {
+      this.responseBuffer = Buffer.concat([this.responseBuffer, data]);
+      this.processResponses();
+    });
+
+    // Handle errors
+    this.process.on("error", (error) => {
+      this.closed = true;
+      for (const { reject } of this.pendingRequests.values()) {
+        reject(error);
+      }
+      this.pendingRequests.clear();
+    });
+  }
+
+  /**
+   * Process length-encoded responses from the buffer
+   */
+  private processResponses(): void {
+    while (this.responseBuffer.length >= 4) {
+      // Read 4-byte length prefix (little-endian)
+      const length = this.responseBuffer.readUInt32LE(0);
+      
+      if (this.responseBuffer.length < 4 + length) {
+        // Not enough data yet
+        break;
+      }
+
+      // Extract the msgpack response
+      const responseData = this.responseBuffer.slice(4, 4 + length);
+      this.responseBuffer = this.responseBuffer.slice(4 + length);
+
+      // Decode the response
+      try {
+        const response = decode(responseData);
+        
+        // For now, we resolve the oldest pending request
+        // In a more sophisticated implementation, we'd match request IDs
+        const [requestKey, pending] = this.pendingRequests.entries().next().value;
+        if (pending) {
+          this.pendingRequests.delete(requestKey);
+          pending.resolve(response);
+        }
+      } catch (error) {
+        console.error("Error decoding response:", error);
+      }
+    }
+  }
+
+  /**
+   * Send a command to the bb process
+   */
+  private async sendCommand(command: any[]): Promise<any> {
+    if (this.closed || !this.process?.stdin) {
+      throw new Error("NativeApi is not initialized or has been closed");
+    }
+
+    // Create a unique key for this request
+    const requestKey = Math.random().toString(36);
+
+    // Create the promise for this request
+    const promise = new Promise((resolve, reject) => {
+      this.pendingRequests.set(requestKey, { resolve, reject });
+    });
+
+    // Encode the command with request ID
+    const encoder = new Encoder({ useRecords: false });
+    const buffer = encoder.encode([this.requestId, command]);
+
+    // Write length-encoded buffer
+    const lengthBuffer = Buffer.allocUnsafe(4);
+    lengthBuffer.writeUInt32LE(buffer.length, 0);
+    
+    this.process.stdin.write(lengthBuffer);
+    this.process.stdin.write(buffer);
+
+    return promise;
+  }
+
+  /**
+   * Close the bb process
+   */
+  async close(): Promise<void> {
+    if (this.process && !this.closed) {
+      this.closed = true;
+      this.process.kill();
+      this.process = null;
+    }
+  }
+`;
+
+    // Generate methods for each function
+    for (const func of this.functionMetadata) {
+      classContent += `
+  async ${func.name}(command: ${func.commandType}): Promise<${func.responseType}> {
+    const msgpackCommand = from${func.commandType}(command);
+    const [variantName, result] = await this.sendCommand(["${func.commandType.replace(/^Circuit|^ClientIvc|^ProofAsFields|^VkAsFields/, '')}", msgpackCommand]);
+    if (variantName !== '${func.responseType}') {
+      throw new Error(\`Expected variant name '${func.responseType}' but got '\${variantName}'\`);
+    }
+    return to${func.responseType}(result);
+  }
+`;
+    }
+
+    classContent += '}';
+    return classContent;
+  }
+
+  /**
+   * Override compile to generate NativeApi specific code
+   */
+  compile(): string {
+    const outputs: string[] = [
+      `/* eslint-disable */
+// GENERATED FILE DO NOT EDIT, RUN yarn generate
+import { Buffer } from "buffer";
+import { spawn, ChildProcess } from "child_process";
+import { Encoder, decode } from "msgpackr";
+
+// Helper type for fixed-size arrays
+type Tuple<T, N extends number> = T[] & { length: N };
+
+// Helper function for mapping tuples
+function mapTuple<T, U, N extends number>(tuple: Tuple<T, N>, fn: (item: T) => U): Tuple<U, N> {
+  return tuple.map(fn) as Tuple<U, N>;
+}
+`,
+    ];
+    
+    // Add interface definitions
+    outputs.push(...this.interfaceDecls);
+    outputs.push('\n');
+    
+    // Add conversion functions
+    outputs.push(...this.conversionDecls);
+    outputs.push('\n');
+    
+    // Add the NativeApi class
+    outputs.push(this.generateNativeApiClass());
+    
+    return outputs.join('\n');
+  }
+}
