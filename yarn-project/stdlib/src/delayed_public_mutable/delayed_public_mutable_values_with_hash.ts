@@ -8,14 +8,14 @@ import { ScheduledDelayChange } from './scheduled_delay_change.js';
 import { ScheduledValueChange } from './scheduled_value_change.js';
 
 export class DelayedPublicMutableValuesWithHash {
-  private smv: DelayedPublicMutableValues;
+  private dpmv: DelayedPublicMutableValues;
 
   constructor(svc: ScheduledValueChange, sdc: ScheduledDelayChange) {
-    this.smv = new DelayedPublicMutableValues(svc, sdc);
+    this.dpmv = new DelayedPublicMutableValues(svc, sdc);
   }
 
   async toFields(): Promise<Fr[]> {
-    return [...this.smv.toFields(), await this.smv.hash()];
+    return [...this.dpmv.toFields(), await this.dpmv.hash()];
   }
 
   async writeToTree(delayedPublicMutableSlot: Fr, storageWrite: (storageSlot: Fr, value: Fr) => Promise<void>) {

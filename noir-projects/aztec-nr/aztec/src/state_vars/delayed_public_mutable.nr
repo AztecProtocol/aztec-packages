@@ -242,10 +242,10 @@ where
     where
         T: Packable<N>,
     {
-        let smv: DelayedPublicMutableValues<T, INITIAL_DELAY> =
+        let dpmv: DelayedPublicMutableValues<T, INITIAL_DELAY> =
             WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
         let current_timestamp = self.context.timestamp();
-        smv.svc.get_current_at(current_timestamp)
+        dpmv.svc.get_current_at(current_timestamp)
     }
 }

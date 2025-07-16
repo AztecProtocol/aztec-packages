@@ -41,7 +41,7 @@ describe('DelayedPublicMutableValues', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/delayed_public_mutable_values/test.nr',
-      'packed_smv_from_typescript',
+      'packed_dpmv_from_typescript',
       packedStr,
     );
   });
