@@ -1,4 +1,4 @@
-use crate::components::tail_output_composer::meter_gas_used::meter_gas_used;
+use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::gas::Gas,
     constants::{

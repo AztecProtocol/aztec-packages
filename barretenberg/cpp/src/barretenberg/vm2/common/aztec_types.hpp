@@ -43,12 +43,19 @@ enum class EnvironmentVariable {
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    BASEFEEPERL2GAS,
+    BASEFEEPERDAGAS,
     ISSTATICCALL,
     L2GASLEFT,
     DAGASLEFT,
     MAX = DAGASLEFT,
+};
+
+enum class ContractInstanceMember {
+    DEPLOYER = 0,
+    CLASS_ID = 1,
+    INIT_HASH = 2,
+    MAX = INIT_HASH,
 };
 
 ////////////////////////////////////////////////////////////////////////////

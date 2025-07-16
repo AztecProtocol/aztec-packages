@@ -30,9 +30,9 @@ template <typename HashingPolicy> class MemoryTree {
   public:
     MemoryTree(size_t depth);
 
-    fr_hash_path get_hash_path(size_t index);
+    fr_hash_path get_hash_path(size_t index) const;
 
-    fr_sibling_path get_sibling_path(size_t index);
+    fr_sibling_path get_sibling_path(size_t index) const;
 
     fr update_element(size_t index, fr const& value);
 
@@ -78,7 +78,7 @@ template <typename HashingPolicy> fr MemoryTree<HashingPolicy>::get_node(uint32_
     return hashes_[offset + index];
 }
 
-template <typename HashingPolicy> fr_hash_path MemoryTree<HashingPolicy>::get_hash_path(size_t index)
+template <typename HashingPolicy> fr_hash_path MemoryTree<HashingPolicy>::get_hash_path(size_t index) const
 {
     fr_hash_path path(depth_);
     size_t offset = 0;
@@ -93,7 +93,7 @@ template <typename HashingPolicy> fr_hash_path MemoryTree<HashingPolicy>::get_ha
     return path;
 }
 
-template <typename HashingPolicy> fr_sibling_path MemoryTree<HashingPolicy>::get_sibling_path(size_t index)
+template <typename HashingPolicy> fr_sibling_path MemoryTree<HashingPolicy>::get_sibling_path(size_t index) const
 {
     fr_sibling_path path(depth_);
     size_t offset = 0;

@@ -303,8 +303,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
@@ -332,8 +330,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       header: header,
       archive: archiveRoot,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
-      txHashes: txHashes
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
 
     CommitteeAttestation[] memory attestations;
@@ -349,8 +346,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
         archive: proposeArgs.archive,
         stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
-        headerHash: headerHash,
-        txHashes: proposeArgs.txHashes
+        headerHash: headerHash
       });
 
       bytes32 digest = ProposeLib.digest(proposePayload);
@@ -413,16 +409,17 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
    * @notice Creates an EIP-712 signature for voteWithSig
    * @param _signer The address that should sign (must match a proposer)
    * @param _proposal The proposal to vote on
+   * @param _round The round to vote in
    * @return The EIP-712 signature
    */
-  function createVoteSignature(address _signer, IPayload _proposal)
+  function createVoteSignature(address _signer, IPayload _proposal, uint256 _round)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer);
+    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer, _round);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 

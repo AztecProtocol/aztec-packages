@@ -1,7 +1,7 @@
 import { unfreeze } from '@aztec/foundation/types';
 import { GasFees } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
-import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, type TxWithHash } from '@aztec/stdlib/tx';
 
 import type { TxPool } from './tx_pool.js';
 
@@ -20,7 +20,11 @@ export function describeTxPool(getTxPool: () => TxPool) {
     pool = getTxPool();
   });
 
-  it('Adds txs to the pool as pending', async () => {
+  afterEach(() => {
+    pool.removeAllListeners('txs-added');
+  });
+
+  it('adds txs to the pool as pending', async () => {
     const tx1 = await mockTx();
 
     await pool.addTxs([tx1]);
@@ -31,7 +35,26 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await expect(pool.getPendingTxCount()).resolves.toEqual(1);
   });
 
-  it('Removes txs from the pool', async () => {
+  it('emits txs-added event with new txs', async () => {
+    const tx1 = await mockTx(); // existing and pending
+    const tx2 = await mockTx(); // mined but not known
+    const tx3 = await mockTx(); // brand new
+
+    await pool.addTxs([tx1]);
+    await pool.markAsMined([await tx2.getTxHash()], minedBlockHeader);
+
+    let txsFromEvent: TxWithHash[] | undefined = undefined;
+    pool.once('txs-added', ({ txs }) => {
+      txsFromEvent = txs;
+    });
+
+    await pool.addTxs([tx1, tx2, tx3]);
+    expect(txsFromEvent).toBeDefined();
+    expect(txsFromEvent).toHaveLength(2);
+    expect(txsFromEvent).toEqual(expect.arrayContaining([tx2, tx3]));
+  });
+
+  it('removes txs from the pool', async () => {
     const tx1 = await mockTx();
 
     await pool.addTxs([tx1]);
@@ -42,7 +65,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await expect(pool.getPendingTxCount()).resolves.toEqual(0);
   });
 
-  it('Marks txs as mined', async () => {
+  it('marks txs as mined', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
 
@@ -56,7 +79,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await expect(pool.getPendingTxCount()).resolves.toEqual(1);
   });
 
-  it('Marks txs as pending after being mined', async () => {
+  it('marks txs as pending after being mined', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
 
@@ -71,7 +94,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await expect(pool.getPendingTxCount()).resolves.toEqual(2);
   });
 
-  it('Only marks txs as pending if they are known', async () => {
+  it('only marks txs as pending if they are known', async () => {
     const tx1 = await mockTx(1);
     // simulate a situation where not all peers have all the txs
     const tx2 = await mockTx(2);
@@ -93,7 +116,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await expect(pool.getPendingTxCount()).resolves.toEqual(1);
   });
 
-  it('Returns all transactions in the pool', async () => {
+  it('returns all transactions in the pool', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
@@ -106,7 +129,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await expect(pool.getPendingTxCount()).resolves.toEqual(3);
   });
 
-  it('Returns all txHashes in the pool', async () => {
+  it('returns all txHashes in the pool', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
@@ -120,7 +143,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await expect(pool.getPendingTxCount()).resolves.toEqual(3);
   });
 
-  it('Returns txs by their hash', async () => {
+  it('returns txs by their hash', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
@@ -132,7 +155,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     expect(requestedTxs).toEqual(expect.arrayContaining([tx1, tx3]));
   });
 
-  it('Returns a large number of transactions by their hash', async () => {
+  it('returns a large number of transactions by their hash', async () => {
     const numTxs = 1000;
     const txs = await Promise.all(Array.from({ length: numTxs }, (_, i) => mockTx(i)));
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
@@ -142,7 +165,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     expect(requestedTxs).toEqual(expect.arrayContaining(txs));
   });
 
-  it('Returns whether or not txs exist', async () => {
+  it('returns whether or not txs exist', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
@@ -163,7 +186,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     expect(availability).toEqual(expect.arrayContaining([true, true, true, false, false]));
   });
 
-  it('Returns pending tx hashes sorted by priority', async () => {
+  it('returns pending tx hashes sorted by priority', async () => {
     const withPriorityFee = (tx: Tx, fee: number) => {
       unfreeze(tx.data.constants.txContext.gasSettings).maxPriorityFeesPerGas = new GasFees(fee, fee);
       return tx;

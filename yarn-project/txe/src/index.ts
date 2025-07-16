@@ -6,7 +6,7 @@ import {
   type NoirCompiledContract,
   PublicKeys,
   deriveKeys,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   loadContractArtifact,
 } from '@aztec/aztec.js';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -152,7 +152,7 @@ class TXEDispatcher {
           artifact.name
         } with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
       );
-      instance = await getContractInstanceFromDeployParams(artifact, {
+      instance = await getContractInstanceFromInstantiationParams(artifact, {
         constructorArgs: decodedArgs,
         skipArgsDecoding: true,
         salt: Fr.ONE,
@@ -186,7 +186,7 @@ class TXEDispatcher {
         // and the TXE contract data provider can cache it
         artifactHash: await computeArtifactHash(SchnorrAccountContractArtifact),
       };
-      instance = await getContractInstanceFromDeployParams(artifact, {
+      instance = await getContractInstanceFromInstantiationParams(artifact, {
         constructorArgs: args,
         skipArgsDecoding: true,
         salt: Fr.ONE,

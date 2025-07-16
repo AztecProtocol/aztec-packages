@@ -2,6 +2,8 @@ use crate::context::{PublicContext, UtilityContext};
 use crate::state_vars::storage::HasStorageSlot;
 use dep::protocol_types::traits::Packable;
 
+mod test;
+
 // docs:start:public_mutable_struct
 pub struct PublicMutable<T, Context> {
     context: Context,

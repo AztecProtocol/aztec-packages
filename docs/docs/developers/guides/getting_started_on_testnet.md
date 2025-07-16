@@ -52,8 +52,8 @@ Aztec uses account abstraction, which means:
 
 - All accounts are smart contracts (no EOAs)
 - Account signature schemes are private
-- Accounts only need deployment if they interact with public components
-- Private contract interactions don't require account deployment
+- Accounts only need to be published if they interact with public components
+- Private contract interactions don't require account publication
 
 0. Set some variables that we need:
 

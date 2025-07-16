@@ -12,7 +12,7 @@ namespace bb::avm2::tracegen {
  * For instance, with a tuple of size 1 we have the basic 8 or 16 bit range checks.
  * Example: `sel { dyn_diff } in precomputed.sel_range_16 {precomputed.clk };`
  * An example with a size 2 tuple (p denotes precomputed):
- * start {tag, ctr} in p.sel_integral_tag {p.clk, p.integral_tag_length};
+ * start {tag, ctr} in p.sel_tag_parameters {p.clk, p.tag_byte_length};
  */
 template <typename LookupSettings> class LookupIntoIndexedByClk : public IndexedLookupTraceBuilder<LookupSettings> {
   protected:

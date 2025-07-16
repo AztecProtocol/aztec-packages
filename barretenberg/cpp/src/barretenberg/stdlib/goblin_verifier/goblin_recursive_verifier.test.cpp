@@ -149,7 +149,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
@@ -176,7 +176,8 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        auto outer_verification_key =
+            std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, outer_verification_key);
         OuterVerifier outer_verifier(outer_verification_key);
         return { builder.blocks, outer_verification_key };
@@ -215,10 +216,12 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     VerifierCommitmentKey<curve::Grumpkin> grumpkin_verifier_commitment_key(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
     auto native_ipa_transcript = std::make_shared<NativeTranscript>();
-    native_ipa_transcript->load_proof(convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_proof));
+    auto native_ipa_proof = goblin_rec_verifier_output.ipa_proof.get_value();
+    native_ipa_transcript->load_proof(native_ipa_proof);
 
-    EXPECT_FALSE(
-        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
+    EXPECT_DEATH(
+        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript),
+        ".*IPA verification fails.*");
 }
 
 /**

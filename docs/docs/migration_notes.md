@@ -9,6 +9,32 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec.nr]
+
+### SharedMutable -> DelayedPublicMutable
+
+The `SharedMutable` state variable has been renamed to `DelayedPublicMutable`. It is a public mutable with a delay before state changes take effect. It can be read in private during the delay period. The name "shared" confuses developers who actually wish to work with so-called "shared private state". Also, we're working on a `DelayedPrivateMutable` which will have similar properties, except writes will be scheduled from private instead. With this new state variable in mind, the new name works nicely.
+
+
+## [TXE]
+
+### API overhaul
+
+As part of a broader effort to make TXE easier to use and reason about, large parts of it are being changed or adapted.
+
+- `committed_timestamp` removed: this function did not work correctly
+- `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamps
+- `pending_block_number` was renamed to `next_block_number`. `pending_timestamp` was removed since it was confusing and not useful
+- `committed_block_number` was renamed to `last_block_number`
+- `advance_timestamp_to` and `advance_timestamp_by` were renamed to `set_next_block_timestamp` and `advance_next_block_timestamp_by` respectively
+- `advance_block_to` was renamed to `mine_block_at`, which takes a timestamp instead of a target block number
+- `advance_block_by` was renamed to `mine_block`, which now mines a single block
+
+## [Aztec.js]
+
+Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
+While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
+
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
 ### `max_block_number` -> `include_by_timestamp`
@@ -56,6 +82,18 @@ use dep::aztec::protocol_types::{
 };
 ```
 
+### `include_by_timestamp` is now mandatory
+
+Each transaction must now include a valid `include_by_timestamp` that satisfies the following conditions:
+
+- It must be greater than the historical block’s timestamp.
+- The duration between the `include_by_timestamp` and the historical block’s timestamp must not exceed the maximum allowed (currently 24 hours).
+- It must be greater than or equal to the timestamp of the block in which the transaction is included.
+
+The protocol circuits compute the `include_by_timestamp` for contract updates during each private function iteration. If a contract does not explicitly specify a value, the default will be the maximum allowed duration. This ensures that `include_by_timestamp` is never left unset.
+
+No client-side changes are required. However, please note that transactions now have a maximum lifespan of 24 hours and will be removed from the transaction pool once expired.
+
 ## 0.88.0
 
 ## [Aztec.nr] Deprecation of the `authwit` library
@@ -72,7 +110,6 @@ and stale dependencies removed from `Nargo.toml`
 ```diff
 -authwit = { path = "../../../../aztec-nr/authwit" }
 ```
-
 
 ## 0.87.0
 

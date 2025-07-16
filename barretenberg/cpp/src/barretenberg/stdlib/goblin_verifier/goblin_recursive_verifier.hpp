@@ -14,13 +14,12 @@ namespace bb::stdlib::recursion::honk {
 
 struct GoblinRecursiveVerifierOutput {
     using Builder = UltraCircuitBuilder;
-    using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
     using Curve = grumpkin<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using PairingAccumulator = PairingPoints<Builder>;
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
-    StdlibProof<Builder> ipa_proof;
+    stdlib::Proof<Builder> ipa_proof;
 };
 
 class GoblinRecursiveVerifier {
@@ -30,16 +29,30 @@ class GoblinRecursiveVerifier {
     using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
-    using TranslatorFlavor = TranslatorRecursiveFlavor_<Builder>;
-    using TranslatorVerifier = TranslatorRecursiveVerifier_<TranslatorFlavor>;
+    using TranslatorFlavor = TranslatorRecursiveFlavor;
+    using TranslatorVerifier = TranslatorRecursiveVerifier;
     using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
-    using TranslatorBF = TranslatorFlavor::BF;
 
-    using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
-    using ECCVMVerifier = ECCVMRecursiveVerifier_<ECCVMFlavor>;
+    using ECCVMVerifier = ECCVMRecursiveVerifier;
 
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;
+
+    struct StdlibProof {
+        using StdlibHonkProof = bb::stdlib::Proof<Builder>;
+        using StdlibEccvmProof = ECCVMVerifier::StdlibProof;
+
+        StdlibHonkProof merge_proof;
+        StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
+        StdlibHonkProof translator_proof;
+
+        StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
+            : merge_proof(builder, goblin_proof.merge_proof)
+            , eccvm_proof(builder,
+                          ECCVMProof{ goblin_proof.eccvm_proof.pre_ipa_proof, goblin_proof.eccvm_proof.ipa_proof })
+            , translator_proof(builder, goblin_proof.translator_proof)
+        {}
+    };
 
     GoblinRecursiveVerifier(Builder* builder,
                             const VerificationKey& verification_keys,
@@ -48,17 +61,10 @@ class GoblinRecursiveVerifier {
         , verification_keys(verification_keys)
         , transcript(transcript){};
 
-    /**
-     * @brief Construct a Goblin recursive verifier circuit
-     * @details Contains three recursive verifiers: Merge, ECCVM, and Translator
-     *
-     * @param proof
-     * @param t_commitments The commitments to the subtable for the merge being verified
-     *
-     * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
-     */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const GoblinProof&, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
+        const StdlibProof&, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
 
   private:
     Builder* builder;

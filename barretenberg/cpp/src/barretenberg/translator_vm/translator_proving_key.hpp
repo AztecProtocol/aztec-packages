@@ -41,7 +41,7 @@ class TranslatorProvingKey {
 
     TranslatorProvingKey() = default;
 
-    TranslatorProvingKey(const Circuit& circuit, CommitmentKey commitment_key = CommitmentKey())
+    TranslatorProvingKey(const Circuit& circuit, const CommitmentKey& commitment_key = CommitmentKey())
         : batching_challenge_v(circuit.batching_challenge_v)
         , evaluation_input_x(circuit.evaluation_input_x)
     {

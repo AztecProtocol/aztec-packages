@@ -7,10 +7,10 @@ import {
   ProvenTx,
   type SentTx,
   TxStatus,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract, ViemClient } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
 import type { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
@@ -92,7 +92,7 @@ export async function createPXEServiceAndPrepareTransactions(
   await account.register();
   const wallet = await account.getWallet();
 
-  const testContractInstance = await getContractInstanceFromDeployParams(TestContractArtifact, {});
+  const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {});
   await wallet.registerContract({ instance: testContractInstance, artifact: TestContractArtifact });
   const contract = await TestContract.at(testContractInstance.address, wallet);
 

@@ -338,6 +338,15 @@ export class PublicTxContext {
       );
     })();
 
+    // Count before padding.
+    const accumulatedDataArrayLengths = new AvmAccumulatedDataArrayLengths(
+      avmNoteHashes.length,
+      avmNullifiers.length,
+      avmL2ToL1Msgs.length,
+      finalPublicLogs.length,
+      finalPublicDataWrites.length,
+    );
+
     const accumulatedData = new AvmAccumulatedData(
       /*noteHashes=*/ padArrayEnd(
         avmNoteHashes.map(n => n.value),
@@ -376,14 +385,6 @@ export class PublicTxContext {
         countAccumulatedItems(from.nullifiers),
         countAccumulatedItems(from.l2ToL1Msgs),
       );
-    const getAvmAccumulatedDataArrayLengths = (from: AvmAccumulatedData) =>
-      new AvmAccumulatedDataArrayLengths(
-        from.noteHashes.length,
-        from.nullifiers.length,
-        from.l2ToL1Msgs.length,
-        from.publicLogs.length,
-        from.publicDataWrites.length,
-      );
 
     return new AvmCircuitPublicInputs(
       this.globalVariables,
@@ -416,7 +417,7 @@ export class PublicTxContext {
       convertAccumulatedData(this.revertibleAccumulatedDataFromPrivate),
       endTreeSnapshots,
       this.getTotalGasUsed(),
-      getAvmAccumulatedDataArrayLengths(accumulatedData),
+      accumulatedDataArrayLengths,
       accumulatedData,
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*isReverted=*/ !this.revertCode.isOK(),

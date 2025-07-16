@@ -7,9 +7,8 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
-import { abortableDuplex, abortableSink } from 'abortable-iterator';
-import { pipe } from 'it-pipe';
 import type { Libp2p } from 'libp2p';
+import { pipeline } from 'node:stream/promises';
 import type { Uint8ArrayList } from 'uint8arraylist';
 
 import {
@@ -28,11 +27,12 @@ import {
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
-  subProtocolMap,
+  responseFromBuffer,
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
 import {
@@ -120,6 +120,22 @@ export class ReqResp implements ReqRespInterface {
     this.rateLimiter.start();
   }
 
+  async addSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol] = DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol],
+  ): Promise<void> {
+    this.subProtocolHandlers[subProtocol] = handler;
+    this.subProtocolValidators[subProtocol] = validator;
+    await this.libp2p.handle(
+      subProtocol,
+      (data: IncomingStreamData) =>
+        void this.streamHandler(subProtocol as ReqRespSubProtocol, data).catch(err =>
+          this.logger.error(`Error on libp2p subprotocol ${subProtocol} handler`, err),
+        ),
+    );
+  }
+
   /**
    * Stop the reqresp service
    */
@@ -179,9 +195,9 @@ export class ReqResp implements ReqRespInterface {
     timeoutMs = 10000,
     maxPeers = Math.max(10, Math.ceil(requests.length / 3)),
     maxRetryAttempts = 3,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
     const responseValidator = this.subProtocolValidators[subProtocol];
-    const responses: (InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[] = new Array(requests.length);
+    const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = new Array(requests.length);
     const requestBuffers = requests.map(req => req.toBuffer());
 
     const requestFunction = async (signal: AbortSignal) => {
@@ -273,7 +289,7 @@ export class ReqResp implements ReqRespInterface {
                 }
 
                 if (response && response.data.length > 0) {
-                  const object = subProtocolMap[subProtocol].response.fromBuffer(response.data);
+                  const object = responseFromBuffer(subProtocol, response.data);
                   const isValid = await responseValidator(requests[index], object, peer);
 
                   if (isValid) {
@@ -312,7 +328,7 @@ export class ReqResp implements ReqRespInterface {
     };
 
     try {
-      return await executeTimeout<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]>(
+      return await executeTimeout<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>(
         requestFunction,
         timeoutMs,
         () => new CollectiveReqRespTimeoutError(),
@@ -368,24 +384,34 @@ export class ReqResp implements ReqRespInterface {
         `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
       );
 
-      // Open the stream with a timeout
-      const result = await executeTimeout<ReqRespResponse>(
-        (signal): Promise<ReqRespResponse> =>
-          pipe([payload], abortableDuplex(stream!, signal), abortableSink(this.readMessage.bind(this), signal)),
+      const timeoutErr = new IndividualReqRespTimeoutError();
+      const [_, resp] = await executeTimeout(
+        signal =>
+          Promise.all([
+            pipeline([payload], stream!.sink, { signal }),
+            pipeline(stream!.source, this.readMessage.bind(this), { signal }),
+          ]),
         this.individualRequestTimeoutMs,
-        () => new IndividualReqRespTimeoutError(),
+        () => timeoutErr,
       );
-
-      return result;
+      return resp;
     } catch (e: any) {
+      // On error we immediately abort the stream, this is preferred way,
+      // because it signals to the sender that error happened, whereas
+      // closing the stream only closes our side and is much slower
+      if (stream) {
+        stream!.abort(e);
+      }
+
       this.metrics.recordRequestError(subProtocol);
       this.handleResponseError(e, peerId, subProtocol);
 
       // If there is an exception, we return an unknown response
       this.logger.debug(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
-      return { status: ReqRespStatus.FAILURE, data: Buffer.from([]) };
+      return { status: ReqRespStatus.FAILURE };
     } finally {
       // Only close the stream if we created it
+      // Note even if we aborted the stream, calling close on it is ok, it's just a no-op
       if (stream) {
         try {
           this.logger.trace(
@@ -412,16 +438,250 @@ export class ReqResp implements ReqRespInterface {
    * @returns If the error is non pubishable, then undefined is returned, otherwise the peer is penalized
    */
   private handleResponseError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): void {
-    const severity = this.categorizeError(e, peerId, subProtocol);
+    const severity = this.categorizeResponseError(e, peerId, subProtocol);
     if (severity) {
       this.peerScoring.penalizePeer(peerId, severity);
     }
   }
 
   /**
-   * Categorize the error and log it.
+   * Read a message returned from a stream into a single buffer
+   *
+   * The message is split into two components
+   * - The first chunk should contain a control byte, indicating the status of the response see `ReqRespStatus`
+   * - The second chunk should contain the response data
    */
-  private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
+  private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<ReqRespResponse> {
+    let status: ReqRespStatus | undefined;
+    const chunks: Uint8Array[] = [];
+
+    try {
+      for await (const chunk of source) {
+        const statusParsed = status !== undefined;
+        if (statusParsed) {
+          chunks.push(chunk.subarray());
+          continue;
+        }
+
+        const firstChunkBuffer = chunk.subarray();
+        status = parseStatusChunk(firstChunkBuffer);
+
+        // In case status is not SUCCESS, we do not expect any data in the response
+        // we can return early
+        if (status !== ReqRespStatus.SUCCESS) {
+          return {
+            status,
+          };
+        }
+      }
+
+      const messageData = Buffer.concat(chunks);
+      const message: Buffer = this.snappyTransform.inboundTransformNoTopic(messageData);
+
+      return {
+        status: status ?? ReqRespStatus.UNKNOWN,
+        data: message,
+      };
+    } catch (e: any) {
+      this.logger.debug(`Reading message failed: ${e.message}`);
+
+      let status = ReqRespStatus.UNKNOWN;
+      if (e instanceof ReqRespStatusError) {
+        status = e.status;
+      }
+
+      return {
+        status,
+      };
+    }
+  }
+
+  /**
+   * Stream Handler
+   * Reads the incoming stream, determines the protocol, then triggers the appropriate handler
+   *
+   * @param protocol - The sub protocol to handle
+   * @param incomingStream - The incoming stream data containing the stream and connection
+   *
+   * @description
+   * An individual stream handler will be bound to each sub protocol, and handles returning data back
+   * to the requesting peer.
+   *
+   * The sub protocol handler interface is defined within `interface.ts` and will be assigned to the
+   * req resp service on start up.
+   *
+   * We check rate limits for each peer, note the peer will be penalised within the rate limiter implementation
+   * if they exceed their peer specific limits.
+   */
+  @trackSpan('ReqResp.streamHandler', (protocol: ReqRespSubProtocol, { connection }: IncomingStreamData) => ({
+    [Attributes.P2P_REQ_RESP_PROTOCOL]: protocol,
+    [Attributes.P2P_ID]: connection.remotePeer.toString(),
+  }))
+  private async streamHandler(protocol: ReqRespSubProtocol, incomingStream: IncomingStreamData) {
+    const { stream, connection } = incomingStream;
+    try {
+      this.metrics.recordRequestReceived(protocol);
+      const rateLimitStatus = this.rateLimiter.allow(protocol, connection.remotePeer);
+      if (rateLimitStatus !== RateLimitStatus.Allowed) {
+        this.logger.warn(
+          `Rate limit exceeded ${prettyPrintRateLimitStatus(rateLimitStatus)} for ${protocol} from ${
+            connection.remotePeer
+          }`,
+        );
+
+        throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
+      }
+
+      await this.processStream(protocol, incomingStream);
+    } catch (err: any) {
+      this.metrics.recordResponseError(protocol);
+      this.handleRequestError(err, connection.remotePeer, protocol);
+
+      if (err instanceof ReqRespStatusError) {
+        const errorSent = await this.trySendError(stream, connection.remotePeer, protocol, err.status);
+        const logMessage = errorSent
+          ? 'Protocol error sent successfully'
+          : 'Stream already closed or poisoned, not sending error response';
+
+        this.logger.warn(logMessage, {
+          protocol,
+          err,
+          errorStatus: err.status,
+          cause: err.cause ?? 'Cause unknown',
+        });
+      } else {
+        // In erroneous case we abort the stream, this will signal the peer that something went wrong
+        // and that this stream should be dropped
+        this.logger.warn('Unknown stream error while handling the stream, aborting', {
+          protocol,
+          err,
+        });
+
+        stream.abort(err);
+      }
+    } finally {
+      //NOTE: This is idempotent action, so it's ok to call it even if stream was aborted
+      await stream.close();
+    }
+  }
+
+  /**
+   * Reads incoming data from the stream, processes it according to the sub protocol,
+   * and puts response back into the stream.
+   *
+   * @param protocol - The sub protocol to use for processing the stream
+   * @param incomingStream - The incoming stream data containing the stream and connection
+   *
+   * */
+  private async processStream(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData): Promise<void> {
+    const handler = this.subProtocolHandlers[protocol]!;
+    const snappy = this.snappyTransform;
+    const SUCCESS = Uint8Array.of(ReqRespStatus.SUCCESS);
+
+    await pipeline(
+      stream.source,
+      async function* (source: any) {
+        for await (const chunk of source) {
+          const response = await handler(connection.remotePeer, chunk.subarray());
+
+          if (protocol === ReqRespSubProtocol.GOODBYE) {
+            // NOTE: The stream was already closed by Goodbye handler
+            // peerManager.goodbyeReceived(peerId, reason); will call libp2p.hangUp closing all active streams and connections
+            // Don't try to respond
+            return;
+          }
+
+          stream.metadata.written = true; // Mark the stream as written to;
+
+          yield SUCCESS;
+          yield snappy.outboundTransformNoTopic(response);
+        }
+      },
+      stream.sink,
+    );
+  }
+
+  /**
+   * Try to send error status to the peer. We say try, because the stream,
+   * might already be closed
+   * @param stream - The stream opened between us and the peer
+   * @param status - The error status to send back to the peer
+   * @returns true if error was sent successfully, otherwise false
+   *
+   */
+  private async trySendError(
+    stream: Stream,
+    peerId: PeerId,
+    protocol: ReqRespSubProtocol,
+    status: ReqRespStatus,
+  ): Promise<boolean> {
+    const canWriteToStream =
+      // 'writing' is a bit weird naming, but it actually means that the stream is ready to write
+      // 'ready' means that stream ready to be opened for writing
+      stream.status === 'open' && (stream.writeStatus === 'writing' || stream.writeStatus === 'ready');
+
+    // Stream was already written to, we consider it poisoned, in a sense,
+    // that even if we write an error response, it will not be interpreted correctly by the peer
+    const streamPoisoned = stream.metadata.written === true;
+    const shouldWriteToStream = canWriteToStream && !streamPoisoned;
+
+    if (!shouldWriteToStream) {
+      return false;
+    }
+
+    try {
+      await pipeline(function* () {
+        yield Uint8Array.of(status);
+      }, stream.sink);
+
+      return true;
+    } catch (e: any) {
+      this.logger.warn('Error while sending error response', e);
+      stream.abort(e);
+
+      this.handleRequestError(e, peerId, protocol);
+      return false;
+    }
+  }
+
+  private handleRequestError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): void {
+    const severity = this.categorizeRequestError(e, peerId, subProtocol);
+    if (severity) {
+      this.peerScoring.penalizePeer(peerId, severity);
+    }
+  }
+
+  /**
+   * Categorize the request error and log it.
+   *
+   * @returns Severity of the error, or undefined if the error is not punishable.
+   */
+  private categorizeRequestError(
+    e: any,
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+  ): PeerErrorSeverity | undefined {
+    const logTags = { peerId: peerId.toString(), subProtocol };
+
+    //Punishable error - peer should never send badly formed request
+    if (e instanceof ReqRespStatusError && e.status === ReqRespStatus.BADLY_FORMED_REQUEST) {
+      this.logger.debug(`Punishable error in ${subProtocol}: ${e.cause}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
+    }
+
+    return this.categorizeConnectionErrors(e, peerId, subProtocol);
+  }
+
+  /**
+   * Categorize the response error and log it.
+   *
+   * @returns Severity of the error, or undefined if the error is not punishable.
+   */
+  private categorizeResponseError(
+    e: any,
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+  ): PeerErrorSeverity | undefined {
     const logTags = { peerId: peerId.toString(), subProtocol };
 
     // Non punishable errors - we do not expect a response for goodbye messages
@@ -436,8 +696,20 @@ export class ReqResp implements ReqRespInterface {
       return undefined;
     }
 
+    return this.categorizeConnectionErrors(e, peerId, subProtocol);
+  }
+
+  /*
+   * Errors specific to connection  handling
+   * These can happen  both when sending request and response*/
+  private categorizeConnectionErrors(
+    e: any,
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+  ): PeerErrorSeverity | undefined {
+    const logTags = { peerId: peerId.toString(), subProtocol };
     // Do not punish if we are stopping the service
-    if (e instanceof AbortError) {
+    if (e instanceof AbortError || e?.code == 'ABORT_ERR') {
       this.logger.debug(`Request aborted: ${e.message}`, logTags);
       return undefined;
     }
@@ -447,7 +719,9 @@ export class ReqResp implements ReqRespInterface {
       e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
       e?.code === 'ERR_CONNECTION_CLOSED' ||
       e?.code === 'ERR_TRANSIENT_CONNECTION' ||
-      e?.message?.includes('Muxer already closed')
+      e?.message?.includes('Muxer already closed') ||
+      e?.message?.includes('muxer closed') ||
+      e?.message?.includes('ended pushable')
     ) {
       this.logger.debug(
         `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
@@ -475,6 +749,11 @@ export class ReqResp implements ReqRespInterface {
       return PeerErrorSeverity.HighToleranceError;
     }
 
+    if (e?.code === 'ERR_UNSUPPORTED_PROTOCOL') {
+      this.logger.debug(`Sub protocol not supported by peer: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
     // Timeout errors are punished with high tolerance, they can be due to a geographically far away or overloaded peer
     if (e instanceof IndividualReqRespTimeoutError || e instanceof TimeoutError) {
       this.logger.debug(`Timeout error in ${subProtocol}: ${e.message}`, logTags);
@@ -482,152 +761,7 @@ export class ReqResp implements ReqRespInterface {
     }
 
     // Catch all error
-    this.logger.error(`Unexpected error sending request to peer`, e, logTags);
+    this.logger.error(`Unexpected error in ReqResp protocol`, e, logTags);
     return PeerErrorSeverity.HighToleranceError;
-  }
-
-  /**
-   * Read a message returned from a stream into a single buffer
-   *
-   * The message is split into two components
-   * - The first chunk should contain a control byte, indicating the status of the response see `ReqRespStatus`
-   * - The second chunk should contain the response data
-   */
-  private async readMessage(source: AsyncIterable<Uint8ArrayList>): Promise<ReqRespResponse> {
-    let statusBuffer: ReqRespStatus | undefined;
-    const chunks: Uint8Array[] = [];
-
-    try {
-      for await (const chunk of source) {
-        if (statusBuffer === undefined) {
-          const firstChunkBuffer = chunk.subarray();
-          statusBuffer = parseStatusChunk(firstChunkBuffer);
-        } else {
-          chunks.push(chunk.subarray());
-        }
-      }
-
-      const messageData = Buffer.concat(chunks);
-      const message: Buffer = this.snappyTransform.inboundTransformNoTopic(messageData);
-
-      return {
-        status: statusBuffer ?? ReqRespStatus.UNKNOWN,
-        data: message,
-      };
-    } catch (e: any) {
-      this.logger.debug(`Reading message failed: ${e.message}`);
-
-      let status = ReqRespStatus.UNKNOWN;
-      if (e instanceof ReqRespStatusError) {
-        status = e.status;
-      }
-
-      return {
-        status,
-        data: Buffer.from([]),
-      };
-    }
-  }
-
-  /**
-   * Stream Handler
-   * Reads the incoming stream, determines the protocol, then triggers the appropriate handler
-   *
-   * @param param0 - The incoming stream data
-   *
-   * @description
-   * An individual stream handler will be bound to each sub protocol, and handles returning data back
-   * to the requesting peer.
-   *
-   * The sub protocol handler interface is defined within `interface.ts` and will be assigned to the
-   * req resp service on start up.
-   *
-   * We check rate limits for each peer, note the peer will be penalised within the rate limiter implementation
-   * if they exceed their peer specific limits.
-   */
-  @trackSpan('ReqResp.streamHandler', (protocol: ReqRespSubProtocol, { connection }: IncomingStreamData) => ({
-    [Attributes.P2P_REQ_RESP_PROTOCOL]: protocol,
-    [Attributes.P2P_ID]: connection.remotePeer.toString(),
-  }))
-  private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
-    this.metrics.recordRequestReceived(protocol);
-
-    try {
-      // Store a reference to from this for the async generator
-      const rateLimitStatus = this.rateLimiter.allow(protocol, connection.remotePeer);
-      if (rateLimitStatus != RateLimitStatus.Allowed) {
-        this.logger.warn(
-          `Rate limit exceeded ${prettyPrintRateLimitStatus(rateLimitStatus)} for ${protocol} from ${
-            connection.remotePeer
-          }`,
-        );
-
-        throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
-      }
-
-      const handler = this.subProtocolHandlers[protocol];
-      const transform = this.snappyTransform;
-
-      await pipe(
-        stream,
-        async function* (source: any) {
-          for await (const chunkList of source) {
-            const msg = Buffer.from(chunkList.subarray());
-            const response = await handler(connection.remotePeer, msg);
-
-            if (protocol === ReqRespSubProtocol.GOODBYE) {
-              // NOTE: The stream was already closed by Goodbye handler
-              // peerManager.goodbyeReceived(peerId, reason); will call libp2p.hangUp closing all active streams and connections
-              // Don't respond
-              return;
-            }
-
-            // Send success code first, then the response
-            const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
-            yield new Uint8Array(successChunk);
-
-            yield new Uint8Array(transform.outboundTransformNoTopic(response));
-          }
-        },
-        stream,
-      );
-    } catch (e: any) {
-      this.logger.warn('Reqresp response error: ', e);
-      this.metrics.recordResponseError(protocol);
-
-      // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown
-      let errorStatus = ReqRespStatus.UNKNOWN;
-      if (e instanceof ReqRespStatusError) {
-        errorStatus = e.status;
-      }
-
-      const canWriteToStream =
-        stream.status === 'open' && (stream.writeStatus === 'writing' || stream.writeStatus === 'ready');
-      if (!canWriteToStream) {
-        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
-        return;
-      }
-
-      // Return and yield the response chunk
-      try {
-        const sendErrorChunk = this.sendErrorChunk(errorStatus);
-        await pipe(
-          stream,
-          async function* (_source: any) {
-            yield* sendErrorChunk;
-          },
-          stream,
-        );
-      } catch (e: any) {
-        this.logger.warn('Error while sending error response', { protocol, err: e, errorStatus });
-      }
-    } finally {
-      await stream.close();
-    }
-  }
-
-  private async *sendErrorChunk(error: ReqRespStatus): AsyncIterable<Uint8Array> {
-    const errorChunk = Buffer.from([error]);
-    yield new Uint8Array(errorChunk);
   }
 }

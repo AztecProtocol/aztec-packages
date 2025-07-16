@@ -743,7 +743,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match).normalize();
     const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
     if constexpr (IsUltraBuilder<Builder>) {
-        infinity_predicate.get_context()->update_used_witnesses(infinity_predicate.witness_index);
+        if (!infinity_predicate.is_constant()) {
+            infinity_predicate.get_context()->update_used_witnesses(infinity_predicate.witness_index);
+        }
     }
     auto x1 = x;
     auto y1 = y;
@@ -774,8 +776,12 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
     if constexpr (IsUltraBuilder<Builder>) {
-        result_x.get_context()->update_used_witnesses(result_x.witness_index);
-        result_y.get_context()->update_used_witnesses(result_y.witness_index);
+        if (result_x.get_context()) {
+            result_x.get_context()->update_used_witnesses(result_x.witness_index);
+        }
+        if (result_y.get_context()) {
+            result_y.get_context()->update_used_witnesses(result_y.witness_index);
+        }
     }
 
     const bool_t lhs_infinity = is_point_at_infinity();
@@ -1925,7 +1931,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 
     // Update `result` to remove the offset generator terms, and add in any constant terms from `constant_acc`.
     // We have two potential modes here:
-    // 1. All inputs are fixed-base and we constant_acc is not the point at infinity
+    // 1. All inputs are fixed-base and constant_acc is not the point at infinity
     // 2. Everything else.
     // Case 1 is a special case, as we *know* we cannot hit incomplete addition edge cases,
     // under the assumption that all input points are linearly independent of one another.

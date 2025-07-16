@@ -148,3 +148,16 @@ export function assertRightPadded<T>(arr: T[], isEmpty: (item: T) => boolean) {
     }
   }
 }
+
+/**
+ * Shuffles an array in-place using the Fisher-Yates algorith,
+ * @param arr - The array to shuffle
+ */
+export function shuffle<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const temp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = temp;
+  }
+}

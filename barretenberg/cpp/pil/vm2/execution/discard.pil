@@ -8,12 +8,12 @@ namespace execution;
     #[skippable_if]
     sel = 0; // from execution.pil.
 
-    // sel_failure == sel_error || sel_revert
+    // sel_failure == sel_error || sel_execute_revert
     pol commit sel_failure;
-    // sel_failure is boolean by definition and because sel_error and sel_revert are
+    // sel_failure is boolean by definition and because sel_error and sel_execute_revert are
     // guaranteed to be boolean as constrained in execution.pil
     #[SEL_FAILURE]
-    sel_failure = 1 - (1 - sel_error) * (1 - sel_revert);
+    sel_failure = 1 - (1 - sel_error) * (1 - sel_execute_revert);
 
     // Discard columns for error handling
     pol commit discard; // This context or one of its ancestors fails. All side effects should be discarded.

@@ -24,7 +24,7 @@ TEST(MovConstrainingTest, MovFF)
         { { C::precomputed_first_row, 1 } },
         {
             { C::execution_sel, 1 },
-            { C::execution_sel_mov, 1 },
+            { C::execution_sel_execute_mov, 1 },
             { C::execution_register_0_, FF::modulus_minus_two },
             { C::execution_register_1_, FF::modulus_minus_two },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -44,7 +44,7 @@ TEST_P(MovAnyTagTest, MovAnyTag)
         { { C::precomputed_first_row, 1 } },
         {
             { C::execution_sel, 1 },
-            { C::execution_sel_mov, 1 },
+            { C::execution_sel_execute_mov, 1 },
             { C::execution_register_0_, 1 },
             { C::execution_register_1_, 1 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(tag) },
@@ -67,7 +67,7 @@ TEST(MovConstrainingTest, NegativeMovDifferentTag)
         { { C::precomputed_first_row, 1 } },
         {
             { C::execution_sel, 1 },
-            { C::execution_sel_mov, 1 },
+            { C::execution_sel_execute_mov, 1 },
             { C::execution_register_0_, 17 },
             { C::execution_register_1_, 17 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8) },
@@ -84,7 +84,7 @@ TEST(MovConstrainingTest, NegativeMovDifferentValue)
         { { C::precomputed_first_row, 1 } },
         {
             { C::execution_sel, 1 },
-            { C::execution_sel_mov, 1 },
+            { C::execution_sel_execute_mov, 1 },
             { C::execution_register_0_, 17 },
             { C::execution_register_1_, 18 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U32) },

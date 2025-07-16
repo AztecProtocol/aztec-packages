@@ -12,10 +12,11 @@ class NoteHashTreeCheckInterface {
   public:
     virtual ~NoteHashTreeCheckInterface() = default;
 
-    virtual void assert_read(const FF& note_hash,
-                             index_t leaf_index,
-                             std::span<const FF> sibling_path,
-                             const AppendOnlyTreeSnapshot& snapshot) = 0;
+    virtual bool note_hash_exists(const FF& unique_note_hash,
+                                  const FF& leaf_value,
+                                  index_t leaf_index,
+                                  std::span<const FF> sibling_path,
+                                  const AppendOnlyTreeSnapshot& snapshot) = 0;
     virtual FF get_first_nullifier() const = 0;
     virtual AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,
                                                     AztecAddress contract_address,
@@ -46,10 +47,11 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNo
 
     FF get_first_nullifier() const override { return first_nullifier; }
 
-    void assert_read(const FF& note_hash,
-                     index_t leaf_index,
-                     std::span<const FF> sibling_path,
-                     const AppendOnlyTreeSnapshot& snapshot) override;
+    bool note_hash_exists(const FF& unique_note_hash,
+                          const FF& leaf_value,
+                          index_t leaf_index,
+                          std::span<const FF> sibling_path,
+                          const AppendOnlyTreeSnapshot& snapshot) override;
     AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,
                                             AztecAddress contract_address,
                                             uint64_t note_hash_counter,

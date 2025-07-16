@@ -35,7 +35,7 @@ import {
   CompleteAddress,
   type ContractInstance,
   getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
@@ -401,7 +401,7 @@ describe('Private Execution test suite', () => {
 
     it('should have a constructor with arguments that inserts notes', async () => {
       const initArgs = [owner, owner, 140];
-      const instance = await getContractInstanceFromDeployParams(StatefulTestContractArtifact, {
+      const instance = await getContractInstanceFromInstantiationParams(StatefulTestContractArtifact, {
         constructorArgs: initArgs,
       });
       executionDataProvider.getContractInstance.mockResolvedValue(instance);

@@ -1,5 +1,3 @@
-mod public_key_note;
-
 use dep::aztec::macros::aztec;
 
 // Account contract that does not perform any authentication, typically used to override a *real* account contract
@@ -17,16 +15,8 @@ pub contract SimulatedAccount {
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
         context::PrivateContext,
-        macros::{functions::{private, view}, storage::storage},
-        state_vars::PrivateImmutable,
+        macros::functions::{private, utility, view},
     };
-
-    use crate::public_key_note::PublicKeyNote;
-
-    #[storage]
-    struct Storage<Context> {
-        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
-    }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[private]
@@ -45,4 +35,10 @@ pub contract SimulatedAccount {
     fn is_valid_impl(_context: &mut PrivateContext, _outer_hash: Field) -> bool {
         true
     }
+
+    /// Since this contract normally emulates an account that uses a note to store the public key,
+    /// we completely bypass message discovery here to avoid losing time on useless processing
+    /// and also enabling the emulation of different accounts with differently sized public key notes.
+    #[utility]
+    unconstrained fn sync_private_state() {}
 }

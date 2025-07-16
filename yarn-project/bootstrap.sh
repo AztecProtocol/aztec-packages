@@ -4,16 +4,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  export DISABLE_AZTEC_VM=1
-fi
-
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
-    $(cache_content_hash \
-      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-      ../barretenberg/*/.rebuild_patterns)
+    $(../barretenberg/bootstrap.sh hash) \
+    $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
 }
 
 function compile_project {
@@ -27,11 +22,10 @@ function get_projects {
   if [ "${1:-}" == 'topological' ]; then
     yarn workspaces foreach --topological-dev -A \
       --exclude @aztec/aztec3-packages \
-      --exclude @aztec/noir-bb-bench \
       --exclude @aztec/scripts \
       exec 'basename $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated | grep -vE 'noir-bb-bench'
+    dirname */src l1-artifacts/generated
   fi
 }
 
@@ -109,11 +103,10 @@ function test_cmds {
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
-  # noir-bb-bench: A slow pain. Figure out later.
-  for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
-    # If DISABLE_AZTEC_VM, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
+  for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
+    # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
     # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+    if ../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && [[ "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
       continue
     fi
 
@@ -161,7 +154,7 @@ function test_cmds {
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
   if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
-    echo "$hash yarn-project/scripts/run_test.sh aztec/src/test/testnet_compatibility.test.ts"
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
 }
 
@@ -175,6 +168,8 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx_pool.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool/tx_pool_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
 }
 
@@ -192,9 +187,8 @@ function release_packages {
   cd "$dir"
   do_or_dryrun npm init -y
   # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
-  # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
   for package in "${package_list[@]}"; do
-    do_or_dryrun npm install $package
+    retry "do_or_dryrun npm install $package"
   done
   rm -rf "$dir"
 }

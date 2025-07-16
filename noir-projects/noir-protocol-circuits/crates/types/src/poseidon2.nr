@@ -1,5 +1,6 @@
 use crate::constants::TWO_POW_64;
-
+use crate::traits::{Deserialize, Serialize};
+use std::meta::derive;
 // NB: This is a clone of noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr
 // It exists as we sometimes need to perform custom absorption, but the stdlib version
 // has a private absorb() method (it's also designed to just be a hasher)
@@ -7,6 +8,7 @@ use crate::constants::TWO_POW_64;
 
 comptime global RATE: u32 = 3;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct Poseidon2Sponge {
     pub cache: [Field; 3],
     pub state: [Field; 4],

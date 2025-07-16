@@ -109,6 +109,7 @@ impl PrivateKernelPublicInputsBuilder {
     }
 }
 
+#[derive(Serialize)]
 pub struct KernelPublicInputs {
     pub commitments: [Field; MAX_COMMITMENTS_PER_TX],
 }
@@ -119,12 +120,7 @@ impl Default for KernelPublicInputs {
     }
 }
 
-impl Serialize<MAX_COMMITMENTS_PER_TX> for KernelPublicInputs {
-    fn serialize(self) -> [Field; MAX_COMMITMENTS_PER_TX] {
-        self.commitments
-    }
-}
-
+#[derive(Serialize)]
 pub struct RollupPublicInputs {
     accumulated: u32,
 }
@@ -136,12 +132,6 @@ impl RollupPublicInputs {
 
     pub fn merge(self, other: Self) -> Self {
         Self { accumulated: self.accumulated + other.accumulated }
-    }
-}
-
-impl Serialize<1> for RollupPublicInputs {
-    fn serialize(self) -> [Field; 1] {
-        [self.accumulated as Field]
     }
 }
 

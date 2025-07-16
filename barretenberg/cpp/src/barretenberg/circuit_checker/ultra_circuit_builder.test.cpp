@@ -556,6 +556,7 @@ TEST(UltraCircuitBuilder, SortWidgetNeg)
 
 TEST(UltraCircuitBuilder, ComposedRangeConstraint)
 {
+    // even num bits - not divisible by 3
     UltraCircuitBuilder builder = UltraCircuitBuilder();
     auto c = fr::random_element();
     auto d = uint256_t(c).slice(0, 133);
@@ -563,6 +564,14 @@ TEST(UltraCircuitBuilder, ComposedRangeConstraint)
     auto a_idx = builder.add_variable(fr(e));
     builder.create_add_gate({ a_idx, builder.zero_idx, builder.zero_idx, 1, 0, 0, -fr(e) });
     builder.decompose_into_default_range(a_idx, 134);
+
+    // odd num bits - divisible by 3
+    auto c_1 = fr::random_element();
+    auto d_1 = uint256_t(c_1).slice(0, 126);
+    auto e_1 = fr(d_1);
+    auto a_idx_1 = builder.add_variable(fr(e_1));
+    builder.create_add_gate({ a_idx_1, builder.zero_idx, builder.zero_idx, 1, 0, 0, -fr(e_1) });
+    builder.decompose_into_default_range(a_idx_1, 127);
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -612,8 +621,8 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplication)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    non_native_field_witnesses<fr> inputs{
-        a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
+    non_native_multiplication_witnesses<fr> inputs{
+        a_indices, b_indices, q_indices, r_indices, modulus_limbs,
     };
     const auto [lo_1_idx, hi_1_idx] = builder.evaluate_non_native_field_multiplication(inputs);
     builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
@@ -670,8 +679,8 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
     const auto q_indices = get_limb_witness_indices(split_into_limbs(uint256_t(q)));
     const auto r_indices = get_limb_witness_indices(split_into_limbs(uint256_t(r)));
 
-    non_native_field_witnesses<fr> inputs{
-        a_indices, b_indices, q_indices, r_indices, modulus_limbs, fr(uint256_t(modulus)),
+    non_native_multiplication_witnesses<fr> inputs{
+        a_indices, b_indices, q_indices, r_indices, modulus_limbs,
     };
     const auto [lo_1_idx, hi_1_idx] = builder.evaluate_non_native_field_multiplication(inputs);
     builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
