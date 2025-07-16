@@ -6,7 +6,7 @@
   "devDependencies": {
     "@openzeppelin/merkle-tree": "^1.0.8",
     "ox": "^0.8.3",
-    "solhint": "5.1.0"
+    "solhint": "6.0.0"
   },
   "scripts": {
     "format": "forge fmt",
