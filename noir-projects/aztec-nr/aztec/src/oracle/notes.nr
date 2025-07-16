@@ -188,7 +188,7 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}
 
-// TODO: Oracles below are generic private log oracles and are not specific to notes. Move them to oracle/logs.nr.
+// TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
 
 /// Returns the derived app tagging secret ready to be included in a log for a given sender and recipient pair,
 /// siloed for the current contract address.
