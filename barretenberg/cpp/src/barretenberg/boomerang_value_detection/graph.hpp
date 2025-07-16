@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
 #include <set>
@@ -11,6 +12,7 @@
 namespace cdg {
 
 using UltraBlock = bb::UltraTraceBlock;
+using MegaBlock = bb::MegaTraceBlock;
 /**
  * We've added a new feature to the static analyzer that tracks which gates contain each variable.
  * This is helpful for removing false-positive variables from the analyzer by using gate selectors
@@ -57,40 +59,35 @@ struct KeyEquals {
  * variable wasn't constrained properly. If the number of connected components > 1, it means that there were some missed
  * connections between variables.
  */
-template <typename FF> class StaticAnalyzer_ {
+template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
   public:
     StaticAnalyzer_() = default;
     StaticAnalyzer_(const StaticAnalyzer_& other) = delete;
     StaticAnalyzer_(StaticAnalyzer_&& other) = delete;
     StaticAnalyzer_& operator=(const StaticAnalyzer_& other) = delete;
     StaticAnalyzer_&& operator=(StaticAnalyzer_&& other) = delete;
-    StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool connect_variables = true);
+    StaticAnalyzer_(CircuitBuilder& circuit_builder, bool connect_variables = true);
 
     /**
      * @brief Convert a vector of variable indices to their real indices
-     * @param ultra_circuit_constructor The UltraCircuitBuilder instance
      * @param variable_indices The vector of variable indices to convert
      * @return std::vector<uint32_t> A vector of real variable indices
      */
-    std::vector<uint32_t> to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor,
-                                  std::vector<uint32_t>& variable_indices)
+    std::vector<uint32_t> to_real(std::vector<uint32_t>& variable_indices)
     {
         std::vector<uint32_t> real_variable_indices;
         real_variable_indices.reserve(variable_indices.size());
         for (auto& variable_index : variable_indices) {
-            real_variable_indices.push_back(to_real(ultra_circuit_constructor, variable_index));
+            real_variable_indices.push_back(to_real(variable_index));
         }
         return real_variable_indices;
     };
-
-    uint32_t to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor, const uint32_t& variable_index)
-    {
-        return ultra_circuit_constructor.real_variable_index[variable_index];
-    };
-    size_t find_block_index(bb::UltraCircuitBuilder& ultra_builder, const UltraBlock& block);
+    uint32_t to_real(const uint32_t& variable_index) { return circuit_builder.real_variable_index[variable_index]; }
+    size_t find_block_index(const auto& block);
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
 
+<<<<<<< HEAD
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(
         bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
@@ -121,6 +118,23 @@ template <typename FF> class StaticAnalyzer_ {
                                                             const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(bb::UltraCircuitBuilder& ultra_builder,
                                                             const bb::RamTranscript& ram_array);
+=======
+    void process_execution_trace(bool connect_variables = true);
+
+    std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(size_t index,
+                                                                               size_t block_idx,
+                                                                               auto& blk);
+    std::vector<uint32_t> get_elliptic_gate_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_plookup_gate_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_sort_constraint_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_poseido2s_gate_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_auxiliary_gate_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_rom_table_connected_component(const bb::RomTranscript& rom_array);
+    std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array);
+
+    std::vector<uint32_t> get_databus_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_eccop_connected_component(size_t index, size_t block_idx, auto& blk);
+>>>>>>> e4aae870fb (new tool's design to work with Mega and Ultra)
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
@@ -134,56 +148,37 @@ template <typename FF> class StaticAnalyzer_ {
     std::vector<std::vector<uint32_t>> find_connected_components();
 
     std::vector<uint32_t> find_variables_with_degree_one();
-    std::unordered_set<uint32_t> get_variables_in_one_gate();
-
-    bool find_arithmetic_gate_for_variable(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                           const uint32_t& variable_idx);
-    bool find_elliptic_gate_for_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_idx);
-    bool find_lookup_gate_for_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_idx);
 
     size_t get_distance_between_variables(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     bool check_vertex_in_connected_component(const std::vector<uint32_t>& connected_component,
                                              const uint32_t& var_index);
 
-    void connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                         const std::vector<uint32_t>& variables_vector);
-    bool check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_index);
+    void connect_all_variables_in_vector(const std::vector<uint32_t>& variables_vector);
+    bool check_is_not_constant_variable(const uint32_t& variable_index);
 
     std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
         const std::vector<std::vector<uint32_t>>& connected_components, size_t index);
 
-    std::unordered_set<uint32_t> get_variables_in_one_gate_without_range_constraints(
-        bb::UltraCircuitBuilder& ultra_circuit_builder);
+    size_t process_current_decompose_chain(size_t index);
+    void process_current_plookup_gate(size_t gate_index);
+    void remove_unnecessary_decompose_variables(const std::unordered_set<uint32_t>& decompose_variables);
+    void remove_unnecessary_plookup_variables();
+    void remove_unnecessary_range_constrains_variables();
+    std::unordered_set<uint32_t> get_variables_in_one_gate();
 
-    size_t process_current_decompose_chain(bb::UltraCircuitBuilder& ultra_circuit_constructor,
-                                           std::unordered_set<uint32_t>& variables_in_one_gate,
-                                           size_t index);
-    void process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder, size_t gate_index);
-    void remove_unnecessary_decompose_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                std::unordered_set<uint32_t>& variables_in_on_gate,
-                                                const std::unordered_set<uint32_t>& decompose_variables);
-    void remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder);
-    void remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder);
-    std::unordered_set<uint32_t> show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder);
+    void remove_unnecessary_aes_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
+    void remove_unnecessary_sha256_plookup_variables(bb::plookup::BasicTableId& table_id, size_t gate_index);
+    void remove_record_witness_variables();
 
-    void remove_unnecessary_aes_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
-                                                  bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                  bb::plookup::BasicTableId& table_id,
-                                                  size_t gate_index);
-    void remove_unnecessary_sha256_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
-                                                     bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                     bb::plookup::BasicTableId& table_id,
-                                                     size_t gate_index);
-    void remove_record_witness_variables(bb::UltraCircuitBuilder& ultra_builder);
-
-    void print_graph();
     void print_connected_components();
     void print_variables_gate_counts();
-    void print_variables_edge_counts();
-    void print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx);
+    void print_variable_in_one_gate(const uint32_t real_idx);
     ~StaticAnalyzer_() = default;
 
   private:
+    // Store reference to the circuit builder
+    CircuitBuilder& circuit_builder;
+
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their
                                   // connections between each other
@@ -198,6 +193,9 @@ template <typename FF> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> fixed_variables;
 };
 
-using StaticAnalyzer = StaticAnalyzer_<bb::fr>;
+// Type aliases for convenience
+using UltraStaticAnalyzer = StaticAnalyzer_<bb::fr, bb::UltraCircuitBuilder>;
+using MegaStaticAnalyzer = StaticAnalyzer_<bb::fr, bb::MegaCircuitBuilder>;
+using StaticAnalyzer = UltraStaticAnalyzer; // Default to Ultra for backward compatibility
 
 } // namespace cdg
