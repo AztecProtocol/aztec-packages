@@ -90,7 +90,7 @@ export class ContractFunctionSimulator {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
-    senderForTags: AztecAddress | undefined = undefined,
+    senderForTags?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
