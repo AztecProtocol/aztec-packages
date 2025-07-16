@@ -37,7 +37,6 @@ export function toCircuitInput(o: MsgpackCircuitInput): CircuitInput {
     verificationKey: o.verification_key,
   };
 }
-
 export function fromCircuitInput(o: CircuitInput): MsgpackCircuitInput {
   if (o.name === undefined) { throw new Error("Expected name in CircuitInput serialization"); }
   if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInput serialization"); }
@@ -77,7 +76,6 @@ export function toProofSystemSettings(o: MsgpackProofSystemSettings): ProofSyste
     recursive: o.recursive,
   };
 }
-
 export function fromProofSystemSettings(o: ProofSystemSettings): MsgpackProofSystemSettings {
   if (o.ipaAccumulation === undefined) { throw new Error("Expected ipaAccumulation in ProofSystemSettings serialization"); }
   if (o.oracleHashType === undefined) { throw new Error("Expected oracleHashType in ProofSystemSettings serialization"); }
@@ -113,7 +111,6 @@ export function toCircuitProve(o: MsgpackCircuitProve): CircuitProve {
     settings: toProofSystemSettings(o.settings),
   };
 }
-
 export function fromCircuitProve(o: CircuitProve): MsgpackCircuitProve {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProve serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitProve serialization"); }
@@ -141,7 +138,6 @@ export function toCircuitInputNoVK(o: MsgpackCircuitInputNoVK): CircuitInputNoVK
     bytecode: o.bytecode,
   };
 }
-
 export function fromCircuitInputNoVK(o: CircuitInputNoVK): MsgpackCircuitInputNoVK {
   if (o.name === undefined) { throw new Error("Expected name in CircuitInputNoVK serialization"); }
   if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInputNoVK serialization"); };
@@ -167,7 +163,6 @@ export function toCircuitComputeVk(o: MsgpackCircuitComputeVk): CircuitComputeVk
     settings: toProofSystemSettings(o.settings),
   };
 }
-
 export function fromCircuitComputeVk(o: CircuitComputeVk): MsgpackCircuitComputeVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitComputeVk serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitComputeVk serialization"); };
@@ -197,7 +192,6 @@ export function toCircuitInfo(o: MsgpackCircuitInfo): CircuitInfo {
     settings: toProofSystemSettings(o.settings),
   };
 }
-
 export function fromCircuitInfo(o: CircuitInfo): MsgpackCircuitInfo {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitInfo serialization"); }
   if (o.includeGatesPerOpcode === undefined) { throw new Error("Expected includeGatesPerOpcode in CircuitInfo serialization"); }
@@ -229,7 +223,6 @@ export function toCircuitCheck(o: MsgpackCircuitCheck): CircuitCheck {
     settings: toProofSystemSettings(o.settings),
   };
 }
-
 export function fromCircuitCheck(o: CircuitCheck): MsgpackCircuitCheck {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitCheck serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitCheck serialization"); }
@@ -265,7 +258,6 @@ export function toCircuitVerify(o: MsgpackCircuitVerify): CircuitVerify {
     settings: toProofSystemSettings(o.settings),
   };
 }
-
 export function fromCircuitVerify(o: CircuitVerify): MsgpackCircuitVerify {
   if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitVerify serialization"); }
   if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitVerify serialization"); }
@@ -291,7 +283,6 @@ export function toClientIvcComputeStandaloneVk(o: MsgpackClientIvcComputeStandal
     circuit: toCircuitInputNoVK(o.circuit),
   };
 }
-
 export function fromClientIvcComputeStandaloneVk(o: ClientIvcComputeStandaloneVk): MsgpackClientIvcComputeStandaloneVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeStandaloneVk serialization"); };
   return {
@@ -311,7 +302,6 @@ export function toClientIvcComputeIvcVk(o: MsgpackClientIvcComputeIvcVk): Client
     circuit: toCircuitInputNoVK(o.circuit),
   };
 }
-
 export function fromClientIvcComputeIvcVk(o: ClientIvcComputeIvcVk): MsgpackClientIvcComputeIvcVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeIvcVk serialization"); };
   return {
@@ -331,7 +321,6 @@ export function toClientIvcStart(o: MsgpackClientIvcStart): ClientIvcStart {
     numCircuits: o.num_circuits,
   };
 }
-
 export function fromClientIvcStart(o: ClientIvcStart): MsgpackClientIvcStart {
   if (o.numCircuits === undefined) { throw new Error("Expected numCircuits in ClientIvcStart serialization"); };
   return {
@@ -351,7 +340,6 @@ export function toClientIvcLoad(o: MsgpackClientIvcLoad): ClientIvcLoad {
     circuit: toCircuitInput(o.circuit),
   };
 }
-
 export function fromClientIvcLoad(o: ClientIvcLoad): MsgpackClientIvcLoad {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcLoad serialization"); };
   return {
@@ -371,21 +359,16 @@ export function toClientIvcAccumulate(o: MsgpackClientIvcAccumulate): ClientIvcA
     witness: o.witness,
   };
 }
-
 export function fromClientIvcAccumulate(o: ClientIvcAccumulate): MsgpackClientIvcAccumulate {
   if (o.witness === undefined) { throw new Error("Expected witness in ClientIvcAccumulate serialization"); };
   return {
   witness: o.witness,};
 }
-export interface ClientIvcProve {
-}
-
 interface MsgpackClientIvcProve {}
 
 export function toClientIvcProve(o: MsgpackClientIvcProve): ClientIvcProve {
   return {};
 }
-
 export function fromClientIvcProve(o: ClientIvcProve): MsgpackClientIvcProve {
   return {};
 }
@@ -403,7 +386,6 @@ export function toProofAsFields(o: MsgpackProofAsFields): ProofAsFields {
     proof: o.proof.map((v: Buffer) => v),
   };
 }
-
 export function fromProofAsFields(o: ProofAsFields): MsgpackProofAsFields {
   if (o.proof === undefined) { throw new Error("Expected proof in ProofAsFields serialization"); };
   return {
@@ -427,7 +409,6 @@ export function toVkAsFields(o: MsgpackVkAsFields): VkAsFields {
     isMegaHonk: o.is_mega_honk,
   };
 }
-
 export function fromVkAsFields(o: VkAsFields): MsgpackVkAsFields {
   if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in VkAsFields serialization"); }
   if (o.isMegaHonk === undefined) { throw new Error("Expected isMegaHonk in VkAsFields serialization"); };
@@ -453,7 +434,6 @@ export function toCircuitWriteSolidityVerifier(o: MsgpackCircuitWriteSolidityVer
     settings: toProofSystemSettings(o.settings),
   };
 }
-
 export function fromCircuitWriteSolidityVerifier(o: CircuitWriteSolidityVerifier): MsgpackCircuitWriteSolidityVerifier {
   if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitWriteSolidityVerifier serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitWriteSolidityVerifier serialization"); };
@@ -483,7 +463,6 @@ export function toCircuitProveAndVerify(o: MsgpackCircuitProveAndVerify): Circui
     settings: toProofSystemSettings(o.settings),
   };
 }
-
 export function fromCircuitProveAndVerify(o: CircuitProveAndVerify): MsgpackCircuitProveAndVerify {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProveAndVerify serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitProveAndVerify serialization"); }
@@ -527,7 +506,6 @@ export function toCircuitBenchmark(o: MsgpackCircuitBenchmark): CircuitBenchmark
     benchmarkProving: o.benchmark_proving,
   };
 }
-
 export function fromCircuitBenchmark(o: CircuitBenchmark): MsgpackCircuitBenchmark {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitBenchmark serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitBenchmark serialization"); }
@@ -561,7 +539,6 @@ export function toClientIvcCheckPrecomputedVk(o: MsgpackClientIvcCheckPrecompute
     functionName: o.function_name,
   };
 }
-
 export function fromClientIvcCheckPrecomputedVk(o: ClientIvcCheckPrecomputedVk): MsgpackClientIvcCheckPrecomputedVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcCheckPrecomputedVk serialization"); }
   if (o.functionName === undefined) { throw new Error("Expected functionName in ClientIvcCheckPrecomputedVk serialization"); };
@@ -587,7 +564,6 @@ export function toCircuitProveResponse(o: MsgpackCircuitProveResponse): CircuitP
     proof: o.proof.map((v: Buffer) => v),
   };
 }
-
 export function fromCircuitProveResponse(o: CircuitProveResponse): MsgpackCircuitProveResponse {
   if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitProveResponse serialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveResponse serialization"); };
@@ -609,7 +585,6 @@ export function toCircuitComputeVkResponse(o: MsgpackCircuitComputeVkResponse): 
     bytes: o.bytes,
   };
 }
-
 export function fromCircuitComputeVkResponse(o: CircuitComputeVkResponse): MsgpackCircuitComputeVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in CircuitComputeVkResponse serialization"); };
   return {
@@ -637,7 +612,6 @@ export function toCircuitInfoResponse(o: MsgpackCircuitInfoResponse): CircuitInf
     gatesPerOpcode: o.gates_per_opcode,
   };
 }
-
 export function fromCircuitInfoResponse(o: CircuitInfoResponse): MsgpackCircuitInfoResponse {
   if (o.totalGates === undefined) { throw new Error("Expected totalGates in CircuitInfoResponse serialization"); }
   if (o.subgroupSize === undefined) { throw new Error("Expected subgroupSize in CircuitInfoResponse serialization"); }
@@ -661,7 +635,6 @@ export function toCircuitCheckResponse(o: MsgpackCircuitCheckResponse): CircuitC
     satisfied: o.satisfied,
   };
 }
-
 export function fromCircuitCheckResponse(o: CircuitCheckResponse): MsgpackCircuitCheckResponse {
   if (o.satisfied === undefined) { throw new Error("Expected satisfied in CircuitCheckResponse serialization"); };
   return {
@@ -681,7 +654,6 @@ export function toCircuitVerifyResponse(o: MsgpackCircuitVerifyResponse): Circui
     verified: o.verified,
   };
 }
-
 export function fromCircuitVerifyResponse(o: CircuitVerifyResponse): MsgpackCircuitVerifyResponse {
   if (o.verified === undefined) { throw new Error("Expected verified in CircuitVerifyResponse serialization"); };
   return {
@@ -705,7 +677,6 @@ export function toClientIvcComputeStandaloneVkResponse(o: MsgpackClientIvcComput
     fields: o.fields.map((v: Buffer) => v),
   };
 }
-
 export function fromClientIvcComputeStandaloneVkResponse(o: ClientIvcComputeStandaloneVkResponse): MsgpackClientIvcComputeStandaloneVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeStandaloneVkResponse serialization"); }
   if (o.fields === undefined) { throw new Error("Expected fields in ClientIvcComputeStandaloneVkResponse serialization"); };
@@ -727,45 +698,32 @@ export function toClientIvcComputeIvcVkResponse(o: MsgpackClientIvcComputeIvcVkR
     bytes: o.bytes,
   };
 }
-
 export function fromClientIvcComputeIvcVkResponse(o: ClientIvcComputeIvcVkResponse): MsgpackClientIvcComputeIvcVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeIvcVkResponse serialization"); };
   return {
   bytes: o.bytes,};
 }
-export interface ClientIvcStartResponse {
-}
-
 interface MsgpackClientIvcStartResponse {}
 
 export function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): ClientIvcStartResponse {
   return {};
 }
-
 export function fromClientIvcStartResponse(o: ClientIvcStartResponse): MsgpackClientIvcStartResponse {
   return {};
 }
-export interface ClientIvcLoadResponse {
-}
-
 interface MsgpackClientIvcLoadResponse {}
 
 export function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): ClientIvcLoadResponse {
   return {};
 }
-
 export function fromClientIvcLoadResponse(o: ClientIvcLoadResponse): MsgpackClientIvcLoadResponse {
   return {};
 }
-export interface ClientIvcAccumulateResponse {
-}
-
 interface MsgpackClientIvcAccumulateResponse {}
 
 export function toClientIvcAccumulateResponse(o: MsgpackClientIvcAccumulateResponse): ClientIvcAccumulateResponse {
   return {};
 }
-
 export function fromClientIvcAccumulateResponse(o: ClientIvcAccumulateResponse): MsgpackClientIvcAccumulateResponse {
   return {};
 }
@@ -787,7 +745,6 @@ export function toECCVMProof(o: MsgpackECCVMProof): ECCVMProof {
     ipaProof: o.ipa_proof.map((v: Buffer) => v),
   };
 }
-
 export function fromECCVMProof(o: ECCVMProof): MsgpackECCVMProof {
   if (o.preIpaProof === undefined) { throw new Error("Expected preIpaProof in ECCVMProof serialization"); }
   if (o.ipaProof === undefined) { throw new Error("Expected ipaProof in ECCVMProof serialization"); };
@@ -817,7 +774,6 @@ export function toGoblinProof(o: MsgpackGoblinProof): GoblinProof {
     translatorProof: o.translator_proof.map((v: Buffer) => v),
   };
 }
-
 export function fromGoblinProof(o: GoblinProof): MsgpackGoblinProof {
   if (o.mergeProof === undefined) { throw new Error("Expected mergeProof in GoblinProof serialization"); }
   if (o.eccvmProof === undefined) { throw new Error("Expected eccvmProof in GoblinProof serialization"); }
@@ -845,7 +801,6 @@ export function toProof(o: MsgpackProof): Proof {
     goblinProof: toGoblinProof(o.goblin_proof),
   };
 }
-
 export function fromProof(o: Proof): MsgpackProof {
   if (o.megaProof === undefined) { throw new Error("Expected megaProof in Proof serialization"); }
   if (o.goblinProof === undefined) { throw new Error("Expected goblinProof in Proof serialization"); };
@@ -867,7 +822,6 @@ export function toClientIvcProveResponse(o: MsgpackClientIvcProveResponse): Clie
     proof: toProof(o.proof),
   };
 }
-
 export function fromClientIvcProveResponse(o: ClientIvcProveResponse): MsgpackClientIvcProveResponse {
   if (o.proof === undefined) { throw new Error("Expected proof in ClientIvcProveResponse serialization"); };
   return {
@@ -887,7 +841,6 @@ export function toProofAsFieldsResponse(o: MsgpackProofAsFieldsResponse): ProofA
     fields: o.fields.map((v: Buffer) => v),
   };
 }
-
 export function fromProofAsFieldsResponse(o: ProofAsFieldsResponse): MsgpackProofAsFieldsResponse {
   if (o.fields === undefined) { throw new Error("Expected fields in ProofAsFieldsResponse serialization"); };
   return {
@@ -907,7 +860,6 @@ export function toVkAsFieldsResponse(o: MsgpackVkAsFieldsResponse): VkAsFieldsRe
     fields: o.fields.map((v: Buffer) => v),
   };
 }
-
 export function fromVkAsFieldsResponse(o: VkAsFieldsResponse): MsgpackVkAsFieldsResponse {
   if (o.fields === undefined) { throw new Error("Expected fields in VkAsFieldsResponse serialization"); };
   return {
@@ -927,7 +879,6 @@ export function toCircuitWriteSolidityVerifierResponse(o: MsgpackCircuitWriteSol
     solidityCode: o.solidity_code,
   };
 }
-
 export function fromCircuitWriteSolidityVerifierResponse(o: CircuitWriteSolidityVerifierResponse): MsgpackCircuitWriteSolidityVerifierResponse {
   if (o.solidityCode === undefined) { throw new Error("Expected solidityCode in CircuitWriteSolidityVerifierResponse serialization"); };
   return {
@@ -955,7 +906,6 @@ export function toCircuitProveAndVerifyResponse(o: MsgpackCircuitProveAndVerifyR
     publicInputs: o.public_inputs.map((v: Buffer) => v),
   };
 }
-
 export function fromCircuitProveAndVerifyResponse(o: CircuitProveAndVerifyResponse): MsgpackCircuitProveAndVerifyResponse {
   if (o.verified === undefined) { throw new Error("Expected verified in CircuitProveAndVerifyResponse serialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveAndVerifyResponse serialization"); }
@@ -991,7 +941,6 @@ export function toCircuitBenchmarkResponse(o: MsgpackCircuitBenchmarkResponse): 
     peakMemoryBytes: o.peak_memory_bytes,
   };
 }
-
 export function fromCircuitBenchmarkResponse(o: CircuitBenchmarkResponse): MsgpackCircuitBenchmarkResponse {
   if (o.witnessGenerationTimeMs === undefined) { throw new Error("Expected witnessGenerationTimeMs in CircuitBenchmarkResponse serialization"); }
   if (o.provingTimeMs === undefined) { throw new Error("Expected provingTimeMs in CircuitBenchmarkResponse serialization"); }
@@ -1017,160 +966,159 @@ export function toClientIvcCheckPrecomputedVkResponse(o: MsgpackClientIvcCheckPr
     valid: o.valid,
   };
 }
-
 export function fromClientIvcCheckPrecomputedVkResponse(o: ClientIvcCheckPrecomputedVkResponse): MsgpackClientIvcCheckPrecomputedVkResponse {
   if (o.valid === undefined) { throw new Error("Expected valid in ClientIvcCheckPrecomputedVkResponse serialization"); };
   return {
   valid: o.valid,};
 }
 
-export async function circuitProve(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitProve): Promise<CircuitProveResponse> {
+export async function circuitProve(wasm: BarretenbergWasmMainWorker, command: CircuitProve): Promise<CircuitProveResponse> {
   const msgpackCommand = fromCircuitProve(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitProve", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitProve", msgpackCommand]);
   if (variantName !== 'CircuitProveResponse') {
     throw new Error(`Expected variant name 'CircuitProveResponse' but got '${variantName}'`);
   }
   return toCircuitProveResponse(result);
 }
 
-export async function circuitComputeVk(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
+export async function circuitComputeVk(wasm: BarretenbergWasmMainWorker, command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
   const msgpackCommand = fromCircuitComputeVk(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitComputeVk", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitComputeVk", msgpackCommand]);
   if (variantName !== 'CircuitComputeVkResponse') {
     throw new Error(`Expected variant name 'CircuitComputeVkResponse' but got '${variantName}'`);
   }
   return toCircuitComputeVkResponse(result);
 }
 
-export async function circuitInfo(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitInfo): Promise<CircuitInfoResponse> {
+export async function circuitInfo(wasm: BarretenbergWasmMainWorker, command: CircuitInfo): Promise<CircuitInfoResponse> {
   const msgpackCommand = fromCircuitInfo(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitInfo", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitInfo", msgpackCommand]);
   if (variantName !== 'CircuitInfoResponse') {
     throw new Error(`Expected variant name 'CircuitInfoResponse' but got '${variantName}'`);
   }
   return toCircuitInfoResponse(result);
 }
 
-export async function circuitCheck(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitCheck): Promise<CircuitCheckResponse> {
+export async function circuitCheck(wasm: BarretenbergWasmMainWorker, command: CircuitCheck): Promise<CircuitCheckResponse> {
   const msgpackCommand = fromCircuitCheck(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitCheck", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitCheck", msgpackCommand]);
   if (variantName !== 'CircuitCheckResponse') {
     throw new Error(`Expected variant name 'CircuitCheckResponse' but got '${variantName}'`);
   }
   return toCircuitCheckResponse(result);
 }
 
-export async function circuitVerify(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitVerify): Promise<CircuitVerifyResponse> {
+export async function circuitVerify(wasm: BarretenbergWasmMainWorker, command: CircuitVerify): Promise<CircuitVerifyResponse> {
   const msgpackCommand = fromCircuitVerify(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitVerify", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitVerify", msgpackCommand]);
   if (variantName !== 'CircuitVerifyResponse') {
     throw new Error(`Expected variant name 'CircuitVerifyResponse' but got '${variantName}'`);
   }
   return toCircuitVerifyResponse(result);
 }
 
-export async function clientIvcComputeStandaloneVk(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
+export async function clientIvcComputeStandaloneVk(wasm: BarretenbergWasmMainWorker, command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
   const msgpackCommand = fromClientIvcComputeStandaloneVk(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ClientIvcComputeStandaloneVk", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ClientIvcComputeStandaloneVk", msgpackCommand]);
   if (variantName !== 'ClientIvcComputeStandaloneVkResponse') {
     throw new Error(`Expected variant name 'ClientIvcComputeStandaloneVkResponse' but got '${variantName}'`);
   }
   return toClientIvcComputeStandaloneVkResponse(result);
 }
 
-export async function clientIvcComputeIvcVk(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
+export async function clientIvcComputeIvcVk(wasm: BarretenbergWasmMainWorker, command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
   const msgpackCommand = fromClientIvcComputeIvcVk(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ClientIvcComputeIvcVk", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ClientIvcComputeIvcVk", msgpackCommand]);
   if (variantName !== 'ClientIvcComputeIvcVkResponse') {
     throw new Error(`Expected variant name 'ClientIvcComputeIvcVkResponse' but got '${variantName}'`);
   }
   return toClientIvcComputeIvcVkResponse(result);
 }
 
-export async function clientIvcStart(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ClientIvcStart): Promise<ClientIvcStartResponse> {
+export async function clientIvcStart(wasm: BarretenbergWasmMainWorker, command: ClientIvcStart): Promise<ClientIvcStartResponse> {
   const msgpackCommand = fromClientIvcStart(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ClientIvcStart", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ClientIvcStart", msgpackCommand]);
   if (variantName !== 'ClientIvcStartResponse') {
     throw new Error(`Expected variant name 'ClientIvcStartResponse' but got '${variantName}'`);
   }
   return toClientIvcStartResponse(result);
 }
 
-export async function clientIvcLoad(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
+export async function clientIvcLoad(wasm: BarretenbergWasmMainWorker, command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
   const msgpackCommand = fromClientIvcLoad(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ClientIvcLoad", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ClientIvcLoad", msgpackCommand]);
   if (variantName !== 'ClientIvcLoadResponse') {
     throw new Error(`Expected variant name 'ClientIvcLoadResponse' but got '${variantName}'`);
   }
   return toClientIvcLoadResponse(result);
 }
 
-export async function clientIvcAccumulate(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
+export async function clientIvcAccumulate(wasm: BarretenbergWasmMainWorker, command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
   const msgpackCommand = fromClientIvcAccumulate(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ClientIvcAccumulate", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ClientIvcAccumulate", msgpackCommand]);
   if (variantName !== 'ClientIvcAccumulateResponse') {
     throw new Error(`Expected variant name 'ClientIvcAccumulateResponse' but got '${variantName}'`);
   }
   return toClientIvcAccumulateResponse(result);
 }
 
-export async function clientIvcProve(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ClientIvcProve): Promise<ClientIvcProveResponse> {
+export async function clientIvcProve(wasm: BarretenbergWasmMainWorker, command: ClientIvcProve): Promise<ClientIvcProveResponse> {
   const msgpackCommand = fromClientIvcProve(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ClientIvcProve", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ClientIvcProve", msgpackCommand]);
   if (variantName !== 'ClientIvcProveResponse') {
     throw new Error(`Expected variant name 'ClientIvcProveResponse' but got '${variantName}'`);
   }
   return toClientIvcProveResponse(result);
 }
 
-export async function proofAsFields(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ProofAsFields): Promise<ProofAsFieldsResponse> {
+export async function proofAsFields(wasm: BarretenbergWasmMainWorker, command: ProofAsFields): Promise<ProofAsFieldsResponse> {
   const msgpackCommand = fromProofAsFields(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ProofAsFields", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ProofAsFields", msgpackCommand]);
   if (variantName !== 'ProofAsFieldsResponse') {
     throw new Error(`Expected variant name 'ProofAsFieldsResponse' but got '${variantName}'`);
   }
   return toProofAsFieldsResponse(result);
 }
 
-export async function vkAsFields(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: VkAsFields): Promise<VkAsFieldsResponse> {
+export async function vkAsFields(wasm: BarretenbergWasmMainWorker, command: VkAsFields): Promise<VkAsFieldsResponse> {
   const msgpackCommand = fromVkAsFields(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["VkAsFields", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["VkAsFields", msgpackCommand]);
   if (variantName !== 'VkAsFieldsResponse') {
     throw new Error(`Expected variant name 'VkAsFieldsResponse' but got '${variantName}'`);
   }
   return toVkAsFieldsResponse(result);
 }
 
-export async function circuitWriteSolidityVerifier(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
+export async function circuitWriteSolidityVerifier(wasm: BarretenbergWasmMainWorker, command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
   const msgpackCommand = fromCircuitWriteSolidityVerifier(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitWriteSolidityVerifier", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitWriteSolidityVerifier", msgpackCommand]);
   if (variantName !== 'CircuitWriteSolidityVerifierResponse') {
     throw new Error(`Expected variant name 'CircuitWriteSolidityVerifierResponse' but got '${variantName}'`);
   }
   return toCircuitWriteSolidityVerifierResponse(result);
 }
 
-export async function circuitProveAndVerify(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
+export async function circuitProveAndVerify(wasm: BarretenbergWasmMainWorker, command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
   const msgpackCommand = fromCircuitProveAndVerify(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitProveAndVerify", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitProveAndVerify", msgpackCommand]);
   if (variantName !== 'CircuitProveAndVerifyResponse') {
     throw new Error(`Expected variant name 'CircuitProveAndVerifyResponse' but got '${variantName}'`);
   }
   return toCircuitProveAndVerifyResponse(result);
 }
 
-export async function circuitBenchmark(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
+export async function circuitBenchmark(wasm: BarretenbergWasmMainWorker, command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
   const msgpackCommand = fromCircuitBenchmark(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["CircuitBenchmark", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["CircuitBenchmark", msgpackCommand]);
   if (variantName !== 'CircuitBenchmarkResponse') {
     throw new Error(`Expected variant name 'CircuitBenchmarkResponse' but got '${variantName}'`);
   }
   return toCircuitBenchmarkResponse(result);
 }
 
-export async function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMainWorker, requestId: Uint8Array, command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
+export async function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMainWorker, command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
   const msgpackCommand = fromClientIvcCheckPrecomputedVk(command);
-  const [variantName, result] = await wasm.callCbind('bbapi', [requestId, ["ClientIvcCheckPrecomputedVk", msgpackCommand]]);
+  const [variantName, result] = await wasm.callCbind('bbapi', ["ClientIvcCheckPrecomputedVk", msgpackCommand]);
   if (variantName !== 'ClientIvcCheckPrecomputedVkResponse') {
     throw new Error(`Expected variant name 'ClientIvcCheckPrecomputedVkResponse' but got '${variantName}'`);
   }
@@ -1182,79 +1130,73 @@ export async function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMainWork
  * All methods return promises.
  */
 export class CbindApi {
-  private requestId: Uint8Array;
-
-  constructor(protected wasm: BarretenbergWasmMainWorker) {
-    // Generate a random 16-byte request ID
-    this.requestId = new Uint8Array(16);
-    crypto.getRandomValues(this.requestId);
-  }
+  constructor(protected wasm: BarretenbergWasmMainWorker) {}
 
   async circuitProve(command: CircuitProve): Promise<CircuitProveResponse> {
-    return circuitProve(this.wasm, this.requestId, command);
+    return circuitProve(this.wasm, command);
   }
 
   async circuitComputeVk(command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
-    return circuitComputeVk(this.wasm, this.requestId, command);
+    return circuitComputeVk(this.wasm, command);
   }
 
   async circuitInfo(command: CircuitInfo): Promise<CircuitInfoResponse> {
-    return circuitInfo(this.wasm, this.requestId, command);
+    return circuitInfo(this.wasm, command);
   }
 
   async circuitCheck(command: CircuitCheck): Promise<CircuitCheckResponse> {
-    return circuitCheck(this.wasm, this.requestId, command);
+    return circuitCheck(this.wasm, command);
   }
 
   async circuitVerify(command: CircuitVerify): Promise<CircuitVerifyResponse> {
-    return circuitVerify(this.wasm, this.requestId, command);
+    return circuitVerify(this.wasm, command);
   }
 
   async clientIvcComputeStandaloneVk(command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
-    return clientIvcComputeStandaloneVk(this.wasm, this.requestId, command);
+    return clientIvcComputeStandaloneVk(this.wasm, command);
   }
 
   async clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
-    return clientIvcComputeIvcVk(this.wasm, this.requestId, command);
+    return clientIvcComputeIvcVk(this.wasm, command);
   }
 
   async clientIvcStart(command: ClientIvcStart): Promise<ClientIvcStartResponse> {
-    return clientIvcStart(this.wasm, this.requestId, command);
+    return clientIvcStart(this.wasm, command);
   }
 
   async clientIvcLoad(command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
-    return clientIvcLoad(this.wasm, this.requestId, command);
+    return clientIvcLoad(this.wasm, command);
   }
 
   async clientIvcAccumulate(command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
-    return clientIvcAccumulate(this.wasm, this.requestId, command);
+    return clientIvcAccumulate(this.wasm, command);
   }
 
   async clientIvcProve(command: ClientIvcProve): Promise<ClientIvcProveResponse> {
-    return clientIvcProve(this.wasm, this.requestId, command);
+    return clientIvcProve(this.wasm, command);
   }
 
   async proofAsFields(command: ProofAsFields): Promise<ProofAsFieldsResponse> {
-    return proofAsFields(this.wasm, this.requestId, command);
+    return proofAsFields(this.wasm, command);
   }
 
   async vkAsFields(command: VkAsFields): Promise<VkAsFieldsResponse> {
-    return vkAsFields(this.wasm, this.requestId, command);
+    return vkAsFields(this.wasm, command);
   }
 
   async circuitWriteSolidityVerifier(command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
-    return circuitWriteSolidityVerifier(this.wasm, this.requestId, command);
+    return circuitWriteSolidityVerifier(this.wasm, command);
   }
 
   async circuitProveAndVerify(command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
-    return circuitProveAndVerify(this.wasm, this.requestId, command);
+    return circuitProveAndVerify(this.wasm, command);
   }
 
   async circuitBenchmark(command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
-    return circuitBenchmark(this.wasm, this.requestId, command);
+    return circuitBenchmark(this.wasm, command);
   }
 
   async clientIvcCheckPrecomputedVk(command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
-    return clientIvcCheckPrecomputedVk(this.wasm, this.requestId, command);
+    return clientIvcCheckPrecomputedVk(this.wasm, command);
   }
 }

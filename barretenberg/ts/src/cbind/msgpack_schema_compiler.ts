@@ -204,14 +204,14 @@ function classConverterExpr(typeInfo: TypeInfo, value: string): string {
  * Converts a spec emitted from the WASM.
  * Creates typescript code.
  */
-export class CbindCompiler {
+export class MsgpackSchemaCompiler {
   // Function and declaration output fragments
-  private typeInfos: Record<string, TypeInfo> = {};
+  protected typeInfos: Record<string, TypeInfo> = {};
   // cbind outputs, put at end
-  private funcDecls: string[] = [];
-  private mode: 'sync' | 'async' = 'sync';
+  protected funcDecls: string[] = [];
+  protected mode: 'sync' | 'async' = 'sync';
   // Store function metadata for wrapper generation
-  private functionMetadata: Array<{name: string, commandType: string, responseType: string}> = [];
+  protected functionMetadata: Array<{name: string, commandType: string, responseType: string}> = [];
 
   constructor(mode: 'sync' | 'async' = 'sync') {
     this.mode = mode;
@@ -400,7 +400,7 @@ export class CbindCompiler {
         typeName,
         msgpackTypeName: 'Msgpack' + typeName,
         isImport: true,
-        declaration: this.generateInterface(typeName, type),
+        declaration: this.generateNonMsgpackInterface(typeName, type) + '\n\n' + this.generateInterface(typeName, type),
         toClassMethod: this.generateMsgpackConverter(typeName, type),
         fromClassMethod: this.generateClassConverter(typeName, type),
         objectSchema: type, // Store the schema for later use
@@ -628,9 +628,9 @@ ${checkerSyntax()};
       const awaitKeyword = this.mode === 'async' ? 'await ' : '';
       const returnType = this.mode === 'async' ? `Promise<${respType.typeName}>` : respType.typeName;
       
-      this.funcDecls.push(`export ${asyncKeyword}function ${funcName}(wasm: ${wasmType}, requestId: Uint8Array, command: ${cmdType.typeName}): ${returnType} {
+      this.funcDecls.push(`export ${asyncKeyword}function ${funcName}(wasm: ${wasmType}, command: ${cmdType.typeName}): ${returnType} {
   const msgpackCommand = from${cmdType.typeName}(command);
-  const [variantName, result] = ${awaitKeyword}wasm.callCbind('bbapi', [requestId, ["${commandName}", msgpackCommand]]);
+  const [variantName, result] = ${awaitKeyword}wasm.callCbind('bbapi', ["${commandName}", msgpackCommand]);
   if (variantName !== '${responseName}') {
     throw new Error(\`Expected variant name '${responseName}' but got '\${variantName}'\`);
   }
@@ -678,31 +678,15 @@ export type Fr = Buffer;
 
     // Generate all type declarations and converters
     for (const typeInfo of Object.values(this.typeInfos)) {
-      if (typeInfo.isImport && !typeInfo.isAlias) {
-        // Generate the non-msgpack interface
-        if (typeInfo.objectSchema) {
-          const nonMsgpackDecl = this.generateNonMsgpackInterface(typeInfo.typeName, typeInfo.objectSchema);
-          outputs.push(nonMsgpackDecl);
-        } else if (typeInfo.declaration && typeInfo.declaration.includes('interface Msgpack') && typeInfo.declaration.includes('{}')) {
-          // For empty types, generate a simple export interface
-          outputs.push(`export interface ${typeInfo.typeName} {}`);
-        }
-
-        // Generate the msgpack interface
-        if (typeInfo.declaration) {
-          outputs.push('');
-          outputs.push(typeInfo.declaration);
-        }
-
-        // Generate converters
-        if (typeInfo.toClassMethod) {
-          outputs.push('');
-          outputs.push(typeInfo.toClassMethod);
-        }
-        if (typeInfo.fromClassMethod) {
-          outputs.push('');
-          outputs.push(typeInfo.fromClassMethod);
-        }
+      if (typeInfo.declaration) {
+        outputs.push(typeInfo.declaration);
+        outputs.push('');
+      }
+      if (typeInfo.toClassMethod) {
+        outputs.push(typeInfo.toClassMethod);
+      }
+      if (typeInfo.fromClassMethod) {
+        outputs.push(typeInfo.fromClassMethod);
       }
     }
 
@@ -733,13 +717,7 @@ export type Fr = Buffer;
  * ${this.mode === 'sync' ? 'All methods are synchronous.' : 'All methods return promises.'}
  */
 export class ${className} {
-  private requestId: Uint8Array;
-
-  constructor(protected wasm: ${wasmType}) {
-    // Generate a random 16-byte request ID
-    this.requestId = new Uint8Array(16);
-    crypto.getRandomValues(this.requestId);
-  }
+  constructor(protected wasm: ${wasmType}) {}
 `;
 
     // Generate methods for each function
@@ -749,7 +727,7 @@ export class ${className} {
       
       classContent += `
   ${asyncKeyword}${func.name}(command: ${func.commandType}): ${returnType} {
-    return ${func.name}(this.wasm, this.requestId, command);
+    return ${func.name}(this.wasm, command);
   }
 `;
     }

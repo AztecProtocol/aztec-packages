@@ -1,10 +1,10 @@
-import { CbindCompiler } from './compiler.js';
+import { MsgpackSchemaCompiler } from './msgpack_schema_compiler.js';
 
 /**
  * Compiler for generating NativeApi TypeScript code from msgpack schemas.
- * This extends CbindCompiler to generate a class that uses bb binary via stdin/stdout.
+ * This extends MsgpackSchemaCompiler to generate a class that uses bb binary via stdin/stdout.
  */
-export class NativeCompiler extends CbindCompiler {
+export class NativeCompiler extends MsgpackSchemaCompiler {
   constructor() {
     super('async'); // Native API is always async
   }
@@ -19,16 +19,11 @@ export class NativeCompiler extends CbindCompiler {
  */
 export class NativeApi {
   private process: ChildProcess | null = null;
-  private requestId: Uint8Array;
   private closed = false;
   private pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void }>();
   private responseBuffer = Buffer.alloc(0);
 
-  constructor(private bbPath: string = "bb") {
-    // Generate a random 16-byte request ID
-    this.requestId = new Uint8Array(16);
-    crypto.getRandomValues(this.requestId);
-  }
+  constructor(private bbPath: string = "bb") {}
 
   /**
    * Initialize the bb process with msgpack run command
@@ -124,9 +119,9 @@ export class NativeApi {
       this.pendingRequests.set(requestKey, { resolve, reject });
     });
 
-    // Encode the command with request ID
+    // Encode the command
     const encoder = new Encoder({ useRecords: false });
-    const buffer = encoder.encode([this.requestId, command]);
+    const buffer = encoder.encode(command);
 
     // Write length-encoded buffer
     const lengthBuffer = Buffer.allocUnsafe(4);
@@ -189,12 +184,26 @@ function mapTuple<T, U, N extends number>(tuple: Tuple<T, N>, fn: (item: T) => U
 `,
     ];
     
-    // Add interface definitions
-    outputs.push(...this.interfaceDecls);
-    outputs.push('\n');
+    // Generate Fr type if needed
+    if (this.typeInfos['Fr']) {
+      outputs.push(`
+// Field element type
+export type Fr = Buffer;
+`);
+    }
     
-    // Add conversion functions
-    outputs.push(...this.conversionDecls);
+    // Generate all type declarations and converters
+    for (const typeInfo of Object.values(this.typeInfos)) {
+      if (typeInfo.declaration) {
+        outputs.push(typeInfo.declaration);
+      }
+      if (typeInfo.toClassMethod) {
+        outputs.push(typeInfo.toClassMethod);
+      }
+      if (typeInfo.fromClassMethod) {
+        outputs.push(typeInfo.fromClassMethod);
+      }
+    }
     outputs.push('\n');
     
     // Add the NativeApi class

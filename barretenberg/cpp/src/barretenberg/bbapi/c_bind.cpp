@@ -1,63 +1,42 @@
 #include "c_bind.hpp"
 #include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include <cstring>
-#include <map>
+#ifndef NO_MULTITHREADING
 #include <mutex>
+#endif
 
 namespace bb::bbapi {
 
-// Global map to store BBApiRequest objects by request ID
+// Global BBApiRequest object in anonymous namespace
 namespace {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::unordered_map<uint128_t, BBApiRequest> request_map;
+BBApiRequest global_request;
 #ifndef NO_MULTITHREADING
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::mutex request_map_mutex;
+std::mutex request_mutex;
 #endif
-
-/**
- * @brief Convert a vector of bytes to uint128_t
- * @param bytes Vector of 16 bytes
- * @return uint128_t representation
- */
-uint128_t bytes_to_uint128(const std::vector<uint8_t>& bytes)
-{
-    if (bytes.size() != 16) {
-        throw_or_abort("Request ID must be exactly 16 bytes");
-    }
-    uint128_t result = 0;
-    for (size_t i = 0; i < 16; ++i) {
-        result = (result << 8) | bytes[i];
-    }
-    return result;
-}
 } // namespace
 
 /**
  * @brief Main API function that processes commands and returns responses
  *
- * @param request_id_bytes The request ID as a vector of 16 bytes
  * @param command The command to execute
  * @return CommandResponse The response from executing the command
  */
-CommandResponse bbapi(const std::vector<uint8_t>& request_id_bytes, Command&& command)
+CommandResponse bbapi(Command command)
 {
-    static BBApiRequest empty_request;
-    uint128_t request_id = bytes_to_uint128(request_id_bytes);
-    BBApiRequest* request = nullptr;
-    {
 #ifndef NO_MULTITHREADING
-        std::lock_guard<std::mutex> lock(request_map_mutex);
+    // Try to lock, but error if it would block (indicating concurrent access)
+    std::unique_lock<std::mutex> lock(request_mutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        throw_or_abort("BB API is meant for single-threaded (queued) use only");
+    }
 #endif
 
-        // Get or create the BBApiRequest for this request ID
-        request = &request_map[request_id];
-    }
-
-    // Execute the command and return the response
-    return execute(*request, std::move(command));
+    // Execute the command using the global request and return the response
+    return execute(global_request, std::move(command));
 }
 
 } // namespace bb::bbapi

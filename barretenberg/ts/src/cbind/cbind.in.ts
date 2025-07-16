@@ -5,7 +5,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 
-import { CbindCompiler } from './compiler.js';
+import { MsgpackSchemaCompiler } from './msgpack_schema_compiler.js';
 import { NativeCompiler } from './native_compiler.js';
 
 const execAsync = promisify(exec);
@@ -29,14 +29,14 @@ export async function main() {
   // Parse the JSON schema
   const schema = JSON.parse(stdout.trim());
 
-  // Process the schema with CbindCompiler - sync version
-  const syncCompiler = new CbindCompiler('sync');
+  // Process the schema with MsgpackSchemaCompiler - sync version
+  const syncCompiler = new MsgpackSchemaCompiler('sync');
   if (schema.commands && schema.responses) {
     syncCompiler.processApiSchema(schema.commands, schema.responses);
   }
 
-  // Process the schema with CbindCompiler - async version
-  const asyncCompiler = new CbindCompiler('async');
+  // Process the schema with MsgpackSchemaCompiler - async version
+  const asyncCompiler = new MsgpackSchemaCompiler('async');
   if (schema.commands && schema.responses) {
     asyncCompiler.processApiSchema(schema.commands, schema.responses);
   }

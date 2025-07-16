@@ -693,21 +693,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
                     auto obj = unpacked.get();
 
-                    // Expected format: [request_id_bytes, command]
-                    if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
-                        std::cerr << "Error: Invalid msgpack format - expected array of size 2" << std::endl;
-                        return 1;
-                    }
-
-                    // Extract request ID and command
-                    std::vector<uint8_t> request_id;
-                    obj.via.array.ptr[0].convert(request_id);
-
+                    // Convert to Command (which is a NamedUnion)
                     bb::bbapi::Command command;
-                    obj.via.array.ptr[1].convert(command);
+                    obj.convert(command);
 
                     // Execute the command
-                    auto response = bbapi::bbapi(request_id, std::move(command));
+                    auto response = bbapi::bbapi(std::move(command));
 
                     // Serialize the response
                     msgpack::sbuffer response_buffer;
