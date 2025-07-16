@@ -296,18 +296,41 @@ TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
     using Curve = curve::BN254;
     using AffineElement = Curve::AffineElement;
 
+    static constexpr size_t NUM_LIMBS = 4;
+
     AffineElement point = AffineElement::random_element();
-    info(point.x);
-    info(point.y);
+    uint256_t x(point.x);
+    uint256_t y(point.y);
+
+    // Construct public inputs
     std::vector<bb::fr> public_inputs;
-    for (auto& limb : static_cast<uint256_t>(point.x).data) {
+    size_t index = 0;
+    for (size_t idx = 0; idx < NUM_LIMBS; idx++) {
+        auto limb = x.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
         public_inputs.emplace_back(bb::fr(limb));
-        info(bb::fr(limb));
+        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     }
-    for (auto& limb : static_cast<uint256_t>(point.y).data) {
+    index = 0;
+    for (size_t idx = 0; idx < NUM_LIMBS; idx++) {
+        auto limb = y.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
         public_inputs.emplace_back(bb::fr(limb));
-        info(bb::fr(limb));
+        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     }
+
+    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+
+    EXPECT_EQ(reconstructed, point);
+}
+
+TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
+{
+    using Curve = curve::Grumpkin;
+    using AffineElement = Curve::AffineElement;
+
+    AffineElement point = AffineElement::random_element();
+
+    // Construct public inputs
+    std::vector<bb::fr> public_inputs = { point.x, point.y };
 
     auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
 
