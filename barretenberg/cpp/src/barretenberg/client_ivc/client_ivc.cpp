@@ -72,9 +72,10 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 }
 
-void ClientIVC::complete_hiding_circuit_logic(const StdlibProof& stdlib_proof,
-                                              const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
-                                              ClientCircuit& circuit)
+ClientIVC::PairingPoints ClientIVC::complete_hiding_circuit_logic(
+    const StdlibProof& stdlib_proof,
+    const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
+    ClientCircuit& circuit)
 {
     fold_output.accumulator = nullptr;
 
@@ -127,10 +128,7 @@ void ClientIVC::complete_hiding_circuit_logic(const StdlibProof& stdlib_proof,
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
     points_accumulator.aggregate(decider_pairing_points);
 
-    stdlib::recursion::honk::HidingKernelIO hiding_output{ points_accumulator };
-    hiding_output.set_public();
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Implement
+    return points_accumulator;
 }
 
 /**
@@ -196,8 +194,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // to be only the relevant logic (i.e. no decider proving). Avoid duplication!
         auto stdlib_proof = verifier_inputs.proof;
         auto stdlib_vk_and_hash = verifier_inputs.honk_vk_and_hash;
-        complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, circuit);
-        break;
+        auto pairing_points = complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, circuit);
+        return pairing_points;
     }
     default: {
         throw_or_abort("Invalid queue type! Only OINK, PG and PG_FINAL are supported");
@@ -429,7 +427,9 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_vk),
         ClientIVC::RecursiveFlavor::FF::from_witness(&builder, verification_queue[0].honk_vk->hash()));
 
-    complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, builder);
+    auto pairing_points = complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, builder);
+    stdlib::recursion::honk::HidingKernelIO hiding_output{ pairing_points };
+    hiding_output.set_public();
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->get_precomputed());
