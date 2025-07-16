@@ -180,23 +180,12 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         static constexpr size_t FRS_PER_FQ = std::is_same_v<Fq, bb::fq> ? 4 : 1;
         BB_ASSERT_EQ(limbs.size(), 2 * FRS_PER_FQ, "Incorrect number of limbs");
 
-        affine_element result;
-        if (std::is_same_v<Fq, bb::fq>) {
-            const auto recover_fq_from_limbs = [](std::span<bb::fr> limbs) {
-                const uint256_t limb =
-                    static_cast<uint256_t>(limbs[0]) +
-                    (static_cast<uint256_t>(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                    (static_cast<uint256_t>(limbs[2]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                    (static_cast<uint256_t>(limbs[3]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
-                return Fq(limb);
-            };
+        auto x_limbs = limbs.subspan(0, FRS_PER_FQ);
+        auto y_limbs = limbs.subspan(FRS_PER_FQ, FRS_PER_FQ);
 
-            result.x = recover_fq_from_limbs(limbs.subspan(0, FRS_PER_FQ));
-            result.y = recover_fq_from_limbs(limbs.subspan(FRS_PER_FQ, FRS_PER_FQ));
-        } else {
-            result.x = Fq(limbs[0]);
-            result.y = Fq(limbs[1]);
-        }
+        affine_element result;
+        result.x = Fq::reconstruct_from_public(x_limbs);
+        result.y = Fq::reconstruct_from_public(y_limbs);
 
         if (result.x == Fq::zero() && result.y == Fq::zero()) {
             result.self_set_infinity();
