@@ -23,6 +23,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
@@ -179,6 +180,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_execute_sload;
     case ExecutionOpCode::SSTORE:
         return C::execution_sel_execute_sstore;
+    case ExecutionOpCode::NOTEHASHEXISTS:
+        return C::execution_sel_execute_notehash_exists;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -377,6 +380,14 @@ void ExecutionTraceBuilder::process(
                   ex_event.after_context_event.tree_states.publicDataTree.tree.root },
                 { C::execution_public_data_tree_size,
                   ex_event.after_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                // Context - tree states - Note hash tree
+                { C::execution_prev_note_hash_tree_root,
+                  ex_event.before_context_event.tree_states.noteHashTree.tree.root },
+                { C::execution_prev_note_hash_tree_size,
+                  ex_event.before_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
+                { C::execution_note_hash_tree_root, ex_event.after_context_event.tree_states.noteHashTree.tree.root },
+                { C::execution_note_hash_tree_size,
+                  ex_event.after_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
                 // Other.
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Helpers for identifying parent context
@@ -561,6 +572,20 @@ void ExecutionTraceBuilder::process(
                               { C::execution_remaining_data_writes_inv,
                                 remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
                               { C::execution_sel_write_public_data, !opcode_execution_failed },
+                          } });
+            } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
+                uint64_t leaf_index = registers[1].as<uint64_t>();
+                bool note_hash_leaf_in_range = leaf_index < NOTE_HASH_TREE_LEAF_COUNT;
+
+                FF note_hash_leaf_index_leaf_count_cmp_diff = note_hash_leaf_in_range
+                                                                  ? NOTE_HASH_TREE_LEAF_COUNT - leaf_index - 1
+                                                                  : leaf_index - NOTE_HASH_TREE_LEAF_COUNT;
+
+                trace.set(row,
+                          { {
+                              { C::execution_note_hash_leaf_in_range, note_hash_leaf_in_range },
+                              { C::execution_note_hash_leaf_index_leaf_count_cmp_diff,
+                                note_hash_leaf_index_leaf_count_cmp_diff },
                           } });
             }
         }
@@ -1058,6 +1083,9 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // Sstore opcode
         .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
         .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
+        // NoteHashExists
+        .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
+        .add<lookup_notehash_exists_note_hash_index_range_settings, InteractionType::LookupGeneric>()
         // GetContractInstance opcode
         .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>();
 
