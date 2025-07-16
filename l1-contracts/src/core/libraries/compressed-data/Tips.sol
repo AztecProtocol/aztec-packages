@@ -9,6 +9,7 @@ struct ChainTips {
   uint256 provenBlockNumber;
 }
 
+// Tell me that this is an encoding of `ChainTips` and explain how exactly is it encoded?
 type CompressedChainTips is uint256;
 
 library ChainTipsLib {

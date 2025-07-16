@@ -12,6 +12,9 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
+// This entire file needs a giant block comment with diagrams that explain the lifecycle of these trees. When / under what circumstances is a new subtree created? When is it consumed into the L2? When are the messages available to be consumed by txs in the L2?
+// Edit: I made a diagram: https://miro.com/app/board/uXjVJdDJb1c=/?share_link_id=336002069212
+
 /**
  * @title Inbox
  * @author Aztec Labs
@@ -93,8 +96,11 @@ contract Inbox is IInbox {
     uint64 totalMessagesInserted = _state.totalMessagesInserted;
     uint64 inProgress = _state.inProgress;
 
+    // To save storage costs, we can probably roll back around and overwrite old trees, once enough time has passed.
     FrontierLib.Tree storage currentTree = trees[inProgress];
 
+    // Why doesn't a tree already know its size, to tell you if it's full? Why do we have to pass SIZE as a param?
+    // If we can create new trees to meet the user demand for new L1->L2 messages, but we can only consume one tree root per proposal, then block numbers could fall behind tree numbers, and we could have an ever-growing queue of L2 messages that can't be consumed by the rollup fast enough. Explain why this is not a concern, or why we will never get in the case where blocks fall miles behind the pending queue of messages. (If it can be explained?)
     if (currentTree.isFull(SIZE)) {
       inProgress += 1;
       currentTree = trees[inProgress];
@@ -108,6 +114,7 @@ contract Inbox is IInbox {
     // If the sender is the fee asset portal, we use a magic address to simpler have it initialized at genesis.
     // We assume that no-one will know the private key for this address and that the precompile won't change to
     // make calls into arbitrary contracts.
+    // Why does the fee asset portal have special privileges? Why is it treated differently by this Inbox? Explain all.
     address senderAddress =
       msg.sender == FEE_ASSET_PORTAL ? address(uint160(Constants.FEE_JUICE_ADDRESS)) : msg.sender;
 
@@ -136,19 +143,26 @@ contract Inbox is IInbox {
 
   /**
    * @notice Consumes the current tree, and starts a new one if needed
+   * // Under what circumstances is a new tree not needed? "`consume`" suggests the current tree cannot be consumed again, and hence that a new tree will always be needed. If that's not the case, rename or refactor the function.
    *
    * @dev Only callable by the rollup contract
    * @dev In the first iteration we return empty tree root because first block's messages tree is always
    * empty because there has to be a 1 block lag to prevent sequencer DOS attacks
+   * Q: What DOS attacks? Please provide a link to the explanation.
+   * Q: Why does a 1-block lag resolve whatever this DOS attack is?
    *
    * @param _toConsume - The block number to consume
    *
    * @return The root of the consumed tree
    */
+  // Rename: _toConsume - doesn't convey that it represents a block number. And actually, it represents a numerical identifier for an L1->L2 subtree (which at the moment just so happens to correspond to a block number).
   function consume(uint256 _toConsume) external override(IInbox) returns (bytes32) {
     require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
 
+    // Rename: inProgress - doesn't convey that it represents a numerical identifier for L1->L2 subtrees.
     uint64 inProgress = state.inProgress;
+
+    // Comment that we can only consume from a finalized (fixed) tree (and define the circumstances under which finalization happens), because if the tree can still be inserted-into it would be impossible to generate a proof of correct consumption, because the root (aka in_hash) would be a moving target. I.e. we cannot consume from an in-progress tree because...
     require(_toConsume < inProgress, Errors.Inbox__MustBuildBeforeConsume());
 
     bytes32 root = EMPTY_ROOT;
@@ -157,11 +171,21 @@ contract Inbox is IInbox {
     }
 
     // If we are "catching up" we skip the tree creation as it is already there
+    // Not clear. Catching up with what? Why would this function be called in circumstances other than `_toConsume + 1 == inProgress`? What tree creation: The `if` block below doesn't do anything with trees.
+    // What are the circumstances under which a new tree should be created? Is it every time a block is proposed? Can it also happen once a tree becomes full? Will there ever be a disconnect between the block numbers and tree numbers, or will it always be 1:1?
+    // It looks like we can start a new tree in two situations:
+    // - The current tree is full.
+    // - The latest block proposal has consumed the latest fixed tree.
+    // So explain that this `if` statement won't bite during times where demand for L1->L2 messages is high: because new trees will be created and filled (and then fixed) by users' message insertions faster than new block proposals can consume those trees.
     if (_toConsume + 1 == inProgress) {
+      // We're currently consuming the most-recently fixed tree.
+      // There's another tree beyond the fixed tree that we're consuming, that is currently in-progress.
+      // We fix that in-progress tree, so that no new messages can be added to it, and said tree will be consumed by the next proposal (after this one).
+      // We create a new in-progress tree, so that new messages can continue to come into the inbox, and said tree will be consumed by the _next next_ proposal (two after this one).
       state.inProgress = inProgress + 1;
     }
 
-    return root;
+    return root; // aka in_hash!
   }
 
   function getFeeAssetPortal() external view override(IInbox) returns (address) {
