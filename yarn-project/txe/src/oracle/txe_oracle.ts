@@ -1385,7 +1385,11 @@ export class TXE implements TypedOracle {
       1,
       undefined, // log
       undefined, // scopes
-      /** In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a contract would perform, including setting senderForTags */
+      /**
+       * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
+       * contract would perform, including setting senderForTags. This is not great as it's never cleared.
+       * TODO: Set this properly.
+       */
       this.senderForTags,
     );
 
