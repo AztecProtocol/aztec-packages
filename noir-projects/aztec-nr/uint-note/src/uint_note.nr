@@ -40,26 +40,6 @@ pub struct UintNote {
     value: u128,
 }
 
-impl Packable for UintNote {
-    let N: u32 = 3; // AztecAddress (1) + randomness (1) + value (1)
-
-    fn pack(self) -> [Field; Self::N] {
-        let mut fields: [Field; Self::N] = [0; Self::N];
-        fields[0] = self.owner.pack()[0];
-        fields[1] = self.randomness;
-        fields[2] = self.value.to_field();
-        fields
-    }
-
-    fn unpack(fields: [Field; Self::N]) -> Self {
-        UintNote {
-            owner: AztecAddress::unpack([fields[0]]),
-            randomness: fields[1],
-            value: u128::from_field(fields[2]),
-        }
-    }
-}
-
 impl NoteHash for UintNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         // Partial notes can be implemented by having the note hash be either the result of multiscalar multiplication

@@ -22,16 +22,16 @@ impl EcdsaPublicKeyNote {
     }
 }
 
-global ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN: u32 = 5;
+impl Packable for EcdsaPublicKeyNote {
+    let N: u32 = 5;
 
-impl Packable<ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN> for EcdsaPublicKeyNote {
     // Cannot use the automatic packing since x and y don't fit. Pack the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
     // [2] = y[0..31]
     // [3] = y[31]
     // [4] = owner
-    fn pack(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN] {
+    fn pack(self) -> [Field; Self::N] {
         let mut x: Field = 0;
         let mut y: Field = 0;
         let mut mul: Field = 1;
@@ -51,7 +51,7 @@ impl Packable<ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN> for EcdsaPublicKeyNote {
     }
 
     // Cannot use the automatic unpacking for the aforementioned reasons
-    fn unpack(packed_note: [Field; ECDSA_PUBLIC_KEY_NOTE_PCKD_LEN]) -> EcdsaPublicKeyNote {
+    fn unpack(packed_note: [Field; Self::N]) -> Self {
         let mut x: [u8; 32] = [0; 32];
         let mut y: [u8; 32] = [0; 32];
 
