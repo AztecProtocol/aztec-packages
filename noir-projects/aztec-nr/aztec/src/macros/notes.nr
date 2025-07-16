@@ -29,17 +29,26 @@ comptime fn get_next_note_type_id() -> Field {
 /// If the note struct already implements `Packable`, we return an empty quote.
 comptime fn derive_packable_if_not_implemented_and_get_len(s: TypeDefinition) -> (Quoted, u32) {
     // We try to get the packed length of the note struct. If it does not implement `Packable`, we get Option::none()
-    let packed_len_typ = std::meta::typ::fresh_type_variable();
-    // We don't care about the result of the implements check. We just want the get the packed length.
-    let _ = s.as_type().implements(
-        quote { crate::protocol_types::traits::Packable<$packed_len_typ> }.as_trait_constraint(),
-    );
-    let maybe_packed_length = packed_len_typ.as_constant();
+    let packable_constraint =
+        quote { crate::protocol_types::traits::Packable }.as_trait_constraint();
+    let implements_packable = s.as_type().implements(packable_constraint);
 
-    if maybe_packed_length.is_some() {
-        // We got some packed length meaning that the note struct implements `Packable`. For this reason we return
-        // an empty quote for the implementation and the packed length.
-        (quote {}, maybe_packed_length.unwrap())
+    if implements_packable {
+        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so I work
+        // around this by:
+
+        // 1. Getting the trait impl
+        let trait_impl = s.as_type().get_trait_impl(packable_constraint).unwrap();
+        // 2. Getting the return type of the pack method
+        let pack_method_return_type = trait_impl.methods()[0].return_type();
+        // 3. Representing the return type as an array - this gives me (Type, Type) where the first type is the type of
+        // elements in the array and the second is the length of the array.
+        let pack_method_return_type_as_array = pack_method_return_type.as_array().unwrap();
+        // 4. Getting the length and representing it as a constant.
+        let packed_len_as_constant = pack_method_return_type_as_array.1.as_constant().unwrap();
+
+        // Return empty quote since implementation exists
+        (quote {}, packed_len_as_constant)
     } else {
         // We didn't manage to get the packed length which means the note struct doesn't implement `Packable`
         // so we derive it and return it along with the packed length.
