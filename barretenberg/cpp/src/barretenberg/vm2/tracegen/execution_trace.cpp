@@ -304,6 +304,7 @@ void ExecutionTraceBuilder::process(
     uint32_t dying_context_id = 0;
     FF dying_context_id_inv = 0;
     bool is_first_event_in_enqueued_call = true;
+    bool prev_row_was_enter_call = false;
 
     for (const auto& ex_event : ex_events) {
         // Check if this is the first event in an enqueued call and whether
@@ -511,6 +512,7 @@ void ExecutionTraceBuilder::process(
 
         bool should_execute_opcode = should_check_gas && !oog;
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
+        prev_row_was_enter_call = sel_enter_call;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
             const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
@@ -646,6 +648,9 @@ void ExecutionTraceBuilder::process(
             }
         }
 
+        // Needed for bc retrieval
+        bool sel_first_row_in_context = prev_row_was_enter_call || is_first_event_in_enqueued_call;
+
         bool enqueued_call_end = sel_exit_call && !has_parent;
         bool resolves_dying_context = is_failure && is_dying_context;
         bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
@@ -670,6 +675,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
                 { C::execution_dying_context_diff_inv, dying_context_diff_inv },
                 { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
+                { C::execution_sel_first_row_in_context, sel_first_row_in_context ? 1 : 0 },
                 { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
                 { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
                 { C::execution_propagate_discard, propagate_discard ? 1 : 0 },
@@ -703,6 +709,9 @@ void ExecutionTraceBuilder::process(
         // If an enqueued call just exited, next event (if any) is the first in an enqueued call.
         // Update flag for next iteration.
         is_first_event_in_enqueued_call = ex_event.after_context_event.parent_id == 0 && sel_exit_call;
+
+        // Track this bool for use determining whether the next row is the first in a context
+        prev_row_was_enter_call = sel_enter_call;
 
         row++;
     }
