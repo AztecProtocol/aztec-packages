@@ -11,7 +11,6 @@ import { inspect } from 'util';
 import { ScopedKeyValidationRequestAndGenerator } from '../kernel/hints/scoped_key_validation_request_and_generator.js';
 import { ClaimedLengthArray, ClaimedLengthArrayFromBuffer } from './claimed_length_array.js';
 import { ScopedReadRequest } from './hints/read_request.js';
-import { RollupValidationRequests } from './hints/rollup_validation_requests.js';
 import { OptionalNumber } from './utils/optional_number.js';
 
 /**
@@ -19,11 +18,6 @@ import { OptionalNumber } from './utils/optional_number.js';
  */
 export class PrivateValidationRequests {
   constructor(
-    /**
-     * Validation requests that cannot be fulfilled in the current context (private or public), and must be instead be
-     * forwarded to the rollup for it to take care of them.
-     */
-    public forRollup: RollupValidationRequests,
     /**
      * All the read requests made in this transaction.
      */
@@ -49,7 +43,6 @@ export class PrivateValidationRequests {
 
   getSize() {
     return (
-      this.forRollup.getSize() +
       this.noteHashReadRequests.getSize() +
       this.nullifierReadRequests.getSize() +
       this.scopedKeyValidationRequestsAndGenerators.getSize() +
@@ -59,7 +52,6 @@ export class PrivateValidationRequests {
 
   toBuffer() {
     return serializeToBuffer(
-      this.forRollup,
       this.noteHashReadRequests,
       this.nullifierReadRequests,
       this.scopedKeyValidationRequestsAndGenerators,
@@ -79,7 +71,6 @@ export class PrivateValidationRequests {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PrivateValidationRequests(
-      reader.readObject(RollupValidationRequests),
       reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX)),
       reader.readObject(ClaimedLengthArrayFromBuffer(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX)),
       reader.readObject(
@@ -100,7 +91,6 @@ export class PrivateValidationRequests {
 
   static empty() {
     return new PrivateValidationRequests(
-      RollupValidationRequests.empty(),
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX),
       ClaimedLengthArray.empty(ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
       ClaimedLengthArray.empty(ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX),
@@ -110,7 +100,6 @@ export class PrivateValidationRequests {
 
   [inspect.custom]() {
     return `PrivateValidationRequests {
-  forRollup: ${inspect(this.forRollup)},
   noteHashReadRequests: ${inspect(this.noteHashReadRequests)},
   nullifierReadRequests: ${inspect(this.nullifierReadRequests)},
   scopedKeyValidationRequestsAndGenerators: ${inspect(this.scopedKeyValidationRequestsAndGenerators)},

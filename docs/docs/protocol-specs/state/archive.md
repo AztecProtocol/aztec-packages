@@ -32,7 +32,7 @@ What's `body_hash`? What data is included in the preimage of this hash? What has
 
 We should specify exactly how this hash is computed.
 - Details of the hash to use, and a domain separator for the hash. We might not know the final hash that we'll use, but we should propose one, and we should probably also give each hash a name.
-    - E.g. `contract_address = contract_address_hash("contract_address".to_field(), version.to_field(), registerer_address.to_field(), etc...)` where `contract_address_hash = pedersen_hash` (for now).
+    - E.g. `contract_address = contract_address_hash("contract_address".to_field(), version.to_field(), registry_address.to_field(), etc...)` where `contract_address_hash = pedersen_hash` (for now).
 -->
 
 <!--

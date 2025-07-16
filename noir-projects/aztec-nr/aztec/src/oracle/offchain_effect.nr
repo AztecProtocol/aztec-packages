@@ -6,18 +6,9 @@ use protocol_types::traits::Serialize;
 /// # Arguments
 ///
 /// * `data` - The data to emit.
-pub fn emit_offchain_effect<T, let N: u32>(data: T)
+pub unconstrained fn emit_offchain_effect<T>(data: T)
 where
-    T: Serialize<N>,
-{
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
-    unsafe { emit_offchain_effect_oracle_wrapper(data) };
-}
-
-unconstrained fn emit_offchain_effect_oracle_wrapper<T, let N: u32>(data: T)
-where
-    T: Serialize<N>,
+    T: Serialize,
 {
     emit_offchain_effect_oracle(data.serialize());
 }

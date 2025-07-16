@@ -2,7 +2,7 @@ use crate::NFT;
 use crate::test::utils;
 use aztec::{
     oracle::random::random,
-    test::helpers::{authwit::add_private_authwit_from_call_interface, cheatcodes},
+    test::helpers::{authwit::add_private_authwit_from_call_interface, txe_oracles},
 };
 
 #[test]
@@ -40,7 +40,7 @@ unconstrained fn transfer_in_private_to_non_deployed_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, _, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
-    let not_deployed = cheatcodes::create_account(999);
+    let not_deployed = txe_oracles::create_account(999);
 
     // Transfer the NFT to the recipient
     NFT::at(nft_contract_address)
@@ -83,7 +83,7 @@ unconstrained fn transfer_in_private_failure_not_an_owner() {
     );
 }
 
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The authwit nonce check is in the beginning so we don't need to waste time on minting the NFT and transferring

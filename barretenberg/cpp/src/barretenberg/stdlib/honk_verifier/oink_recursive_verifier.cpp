@@ -19,10 +19,10 @@ namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor>
 OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
-                                                       const std::shared_ptr<RecursiveDeciderVK>& verification_key,
+                                                       const std::shared_ptr<RecursiveDeciderVK>& decider_vk,
                                                        const std::shared_ptr<Transcript>& transcript,
                                                        std::string domain_separator)
-    : verification_key(verification_key)
+    : decider_vk(decider_vk)
     , builder(builder)
     , transcript(transcript)
     , domain_separator(std::move(domain_separator))
@@ -30,9 +30,9 @@ OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
 
 template <typename Flavor>
 OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
-                                                       const std::shared_ptr<RecursiveDeciderVK>& verification_key,
+                                                       const std::shared_ptr<RecursiveDeciderVK>& decider_vk,
                                                        std::string domain_separator)
-    : verification_key(verification_key)
+    : decider_vk(decider_vk)
     , builder(builder)
     , domain_separator(std::move(domain_separator))
 {}
@@ -50,12 +50,14 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    verification_key->verification_key->add_to_transcript(domain_separator, *transcript);
-    auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-    vinfo("vkey hash in Oink recursive verifier: ", vkey_hash);
+    FF vkey_hash = decider_vk->vk_and_hash->vk->add_hash_to_transcript(domain_separator, *transcript);
+    vinfo("vk hash in Oink recursive verifier: ", vkey_hash);
+    vinfo("expected vk hash: ", decider_vk->vk_and_hash->hash);
+    // Check that the vk hash matches the hash of the verification key
+    decider_vk->vk_and_hash->hash.assert_equal(vkey_hash);
 
     size_t num_public_inputs =
-        static_cast<size_t>(static_cast<uint32_t>(verification_key->verification_key->num_public_inputs.get_value()));
+        static_cast<size_t>(static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
         public_inputs.emplace_back(
@@ -109,24 +111,26 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         public_inputs,
         beta,
         gamma,
-        verification_key->verification_key->circuit_size,
-        static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset.get_value()));
+        decider_vk->vk_and_hash->vk->circuit_size,
+        static_cast<uint32_t>(decider_vk->vk_and_hash->vk->pub_inputs_offset.get_value()));
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
-    RelationSeparator alphas;
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
-    for (size_t idx = 0; idx < alphas.size(); ++idx) {
-        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
-    }
-    alphas = transcript->template get_challenges<FF>(args);
+    // Get the subrelation separation challenges for sumcheck/combiner computation
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
-    verification_key->relation_parameters =
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
+        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
+    }
+    // It is more efficient to generate an array of challenges than to generate them individually.
+    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
+
+    decider_vk->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
-    verification_key->witness_commitments = std::move(commitments);
-    verification_key->public_inputs = std::move(public_inputs);
-    verification_key->alphas = std::move(alphas);
+    decider_vk->witness_commitments = std::move(commitments);
+    decider_vk->public_inputs = std::move(public_inputs);
+    decider_vk->alphas = std::move(alphas);
 }
 
 template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBuilder>>;

@@ -12,6 +12,7 @@
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"

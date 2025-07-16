@@ -49,7 +49,7 @@ using simulation::NullifierTreeLeafPreimage;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
-using simulation::root_from_path;
+using simulation::unconstrained_root_from_path;
 
 using constraining::check_interaction;
 
@@ -112,7 +112,7 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
     for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.assert_read(param.nullifier,
                                                /*contract_address*/ std::nullopt,
@@ -168,7 +168,7 @@ TEST(NullifierTreeCheckTracegenTest, WriteWithInteractions)
 
     AztecAddress contract_address = AztecAddress(1);
     FF nullifier = 100;
-    FF siloed_nullifier = simulation::silo_nullifier(contract_address, nullifier);
+    FF siloed_nullifier = simulation::unconstrained_silo_nullifier(contract_address, nullifier);
     FF low_nullifier = 40;
     TestMemoryTree<Poseidon2HashPolicy> nullifier_tree(8, NULLIFIER_TREE_HEIGHT);
 

@@ -10,10 +10,25 @@
 
 namespace bb {
 
+inline std::string field_elements_to_json(const std::vector<bb::fr>& fields)
+{
+    std::stringstream ss;
+    ss << "[";
+    for (size_t i = 0; i < fields.size(); ++i) {
+        ss << '"' << fields[i] << '"';
+        if (i < fields.size() - 1) {
+            ss << ",";
+        }
+    }
+    ss << "]";
+    return ss.str();
+}
+
 template <typename VK> struct PubInputsProofAndKey {
     PublicInputsVector public_inputs;
     HonkProof proof;
     std::shared_ptr<VK> key;
+    fr vk_hash;
 };
 
 template <typename ProverOutput>
@@ -22,7 +37,7 @@ void write(const ProverOutput& prover_output,
            const std::string& output_content,
            const std::filesystem::path& output_dir)
 {
-    enum class ObjectToWrite : size_t { PUBLIC_INPUTS, PROOF, VK };
+    enum class ObjectToWrite : size_t { PUBLIC_INPUTS, PROOF, VK, VK_HASH };
     const bool output_to_stdout = output_dir == "-";
 
     const auto to_json = [](const std::vector<bb::fr>& data) {
@@ -31,6 +46,7 @@ void write(const ProverOutput& prover_output,
         }
         return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
+    const auto to_json_fr = [](const bb::fr& fr) { return format("\"", fr, "\""); };
 
     const auto write_bytes = [&](const ObjectToWrite& obj) {
         switch (obj) {
@@ -65,6 +81,16 @@ void write(const ProverOutput& prover_output,
             } else {
                 write_file(output_dir / "vk", buf);
                 info("VK saved to ", output_dir / "vk");
+            }
+            break;
+        }
+        case ObjectToWrite::VK_HASH: {
+            const auto buf = to_buffer(prover_output.vk_hash);
+            if (output_to_stdout) {
+                write_bytes_to_stdout(buf);
+            } else {
+                write_file(output_dir / "vk_hash", buf);
+                info("VK Hash saved to ", output_dir / "vk_hash");
             }
             break;
         }
@@ -104,6 +130,16 @@ void write(const ProverOutput& prover_output,
             }
             break;
         }
+        case ObjectToWrite::VK_HASH: {
+            const std::string vk_hash_json = to_json_fr(prover_output.vk_hash);
+            if (output_to_stdout) {
+                std::cout << vk_hash_json;
+            } else {
+                write_file(output_dir / "vk_hash_fields.json", { vk_hash_json.begin(), vk_hash_json.end() });
+                info("VK Hash fields saved to ", output_dir / "vk_hash_fields.json");
+            }
+            break;
+        }
         }
     };
 
@@ -125,11 +161,15 @@ void write(const ProverOutput& prover_output,
     } else if (output_content == "vk") {
         if (output_format == "bytes") {
             write_bytes(ObjectToWrite::VK);
+            write_bytes(ObjectToWrite::VK_HASH);
         } else if (output_format == "fields") {
             write_fields(ObjectToWrite::VK);
+            write_fields(ObjectToWrite::VK_HASH);
         } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::VK);
+            write_bytes(ObjectToWrite::VK_HASH);
             write_fields(ObjectToWrite::VK);
+            write_fields(ObjectToWrite::VK_HASH);
         } else {
             throw_or_abort("Invalid output_format for output_content vk");
         }
@@ -138,17 +178,21 @@ void write(const ProverOutput& prover_output,
             write_bytes(ObjectToWrite::PUBLIC_INPUTS);
             write_bytes(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
+            write_bytes(ObjectToWrite::VK_HASH);
         } else if (output_format == "fields") {
             write_fields(ObjectToWrite::PUBLIC_INPUTS);
             write_fields(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::VK);
+            write_fields(ObjectToWrite::VK_HASH);
         } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::PUBLIC_INPUTS);
             write_fields(ObjectToWrite::PUBLIC_INPUTS);
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
+            write_bytes(ObjectToWrite::VK_HASH);
             write_fields(ObjectToWrite::VK);
+            write_fields(ObjectToWrite::VK_HASH);
         } else {
             throw_or_abort("Invalid output_format for output_content proof_and_vk");
         }

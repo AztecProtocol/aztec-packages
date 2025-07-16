@@ -39,7 +39,6 @@ class ECCVMCircuitBuilder {
     static constexpr size_t ADDITIONS_PER_ROW = bb::eccvm::ADDITIONS_PER_ROW;
 
     using MSM = bb::eccvm::MSM<CycleGroup>;
-    using VMOperation = bb::VMOperation<CycleGroup>;
     std::shared_ptr<ECCOpQueue> op_queue;
     using ScalarMul = bb::eccvm::ScalarMul<CycleGroup>;
 

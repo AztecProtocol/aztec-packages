@@ -15,7 +15,7 @@ import {
   type Wallet,
   createLogger,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
@@ -291,7 +291,7 @@ export class ClientFlowsBenchmark {
       'fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
+        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
         const bananaCoin = this.bananaCoin;
         const bananaFPC = await FPCContract.deploy(this.adminWallet, bananaCoin.address, this.adminAddress)

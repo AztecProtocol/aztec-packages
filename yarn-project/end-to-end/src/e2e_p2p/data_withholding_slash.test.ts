@@ -1,5 +1,4 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
 import { Offense } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
@@ -15,7 +14,7 @@ import { awaitCommitteeExists, awaitCommitteeKicked } from './shared.js';
 jest.setTimeout(1000000);
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'));
@@ -48,7 +47,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_data_withholding_slash',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
@@ -70,7 +70,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -106,7 +106,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -115,19 +115,15 @@ describe('e2e_p2p_data_withholding_slash', () => {
     );
 
     await debugRollup();
-    await sleep(4000);
-    await debugRollup();
-
     const committee = await awaitCommitteeExists({ rollup, logger: t.logger });
     await debugRollup();
 
     // Jump forward more time to ensure we're at the beginning of an epoch.
     // This should reduce flake, since we need to have the transaction included
     // and the nodes recreated, prior to the reorg.
-    // Considering the epoch duration is 1,
-    // the proof submission window is 1,
-    // and the aztec slot duration is 20,
-    // we have ~20 seconds to do this.
+    // Considering the slot duration is 32 seconds,
+    // Considering the epoch duration is 2 slots,
+    // we have ~64 seconds to do this.
     {
       const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
       t.ctx.dateProvider.setTime(Number(newTime * 1000n));
@@ -136,22 +132,16 @@ describe('e2e_p2p_data_withholding_slash', () => {
       await debugRollup();
     }
 
-    // Sleep for a few seconds to allow the *previous* epoch to be pruned.
-    await sleep(4000);
-
     // Send Aztec txs
     t.logger.info('Setup account');
     await t.setupAccount();
-    t.logger.info('Deploy spam contract');
-    await t.deploySpamContract();
-
     t.logger.info('Stopping nodes');
     // Note, we needed to keep the initial node running, as that is the one the txs were sent to.
     await t.removeInitialNode();
     // Now stop the nodes,
     await t.stopNodes(nodes);
     // And remove the data directories (which forms the crux of the "attack")
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
 
@@ -163,7 +153,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,

@@ -29,7 +29,6 @@ struct ProposeArgs {
   StateReference stateReference;
   OracleInput oracleInput;
   ProposedHeader header;
-  bytes32[] txHashes;
 }
 
 struct ProposePayload {
@@ -37,7 +36,6 @@ struct ProposePayload {
   StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
-  bytes32[] txHashes;
 }
 
 struct InterimProposeValues {
@@ -120,8 +118,7 @@ library ProposeLib {
             archive: _args.archive,
             stateReference: _args.stateReference,
             oracleInput: _args.oracleInput,
-            headerHash: v.headerHash,
-            txHashes: _args.txHashes
+            headerHash: v.headerHash
           })
         ),
         manaBaseFee: FeeLib.summedBaseFee(components),

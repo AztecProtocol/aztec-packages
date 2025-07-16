@@ -11,6 +11,7 @@ import {
   AztecAddress,
   type ContractArtifact,
 } from '@aztec/aztec.js';
+import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat/lazy';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -86,14 +87,15 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
   const [profile, setProfile] = useState(false);
 
-  const { wallet } = useContext(AztecContext);
+  const { wallet, pxe } = useContext(AztecContext);
 
   const simulate = async (fnName: string) => {
     trackButtonClick(`Simulate ${fnName}`, 'Contract Interaction');
     setIsWorking(true);
     let result;
     try {
-      const call = contract.methods[fnName](...parameters);
+      const copyCatWallet = await CopyCatAccountWallet.create(pxe, wallet);
+      const call = contract.withWallet(copyCatWallet).methods[fnName](...parameters);
       result = await call.simulate({ skipFeeEnforcement: true });
       const stringResult = JSON.stringify(result, (key, value) => {
         if (typeof value === 'bigint') {

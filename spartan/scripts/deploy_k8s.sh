@@ -24,6 +24,7 @@ values_file="${3:-default.yaml}"
 sepolia_deployment="${4:-false}"
 mnemonic_file="${5:-"mnemonic.tmp"}"
 helm_instance="${6:-spartan}"
+project_id="${7:-"testnet-440309"}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
@@ -38,7 +39,7 @@ wait="${WAIT_FOR_DEPLOYMENT:-true}"
 cluster_name=${CLUSTER_NAME:-aztec-gke-private}
 zone=${ZONE:-us-west1-a}
 
-if [ "$target" = "kind" ] ; then
+if [ "$target" = "kind" ]; then
   if ! docker_has_image "$repository:$aztec_docker_tag"; then
     echo "Aztec Docker image not found. It needs to be built."
     exit 1
@@ -58,16 +59,18 @@ elif [ "$target" = "gke" ]; then
     exit 1
   fi
 
-  # Check if GCP service account key is available
-  if [ -z "${GCP_SA_KEY:-}" ]; then
-    echo "Error: GCP_SA_KEY environment variable is not set. Cannot authenticate to GKE cluster."
+  # Get GKE cluster credentials & connect to it
+  # gcp-key.json should be created in bootstrap_ec2
+  echo "Getting credentials for GKE cluster: $CLUSTER_NAME in zone: $ZONE"
+
+  if [ ! -f "/tmp/gcp-key.json" ]; then
+    echo "Error: GCP key file /tmp/gcp-key.json does not exist"
+    echo "Please ensure the GCP service account key is available at /tmp/gcp-key.json"
     exit 1
   fi
 
-  # Get GKE cluster credentials & connect to it
-  echo "Getting credentials for GKE cluster: $CLUSTER_NAME in zone: $ZONE"
-  # echo "$GCP_SA_KEY" >/tmp/gcp-key.json
   gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  gcloud config set project "$project_id"
   gcloud container clusters get-credentials "$CLUSTER_NAME" --zone "$ZONE"
 else
   echo "Unknown target: $target"

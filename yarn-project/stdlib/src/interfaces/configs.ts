@@ -40,6 +40,10 @@ export interface SequencerConfig {
   enforceTimeTable?: boolean;
   /** How many seconds into an L1 slot we can still send a tx and get it mined. */
   maxL1TxInclusionTimeIntoSlot?: number;
+  /** Used for testing to introduce a fake delay after processing each tx */
+  fakeProcessingDelayPerTxMs?: number;
+  /** How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way) */
+  attestationPropagationTime?: number;
 }
 
 export const SequencerConfigSchema = z.object({
@@ -58,4 +62,6 @@ export const SequencerConfigSchema = z.object({
   governanceProposerPayload: schemas.EthAddress.optional(),
   maxL1TxInclusionTimeIntoSlot: z.number().optional(),
   enforceTimeTable: z.boolean().optional(),
+  fakeProcessingDelayPerTxMs: z.number().optional(),
+  attestationPropagationTime: z.number().optional(),
 }) satisfies ZodFor<SequencerConfig>;

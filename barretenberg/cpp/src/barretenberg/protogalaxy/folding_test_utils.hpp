@@ -26,10 +26,10 @@ static bool check_accumulator_target_sum_manual(const std::shared_ptr<DeciderPro
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, 2>;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
-    const size_t accumulator_size = accumulator->proving_key.circuit_size;
+    const size_t accumulator_size = accumulator->dyadic_size();
     PGInternal pg_internal;
     const auto expected_honk_evals = pg_internal.compute_row_evaluations(
-        accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
+        accumulator->polynomials, accumulator->alphas, accumulator->relation_parameters);
     // Construct pow(\vec{betas*}) as in the paper
     GateSeparatorPolynomial expected_gate_separators(accumulator->gate_challenges, accumulator->gate_challenges.size());
 

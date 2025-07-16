@@ -2,7 +2,7 @@ use crate::NFT;
 use dep::aztec::{
     oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
     protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
-    test::helpers::{cheatcodes, test_environment::TestEnvironment},
+    test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
 pub unconstrained fn setup(
@@ -44,7 +44,7 @@ pub unconstrained fn setup_and_mint(
     let minted_token_id = 615;
 
     NFT::at(nft_contract_address).mint(owner, minted_token_id).call(&mut env.public());
-    env.advance_block_by(1);
+    env.mine_block();
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -66,13 +66,13 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
 
 pub unconstrained fn get_nft_exists(nft_contract_address: AztecAddress, token_id: Field) -> bool {
     let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(nft_contract_address);
+    txe_oracles::set_contract_address(nft_contract_address);
     let block_number = get_block_number();
 
     let nft_exists_slot = NFT::storage_layout().nft_exists.slot;
     let nft_slot = derive_storage_slot_in_map(nft_exists_slot, token_id);
     let exists: bool = storage_read(nft_contract_address, nft_slot, block_number);
-    cheatcodes::set_contract_address(current_contract_address);
+    txe_oracles::set_contract_address(current_contract_address);
 
     exists
 }
@@ -94,7 +94,7 @@ pub unconstrained fn assert_owns_private_nft(
     token_id: Field,
 ) {
     let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(nft_contract_address);
+    txe_oracles::set_contract_address(nft_contract_address);
 
     // Direct call to unconstrained
     let (private_nfts, _) = NFT::get_private_nfts(owner, 0);
@@ -106,7 +106,7 @@ pub unconstrained fn assert_owns_private_nft(
         }
     }
 
-    cheatcodes::set_contract_address(current_contract_address);
+    txe_oracles::set_contract_address(current_contract_address);
 
     assert(nft_found, "NFT not found in private nfts");
 }

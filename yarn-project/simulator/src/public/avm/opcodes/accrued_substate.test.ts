@@ -9,7 +9,7 @@ import type { PublicSideEffectTraceInterface } from '../../../public/side_effect
 import type { PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
-import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
+import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
 import {
@@ -40,7 +40,7 @@ describe('Accrued Substate', () => {
   const value0Offset = 100;
   const value1 = new Fr(420);
   const value1Offset = 200;
-  const leafIndex = new Fr(7);
+  const leafIndex = 7n;
   const leafIndexOffset = 1;
   const existsOffset = 2;
   const firstNullifier = new Fr(420000);
@@ -81,21 +81,19 @@ describe('Accrued Substate', () => {
     describe.each([
       [/*mockAtLeafIndex=*/ undefined], // doesn't exist at all
       [/*mockAtLeafIndex=*/ leafIndex], // should be found!
-      [/*mockAtLeafIndex=*/ leafIndex.add(Fr.ONE)], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
-    ])('Note hash checks', (mockAtLeafIndex?: Fr) => {
-      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex.equals(leafIndex);
-      const existsElsewhere = mockAtLeafIndex !== undefined && !mockAtLeafIndex.equals(leafIndex);
+      [/*mockAtLeafIndex=*/ leafIndex + 1n], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
+    ])('Note hash checks', (mockAtLeafIndex?: bigint) => {
+      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex == leafIndex;
+      const existsElsewhere = mockAtLeafIndex !== undefined && !(mockAtLeafIndex == leafIndex);
       const existsStr = expectFound ? 'DOES exist' : 'does NOT exist';
-      const foundAtStr = existsElsewhere
-        ? `at leafIndex=${mockAtLeafIndex.toNumber()} (exists at leafIndex=${leafIndex.toNumber()})`
-        : '';
+      const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
           mockNoteHashExists(treesDB, mockAtLeafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
-        context.machineState.memory.set(leafIndexOffset, new Field(leafIndex));
+        context.machineState.memory.set(leafIndexOffset, new Uint64(leafIndex));
         await new NoteHashExists(
           /*indirect=*/ 0,
           /*noteHashOffset=*/ value0Offset,
@@ -211,7 +209,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockCheckNullifierExists(treesDB, true, leafIndex);
+      mockCheckNullifierExists(treesDB, true, new Fr(leafIndex));
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
@@ -246,18 +244,16 @@ describe('Accrued Substate', () => {
     describe.each([
       [/*mockAtLeafIndex=*/ undefined], // doesn't exist at all
       [/*mockAtLeafIndex=*/ leafIndex], // should be found!
-      [/*mockAtLeafIndex=*/ leafIndex.add(Fr.ONE)], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
-    ])('L1ToL2 message checks', (mockAtLeafIndex?: Fr) => {
-      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex.equals(leafIndex);
-      const existsElsewhere = mockAtLeafIndex !== undefined && !mockAtLeafIndex.equals(leafIndex);
+      [/*mockAtLeafIndex=*/ leafIndex + 1n], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
+    ])('L1ToL2 message checks', (mockAtLeafIndex?: bigint) => {
+      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex == leafIndex;
+      const existsElsewhere = mockAtLeafIndex !== undefined && !(mockAtLeafIndex == leafIndex);
       const existsStr = expectFound ? 'DOES exist' : 'does NOT exist';
-      const foundAtStr = existsElsewhere
-        ? `at leafIndex=${mockAtLeafIndex.toNumber()} (exists at leafIndex=${leafIndex.toNumber()})`
-        : '';
+      const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
 
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(treesDB, new Fr(mockAtLeafIndex), value0, /*valueAtOtherIndices=*/ value1);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash

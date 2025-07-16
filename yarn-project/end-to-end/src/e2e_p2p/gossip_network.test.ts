@@ -1,7 +1,9 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
+import { retryUntil, sleep } from '@aztec/aztec.js';
+import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
@@ -10,7 +12,12 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
+import {
+  ATTESTER_PRIVATE_KEYS_START_INDEX,
+  type NodeContext,
+  createNodes,
+  createProverNode,
+} from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
@@ -18,7 +25,7 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 
@@ -39,15 +46,19 @@ const qosAlerts: AlertConfig[] = [
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let proverNode: ProverNode;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_network',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
+      startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecEpochDuration: 4,
         listenAddress: '127.0.0.1',
       },
     });
@@ -57,9 +68,10 @@ describe('e2e_p2p_network', () => {
   });
 
   afterEach(async () => {
+    await tryStop(proverNode);
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -89,13 +101,26 @@ describe('e2e_p2p_network', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
+
+    // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
+    proverNode = await createProverNode(
+      t.ctx.aztecNodeConfig,
+      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
+      t.bootstrapNodeEnr,
+      ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
+      { dateProvider: t.ctx.dateProvider },
+      t.prefilledPublicData,
+      `${DATA_DIR}-prover`,
+      shouldCollectMetrics(),
+    );
+    await proverNode.start();
 
     // wait a bit for peers to discover each other
     await sleep(8000);
@@ -142,5 +167,15 @@ describe('e2e_p2p_network', () => {
     for (const signer of signers) {
       expect(validatorAddresses).toContain(signer);
     }
+
+    // Ensure prover node did its job and collected txs from p2p
+    await retryUntil(
+      async () => {
+        const provenBlock = await nodes[0].getProvenBlockNumber();
+        return provenBlock > 0;
+      },
+      'proven block',
+      120,
+    );
   });
 });

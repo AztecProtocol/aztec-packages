@@ -64,7 +64,11 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
         if (!result) {
+#ifndef FUZZING_DISABLE_WARNINGS
             info("Failed at block idx = ", block_idx);
+#else
+            (void)block_idx;
+#endif
             return false;
         }
         block_idx++;
@@ -107,7 +111,12 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     params.eta_three = memory_data.eta_three;
 
     auto report_fail = [&](const char* message, size_t row_idx) {
+#ifndef FUZZING_DISABLE_WARNINGS
         info(message, row_idx);
+#else
+        (void)message;
+        (void)row_idx;
+#endif
 #ifdef CHECK_CIRCUIT_STACKTRACES
         block.stack_traces.print(row_idx);
 #endif
@@ -432,8 +441,8 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
  */
 template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation(Builder& builder)
 {
-    for (size_t i = 0; i < builder.rom_arrays.size(); i++) {
-        auto rom_array = builder.rom_arrays[i];
+    for (size_t i = 0; i < builder.rom_ram_logic.rom_arrays.size(); i++) {
+        auto rom_array = builder.rom_ram_logic.rom_arrays[i];
 
         // check set and read ROM records
         for (auto& rr : rom_array.records) {
@@ -455,8 +464,8 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation
         }
     }
 
-    for (size_t i = 0; i < builder.ram_arrays.size(); i++) {
-        auto ram_array = builder.ram_arrays[i];
+    for (size_t i = 0; i < builder.rom_ram_logic.ram_arrays.size(); i++) {
+        auto ram_array = builder.rom_ram_logic.ram_arrays[i];
 
         std::vector<uint32_t> tmp_state(ram_array.state.size());
 
@@ -469,13 +478,13 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation
             uint32_t table_witness = tmp_state[index];
 
             switch (access_type) {
-            case Builder::RamRecord::AccessType::READ:
+            case bb::RamRecord::AccessType::READ:
                 if (builder.get_variable(value_witness) != builder.get_variable(table_witness)) {
                     info("Failed RAM read in table = ", i, " at idx = ", index);
                     return false;
                 }
                 break;
-            case Builder::RamRecord::AccessType::WRITE:
+            case bb::RamRecord::AccessType::WRITE:
                 tmp_state[index] = value_witness;
                 break;
             default:

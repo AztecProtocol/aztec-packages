@@ -171,15 +171,15 @@ export class BotFactory {
       deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
     } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
       deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress());
-      deployOpts.skipPublicDeployment = true;
-      deployOpts.skipClassRegistration = true;
+      deployOpts.skipInstancePublication = true;
+      deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -308,7 +308,7 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {

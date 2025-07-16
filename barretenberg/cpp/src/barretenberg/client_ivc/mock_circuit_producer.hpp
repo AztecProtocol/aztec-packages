@@ -148,20 +148,21 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @param trace_structure Trace structuring must be known in advance because it effects the VKs
      * @return set of num_circuits-many verification keys
      */
-    auto precompute_verification_keys(const size_t num_circuits, TraceSettings trace_settings)
+    auto precompute_vks(const size_t num_circuits, TraceSettings trace_settings)
     {
-        ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
+        ClientIVC ivc{ num_circuits,
+                       trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
-        std::vector<std::shared_ptr<VerificationKey>> vkeys;
+        std::vector<std::shared_ptr<VerificationKey>> vks;
 
         for (size_t idx = 0; idx < num_circuits; ++idx) {
             ClientCircuit circuit = create_next_circuit(ivc); // create the next circuit
             ivc.accumulate(circuit);                          // accumulate the circuit
-            vkeys.emplace_back(ivc.honk_vk);                  // save the VK for the circuit
+            vks.emplace_back(ivc.honk_vk);                    // save the VK for the circuit
         }
         circuit_counter = 0; // reset the internal circuit counter back to 0
 
-        return vkeys;
+        return vks;
     }
 };
 
@@ -185,7 +186,7 @@ class ClientIVCMockCircuitProducer {
     static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
+        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
         return circuit;
     }
 
@@ -194,7 +195,7 @@ class ClientIVCMockCircuitProducer {
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
-        while (circuit.get_num_public_inputs() < num_public_inputs) {
+        while (circuit.num_public_inputs() < num_public_inputs) {
             circuit.add_public_variable(13634816); // arbitrary number
         }
         if (is_kernel) {
@@ -207,22 +208,21 @@ class ClientIVCMockCircuitProducer {
         return circuit;
     }
 
-    auto precompute_verification_keys(const size_t num_circuits,
-                                      TraceSettings trace_settings,
-                                      size_t log2_num_gates = 16)
+    auto precompute_vks(const size_t num_circuits, TraceSettings trace_settings, size_t log2_num_gates = 16)
     {
-        ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
+        ClientIVC ivc{ num_circuits,
+                       trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
-        std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> vkeys;
+        std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> vks;
 
         for (size_t idx = 0; idx < num_circuits; ++idx) {
             ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
             ivc.accumulate(circuit);                                          // accumulate the circuit
-            vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
+            vks.emplace_back(ivc.honk_vk);                                    // save the VK for the circuit
         }
         is_kernel = false;
 
-        return vkeys;
+        return vks;
     }
 };
 

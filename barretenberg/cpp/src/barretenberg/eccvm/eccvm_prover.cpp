@@ -36,6 +36,20 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
 }
 
 /**
+ * @brief Fiat-Shamir the VK
+ *
+ */
+void ECCVMProver::execute_preamble_round()
+{
+    using VerificationKey = Flavor::VerificationKey;
+
+    // Fiat-Shamir the vk hash
+    VerificationKey vk;
+    typename Flavor::BF vkey_hash = vk.add_hash_to_transcript("", *transcript);
+    vinfo("ECCVM vk hash in prover: ", vkey_hash);
+}
+
+/**
  * @brief Compute commitments to the first three wires
  *
  */
@@ -113,16 +127,20 @@ void ECCVMProver::execute_relation_check_rounds()
 
     using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
 
-    Sumcheck sumcheck(key->circuit_size, transcript);
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    Sumcheck sumcheck(key->circuit_size, key->polynomials, transcript, alpha, gate_challenges, relation_parameters);
+
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+    sumcheck_output = sumcheck.prove(zk_sumcheck_data);
 }
 
 /**
@@ -182,6 +200,7 @@ ECCVMProof ECCVMProver::construct_proof()
 {
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
+    execute_preamble_round();
     execute_wire_commitments_round();
     execute_log_derivative_commitments_round();
     execute_grand_product_computation_round();

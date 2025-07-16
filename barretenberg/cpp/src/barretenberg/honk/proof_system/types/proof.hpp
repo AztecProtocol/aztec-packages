@@ -23,9 +23,10 @@ struct ECCVMProof {
     HonkProof pre_ipa_proof;
     HonkProof ipa_proof;
 
+    size_t size() const { return pre_ipa_proof.size() + ipa_proof.size(); }
+
     MSGPACK_FIELDS(pre_ipa_proof, ipa_proof);
 };
 template <typename Builder> using StdlibPublicInputsVector = std::vector<bb::stdlib::field_t<Builder>>;
-template <typename Builder> using StdlibProof = std::vector<bb::stdlib::field_t<Builder>>;
 
 } // namespace bb

@@ -97,7 +97,6 @@ import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operati
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { ReadRequest } from '../kernel/hints/read_request.js';
-import { RollupValidationRequests } from '../kernel/hints/rollup_validation_requests.js';
 import {
   ClaimedLengthArray,
   PartialPrivateTailPublicInputsForPublic,
@@ -165,7 +164,6 @@ import { CallContext } from '../tx/call_context.js';
 import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
-import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
@@ -307,10 +305,6 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
   return new ContractStorageRead(fr(seed), fr(seed + 1), seed + 2);
 }
 
-export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new IncludeByTimestamp(true, BigInt(seed + 0x31415)));
-}
-
 function makeTxConstantData(seed = 1) {
   return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
 }
@@ -409,9 +403,9 @@ export function makePrivateKernelTailCircuitPublicInputs(
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
-    makeRollupValidationRequests(seed + 0x500),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
+    BigInt(seed + 0x800),
     forPublic,
     forRollup,
   );
@@ -420,12 +414,12 @@ export function makePrivateKernelTailCircuitPublicInputs(
 function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
   return new PrivateToPublicKernelCircuitPublicInputs(
     makeTxConstantData(seed),
-    makeRollupValidationRequests(seed + 0x100),
     makePrivateToPublicAccumulatedData(seed + 0x200),
     makePrivateToPublicAccumulatedData(seed + 0x300),
     makePublicCallRequest(seed + 0x400),
     makeGas(seed + 0x500),
     makeAztecAddress(seed + 0x600),
+    BigInt(seed + 0x700),
   );
 }
 
@@ -440,10 +434,10 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
 ): PrivateToRollupKernelCircuitPublicInputs {
   return new PrivateToRollupKernelCircuitPublicInputs(
     makeTxConstantData(seed + 0x100),
-    makeRollupValidationRequests(seed),
     makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
+    BigInt(seed + 0x800),
   );
 }
 
@@ -576,7 +570,7 @@ function makeClaimedLengthArray<T extends Serializable, N extends number>(
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    includeByTimestamp: new IncludeByTimestamp(true, BigInt(seed + 0x31415)),
+    includeByTimestamp: BigInt(seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -1483,7 +1477,6 @@ export async function makePublicCallRequestWithCalldata(seed = 0): Promise<Publi
 export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
-    makeGlobalVariables(seed),
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
     {
@@ -1518,6 +1511,7 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
+    globalVariables: makeGlobalVariables(seed + 0x4000),
     tx: await makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
@@ -1550,6 +1544,7 @@ export async function makeAvmExecutionHints(
   };
 
   return new AvmExecutionHints(
+    fields.globalVariables,
     fields.tx,
     fields.contractInstances,
     fields.contractClasses,

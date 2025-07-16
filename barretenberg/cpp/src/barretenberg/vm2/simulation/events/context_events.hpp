@@ -25,7 +25,7 @@ struct ContextEvent {
 
     // Return data info from child context
     uint32_t last_child_rd_addr;
-    uint32_t last_child_rd_size_addr;
+    uint32_t last_child_rd_size;
     bool last_child_success;
 
     // Gas
@@ -41,7 +41,8 @@ struct ContextEvent {
     InternalCallId next_internal_call_id = 0;
 
     // Tree State
-    // TreeSnapshots tree_state;
+    TreeStates tree_states;
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
 };
 
 struct ContextStackEvent {

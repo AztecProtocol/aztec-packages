@@ -200,6 +200,13 @@ pub contract AvmTest {
         }
     }
 
+    #[public]
+    fn bitwise_ops(x: u32, y: u32) -> u32 {
+        let mut result = x & y;
+        result = result | x;
+        result ^ y
+    }
+
     /************************************************************************
      * Misc
      ************************************************************************/
@@ -404,12 +411,12 @@ pub contract AvmTest {
 
     #[public]
     fn get_fee_per_l2_gas() -> u128 {
-        context.fee_per_l2_gas()
+        context.base_fee_per_l2_gas()
     }
 
     #[public]
     fn get_fee_per_da_gas() -> u128 {
-        context.fee_per_da_gas()
+        context.base_fee_per_da_gas()
     }
 
     #[public]
@@ -437,7 +444,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn note_hash_exists(note_hash: Field, leaf_index: Field) -> bool {
+    fn note_hash_exists(note_hash: Field, leaf_index: u64) -> bool {
         context.note_hash_exists(note_hash, leaf_index)
     }
 
@@ -643,6 +650,9 @@ pub contract AvmTest {
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
     ) {
+        dep::aztec::oracle::debug_log::debug_log("biwise_ops");
+        let num = get_block_number();
+        let _ = bitwise_ops(num, num);
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");

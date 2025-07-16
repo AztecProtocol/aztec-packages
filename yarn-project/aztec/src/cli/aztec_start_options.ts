@@ -6,6 +6,7 @@ import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
   type EnvVar,
+  SecretValue,
   booleanConfigHelper,
   isBooleanConfigValue,
   omitConfigMappings,
@@ -158,7 +159,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'List of API keys for the corresponding Ethereum consensus nodes',
       defaultValue: [],
       envVar: 'L1_CONSENSUS_HOST_API_KEYS',
-      parseVal: (val: string) => val.split(',').map(url => url.trim()),
+      parseVal: (val: string) => val.split(',').map(key => new SecretValue(key)),
     },
     {
       flag: '--l1-consensus-host-api-key-headers <value>',

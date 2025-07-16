@@ -48,16 +48,7 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
 
     stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    VerificationKey original_vkey{ proving_key->proving_key };
-
-    // Populate some non-zero values in the databus_propagation_data to ensure its being handled
-    if constexpr (IsMegaBuilder<Builder>) {
-        original_vkey.databus_propagation_data.app_return_data_commitment_pub_input_key =
-            PublicComponentKey{ /*start_idx=*/1 };
-        original_vkey.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
-            PublicComponentKey{ /*start_idx=*/5 };
-        original_vkey.databus_propagation_data.is_kernel = 1;
-    }
+    VerificationKey original_vkey{ proving_key->get_precomputed() };
 
     // Serialize and deserialize the verification key
     std::vector<uint8_t> vkey_buffer = to_buffer(original_vkey);
