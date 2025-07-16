@@ -121,13 +121,13 @@ ClientIVC::PairingPoints ClientIVC::complete_hiding_circuit_logic(
     // Perform recursive verification of the last merge proof
     PairingPoints points_accumulator = goblin.recursively_verify_merge(
         circuit, tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
-    points_accumulator.aggregate(kernel_input.pairing_inputs);
+    PairingPoints nested_pairing_points = kernel_input.pairing_inputs;
+    points_accumulator.aggregate(nested_pairing_points);
 
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_accumulator };
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
     points_accumulator.aggregate(decider_pairing_points);
-
     return points_accumulator;
 }
 
@@ -256,6 +256,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
+    bool finished = false;
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
     while (!stdlib_verification_queue.empty()) {
@@ -268,15 +269,23 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         points_accumulator.aggregate(pairing_points);
 
         stdlib_verification_queue.pop_front();
+        if (verifier_input.type == QUEUE_TYPE::PG_FINAL) {
+            finished = true;
+        }
     }
 
     // Set the kernel output data to be propagated via the public inputs
-    KernelIO kernel_output;
-    kernel_output.pairing_inputs = points_accumulator;
-    kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
-    kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
+    if (finished) {
+        stdlib::recursion::honk::HidingKernelIO hiding_output{ points_accumulator };
+        hiding_output.set_public();
+    } else {
+        KernelIO kernel_output;
+        kernel_output.pairing_inputs = points_accumulator;
+        kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
+        kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
 
-    kernel_output.set_public();
+        kernel_output.set_public();
+    }
 }
 
 /**
