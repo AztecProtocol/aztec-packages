@@ -9,15 +9,18 @@
 namespace bb::bbapi {
 
 // Global map to store BBApiRequest objects by request ID
-static std::map<uint128_t, BBApiRequest> request_map;
-static std::mutex request_map_mutex;
+namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::map<uint128_t, BBApiRequest> request_map;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::mutex request_map_mutex;
 
 /**
  * @brief Convert a vector of bytes to uint128_t
  * @param bytes Vector of 16 bytes
  * @return uint128_t representation
  */
-static uint128_t bytes_to_uint128(const std::vector<uint8_t>& bytes)
+uint128_t bytes_to_uint128(const std::vector<uint8_t>& bytes)
 {
     if (bytes.size() != 16) {
         throw_or_abort("Request ID must be exactly 16 bytes");
@@ -28,6 +31,7 @@ static uint128_t bytes_to_uint128(const std::vector<uint8_t>& bytes)
     }
     return result;
 }
+} // namespace
 
 /**
  * @brief Main API function that processes commands and returns responses
@@ -36,7 +40,7 @@ static uint128_t bytes_to_uint128(const std::vector<uint8_t>& bytes)
  * @param command The command to execute
  * @return CommandResponse The response from executing the command
  */
-CommandResponse bbapi(const std::vector<uint8_t>& request_id_bytes, Command command)
+CommandResponse bbapi(const std::vector<uint8_t>& request_id_bytes, Command&& command)
 {
     uint128_t request_id = bytes_to_uint128(request_id_bytes);
 
@@ -52,4 +56,4 @@ CommandResponse bbapi(const std::vector<uint8_t>& request_id_bytes, Command comm
 } // namespace bb::bbapi
 
 // Use CBIND macro to export the bbapi function for WASM
-CBIND(bbapi, bb::bbapi::bbapi)
+CBIND_NOSCHEMA(bbapi, bb::bbapi::bbapi)
