@@ -25,7 +25,7 @@ pub struct DelayedPublicMutable<T, let INITIAL_DELAY: u64, Context> {
 // slots to this state variable.
 impl<T, let INITIAL_DELAY: u64, Context, let M: u32> HasStorageSlot<M> for DelayedPublicMutable<T, INITIAL_DELAY, Context>
 where
-    WithHash<DelayedPublicMutableValues<T, INITIAL_DELAY>, _>: Packable<M>,
+    WithHash<DelayedPublicMutableValues<T, INITIAL_DELAY>, M>: Packable<N = M>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot

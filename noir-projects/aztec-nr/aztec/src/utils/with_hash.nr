@@ -95,28 +95,28 @@ where
     }
 }
 
-impl<T> Packable for WithHash<T>
+impl<T, let M: u32> Packable for WithHash<T, M>
 where
-    T: Packable,
+    T: Packable<N = M>,
 {
-    let N: u32 = <T as Packable>::N + 1;
+    let N: u32 = M + 1;
 
     fn pack(self) -> [Field; Self::N] {
         let mut result: [Field; Self::N] = std::mem::zeroed();
-        for i in 0..<T as Packable>::N {
+        for i in 0..M {
             result[i] = self.packed[i];
         }
-        result[<T as Packable>::N] = self.hash;
+        result[M] = self.hash;
 
         result
     }
 
     fn unpack(packed: [Field; Self::N]) -> Self {
-        let mut value_packed = [0; <T as Packable>::N];
-        for i in 0..<T as Packable>::N {
+        let mut value_packed = [0; M];
+        for i in 0..M {
             value_packed[i] = packed[i];
         }
-        let hash = packed[<T as Packable>::N];
+        let hash = packed[M];
 
         Self { value: T::unpack(value_packed), packed: value_packed, hash }
     }

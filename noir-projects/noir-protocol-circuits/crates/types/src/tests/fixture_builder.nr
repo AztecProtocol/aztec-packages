@@ -556,8 +556,8 @@ impl FixtureBuilder {
                 .hash();
             let delayed_public_mutable_slot =
                 derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, self.contract_address);
-            let hash_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>, _>(
-                delayed_public_mutable_slot,
+            let hash_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>>(
+                shared_mutable_slot,
             );
             let hash_leaf_slot = compute_public_data_tree_index(
                 CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
