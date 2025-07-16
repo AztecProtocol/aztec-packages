@@ -322,7 +322,8 @@ template <typename Flavor> class SumcheckProverRound {
         ExtendedEdges extended_edges;
         SumcheckRoundUnivariate result;
 
-        // In Round 0, we have to compute the contribution from 2 edges: n - 1 = (1,1,...,1) and n-4 = (0,1,...,1).
+        // In Round 0, we have to compute the contribution from 2 edges: (1, 1,..., 1) and (0, 1, ..., 1) (as points on
+        // (d-1) - dimensional Boolean hypercube).
         size_t start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
 
         for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
