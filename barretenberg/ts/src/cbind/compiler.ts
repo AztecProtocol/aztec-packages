@@ -268,7 +268,7 @@ export class CbindCompiler {
           const [name, schemaOrName] = namedType;
 
           names.push(name);
-          
+
           // Handle case where schema is just a string reference to the type name
           let objTypeInfo: TypeInfo;
           if (typeof schemaOrName === 'string') {
@@ -294,7 +294,7 @@ export class CbindCompiler {
           } else {
             objTypeInfo = this.getTypeInfo(schemaOrName);
           }
-          
+
           tupleTypeInfos.push(objTypeInfo);
 
           // Create tuple type [name, ObjectType]
@@ -434,7 +434,7 @@ export class CbindCompiler {
     result += '}';
     return result;
   }
-  
+
   /**
    * Generate the non-msgpack interface (with camelCase properties).
    * @param name - The interface name.
@@ -564,7 +564,7 @@ ${checkerSyntax()};
     const callStrings = typeInfos.map((typeInfo, i) => `${classConverterExpr(typeInfo, `arg${i}`)}`);
     const innerCall = `callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
     const retType = this.getTypeInfo(cbind.ret);
-    this.funcDecls.push(`export function ${camelCase(name)}(wasm: BarretenbergWasmBase, ${argStrings.join(', ')}): ${
+    this.funcDecls.push(`export function ${camelCase(name)}(wasm: BarretenbergApi, ${argStrings.join(', ')}): ${
       retType.typeName
     } {
   return ${msgpackConverterExpr(retType, innerCall)};
@@ -601,14 +601,14 @@ ${checkerSyntax()};
       const respType = responseTypeInfo.variantSubtypes[i];
       const [commandName] = commandNamedTypes[i] as [string, any];
       const [responseName] = responseNamedTypes[i] as [string, any];
-      
+
       // Generate function name (lowercase version of command)
       const funcName = camelCase(commandName);
-      
+
       // Generate the function
-      this.funcDecls.push(`export async function ${funcName}(wasm: BarretenbergWasmBase, command: ${cmdType.typeName}): Promise<${respType.typeName}> {
+      this.funcDecls.push(`export async function ${funcName}(wasm: BarretenbergApi, command: ${cmdType.typeName}): Promise<${respType.typeName}> {
   const msgpackCommand = from${cmdType.typeName}(command);
-  const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
+  const [variantName, result] = await callCbind(wasm, 'bbapi', [["${commandName}", msgpackCommand]]);
   if (variantName !== '${responseName}') {
     throw new Error(\`Expected variant name '${responseName}' but got '\${variantName}'\`);
   }
@@ -631,7 +631,7 @@ ${checkerSyntax()};
 // GENERATED FILE DO NOT EDIT, RUN yarn generate
 import { Buffer } from "buffer";
 import { callCbind } from './cbind.js';
-import { BarretenbergWasmBase } from "../barretenberg_wasm/barretenberg_wasm_base/index.js";
+import { BarretenbergApi } from "../barretenberg_wasm/barretenberg_wasm_base/index.js";
 
 // Helper type for fixed-size arrays
 type Tuple<T, N extends number> = T[] & { length: N };
@@ -662,13 +662,13 @@ export type Fr = Buffer;
           // For empty types, generate a simple export interface
           outputs.push(`export interface ${typeInfo.typeName} {}`);
         }
-        
+
         // Generate the msgpack interface
         if (typeInfo.declaration) {
           outputs.push('');
           outputs.push(typeInfo.declaration);
         }
-        
+
         // Generate converters
         if (typeInfo.toClassMethod) {
           outputs.push('');

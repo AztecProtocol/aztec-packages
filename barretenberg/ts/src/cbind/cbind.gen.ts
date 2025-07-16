@@ -2,7 +2,7 @@
 // GENERATED FILE DO NOT EDIT, RUN yarn generate
 import { Buffer } from "buffer";
 import { callCbind } from './cbind.js';
-import { BarretenbergWasmBase } from "../barretenberg_wasm/barretenberg_wasm_base/index.js";
+import { BarretenbergApi } from "../barretenberg_api/index.js";
 
 // Helper type for fixed-size arrays
 type Tuple<T, N extends number> = T[] & { length: N };
@@ -1025,7 +1025,7 @@ export function fromClientIvcCheckPrecomputedVkResponse(o: ClientIvcCheckPrecomp
   valid: o.valid,};
 }
 
-export async function circuitProve(wasm: BarretenbergWasmBase, command: CircuitProve): Promise<CircuitProveResponse> {
+export async function circuitProve(wasm: BarretenbergApi, command: CircuitProve): Promise<CircuitProveResponse> {
   const msgpackCommand = fromCircuitProve(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitProveResponse') {
@@ -1034,7 +1034,7 @@ export async function circuitProve(wasm: BarretenbergWasmBase, command: CircuitP
   return toCircuitProveResponse(result);
 }
 
-export async function circuitComputeVk(wasm: BarretenbergWasmBase, command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
+export async function circuitComputeVk(wasm: BarretenbergApi, command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
   const msgpackCommand = fromCircuitComputeVk(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitComputeVkResponse') {
@@ -1043,7 +1043,7 @@ export async function circuitComputeVk(wasm: BarretenbergWasmBase, command: Circ
   return toCircuitComputeVkResponse(result);
 }
 
-export async function circuitInfo(wasm: BarretenbergWasmBase, command: CircuitInfo): Promise<CircuitInfoResponse> {
+export async function circuitInfo(wasm: BarretenbergApi, command: CircuitInfo): Promise<CircuitInfoResponse> {
   const msgpackCommand = fromCircuitInfo(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitInfoResponse') {
@@ -1052,7 +1052,7 @@ export async function circuitInfo(wasm: BarretenbergWasmBase, command: CircuitIn
   return toCircuitInfoResponse(result);
 }
 
-export async function circuitCheck(wasm: BarretenbergWasmBase, command: CircuitCheck): Promise<CircuitCheckResponse> {
+export async function circuitCheck(wasm: BarretenbergApi, command: CircuitCheck): Promise<CircuitCheckResponse> {
   const msgpackCommand = fromCircuitCheck(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitCheckResponse') {
@@ -1061,7 +1061,7 @@ export async function circuitCheck(wasm: BarretenbergWasmBase, command: CircuitC
   return toCircuitCheckResponse(result);
 }
 
-export async function circuitVerify(wasm: BarretenbergWasmBase, command: CircuitVerify): Promise<CircuitVerifyResponse> {
+export async function circuitVerify(wasm: BarretenbergApi, command: CircuitVerify): Promise<CircuitVerifyResponse> {
   const msgpackCommand = fromCircuitVerify(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitVerifyResponse') {
@@ -1070,7 +1070,7 @@ export async function circuitVerify(wasm: BarretenbergWasmBase, command: Circuit
   return toCircuitVerifyResponse(result);
 }
 
-export async function clientIvcComputeStandaloneVk(wasm: BarretenbergWasmBase, command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
+export async function clientIvcComputeStandaloneVk(wasm: BarretenbergApi, command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
   const msgpackCommand = fromClientIvcComputeStandaloneVk(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'ClientIvcComputeStandaloneVkResponse') {
@@ -1079,7 +1079,7 @@ export async function clientIvcComputeStandaloneVk(wasm: BarretenbergWasmBase, c
   return toClientIvcComputeStandaloneVkResponse(result);
 }
 
-export async function clientIvcComputeIvcVk(wasm: BarretenbergWasmBase, command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
+export async function clientIvcComputeIvcVk(wasm: BarretenbergApi, command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
   const msgpackCommand = fromClientIvcComputeIvcVk(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'ClientIvcComputeIvcVkResponse') {
@@ -1088,16 +1088,16 @@ export async function clientIvcComputeIvcVk(wasm: BarretenbergWasmBase, command:
   return toClientIvcComputeIvcVkResponse(result);
 }
 
-export async function clientIvcStart(wasm: BarretenbergWasmBase, command: ClientIvcStart): Promise<ClientIvcStartResponse> {
+export async function clientIvcStart(wasm: BarretenbergApi, command: ClientIvcStart): Promise<ClientIvcStartResponse> {
   const msgpackCommand = fromClientIvcStart(command);
-  const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
+  const [variantName, result] = await callCbind(wasm, 'bbapi', [["ClientIvcStart", msgpackCommand]]);
   if (variantName !== 'ClientIvcStartResponse') {
     throw new Error(`Expected variant name 'ClientIvcStartResponse' but got '${variantName}'`);
   }
   return toClientIvcStartResponse(result);
 }
 
-export async function clientIvcLoad(wasm: BarretenbergWasmBase, command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
+export async function clientIvcLoad(wasm: BarretenbergApi, command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
   const msgpackCommand = fromClientIvcLoad(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'ClientIvcLoadResponse') {
@@ -1106,7 +1106,7 @@ export async function clientIvcLoad(wasm: BarretenbergWasmBase, command: ClientI
   return toClientIvcLoadResponse(result);
 }
 
-export async function clientIvcAccumulate(wasm: BarretenbergWasmBase, command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
+export async function clientIvcAccumulate(wasm: BarretenbergApi, command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
   const msgpackCommand = fromClientIvcAccumulate(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'ClientIvcAccumulateResponse') {
@@ -1115,7 +1115,7 @@ export async function clientIvcAccumulate(wasm: BarretenbergWasmBase, command: C
   return toClientIvcAccumulateResponse(result);
 }
 
-export async function clientIvcProve(wasm: BarretenbergWasmBase, command: ClientIvcProve): Promise<ClientIvcProveResponse> {
+export async function clientIvcProve(wasm: BarretenbergApi, command: ClientIvcProve): Promise<ClientIvcProveResponse> {
   const msgpackCommand = fromClientIvcProve(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'ClientIvcProveResponse') {
@@ -1124,7 +1124,7 @@ export async function clientIvcProve(wasm: BarretenbergWasmBase, command: Client
   return toClientIvcProveResponse(result);
 }
 
-export async function proofAsFields(wasm: BarretenbergWasmBase, command: ProofAsFields): Promise<ProofAsFieldsResponse> {
+export async function proofAsFields(wasm: BarretenbergApi, command: ProofAsFields): Promise<ProofAsFieldsResponse> {
   const msgpackCommand = fromProofAsFields(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'ProofAsFieldsResponse') {
@@ -1133,7 +1133,7 @@ export async function proofAsFields(wasm: BarretenbergWasmBase, command: ProofAs
   return toProofAsFieldsResponse(result);
 }
 
-export async function vkAsFields(wasm: BarretenbergWasmBase, command: VkAsFields): Promise<VkAsFieldsResponse> {
+export async function vkAsFields(wasm: BarretenbergApi, command: VkAsFields): Promise<VkAsFieldsResponse> {
   const msgpackCommand = fromVkAsFields(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'VkAsFieldsResponse') {
@@ -1142,7 +1142,7 @@ export async function vkAsFields(wasm: BarretenbergWasmBase, command: VkAsFields
   return toVkAsFieldsResponse(result);
 }
 
-export async function circuitWriteSolidityVerifier(wasm: BarretenbergWasmBase, command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
+export async function circuitWriteSolidityVerifier(wasm: BarretenbergApi, command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
   const msgpackCommand = fromCircuitWriteSolidityVerifier(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitWriteSolidityVerifierResponse') {
@@ -1151,7 +1151,7 @@ export async function circuitWriteSolidityVerifier(wasm: BarretenbergWasmBase, c
   return toCircuitWriteSolidityVerifierResponse(result);
 }
 
-export async function circuitProveAndVerify(wasm: BarretenbergWasmBase, command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
+export async function circuitProveAndVerify(wasm: BarretenbergApi, command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
   const msgpackCommand = fromCircuitProveAndVerify(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitProveAndVerifyResponse') {
@@ -1160,7 +1160,7 @@ export async function circuitProveAndVerify(wasm: BarretenbergWasmBase, command:
   return toCircuitProveAndVerifyResponse(result);
 }
 
-export async function circuitBenchmark(wasm: BarretenbergWasmBase, command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
+export async function circuitBenchmark(wasm: BarretenbergApi, command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
   const msgpackCommand = fromCircuitBenchmark(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'CircuitBenchmarkResponse') {
@@ -1169,7 +1169,7 @@ export async function circuitBenchmark(wasm: BarretenbergWasmBase, command: Circ
   return toCircuitBenchmarkResponse(result);
 }
 
-export async function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmBase, command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
+export async function clientIvcCheckPrecomputedVk(wasm: BarretenbergApi, command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
   const msgpackCommand = fromClientIvcCheckPrecomputedVk(command);
   const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
   if (variantName !== 'ClientIvcCheckPrecomputedVkResponse') {
