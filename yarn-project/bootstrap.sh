@@ -187,9 +187,8 @@ function release_packages {
   cd "$dir"
   do_or_dryrun npm init -y
   # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
-  # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
   for package in "${package_list[@]}"; do
-    do_or_dryrun npm install $package
+    retry "do_or_dryrun npm install $package"
   done
   rm -rf "$dir"
 }
