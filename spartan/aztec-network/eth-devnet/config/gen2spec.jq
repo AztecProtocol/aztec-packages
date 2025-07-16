@@ -179,11 +179,13 @@ def clique:
 
     "blobSchedule" : (if .config.blobSchedule then ((
       (.config as $c | ["cancun", "prague", "osaka", "amsterdam", "bpo1", "bpo2", "bpo3", "bpo4", "bpo5"]
-      | map({ timestamp: $c[. + "Time"] } + $c.blobSchedule[.]))
+      | map(select($c.blobSchedule[.] != null) | { key: ., value: $c.blobSchedule[.] })
+      | map(select($c[.key + "Time"] != null)))
     )
     | reverse
-    | unique_by(.timestamp)
-    | map(select(length > 1))
+    | unique_by(.key)
+    | map({(.key): .value})
+    | add
     ) else null end),
 
     # Osaka
