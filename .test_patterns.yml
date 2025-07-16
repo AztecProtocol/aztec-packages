@@ -139,7 +139,6 @@ tests:
     owners:
       - *palla
   - regex: "src/e2e_p2p/preferred_gossip_network.test.ts"
-    error_regex: "muxer closed locally"
     owners:
       - *palla
   - regex: "src/e2e_fees/private_payments"

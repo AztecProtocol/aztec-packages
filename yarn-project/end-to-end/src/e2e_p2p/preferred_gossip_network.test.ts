@@ -276,7 +276,7 @@ describe('e2e_p2p_preferred_network', () => {
       .concat(noDiscoveryValidators.map(() => preferredNodes.length)) // The no-discovery validators ONLY connect to preferred nodes (no discovery)
       .concat([nodes.length + validatorsUsingDiscovery]); // The default node connects to other regular nodes and validators using discovery
     for (let i = 0; i < allNodes.length; i++) {
-      const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 600, identifiers[i]);
+      const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 300, identifiers[i]);
       expect(peerResult).toBeTruthy();
     }
     t.logger.info('All node/validator peer connections established');
