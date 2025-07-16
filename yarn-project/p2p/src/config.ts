@@ -150,6 +150,12 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** True to disable participating in discovery */
   p2pDiscoveryDisabled?: boolean;
+
+  /** True to simulate discarding transactions. - For testing purposes only*/
+  dropTransactions: boolean;
+
+  /** The probability that a transaction is discarded. - For testing purposes only */
+  dropTransactionsProbability: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
