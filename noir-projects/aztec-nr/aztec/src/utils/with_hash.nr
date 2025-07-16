@@ -6,7 +6,6 @@ use crate::{
 use dep::protocol_types::{
     abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable,
 };
-use std::static_assert;
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
 ///
@@ -21,22 +20,18 @@ use std::static_assert;
 // would need to set "where T: Packable" on the struct and have the "where" clause on the struct. Having the "where"
 // clause on the struct is not supposed to be supported until Noir 1.0. Relevant discussion on slack:
 // https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1752589887955379
-pub struct WithHash<T, let N: u32> {
+pub struct WithHash<T, let M: u32> {
     value: T,
-    packed: [Field; N],
+    packed: [Field; M],
     hash: Field,
 }
 
-impl<T, let N: u32> WithHash<T, N>
+impl<T, let M: u32> WithHash<T, M>
 where
-    T: Packable + Eq,
+    T: Packable<N = M> + Eq,
 {
     pub fn new(value: T) -> Self {
-        static_assert(
-            N == <T as Packable>::N,
-            "N must be equal to the number of fields required to pack T",
-        );
-        let packed: [Field; N] = value.pack();
+        let packed: [Field; M] = value.pack();
         Self { value, packed, hash: poseidon2_hash(packed) }
     }
 
@@ -77,7 +72,7 @@ where
             },
         );
 
-        let hash = header.public_storage_historical_read(storage_slot + N as Field, address);
+        let hash = header.public_storage_historical_read(storage_slot + M as Field, address);
 
         if hash != 0 {
             assert_eq(hash, hint.get_hash(), "Hint values do not match hash");

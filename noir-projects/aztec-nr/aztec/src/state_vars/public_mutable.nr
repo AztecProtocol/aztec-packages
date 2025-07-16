@@ -11,9 +11,9 @@ pub struct PublicMutable<T, Context> {
 }
 // docs:end:public_mutable_struct
 
-impl<T, Context, let N: u32> HasStorageSlot<N> for PublicMutable<T, Context>
+impl<T, Context, let M: u32> HasStorageSlot<M> for PublicMutable<T, Context>
 where
-    T: Packable,
+    T: Packable<N = M>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot

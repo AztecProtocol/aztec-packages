@@ -138,7 +138,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             );
             let unpack = get_trait_impl_method(
                 typ,
-                quote { crate::protocol_types::traits::Packable<_> },
+                quote { crate::protocol_types::traits::Packable },
                 quote { unpack },
             );
 
