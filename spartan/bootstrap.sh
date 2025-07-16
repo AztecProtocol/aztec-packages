@@ -118,6 +118,9 @@ case "$cmd" in
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane >/dev/null || true
     ;;
+    kubectl config use-context kind-kind >/dev/null || true
+    docker update --restart=no kind-control-plane >/dev/null || true
+    ;;
   "chaos-mesh")
     chaos-mesh/install.sh
     ;;
@@ -216,42 +219,22 @@ case "$cmd" in
     OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh gke src/spartan/upgrade_via_cli.test.ts 1-validators.yaml ${NAMESPACE:-"upgrade-via-cli${NAME_POSTFIX:-}"}
-    ;;
-    "test-kind-10tps-discard-tx-single-validator")
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+  ;;
+  "test-kind-10tps-10%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.1" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
-    ;;
-    "test-kind-10tps-discard-tx-all-validator")
-    OVERRIDES="network.mempoolLimitBytes=5000000, blobSink.enabled=true,bot.enabled=false" \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
+  "test-kind-10tps-30%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.3" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
-    ;;
-  "test-kind-10tps-sweep-global")
-    : "${SWEEP_SIZES:=1000000 2000000 4000000}"
-    for SIZE in $SWEEP_SIZES; do
-      echo "=== Running 10 TPS test with network.mempoolLimitBytes=$SIZE ===" >&2
-      OVERRIDES="network.mempoolLimitBytes=$SIZE,blobSink.enabled=true,bot.enabled=false" \
-      FRESH_INSTALL=true INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml "mempool-${SIZE}${NAME_POSTFIX:-}"
-    done
-    ;;
-  "test-kind-10tps-sweep-validator")
-    : "${SWEEP_SIZES:=1000000 2000000 4000000}"
-
-    # First deploy / upgrade the chart normally (fresh install)
-    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
+  "test-kind-10tps-50%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.5" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-    ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml "validator-sweep${NAME_POSTFIX:-}"
-
-    # Now iterate; reuse the cluster (no-deploy) and patch the validator
-    for SIZE in $SWEEP_SIZES; do
-      echo "=== Re-running test with validator mempool=$SIZE bytes ===" >&2
-      VALIDATOR_IDX=${VALIDATOR_IDX:-0} VALIDATOR_TXPOOL_LIMIT=$SIZE \
-      FRESH_INSTALL=no-deploy INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml "validator-sweep${NAME_POSTFIX:-}"
-    done
-    ;;
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
