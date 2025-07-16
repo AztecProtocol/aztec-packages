@@ -6,6 +6,7 @@ use crate::{
 use dep::protocol_types::{
     abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable,
 };
+use std::static_assert;
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
 ///
@@ -16,6 +17,10 @@ use dep::protocol_types::{
 /// # Type Parameters
 /// - `T`: The underlying type being wrapped, must implement `Packable<N>`
 /// - `N`: The number of field elements required to pack values of type `T`
+// TODO: Ideally we would not have the N numeric generic here and instead we set it to <T as Packable>::N. For that we
+// would need to set "where T: Packable" on the struct and have the "where" clause on the struct. Having the "where"
+// clause on the struct is not supposed to be supported until Noir 1.0. Relevant discussion on slack:
+// https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1752589887955379
 pub struct WithHash<T, let N: u32> {
     value: T,
     packed: [Field; N],
@@ -27,7 +32,11 @@ where
     T: Packable + Eq,
 {
     pub fn new(value: T) -> Self {
-        let packed = value.pack();
+        static_assert(
+            N == <T as Packable>::N,
+            "N must be equal to the number of fields required to pack T",
+        );
+        let packed: [Field; N] = value.pack();
         Self { value, packed, hash: poseidon2_hash(packed) }
     }
 

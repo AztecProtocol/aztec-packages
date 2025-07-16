@@ -135,15 +135,15 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N
     }
 }
 
-impl<Note> NoteGetterOptions<Note, Field, Field>
+impl<Note> NoteGetterOptions<Note, <Note as Packable>::N, Field, Field>
 where
     Note: NoteType + Packable,
 {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> Self {
         Self {
-            selects: BoundedVec::new(),
-            sorts: BoundedVec::new(),
+            selects: BoundedVec::<_, <Note as Packable>::N>::new(),
+            sorts: BoundedVec::<_, <Note as Packable>::N>::new(),
             limit: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
             preprocessor: return_all_notes,
