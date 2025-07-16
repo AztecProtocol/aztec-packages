@@ -1272,6 +1272,8 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
 
     // `hi_wit` contains the bits above bit `msb`, so a priori it fits in at most (255 - msb) bits. We need to
     // ensure that its value is strictly less than 2^(252 - msb)
+    //! BUG: the range constraint on hi limb should be (252-(msb+1)) and not (252-msb) because we are
+    // shifting the value by (msb + 1) bits.
     hi_wit.create_range_constraint(grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH - msb, "slice: hi value too large.");
     // Ensure that `lo_wit`is in the range [0, lsb - 1]
     lo_wit.create_range_constraint(lsb, "slice: lo value too large.");

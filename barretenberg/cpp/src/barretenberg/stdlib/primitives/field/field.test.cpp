@@ -4,6 +4,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <gtest/gtest.h>
 #include <utility>
@@ -814,6 +815,34 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
+    static void test_slice_edge_case()
+    {
+        Builder builder = Builder();
+        // 0b11110110101001011
+        //         ^      ^
+        //        msb    lsb
+        //        10      3
+        // hi=0x111101, lo=0x011, slice=0x10101001
+        //
+        uint256_t scalar_raw = 126283;
+
+        // Set the bit at index 252 to 1, i.e., the 253-rd bit is set.
+        scalar_raw |= (uint256_t(1) << 252);
+        ASSERT(scalar_raw > (uint256_t(1) << 252 - 1)); // value is larger than 252 bits!
+        uint256_t scalar_raw_lo = 3;
+        uint256_t scalar_raw_mid = 169;
+        uint256_t scalar_raw_hi = uint256_t(61) + (uint256_t(1) << 241); // 242-nd bit is set.
+
+        field_ct a(witness_ct(&builder, fr(scalar_raw)));
+
+        auto slice_data = a.slice(10, 3);
+        EXPECT_EQ(slice_data[0].get_value(), fr(scalar_raw_lo));
+        EXPECT_EQ(slice_data[1].get_value(), fr(scalar_raw_mid));
+        EXPECT_EQ(slice_data[2].get_value(), fr(scalar_raw_hi));
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
     static void test_slice_equal_msb_lsb()
     {
         Builder builder = Builder();
@@ -1557,6 +1586,10 @@ TYPED_TEST(stdlib_field, test_ranged_less_than)
 TYPED_TEST(stdlib_field, test_slice)
 {
     TestFixture::test_slice();
+}
+TYPED_TEST(stdlib_field, test_slice_edge_case)
+{
+    TestFixture::test_slice_edge_case();
 }
 TYPED_TEST(stdlib_field, test_slice_equal_msb_lsb)
 {
