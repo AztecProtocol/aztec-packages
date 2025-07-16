@@ -84,7 +84,7 @@ This is a snippet of our Schnorr Account contract implementation, which uses Sch
 
 ### Storing signing keys
 
-Since signatures are fully abstracted, how the public key is stored in the contract is abstracted as well and left to the developer of the account contract. Among a few common approaches are storing the key in a private note, in an immutable private note, using shared mutable state, reusing other in-protocol keys, or a separate keystore. Below, we elaborate on these approaches.
+Since signatures are fully abstracted, how the public key is stored in the contract is abstracted as well and left to the developer of the account contract. Among a few common approaches are storing the key in a private note, in an immutable private note, using delayed public mutable state, reusing other in-protocol keys, or a separate keystore. Below, we elaborate on these approaches.
 
 #### Using a private note​
 
@@ -103,11 +103,11 @@ When it comes to storing the signing key in a private note, there are several de
 - The note with the key might exist locally only (in PXE) or it can be broadcasted as an encrypted note by the wallet to itself. In the second case, this note will also exist on Aztec.
   :::
 
-#### Using Shared Mutable state
+#### Using Delayed Public Mutable state
 
-By [Shared Mutable](../../../developers/reference/smart_contract_reference/storage/shared_state.md#sharedmutable) we mean privately readable publicly mutable state.
+By [Delayed Public Mutable](../../../developers/reference/smart_contract_reference/storage/delayed_public_mutable.md#delayedpublicmutable) we mean privately readable publicly mutable state.
 
-To make public state accessible privately, there is a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the mutable shared state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
+To make public state accessible privately, there is a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the delayed mutable state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 
 #### Reusing some of the in-protocol keys
 

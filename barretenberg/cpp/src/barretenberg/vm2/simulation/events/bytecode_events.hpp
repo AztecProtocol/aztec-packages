@@ -32,11 +32,10 @@ struct BytecodeHashingEvent {
 struct BytecodeRetrievalEvent {
     BytecodeId bytecode_id;
     AztecAddress address;
-    ContractInstance contract_instance;
+    ContractClassId current_class_id;
     ContractClass contract_class;
     FF nullifier_root;
     FF public_data_tree_root;
-    uint64_t current_timestamp;
     bool error = false;
 };
 

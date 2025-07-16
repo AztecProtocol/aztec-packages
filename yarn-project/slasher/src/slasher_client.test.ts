@@ -6,10 +6,11 @@ import {
   L1TxUtils,
   RollupContract,
   SlashingProposerContract,
+  type ViemClient,
   createExtendedL1Client,
   deployL1Contracts,
 } from '@aztec/ethereum';
-import { RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -58,6 +59,7 @@ describe('SlasherClient', () => {
   let depositAmount: bigint;
   let slasherL1Client: ExtendedViemWalletClient;
   let testHarnessL1Client: ExtendedViemWalletClient;
+  let ethCheatCodes: EthCheatCodes;
 
   beforeEach(async () => {
     logger = createLogger('slasher:test:slasher_client');
@@ -101,6 +103,7 @@ describe('SlasherClient', () => {
       rollupAddress: deployed.l1ContractAddresses.rollupAddress,
     });
 
+    ethCheatCodes = new EthCheatCodes([rpcUrl]);
     await cheatCodes.advanceToEpoch(2n);
 
     l1TxUtils = new L1TxUtils(testHarnessL1Client, logger);
@@ -118,6 +121,7 @@ describe('SlasherClient', () => {
       },
       deployed.l1ContractAddresses,
       new L1TxUtils(slasherL1Client, logger),
+      slasherL1Client,
       [dummyWatcher],
       new DateProvider(),
     );
@@ -206,8 +210,13 @@ describe('SlasherClient', () => {
         };
 
         await rollup.setupEpoch(l1TxUtils).catch(ignoreExpectedErrors);
+
+        const timestamp = await ethCheatCodes.timestamp();
+        const slotNumAtNextL1Block = await rollup.getSlotAt(BigInt(timestamp + ethereumSlotDuration));
+        logger.info('Slot number at next L1 block:', slotNumAtNextL1Block);
+
         // Print debug info
-        const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
+        const round = await slashingProposer.computeRound(slotNumAtNextL1Block);
         const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
         const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
         logger.info(`Currently in round ${round}`);
@@ -217,6 +226,7 @@ describe('SlasherClient', () => {
         // Have the slasher sign the vote request
         const voteRequest = await slashingProposer.createVoteRequestWithSignature(
           payload!.toString(),
+          round,
           slasherL1Client.chain.id,
           slasherPrivateKey.address,
           msg => slasherPrivateKey.sign({ hash: msg }),
@@ -462,7 +472,8 @@ class TestSlasherClient extends SlasherClient {
   static override async new(
     config: SlasherConfig,
     l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
-    l1TxUtils: L1TxUtils,
+    l1TxUtils: L1TxUtils | undefined,
+    l1Client: ViemClient,
     watchers: Watcher[],
     dateProvider: DateProvider,
   ) {
@@ -473,21 +484,21 @@ class TestSlasherClient extends SlasherClient {
       throw new Error('Cannot initialize SlasherClient without a slashFactory address');
     }
 
-    const rollup = new RollupContract(l1TxUtils.client, l1Contracts.rollupAddress);
+    const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
     const slashingProposer = await rollup.getSlashingProposer();
     const slashFactoryContract = getContract({
       address: getAddress(l1Contracts.slashFactoryAddress.toString()),
       abi: SlashFactoryAbi,
-      client: l1TxUtils.client,
+      client: l1Client,
     });
     return new TestSlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
   constructor(
     config: SlasherConfig,
-    slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ExtendedViemWalletClient>,
+    slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>,
     slashingProposer: SlashingProposerContract,
-    l1TxUtils: L1TxUtils,
+    l1TxUtils: L1TxUtils | undefined,
     watchers: Watcher[],
     dateProvider: DateProvider,
     log = createLogger('slasher'),

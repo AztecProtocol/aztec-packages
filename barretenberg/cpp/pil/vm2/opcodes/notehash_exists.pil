@@ -1,0 +1,64 @@
+include "../constants_gen.pil";
+include "../range_check.pil";
+include "../trees/note_hash_tree_check.pil";
+
+// NOTEHASH_EXISTS opcode: Checks if a note hash exists in the note hash tree at a given leaf index
+//
+// Register usage:
+// - register[0]: Contains the unique_note_hash to check for existence
+// - register[1]: Contains the leaf_index where the unique_note_hash is going to be checked
+// - register[2]: Boolean output of the opcode indicating whether the note hash exists at the given leaf index
+//
+// The opcode leverages the note_hash_tree_check gadget to verify the existence check operation
+// against the current note hash tree root. The opcode will write false if the
+// leaf index is greater than or equal to the total number of leaves in the note hash tree.
+//
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    #[skippable_if]
+    sel_execute_notehash_exists = 0; // from execution.pil.
+
+    pol commit note_hash_leaf_in_range;
+    note_hash_leaf_in_range * (1 - note_hash_leaf_in_range) = 0;
+
+    // Compare note_hash_leaf_in_range = register[1] (leaf_index) < NOTE_HASH_TREE_LEAF_COUNT
+    pol LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT = register[1] - constants.NOTE_HASH_TREE_LEAF_COUNT;
+    pol LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT = constants.NOTE_HASH_TREE_LEAF_COUNT - register[1] - 1;
+    pol commit note_hash_leaf_index_leaf_count_cmp_diff;
+    sel_execute_notehash_exists * ((LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT - LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) * note_hash_leaf_in_range + LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT - note_hash_leaf_index_leaf_count_cmp_diff) = 0;
+
+    #[NOTE_HASH_INDEX_RANGE]
+    sel_execute_notehash_exists {
+        note_hash_leaf_index_leaf_count_cmp_diff,
+        constant_64 // From gas.pil
+    } in range_check.sel {
+        range_check.value,
+        range_check.rng_chk_bits
+    };
+
+    // If the leaf index is out of range, set the output to false
+    #[NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE]
+    sel_execute_notehash_exists * (1 - note_hash_leaf_in_range) * register[2] = 0;
+
+    // If the leaf index is in range, check if the note hash exists in the note hash tree
+    #[NOTE_HASH_READ]
+    note_hash_leaf_in_range {
+        precomputed.zero,
+        register[0], // unique_note_hash input
+        register[1], // leaf_index input
+        prev_note_hash_tree_root,
+        register[2] // exists output
+    } in note_hash_tree_check.sel {
+        note_hash_tree_check.write,
+        note_hash_tree_check.note_hash,
+        note_hash_tree_check.leaf_index,
+        note_hash_tree_check.prev_root,
+        note_hash_tree_check.exists
+    };
+
+    #[NOTEHASH_EXISTS_U1_OUTPUT_TAG]
+    sel_execute_notehash_exists * (constants.MEM_TAG_U1 - mem_tag_reg[2]) = 0;
+
+    #[NOTE_HASH_EXISTS_SUCCESS]
+    sel_execute_notehash_exists * sel_opcode_error = 0;
+

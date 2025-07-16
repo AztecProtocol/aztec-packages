@@ -39,7 +39,7 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 ### Reading public storage in private
 
-You can read public storage in private domain by leveraging the private getters of `PublicImmutable` (for values that never change) and `SharedMutable` (for values that change infrequently, see [shared state](../../../../reference/smart_contract_reference/storage/shared_state.md) for details) state variables.
+You can read public storage in private domain by leveraging the private getters of `PublicImmutable` (for values that never change) and `DelayedPublicMutable` (for values that change infrequently, see [delayed public mutable state](../../../../reference/smart_contract_reference/storage/delayed_public_mutable.md) for details) state variables.
 Values that change frequently (`PublicMutable`) cannot be read in private as for those we need access to the tip of the chain and only a sequencer has access to that (and sequencer executes only public functions).
 
 E.g. when using `PublicImmutable`
