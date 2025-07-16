@@ -20,7 +20,6 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     using Commitment = typename Curve::Element;
     using GroupElement = typename Curve::Element;
     using KZG = ::bb::KZG<Curve>;
-    using OpeningClaim = ::bb::OpeningClaim<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
     using PairingPoints = stdlib::recursion::PairingPoints<CircuitBuilder>;
 
@@ -28,7 +27,10 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
     MergeSettings settings;
 
+    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
+    // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+
     std::array<Commitment, NUM_WIRES> T_commitments;
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
