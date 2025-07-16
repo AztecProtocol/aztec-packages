@@ -22,13 +22,6 @@ uint256 constant NUMBER_PUBLIC_INPUTS = {{ num_public_inputs }};
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ num_public_inputs }} - 16;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 
-error PUBLIC_INPUT_TOO_LARGE();
-error SUMCHECK_FAILED();
-error PAIRING_FAILED();
-error BATCH_ACCUMULATION_FAILED();
-error MODEXP_FAILED();
-error PROOF_POINT_NOT_ON_CURVE();
-
 interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
 }
@@ -36,6 +29,12 @@ interface IVerifier {
 // The plan
 // Write an optimised version of the add2 circuit
 contract HonkVerifier is IVerifier {
+    error PUBLIC_INPUT_TOO_LARGE();
+    error SUMCHECK_FAILED();
+    error PAIRING_FAILED();
+    error BATCH_ACCUMULATION_FAILED();
+    error MODEXP_FAILED();
+    error PROOF_POINT_NOT_ON_CURVE();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    SLAB ALLOCATION                         */
@@ -1134,13 +1133,13 @@ contract HonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         ERRORS                             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    // TODO: abi
-    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x01;
-    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x02;
-    uint256 internal constant PAIRING_FAILED_SELECTOR = 0x03;
-    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0x04;
-    uint256 internal constant MODEXP_FAILED_SELECTOR = 0x05;
-    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x06;
+    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x803bff7c344ff5b16551a5ff428efbfb68dfa832bf946fa306648013bf8fc122;
+    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x7d06dd7faaf5393eff2f5d94a2830a2244117ae191b2ceb4c40f10bb2ee32c7b;
+    uint256 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd263426aa449bcb1812d17b2ee4b2b75c655b0156a285b6b1b7625218054;
+    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0xfef01a9a4184d1d1f572cb06e4887eb53d80ee5f51926a913905fdbfe50c006a;
+    uint256 internal constant MODEXP_FAILED_SELECTOR = 0xf442f1632281d2be46b78bb3acb1f1913a15d6a07f63752701a999716db0ff1c;
+    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x661e012dec6c96ca8837b414041da533bfbba850eceb3a5ad66e998562e76d1e;
+
 
     constructor() {
         // TODO: verify the points are on the curve in the constructor
@@ -1916,7 +1915,7 @@ contract HonkVerifier is IVerifier {
                 let round_target := 0
                 let pow_partial_evaluation := 1
 
-                for {} lt(round, 15) {} {
+                for {} lt(round, LOG_N) {} {
                     let round_univariates_off := add(SUMCHECK_UNIVARIATE_0_0_LOC, mul(round, 0x100))
                     let challenge_off := add(SUM_U_CHALLENGE_0, mul(round, 0x20))
 
@@ -2864,7 +2863,7 @@ contract HonkVerifier is IVerifier {
                 // TOOD: errs
                 mstore(0x00, 0x69696969)
                 return(0x00, 0x20)
-            }
+              }
             }
 
             /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -2903,9 +2902,9 @@ contract HonkVerifier is IVerifier {
 
             // In order to compute fold pos evaluations we need
             // TODO: code generate the 14 - logN - 1 here
-            let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
-            let pow_off := POWERS_OF_EVALUATION_CHALLENGE_14_LOC
-            let sumcheck_u_off := SUM_U_CHALLENGE_14
+            let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_{{ log_circuit_size - 1 }}_LOC
+            let pow_off := POWERS_OF_EVALUATION_CHALLENGE_{{ log_circuit_size - 1 }}_LOC
+            let sumcheck_u_off := SUM_U_CHALLENGE_{{ log_circuit_size - 1 }}
 
             // TODO: challengePower * (ONE - u) can be cached - measure performance
             for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
@@ -3142,12 +3141,12 @@ contract HonkVerifier is IVerifier {
             // Compute fold pos evaluations
             {
                 // TODO: work out the stack here
-                mstore(CHALL_POW_LOC,  POWERS_OF_EVALUATION_CHALLENGE_14_LOC)
-                mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_14)
-                mstore(GEMINI_A_LOC, GEMINI_A_EVAL_14)
+                mstore(CHALL_POW_LOC,  POWERS_OF_EVALUATION_CHALLENGE_{{ log_circuit_size - 1 }}_LOC)
+                mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_{{ log_circuit_size - 1 }})
+                mstore(GEMINI_A_LOC, GEMINI_A_EVAL_{{ log_circuit_size - 1 }})
                 // Inversion of this value was included in batch inversion above
-                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
-                let fold_pos_off := FOLD_POS_EVALUATIONS_14_LOC
+                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_{{ log_circuit_size - 1 }}_LOC
+                let fold_pos_off := FOLD_POS_EVALUATIONS_{{ log_circuit_size - 1 }}_LOC
 
                 let batchedEvalAcc := batchedEvaluation
                 for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
