@@ -130,6 +130,7 @@ class Execution : public ExecutionInterface {
                                MemoryAddress address_offset,
                                MemoryAddress dst_offset,
                                uint8_t member_enum);
+    void emit_note_hash(ContextInterface& context, MemoryAddress note_hash_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.

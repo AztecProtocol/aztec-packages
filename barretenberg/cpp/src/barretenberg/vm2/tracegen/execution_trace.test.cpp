@@ -927,7 +927,7 @@ TEST(ExecutionTraceGenTest, SStore)
                 ElementsAre(
                     // First row is empty
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
-                    // Second row is the sload
+                    // Second row is the sstore
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_execute_sstore, 1),
                           ROW_FIELD_EQ(execution_sel_gas_sstore, 1),
@@ -980,7 +980,7 @@ TEST(ExecutionTraceGenTest, NoteHashExists)
                 ElementsAre(
                     // First row is empty
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
-                    // Second row is the sload
+                    // Second row is the note_hash_exists
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_execute_notehash_exists, 1),
                           ROW_FIELD_EQ(execution_rop_0_, unique_note_hash_offset),
@@ -997,6 +997,50 @@ TEST(ExecutionTraceGenTest, NoteHashExists)
                                        NOTE_HASH_TREE_LEAF_COUNT - leaf_index - 1),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NOTEHASH_EXISTS))));
 }
+
+TEST(ExecutionTraceGenTest, EmitNoteHash)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t note_hash_offset = 1234;
+
+    FF note_hash = 42;
+    uint32_t prev_num_note_hashes_emitted = MAX_NOTE_HASHES_PER_TX - 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::EMITNOTEHASH).operand<uint16_t>(note_hash_offset).build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(note_hash) },
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(note_hash_offset) } } },
+        .before_context_event = {
+            .tree_states = {
+                .noteHashTree = {
+                    .counter = prev_num_note_hashes_emitted,
+                },
+            }
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the emit_note_hash
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_emit_notehash, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, note_hash_offset),
+                          ROW_FIELD_EQ(execution_register_0_, note_hash),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF), // Memory tag for note_hash
+                          ROW_FIELD_EQ(execution_remaining_note_hashes_inv,
+                                       FF(MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted).invert()),
+                          ROW_FIELD_EQ(execution_sel_write_note_hash, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMIT_NOTEHASH))));
+} // namespace
 
 } // namespace
 } // namespace bb::avm2::tracegen

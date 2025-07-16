@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
@@ -182,6 +183,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_execute_sstore;
     case ExecutionOpCode::NOTEHASHEXISTS:
         return C::execution_sel_execute_notehash_exists;
+    case ExecutionOpCode::EMITNOTEHASH:
+        return C::execution_sel_execute_emit_notehash;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -385,9 +388,12 @@ void ExecutionTraceBuilder::process(
                   ex_event.before_context_event.tree_states.noteHashTree.tree.root },
                 { C::execution_prev_note_hash_tree_size,
                   ex_event.before_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
+                { C::execution_prev_num_note_hashes_emitted,
+                  ex_event.before_context_event.tree_states.noteHashTree.counter },
                 { C::execution_note_hash_tree_root, ex_event.after_context_event.tree_states.noteHashTree.tree.root },
                 { C::execution_note_hash_tree_size,
                   ex_event.after_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
+                { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
                 // Other.
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Helpers for identifying parent context
@@ -586,6 +592,16 @@ void ExecutionTraceBuilder::process(
                               { C::execution_note_hash_leaf_in_range, note_hash_leaf_in_range },
                               { C::execution_note_hash_leaf_index_leaf_count_cmp_diff,
                                 note_hash_leaf_index_leaf_count_cmp_diff },
+                          } });
+            } else if (exec_opcode == ExecutionOpCode::EMITNOTEHASH) {
+                uint32_t remaining_note_hashes =
+                    MAX_NOTE_HASHES_PER_TX - ex_event.before_context_event.tree_states.noteHashTree.counter;
+
+                trace.set(row,
+                          { {
+                              { C::execution_remaining_note_hashes_inv,
+                                remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+                              { C::execution_sel_write_note_hash, remaining_note_hashes != 0 },
                           } });
             }
         }
@@ -1087,6 +1103,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
         .add<lookup_notehash_exists_note_hash_index_range_settings, InteractionType::LookupGeneric>()
         // GetContractInstance opcode
-        .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>();
+        .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>()
+        // EmitNoteHash
+        .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen
