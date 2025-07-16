@@ -28,32 +28,21 @@ fi
 function create_execution_genesis {
   local execution_genesis_path="$1"
   local execution_genesis_output="$2"
-  local chainspec_json_path="$3"
-  local chainspec_json_output="$4"
   echo "Creating execution genesis..."
 
   # Get the current timestamp
   timestamp=$(date +%s)
 
-  # Read the Genesis JSON and Chainspec JSON templates
+  # Read the Genesis JSON template
   if [[ ! -f "$execution_genesis_path" ]]; then
     echo "Error: Genesis template not found at $execution_genesis_path"
     exit 1
   fi
-  if [[ ! -f "$chainspec_json_path" ]]; then
-    echo "Error: Chainspec template not found at $chainspec_json_path"
-    exit 1
-  fi
 
   genesis_json=$(cat "$execution_genesis_path")
-  chainspec_json=$(cat "$chainspec_json_path")
 
-  updated_json="$genesis_json"
-  updated_chainspec="$chainspec_json"
-
-  # Update timestamp
-  updated_json=$(echo "$updated_json" | jq --arg ts "$timestamp" '.timestamp = ($ts | tonumber)')
-  updated_chainspec=$(echo "$updated_chainspec" | jq --arg ts "0x$(printf '%x' "$timestamp")" '.genesis.timestamp = $ts')
+  # Replace the timestamp in the Genesis JSON
+  updated_json=$(echo "$genesis_json" | jq --arg ts "$timestamp" '.timestamp = ($ts | tonumber)')
 
   # If mnemonic is provided, add prefunded accounts
   if [[ -n "${MNEMONIC:-}" ]]; then
@@ -61,8 +50,6 @@ function create_execution_genesis {
     echo "Key indices: $PREFUNDED_MNEMONIC_INDICES"
 
     updated_json=$(prefund_accounts "$updated_json" "$MNEMONIC" "$PREFUNDED_MNEMONIC_INDICES")
-    alloc=$(echo "$updated_json" | jq '.alloc')
-    updated_chainspec=$(echo "$updated_chainspec" | jq --argjson alloc "$alloc" '.accounts = $alloc')
   else
     echo "No mnemonic provided, skipping prefunding"
   fi
@@ -70,37 +57,15 @@ function create_execution_genesis {
   # Update the gas limit to the configured value
   if [[ -n "${GAS_LIMIT:-}" ]]; then
     updated_json=$(echo "$updated_json" | jq --arg gas_limit "$GAS_LIMIT" '.gasLimit = ($gas_limit | tonumber)')
-    updated_chainspec=$(echo "$updated_chainspec" | jq --arg gas_limit "$GAS_LIMIT" '.genesis.gasLimit = ($gas_limit | tonumber)')
   fi
 
   if [[ -n "${CHAIN_ID:-}" ]]; then
     updated_json=$(echo "$updated_json" | jq --arg chain_id "$CHAIN_ID" '.config.chainId = ($chain_id | tonumber)')
-    updated_chainspec=$(echo "$updated_chainspec" | jq --arg chain_id "$CHAIN_ID" '.params.chainId = ($chain_id | tonumber)')
   fi
 
-  # Update difficulty
-  difficulty=$(echo "$updated_json" | jq -r '.difficulty')
-  updated_chainspec=$(echo "$updated_chainspec" | jq --arg difficulty "$difficulty" '.genesis.difficulty = $difficulty')
-
-  # Update extraData
-  extraData=$(echo "$updated_json" | jq -r '.extraData')
-  updated_chainspec=$(echo "$updated_chainspec" | jq --arg extraData "$extraData" '.genesis.extraData = $extraData')
-
-  # Update nonce
-  nonce=$(echo "$updated_json" | jq -r '.nonce')
-  updated_chainspec=$(echo "$updated_chainspec" | jq --arg nonce "$nonce" '.genesis.seal.ethereum.nonce = $nonce')
-
-  # Update mixHash
-  mixhash=$(echo "$updated_json" | jq -r '.mixhash')
-  updated_chainspec=$(echo "$updated_chainspec" | jq --arg mixhash "$mixhash" '.genesis.seal.ethereum.mixHash = $mixhash')
-
-  # Update parentHash
-  parentHash=$(echo "$updated_json" | jq -r '.parentHash')
-  updated_chainspec=$(echo "$updated_chainspec" | jq --arg parentHash "$parentHash" '.genesis.parentHash = $parentHash')
-
-  echo "$updated_json" >"$execution_genesis_output"
-  echo "$updated_chainspec" >"$chainspec_json_output"
-  echo "Execution genesis created at $execution_genesis_output and chainspec at $chainspec_json_output"
+  # Write the updated Genesis JSON to the output file
+  echo "$updated_json" > "$execution_genesis_output"
+  echo "Execution genesis created at $execution_genesis_output"
 }
 
 function prefund_accounts {
@@ -186,7 +151,6 @@ function create_beacon_genesis {
 
 
   cp "$tmp_dir/genesis.json" "$GENESIS_PATH/genesis.json"
-  cp "$tmp_dir/chainspec.json" "$GENESIS_PATH/chainspec.json"
   cp "$tmp_dir/config.yaml" "$GENESIS_PATH/config.yaml"
 
   if [[ $? -ne 0 ]]; then
@@ -195,6 +159,13 @@ function create_beacon_genesis {
   fi
 
   echo "Beacon genesis created at $beacon_genesis_path"
+}
+
+function create_execution_chainspec {
+  local execution_genesis_file="$1"
+  local execution_chainspec_output="$2"
+
+  cat $execution_genesis_file | jq --from-file gen2spec.jq > $execution_chainspec_output
 }
 
 function create_deposit_contract_block {
@@ -213,15 +184,15 @@ function write_ssz_file_base64 {
 # Main
 beacon_config_path="$DIR_PATH/config/config.yaml"
 genesis_json_path="$DIR_PATH/config/genesis.json"
-chainspec_json_path="$DIR_PATH/config/chainspec.json"
 
 # Create the output directory if it doesn't exist
 mkdir -p "$GENESIS_PATH"
 mkdir -p "$DIR_PATH/tmp"
 tmp_dir=$(mktemp -d -p "$DIR_PATH/tmp")
 
-create_execution_genesis "$genesis_json_path" "$tmp_dir/genesis.json" "$chainspec_json_path" "$tmp_dir/chainspec.json"
+create_execution_genesis "$genesis_json_path" "$tmp_dir/genesis.json"
 create_beacon_genesis "$tmp_dir/genesis.json" "$tmp_dir"
+create_execution_chainspec "$tmp_dir/genesis.json" "$GENESIS_PATH/chainspec.json"
 create_deposit_contract_block
 write_ssz_file_base64
 
