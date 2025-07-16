@@ -1,6 +1,7 @@
 include "../constants_gen.pil";
 include "../range_check.pil";
 include "../trees/note_hash_tree_check.pil";
+include "../gt.pil";
 
 // NOTEHASH_EXISTS opcode: Checks if a note hash exists in the note hash tree at a given leaf index
 //
@@ -21,19 +22,19 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol commit note_hash_leaf_in_range;
     note_hash_leaf_in_range * (1 - note_hash_leaf_in_range) = 0;
 
-    // Compare note_hash_leaf_in_range = register[1] (leaf_index) < NOTE_HASH_TREE_LEAF_COUNT
-    pol LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT = register[1] - constants.NOTE_HASH_TREE_LEAF_COUNT;
-    pol LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT = constants.NOTE_HASH_TREE_LEAF_COUNT - register[1] - 1;
-    pol commit note_hash_leaf_index_leaf_count_cmp_diff;
-    sel_execute_notehash_exists * ((LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT - LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) * note_hash_leaf_in_range + LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT - note_hash_leaf_index_leaf_count_cmp_diff) = 0;
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit note_hash_tree_leaf_count;
+    sel_execute_notehash_exists * (note_hash_tree_leaf_count - constants.NOTE_HASH_TREE_LEAF_COUNT) = 0;
 
-    #[NOTE_HASH_INDEX_RANGE]
+    #[NOTE_HASH_LEAF_INDEX_IN_RANGE]
     sel_execute_notehash_exists {
-        note_hash_leaf_index_leaf_count_cmp_diff,
-        constant_64 // From gas.pil
-    } in range_check.sel {
-        range_check.value,
-        range_check.rng_chk_bits
+        note_hash_tree_leaf_count,
+        register[1], // leaf_index input
+        note_hash_leaf_in_range
+    } in gt.sel {
+        gt.input_a,
+        gt.input_b,
+        gt.res
     };
 
     // If the leaf index is out of range, set the output to false
