@@ -152,8 +152,8 @@ describe('e2e_block_building', () => {
         provenTxs.push(
           await methods[i].prove({
             contractAddressSalt: new Fr(BigInt(i + 1)),
-            skipClassRegistration: true,
-            skipPublicDeployment: true,
+            skipClassPublication: true,
+            skipInstancePublication: true,
           }),
         );
       }

@@ -19,8 +19,6 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
 void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel);
 
-Goblin::MergeProof create_dummy_merge_proof();
-
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
                                      std::vector<uint32_t>& key_witness_indices);

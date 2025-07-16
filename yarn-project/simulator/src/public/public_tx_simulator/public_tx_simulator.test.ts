@@ -1,8 +1,8 @@
 import {
+  CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  REGISTERER_CONTRACT_ADDRESS,
-  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -180,7 +180,7 @@ describe('public_tx_simulator', () => {
   const mockContractClassForTx = async (tx: Tx, revertible = true) => {
     const publicContractClass = await makeContractClassPublic(42);
     const contractClassLogFields = [
-      new Fr(REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE),
+      new Fr(CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE),
       publicContractClass.id,
       new Fr(publicContractClass.version),
       publicContractClass.artifactHash,
@@ -190,7 +190,7 @@ describe('public_tx_simulator', () => {
         Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
       ),
     ];
-    const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
+    const contractAddress = new AztecAddress(new Fr(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS));
     const emittedLength = contractClassLogFields.length;
     const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
 

@@ -9,7 +9,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
-import { TxProvider } from '@aztec/p2p';
+import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import {
@@ -80,7 +80,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private previousProposal?: BlockProposal;
 
   private myAddresses: EthAddress[];
-  private lastEpoch: bigint | undefined;
+  private lastEpochForCommitteeUpdateLoop: bigint | undefined;
   private epochCacheUpdateLoop: RunningPromise;
 
   private blockProposalValidator: BlockProposalValidator;
@@ -119,12 +119,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private async handleEpochCommitteeUpdate() {
     try {
-      const { committee, epoch } = await this.epochCache.getCommittee('now');
+      const { committee, epoch } = await this.epochCache.getCommittee('next');
       if (!committee) {
         this.log.trace(`No committee found for slot`);
         return;
       }
-      if (epoch !== this.lastEpoch) {
+      if (epoch !== this.lastEpochForCommitteeUpdateLoop) {
         const me = this.myAddresses;
         const committeeSet = new Set(committee.map(v => v.toString()));
         const inCommittee = me.filter(a => committeeSet.has(a.toString()));
@@ -137,7 +137,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
             `Validators ${me.map(a => a.toString()).join(', ')} are not on the validator committee for epoch ${epoch}`,
           );
         }
-        this.lastEpoch = epoch;
+        this.lastEpochForCommitteeUpdateLoop = epoch;
       }
     } catch (err) {
       this.log.error(`Error updating epoch committee`, err);
@@ -175,12 +175,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       dateProvider,
       telemetry,
     );
+
+    // TODO(PhilWindle): This seems like it could/should be done inside start()
     validator.registerBlockProposalHandler();
     return validator;
   }
 
   public getValidatorAddresses() {
     return this.keyStore.getAddresses();
+  }
+
+  public signWithAddress(addr: EthAddress, msg: Buffer32) {
+    return this.keyStore.signWithAddress(addr, msg);
   }
 
   public configureSlashing(
@@ -200,15 +206,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     const myAddresses = this.keyStore.getAddresses();
 
-    const inCommittee = await this.epochCache.filterInCommittee(myAddresses);
+    const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
     if (inCommittee.length > 0) {
       this.log.info(
-        `Started validator with addresses in current validator committee: ${inCommittee.map(a => a.toString()).join(', ')}`,
+        `Started validator with addresses in current validator committee: ${inCommittee
+          .map(a => a.toString())
+          .join(', ')}`,
       );
     } else {
       this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     }
     this.epochCacheUpdateLoop.start();
+    await this.p2pClient.addReqRespSubProtocol(ReqRespSubProtocol.AUTH, this.handleAuthRequest.bind(this));
     return Promise.resolve();
   }
 
@@ -223,12 +232,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
-    const slotNumber = proposal.slotNumber.toNumber();
+    const slotNumber = proposal.slotNumber.toBigInt();
     const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
 
     // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.keyStore.getAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {
@@ -514,7 +523,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     const proposalId = proposal.archive.toString();
     // adds attestations for all of my addresses locally
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
     await this.doAttestToProposal(proposal, inCommittee);
 
     const myAddresses = this.keyStore.getAddresses();
@@ -553,6 +562,29 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const attestations = await this.validationService.attestToProposal(proposal, attestors);
     await this.p2pClient.addAttestations(attestations);
     return attestations;
+  }
+
+  private async handleAuthRequest(peer: PeerId, msg: Buffer): Promise<Buffer> {
+    const authRequest = AuthRequest.fromBuffer(msg);
+    const statusMessage = await this.p2pClient.handleAuthRequestFromPeer(authRequest, peer).catch(_ => undefined);
+    if (statusMessage === undefined) {
+      return Buffer.alloc(0);
+    }
+
+    // Find a validator address that is in the set
+    const allRegisteredValidators = await this.epochCache.getRegisteredValidators();
+    const addressToUse = this.getValidatorAddresses().find(
+      address => allRegisteredValidators.find(v => v.equals(address)) !== undefined,
+    );
+    if (addressToUse === undefined) {
+      // We don't have a registered address
+      return Buffer.alloc(0);
+    }
+
+    const payloadToSign = authRequest.getPayloadToSign();
+    const signature = await this.keyStore.signWithAddress(addressToUse, payloadToSign);
+    const authResponse = new AuthResponse(statusMessage, signature);
+    return authResponse.toBuffer();
   }
 }
 

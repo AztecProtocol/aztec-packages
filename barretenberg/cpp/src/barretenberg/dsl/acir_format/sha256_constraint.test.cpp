@@ -50,7 +50,6 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},

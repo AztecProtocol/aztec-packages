@@ -36,7 +36,6 @@ TEST_F(TxExecutionTest, simulateTx)
     // Create a mock transaction
     Tx tx = {
         .hash = "0x1234567890abcdef",
-        .globalVariables = GlobalVariables{},
         .nonRevertibleAccumulatedData =
             AccumulatedData{
                 .noteHashes = testing::random_fields(5),

@@ -14,8 +14,8 @@
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts",
-      "./src/class-registerer/index.ts",
-      "./src/instance-deployer/index.ts"
+      "./src/class-registry/index.ts",
+      "./src/instance-registry/index.ts"
     ],
     "name": "Protocol Contracts",
     "tsconfig": "./tsconfig.json"

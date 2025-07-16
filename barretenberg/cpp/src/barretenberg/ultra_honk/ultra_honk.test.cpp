@@ -53,13 +53,13 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     void prove_and_verify(auto& circuit_builder, bool expected_result)
     {
         auto proving_key = std::make_shared<DeciderProvingKey>(circuit_builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
-            bool verified = verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
+            bool verified = verifier.verify_proof(proof, proving_key->ipa_proof);
             EXPECT_EQ(verified, expected_result);
         } else {
             Verifier verifier(verification_key);
@@ -96,7 +96,7 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
  * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
  * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
  */
-TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
+TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
 
@@ -104,7 +104,7 @@ TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof ultra_proof = prover.construct_proof();
     size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE;
@@ -127,10 +127,10 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(circuit_builder);
-    auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
-    auto& polynomials = proving_key->proving_key.polynomials;
+    auto& polynomials = proving_key->polynomials;
 
     auto ensure_non_zero = [](auto& polynomial) {
         bool has_non_zero_coefficient = false;
@@ -278,13 +278,13 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     };
 
     auto prove_and_verify = [](auto& proving_key) {
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<TypeParam>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
             typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
-            return verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
+            return verifier.verify_proof(proof, proving_key->ipa_proof);
         } else {
             typename TestFixture::Verifier verifier(verification_key);
             return verifier.verify_proof(proof);
@@ -305,7 +305,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto& polynomials = proving_key->proving_key.polynomials;
+        auto& polynomials = proving_key->polynomials;
 
         // Erroneously update the read counts/tags at an arbitrary index
         // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
@@ -327,7 +327,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto& polynomials = proving_key->proving_key.polynomials;
+        auto& polynomials = proving_key->polynomials;
 
         bool altered = false;
         // Find a lookup gate and alter one of the wire values
@@ -347,7 +347,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto& polynomials = proving_key->proving_key.polynomials;
+        auto& polynomials = proving_key->polynomials;
 
         // Turn the lookup selector on for an arbitrary row where it is not already active
         polynomials.lookup_inverses = polynomials.lookup_inverses.full();

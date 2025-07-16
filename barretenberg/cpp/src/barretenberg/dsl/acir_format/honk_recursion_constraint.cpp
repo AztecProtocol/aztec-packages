@@ -86,16 +86,6 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
     }
 
-    // We are making the assumption that the pairing point object is behind all the inner public inputs
-    builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs);
-    offset++;
-
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs + PAIRING_POINTS_SIZE);
-        offset++;
-    }
-
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         set_dummy_commitment(offset);
     }
@@ -183,12 +173,6 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     }
     // IPA Proof
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Poly length
-        curve::Grumpkin::ScalarField poly_length(1UL << CONST_ECCVM_LOG_N);
-        auto frs = field_conversion::convert_to_bn254_frs(poly_length);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        offset += 2;
 
         // Ls and Rs
         for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {

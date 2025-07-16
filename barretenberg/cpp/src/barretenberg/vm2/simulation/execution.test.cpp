@@ -22,13 +22,17 @@
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -38,6 +42,7 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
+using ::testing::Throw;
 
 // TODO(fcarreiro): This is a hack to get the gas tracker for testing.
 class TestingExecution : public Execution {
@@ -61,19 +66,24 @@ class ExecutionSimulationTest : public ::testing::Test {
     }
 
     StrictMock<MockAlu> alu;
+    StrictMock<MockBitwise> bitwise;
     StrictMock<MockMemory> memory;
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
     StrictMock<MockDataCopy> data_copy;
     StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     StrictMock<MockKeccakF1600> keccakf1600;
+    StrictMock<MockGetContractInstance> get_contract_instance;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
     StrictMock<MockContextProvider> context_provider;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGasTracker> gas_tracker;
+    StrictMock<MockHighLevelMerkleDB> merkle_db;
+    StrictMock<MockGreaterThan> greater_than;
     TestingExecution execution = TestingExecution(alu,
+                                                  bitwise,
                                                   data_copy,
                                                   execution_components,
                                                   context_provider,
@@ -81,7 +91,10 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   execution_id_manager,
                                                   execution_event_emitter,
                                                   context_stack_event_emitter,
-                                                  keccakf1600);
+                                                  keccakf1600,
+                                                  greater_than,
+                                                  get_contract_instance,
+                                                  merkle_db);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -256,6 +269,239 @@ TEST_F(ExecutionSimulationTest, RdSize)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.rd_size(context, /*dst_addr=*/10);
+}
+
+TEST_F(ExecutionSimulationTest, DebugLogEnabled)
+{
+    // Setup test data
+    MemoryAddress message_offset = 100;
+    MemoryAddress fields_offset = 200;
+    MemoryAddress fields_size_offset = 300;
+    uint16_t message_size = 5;
+    bool is_debug_logging_enabled = true;
+
+    // Create test message data (ASCII characters)
+    MemoryValue message_data[] = {
+        MemoryValue::from<FF>('H'), // 'H'
+        MemoryValue::from<FF>('e'), // 'e'
+        MemoryValue::from<FF>('l'), // 'l'
+        MemoryValue::from<FF>('l'), // 'l'
+        MemoryValue::from<FF>('o'), // 'o'
+    };
+
+    // Create test fields data
+    MemoryValue field1 = MemoryValue::from<FF>(42);
+    MemoryValue field2 = MemoryValue::from<FF>(123);
+    MemoryValue fields_size = MemoryValue::from<uint32_t>(2);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(fields_size_offset)).WillOnce(ReturnRef(fields_size));
+    EXPECT_CALL(memory, get(message_offset + 0)).WillOnce(ReturnRef(message_data[0]));
+    EXPECT_CALL(memory, get(message_offset + 1)).WillOnce(ReturnRef(message_data[1]));
+    EXPECT_CALL(memory, get(message_offset + 2)).WillOnce(ReturnRef(message_data[2]));
+    EXPECT_CALL(memory, get(message_offset + 3)).WillOnce(ReturnRef(message_data[3]));
+    EXPECT_CALL(memory, get(message_offset + 4)).WillOnce(ReturnRef(message_data[4]));
+    EXPECT_CALL(memory, get(fields_offset + 0)).WillOnce(ReturnRef(field1));
+    EXPECT_CALL(memory, get(fields_offset + 1)).WillOnce(ReturnRef(field2));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.debug_log(
+        context, message_offset, fields_offset, fields_size_offset, message_size, is_debug_logging_enabled);
+}
+
+TEST_F(ExecutionSimulationTest, DebugLogDisabled)
+{
+    // Setup test data
+    MemoryAddress message_offset = 100;
+    MemoryAddress fields_offset = (1UL << 32) - 50;
+    MemoryAddress fields_size_offset = (1UL << 32) - 50;
+    uint16_t message_size = 1UL << 15;
+    bool is_debug_logging_enabled = false;
+
+    // When debug logging is disabled, only gas should be consumed
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.debug_log(
+        context, message_offset, fields_offset, fields_size_offset, message_size, is_debug_logging_enabled);
+}
+
+TEST_F(ExecutionSimulationTest, DebugLogMessageTruncation)
+{
+    // Setup test data with message size larger than the 100 character limit
+    MemoryAddress message_offset = 100;
+    MemoryAddress fields_offset = 200;
+    MemoryAddress fields_size_offset = 300;
+    uint16_t message_size = 150; // Larger than the 100 character limit
+    bool is_debug_logging_enabled = true;
+
+    // Create test fields data
+    MemoryValue fields_size = MemoryValue::from<uint32_t>(0);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(fields_size_offset)).WillOnce(ReturnRef(fields_size));
+
+    // Expect only 100 memory reads for the message (truncated)
+    for (uint32_t i = 0; i < 100; ++i) {
+        MemoryValue char_val = MemoryValue::from<FF>('A' + (i % 26));
+        EXPECT_CALL(memory, get(message_offset + i)).WillOnce(ReturnRef(char_val));
+    }
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.debug_log(
+        context, message_offset, fields_offset, fields_size_offset, message_size, is_debug_logging_enabled);
+}
+
+TEST_F(ExecutionSimulationTest, DebugLogExceptionHandling)
+{
+    // Setup test data
+    MemoryAddress message_offset = 100;
+    MemoryAddress fields_offset = 200;
+    MemoryAddress fields_size_offset = 300;
+    uint16_t message_size = 5;
+    bool is_debug_logging_enabled = true;
+
+    // Make memory.get throw an exception to test error handling
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(fields_size_offset)).WillOnce(Throw(std::runtime_error("Memory access error")));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    // The debug_log method should not throw, it should catch the exception and continue
+    EXPECT_NO_THROW(execution.debug_log(
+        context, message_offset, fields_offset, fields_size_offset, message_size, is_debug_logging_enabled));
+}
+
+TEST_F(ExecutionSimulationTest, Sload)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress dst_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
+    EXPECT_CALL(merkle_db, storage_read(address, slot.as<FF>())).WillOnce(Return(7));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<FF>(7)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.sload(context, slot_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SStore)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress value_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+    auto value = MemoryValue::from<FF>(7);
+    TreeStates tree_state = {};
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+    EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(false));
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
+
+    EXPECT_CALL(merkle_db, storage_write(address, slot.as<FF>(), value.as<FF>(), false));
+
+    execution.sstore(context, value_addr, slot_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SStoreLimitReached)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress value_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+    auto value = MemoryValue::from<FF>(7);
+    TreeStates tree_state = {};
+    tree_state.publicDataTree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+    EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(false));
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr),
+                              "SSTORE: Maximum number of data writes reached");
+}
+
+TEST_F(ExecutionSimulationTest, SStoreLimitReachedSquashed)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress value_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+    auto value = MemoryValue::from<FF>(7);
+    TreeStates tree_state = {};
+    tree_state.publicDataTree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+    // has been written before, so it does not count against the limit.
+    EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(true));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, storage_write(address, slot.as<FF>(), value.as<FF>(), false));
+
+    execution.sstore(context, value_addr, slot_addr);
+}
+
+TEST_F(ExecutionSimulationTest, NoteHashExists)
+{
+    MemoryAddress unique_note_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto unique_note_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(unique_note_hash_addr)).WillOnce(ReturnRef(unique_note_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(true));
+
+    EXPECT_CALL(merkle_db, note_hash_exists(leaf_index.as<uint64_t>(), unique_note_hash.as<FF>()))
+        .WillOnce(Return(true));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+
+    execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, NoteHashExistsOutOfRange)
+{
+    MemoryAddress unique_note_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto unique_note_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(NOTE_HASH_TREE_LEAF_COUNT + 1);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(unique_note_hash_addr)).WillOnce(ReturnRef(unique_note_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(false));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
+
+    execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr);
 }
 
 } // namespace

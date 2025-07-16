@@ -18,7 +18,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using OinkProof = std::vector<FF>;

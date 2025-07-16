@@ -60,7 +60,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::fi
                                                                    const std::filesystem::path& witness_path)
 {
     auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
-    auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     return { PublicInputsVector{}, HonkProof{}, vk, vk->hash() };
 }
 
@@ -74,7 +74,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (compute_vk) {
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
-        vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+        vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     } else {
         vk = std::make_shared<typename Flavor::VerificationKey>(
             from_buffer<typename Flavor::VerificationKey>(read_file(vk_path)));
@@ -83,9 +83,9 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
     UltraProver_<Flavor> prover{ proving_key, vk };
 
     HonkProof concat_pi_and_proof = prover.construct_proof();
-    size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
+    size_t num_inner_public_inputs = prover.proving_key->num_public_inputs();
     // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
-    BB_ASSERT_GTE(prover.proving_key->proving_key.num_public_inputs,
+    BB_ASSERT_GTE(prover.proving_key->num_public_inputs(),
                   PAIRING_POINTS_SIZE,
                   "Public inputs should contain a pairing point accumulator.");
     num_inner_public_inputs -= PAIRING_POINTS_SIZE;
@@ -295,7 +295,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
     using FF = typename Flavor::FF;
 
     std::shared_ptr<DeciderProvingKey_<Flavor>> proving_key = _compute_proving_key<Flavor>(bytecode_path, witness_path);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     Prover prover{ proving_key, verification_key };
     std::vector<FF> proof = prover.construct_proof();
 

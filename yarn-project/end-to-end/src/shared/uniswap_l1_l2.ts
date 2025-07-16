@@ -26,7 +26,7 @@ import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
-import { ensureAccountsPubliclyDeployed } from '../fixtures/utils.js';
+import { ensureAccountContractsPublished } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -117,7 +117,7 @@ export const uniswapL1L2TestSuite = (
       // sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
 
-      await ensureAccountsPubliclyDeployed(ownerWallet, [ownerWallet, sponsorWallet]);
+      await ensureAccountContractsPublished(ownerWallet, [ownerWallet, sponsorWallet]);
 
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(

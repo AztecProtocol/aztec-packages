@@ -50,4 +50,5 @@ validator:
               storage: 128Gi
 
   service:
-    headless: true
+    headless:
+      enabled: true

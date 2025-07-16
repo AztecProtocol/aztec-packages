@@ -1,16 +1,21 @@
 import { Signature } from '@aztec/foundation/eth-signature';
 import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 
-import { type Hex, type WalletClient, encodeFunctionData } from 'viem';
+import { type Hex, encodeFunctionData, hashTypedData } from 'viem';
 
 import type { L1TxRequest } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient } from '../types.js';
 
 export interface IEmpireBase {
   getRoundInfo(rollupAddress: Hex, round: bigint): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }>;
   computeRound(slot: bigint): Promise<bigint>;
   createVoteRequest(payload: Hex): L1TxRequest;
-  createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest>;
+  createVoteRequestWithSignature(
+    payload: Hex,
+    round: bigint,
+    chainId: number,
+    signerAddress: Hex,
+    signer: (msg: Hex) => Promise<Hex>,
+  ): Promise<L1TxRequest>;
 }
 
 export function encodeVote(payload: Hex): Hex {
@@ -39,9 +44,10 @@ export function encodeVoteWithSignature(payload: Hex, signature: Signature) {
  * @returns The EIP-712 signature
  */
 export async function signVoteWithSig(
-  walletClient: WalletClient,
+  signer: (msg: Hex) => Promise<Hex>,
   proposal: Hex,
   nonce: bigint,
+  round: bigint,
   verifyingContract: Hex,
   chainId: number,
 ): Promise<Signature> {
@@ -56,24 +62,16 @@ export async function signVoteWithSig(
     Vote: [
       { name: 'proposal', type: 'address' },
       { name: 'nonce', type: 'uint256' },
+      { name: 'round', type: 'uint256' },
     ],
   };
 
   const message = {
     proposal,
     nonce,
+    round,
   };
 
-  if (!walletClient.account) {
-    throw new Error('Wallet client must be connected to an account');
-  }
-
-  const signatureHex = await walletClient.signTypedData({
-    account: walletClient.account.address,
-    domain,
-    types,
-    primaryType: 'Vote',
-    message,
-  });
-  return Signature.fromString(signatureHex);
+  const msg = hashTypedData({ domain, types, primaryType: 'Vote', message });
+  return Signature.fromString(await signer(msg));
 }

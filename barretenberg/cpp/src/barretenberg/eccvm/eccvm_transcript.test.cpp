@@ -22,7 +22,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
      *
      * @details This is where we define the "Manifest" for a ECCVM Honk proof. The tests in this suite are
      * intented to warn the developer if the Prover/Verifier has deviated from this manifest, however, the
-     * Transcript class is not otherwise contrained to follow the manifest.
+     * Transcript class is not otherwise constrained to follow the manifest.
      *
      * @note Entries in the manifest consist of a name string and a size (bytes), NOT actual data.
      *
@@ -32,11 +32,13 @@ class ECCVMTranscriptTests : public ::testing::Test {
     {
         TranscriptManifest manifest_expected;
         // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+        size_t frs_per_Fq = bb::field_conversion::calc_num_bn254_frs<FF>();
+        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<Flavor::BF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
-        size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
+        size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fq;
 
         size_t round = 0;
+        manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_EQ", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_TRANSITION", frs_per_G);
@@ -137,7 +139,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         round++;
 
         manifest_expected.add_entry(round, "Libra:concatenation_commitment", frs_per_G);
-        manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fq);
         // get the challenge for the ZK Sumcheck claim
         manifest_expected.add_challenge(round, "Libra:Challenge");
 
@@ -145,8 +147,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
             round++;
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_comm_" + idx, frs_per_G);
-            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_0", frs_per_Fr);
-            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_1", frs_per_Fr);
+            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_0", frs_per_Fq);
+            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_1", frs_per_Fq);
             std::string label = "Sumcheck:u_" + idx;
             manifest_expected.add_challenge(round, label);
         }
@@ -154,11 +156,11 @@ class ECCVMTranscriptTests : public ::testing::Test {
         round++;
 
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
-        manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fq);
         manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
-        manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fq);
 
         manifest_expected.add_challenge(round, "rho");
 
@@ -171,12 +173,12 @@ class ECCVMTranscriptTests : public ::testing::Test {
         round++;
         for (size_t i = 1; i <= CONST_ECCVM_LOG_N; ++i) {
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
+            manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fq);
         }
-        manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fq);
         manifest_expected.add_challenge(round, "Shplonk:nu");
         round++;
         manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
@@ -187,24 +189,24 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
         round++;
-        manifest_expected.add_entry(round, "Translation:op", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:Px", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:Py", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:z1", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:z2", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:op", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:Px", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:Py", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:z1", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:z2", frs_per_Fq);
         manifest_expected.add_challenge(round, "Translation:batching_challenge_v");
 
         round++;
-        manifest_expected.add_entry(round, "Translation:masking_term_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:masking_term_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Translation:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Translation:quotient_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:small_ipa_evaluation_challenge");
 
         round++;
-        manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fq);
         manifest_expected.add_challenge(round, "Shplonk:nu");
 
         round++;
@@ -218,10 +220,13 @@ class ECCVMTranscriptTests : public ::testing::Test {
     {
         TranscriptManifest manifest_expected;
         // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+        size_t frs_per_Fq = bb::field_conversion::calc_num_bn254_frs<FF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
         size_t round = 0;
-        manifest_expected.add_entry(round, "IPA:poly_length", frs_per_Fr);
+
+        manifest_expected.add_entry(round, "IPA:commitment", frs_per_G);
+        manifest_expected.add_entry(round, "IPA:challenge", frs_per_Fq);
+        manifest_expected.add_entry(round, "IPA:evaluation", frs_per_Fq);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
@@ -235,7 +240,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "IPA:G_0", frs_per_G);
-        manifest_expected.add_entry(round, "IPA:a_0", frs_per_Fr);
+        manifest_expected.add_entry(round, "IPA:a_0", frs_per_Fq);
         return manifest_expected;
     }
 

@@ -24,7 +24,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     using VKAndHash = typename Flavor::VKAndHash;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
     using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
@@ -37,7 +37,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
 
     bool is_accumulator = false;
     std::vector<FF> public_inputs;
-    RelationSeparator alphas; // a challenge for each subrelation
+    // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
+    SubrelationSeparators alphas;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
@@ -70,7 +71,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             for (auto [native_public_input] : zip_view(verification_key->public_inputs)) {
                 public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
             }
-            for (size_t alpha_idx = 0; alpha_idx < alphas.size(); alpha_idx++) {
+            for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
 
@@ -114,10 +115,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             static_cast<uint64_t>(vk_and_hash->vk->circuit_size.get_value()),
             static_cast<uint64_t>(vk_and_hash->vk->num_public_inputs.get_value()));
         native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(vk_and_hash->vk->pub_inputs_offset.get_value());
-        native_honk_vk->pairing_inputs_public_input_key = vk_and_hash->vk->pairing_inputs_public_input_key;
-        if constexpr (IsMegaFlavor<Flavor>) {
-            native_honk_vk->databus_propagation_data = vk_and_hash->vk->databus_propagation_data;
-        }
 
         for (auto [vk, final_decider_vk] : zip_view(vk_and_hash->vk->get_all(), native_honk_vk->get_all())) {
             final_decider_vk = vk.get_value();

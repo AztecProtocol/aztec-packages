@@ -33,10 +33,10 @@ describe('e2e_deploy_contract deploy method', () => {
 
   afterAll(() => t.teardown());
 
-  it('refused to deploy a contract instance whose contract class is not yet registered', async () => {
+  it('refused to initialize a contract instance whose contract class is not yet published', async () => {
     const owner = wallet.getAddress();
-    const opts = { skipClassRegistration: true };
-    logger.debug(`Trying to deploy contract instance without registering its contract class`);
+    const opts = { skipClassPublication: true };
+    logger.debug(`Trying to initialize a contract instance without publishing its contract class`);
     await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
       /Cannot find the leaf for nullifier/,
     );
@@ -90,7 +90,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
-    const opts = { skipClassRegistration: true, skipPublicDeployment: true };
+    const opts = { skipClassPublication: true, skipInstancePublication: true };
     const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
     await contract.methods.increment_twice(wallet.getAddress(), wallet.getAddress()).send().wait();
@@ -109,8 +109,10 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
-    const opts = { skipPublicDeployment: true, skipClassRegistration: true };
-    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
+    const opts = { skipInstancePublication: true, skipClassPublication: true };
+    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(
+      'No transactions are needed to publish or initialize contract NoConstructor',
+    );
   });
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {

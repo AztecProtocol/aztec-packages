@@ -1,5 +1,5 @@
 use protocol_types::{
-    block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
+    abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
 };
 
 use crate::{
@@ -88,7 +88,10 @@ mod test {
     unconstrained fn fetching_a_valid_but_different_header_should_fail() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_by(4);
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
 
         // We get our current header for the last archive values.
         let current_header = env.private().historical_header;

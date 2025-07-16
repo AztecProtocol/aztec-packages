@@ -12,6 +12,7 @@ import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
+import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
 import type { TxCollectionSink } from './tx_collection_sink.js';
@@ -241,7 +242,6 @@ export class FastTxCollection {
     const maxRetryAttempts = 5;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;
-
     if (timeoutMs < 100) {
       this.log.warn(
         `Not initiating fast reqresp for txs for ${request.type} at slot ${blockInfo.slotNumber} due to timeout`,
@@ -257,15 +257,18 @@ export class FastTxCollection {
 
     try {
       await this.txCollectionSink.collect(
-        txHashes =>
-          this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
+        async txHashes => {
+          const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
             ReqRespSubProtocol.TX,
-            txHashes,
+            chunkTxHashesRequest(txHashes),
             pinnedPeer,
             timeoutMs,
             maxPeers,
             maxRetryAttempts,
-          ),
+          );
+
+          return txs.flat();
+        },
         Array.from(request.missingTxHashes).map(txHash => TxHash.fromString(txHash)),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },
       );

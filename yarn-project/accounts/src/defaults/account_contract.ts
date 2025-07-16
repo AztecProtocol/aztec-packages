@@ -10,11 +10,11 @@ import { DefaultAccountInterface } from '../defaults/account_interface.js';
  */
 export abstract class DefaultAccountContract implements AccountContract {
   abstract getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider;
-  abstract getDeploymentFunctionAndArgs(): Promise<
+  abstract getInitializationFunctionAndArgs(): Promise<
     | {
-        /** The name of the function used to deploy the contract */
+        /** The name of the function used to initialize the contract */
         constructorName: string;
-        /** The args to the function used to deploy the contract */
+        /** The args to the function used to initialize the contract */
         constructorArgs: any[];
       }
     | undefined

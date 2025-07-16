@@ -1,9 +1,0 @@
-[package]
-name = "contract_instance_deployer_contract"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../../aztec-nr/aztec" }
-contract_class_registerer = { path = "../contract_class_registerer_contract" }

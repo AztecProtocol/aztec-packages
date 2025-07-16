@@ -85,7 +85,7 @@ contract RollupCore is
       _config.aztecProofSubmissionEpochs
     );
 
-    Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
+    Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(
       _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig
@@ -109,7 +109,7 @@ contract RollupCore is
 
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
-    uint256 version = uint32(
+    uint32 version = uint32(
       uint256(
         keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))
       )

@@ -24,6 +24,7 @@ node:
   node:
     env:
       OTEL_SERVICE_NAME: "prover-node"
+      PROVER_AGENT_COUNT: 0
 
     preStartScript: |
       if [ -n "$MNEMONIC" ]; then

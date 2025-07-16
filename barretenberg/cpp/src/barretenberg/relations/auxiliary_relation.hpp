@@ -15,27 +15,28 @@ template <typename FF_> class AuxiliaryRelationImpl {
     using FF = FF_;
     /*
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/757): Investigate optimizations.
-     * It seems that we could have:
-     *     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
-     *     5 // auxiliary sub-relation;
-     *     6 // ROM consistency sub-relation 1
-     *     6 // ROM consistency sub-relation 2
-     *     6 // RAM consistency sub-relation 1
-     *     5 // RAM consistency sub-relation 2
-     *     5 // RAM consistency sub-relation 3
-     * };
-     *
-     * and
-     *
-     *     static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
-     *     6, // auxiliary sub-relation
-     *     0, // ROM consistency sub-relation 1
-     *     0, // ROM consistency sub-relation 2
-     *     3, // RAM consistency sub-relation 1
-     *     0, // RAM consistency sub-relation 2
-     *     1  // RAM consistency sub-relation 3
-     * };
-     */
+     * The following are the current degrees of the constraints.
+
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
+            6, // auxiliary sub-relation;
+            6, // ROM consistency sub-relation 1
+            6, // ROM consistency sub-relation 2
+            6, // RAM consistency sub-relation 1
+            5, // RAM consistency sub-relation 2
+            5  // RAM consistency sub-relation 3
+        };
+
+        static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
+            0, // auxiliary sub-relation
+            0, // ROM consistency sub-relation 1
+            0, // ROM consistency sub-relation 2
+            1, // RAM consistency sub-relation 1
+            0, // RAM consistency sub-relation 2
+            2  // RAM consistency sub-relation 3
+        };
+
+        Once we separate out NNF and memory operations, it might be worth using `ShortAccumulator`s to optimize.
+        */
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
         6, // auxiliary sub-relation;
@@ -101,16 +102,13 @@ template <typename FF_> class AuxiliaryRelationImpl {
                                   const FF& scaling_factor)
     {
         PROFILE_THIS_NAME("Auxiliary::accumulate");
-        // declare the accumulator of the maximum length, in non-ZK Flavors, they are of the same length,
-        // whereas in ZK Flavors, the accumulator corresponding to RAM consistency sub-relation 1 is the longest
-        using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+        // all accumulators are of the same length, so we set our accumulator type to (arbitrarily) be the first one.
+        // if there were one that were shorter, we could also profitably use a `ShortAccumulator` type. however,
+        // that is not the case here.
+        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        // allows to re-use the values accumulated by accumulators of the sizes smaller or equal to
-        // the size of Accumulator declared above
-        using ShortAccumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        using ShortView = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         using ParameterView = GetParameterView<Parameters, View>;
         using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
@@ -154,26 +152,24 @@ template <typename FF_> class AuxiliaryRelationImpl {
         non_native_field_gate_2_m *= LIMB_SIZE;
         non_native_field_gate_2_m -= w_4_shift_m;
         non_native_field_gate_2_m += limb_subproduct;
-        auto non_native_field_gate_2 = ShortAccumulator(non_native_field_gate_2_m) * ShortAccumulator(q_4_m);
+        auto non_native_field_gate_2 = Accumulator(non_native_field_gate_2_m) * Accumulator(q_4_m);
 
         limb_subproduct *= LIMB_SIZE;
         limb_subproduct += (w_1_shift_m * w_2_shift_m);
         auto non_native_field_gate_1_m = limb_subproduct;
         non_native_field_gate_1_m -= (w_3_m + w_4_m);
-        // We transform into ShortAccumulator to extend the degree of `non_native_field_gate_1` beyond degree-2
-        // (CoefficientAccumulator only supports Monomials of up to degree 2 as it is not efficient to peform
-        // higher-degree computations in the coefficient basis) We use ShortAccumulator instead of Accumulator, because
-        // this term is only used in subrelations that have the same degree as subrelation `0` (which can be lower than
-        // the degree of subrelation `3`, which is how `Accumulator` is defined)
-        auto non_native_field_gate_1 = ShortAccumulator(non_native_field_gate_1_m) * ShortAccumulator(q_3_m);
+        // We transform into Accumulator to extend the degree of `non_native_field_gate_1` beyond degree-2
+        // (CoefficientAccumulator only supports univariate polynomials of up to degree 2; it is not efficient to peform
+        // higher-degree computations in the coefficient basis.)
+        auto non_native_field_gate_1 = Accumulator(non_native_field_gate_1_m) * Accumulator(q_3_m);
 
         auto non_native_field_gate_3_m = limb_subproduct;
         non_native_field_gate_3_m += w_4_m;
         non_native_field_gate_3_m -= (w_3_shift_m + w_4_shift_m);
-        auto non_native_field_gate_3 = ShortAccumulator(non_native_field_gate_3_m) * ShortAccumulator(q_m_m);
+        auto non_native_field_gate_3 = Accumulator(non_native_field_gate_3_m) * Accumulator(q_m_m);
 
         auto non_native_field_identity = non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3;
-        non_native_field_identity *= ShortAccumulator(q_2_m);
+        non_native_field_identity *= Accumulator(q_2_m);
 
         // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * q_4
         // deg 2
@@ -202,7 +198,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         auto limb_accumulator_2_m_full = limb_accumulator_2_m * q_m_m;
 
         auto limb_accumulator_identity_m = limb_accumulator_1_m_full + limb_accumulator_2_m_full;
-        ShortAccumulator limb_accumulator_identity(limb_accumulator_identity_m);
+        Accumulator limb_accumulator_identity(limb_accumulator_identity_m);
         limb_accumulator_identity *= q_3_m; //  deg 3
 
         /**
@@ -239,26 +235,33 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * Partial degree: 1
          * Total degree: 2
          *
-         * A ROM/RAM access gate can be evaluated with the identity:
+         * A ROM/RAM access gate can be evaluated with the `memory_record_check` identity:
          *
          * qc + w1 \eta + w2 η₂ + w3 η₃ - w4 = 0
          *
          * For ROM gates, qc = 0
+         * Here, informally, w4 is the "record" (a.k.a. fingerprint) of the access gate.
          */
+
+        // memory_record_check and partial_record_check_m have either deg 1 or 2 (the latter refers to the
+        // functional univariate degree when we use PG as opposed to sumcheck.)
         auto memory_record_check_m = w_3_m * eta_three_m;
         memory_record_check_m += w_2_m * eta_two_m;
         memory_record_check_m += w_1_m * eta_m;
         memory_record_check_m += q_c_m;
-        auto partial_record_check_m = memory_record_check_m; // used in RAM consistency check; deg 1 or 2
+        auto partial_record_check_m = memory_record_check_m; // used later in RAM consistency check
         memory_record_check_m = memory_record_check_m - w_4_m;
-        auto memory_record_check = ShortAccumulator(memory_record_check_m);
+
+        auto memory_record_check = Accumulator(memory_record_check_m);
         /**
          * ROM Consistency Check
          * Partial degree: 1
          * Total degree: 4
          *
-         * For every ROM read, a set equivalence check is applied between the record witnesses, and a second set of
-         * records that are sorted.
+         * For every ROM read, we require a multiset check applied between the record witnesses and a
+         * second set of records that are sorted. (See the Plookup paper.)
+         * In fact, due to our implementation, this is automatic; we implicitly have copy-constraints realizing the
+         * multiset equality. In other words, the multiset check will be instantiated by a permutation check.
          *
          * We apply the following checks for the sorted records:
          *
@@ -268,24 +271,25 @@ template <typename FF_> class AuxiliaryRelationImpl {
          *
          */
         auto neg_index_delta_m = w_1_m - w_1_shift_m;
-        auto index_delta_is_zero_m = neg_index_delta_m + FF(1);
+        auto index_delta_is_zero_m = neg_index_delta_m + FF(1); // deg 1
         auto record_delta_m = w_4_shift_m - w_4_m;
 
-        auto index_is_monotonically_increasing_m = neg_index_delta_m.sqr() + neg_index_delta_m; // deg 2
-        ShortAccumulator index_is_monotonically_increasing(index_is_monotonically_increasing_m);
+        Accumulator index_is_monotonically_increasing(neg_index_delta_m.sqr() +
+                                                      neg_index_delta_m); // check if next index minus current index is
+                                                                          // 0 or 1. deg 2
 
         auto adjacent_values_match_if_adjacent_indices_match =
-            ShortAccumulator(index_delta_is_zero_m * record_delta_m); // deg 2
+            Accumulator(index_delta_is_zero_m * record_delta_m); // deg 2
 
-        auto q_aux_by_scaling_m = q_aux_m * scaling_factor;
-        auto q_aux_by_scaling = ShortAccumulator(q_aux_by_scaling_m);
-        auto q_one_by_two_m = q_1_m * q_2_m;
-        auto q_one_by_two = ShortAccumulator(q_one_by_two_m);
-        auto q_one_by_two_by_aux_by_scaling = q_one_by_two * q_aux_by_scaling;
+        auto q_aux_by_scaling_m = q_aux_m * scaling_factor; // deg 1
+        auto q_aux_by_scaling = Accumulator(q_aux_by_scaling_m);
+        auto q_one_by_two_m = q_1_m * q_2_m; // deg 2
+        auto q_one_by_two = Accumulator(q_one_by_two_m);
+        auto q_one_by_two_by_aux_by_scaling = q_one_by_two * q_aux_by_scaling; // deg 3
 
         std::get<1>(accumulators) +=
-            (adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_aux_by_scaling);          // deg 5
-        std::get<2>(accumulators) += (index_is_monotonically_increasing)*q_one_by_two_by_aux_by_scaling; // deg 5
+            adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_aux_by_scaling;            // deg 5
+        std::get<2>(accumulators) += index_is_monotonically_increasing * q_one_by_two_by_aux_by_scaling; // deg 5
         auto ROM_consistency_check_identity = memory_record_check * q_one_by_two;                        // deg 3 or 4
 
         /**
@@ -307,7 +311,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * with a WRITE operation.
          */
         auto neg_access_type_m = (partial_record_check_m - w_4_m); // will be 0 or 1 for honest Prover; deg 1 or 2
-        ShortAccumulator neg_access_type(neg_access_type_m);
+        Accumulator neg_access_type(neg_access_type_m);
         auto access_check = neg_access_type.sqr() + neg_access_type; // check value is 0 or 1; deg 2 or 4
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
@@ -317,8 +321,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
         neg_next_gate_access_type_m += w_2_shift_m * eta_two_m;
         neg_next_gate_access_type_m += w_1_shift_m * eta_m;
         neg_next_gate_access_type_m = neg_next_gate_access_type_m - w_4_shift_m;
-        Accumulator neg_next_gate_access_type(neg_next_gate_access_type_m);
-        ShortView neg_next_gate_access_type_short(neg_next_gate_access_type);
+        Accumulator neg_next_gate_access_type(neg_next_gate_access_type_m); // deg 1 or 2
         auto value_delta_m = w_3_shift_m - w_3_m;
         auto adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
             Accumulator(index_delta_is_zero_m * value_delta_m) *
@@ -329,20 +332,17 @@ template <typename FF_> class AuxiliaryRelationImpl {
         // do  with an arithmetic gate because of the  `eta` factors. We need to check that the *next* gate's access
         // type is  correct, to cover this edge case
         // deg 2 or 4
-        auto next_gate_access_type_is_boolean = neg_next_gate_access_type_short.sqr() + neg_next_gate_access_type_short;
+        auto next_gate_access_type_is_boolean = neg_next_gate_access_type.sqr() + neg_next_gate_access_type;
 
         auto q_arith_by_aux_and_scaling = Accumulator(q_arith_m * q_aux_by_scaling_m);
-        ShortView q_arith_by_aux_and_scaling_short(q_arith_by_aux_and_scaling);
         // Putting it all together...
         std::get<3>(accumulators) +=
             adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
-            q_arith_by_aux_and_scaling; // deg 5 or 6
-        std::get<4>(accumulators) +=
-            ShortView(index_is_monotonically_increasing * q_arith_by_aux_and_scaling_short); // deg 4
-        std::get<5>(accumulators) +=
-            ShortView(next_gate_access_type_is_boolean * q_arith_by_aux_and_scaling_short); // deg 4 or 6
+            q_arith_by_aux_and_scaling;                                                              // deg 5 or 6
+        std::get<4>(accumulators) += index_is_monotonically_increasing * q_arith_by_aux_and_scaling; // deg 4
+        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_arith_by_aux_and_scaling;  // deg 4 or 6
 
-        auto RAM_consistency_check_identity = access_check * q_arith_by_aux_and_scaling_short; // deg 3 or 5
+        auto RAM_consistency_check_identity = access_check * q_arith_by_aux_and_scaling; // deg 3 or 5
 
         /**
          * RAM Timestamp Consistency Check
@@ -355,22 +355,22 @@ template <typename FF_> class AuxiliaryRelationImpl {
          * Iff delta_index == 0, timestamp_check = timestamp_{i + 1} - timestamp_i
          * Else timestamp_check = 0
          */
-        auto timestamp_delta_m = w_2_shift_m - w_2_m;
-        auto RAM_timestamp_check_identity_m = index_delta_is_zero_m * timestamp_delta_m - w_3_m; // deg 3
-        ShortAccumulator RAM_timestamp_check_identity(RAM_timestamp_check_identity_m);
+        auto timestamp_delta_m = w_2_shift_m - w_2_m;                                            // deg 1
+        auto RAM_timestamp_check_identity_m = index_delta_is_zero_m * timestamp_delta_m - w_3_m; // deg 2
+        Accumulator RAM_timestamp_check_identity(RAM_timestamp_check_identity_m);
         /**
          * The complete RAM/ROM memory identity
          * Partial degree:
          */
-        auto memory_identity = ROM_consistency_check_identity;                             // deg 3 or 4
-        memory_identity += RAM_timestamp_check_identity * ShortAccumulator(q_4_m * q_1_m); // deg 4
-        memory_identity += memory_record_check * ShortAccumulator(q_m_m * q_1_m);          // deg 3 or 4
+        auto memory_identity = ROM_consistency_check_identity;                        // deg 3 or 4
+        memory_identity += RAM_timestamp_check_identity * Accumulator(q_4_m * q_1_m); // deg 4
+        memory_identity += memory_record_check * Accumulator(q_m_m * q_1_m); // deg 4 ( = deg 4 + (deg 3 or deg 4))
 
-        // (deg 3 or 5) + (deg 4) + (deg 3)
+        // (deg 4) + (deg 4) + (deg 3)
         auto auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;
-        auxiliary_identity *= q_aux_by_scaling;               // deg 5 or 6
-        auxiliary_identity += RAM_consistency_check_identity; // deg 3 or 5
-        std::get<0>(accumulators) += ShortView(auxiliary_identity);
+        auxiliary_identity *= q_aux_by_scaling;               // deg 5
+        auxiliary_identity += RAM_consistency_check_identity; // deg 5 ( = deg 5 + (deg 3 or deg 5))
+        std::get<0>(accumulators) += auxiliary_identity;      // deg 5
     };
 };
 

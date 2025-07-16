@@ -76,6 +76,7 @@ import {
   getRewardBoostConfig,
   getRewardConfig,
 } from './config.js';
+import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -287,6 +288,8 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
+  logger.info(`Deploying shared contracts. Network configration: ${networkName}`);
+
   const txHashes: Hex[] = [];
 
   const feeAssetAddress = await deployer.deploy(l1Artifacts.feeAsset, [
@@ -625,6 +628,8 @@ export const deployRollup = async (
     throw new Error('GSE address is required when deploying');
   }
 
+  logger.info(`Deploying rollup using network configuration: ${networkName}`);
+
   const txHashes: Hex[] = [];
 
   let epochProofVerifier = EthAddress.ZERO;
@@ -654,6 +659,7 @@ export const deployRollup = async (
     rewardConfig: rewardConfig,
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
+    exitDelaySeconds: args.exitDelaySeconds,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -986,6 +992,9 @@ export const deployL1Contracts = async (
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
 ): Promise<DeployL1ContractsReturnType> => {
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
+
+  // Deploy multicall3 if it does not exist in this network
+  await deployMulticall3(l1Client, logger);
 
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s

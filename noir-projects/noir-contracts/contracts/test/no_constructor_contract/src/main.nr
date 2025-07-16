@@ -1,6 +1,6 @@
 use aztec::macros::aztec;
 
-/// Used to test deployment of a contract with no constructor in deploy_method.test.ts and in
+/// Used to test publication of a contract instance with no constructor in deploy_method.test.ts and in
 /// private_initialization.test.ts
 #[aztec]
 pub contract NoConstructor {
@@ -17,7 +17,7 @@ pub contract NoConstructor {
         private_mutable: PrivateMutable<ValueNote, Context>,
     }
 
-    /// Arbitrary public method used to test public deployment works for a contract with no constructor.
+    /// Arbitrary public method used to test that publishing for public execution works for a contract with no constructor.
     #[public]
     fn emit_public(value: Field) {
         context.emit_public_log(/*message=*/ value);

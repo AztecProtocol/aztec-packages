@@ -93,10 +93,8 @@ describe('e2e_blacklist_token_contract mint', () => {
         const receiptClaim = await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
         tokenSim.mintPrivate(wallets[0].getAddress(), amount);
-        // Trigger a note sync
-        await asset.methods.sync_private_state().simulate();
         // 1 note should have been created containing `amount` of tokens
-        const visibleNotes = await pxe.getNotes({ txHash: receiptClaim.txHash });
+        const visibleNotes = await pxe.getNotes({ txHash: receiptClaim.txHash, contractAddress: asset.address });
         expect(visibleNotes.length).toBe(1);
         expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
       });
