@@ -124,13 +124,14 @@ contract GovScript is Test {
 
     for (uint256 i = lowerLimit; i <= currentRound; i++) {
       RoundAccounting memory r = governanceProposer.getRoundData(address(rollup), i);
-      uint256 yeaCount = governanceProposer.yeaCount(address(rollup), i, r.leader);
+      uint256 signalCount =
+        governanceProposer.signalCount(address(rollup), i, r.payloadWithMostSignals);
 
       emit log_named_uint("Proposal at round", i);
-      emit log_named_uint("\tyeaCount", yeaCount);
-      emit log_named_address("\tleader", address(r.leader));
+      emit log_named_uint("\tsignalCount", signalCount);
+      emit log_named_address("\tpayloadWithMostSignals", address(r.payloadWithMostSignals));
 
-      if (!r.executed && yeaCount >= n) {
+      if (!r.executed && signalCount >= n) {
         emit log_named_uint("\tGood proposal at round", i);
         found = true;
       }
@@ -320,7 +321,7 @@ contract GovScript is Test {
     emit log_named_uint("expected id", expectedId);
 
     vm.startBroadcast(ME);
-    governanceProposer.executeProposal(_round);
+    governanceProposer.submitRoundWinner(_round);
     vm.stopBroadcast();
 
     proposal = governance.getProposal(expectedId);
