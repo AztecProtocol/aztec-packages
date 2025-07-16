@@ -8,8 +8,10 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <cstring>
 #include <type_traits>
 #include <vector>
@@ -168,6 +170,46 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         std::vector<uint8_t> buffer(sizeof(affine_element));
         affine_element::serialize_to_buffer(*this, &buffer[0]);
         return buffer;
+    }
+
+    static affine_element reconstruct_from_public(const std::span<bb::fr>& limbs)
+        requires(std::is_same_v<Fq, bb::fq> || std::is_same_v<Fq, bb::fr>)
+    {
+        // A coordinate of a point on BN254 is stored using 4 limbs
+        // A coordinate of a point on Grumpkin is stored using 1 limb
+        static constexpr size_t FRS_PER_FQ = std::is_same_v<Fq, bb::fq> ? 4 : 1;
+        BB_ASSERT_EQ(limbs.size(), 2 * FRS_PER_FQ, "Incorrect number of limbs");
+
+        affine_element result;
+        if (std::is_same_v<Fq, bb::fq>) {
+            const auto recover_fq_from_limbs = [](std::span<bb::fr> limbs) {
+                info(limbs[0]);
+                info(uint256_t(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+                info(uint256_t(limbs[2]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2));
+                info(uint256_t(limbs[3]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+                const uint256_t limb = uint256_t(limbs[0]) +
+                                       (uint256_t(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                                       (uint256_t(limbs[2]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                                       (uint256_t(limbs[3]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+                return Fq(limb);
+            };
+
+            result.x = recover_fq_from_limbs(limbs.subspan(0, FRS_PER_FQ));
+            result.y = recover_fq_from_limbs(limbs.subspan(FRS_PER_FQ, FRS_PER_FQ));
+
+            info(result.x);
+            info(result.y);
+        } else {
+            result.x = Fq(limbs[0]);
+            result.y = Fq(limbs[1]);
+        }
+
+        if (result.x == Fq::zero() && result.y == Fq::zero()) {
+            result.self_set_infinity();
+        }
+
+        ASSERT(result.on_curve());
+        return result;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const affine_element& a)

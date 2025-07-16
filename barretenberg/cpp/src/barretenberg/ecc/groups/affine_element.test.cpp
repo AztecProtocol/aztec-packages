@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
 #include "gmock/gmock.h"
 #include <algorithm>
@@ -288,6 +289,29 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
         auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
         EXPECT_EQ(r1, r2);
     }
+}
+
+TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
+{
+    using Curve = curve::BN254;
+    using AffineElement = Curve::AffineElement;
+
+    AffineElement point = AffineElement::random_element();
+    info(point.x);
+    info(point.y);
+    std::vector<bb::fr> public_inputs;
+    for (auto& limb : static_cast<uint256_t>(point.x).data) {
+        public_inputs.emplace_back(bb::fr(limb));
+        info(bb::fr(limb));
+    }
+    for (auto& limb : static_cast<uint256_t>(point.y).data) {
+        public_inputs.emplace_back(bb::fr(limb));
+        info(bb::fr(limb));
+    }
+
+    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+
+    EXPECT_EQ(reconstructed, point);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason
