@@ -354,6 +354,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
                 { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
                 // Context - tree states
+                // Context - tree states - Written public data slots tree
                 { C::execution_prev_written_public_data_slots_tree_root,
                   ex_event.before_context_event.written_public_data_slots_tree_snapshot.root },
                 { C::execution_prev_written_public_data_slots_tree_size,
@@ -366,10 +367,20 @@ void ExecutionTraceBuilder::process(
                   ex_event.before_context_event.tree_states.publicDataTree.tree.root },
                 { C::execution_prev_public_data_tree_size,
                   ex_event.before_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                // Context - tree states - Nullifier tree
+                { C::execution_prev_nullifier_tree_root,
+                  ex_event.before_context_event.tree_states.nullifierTree.tree.root },
+                { C::execution_prev_nullifier_tree_size,
+                  ex_event.before_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
+                { C::execution_nullifier_tree_root, ex_event.after_context_event.tree_states.nullifierTree.tree.root },
+                { C::execution_nullifier_tree_size,
+                  ex_event.after_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
+                // Context - tree states - Public data tree
                 { C::execution_public_data_tree_root,
                   ex_event.after_context_event.tree_states.publicDataTree.tree.root },
                 { C::execution_public_data_tree_size,
                   ex_event.after_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                // Context - tree states - Note hash tree
                 { C::execution_prev_note_hash_tree_root,
                   ex_event.before_context_event.tree_states.noteHashTree.tree.root },
                 { C::execution_prev_note_hash_tree_size,
@@ -1067,13 +1078,15 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
-        // Sload
+        // Sload opcode
         .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
-        // Sstore
+        // Sstore opcode
         .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
         .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_notehash_exists_note_hash_index_range_settings, InteractionType::LookupGeneric>();
+        .add<lookup_notehash_exists_note_hash_index_range_settings, InteractionType::LookupGeneric>()
+        // GetContractInstance opcode
+        .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>();
 
 } // namespace bb::avm2::tracegen

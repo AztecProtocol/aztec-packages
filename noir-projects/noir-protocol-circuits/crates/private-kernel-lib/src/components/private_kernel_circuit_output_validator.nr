@@ -5,11 +5,10 @@ use crate::components::private_kernel_circuit_public_inputs_composer::{
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData,
+        private_kernel::private_call_data::PrivateCallData, transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
     traits::Empty,
-    transaction::tx_request::TxRequest,
     utils::arrays::{
         assert_array_appended, assert_array_appended_and_scoped,
         assert_array_appended_reversed_to_empty_dest,

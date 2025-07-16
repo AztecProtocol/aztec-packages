@@ -1,10 +1,10 @@
 import {
-  type ExtendedViemWalletClient,
   type L1ReaderConfig,
   L1TxUtils,
   ProposalAlreadyExecutedError,
   RollupContract,
   SlashingProposerContract,
+  type ViemClient,
 } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -69,9 +69,10 @@ export class SlasherClient {
   private overridePayloadActive = false;
 
   static async new(
-    config: SlasherConfig,
+    config: Omit<SlasherConfig, 'slasherPrivateKey'>,
     l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
-    l1TxUtils: L1TxUtils,
+    l1TxUtils: L1TxUtils | undefined,
+    l1Client: ViemClient,
     watchers: Watcher[],
     dateProvider: DateProvider,
   ) {
@@ -82,22 +83,22 @@ export class SlasherClient {
       throw new Error('Cannot initialize SlasherClient without a slashFactory address');
     }
 
-    const rollup = new RollupContract(l1TxUtils.client, l1Contracts.rollupAddress);
+    const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
     const slashingProposer = await rollup.getSlashingProposer();
     const slashFactoryContract = getContract({
       address: getAddress(l1Contracts.slashFactoryAddress.toString()),
       abi: SlashFactoryAbi,
-      client: l1TxUtils.client,
+      client: l1Client,
     });
 
     return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
   constructor(
-    public config: SlasherConfig,
-    protected slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ExtendedViemWalletClient>,
+    public config: Omit<SlasherConfig, 'slasherPrivateKey'>,
+    protected slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>,
     private slashingProposer: SlashingProposerContract,
-    private l1TxUtils: L1TxUtils,
+    private l1TxUtils: L1TxUtils | undefined,
     private watchers: Watcher[],
     private dateProvider: DateProvider,
     private log = createLogger('slasher'),
@@ -108,7 +109,7 @@ export class SlasherClient {
   //////////////////// Public methods ////////////////////
 
   public start() {
-    this.log.info('Starting Slasher client...');
+    this.log.debug('Starting Slasher client...');
 
     // detect when new payloads are created
     this.unwatchCallbacks.push(this.watchSlashFactoryEvents());
@@ -125,6 +126,10 @@ export class SlasherClient {
       watcher.on(WANT_TO_SLASH_EVENT, wantToSlashCb);
       this.unwatchCallbacks.push(() => watcher.removeListener(WANT_TO_SLASH_EVENT, wantToSlashCb));
     }
+
+    this.log.info(
+      `Started Slasher client${this.l1TxUtils ? ` with publisher address ${this.l1TxUtils.client.account.address}` : ''}`,
+    );
   }
 
   /**
@@ -242,6 +247,17 @@ export class SlasherClient {
    * @param args - the arguments from the watcher, including the validators, amounts, and offenses
    */
   private wantToSlash(args: WantToSlashArgs[]) {
+    if (!this.l1TxUtils) {
+      this.log.warn(
+        'Cannot slash validators: no slasher private key configured. Set SLASHER_PRIVATE_KEY environment variable.',
+        {
+          validators: args.map(arg => arg.validator.toString()),
+          offenses: args.map(arg => arg.offense),
+        },
+      );
+      return;
+    }
+
     const sortedArgs = [...args].sort((a, b) => a.validator.toString().localeCompare(b.validator.toString()));
     this.log.info('Wants to slash', sortedArgs);
     this.l1TxUtils
@@ -441,6 +457,16 @@ export class SlasherClient {
    * @param {proposal: `0x${string}`; round: bigint} param0
    */
   private async executeRoundIfAgree({ proposal, round }: { proposal: `0x${string}`; round: bigint }) {
+    if (!this.l1TxUtils) {
+      this.log.warn(
+        'Cannot execute slashing proposal: no slasher private key configured. Set SLASHER_PRIVATE_KEY environment variable.',
+        {
+          proposal,
+          round,
+        },
+      );
+      return;
+    }
     const payload = EthAddress.fromString(proposal);
     if (!this.monitoredPayloads.find(p => p.payloadAddress.equals(payload))) {
       this.log.debug('Round executable, but we disagree', { proposal, round });

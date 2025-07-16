@@ -26,6 +26,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
@@ -71,6 +72,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockDataCopy> data_copy;
     StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     StrictMock<MockKeccakF1600> keccakf1600;
+    StrictMock<MockGetContractInstance> get_contract_instance;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -90,6 +92,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   context_stack_event_emitter,
                                                   keccakf1600,
                                                   range_check,
+                                                  get_contract_instance,
                                                   merkle_db);
 };
 

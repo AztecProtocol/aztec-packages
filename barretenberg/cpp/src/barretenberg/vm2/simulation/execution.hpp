@@ -21,6 +21,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
+#include "barretenberg/vm2/simulation/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
@@ -59,6 +60,7 @@ class Execution : public ExecutionInterface {
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
               KeccakF1600Interface& keccakf1600,
               RangeCheckInterface& range_check,
+              GetContractInstanceInterface& get_contract_instance_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
@@ -69,6 +71,7 @@ class Execution : public ExecutionInterface {
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
         , range_check(range_check)
+        , get_contract_instance_component(get_contract_instance_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
@@ -123,6 +126,10 @@ class Execution : public ExecutionInterface {
                           MemoryAddress unique_note_hash_addr,
                           MemoryAddress leaf_index_addr,
                           MemoryAddress dst_addr);
+    void get_contract_instance(ContextInterface& context,
+                               MemoryAddress address_offset,
+                               MemoryAddress dst_offset,
+                               uint8_t member_enum);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -160,6 +167,7 @@ class Execution : public ExecutionInterface {
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
     RangeCheckInterface& range_check;
+    GetContractInstanceInterface& get_contract_instance_component;
     HighLevelMerkleDBInterface& merkle_db;
 
     EventEmitterInterface<ExecutionEvent>& events;

@@ -1,11 +1,12 @@
 use crate::{
-    abis::side_effect::{Counted, scoped::Scoped},
+    abis::side_effect::{counted::Counted, scoped::Scoped},
     address::{AztecAddress, EthAddress},
-    constants::L2_TO_L1_MESSAGE_LENGTH,
-    traits::{Deserialize, Empty, Serialize, ToField},
+    traits::{Deserialize, Empty, Serialize},
 };
+use std::meta::derive;
 
 // Note: Not to be confused with L2ToL1Msg in Solidity
+#[derive(Deserialize, Eq, Serialize)]
 pub struct L2ToL1Message {
     pub recipient: EthAddress,
     pub content: Field,
@@ -14,24 +15,6 @@ pub struct L2ToL1Message {
 impl Empty for L2ToL1Message {
     fn empty() -> Self {
         Self { recipient: EthAddress::empty(), content: 0 }
-    }
-}
-
-impl Eq for L2ToL1Message {
-    fn eq(self, other: Self) -> bool {
-        (self.recipient == other.recipient) & (self.content == other.content)
-    }
-}
-
-impl Serialize<L2_TO_L1_MESSAGE_LENGTH> for L2ToL1Message {
-    fn serialize(self) -> [Field; L2_TO_L1_MESSAGE_LENGTH] {
-        [self.recipient.to_field(), self.content]
-    }
-}
-
-impl Deserialize<L2_TO_L1_MESSAGE_LENGTH> for L2ToL1Message {
-    fn deserialize(values: [Field; L2_TO_L1_MESSAGE_LENGTH]) -> Self {
-        Self { recipient: EthAddress::from_field(values[0]), content: values[1] }
     }
 }
 
@@ -57,10 +40,21 @@ impl Scoped<Counted<L2ToL1Message>> {
     }
 }
 
-#[test]
-fn serialization_of_empty_l2_to_l1_message() {
-    let item = L2ToL1Message::empty();
-    let serialized = item.serialize();
-    let deserialized = L2ToL1Message::deserialize(serialized);
-    assert(item.eq(deserialized));
+mod tests {
+    use crate::{
+        address::EthAddress,
+        constants::L2_TO_L1_MESSAGE_LENGTH,
+        messaging::l2_to_l1_message::L2ToL1Message,
+        traits::{Deserialize, Serialize},
+    };
+
+    #[test]
+    fn serde() {
+        let message = L2ToL1Message { recipient: EthAddress::from_field(123), content: 456 };
+        // We use the L2_TO_L1_MESSAGE_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; L2_TO_L1_MESSAGE_LENGTH] = message.serialize();
+        let deserialized = L2ToL1Message::deserialize(serialized);
+        assert(message.eq(deserialized));
+    }
 }
