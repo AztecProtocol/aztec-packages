@@ -1,16 +1,15 @@
 // Simple test to verify cbind integration
-import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { CbindApiSync } from './cbind.sync.gen.js';
-import { CbindApi } from './cbind.async.gen.js';
 import { BarretenbergApiSync } from '../barretenberg_api/index.js';
 import path from 'path';
 import { homedir } from 'os';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
+import { BarretenbergSync } from '../barretenberg/index.js';
 
 // TAKE INSPO FROM THIS
 
-async function initSrs(api: BarretenbergApiSync, srsSize = 2**20): Promise<void> {
+async function initSrs(api: BarretenbergSync, srsSize = 2**20): Promise<void> {
   const crsPath = path.join(homedir(), '.bb-crs');
   const crs = await Crs.new(srsSize + 1, crsPath, console.log);
   const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath, console.log);
@@ -23,10 +22,10 @@ async function initSrs(api: BarretenbergApiSync, srsSize = 2**20): Promise<void>
 // Test sync API wrapper
 async function testSyncWrapper() {
   console.log('Testing sync API wrapper...');
-  const wasm = new BarretenbergWasmMain();
-  const api = new BarretenbergApiSync(wasm);
+  await BarretenbergSync.initSingleton(undefined, console.log);
+  const api = BarretenbergSync.getSingleton();
   await initSrs(api);
-  const cbindApi = new CbindApiSync(wasm);
+  const cbindApi = new CbindApiSync(api.wasm);
   cbindApi.clientIvcStart({numCircuits: 2});
   // Would need to initialize wasm properly to test actual calls
   console.log('Sync API wrapper created successfully');

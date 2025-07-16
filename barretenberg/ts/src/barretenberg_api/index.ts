@@ -624,7 +624,7 @@ export class BarretenbergApi {
   }
 }
 export class BarretenbergApiSync {
-  constructor(protected wasm: BarretenbergWasmMain) {}
+  constructor(public wasm: BarretenbergWasmMain) {}
 
   pedersenCommit(inputsBuffer: Fr[], ctxIndex: number): Point {
     const inArgs = [inputsBuffer, ctxIndex].map(serializeBufferable);
