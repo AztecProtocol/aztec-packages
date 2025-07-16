@@ -61,12 +61,15 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
         // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
         op_queue->initialize_new_subtable(settings);
-        if (is_kernel) {
-            queue_ecc_eq();
-        }
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
+
+        // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
+        // neighbouring misconfigured subtable cannot affect the current one.
+        if (is_kernel) {
+            queue_ecc_eq();
+        }
     };
 
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
@@ -106,6 +109,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
 
+        // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
+        // neighbouring misconfigured subtable cannot affect the current one.
         if (is_kernel) {
             queue_ecc_eq();
         }
