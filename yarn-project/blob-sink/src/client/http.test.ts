@@ -1,5 +1,6 @@
 import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
+import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -65,9 +66,13 @@ describe('HttpBlobSinkClient', () => {
 
     let blobData: BlobJson[];
 
-    const MOCK_SLOT_NUMBER = 1;
+    let latestSlotNumber: number;
+    let missedSlots: number[];
 
     beforeEach(async () => {
+      latestSlotNumber = 1;
+      missedSlots = [];
+
       testEncodedBlob = await makeEncodedBlob(3);
       testEncodedBlobHash = testEncodedBlob.getEthVersionedBlobHash();
       testEncodedBlobWithIndex = new BlobWithIndex(testEncodedBlob, 0);
@@ -139,10 +144,9 @@ describe('HttpBlobSinkClient', () => {
 
         if (req.url?.includes('/eth/v1/beacon/headers/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ data: { header: { message: { slot: MOCK_SLOT_NUMBER } } } }));
+          res.end(JSON.stringify({ data: { header: { message: { slot: latestSlotNumber } } } }));
         } else if (req.url?.includes('/eth/v1/beacon/blob_sidecars/')) {
-          if (req.url?.includes('33')) {
-            // test for L1 missed slot
+          if (missedSlots.some(slot => req.url?.includes(`/${slot}`))) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not Found' }));
           } else {
@@ -369,6 +373,9 @@ describe('HttpBlobSinkClient', () => {
     });
 
     it('should handle L1 missed slots', async () => {
+      latestSlotNumber = 50;
+      missedSlots = [33];
+
       await startExecutionHostServer();
       await startConsensusHostServer();
 
@@ -387,7 +394,6 @@ describe('HttpBlobSinkClient', () => {
         33,
         [testEncodedBlobHash],
         [],
-        3,
         0,
       );
 
@@ -403,6 +409,40 @@ describe('HttpBlobSinkClient', () => {
         expect.stringContaining('/eth/v1/beacon/blob_sidecars/34'),
         expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
+    });
+
+    it('should handle L1 missed slots up to the latest slot', async () => {
+      latestSlotNumber = 38;
+      missedSlots = times(100, i => i);
+
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      // Add spy on the fetch method
+      const fetchSpy = jest.spyOn(client as any, 'fetch');
+
+      const retrievedBlobs = await client.getBlobSidecarFrom(
+        `http://localhost:${consensusHostPort}`,
+        33,
+        [testEncodedBlobHash],
+        [],
+        0,
+      );
+
+      expect(retrievedBlobs).toEqual([]);
+
+      expect(fetchSpy).toHaveBeenCalledTimes(latestSlotNumber - 33 + 2);
+      for (let i = 33; i <= latestSlotNumber; i++) {
+        expect(fetchSpy).toHaveBeenCalledWith(
+          expect.stringContaining(`/eth/v1/beacon/blob_sidecars/${i}`),
+          expect.anything(),
+        );
+      }
     });
 
     it('should fall back to archive client', async () => {
