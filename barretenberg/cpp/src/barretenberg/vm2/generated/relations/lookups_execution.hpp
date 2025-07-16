@@ -24,8 +24,8 @@ struct lookup_execution_bytecode_retrieval_result_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_bytecode_id,
         ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_nullifier_tree_root,
-        ColumnAndShifts::execution_public_data_tree_root,
+        ColumnAndShifts::execution_prev_nullifier_tree_root,
+        ColumnAndShifts::execution_prev_public_data_tree_root,
         ColumnAndShifts::execution_sel_bytecode_retrieval_failure
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
