@@ -108,7 +108,15 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
 
         static std::atomic<size_t> file_counter{ 0 };
         size_t id = file_counter.fetch_add(1);
-        filename = "/tmp/poly-mmap-" + std::to_string(id);
+        std::filesystem::path temp_dir;
+        try {
+            temp_dir = std::filesystem::temp_directory_path();
+        } catch (const std::exception&) {
+            // Fallback to current directory if temp_directory_path() fails
+            temp_dir = std::filesystem::current_path();
+        }
+
+        filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
         fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         // Create file
