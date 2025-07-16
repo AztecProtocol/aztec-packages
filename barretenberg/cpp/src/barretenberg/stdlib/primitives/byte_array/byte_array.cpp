@@ -6,15 +6,11 @@
 
 #include "byte_array.hpp"
 
-#include <bitset>
-
 #include "../circuit_builders/circuit_builders.hpp"
 
 using namespace bb;
 
 namespace bb::stdlib {
-
-// ULTRA: Further merging with
 
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context)
@@ -46,7 +42,12 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
     }
     set_free_witness_tag();
 }
-
+/**
+ * @brief Create a byte array out of a std::string object by decomposing the latter into a vector of bytes and feeding
+ * it into the constructor above.
+ * @warning This constructor will instantiate each byte as a circuit witness, NOT a circuit constant.
+ * Do not use this method if the input needs to be hardcoded for a specific circuit
+ */
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, const std::string& input)
     : byte_array(parent_context, std::vector<uint8_t>(input.begin(), input.end()))
@@ -201,17 +202,18 @@ byte_array<Builder>::byte_array(Builder* parent_context, bytes_t&& input)
     , values(input)
 {}
 
-template <typename Builder> byte_array<Builder>::byte_array(const byte_array& other)
+template <typename Builder>
+byte_array<Builder>::byte_array(const byte_array& other)
+    : context(other.context)
 {
-    context = other.context;
     std::copy(other.values.begin(), other.values.end(), std::back_inserter(values));
 }
 
-template <typename Builder> byte_array<Builder>::byte_array(byte_array&& other)
-{
-    context = other.context;
-    values = std::move(other.values);
-}
+template <typename Builder>
+byte_array<Builder>::byte_array(byte_array&& other)
+    : context(other.context)
+    , values(std::move(other.values))
+{}
 
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(const byte_array& other)
 {
@@ -296,18 +298,24 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::reverse() c
     return byte_array(context, bytes);
 }
 
-// Out-of-circuit methods
+/**
+ * @brief A helper converting a `byte_array` into the vector of its uint8_t values.
+ * @note Used only in tests.
+ */
 template <typename Builder> std::vector<uint8_t> byte_array<Builder>::get_value() const
 {
-    size_t length = values.size();
-    size_t num = (length);
-    std::vector<uint8_t> bytes(num, 0);
+    const size_t length = values.size();
+    std::vector<uint8_t> bytes(length, 0);
     for (size_t i = 0; i < length; ++i) {
-        bytes[i] = static_cast<uint8_t>(uint256_t(values[i].get_value()).data[0]);
+        bytes[i] = static_cast<uint8_t>(values[i].get_value().data[0]);
     }
     return bytes;
 }
 
+/**
+ * @brief Given a `byte_array`, compute a vector containing the values of its entries and convert it to a string.
+ * @note Used only in tests.
+ */
 template <typename Builder> std::string byte_array<Builder>::get_string() const
 {
     auto v = get_value();
