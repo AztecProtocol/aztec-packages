@@ -108,12 +108,12 @@ where
 /// decrypt and process the payload, **leading to the note being lost**.
 ///
 /// Only use this function in scenarios where the recipient not receiving the note is an acceptable outcome.
-pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
+pub fn encode_and_encrypt_note_unconstrained<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
@@ -142,12 +142,12 @@ where
 /// While delivery is not guaranteed, message integrity is still protected via cryptographic commitments in the note
 /// hash tree. For guaranteed delivery, use `encode_and_encrypt_note` with private logs instead. See
 /// `messages::offchain_message::emit_offchain_message` for more details on delivery guarantees.
-pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note, let N: u32>(
+pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;

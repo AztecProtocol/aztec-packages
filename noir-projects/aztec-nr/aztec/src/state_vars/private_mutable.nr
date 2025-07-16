@@ -62,9 +62,9 @@ where
     Note: NoteType + NoteHash,
 {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    pub fn initialize(self, note: Note) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -75,9 +75,9 @@ where
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace<let N: u32>(self, new_note: Note) -> NoteEmission<Note>
+    pub fn replace(self, new_note: Note) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let (prev_retrieved_note, note_hash_for_read_request): (RetrievedNote<Note>, Field) =
             get_note(self.context, self.storage_slot);
@@ -94,9 +94,9 @@ where
     }
     // docs:end:replace
 
-    pub fn initialize_or_replace<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value
         // by providing an inclusion proof of the nullifier, but cannot constrain a false value since
@@ -120,9 +120,9 @@ where
     }
 
     // docs:start:get_note
-    pub fn get_note<let N: u32>(self) -> NoteEmission<Note>
+    pub fn get_note(self) -> NoteEmission<Note>
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
         let mut (retrieved_note, note_hash_for_read_request) =
             get_note(self.context, self.storage_slot);
@@ -147,11 +147,11 @@ where
     }
 
     // docs:start:view_note
-    pub unconstrained fn view_note<let N: u32>(self) -> Note
+    pub unconstrained fn view_note(self) -> Note
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
-        let mut options = NoteViewerOptions::new();
+        let mut options = NoteViewerOptions::<Note, <Note as Packable>::N>::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }
     // docs:end:view_note

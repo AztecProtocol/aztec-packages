@@ -55,19 +55,16 @@ where
     T: Eq,
 {
 
-    pub fn schedule_value_change<let N: u32>(self, new_value: T)
+    pub fn schedule_value_change(self, new_value: T)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         let _value_change = self.schedule_and_return_value_change(new_value);
     }
 
-    pub fn schedule_and_return_value_change<let N: u32>(
-        self,
-        new_value: T,
-    ) -> ScheduledValueChange<T>
+    pub fn schedule_and_return_value_change(self, new_value: T) -> ScheduledValueChange<T>
     where
-        T: Packable<N>,
+        T: Packable,
     {
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
@@ -90,9 +87,9 @@ where
         value_change
     }
 
-    pub fn schedule_delay_change<let N: u32>(self, new_delay: u64)
+    pub fn schedule_delay_change(self, new_delay: u64)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         let mut delay_change = self.read_delay_change();
 
@@ -103,9 +100,9 @@ where
         self.write(self.read_value_change(), delay_change);
     }
 
-    pub fn get_current_value<let N: u32>(self) -> T
+    pub fn get_current_value(self) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         let current_timestamp = self.context.timestamp();
         let value_change = self.read_value_change();
@@ -113,41 +110,41 @@ where
         value_change.get_current_at(current_timestamp)
     }
 
-    pub fn get_current_delay<let N: u32>(self) -> u64
+    pub fn get_current_delay(self) -> u64
     where
-        T: Packable<N>,
+        T: Packable,
     {
         let current_timestamp = self.context.timestamp();
         self.read_delay_change().get_current(current_timestamp)
     }
 
-    pub fn get_scheduled_value<let N: u32>(self) -> (T, u64)
+    pub fn get_scheduled_value(self) -> (T, u64)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         self.read_value_change().get_scheduled()
     }
 
-    pub fn get_scheduled_delay<let N: u32>(self) -> (u64, u64)
+    pub fn get_scheduled_delay(self) -> (u64, u64)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         self.read_delay_change().get_scheduled()
     }
 
-    fn read_value_change<let N: u32>(self) -> ScheduledValueChange<T>
+    fn read_value_change(self) -> ScheduledValueChange<T>
     where
-        T: Packable<N>,
+        T: Packable,
     {
         // We don't read ScheduledValueChange directly by having it implement Packable because ScheduledValueChange
         // and ScheduledDelayChange are packed together (sdc and svc.timestamp_of_change are stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
-        unpack_value_change::<T, N>(packed)
+        unpack_value_change::<T, <T as Packable>::N>(packed)
     }
 
-    fn read_delay_change<let N: u32>(self) -> ScheduledDelayChange<INITIAL_DELAY>
+    fn read_delay_change(self) -> ScheduledDelayChange<INITIAL_DELAY>
     where
-        T: Packable<N>,
+        T: Packable,
     {
         // Since all ScheduledDelayChange member are packed into a single field, we can read a single storage slot
         // here and skip the ones that correspond to ScheduledValueChange members. We are abusing the fact that
@@ -159,13 +156,13 @@ where
         unpack_delay_change::<INITIAL_DELAY>(packed)
     }
 
-    fn write<let N: u32>(
+    fn write(
         self,
         value_change: ScheduledValueChange<T>,
         delay_change: ScheduledDelayChange<INITIAL_DELAY>,
     )
     where
-        T: Packable<N>,
+        T: Packable,
     {
         // Whenever we write to public storage, we write both the value change and delay change to storage at once.
         // We do so by wrapping them in a single struct (`DelayedPublicMutableValues`). Then we wrap the resulting struct in
@@ -184,9 +181,9 @@ impl<T, let INITIAL_DELAY: u64> DelayedPublicMutable<T, INITIAL_DELAY, &mut Priv
 where
     T: Eq,
 {
-    pub fn get_current_value<let N: u32>(self) -> T
+    pub fn get_current_value(self) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         // When reading the current value in private we construct a historical state proof for the public value.
         // However, since this value might change, we must constrain the maximum transaction timestamp as this proof
@@ -216,11 +213,11 @@ where
         value_change.get_current_at(historical_timestamp)
     }
 
-    fn historical_read_from_public_storage<let N: u32>(
+    fn historical_read_from_public_storage(
         self,
     ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u64)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         let header = self.context.get_block_header();
         let address = self.context.this_address();
@@ -238,9 +235,9 @@ impl<T, let INITIAL_DELAY: u64> DelayedPublicMutable<T, INITIAL_DELAY, UtilityCo
 where
     T: Eq,
 {
-    pub unconstrained fn get_current_value<let N: u32>(self) -> T
+    pub unconstrained fn get_current_value(self) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         let dpmv: DelayedPublicMutableValues<T, INITIAL_DELAY> =
             WithHash::utility_public_storage_read(self.context, self.storage_slot);
