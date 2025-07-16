@@ -10,6 +10,11 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import {
+  DelayedPublicMutableValuesWithHash,
+  ScheduledDelayChange,
+  ScheduledValueChange,
+} from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
