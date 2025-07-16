@@ -156,7 +156,6 @@ resource "helm_release" "p2p_bootstrap" {
   wait_for_jobs = false
 }
 
-
 resource "helm_release" "validators" {
   provider         = helm.gke-cluster
   name             = "${var.RELEASE_PREFIX}-validator"
@@ -289,6 +288,86 @@ resource "helm_release" "prover" {
   set {
     name  = "node.mnemonic"
     value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
+  }
+
+  timeout       = 300
+  wait          = false
+  wait_for_jobs = false
+}
+
+resource "google_compute_address" "rpc_ingress" {
+  provider     = google
+  name         = "${var.RELEASE_PREFIX}-rpc-ingress"
+  address_type = "EXTERNAL"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "helm_release" "rpc" {
+  provider         = helm.gke-cluster
+  name             = "${var.RELEASE_PREFIX}-rpc"
+  repository       = "../../"
+  chart            = "aztec-node"
+  namespace        = var.NAMESPACE
+  create_namespace = true
+  upgrade_install  = true
+
+  values = [
+    file("./values/${var.RPC_VALUES}"),
+    file("./values/staging-testnet.yaml"),
+  ]
+
+
+  set {
+    name  = "node.env.BOOT_NODE_HOST"
+    value = "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  }
+
+  set {
+    name  = "service.ingress.annotations.networking\\.gke\\.io\\/load-balancer-ip-addresses"
+    value = google_compute_address.rpc_ingress.name
+  }
+
+  set {
+    name  = "global.aztecImage.repository"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
+  }
+
+  set {
+    name  = "global.aztecImage.tag"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
+  }
+
+  set {
+    name  = "global.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "global.useGcloudLogging"
+    value = true
+  }
+
+  set_list {
+    name  = "global.l1ExecutionUrls"
+    value = local.ethereum_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusUrls"
+    value = local.consensus_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeys"
+    value = local.consensus_api_keys
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeyHeaders"
+    value = local.consensus_api_key_headers
   }
 
   timeout       = 300
