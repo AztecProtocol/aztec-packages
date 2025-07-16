@@ -1,6 +1,6 @@
 #include "c_bind.hpp"
-#include "barretenberg/api/bbapi_execute.hpp"
-#include "barretenberg/api/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_execute.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 
 namespace bb::bbapi {

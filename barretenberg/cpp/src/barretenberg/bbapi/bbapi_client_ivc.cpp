@@ -1,4 +1,4 @@
-#include "barretenberg/api/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"

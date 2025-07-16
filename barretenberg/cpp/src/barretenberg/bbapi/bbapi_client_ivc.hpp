@@ -6,7 +6,7 @@
  * This file contains command structures for ClientIVC (Client-side Incrementally Verifiable Computation)
  * operations including circuit loading, accumulation, proving, and verification key computation.
  */
-#include "barretenberg/api/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"

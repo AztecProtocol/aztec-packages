@@ -6,7 +6,7 @@
  * This file contains command structures for UltraHonk proof system operations
  * including circuit proving, verification, VK computation, and utility functions.
  */
-#include "barretenberg/api/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"

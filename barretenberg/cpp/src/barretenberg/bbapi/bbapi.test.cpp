@@ -1,4 +1,4 @@
-#include "barretenberg/api/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
