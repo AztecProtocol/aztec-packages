@@ -1,1 +1,1 @@
-barretenberg_module(bbapi api serialize)
+barretenberg_module(bbapi serialize client_ivc)

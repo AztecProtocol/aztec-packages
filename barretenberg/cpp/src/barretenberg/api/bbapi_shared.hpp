@@ -66,12 +66,9 @@ struct CircuitInput {
      * time. As well, this guards against unexpected changes in the verification key.
      */
     std::vector<uint8_t> verification_key;
-<<<<<<< HEAD
 
     MSGPACK_FIELDS(name, bytecode, verification_key);
     bool operator==(const CircuitInput& other) const = default;
-=======
->>>>>>> origin/merge-train/barretenberg
 };
 
 struct ProofSystemSettings {
@@ -106,12 +103,9 @@ struct ProofSystemSettings {
      * @brief Flag to indicate if this circuit will be recursively verified.
      */
     bool recursive = false;
-<<<<<<< HEAD
 
     MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, honk_recursion, recursive);
     bool operator==(const ProofSystemSettings& other) const = default;
-=======
->>>>>>> origin/merge-train/barretenberg
 };
 
 /**

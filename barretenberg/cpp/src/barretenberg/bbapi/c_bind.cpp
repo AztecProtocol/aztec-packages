@@ -11,22 +11,16 @@ namespace bb::bbapi {
  * @param command The command to execute
  * @return CommandResponse The response from executing the command
  */
-CommandResponse bbapi(Command&& command)
+CommandResponse bbapi(const Command& command)
 {
     // Create a request context - in the real implementation this might need to be managed differently
     BBApiRequest request;
 
     // Execute the command and return the response
-    return execute(request, std::move(command));
-}
-
-// Wrapper function for CBIND that takes parameter by value
-CommandResponse bbapi_cbind_wrapper(Command command)
-{
-    return bbapi(std::move(command));
+    return execute(request, command);
 }
 
 } // namespace bb::bbapi
 
 // Use CBIND macro to export the bbapi function for WASM
-CBIND(bbapi, bb::bbapi::bbapi_cbind_wrapper)
+CBIND(bbapi, bb::bbapi::bbapi)
