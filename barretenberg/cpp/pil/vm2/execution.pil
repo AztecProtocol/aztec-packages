@@ -72,6 +72,10 @@ enqueued_call_start' = (precomputed.first_row + enqueued_call_end) * sel';
 #[ENQUEUED_CALL_END]
 enqueued_call_end = sel_exit_call * (1 - has_parent_ctx);
 
+// First row after *CALL, or first row of enqueued call
+// This is the only row where bytecode retrieval is active.
+pol commit sel_first_row_in_context;
+sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 
 /**************************************************************************************************
  *  Setup (some general constraints)
@@ -90,8 +94,11 @@ last = sel * (1 - sel');
 pol commit bytecode_id;
 pol commit sel_bytecode_retrieval_failure;
 
+// TODO(dbanks12): since this lookup is no longer active for all rows,
+// we likely need to constrain that bytecode_id does not change during a context,
+// or we need to otherwise consider the implications of this.
 #[BYTECODE_RETRIEVAL_RESULT]
-sel {
+sel_first_row_in_context {
     bytecode_id,
     contract_address,
     nullifier_tree_root, // from context.pil
