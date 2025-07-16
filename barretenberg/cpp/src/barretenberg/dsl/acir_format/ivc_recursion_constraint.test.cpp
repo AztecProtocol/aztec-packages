@@ -174,6 +174,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         // Construct recursion constraints based on the ivc verification queue; populate the witness along the way
         std::vector<RecursionConstraint> ivc_recursion_constraints;
         ivc_recursion_constraints.reserve(verification_queue.size());
+        info("verification_queue size in construct_mock_kernel_program: ", verification_queue.size());
         for (const auto& queue_entry : verification_queue) {
             ivc_recursion_constraints.push_back(create_recursion_constraint(queue_entry, program.witness));
         }
@@ -472,13 +473,12 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
-        // construct a mock init kernel
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/3, trace_settings);
-        acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
-        acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
-        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/1, trace_settings);
+        // construct a mock tail kernel
         acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
-
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        // acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
+        // program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);

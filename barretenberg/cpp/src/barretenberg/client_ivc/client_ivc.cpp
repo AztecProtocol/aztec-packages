@@ -133,6 +133,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
         // WORKTODO: Call something like construct_hiding_circuit_key() here once that method has properly been updated
         // to be only the relevant logic (i.e. no decider proving). Avoid duplication!
+        construct_hiding_circuit_key(&verifier_inputs, &circuit);
     }
     default: {
         throw_or_abort("Invalid queue type! Only OINK, PG and PG_FINAL are supported");
@@ -337,21 +338,47 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
  * decider proof.
  */
-std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circuit_key()
+std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circuit_key(
+    const StdlibVerifierInputs* verifier_inputs, ClientCircuit* circuit)
 {
+    // we need:
+    // 1. builder
+    ClientCircuit builder;
+    // 2. stdlib_verifier_accumulator
+    // 3. stdlib_vk_and_hash
+    std::shared_ptr<RecursiveVKAndHash> stdlib_vk_and_hash;
+    // 4. stdlib_proof
+    StdlibProof stdlib_proof;
+
     BB_ASSERT_EQ(num_circuits_accumulated,
                  num_circuits,
                  "All circuits must be accumulated before constructing the hiding circuit.");
     trace_usage_tracker.print(); // print minimum structured sizes for each block
-    BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
 
-    FoldProof& fold_proof = verification_queue[0].proof; // SHould have type PG_FINAL
+    if (verifier_inputs == nullptr) {
+        // we are not given a verifier input and a circuit, so we need to construct the builder and the stdlib folding
+        // proof
+        BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
+        auto native_verifier_inputs = &verification_queue[0];
+        builder = ClientCircuit(goblin.op_queue);
+        auto fold_proof = native_verifier_inputs->proof;
+        stdlib_proof = StdlibProof(builder, fold_proof);
+        stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(
+            std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_vk),
+            ClientIVC::RecursiveFlavor::FF::from_witness(&builder, verification_queue[0].honk_vk->hash()));
+
+    } else {
+        // if we are given a verifier input and a circuit, we have a stdlib folding proof and a builder
+        BB_ASSERT_EQ(stdlib_verification_queue.size(), static_cast<size_t>(1));
+        builder = *circuit;
+        stdlib_proof = verifier_inputs->proof;
+        stdlib_vk_and_hash = stdlib_verification_queue.front().honk_vk_and_hash;
+    }
+
     // WORKTODO: Remove decider proving here and let it be performed in accumulate.
     // HonkProof decider_proof = decider_prove();
 
     fold_output.accumulator = nullptr;
-
-    ClientCircuit builder{ goblin.op_queue };
 
     // Shared transcript between PG and Merge
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
@@ -369,14 +396,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
 
-    auto stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(
-        std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_vk),
-        ClientIVC::RecursiveFlavor::FF::from_witness(&builder, verification_queue[0].honk_vk->hash()));
-
-    StdlibProof stdlib_proof(builder, fold_proof);
-
     // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
-    auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
+    auto num_public_inputs = honk_vk ? static_cast<size_t>(honk_vk->num_public_inputs) : 32;
     num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
     for (size_t i = 0; i < num_public_inputs; i++) {
         stdlib_proof[i].set_public();

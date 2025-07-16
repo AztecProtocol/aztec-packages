@@ -46,7 +46,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     uint32_t pg_final_type = static_cast<uint32_t>(PROOF_TYPE::PG_FINAL);
 
     // There is a fixed set of valid combinations of IVC recursion constraints for Aztec kernel circuits:
-
+    info("constraints size: ", constraints.size());
     // Case: INIT kernel; single Oink recursive verification of an app
     if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK, /*is_kernel=*/false);
@@ -136,6 +136,7 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     // If the type is PG_FINAL, we also need to populate the ivc instance with a mock decider proof
     if (type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
+
         ivc->decider_proof = acir_format::create_mock_decider_proof<ClientIVC::Flavor>();
     }
     ivc->num_circuits_accumulated++;
