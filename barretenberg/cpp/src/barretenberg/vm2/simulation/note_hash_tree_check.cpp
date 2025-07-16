@@ -4,14 +4,18 @@
 
 namespace bb::avm2::simulation {
 
-void NoteHashTreeCheck::assert_read(const FF& note_hash,
-                                    index_t leaf_index,
-                                    std::span<const FF> sibling_path,
-                                    const AppendOnlyTreeSnapshot& snapshot)
+bool NoteHashTreeCheck::note_hash_exists(const FF& unique_note_hash,
+                                         const FF& leaf_value,
+                                         index_t leaf_index,
+                                         std::span<const FF> sibling_path,
+                                         const AppendOnlyTreeSnapshot& snapshot)
 {
-    merkle_check.assert_membership(note_hash, leaf_index, sibling_path, snapshot.root);
-    events.emit(
-        NoteHashTreeReadWriteEvent{ .note_hash = note_hash, .leaf_index = leaf_index, .prev_snapshot = snapshot });
+    merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, snapshot.root);
+    events.emit(NoteHashTreeReadWriteEvent{ .note_hash = unique_note_hash,
+                                            .existing_leaf_value = leaf_value,
+                                            .leaf_index = leaf_index,
+                                            .prev_snapshot = snapshot });
+    return unique_note_hash == leaf_value;
 }
 
 FF NoteHashTreeCheck::make_siloed(AztecAddress contract_address, const FF& note_hash) const
@@ -94,6 +98,7 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash
         .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1,
     };
     events.emit(NoteHashTreeReadWriteEvent{ .note_hash = original_note_hash,
+                                            .existing_leaf_value = 0,
                                             .leaf_index = prev_snapshot.nextAvailableLeafIndex,
                                             .prev_snapshot = prev_snapshot,
                                             .append_data = NoteHashAppendData{
