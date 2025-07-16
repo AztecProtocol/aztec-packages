@@ -125,7 +125,7 @@ unconstrained fn read_uninitialized_utility_returns_default() {
 }
 
 #[test]
-unconstrained fn read_uninitialized_public_same_tx() {
+unconstrained fn read_initialized_public_same_tx() {
     let mut env = TestEnvironment::_new();
 
     env.public_context(|context| {
@@ -138,7 +138,7 @@ unconstrained fn read_uninitialized_public_same_tx() {
 }
 
 #[test]
-unconstrained fn read_uninitialized_public_other_tx() {
+unconstrained fn read_initialized_public_other_tx() {
     let mut env = TestEnvironment::_new();
     let value = MockStruct::new(5, 6);
 
@@ -154,7 +154,7 @@ unconstrained fn read_uninitialized_public_other_tx() {
 }
 
 #[test]
-unconstrained fn read_uninitialized_private() {
+unconstrained fn read_initialized_private() {
     let mut env = TestEnvironment::_new();
     let value = MockStruct::new(5, 6);
 
@@ -170,7 +170,7 @@ unconstrained fn read_uninitialized_private() {
 }
 
 #[test]
-unconstrained fn read_uninitialized_utility() {
+unconstrained fn read_initialized_utility() {
     let mut env = TestEnvironment::_new();
     let value = MockStruct::new(5, 6);
 
