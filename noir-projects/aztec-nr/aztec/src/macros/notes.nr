@@ -34,8 +34,8 @@ comptime fn derive_packable_if_not_implemented_and_get_len(s: TypeDefinition) ->
     let implements_packable = s.as_type().implements(packable_constraint);
 
     if implements_packable {
-        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so I work
-        // around this by:
+        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
+        // I work around this by:
 
         // 1. Getting the trait impl
         let trait_impl = s.as_type().get_trait_impl(packable_constraint).unwrap();
