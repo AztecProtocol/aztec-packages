@@ -44,10 +44,7 @@ pub contract SchnorrAccount {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
         // it is safe to load from an unconstrained context.
-        // We use `unwrap_or` here because we need the value to be defined in the call to `set_sender_for_tags`
-        // at the end of this function.
-        // TODO: The "unwrap_or" below is being run in a constrained context but it doesn't need to be constrained.
-        // Should we optimize this?
+        // TODO(#15752): Improve the sender_for_tags handling here when the original sender is undefined.
         let original_sender = unsafe { get_sender_for_tags().unwrap_or(this) };
 
         // We set the sender for tags to this contract because we don't want to force the user corresponding to this
