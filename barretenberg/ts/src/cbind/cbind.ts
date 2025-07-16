@@ -52,7 +52,7 @@ export function callCbind(wasm: BarretenbergWasmBase, cbind: string, input: any[
   const outputSizePtr = wasm.call('bbmalloc', 4);
   const outputMsgpackPtr = wasm.call('bbmalloc', 4);
 
-  const inputBuffer = new Encoder({ useRecords: false }).encode(input);
+  const inputBuffer = new Encoder({ useRecords: false }).pack(input);
   const inputPtr = wasm.call('bbmalloc', inputBuffer.length);
   wasm.writeMemory(inputPtr, inputBuffer);
   wasm.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
@@ -60,7 +60,7 @@ export function callCbind(wasm: BarretenbergWasmBase, cbind: string, input: any[
     readPtr32(wasm, outputMsgpackPtr),
     readPtr32(wasm, outputMsgpackPtr) + readPtr32(wasm, outputSizePtr),
   );
-  const result = recursiveUint8ArrayToBuffer(new Decoder({ useRecords: false }).decode(encodedResult));
+  const result = recursiveUint8ArrayToBuffer(new Decoder({ useRecords: false }).unpack(encodedResult));
   wasm.call('bbfree', inputPtr);
   wasm.call('bbfree', outputSizePtr);
   wasm.call('bbfree', outputMsgpackPtr);
