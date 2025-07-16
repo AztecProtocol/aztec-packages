@@ -11,6 +11,30 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_update_check_timestamp_from_public_inputs ///////////////////
+
+struct lookup_update_check_timestamp_from_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_TIMESTAMP_FROM_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "update_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::update_check_sel;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_update_check_timestamp_from_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_update_check_timestamp_from_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::update_check_timestamp_pi_offset, ColumnAndShifts::update_check_timestamp
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_update_check_timestamp_from_public_inputs_settings =
+    lookup_settings<lookup_update_check_timestamp_from_public_inputs_settings_>;
+template <typename FF_>
+using lookup_update_check_timestamp_from_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_update_check_timestamp_from_public_inputs_settings>;
+
 /////////////////// lookup_update_check_shared_mutable_slot_poseidon2 ///////////////////
 
 struct lookup_update_check_shared_mutable_slot_poseidon2_settings_ {

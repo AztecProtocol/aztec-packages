@@ -12,7 +12,9 @@ function bootstrap_all {
 }
 
 function hash {
-  cache_content_hash "^barretenberg"
+  hash_str \
+    $(cache_content_hash ^barretenberg) \
+    $(./cpp/bootstrap.sh hash) # yes, cpp src gets hashed twice, but this second call also takes DISABLE_AVM into account
 }
 
 cmd=${1:-}

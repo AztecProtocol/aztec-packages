@@ -6,6 +6,7 @@ export enum ReqRespStatus {
   RATE_LIMIT_EXCEEDED = 1,
   BADLY_FORMED_REQUEST = 2,
   INTERNAL_ERROR = 3,
+  NOT_FOUND = 4,
   FAILURE = 126,
   UNKNOWN = 127,
 }

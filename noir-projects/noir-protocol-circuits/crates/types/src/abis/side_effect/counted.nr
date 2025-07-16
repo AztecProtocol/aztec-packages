@@ -27,27 +27,31 @@ where
 
 impl<T> Empty for Counted<T>
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     fn empty() -> Self {
         Self { inner: T::empty(), counter: 0 }
     }
 }
 
-impl<T, let N: u32> Serialize<N> for Counted<T>
+impl<T> Serialize for Counted<T>
 where
-    T: Serialize<N - 1>,
+    T: Serialize,
 {
-    fn serialize(self) -> [Field; N] {
+    let N: u32 = <T as Serialize>::N + 1;
+
+    fn serialize(self) -> [Field; Self::N] {
         self.inner.serialize().concat([self.counter as Field])
     }
 }
 
-impl<T, let N: u32> Deserialize<N> for Counted<T>
+impl<T> Deserialize for Counted<T>
 where
-    T: Deserialize<N - 1>,
+    T: Deserialize,
 {
-    fn deserialize(fields: [Field; N]) -> Self {
+    let N: u32 = <T as Deserialize>::N + 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = Reader::new(fields);
         let deserialized =
             Self { inner: reader.read_struct(T::deserialize), counter: reader.read_u32() };

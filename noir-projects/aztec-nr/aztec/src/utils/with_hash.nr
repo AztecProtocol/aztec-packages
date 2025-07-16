@@ -4,7 +4,7 @@ use crate::{
     oracle,
 };
 use dep::protocol_types::{
-    address::AztecAddress, block_header::BlockHeader, hash::poseidon2_hash, traits::Packable,
+    abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable,
 };
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
@@ -182,7 +182,7 @@ mod test {
     }
 
     #[test(should_fail_with = "Non-zero hint for zero hash")]
-    unconstrained fn test_bad_hint_uninitialized_value() {
+    unconstrained fn bad_hint_uninitialized_value() {
         let mut env = TestEnvironment::new();
 
         env.mine_block();
@@ -210,7 +210,7 @@ mod test {
     }
 
     #[test(should_fail_with = "Hint values do not match hash")]
-    unconstrained fn test_bad_hint_initialized_value() {
+    unconstrained fn bad_hint_initialized_value() {
         let mut env = TestEnvironment::new();
 
         let value_packed = MockStruct { a: 5, b: 3 }.pack();

@@ -62,6 +62,7 @@ spec:
               validator_key_index_start={{ .Values.aztec.validatorKeyIndexStart }}
               prover_key_index_start={{ .Values.aztec.proverKeyIndexStart }}
               bot_key_index_start={{ .Values.aztec.botKeyIndexStart }}
+              slasher_key_index_start={{ .Values.aztec.slasherKeyIndexStart }}
 
               num_validator_nodes={{ .Values.validator.replicas }}
               validators_per_node={{ .Values.validator.keysPerNode }}
@@ -97,8 +98,14 @@ spec:
                 done
               fi
 
+              # Add slasher indices (one per validator node)
+              for ((i = 0; i < num_validator_nodes; i++)); do
+                indices_to_check+=($((slasher_key_index_start + i)))
+              done
+
               echo "Checking balances for ${#indices_to_check[@]} accounts..."
               echo "Total validators: $num_validators ($num_validator_nodes nodes with $validators_per_node validators each)"
+              echo "Total slashers: $num_validator_nodes (one per validator node)"
 
               # For each index in our list
               for i in "${indices_to_check[@]}"; do
