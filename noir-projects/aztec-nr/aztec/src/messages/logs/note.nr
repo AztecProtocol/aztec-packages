@@ -82,7 +82,7 @@ where
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.
-pub fn encode_and_encrypt_note<Note, let N: u32>(
+pub fn encode_and_encrypt_note<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
