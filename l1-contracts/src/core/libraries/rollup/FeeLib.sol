@@ -135,10 +135,11 @@ library FeeLib {
       return;
     }
 
-    feeStore.l1GasOracleValues.pre = feeStore.l1GasOracleValues.post;
-    feeStore.l1GasOracleValues.post =
-      L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress();
-    feeStore.l1GasOracleValues.slotOfChange = (slot + LAG).compress();
+    feeStore.l1GasOracleValues = L1GasOracleValues({
+      pre: feeStore.l1GasOracleValues.post,
+      post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress(),
+      slotOfChange: (slot + LAG).compress()
+    });
   }
 
   function computeFeeHeader(

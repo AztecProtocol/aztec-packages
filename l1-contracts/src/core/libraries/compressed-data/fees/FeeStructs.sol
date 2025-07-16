@@ -31,10 +31,9 @@ struct L1FeeData {
 }
 
 // We compress the L1 fee data heavily, capping out at `2**56-1` (7.2057594038E16)
-struct CompressedL1FeeData {
-  uint56 baseFee;
-  uint56 blobFee;
-}
+// If the costs rose to this point an eth transfer (21000 gas) would be
+// 21000 * 2**56-1 = 1.5132094748E21 wei / 1,513 eth in fees.
+type CompressedL1FeeData is uint112;
 
 // (56 + 56) * 2 + 32 = 256
 struct L1GasOracleValues {
@@ -46,13 +45,28 @@ struct L1GasOracleValues {
 library FeeStructsLib {
   using SafeCast for uint256;
 
-  function compress(L1FeeData memory _data) internal pure returns (CompressedL1FeeData memory) {
-    return
-      CompressedL1FeeData({baseFee: _data.baseFee.toUint56(), blobFee: _data.blobFee.toUint56()});
+  uint256 internal constant MASK_56_BITS = 0xFFFFFFFFFFFFFF;
+
+  function getBlobFee(CompressedL1FeeData _compressedL1FeeData) internal pure returns (uint256) {
+    return CompressedL1FeeData.unwrap(_compressedL1FeeData) & MASK_56_BITS;
   }
 
-  function decompress(CompressedL1FeeData memory _data) internal pure returns (L1FeeData memory) {
-    return L1FeeData({baseFee: uint256(_data.baseFee), blobFee: uint256(_data.blobFee)});
+  function getBaseFee(CompressedL1FeeData _compressedL1FeeData) internal pure returns (uint256) {
+    return (CompressedL1FeeData.unwrap(_compressedL1FeeData) >> 56) & MASK_56_BITS;
+  }
+
+  function compress(L1FeeData memory _data) internal pure returns (CompressedL1FeeData) {
+    uint256 value = 0;
+    value |= uint256(_data.blobFee.toUint56()) << 0;
+    value |= uint256(_data.baseFee.toUint56()) << 56;
+    return CompressedL1FeeData.wrap(value.toUint112());
+  }
+
+  function decompress(CompressedL1FeeData _data) internal pure returns (L1FeeData memory) {
+    uint256 value = CompressedL1FeeData.unwrap(_data);
+    uint256 blobFee = value & MASK_56_BITS;
+    uint256 baseFee = (value >> 56) & MASK_56_BITS;
+    return L1FeeData({baseFee: uint256(baseFee), blobFee: uint256(blobFee)});
   }
 }
 
