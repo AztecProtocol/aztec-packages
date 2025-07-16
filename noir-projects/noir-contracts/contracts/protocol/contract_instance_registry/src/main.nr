@@ -14,7 +14,7 @@ pub contract ContractInstanceRegistry {
             public_keys::PublicKeys,
             traits::{Serialize, ToField},
         },
-        state_vars::{Map, SharedMutable},
+        state_vars::{DelayedPublicMutable, Map},
     };
     use contract_class_registry::ContractClassRegistry;
 
@@ -92,7 +92,7 @@ pub contract ContractInstanceRegistry {
 
     #[storage]
     struct Storage<Context> {
-        updated_class_ids: Map<AztecAddress, SharedMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context>,
+        updated_class_ids: Map<AztecAddress, DelayedPublicMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context>,
     }
 
     #[private]

@@ -86,7 +86,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // So, use the `precomputed.sel_range_8` as selector into the precomputed table.
     #[PRECOMPUTED_INFO]
     sel_execute_get_env_var {
-        rop[1], // enum_value from opcode input operand
+        /*enum_value=*/ rop[1], // from opcode input operand
         sel_opcode_error, // invalid envvar enum - trigger an "opcode error"
         sel_envvar_pi_lookup_col0, sel_envvar_pi_lookup_col1, envvar_pi_row_idx,
         is_address, is_sender, is_transactionfee,

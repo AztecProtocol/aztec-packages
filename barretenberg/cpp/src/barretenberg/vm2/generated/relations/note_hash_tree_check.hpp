@@ -14,7 +14,7 @@ template <typename FF_> class note_hash_tree_checkImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
-                                                                            4, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            4, 3, 3, 3, 5, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,6 +38,8 @@ template <typename FF_> class note_hash_tree_checkImpl {
         const auto constants_GENERATOR_INDEX__UNIQUE_NOTE_HASH = FF(3);
         const auto constants_GENERATOR_INDEX__SILOED_NOTE_HASH = FF(4);
         const auto note_hash_tree_check_READ = (FF(1) - in.get(C::note_hash_tree_check_write));
+        const auto note_hash_tree_check_PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF =
+            (in.get(C::note_hash_tree_check_prev_leaf_value) - in.get(C::note_hash_tree_check_unique_note_hash));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -137,9 +139,13 @@ template <typename FF_> class note_hash_tree_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::note_hash_tree_check_prev_leaf_value) -
-                 (FF(1) - in.get(C::note_hash_tree_check_write)) * in.get(C::note_hash_tree_check_unique_note_hash));
+            auto tmp = in.get(C::note_hash_tree_check_sel) *
+                       ((note_hash_tree_check_PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF *
+                             (in.get(C::note_hash_tree_check_exists) *
+                                  (FF(1) - in.get(C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv)) +
+                              in.get(C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv)) -
+                         FF(1)) +
+                        in.get(C::note_hash_tree_check_exists));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }

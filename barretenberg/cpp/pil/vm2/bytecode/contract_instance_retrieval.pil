@@ -1,0 +1,160 @@
+include "bc_hashing.pil";
+include "address_derivation.pil";
+include "update_check.pil";
+
+/**
+ * Contract Instance Retrieval gadget.
+ * For use by execution (GetContractInstance opcode) and by bytecode retrieval.
+ *
+ * Proves the existence of a deployed contract instance for the provided address,
+ * along with its derivation from its parts (deployer, class id, init hash).
+ * Does so via interactions with the following auxiliary gadgets:
+ *     - Nullifier check: check (non)existence of the contract address nullifier.
+ *     - Address derivation: constrain the derivation of the address from its parts (deployer, class id, init hash).
+ *     - Update checking: enforce that the class id provided is the _current_ one.
+ *
+ * Usage (as from opcode or bytecode retrieval):
+ * sel {
+ *     // inputs
+ *     execution_or_bc_retrieval.address,
+ *     execution_or_bc_retrieval.nullifier_tree_root,
+ *     execution_or_bc_retrieval.public_data_tree_root
+ *     // outputs
+ *     execution_or_bc_retrieval.exists
+ *     execution_or_bc_retrieval.deployer_addr, // situational
+ *     execution_or_bc_retrieval.current_class_id,
+ *     execution_or_bc_retrieval.init_hash // situational
+ * } in contract_instance_retrieval.sel {
+ *     // inputs
+ *     contract_instance_retrieval.address,
+ *     contract_instance_retrieval.nullifier_tree_root,
+ *     contract_instance_retrieval.public_data_tree_root,
+ *     // outputs
+ *     contract_instance_retrieval.exists,
+ *     contract_instance_retrieval.deployer_addr, // situational
+ *     contract_instance_retrieval.current_class_id,
+ *     contract_instance_retrieval.init_hash // situational
+ * };
+ *
+ * Note: the missing instance member "salt" is not needed in the lookup and can instead just be hinted to the instance retrieval gadget.
+ *
+ * Note: Forces instance members to 0 if the instance doesn't exist.
+ */
+namespace contract_instance_retrieval;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // I/O
+    pol commit address; // contract address.
+    pol commit exists; // the contract instance exists (its address nullifier exists)
+
+    // address instance members.
+    // See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
+    pol commit salt; // HINTED!
+    pol commit deployer_addr;
+    pol commit current_class_id;
+    pol commit original_class_id; // HINTED!
+    pol commit init_hash;
+
+    // current state
+    // These should be looked up and constrained by the caller.
+    pol commit nullifier_tree_root;
+    pol commit public_data_tree_root;
+    // end I/O
+    ////////////////////////////////////////////////////////////////////////////
+
+    // public keys (all hinted)
+    pol commit nullifier_key_x;
+    pol commit nullifier_key_y;
+    pol commit incoming_viewing_key_x;
+    pol commit incoming_viewing_key_y;
+    pol commit outgoing_viewing_key_x;
+    pol commit outgoing_viewing_key_y;
+    pol commit tagging_key_x;
+    pol commit tagging_key_y;
+
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit deployer_protocol_contract_address;
+    sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
+
+    // Nullifier existence check (deployment nullifier read)
+    #[DEPLOYMENT_NULLIFIER_READ]
+    sel {
+        exists, // does the contract address nullifier exist? gates later lookups....
+        address, // the deployment nullifier
+        nullifier_tree_root,
+        deployer_protocol_contract_address,
+        sel // 1 (yes silo)
+    } in nullifier_check.sel {
+        nullifier_check.exists,
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.address,
+        nullifier_check.should_silo
+    };
+
+    // Force members to 0 if the instance doesn't exist
+    #[INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * salt = 0; // technically not needed since salt is hinted, but good for consistency
+    #[INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * deployer_addr = 0;
+    #[INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * current_class_id = 0;
+    #[INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * original_class_id = 0; // technically not needed since original_class_id is hinted, but good for consistency
+    #[INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * init_hash = 0;
+
+    // Address derivation lookup (only when nullifier exists)
+    // If the address nullifier doesn't exist, there is no need to derive the address from its parts!
+    #[ADDRESS_DERIVATION]
+    exists {
+        address,
+        salt, // hinted
+        deployer_addr,
+        original_class_id,
+        init_hash,
+        nullifier_key_x,
+        nullifier_key_y,
+        incoming_viewing_key_x,
+        incoming_viewing_key_y,
+        outgoing_viewing_key_x,
+        outgoing_viewing_key_y,
+        tagging_key_x,
+        tagging_key_y
+    } in address_derivation.sel {
+        address_derivation.address,
+        address_derivation.salt,
+        address_derivation.deployer_addr,
+        address_derivation.class_id,
+        address_derivation.init_hash,
+        address_derivation.nullifier_key_x,
+        address_derivation.nullifier_key_y,
+        address_derivation.incoming_viewing_key_x,
+        address_derivation.incoming_viewing_key_y,
+        address_derivation.outgoing_viewing_key_x,
+        address_derivation.outgoing_viewing_key_y,
+        address_derivation.tagging_key_x,
+        address_derivation.tagging_key_y
+    };
+
+    // Enforce that the class id provided is the _current_ one (only when nullifier exists)
+    // If the address nullifier doesn't exist, there is no need to check!
+    #[UPDATE_CHECK]
+    exists {
+        address,
+        current_class_id,
+        original_class_id,
+        public_data_tree_root
+    } in update_check.sel {
+        update_check.address,
+        update_check.current_class_id,
+        update_check.original_class_id,
+        update_check.public_data_tree_root
+    };

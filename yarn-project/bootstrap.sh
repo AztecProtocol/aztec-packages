@@ -4,10 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  export DISABLE_AZTEC_VM=1
-fi
-
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
@@ -108,9 +104,9 @@ function test_cmds {
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
-    # If DISABLE_AZTEC_VM, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
+    # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
     # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+    if ../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && [[ "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
       continue
     fi
 

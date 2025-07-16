@@ -8,7 +8,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  UPDATES_SHARED_MUTABLE_VALUES_LEN,
+  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
@@ -546,9 +546,9 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateVerificationKeyHintsToNoir(
   privateVerificationKeyHints: PrivateVerificationKeyHints,
 ): PrivateVerificationKeyHintsNoir {
-  const updatedClassIdSharedMutableValuesFields = assertLength(
+  const updatedClassIdDelayedPublicMutableValuesFields = assertLength(
     privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValues.toFields(),
-    UPDATES_SHARED_MUTABLE_VALUES_LEN,
+    UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
   );
 
   return {
@@ -571,7 +571,10 @@ export function mapPrivateVerificationKeyHintsToNoir(
     updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
     ),
-    updated_class_id_shared_mutable_values: mapTuple(updatedClassIdSharedMutableValuesFields, mapFieldToNoir),
+    updated_class_id_delayed_public_mutable_values: mapTuple(
+      updatedClassIdDelayedPublicMutableValuesFields,
+      mapFieldToNoir,
+    ),
   };
 }
 

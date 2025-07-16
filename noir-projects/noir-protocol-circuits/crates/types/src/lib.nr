@@ -23,7 +23,7 @@ pub mod type_serialization;
 pub mod type_packing;
 pub mod tuple_serialization;
 
-pub mod shared_mutable;
+pub mod delayed_public_mutable;
 pub mod proposed_block_header;
 
 pub mod proof;

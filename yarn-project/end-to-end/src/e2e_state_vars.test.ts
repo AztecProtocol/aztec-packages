@@ -217,7 +217,7 @@ describe('e2e_state_vars', () => {
     });
   });
 
-  describe('SharedMutable', () => {
+  describe('DelayedPublicMutable', () => {
     let authContract: AuthContract;
 
     const aztecSlotDuration = DefaultL1ContractsConfig.aztecSlotDuration;
@@ -229,7 +229,7 @@ describe('e2e_state_vars', () => {
     };
 
     beforeAll(async () => {
-      // We use the auth contract here because has a nice, clear, simple implementation of Shared Mutable
+      // We use the auth contract here because has a nice, clear, simple implementation of Delayed Public Mutable
       authContract = await AuthContract.deploy(wallet, wallet.getAddress()).send().deployed();
 
       if (aztecSlotDuration !== 36) {
@@ -241,7 +241,7 @@ describe('e2e_state_vars', () => {
 
     it('sets the include by timestamp property', async () => {
       const newDelay = BigInt(aztecSlotDuration * 2);
-      // We change the SharedMutable authorized delay here to 2 slots, this means that a change to the "authorized"
+      // We change the DelayedPublicMutable authorized delay here to 2 slots, this means that a change to the "authorized"
       // value can only be applied 2 slots after it is initiated, and thus read requests on a historical state without
       // an initiated change is valid for at least 2 slots.
       await authContract.methods.set_authorized_delay(newDelay).send().wait();
@@ -250,7 +250,7 @@ describe('e2e_state_vars', () => {
       // Since the CHANGE_AUTHORIZED_DELAY in the Auth contract is equal to 5 slots we just wait for 4 blocks.
       await delay(4);
 
-      // The validity of our SharedMutable read request should be limited to the new delay
+      // The validity of our DelayedPublicMutable read request should be limited to the new delay
       const expectedModifiedIncludeByTimestamp =
         (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay;
 

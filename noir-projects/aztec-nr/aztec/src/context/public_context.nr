@@ -32,7 +32,7 @@ impl PublicContext {
         unsafe { emit_public_log(Serialize::serialize(log).as_slice()) };
     }
 
-    pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: Field) -> bool {
+    pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: u64) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { note_hash_exists(note_hash, leaf_index) } == 1
     }
@@ -299,7 +299,7 @@ unconstrained fn da_gas_left() -> u32 {
 unconstrained fn is_static_call() -> u1 {
     is_static_call_opcode()
 }
-unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u1 {
+unconstrained fn note_hash_exists(note_hash: Field, leaf_index: u64) -> u1 {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
 unconstrained fn emit_note_hash(note_hash: Field) {
@@ -419,7 +419,7 @@ unconstrained fn da_gas_left_opcode() -> u32 {}
 unconstrained fn is_static_call_opcode() -> u1 {}
 
 #[oracle(avmOpcodeNoteHashExists)]
-unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u1 {}
+unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: u64) -> u1 {}
 
 #[oracle(avmOpcodeEmitNoteHash)]
 unconstrained fn emit_note_hash_opcode(note_hash: Field) {}

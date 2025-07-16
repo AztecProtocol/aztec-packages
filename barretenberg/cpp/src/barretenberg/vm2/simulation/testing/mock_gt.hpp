@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/gt.hpp"
 

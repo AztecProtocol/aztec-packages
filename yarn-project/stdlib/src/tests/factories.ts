@@ -1477,7 +1477,6 @@ export async function makePublicCallRequestWithCalldata(seed = 0): Promise<Publi
 export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
-    makeGlobalVariables(seed),
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
     {
@@ -1512,6 +1511,7 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
+    globalVariables: makeGlobalVariables(seed + 0x4000),
     tx: await makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
@@ -1544,6 +1544,7 @@ export async function makeAvmExecutionHints(
   };
 
   return new AvmExecutionHints(
+    fields.globalVariables,
     fields.tx,
     fields.contractInstances,
     fields.contractClasses,
