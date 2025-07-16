@@ -32,7 +32,6 @@ import {
   type ForeignCallSingle,
   fromArray,
   fromSingle,
-  toForeignCallResult,
   toSingle,
 } from './util/encoding.js';
 import type { ContractArtifactWithHash } from './util/txe_contract_data_provider.js';
