@@ -19,7 +19,6 @@ WORKDIR /home/fuzzer/aztec-packages/barretenberg
 RUN ./scripts/download_bb_crs.sh
 
 WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp
-RUN git checkout as/fuzzing-coverage-1
 
 # Build all fuzzers
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing
