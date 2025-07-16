@@ -150,6 +150,7 @@ jobs:
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           alert-threshold: "105%"
           comment-on-alert: false
           fail-on-alert: false
