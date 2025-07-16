@@ -153,7 +153,7 @@ export class NativeApi {
       classContent += `
   async ${func.name}(command: ${func.commandType}): Promise<${func.responseType}> {
     const msgpackCommand = from${func.commandType}(command);
-    const [variantName, result] = await this.sendCommand(["${func.commandType.replace(/^Circuit|^ClientIvc|^ProofAsFields|^VkAsFields/, '')}", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["${func.commandType}", msgpackCommand]);
     if (variantName !== '${func.responseType}') {
       throw new Error(\`Expected variant name '${func.responseType}' but got '\${variantName}'\`);
     }

@@ -1078,7 +1078,7 @@ export class NativeApi {
 
   async circuitProve(command: CircuitProve): Promise<CircuitProveResponse> {
     const msgpackCommand = fromCircuitProve(command);
-    const [variantName, result] = await this.sendCommand(["Prove", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitProve", msgpackCommand]);
     if (variantName !== 'CircuitProveResponse') {
       throw new Error(`Expected variant name 'CircuitProveResponse' but got '${variantName}'`);
     }
@@ -1087,7 +1087,7 @@ export class NativeApi {
 
   async circuitComputeVk(command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
     const msgpackCommand = fromCircuitComputeVk(command);
-    const [variantName, result] = await this.sendCommand(["ComputeVk", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitComputeVk", msgpackCommand]);
     if (variantName !== 'CircuitComputeVkResponse') {
       throw new Error(`Expected variant name 'CircuitComputeVkResponse' but got '${variantName}'`);
     }
@@ -1096,7 +1096,7 @@ export class NativeApi {
 
   async circuitInfo(command: CircuitInfo): Promise<CircuitInfoResponse> {
     const msgpackCommand = fromCircuitInfo(command);
-    const [variantName, result] = await this.sendCommand(["Info", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitInfo", msgpackCommand]);
     if (variantName !== 'CircuitInfoResponse') {
       throw new Error(`Expected variant name 'CircuitInfoResponse' but got '${variantName}'`);
     }
@@ -1105,7 +1105,7 @@ export class NativeApi {
 
   async circuitCheck(command: CircuitCheck): Promise<CircuitCheckResponse> {
     const msgpackCommand = fromCircuitCheck(command);
-    const [variantName, result] = await this.sendCommand(["Check", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitCheck", msgpackCommand]);
     if (variantName !== 'CircuitCheckResponse') {
       throw new Error(`Expected variant name 'CircuitCheckResponse' but got '${variantName}'`);
     }
@@ -1114,7 +1114,7 @@ export class NativeApi {
 
   async circuitVerify(command: CircuitVerify): Promise<CircuitVerifyResponse> {
     const msgpackCommand = fromCircuitVerify(command);
-    const [variantName, result] = await this.sendCommand(["Verify", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitVerify", msgpackCommand]);
     if (variantName !== 'CircuitVerifyResponse') {
       throw new Error(`Expected variant name 'CircuitVerifyResponse' but got '${variantName}'`);
     }
@@ -1123,7 +1123,7 @@ export class NativeApi {
 
   async clientIvcComputeStandaloneVk(command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
     const msgpackCommand = fromClientIvcComputeStandaloneVk(command);
-    const [variantName, result] = await this.sendCommand(["ComputeStandaloneVk", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ClientIvcComputeStandaloneVk", msgpackCommand]);
     if (variantName !== 'ClientIvcComputeStandaloneVkResponse') {
       throw new Error(`Expected variant name 'ClientIvcComputeStandaloneVkResponse' but got '${variantName}'`);
     }
@@ -1132,7 +1132,7 @@ export class NativeApi {
 
   async clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
     const msgpackCommand = fromClientIvcComputeIvcVk(command);
-    const [variantName, result] = await this.sendCommand(["ComputeIvcVk", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ClientIvcComputeIvcVk", msgpackCommand]);
     if (variantName !== 'ClientIvcComputeIvcVkResponse') {
       throw new Error(`Expected variant name 'ClientIvcComputeIvcVkResponse' but got '${variantName}'`);
     }
@@ -1141,7 +1141,7 @@ export class NativeApi {
 
   async clientIvcStart(command: ClientIvcStart): Promise<ClientIvcStartResponse> {
     const msgpackCommand = fromClientIvcStart(command);
-    const [variantName, result] = await this.sendCommand(["Start", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ClientIvcStart", msgpackCommand]);
     if (variantName !== 'ClientIvcStartResponse') {
       throw new Error(`Expected variant name 'ClientIvcStartResponse' but got '${variantName}'`);
     }
@@ -1150,7 +1150,7 @@ export class NativeApi {
 
   async clientIvcLoad(command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
     const msgpackCommand = fromClientIvcLoad(command);
-    const [variantName, result] = await this.sendCommand(["Load", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ClientIvcLoad", msgpackCommand]);
     if (variantName !== 'ClientIvcLoadResponse') {
       throw new Error(`Expected variant name 'ClientIvcLoadResponse' but got '${variantName}'`);
     }
@@ -1159,7 +1159,7 @@ export class NativeApi {
 
   async clientIvcAccumulate(command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
     const msgpackCommand = fromClientIvcAccumulate(command);
-    const [variantName, result] = await this.sendCommand(["Accumulate", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ClientIvcAccumulate", msgpackCommand]);
     if (variantName !== 'ClientIvcAccumulateResponse') {
       throw new Error(`Expected variant name 'ClientIvcAccumulateResponse' but got '${variantName}'`);
     }
@@ -1168,7 +1168,7 @@ export class NativeApi {
 
   async clientIvcProve(command: ClientIvcProve): Promise<ClientIvcProveResponse> {
     const msgpackCommand = fromClientIvcProve(command);
-    const [variantName, result] = await this.sendCommand(["Prove", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ClientIvcProve", msgpackCommand]);
     if (variantName !== 'ClientIvcProveResponse') {
       throw new Error(`Expected variant name 'ClientIvcProveResponse' but got '${variantName}'`);
     }
@@ -1177,7 +1177,7 @@ export class NativeApi {
 
   async proofAsFields(command: ProofAsFields): Promise<ProofAsFieldsResponse> {
     const msgpackCommand = fromProofAsFields(command);
-    const [variantName, result] = await this.sendCommand(["", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ProofAsFields", msgpackCommand]);
     if (variantName !== 'ProofAsFieldsResponse') {
       throw new Error(`Expected variant name 'ProofAsFieldsResponse' but got '${variantName}'`);
     }
@@ -1186,7 +1186,7 @@ export class NativeApi {
 
   async vkAsFields(command: VkAsFields): Promise<VkAsFieldsResponse> {
     const msgpackCommand = fromVkAsFields(command);
-    const [variantName, result] = await this.sendCommand(["", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["VkAsFields", msgpackCommand]);
     if (variantName !== 'VkAsFieldsResponse') {
       throw new Error(`Expected variant name 'VkAsFieldsResponse' but got '${variantName}'`);
     }
@@ -1195,7 +1195,7 @@ export class NativeApi {
 
   async circuitWriteSolidityVerifier(command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
     const msgpackCommand = fromCircuitWriteSolidityVerifier(command);
-    const [variantName, result] = await this.sendCommand(["WriteSolidityVerifier", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitWriteSolidityVerifier", msgpackCommand]);
     if (variantName !== 'CircuitWriteSolidityVerifierResponse') {
       throw new Error(`Expected variant name 'CircuitWriteSolidityVerifierResponse' but got '${variantName}'`);
     }
@@ -1204,7 +1204,7 @@ export class NativeApi {
 
   async circuitProveAndVerify(command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
     const msgpackCommand = fromCircuitProveAndVerify(command);
-    const [variantName, result] = await this.sendCommand(["ProveAndVerify", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitProveAndVerify", msgpackCommand]);
     if (variantName !== 'CircuitProveAndVerifyResponse') {
       throw new Error(`Expected variant name 'CircuitProveAndVerifyResponse' but got '${variantName}'`);
     }
@@ -1213,7 +1213,7 @@ export class NativeApi {
 
   async circuitBenchmark(command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
     const msgpackCommand = fromCircuitBenchmark(command);
-    const [variantName, result] = await this.sendCommand(["Benchmark", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["CircuitBenchmark", msgpackCommand]);
     if (variantName !== 'CircuitBenchmarkResponse') {
       throw new Error(`Expected variant name 'CircuitBenchmarkResponse' but got '${variantName}'`);
     }
@@ -1222,7 +1222,7 @@ export class NativeApi {
 
   async clientIvcCheckPrecomputedVk(command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
     const msgpackCommand = fromClientIvcCheckPrecomputedVk(command);
-    const [variantName, result] = await this.sendCommand(["CheckPrecomputedVk", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(["ClientIvcCheckPrecomputedVk", msgpackCommand]);
     if (variantName !== 'ClientIvcCheckPrecomputedVkResponse') {
       throw new Error(`Expected variant name 'ClientIvcCheckPrecomputedVkResponse' but got '${variantName}'`);
     }
