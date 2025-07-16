@@ -76,7 +76,14 @@ case ${1:-} in
       /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --pedantic-solving --oracle-resolver http://127.0.0.1:8081 $args_str
     "
     ;;
-  start)
+  start|supervised-start)
+    SUPERVISED=0
+    if [ "$1" == "supervised-start" ]; then
+      SUPERVISED=1
+    fi
+
+    shift
+
     export ENV_VARS_TO_INJECT="$(get_env_vars)"
 
     # Dynamic port assignments, .aztec-run will expose the array PORTS_TO_EXPOSE as a space-separated string.
@@ -86,7 +93,12 @@ case ${1:-} in
     # Appends 8 char hex to avoid container name clashes
     export CONTAINER_NAME=aztec-start-$(printf "%08x" $((RANDOM * RANDOM)))
 
-    if [ "${2:-}" == "--sandbox" ]; then
+    if [ "${1:-}" == "--sandbox" ]; then
+      if [ "$SUPERVISED" == "1" ]; then 
+        echo "supervised-start is not compatible with --sandbox. Please use regular start command"
+        exit 1
+      fi
+
       # TODO: This entire special case should go away.
       # Sandbox mode should start it's own anvil.
       # We should not have to provide a binary path and working dir.
@@ -111,10 +123,9 @@ case ${1:-} in
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
         anvil --version
         anvil --host 0.0.0.0 --silent &
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js \"\$@\"
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start \"\$@\"
       " bash "$@"
     else
-
       export P2P_PORT="${P2P_PORT:-40400}"
       # If the p2p broadcast port if provided, then map it to the p2p port on the container.
       if [ -n "${P2P_BROADCAST_PORT:-}" ]; then
@@ -144,8 +155,48 @@ case ${1:-} in
       export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
       export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
-      exec $(dirname $0)/.aztec-run aztec-start \
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+
+      SLEEP=1
+      MAX_SLEEP=60
+      EXP_BACKOFF=2
+
+      RESTART_CODES="1 78 79"  # ERROR, ROLLUP_UPGRADE, VERSION_UPGRADE
+
+      echo "Starting supervised Aztec application..."
+      set +e
+      while true; do
+        $(dirname $0)/.aztec-run aztec-start \
+          node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start "$@"
+
+        EXIT_CODE=$?
+
+        if [ "$SUPERVISED" == "0" ]; then
+          exit $EXIT_CODE
+        fi
+
+        SHOULD_RESTART=false
+        for code in $RESTART_CODES; do
+          if [ "$EXIT_CODE" -eq "$code" ]; then
+            SHOULD_RESTART=true
+            break
+          fi
+        done
+
+        if [ "$SHOULD_RESTART" == "true" ]; then
+          echo "Exit code $EXIT_CODE requires restart"
+          SLEEP=$((SLEEP * EXP_BACKOFF))
+
+          if [ "$SLEEP" -ge "$MAX_SLEEP" ]; then
+            SLEEP="$MAX_SLEEP"
+          fi
+
+          echo "Restarting in $SLEEP seconds..."
+          sleep $SLEEP
+
+        else
+          exit $EXIT_CODE
+        fi
+    done
     fi
     ;;
   flamegraph)
