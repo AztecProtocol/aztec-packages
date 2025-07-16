@@ -1,7 +1,7 @@
 name: Automatic backport action
 
 on:
-  pull_request:
+  pull_request_target:
     types: ["labeled", "closed"]
 
 jobs:
