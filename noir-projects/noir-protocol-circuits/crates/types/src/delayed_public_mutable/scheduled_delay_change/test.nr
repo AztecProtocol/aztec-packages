@@ -1,4 +1,4 @@
-use crate::shared_mutable::scheduled_delay_change::ScheduledDelayChange;
+use crate::delayed_public_mutable::scheduled_delay_change::ScheduledDelayChange;
 
 global TEST_INITIAL_DELAY: u64 = 13;
 
