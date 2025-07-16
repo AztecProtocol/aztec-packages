@@ -216,8 +216,7 @@ class ClientIVC {
 
     Proof prove();
 
-    std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key(
-        const StdlibVerifierInputs* verifier_inputs = nullptr, ClientCircuit* circuit = nullptr);
+    std::shared_ptr<ClientIVC::DeciderZKProvingKey> construct_hiding_circuit_key();
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     HonkProof construct_and_prove_hiding_circuit();
 
@@ -231,6 +230,9 @@ class ClientIVC {
 
     VerificationKey get_vk() const;
     void hiding_circuit_recursive_verification(ClientCircuit& circuit);
+    void complete_hiding_circuit_logic(const StdlibProof& stdlib_proof,
+                                       const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
+                                       ClientCircuit& circuit);
 };
 
 } // namespace bb
