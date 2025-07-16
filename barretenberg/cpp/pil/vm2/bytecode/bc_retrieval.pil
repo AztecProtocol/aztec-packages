@@ -1,9 +1,7 @@
+include "contract_instance_retrieval.pil";
 include "bc_hashing.pil";
-include "address_derivation.pil";
-include "update_check.pil";
 
 include "../constants_gen.pil";
-include "../trees/nullifier_check.pil";
 
 // Bytecode retrieval.
 //
@@ -45,22 +43,18 @@ pol commit address;  // contract address.
 ((1 - sel) * sel') * bytecode_id = 0;  // First row that has sel = 1.
 sel * sel' * (bytecode_id' - bytecode_id) = 0;  // Next row.
 
-// address instance members.
-// See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
-pol commit salt;
-pol commit deployer_addr;
+// contract instance members.
+//
+// Note that bytecode retrieval doesn't care about the other instance members
+// (salt, deployer_addr, init_hash). It is sufficient that after validating
+// contract address nullifier membership, contract instance retrieval and its
+// call to address derivation will enforce that the correct instance members
+// are used. If a prover tries to use the wrong instance members, address derivation
+// will have unsatisfiable constraints. So, here we only need the current_class_id
+// to then validate with class id derivation.
+//
+// See full contract instance struct at barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
 pol commit current_class_id;
-pol commit original_class_id;
-pol commit init_hash;
-// public keys
-pol commit nullifier_key_x;
-pol commit nullifier_key_y;
-pol commit incoming_viewing_key_x;
-pol commit incoming_viewing_key_y;
-pol commit outgoing_viewing_key_x;
-pol commit outgoing_viewing_key_y;
-pol commit tagging_key_x;
-pol commit tagging_key_y;
 
 // contract class members.
 // See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
@@ -70,58 +64,33 @@ pol commit public_bytecode_commitment;
 
 // current state
 // These should be looked up and constrained by the caller.
-pol commit timestamp;
 pol commit public_data_tree_root;
 pol commit nullifier_tree_root;
 
-// TODO: Remove this as a column when we can lookup with constants
-pol commit deployer_protocol_contract_address;
-sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
-
-pol commit nullifier_exists;
+pol commit instance_exists;
 // The only error that can happen is if the nullifier does not exist.
-error = sel * (1 - nullifier_exists);
+error = sel * (1 - instance_exists);
 
-#[DEPLOYMENT_NULLIFIER_READ]
+#[CONTRACT_INSTANCE_RETRIEVAL]
 sel {
-  nullifier_exists,
-  address,
-  nullifier_tree_root,
-  deployer_protocol_contract_address,
-  sel
-} in nullifier_check.sel {
-  nullifier_check.exists,
-  nullifier_check.nullifier,
-  nullifier_check.root,
-  nullifier_check.address,
-  nullifier_check.should_silo
+    address,
+    current_class_id,
+    instance_exists,
+    public_data_tree_root,
+    nullifier_tree_root
+} in contract_instance_retrieval.sel {
+    contract_instance_retrieval.address,
+    contract_instance_retrieval.current_class_id,
+    contract_instance_retrieval.exists,
+    contract_instance_retrieval.public_data_tree_root,
+    contract_instance_retrieval.nullifier_tree_root
 };
 
-// TODO: Probably some latch is also needed.
-#[ADDRESS_DERIVATION]
-nullifier_exists {
-  address, salt, deployer_addr, original_class_id, init_hash,
-  nullifier_key_x, nullifier_key_y,
-  incoming_viewing_key_x, incoming_viewing_key_y,
-  outgoing_viewing_key_x, outgoing_viewing_key_y,
-  tagging_key_x, tagging_key_y
-} in address_derivation.sel {
-  address_derivation.address, address_derivation.salt, address_derivation.deployer_addr, address_derivation.class_id, address_derivation.init_hash,
-  address_derivation.nullifier_key_x, address_derivation.nullifier_key_y,
-  address_derivation.incoming_viewing_key_x, address_derivation.incoming_viewing_key_y,
-  address_derivation.outgoing_viewing_key_x, address_derivation.outgoing_viewing_key_y,
-  address_derivation.tagging_key_x, address_derivation.tagging_key_y
-};
-
-// TODO: Probably some latch is also needed.
-#[UPDATE_CHECK]
-nullifier_exists { address, current_class_id, original_class_id, public_data_tree_root, timestamp }
-in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.timestamp };
-
-// Observe the folowing also connects the current_class_id of the instance to the class members.
+// Observe the following also connects the current_class_id of the instance to the class members.
+// Note: only need to derive the class id if the instance exists.
 // TODO: Probably some latch is also needed.
 #[CLASS_ID_DERIVATION]
-nullifier_exists {
+instance_exists {
   current_class_id,
   artifact_hash,
   private_function_root,
@@ -134,9 +103,9 @@ nullifier_exists {
 };
 
 // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+// Note: only need to hash the bytecode if the instance exists. Otherwise there is nothing to hash!
 //#[BYTECODE_HASH_IS_CORRECT]
-//nullifier_exists { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
-
+//instance_exists { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
 
 // Note: we don't need to silo and check the class id because the deployer contract guarrantees
 // that if a contract instance exists, the class has been registered.

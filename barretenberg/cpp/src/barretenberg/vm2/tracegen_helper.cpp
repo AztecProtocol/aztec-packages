@@ -20,10 +20,12 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
+#include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
@@ -31,6 +33,7 @@
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/note_hash_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/opcodes/get_contract_instance_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
@@ -85,6 +88,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/phase_table", precomputed_builder.process_phase_table(trace));
             AVM_TRACK_TIME("tracegen/precomputed/get_env_var_table",
                            precomputed_builder.process_get_env_var_table(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/get_contract_instance_table",
+                           precomputed_builder.process_get_contract_instance_table(trace));
         },
     };
 }
@@ -375,10 +380,28 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                                    written_public_data_slots_tree_check_trace_builder.process(
                                        events.written_public_data_slots_tree_check_events, trace));
                     clear_events(events.written_public_data_slots_tree_check_events);
+                },
+                [&]() {
+                    GreaterThanTraceBuilder gt_builder;
+                    AVM_TRACK_TIME("tracegen/gt", gt_builder.process(events.gt_events, trace));
+                    clear_events(events.gt_events);
+                },
+                [&]() {
+                    ContractInstanceRetrievalTraceBuilder contract_instance_retrieval_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/contract_instance_retrieval",
+                        contract_instance_retrieval_builder.process(events.contract_instance_retrieval_events, trace));
+                    clear_events(events.contract_instance_retrieval_events);
+                },
+                [&]() {
+                    GetContractInstanceTraceBuilder get_contract_instance_builder;
+                    AVM_TRACK_TIME("tracegen/get_contract_instance",
+                                   get_contract_instance_builder.process(events.get_contract_instance_events, trace));
+                    clear_events(events.get_contract_instance_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
-    }
+    } // namespace bb::avm2
 }
 
 void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
@@ -408,7 +431,10 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              DataCopyTraceBuilder::interactions.get_all_jobs(),
                              CalldataTraceBuilder::interactions.get_all_jobs(),
                              NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs());
+                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                             GreaterThanTraceBuilder::interactions.get_all_jobs(),
+                             ContractInstanceRetrievalTraceBuilder::interactions.get_all_jobs(),
+                             GetContractInstanceTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

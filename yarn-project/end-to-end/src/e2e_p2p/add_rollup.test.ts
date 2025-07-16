@@ -112,7 +112,7 @@ describe('e2e_p2p_add_rollup', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const roundSize = await governanceProposer.read.M();
+    const roundSize = await governanceProposer.read.ROUND_SIZE();
 
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
@@ -233,8 +233,8 @@ describe('e2e_p2p_add_rollup', () => {
     await sleep(4000);
 
     t.logger.info('Start progressing time to cast votes');
-    const quorumSize = await governanceProposer.read.N();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
+    const quorumSize = await governanceProposer.read.QUORUM_SIZE();
+    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     const bridging = async (
       node: AztecNodeService,
