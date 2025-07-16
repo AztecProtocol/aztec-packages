@@ -46,11 +46,3 @@ TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
     EXPECT_EQ(actual_response, expected_response);
     std::cout << msgpack_schema_to_string(command) << " " << msgpack_schema_to_string(response) << std::endl;
 }
-
-// Test roundtrip serialization for UltraHonk commands
-TEST(BBApiMsgpack, FullScheme)
-{
-    bbapi::Command command;
-    bbapi::CommandResponse response;
-    std::cout << msgpack_schema_to_string(command) << " " << msgpack_schema_to_string(response) << std::endl;
-}
