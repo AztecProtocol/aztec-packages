@@ -27,7 +27,7 @@ interface MsgpackCircuitInput {
   verification_key: Buffer;
 }
 
-export function toCircuitInput(o: MsgpackCircuitInput): CircuitInput {
+function toCircuitInput(o: MsgpackCircuitInput): CircuitInput {
   if (o.name === undefined) { throw new Error("Expected name in CircuitInput deserialization"); }
   if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInput deserialization"); }
   if (o.verification_key === undefined) { throw new Error("Expected verification_key in CircuitInput deserialization"); };
@@ -37,7 +37,7 @@ export function toCircuitInput(o: MsgpackCircuitInput): CircuitInput {
     verificationKey: o.verification_key,
   };
 }
-export function fromCircuitInput(o: CircuitInput): MsgpackCircuitInput {
+function fromCircuitInput(o: CircuitInput): MsgpackCircuitInput {
   if (o.name === undefined) { throw new Error("Expected name in CircuitInput serialization"); }
   if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInput serialization"); }
   if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitInput serialization"); };
@@ -62,7 +62,7 @@ interface MsgpackProofSystemSettings {
   recursive: boolean;
 }
 
-export function toProofSystemSettings(o: MsgpackProofSystemSettings): ProofSystemSettings {
+function toProofSystemSettings(o: MsgpackProofSystemSettings): ProofSystemSettings {
   if (o.ipa_accumulation === undefined) { throw new Error("Expected ipa_accumulation in ProofSystemSettings deserialization"); }
   if (o.oracle_hash_type === undefined) { throw new Error("Expected oracle_hash_type in ProofSystemSettings deserialization"); }
   if (o.disable_zk === undefined) { throw new Error("Expected disable_zk in ProofSystemSettings deserialization"); }
@@ -76,7 +76,7 @@ export function toProofSystemSettings(o: MsgpackProofSystemSettings): ProofSyste
     recursive: o.recursive,
   };
 }
-export function fromProofSystemSettings(o: ProofSystemSettings): MsgpackProofSystemSettings {
+function fromProofSystemSettings(o: ProofSystemSettings): MsgpackProofSystemSettings {
   if (o.ipaAccumulation === undefined) { throw new Error("Expected ipaAccumulation in ProofSystemSettings serialization"); }
   if (o.oracleHashType === undefined) { throw new Error("Expected oracleHashType in ProofSystemSettings serialization"); }
   if (o.disableZk === undefined) { throw new Error("Expected disableZk in ProofSystemSettings serialization"); }
@@ -101,7 +101,7 @@ interface MsgpackCircuitProve {
   settings: MsgpackProofSystemSettings;
 }
 
-export function toCircuitProve(o: MsgpackCircuitProve): CircuitProve {
+function toCircuitProve(o: MsgpackCircuitProve): CircuitProve {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProve deserialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitProve deserialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitProve deserialization"); };
@@ -111,7 +111,7 @@ export function toCircuitProve(o: MsgpackCircuitProve): CircuitProve {
     settings: toProofSystemSettings(o.settings),
   };
 }
-export function fromCircuitProve(o: CircuitProve): MsgpackCircuitProve {
+function fromCircuitProve(o: CircuitProve): MsgpackCircuitProve {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProve serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitProve serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitProve serialization"); };
@@ -130,7 +130,7 @@ interface MsgpackCircuitInputNoVK {
   bytecode: Buffer;
 }
 
-export function toCircuitInputNoVK(o: MsgpackCircuitInputNoVK): CircuitInputNoVK {
+function toCircuitInputNoVK(o: MsgpackCircuitInputNoVK): CircuitInputNoVK {
   if (o.name === undefined) { throw new Error("Expected name in CircuitInputNoVK deserialization"); }
   if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInputNoVK deserialization"); };
   return {
@@ -138,7 +138,7 @@ export function toCircuitInputNoVK(o: MsgpackCircuitInputNoVK): CircuitInputNoVK
     bytecode: o.bytecode,
   };
 }
-export function fromCircuitInputNoVK(o: CircuitInputNoVK): MsgpackCircuitInputNoVK {
+function fromCircuitInputNoVK(o: CircuitInputNoVK): MsgpackCircuitInputNoVK {
   if (o.name === undefined) { throw new Error("Expected name in CircuitInputNoVK serialization"); }
   if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInputNoVK serialization"); };
   return {
@@ -155,7 +155,7 @@ interface MsgpackCircuitComputeVk {
   settings: MsgpackProofSystemSettings;
 }
 
-export function toCircuitComputeVk(o: MsgpackCircuitComputeVk): CircuitComputeVk {
+function toCircuitComputeVk(o: MsgpackCircuitComputeVk): CircuitComputeVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitComputeVk deserialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitComputeVk deserialization"); };
   return {
@@ -163,7 +163,7 @@ export function toCircuitComputeVk(o: MsgpackCircuitComputeVk): CircuitComputeVk
     settings: toProofSystemSettings(o.settings),
   };
 }
-export function fromCircuitComputeVk(o: CircuitComputeVk): MsgpackCircuitComputeVk {
+function fromCircuitComputeVk(o: CircuitComputeVk): MsgpackCircuitComputeVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitComputeVk serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitComputeVk serialization"); };
   return {
@@ -182,7 +182,7 @@ interface MsgpackCircuitInfo {
   settings: MsgpackProofSystemSettings;
 }
 
-export function toCircuitInfo(o: MsgpackCircuitInfo): CircuitInfo {
+function toCircuitInfo(o: MsgpackCircuitInfo): CircuitInfo {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitInfo deserialization"); }
   if (o.include_gates_per_opcode === undefined) { throw new Error("Expected include_gates_per_opcode in CircuitInfo deserialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitInfo deserialization"); };
@@ -192,7 +192,7 @@ export function toCircuitInfo(o: MsgpackCircuitInfo): CircuitInfo {
     settings: toProofSystemSettings(o.settings),
   };
 }
-export function fromCircuitInfo(o: CircuitInfo): MsgpackCircuitInfo {
+function fromCircuitInfo(o: CircuitInfo): MsgpackCircuitInfo {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitInfo serialization"); }
   if (o.includeGatesPerOpcode === undefined) { throw new Error("Expected includeGatesPerOpcode in CircuitInfo serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitInfo serialization"); };
@@ -213,7 +213,7 @@ interface MsgpackCircuitCheck {
   settings: MsgpackProofSystemSettings;
 }
 
-export function toCircuitCheck(o: MsgpackCircuitCheck): CircuitCheck {
+function toCircuitCheck(o: MsgpackCircuitCheck): CircuitCheck {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitCheck deserialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitCheck deserialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitCheck deserialization"); };
@@ -223,7 +223,7 @@ export function toCircuitCheck(o: MsgpackCircuitCheck): CircuitCheck {
     settings: toProofSystemSettings(o.settings),
   };
 }
-export function fromCircuitCheck(o: CircuitCheck): MsgpackCircuitCheck {
+function fromCircuitCheck(o: CircuitCheck): MsgpackCircuitCheck {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitCheck serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitCheck serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitCheck serialization"); };
@@ -246,7 +246,7 @@ interface MsgpackCircuitVerify {
   settings: MsgpackProofSystemSettings;
 }
 
-export function toCircuitVerify(o: MsgpackCircuitVerify): CircuitVerify {
+function toCircuitVerify(o: MsgpackCircuitVerify): CircuitVerify {
   if (o.verification_key === undefined) { throw new Error("Expected verification_key in CircuitVerify deserialization"); }
   if (o.public_inputs === undefined) { throw new Error("Expected public_inputs in CircuitVerify deserialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitVerify deserialization"); }
@@ -258,7 +258,7 @@ export function toCircuitVerify(o: MsgpackCircuitVerify): CircuitVerify {
     settings: toProofSystemSettings(o.settings),
   };
 }
-export function fromCircuitVerify(o: CircuitVerify): MsgpackCircuitVerify {
+function fromCircuitVerify(o: CircuitVerify): MsgpackCircuitVerify {
   if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitVerify serialization"); }
   if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitVerify serialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitVerify serialization"); }
@@ -277,13 +277,13 @@ interface MsgpackClientIvcComputeStandaloneVk {
   circuit: MsgpackCircuitInputNoVK;
 }
 
-export function toClientIvcComputeStandaloneVk(o: MsgpackClientIvcComputeStandaloneVk): ClientIvcComputeStandaloneVk {
+function toClientIvcComputeStandaloneVk(o: MsgpackClientIvcComputeStandaloneVk): ClientIvcComputeStandaloneVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeStandaloneVk deserialization"); };
   return {
     circuit: toCircuitInputNoVK(o.circuit),
   };
 }
-export function fromClientIvcComputeStandaloneVk(o: ClientIvcComputeStandaloneVk): MsgpackClientIvcComputeStandaloneVk {
+function fromClientIvcComputeStandaloneVk(o: ClientIvcComputeStandaloneVk): MsgpackClientIvcComputeStandaloneVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeStandaloneVk serialization"); };
   return {
   circuit: fromCircuitInputNoVK(o.circuit),};
@@ -296,13 +296,13 @@ interface MsgpackClientIvcComputeIvcVk {
   circuit: MsgpackCircuitInputNoVK;
 }
 
-export function toClientIvcComputeIvcVk(o: MsgpackClientIvcComputeIvcVk): ClientIvcComputeIvcVk {
+function toClientIvcComputeIvcVk(o: MsgpackClientIvcComputeIvcVk): ClientIvcComputeIvcVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeIvcVk deserialization"); };
   return {
     circuit: toCircuitInputNoVK(o.circuit),
   };
 }
-export function fromClientIvcComputeIvcVk(o: ClientIvcComputeIvcVk): MsgpackClientIvcComputeIvcVk {
+function fromClientIvcComputeIvcVk(o: ClientIvcComputeIvcVk): MsgpackClientIvcComputeIvcVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeIvcVk serialization"); };
   return {
   circuit: fromCircuitInputNoVK(o.circuit),};
@@ -315,13 +315,13 @@ interface MsgpackClientIvcStart {
   num_circuits: number;
 }
 
-export function toClientIvcStart(o: MsgpackClientIvcStart): ClientIvcStart {
+function toClientIvcStart(o: MsgpackClientIvcStart): ClientIvcStart {
   if (o.num_circuits === undefined) { throw new Error("Expected num_circuits in ClientIvcStart deserialization"); };
   return {
     numCircuits: o.num_circuits,
   };
 }
-export function fromClientIvcStart(o: ClientIvcStart): MsgpackClientIvcStart {
+function fromClientIvcStart(o: ClientIvcStart): MsgpackClientIvcStart {
   if (o.numCircuits === undefined) { throw new Error("Expected numCircuits in ClientIvcStart serialization"); };
   return {
   num_circuits: o.numCircuits,};
@@ -334,13 +334,13 @@ interface MsgpackClientIvcLoad {
   circuit: MsgpackCircuitInput;
 }
 
-export function toClientIvcLoad(o: MsgpackClientIvcLoad): ClientIvcLoad {
+function toClientIvcLoad(o: MsgpackClientIvcLoad): ClientIvcLoad {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcLoad deserialization"); };
   return {
     circuit: toCircuitInput(o.circuit),
   };
 }
-export function fromClientIvcLoad(o: ClientIvcLoad): MsgpackClientIvcLoad {
+function fromClientIvcLoad(o: ClientIvcLoad): MsgpackClientIvcLoad {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcLoad serialization"); };
   return {
   circuit: fromCircuitInput(o.circuit),};
@@ -353,13 +353,13 @@ interface MsgpackClientIvcAccumulate {
   witness: Buffer;
 }
 
-export function toClientIvcAccumulate(o: MsgpackClientIvcAccumulate): ClientIvcAccumulate {
+function toClientIvcAccumulate(o: MsgpackClientIvcAccumulate): ClientIvcAccumulate {
   if (o.witness === undefined) { throw new Error("Expected witness in ClientIvcAccumulate deserialization"); };
   return {
     witness: o.witness,
   };
 }
-export function fromClientIvcAccumulate(o: ClientIvcAccumulate): MsgpackClientIvcAccumulate {
+function fromClientIvcAccumulate(o: ClientIvcAccumulate): MsgpackClientIvcAccumulate {
   if (o.witness === undefined) { throw new Error("Expected witness in ClientIvcAccumulate serialization"); };
   return {
   witness: o.witness,};
@@ -368,10 +368,10 @@ export interface ClientIvcProve {}
 
 interface MsgpackClientIvcProve {}
 
-export function toClientIvcProve(o: MsgpackClientIvcProve): ClientIvcProve {
+function toClientIvcProve(o: MsgpackClientIvcProve): ClientIvcProve {
   return {};
 }
-export function fromClientIvcProve(o: ClientIvcProve): MsgpackClientIvcProve {
+function fromClientIvcProve(o: ClientIvcProve): MsgpackClientIvcProve {
   return {};
 }
 export interface ProofAsFields {
@@ -382,13 +382,13 @@ interface MsgpackProofAsFields {
   proof: Buffer[];
 }
 
-export function toProofAsFields(o: MsgpackProofAsFields): ProofAsFields {
+function toProofAsFields(o: MsgpackProofAsFields): ProofAsFields {
   if (o.proof === undefined) { throw new Error("Expected proof in ProofAsFields deserialization"); };
   return {
     proof: o.proof.map((v: Buffer) => v),
   };
 }
-export function fromProofAsFields(o: ProofAsFields): MsgpackProofAsFields {
+function fromProofAsFields(o: ProofAsFields): MsgpackProofAsFields {
   if (o.proof === undefined) { throw new Error("Expected proof in ProofAsFields serialization"); };
   return {
   proof: o.proof.map((v: Fr) => v),};
@@ -403,7 +403,7 @@ interface MsgpackVkAsFields {
   is_mega_honk: boolean;
 }
 
-export function toVkAsFields(o: MsgpackVkAsFields): VkAsFields {
+function toVkAsFields(o: MsgpackVkAsFields): VkAsFields {
   if (o.verification_key === undefined) { throw new Error("Expected verification_key in VkAsFields deserialization"); }
   if (o.is_mega_honk === undefined) { throw new Error("Expected is_mega_honk in VkAsFields deserialization"); };
   return {
@@ -411,7 +411,7 @@ export function toVkAsFields(o: MsgpackVkAsFields): VkAsFields {
     isMegaHonk: o.is_mega_honk,
   };
 }
-export function fromVkAsFields(o: VkAsFields): MsgpackVkAsFields {
+function fromVkAsFields(o: VkAsFields): MsgpackVkAsFields {
   if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in VkAsFields serialization"); }
   if (o.isMegaHonk === undefined) { throw new Error("Expected isMegaHonk in VkAsFields serialization"); };
   return {
@@ -428,7 +428,7 @@ interface MsgpackCircuitWriteSolidityVerifier {
   settings: MsgpackProofSystemSettings;
 }
 
-export function toCircuitWriteSolidityVerifier(o: MsgpackCircuitWriteSolidityVerifier): CircuitWriteSolidityVerifier {
+function toCircuitWriteSolidityVerifier(o: MsgpackCircuitWriteSolidityVerifier): CircuitWriteSolidityVerifier {
   if (o.verification_key === undefined) { throw new Error("Expected verification_key in CircuitWriteSolidityVerifier deserialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitWriteSolidityVerifier deserialization"); };
   return {
@@ -436,7 +436,7 @@ export function toCircuitWriteSolidityVerifier(o: MsgpackCircuitWriteSolidityVer
     settings: toProofSystemSettings(o.settings),
   };
 }
-export function fromCircuitWriteSolidityVerifier(o: CircuitWriteSolidityVerifier): MsgpackCircuitWriteSolidityVerifier {
+function fromCircuitWriteSolidityVerifier(o: CircuitWriteSolidityVerifier): MsgpackCircuitWriteSolidityVerifier {
   if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitWriteSolidityVerifier serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitWriteSolidityVerifier serialization"); };
   return {
@@ -455,7 +455,7 @@ interface MsgpackCircuitProveAndVerify {
   settings: MsgpackProofSystemSettings;
 }
 
-export function toCircuitProveAndVerify(o: MsgpackCircuitProveAndVerify): CircuitProveAndVerify {
+function toCircuitProveAndVerify(o: MsgpackCircuitProveAndVerify): CircuitProveAndVerify {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProveAndVerify deserialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitProveAndVerify deserialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitProveAndVerify deserialization"); };
@@ -465,7 +465,7 @@ export function toCircuitProveAndVerify(o: MsgpackCircuitProveAndVerify): Circui
     settings: toProofSystemSettings(o.settings),
   };
 }
-export function fromCircuitProveAndVerify(o: CircuitProveAndVerify): MsgpackCircuitProveAndVerify {
+function fromCircuitProveAndVerify(o: CircuitProveAndVerify): MsgpackCircuitProveAndVerify {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProveAndVerify serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitProveAndVerify serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitProveAndVerify serialization"); };
@@ -492,7 +492,7 @@ interface MsgpackCircuitBenchmark {
   benchmark_proving: boolean;
 }
 
-export function toCircuitBenchmark(o: MsgpackCircuitBenchmark): CircuitBenchmark {
+function toCircuitBenchmark(o: MsgpackCircuitBenchmark): CircuitBenchmark {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitBenchmark deserialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitBenchmark deserialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitBenchmark deserialization"); }
@@ -508,7 +508,7 @@ export function toCircuitBenchmark(o: MsgpackCircuitBenchmark): CircuitBenchmark
     benchmarkProving: o.benchmark_proving,
   };
 }
-export function fromCircuitBenchmark(o: CircuitBenchmark): MsgpackCircuitBenchmark {
+function fromCircuitBenchmark(o: CircuitBenchmark): MsgpackCircuitBenchmark {
   if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitBenchmark serialization"); }
   if (o.witness === undefined) { throw new Error("Expected witness in CircuitBenchmark serialization"); }
   if (o.settings === undefined) { throw new Error("Expected settings in CircuitBenchmark serialization"); }
@@ -533,7 +533,7 @@ interface MsgpackClientIvcCheckPrecomputedVk {
   function_name: string;
 }
 
-export function toClientIvcCheckPrecomputedVk(o: MsgpackClientIvcCheckPrecomputedVk): ClientIvcCheckPrecomputedVk {
+function toClientIvcCheckPrecomputedVk(o: MsgpackClientIvcCheckPrecomputedVk): ClientIvcCheckPrecomputedVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcCheckPrecomputedVk deserialization"); }
   if (o.function_name === undefined) { throw new Error("Expected function_name in ClientIvcCheckPrecomputedVk deserialization"); };
   return {
@@ -541,7 +541,7 @@ export function toClientIvcCheckPrecomputedVk(o: MsgpackClientIvcCheckPrecompute
     functionName: o.function_name,
   };
 }
-export function fromClientIvcCheckPrecomputedVk(o: ClientIvcCheckPrecomputedVk): MsgpackClientIvcCheckPrecomputedVk {
+function fromClientIvcCheckPrecomputedVk(o: ClientIvcCheckPrecomputedVk): MsgpackClientIvcCheckPrecomputedVk {
   if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcCheckPrecomputedVk serialization"); }
   if (o.functionName === undefined) { throw new Error("Expected functionName in ClientIvcCheckPrecomputedVk serialization"); };
   return {
@@ -558,7 +558,7 @@ interface MsgpackCircuitProveResponse {
   proof: Buffer[];
 }
 
-export function toCircuitProveResponse(o: MsgpackCircuitProveResponse): CircuitProveResponse {
+function toCircuitProveResponse(o: MsgpackCircuitProveResponse): CircuitProveResponse {
   if (o.public_inputs === undefined) { throw new Error("Expected public_inputs in CircuitProveResponse deserialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveResponse deserialization"); };
   return {
@@ -566,7 +566,7 @@ export function toCircuitProveResponse(o: MsgpackCircuitProveResponse): CircuitP
     proof: o.proof.map((v: Buffer) => v),
   };
 }
-export function fromCircuitProveResponse(o: CircuitProveResponse): MsgpackCircuitProveResponse {
+function fromCircuitProveResponse(o: CircuitProveResponse): MsgpackCircuitProveResponse {
   if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitProveResponse serialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveResponse serialization"); };
   return {
@@ -581,13 +581,13 @@ interface MsgpackCircuitComputeVkResponse {
   bytes: Buffer;
 }
 
-export function toCircuitComputeVkResponse(o: MsgpackCircuitComputeVkResponse): CircuitComputeVkResponse {
+function toCircuitComputeVkResponse(o: MsgpackCircuitComputeVkResponse): CircuitComputeVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in CircuitComputeVkResponse deserialization"); };
   return {
     bytes: o.bytes,
   };
 }
-export function fromCircuitComputeVkResponse(o: CircuitComputeVkResponse): MsgpackCircuitComputeVkResponse {
+function fromCircuitComputeVkResponse(o: CircuitComputeVkResponse): MsgpackCircuitComputeVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in CircuitComputeVkResponse serialization"); };
   return {
   bytes: o.bytes,};
@@ -604,7 +604,7 @@ interface MsgpackCircuitInfoResponse {
   gates_per_opcode: Record<string, number>;
 }
 
-export function toCircuitInfoResponse(o: MsgpackCircuitInfoResponse): CircuitInfoResponse {
+function toCircuitInfoResponse(o: MsgpackCircuitInfoResponse): CircuitInfoResponse {
   if (o.total_gates === undefined) { throw new Error("Expected total_gates in CircuitInfoResponse deserialization"); }
   if (o.subgroup_size === undefined) { throw new Error("Expected subgroup_size in CircuitInfoResponse deserialization"); }
   if (o.gates_per_opcode === undefined) { throw new Error("Expected gates_per_opcode in CircuitInfoResponse deserialization"); };
@@ -614,7 +614,7 @@ export function toCircuitInfoResponse(o: MsgpackCircuitInfoResponse): CircuitInf
     gatesPerOpcode: o.gates_per_opcode,
   };
 }
-export function fromCircuitInfoResponse(o: CircuitInfoResponse): MsgpackCircuitInfoResponse {
+function fromCircuitInfoResponse(o: CircuitInfoResponse): MsgpackCircuitInfoResponse {
   if (o.totalGates === undefined) { throw new Error("Expected totalGates in CircuitInfoResponse serialization"); }
   if (o.subgroupSize === undefined) { throw new Error("Expected subgroupSize in CircuitInfoResponse serialization"); }
   if (o.gatesPerOpcode === undefined) { throw new Error("Expected gatesPerOpcode in CircuitInfoResponse serialization"); };
@@ -631,13 +631,13 @@ interface MsgpackCircuitCheckResponse {
   satisfied: boolean;
 }
 
-export function toCircuitCheckResponse(o: MsgpackCircuitCheckResponse): CircuitCheckResponse {
+function toCircuitCheckResponse(o: MsgpackCircuitCheckResponse): CircuitCheckResponse {
   if (o.satisfied === undefined) { throw new Error("Expected satisfied in CircuitCheckResponse deserialization"); };
   return {
     satisfied: o.satisfied,
   };
 }
-export function fromCircuitCheckResponse(o: CircuitCheckResponse): MsgpackCircuitCheckResponse {
+function fromCircuitCheckResponse(o: CircuitCheckResponse): MsgpackCircuitCheckResponse {
   if (o.satisfied === undefined) { throw new Error("Expected satisfied in CircuitCheckResponse serialization"); };
   return {
   satisfied: o.satisfied,};
@@ -650,13 +650,13 @@ interface MsgpackCircuitVerifyResponse {
   verified: boolean;
 }
 
-export function toCircuitVerifyResponse(o: MsgpackCircuitVerifyResponse): CircuitVerifyResponse {
+function toCircuitVerifyResponse(o: MsgpackCircuitVerifyResponse): CircuitVerifyResponse {
   if (o.verified === undefined) { throw new Error("Expected verified in CircuitVerifyResponse deserialization"); };
   return {
     verified: o.verified,
   };
 }
-export function fromCircuitVerifyResponse(o: CircuitVerifyResponse): MsgpackCircuitVerifyResponse {
+function fromCircuitVerifyResponse(o: CircuitVerifyResponse): MsgpackCircuitVerifyResponse {
   if (o.verified === undefined) { throw new Error("Expected verified in CircuitVerifyResponse serialization"); };
   return {
   verified: o.verified,};
@@ -671,7 +671,7 @@ interface MsgpackClientIvcComputeStandaloneVkResponse {
   fields: Buffer[];
 }
 
-export function toClientIvcComputeStandaloneVkResponse(o: MsgpackClientIvcComputeStandaloneVkResponse): ClientIvcComputeStandaloneVkResponse {
+function toClientIvcComputeStandaloneVkResponse(o: MsgpackClientIvcComputeStandaloneVkResponse): ClientIvcComputeStandaloneVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeStandaloneVkResponse deserialization"); }
   if (o.fields === undefined) { throw new Error("Expected fields in ClientIvcComputeStandaloneVkResponse deserialization"); };
   return {
@@ -679,7 +679,7 @@ export function toClientIvcComputeStandaloneVkResponse(o: MsgpackClientIvcComput
     fields: o.fields.map((v: Buffer) => v),
   };
 }
-export function fromClientIvcComputeStandaloneVkResponse(o: ClientIvcComputeStandaloneVkResponse): MsgpackClientIvcComputeStandaloneVkResponse {
+function fromClientIvcComputeStandaloneVkResponse(o: ClientIvcComputeStandaloneVkResponse): MsgpackClientIvcComputeStandaloneVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeStandaloneVkResponse serialization"); }
   if (o.fields === undefined) { throw new Error("Expected fields in ClientIvcComputeStandaloneVkResponse serialization"); };
   return {
@@ -694,13 +694,13 @@ interface MsgpackClientIvcComputeIvcVkResponse {
   bytes: Buffer;
 }
 
-export function toClientIvcComputeIvcVkResponse(o: MsgpackClientIvcComputeIvcVkResponse): ClientIvcComputeIvcVkResponse {
+function toClientIvcComputeIvcVkResponse(o: MsgpackClientIvcComputeIvcVkResponse): ClientIvcComputeIvcVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeIvcVkResponse deserialization"); };
   return {
     bytes: o.bytes,
   };
 }
-export function fromClientIvcComputeIvcVkResponse(o: ClientIvcComputeIvcVkResponse): MsgpackClientIvcComputeIvcVkResponse {
+function fromClientIvcComputeIvcVkResponse(o: ClientIvcComputeIvcVkResponse): MsgpackClientIvcComputeIvcVkResponse {
   if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeIvcVkResponse serialization"); };
   return {
   bytes: o.bytes,};
@@ -709,30 +709,30 @@ export interface ClientIvcStartResponse {}
 
 interface MsgpackClientIvcStartResponse {}
 
-export function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): ClientIvcStartResponse {
+function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): ClientIvcStartResponse {
   return {};
 }
-export function fromClientIvcStartResponse(o: ClientIvcStartResponse): MsgpackClientIvcStartResponse {
+function fromClientIvcStartResponse(o: ClientIvcStartResponse): MsgpackClientIvcStartResponse {
   return {};
 }
 export interface ClientIvcLoadResponse {}
 
 interface MsgpackClientIvcLoadResponse {}
 
-export function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): ClientIvcLoadResponse {
+function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): ClientIvcLoadResponse {
   return {};
 }
-export function fromClientIvcLoadResponse(o: ClientIvcLoadResponse): MsgpackClientIvcLoadResponse {
+function fromClientIvcLoadResponse(o: ClientIvcLoadResponse): MsgpackClientIvcLoadResponse {
   return {};
 }
 export interface ClientIvcAccumulateResponse {}
 
 interface MsgpackClientIvcAccumulateResponse {}
 
-export function toClientIvcAccumulateResponse(o: MsgpackClientIvcAccumulateResponse): ClientIvcAccumulateResponse {
+function toClientIvcAccumulateResponse(o: MsgpackClientIvcAccumulateResponse): ClientIvcAccumulateResponse {
   return {};
 }
-export function fromClientIvcAccumulateResponse(o: ClientIvcAccumulateResponse): MsgpackClientIvcAccumulateResponse {
+function fromClientIvcAccumulateResponse(o: ClientIvcAccumulateResponse): MsgpackClientIvcAccumulateResponse {
   return {};
 }
 export interface ECCVMProof {
@@ -745,7 +745,7 @@ interface MsgpackECCVMProof {
   ipa_proof: Buffer[];
 }
 
-export function toECCVMProof(o: MsgpackECCVMProof): ECCVMProof {
+function toECCVMProof(o: MsgpackECCVMProof): ECCVMProof {
   if (o.pre_ipa_proof === undefined) { throw new Error("Expected pre_ipa_proof in ECCVMProof deserialization"); }
   if (o.ipa_proof === undefined) { throw new Error("Expected ipa_proof in ECCVMProof deserialization"); };
   return {
@@ -753,7 +753,7 @@ export function toECCVMProof(o: MsgpackECCVMProof): ECCVMProof {
     ipaProof: o.ipa_proof.map((v: Buffer) => v),
   };
 }
-export function fromECCVMProof(o: ECCVMProof): MsgpackECCVMProof {
+function fromECCVMProof(o: ECCVMProof): MsgpackECCVMProof {
   if (o.preIpaProof === undefined) { throw new Error("Expected preIpaProof in ECCVMProof serialization"); }
   if (o.ipaProof === undefined) { throw new Error("Expected ipaProof in ECCVMProof serialization"); };
   return {
@@ -772,7 +772,7 @@ interface MsgpackGoblinProof {
   translator_proof: Buffer[];
 }
 
-export function toGoblinProof(o: MsgpackGoblinProof): GoblinProof {
+function toGoblinProof(o: MsgpackGoblinProof): GoblinProof {
   if (o.merge_proof === undefined) { throw new Error("Expected merge_proof in GoblinProof deserialization"); }
   if (o.eccvm_proof === undefined) { throw new Error("Expected eccvm_proof in GoblinProof deserialization"); }
   if (o.translator_proof === undefined) { throw new Error("Expected translator_proof in GoblinProof deserialization"); };
@@ -782,7 +782,7 @@ export function toGoblinProof(o: MsgpackGoblinProof): GoblinProof {
     translatorProof: o.translator_proof.map((v: Buffer) => v),
   };
 }
-export function fromGoblinProof(o: GoblinProof): MsgpackGoblinProof {
+function fromGoblinProof(o: GoblinProof): MsgpackGoblinProof {
   if (o.mergeProof === undefined) { throw new Error("Expected mergeProof in GoblinProof serialization"); }
   if (o.eccvmProof === undefined) { throw new Error("Expected eccvmProof in GoblinProof serialization"); }
   if (o.translatorProof === undefined) { throw new Error("Expected translatorProof in GoblinProof serialization"); };
@@ -801,7 +801,7 @@ interface MsgpackProof {
   goblin_proof: MsgpackGoblinProof;
 }
 
-export function toProof(o: MsgpackProof): Proof {
+function toProof(o: MsgpackProof): Proof {
   if (o.mega_proof === undefined) { throw new Error("Expected mega_proof in Proof deserialization"); }
   if (o.goblin_proof === undefined) { throw new Error("Expected goblin_proof in Proof deserialization"); };
   return {
@@ -809,7 +809,7 @@ export function toProof(o: MsgpackProof): Proof {
     goblinProof: toGoblinProof(o.goblin_proof),
   };
 }
-export function fromProof(o: Proof): MsgpackProof {
+function fromProof(o: Proof): MsgpackProof {
   if (o.megaProof === undefined) { throw new Error("Expected megaProof in Proof serialization"); }
   if (o.goblinProof === undefined) { throw new Error("Expected goblinProof in Proof serialization"); };
   return {
@@ -824,13 +824,13 @@ interface MsgpackClientIvcProveResponse {
   proof: MsgpackProof;
 }
 
-export function toClientIvcProveResponse(o: MsgpackClientIvcProveResponse): ClientIvcProveResponse {
+function toClientIvcProveResponse(o: MsgpackClientIvcProveResponse): ClientIvcProveResponse {
   if (o.proof === undefined) { throw new Error("Expected proof in ClientIvcProveResponse deserialization"); };
   return {
     proof: toProof(o.proof),
   };
 }
-export function fromClientIvcProveResponse(o: ClientIvcProveResponse): MsgpackClientIvcProveResponse {
+function fromClientIvcProveResponse(o: ClientIvcProveResponse): MsgpackClientIvcProveResponse {
   if (o.proof === undefined) { throw new Error("Expected proof in ClientIvcProveResponse serialization"); };
   return {
   proof: fromProof(o.proof),};
@@ -843,13 +843,13 @@ interface MsgpackProofAsFieldsResponse {
   fields: Buffer[];
 }
 
-export function toProofAsFieldsResponse(o: MsgpackProofAsFieldsResponse): ProofAsFieldsResponse {
+function toProofAsFieldsResponse(o: MsgpackProofAsFieldsResponse): ProofAsFieldsResponse {
   if (o.fields === undefined) { throw new Error("Expected fields in ProofAsFieldsResponse deserialization"); };
   return {
     fields: o.fields.map((v: Buffer) => v),
   };
 }
-export function fromProofAsFieldsResponse(o: ProofAsFieldsResponse): MsgpackProofAsFieldsResponse {
+function fromProofAsFieldsResponse(o: ProofAsFieldsResponse): MsgpackProofAsFieldsResponse {
   if (o.fields === undefined) { throw new Error("Expected fields in ProofAsFieldsResponse serialization"); };
   return {
   fields: o.fields.map((v: Fr) => v),};
@@ -862,13 +862,13 @@ interface MsgpackVkAsFieldsResponse {
   fields: Buffer[];
 }
 
-export function toVkAsFieldsResponse(o: MsgpackVkAsFieldsResponse): VkAsFieldsResponse {
+function toVkAsFieldsResponse(o: MsgpackVkAsFieldsResponse): VkAsFieldsResponse {
   if (o.fields === undefined) { throw new Error("Expected fields in VkAsFieldsResponse deserialization"); };
   return {
     fields: o.fields.map((v: Buffer) => v),
   };
 }
-export function fromVkAsFieldsResponse(o: VkAsFieldsResponse): MsgpackVkAsFieldsResponse {
+function fromVkAsFieldsResponse(o: VkAsFieldsResponse): MsgpackVkAsFieldsResponse {
   if (o.fields === undefined) { throw new Error("Expected fields in VkAsFieldsResponse serialization"); };
   return {
   fields: o.fields.map((v: Fr) => v),};
@@ -881,13 +881,13 @@ interface MsgpackCircuitWriteSolidityVerifierResponse {
   solidity_code: string;
 }
 
-export function toCircuitWriteSolidityVerifierResponse(o: MsgpackCircuitWriteSolidityVerifierResponse): CircuitWriteSolidityVerifierResponse {
+function toCircuitWriteSolidityVerifierResponse(o: MsgpackCircuitWriteSolidityVerifierResponse): CircuitWriteSolidityVerifierResponse {
   if (o.solidity_code === undefined) { throw new Error("Expected solidity_code in CircuitWriteSolidityVerifierResponse deserialization"); };
   return {
     solidityCode: o.solidity_code,
   };
 }
-export function fromCircuitWriteSolidityVerifierResponse(o: CircuitWriteSolidityVerifierResponse): MsgpackCircuitWriteSolidityVerifierResponse {
+function fromCircuitWriteSolidityVerifierResponse(o: CircuitWriteSolidityVerifierResponse): MsgpackCircuitWriteSolidityVerifierResponse {
   if (o.solidityCode === undefined) { throw new Error("Expected solidityCode in CircuitWriteSolidityVerifierResponse serialization"); };
   return {
   solidity_code: o.solidityCode,};
@@ -904,7 +904,7 @@ interface MsgpackCircuitProveAndVerifyResponse {
   public_inputs: Buffer[];
 }
 
-export function toCircuitProveAndVerifyResponse(o: MsgpackCircuitProveAndVerifyResponse): CircuitProveAndVerifyResponse {
+function toCircuitProveAndVerifyResponse(o: MsgpackCircuitProveAndVerifyResponse): CircuitProveAndVerifyResponse {
   if (o.verified === undefined) { throw new Error("Expected verified in CircuitProveAndVerifyResponse deserialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveAndVerifyResponse deserialization"); }
   if (o.public_inputs === undefined) { throw new Error("Expected public_inputs in CircuitProveAndVerifyResponse deserialization"); };
@@ -914,7 +914,7 @@ export function toCircuitProveAndVerifyResponse(o: MsgpackCircuitProveAndVerifyR
     publicInputs: o.public_inputs.map((v: Buffer) => v),
   };
 }
-export function fromCircuitProveAndVerifyResponse(o: CircuitProveAndVerifyResponse): MsgpackCircuitProveAndVerifyResponse {
+function fromCircuitProveAndVerifyResponse(o: CircuitProveAndVerifyResponse): MsgpackCircuitProveAndVerifyResponse {
   if (o.verified === undefined) { throw new Error("Expected verified in CircuitProveAndVerifyResponse serialization"); }
   if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveAndVerifyResponse serialization"); }
   if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitProveAndVerifyResponse serialization"); };
@@ -937,7 +937,7 @@ interface MsgpackCircuitBenchmarkResponse {
   peak_memory_bytes: number;
 }
 
-export function toCircuitBenchmarkResponse(o: MsgpackCircuitBenchmarkResponse): CircuitBenchmarkResponse {
+function toCircuitBenchmarkResponse(o: MsgpackCircuitBenchmarkResponse): CircuitBenchmarkResponse {
   if (o.witness_generation_time_ms === undefined) { throw new Error("Expected witness_generation_time_ms in CircuitBenchmarkResponse deserialization"); }
   if (o.proving_time_ms === undefined) { throw new Error("Expected proving_time_ms in CircuitBenchmarkResponse deserialization"); }
   if (o.verification_time_ms === undefined) { throw new Error("Expected verification_time_ms in CircuitBenchmarkResponse deserialization"); }
@@ -949,7 +949,7 @@ export function toCircuitBenchmarkResponse(o: MsgpackCircuitBenchmarkResponse): 
     peakMemoryBytes: o.peak_memory_bytes,
   };
 }
-export function fromCircuitBenchmarkResponse(o: CircuitBenchmarkResponse): MsgpackCircuitBenchmarkResponse {
+function fromCircuitBenchmarkResponse(o: CircuitBenchmarkResponse): MsgpackCircuitBenchmarkResponse {
   if (o.witnessGenerationTimeMs === undefined) { throw new Error("Expected witnessGenerationTimeMs in CircuitBenchmarkResponse serialization"); }
   if (o.provingTimeMs === undefined) { throw new Error("Expected provingTimeMs in CircuitBenchmarkResponse serialization"); }
   if (o.verificationTimeMs === undefined) { throw new Error("Expected verificationTimeMs in CircuitBenchmarkResponse serialization"); }
@@ -968,13 +968,13 @@ interface MsgpackClientIvcCheckPrecomputedVkResponse {
   valid: boolean;
 }
 
-export function toClientIvcCheckPrecomputedVkResponse(o: MsgpackClientIvcCheckPrecomputedVkResponse): ClientIvcCheckPrecomputedVkResponse {
+function toClientIvcCheckPrecomputedVkResponse(o: MsgpackClientIvcCheckPrecomputedVkResponse): ClientIvcCheckPrecomputedVkResponse {
   if (o.valid === undefined) { throw new Error("Expected valid in ClientIvcCheckPrecomputedVkResponse deserialization"); };
   return {
     valid: o.valid,
   };
 }
-export function fromClientIvcCheckPrecomputedVkResponse(o: ClientIvcCheckPrecomputedVkResponse): MsgpackClientIvcCheckPrecomputedVkResponse {
+function fromClientIvcCheckPrecomputedVkResponse(o: ClientIvcCheckPrecomputedVkResponse): MsgpackClientIvcCheckPrecomputedVkResponse {
   if (o.valid === undefined) { throw new Error("Expected valid in ClientIvcCheckPrecomputedVkResponse serialization"); };
   return {
   valid: o.valid,};

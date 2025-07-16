@@ -289,10 +289,10 @@ export class MsgpackSchemaCompiler {
                 isImport: true,
                 declaration: `export interface ${typeName} {}\n\ninterface Msgpack${typeName} {}`,
                 objectSchema: { __typename: schemaOrName.toLowerCase() },
-                toClassMethod: `export function to${typeName}(o: Msgpack${typeName}): ${typeName} {
+                toClassMethod: `function to${typeName}(o: Msgpack${typeName}): ${typeName} {
   return {};
 }`,
-                fromClassMethod: `export function from${typeName}(o: ${typeName}): Msgpack${typeName} {
+                fromClassMethod: `function from${typeName}(o: ${typeName}): Msgpack${typeName} {
   return {};
 }`,
               };
@@ -431,6 +431,7 @@ export class MsgpackSchemaCompiler {
    */
   private generateInterface(name: string, type: ObjectSchema) {
     // Raw object, used as return value of fromType() generated functions.
+    // Not exported - internal use only
     let result = `interface Msgpack${name} {\n`;
     for (const [key, value] of Object.entries(type)) {
       if (key === '__typename') {
@@ -470,6 +471,15 @@ export class MsgpackSchemaCompiler {
   private generateMsgpackConverter(name: string, type: ObjectSchema): string {
     const typename = capitalize(camelCase(type.__typename as string));
 
+    // Check if this is an empty object (only has __typename)
+    const isEmptyObject = Object.keys(type).filter(key => key !== '__typename').length === 0;
+    
+    if (isEmptyObject) {
+      return `function to${name}(o: Msgpack${name}): ${name} {
+  return {};
+}`;
+    }
+
     const checkerSyntax = () => {
       const statements: string[] = [];
       for (const [key] of Object.entries(type)) {
@@ -495,7 +505,7 @@ export class MsgpackSchemaCompiler {
       return statements.join('\n');
     };
 
-    return `export function to${name}(o: Msgpack${name}): ${name} {
+    return `function to${name}(o: Msgpack${name}): ${name} {
 ${checkerSyntax()};
   return {
 ${objectBodySyntax()}
@@ -511,6 +521,15 @@ ${objectBodySyntax()}
    */
   private generateClassConverter(name: string, type: ObjectSchema): string {
     const typename = capitalize(camelCase(type.__typename as string));
+
+    // Check if this is an empty object (only has __typename)
+    const isEmptyObject = Object.keys(type).filter(key => key !== '__typename').length === 0;
+    
+    if (isEmptyObject) {
+      return `function from${name}(o: ${name}): Msgpack${name} {
+  return {};
+}`;
+    }
 
     const checkerSyntax = () => {
       const statements: string[] = [];
@@ -541,7 +560,7 @@ ${objectBodySyntax()}
       return `{\n${bodySyntax()}}`;
     };
 
-    return `export function from${name}(o: ${name}): Msgpack${name} {
+    return `function from${name}(o: ${name}): Msgpack${name} {
 ${checkerSyntax()};
   return ${callSyntax.call(this)};
 }`;

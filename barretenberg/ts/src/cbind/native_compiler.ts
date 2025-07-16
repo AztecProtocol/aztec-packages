@@ -20,7 +20,7 @@ export class NativeCompiler extends MsgpackSchemaCompiler {
 export class NativeApi {
   private process: ChildProcess | null = null;
   private closed = false;
-  private pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void }>();
+  private pendingRequests: Array<{ resolve: (value: any) => void; reject: (error: any) => void }> = [];
   private responseBuffer = Buffer.alloc(0);
 
   constructor(private bbPath: string = "bb") {}
@@ -42,10 +42,10 @@ export class NativeApi {
       this.closed = true;
       const error = new Error(\`bb process exited with code \${code} and signal \${signal}\`);
       // Reject all pending requests
-      for (const { reject } of this.pendingRequests.values()) {
+      for (const { reject } of this.pendingRequests) {
         reject(error);
       }
-      this.pendingRequests.clear();
+      this.pendingRequests = [];
     });
 
     // Handle stderr
@@ -62,10 +62,10 @@ export class NativeApi {
     // Handle errors
     this.process.on("error", (error) => {
       this.closed = true;
-      for (const { reject } of this.pendingRequests.values()) {
+      for (const { reject } of this.pendingRequests) {
         reject(error);
       }
-      this.pendingRequests.clear();
+      this.pendingRequests = [];
     });
   }
 
@@ -83,19 +83,16 @@ export class NativeApi {
       }
 
       // Extract the msgpack response
-      const responseData = this.responseBuffer.slice(4, 4 + length);
-      this.responseBuffer = this.responseBuffer.slice(4 + length);
+      const responseData = this.responseBuffer.subarray(4, 4 + length);
+      this.responseBuffer = this.responseBuffer.subarray(4 + length);
 
       // Decode the response
       try {
         const response = decode(responseData);
         
-        // For now, we resolve the oldest pending request
-        // In a more sophisticated implementation, we'd match request IDs
-        const entry = this.pendingRequests.entries().next();
-        if (!entry.done) {
-          const [requestKey, pending] = entry.value;
-          this.pendingRequests.delete(requestKey);
+        // Resolve the oldest pending request (FIFO queue)
+        const pending = this.pendingRequests.shift();
+        if (pending) {
           pending.resolve(response);
         }
       } catch (error) {
@@ -112,13 +109,18 @@ export class NativeApi {
       throw new Error("NativeApi is not initialized or has been closed");
     }
 
-    // Create a unique key for this request
-    const requestKey = Math.random().toString(36);
+    // Create placeholders that will error if called before being replaced
+    let resolveFunc: (value: any) => void = () => { throw new Error("Response not yet received"); };
+    let rejectFunc: (error: any) => void = () => { throw new Error("Response not yet received"); };
 
-    // Create the promise for this request
+    // Create the promise and immediately push to queue
     const promise = new Promise((resolve, reject) => {
-      this.pendingRequests.set(requestKey, { resolve, reject });
+      resolveFunc = resolve;
+      rejectFunc = reject;
     });
+    
+    // Push to queue with the actual resolve/reject functions
+    this.pendingRequests.push({ resolve: resolveFunc, reject: rejectFunc });
 
     // Encode the command
     const encoder = new Encoder({ useRecords: false });
@@ -196,13 +198,21 @@ export type Fr = Buffer;
     // Generate all type declarations and converters
     for (const typeInfo of Object.values(this.typeInfos)) {
       if (typeInfo.declaration) {
-        outputs.push(typeInfo.declaration);
+        // Only output exported declarations (non-msgpack interfaces)
+        if (typeInfo.declaration.startsWith('export interface')) {
+          outputs.push(typeInfo.declaration);
+        } else {
+          // For internal interfaces, output without export
+          outputs.push(typeInfo.declaration);
+        }
       }
       if (typeInfo.toClassMethod) {
-        outputs.push(typeInfo.toClassMethod);
+        // Remove export from converter functions
+        outputs.push(typeInfo.toClassMethod.replace(/^export function/, 'function'));
       }
       if (typeInfo.fromClassMethod) {
-        outputs.push(typeInfo.fromClassMethod);
+        // Remove export from converter functions
+        outputs.push(typeInfo.fromClassMethod.replace(/^export function/, 'function'));
       }
     }
     outputs.push('\n');
