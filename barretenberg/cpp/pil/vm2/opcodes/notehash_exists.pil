@@ -20,6 +20,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     pol commit note_hash_leaf_in_range;
 
+    // Compare note_hash_leaf_in_range = register[1] (leaf_index) < NOTE_HASH_TREE_LEAF_COUNT
     pol LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT = register[1] - constants.NOTE_HASH_TREE_LEAF_COUNT;
     pol LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT = constants.NOTE_HASH_TREE_LEAF_COUNT - register[1] - 1;
     pol commit note_hash_leaf_index_leaf_count_cmp_diff;
@@ -34,9 +35,11 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         range_check.rng_chk_bits
     };
 
+    // If the leaf index is out of range, set the output to false
     #[NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE]
     sel_execute_notehash_exists * (1 - note_hash_leaf_in_range) * register[2] = 0;
 
+    // If the leaf index is in range, check if the note hash exists in the note hash tree
     #[NOTE_HASH_READ]
     note_hash_leaf_in_range {
         precomputed.zero,

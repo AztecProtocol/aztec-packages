@@ -131,6 +131,7 @@ namespace note_hash_tree_check;
     // ====== TREE CHECK ======
     pol commit prev_leaf_value;
 
+    // exists = prev_leaf_value == unique_note_hash
     pol PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF = prev_leaf_value - unique_note_hash;
     pol commit prev_leaf_value_unique_note_hash_diff_inv;
     sel * (PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF * (exists * (1 - prev_leaf_value_unique_note_hash_diff_inv) + prev_leaf_value_unique_note_hash_diff_inv) - 1 + exists) = 0;
