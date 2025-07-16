@@ -90,7 +90,7 @@ function prefund_accounts {
   # Add each address to the genesis allocation
   for address in "${VALIDATOR_ADDRESSES_LIST[@]}"; do
     updated_json=$(echo "$updated_json" | jq --arg addr "$address" \
-      '.alloc[$addr] = {"balance": "1000000000000000000000000000"}')
+      '.alloc[$addr] = {"balance": "1000000000000000000000000000", "nonce": "0"}')
   done
 
   echo "$updated_json"
