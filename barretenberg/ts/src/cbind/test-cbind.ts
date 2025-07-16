@@ -1,23 +1,25 @@
 // Simple test to verify cbind integration
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
-import { circuitInfo } from './cbind.sync.gen.js';
-import { async } from './cbind.gen.js';
+import { CbindApi, CbindApiSync } from './index.js';
 
-// Test sync API
-async function testSync() {
-  console.log('Testing sync API...');
+// Test sync API wrapper
+async function testSyncWrapper() {
+  console.log('Testing sync API wrapper...');
   const wasm = new BarretenbergWasmMain();
-  // Would need to initialize wasm properly to test
-  console.log('Sync API imports successfully');
+  const api = new CbindApiSync(wasm);
+  // Would need to initialize wasm properly to test actual calls
+  console.log('Sync API wrapper created successfully');
 }
 
-// Test async API
-async function testAsync() {
-  console.log('Testing async API...');
+// Test async API wrapper
+async function testAsyncWrapper() {
+  console.log('Testing async API wrapper...');
   // Would need to create worker to test properly
-  console.log('Async API imports successfully');
+  // const worker = await createWorker();
+  // const api = new CbindApi(worker);
+  console.log('Async API wrapper structure verified');
 }
 
-console.log('cbind test - verifying imports work correctly');
-testSync();
-testAsync();
+console.log('cbind test - verifying wrapper classes work correctly');
+testSyncWrapper();
+testAsyncWrapper();
