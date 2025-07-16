@@ -20,6 +20,7 @@ unconstrained fn in_private(
     let state_var = PrivateMutable::new(&mut env.private(), storage_slot);
 
     // This oracle is called for its side effects alone - it does not return anything.
+    // Why?
     let _ = OracleMock::mock("notifyCreatedNote").returns(());
 
     state_var
