@@ -14,7 +14,7 @@ unconstrained fn transfer_to_private_internal_orchestration() {
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // User should have the note in their private nfts
-    utils::assert_owns_private_nft(nft_contract_address, user, token_id);
+    utils::assert_owns_private_nft(env, nft_contract_address, user, token_id);
 
     // Since the NFT was sent to private, the public owner should be zero address
     utils::assert_owns_public_nft(env, nft_contract_address, AztecAddress::zero(), token_id);
@@ -41,7 +41,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
     env.mine_block();
 
     // Recipient should have the note in their private nfts
-    utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
+    utils::assert_owns_private_nft(env, nft_contract_address, recipient, token_id);
 
     // Since the NFT got transferred to private public owner should be zero address
     utils::assert_owns_public_nft(env, nft_contract_address, AztecAddress::zero(), token_id);
