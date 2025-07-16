@@ -1,5 +1,6 @@
 include "../poseidon2_hash.pil";
 include "../range_check.pil";
+include "../public_inputs.pil";
 include "../constants_gen.pil";
 
 include "../trees/public_data_check.pil";
@@ -38,6 +39,17 @@ namespace update_check;
     pol commit original_class_id;
     pol commit public_data_tree_root;
     pol commit timestamp;
+
+    // Get timestamp from public inputs
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit timestamp_pi_offset;
+    timestamp_pi_offset = sel * constants.AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX;
+    #[TIMESTAMP_FROM_PUBLIC_INPUTS]
+    sel {
+        timestamp_pi_offset, timestamp
+    } in public_inputs.sel {
+        precomputed.clk, public_inputs.cols[0]
+    };
 
     // ======== DELAYED PUBLIC MUTABLE HASH READ ========
 

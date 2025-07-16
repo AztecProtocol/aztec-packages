@@ -92,6 +92,7 @@ describe('p2p client integration', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     jest.resetAllMocks();
+    jest.clearAllMocks();
 
     logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
     await shutdown(clients);
@@ -780,10 +781,6 @@ describe('p2p client integration', () => {
   });
 
   describe('BlockTxs protocol', () => {
-    let clients: any[];
-    let client1: any;
-    let client2: any;
-
     const createBlockProposal = (blockNumber: number, blockHash: any, txHashes: any[]) => {
       return makeBlockProposal({
         signer: Secp256k1Signer.random(),
@@ -794,6 +791,7 @@ describe('p2p client integration', () => {
     };
 
     const sendBlockTxsRequest = (blockHash: Fr, requestedIndices: number[], txCount: number) => {
+      const [client1, client2] = clients as any;
       const txIndices = BitVector.init(txCount, requestedIndices);
       const request = new BlockTxsRequest(blockHash, txIndices);
       return client1.p2pService.reqresp.sendRequestToPeer(
@@ -814,7 +812,6 @@ describe('p2p client integration', () => {
           logger,
         })
       ).map(x => x.client);
-      [client1, client2] = clients;
 
       // Give the nodes time to discover each other
       await sleep(6000);

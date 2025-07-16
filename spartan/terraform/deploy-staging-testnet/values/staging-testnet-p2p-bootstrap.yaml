@@ -29,6 +29,8 @@ affinity:
 
 replicaCount: 1
 
+hostNetwork: true
+
 node:
   env:
     OTEL_SERVICE_NAME: "boot-node"
@@ -39,8 +41,6 @@ node:
       memory: "2Gi"
   startCmd:
     - --p2p-bootstrap
-
-  hostNetwork: true
 
 persistence:
   enabled: true

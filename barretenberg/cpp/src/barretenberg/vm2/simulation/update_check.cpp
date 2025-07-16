@@ -35,6 +35,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     FF update_preimage_pre_class_id = 0;
     FF update_preimage_post_class_id = 0;
 
+    uint64_t current_timestamp = globals.timestamp;
+
     if (hash == 0) {
         // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
         // early.

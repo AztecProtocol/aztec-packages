@@ -1,0 +1,229 @@
+include "../bytecode/contract_instance_retrieval.pil";
+
+/**
+ * Dedicated opcode gadget for the GetContractInstance opcode.
+ * It interacts with core ContractInstanceRetrieval gadget.
+ * It performs write out-of-bounds checking, member enum validation,
+ * contract instance retrieval, instance member selection, and two memory writes.
+ *
+ * In more detail:
+ * - Performs bounds checking for dst_offset+1 using AVM_HIGHEST_MEM_ADDRESS
+ * - Validates member_enum <= MAX (3)
+ * - Retrieves contract instance using the shared ContractInstanceRetrieval gadget
+ *   - Only does this if there are no errors (write out-of-bounds or invalid enum)
+ * - Selects appropriate member based on enum (deployer/class_id/init_hash)
+ * - Performs two memory writes and tag assignments (again, only if there are no errors):
+ *   - exists flag (U1) at dst_offset
+ *   - member value (FF) at dst_offset+1
+ *
+ * Note: this gadget relies on execution to perform address resolution for address_offset and dst_offset,
+ * and to perform the memory-read and tag-checking of address.
+ *
+ * Opcode operands (relevant in EXECUTION when interacting with this gadget):
+ * - rop[0]: address_offset (input offset operand)
+ * - rop[1]: dst_offset (output offset operand)
+ * - rop[2]: member_enum (immediate operand)
+ * Memory I/O:
+ * - register[0]: M[address_offset} aka address (input - read from memory BY EXECUTION, not here)
+ *     - address is tagged-checked by execution/registers to be FF based on instruction spec.
+ * - register[1]: M[dst_offset] aka exists (output - written to memory by this gadget)
+ *     - tagged by this gadget to be U1.
+ * - M[rop[1]+1]: M[dst_offset+1] aka memberValue (output - written to memory by this gadget)
+ *     - tagged by this gadget to be FF.
+ *
+ * Possible errors:
+ * - dst_offset+1 is an out-of-bounds memory offset.
+ * - enum value is invalid (out of range).
+ *
+ * A precomputed table is used to retrieve the following selectors based on member_enum:
+ * - is_valid_member_enum
+ * - is_deployer
+ * - is_class_id
+ * - is_init_hash
+ * +-------+----------------------+---------------+-------------+---------------+
+ * |  Row  | is_valid_member_enum | is_deployer   | is_class_id | is_init_hash  |
+ * | (clk) |                      |               |             |               |
+ * +-------+----------------------+---------------+-------------+---------------+
+ * |   0   |         1            |      1        |      0      |      0        |
+ * |   1   |         1            |      0        |      1      |      0        |
+ * |   2   |         1            |      0        |      0      |      1        |
+ * |   3+  |         0            |      0        |      0      |      0        |
+ * +-------+----------------------+---------------+-------------+---------------+
+ *
+ * Usage from execution:
+ *
+ * sel_execute_get_contract_instance {
+ *     // inputs
+ *     precomputed.clk,
+ *     register[0],
+ *     rop[1],
+ *     rop[2],
+ *     context_id,
+ *     context_stack.nullifier_tree_root,
+ *     context_stack.public_data_tree_root,
+ *     // outputs/errors
+ *     sel_opcode_error
+ * } is get_contract_instance.sel {
+ *     // inputs
+ *     get_contract_instance.clk,
+ *     get_contract_instance.contract_address,
+ *     get_contract_instance.dst_offset,
+ *     get_contract_instance.member_enum,
+ *     get_contract_instance.space_id,
+ *     get_contract_instance.nullifier_tree_root,
+ *     get_contract_instance.public_data_tree_root,
+ *     // outputs/errors
+ *     get_contract_instance.sel_error
+ * };
+ */
+
+namespace get_contract_instance;
+
+    // Selector for when this gadget is active
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0;
+
+    // Interface columns
+    pol commit clk;
+    pol commit contract_address;
+    pol commit dst_offset;
+    pol commit member_enum;
+    pol commit space_id;
+    pol commit nullifier_tree_root;
+    pol commit public_data_tree_root;
+    pol commit sel_error; // any error (for returning to execution)
+
+    // Determine whether the extra write is in-bounds.
+    // This opcode performs a write to an address that isn't checked by main execution logic, namely `M[dst_offset+1] = member_value`.
+    // Execution validates the bounds of anything that ends up in registers, so it checks `dst_offset`, but not `dst_offset+1`.
+    // So, here we check that that memory offset is within the bounds.
+    // If dst_offset = 0xFFFFFFFF (max valid mem offset), then dst_offset+1 is out of bounds.
+    // Otherwise, we know that dst_offset+1 is in-bounds since dst_offset has already been validated by main execution logic.
+    pol commit is_valid_writes_in_bounds;
+    pol WRITES_OUT_OF_BOUNDS = 1 - is_valid_writes_in_bounds;
+    pol DST_OFFSET_DIFF_MAX = constants.AVM_HIGHEST_MEM_ADDRESS - dst_offset;
+    pol commit dst_offset_diff_max_inv;
+    #[WRITE_OUT_OF_BOUNDS_CHECK]
+    sel * (DST_OFFSET_DIFF_MAX * (WRITES_OUT_OF_BOUNDS * (1 - dst_offset_diff_max_inv) + dst_offset_diff_max_inv) - 1 + WRITES_OUT_OF_BOUNDS) = 0;
+
+    // Member selection helper columns
+    // (from precomputed.pil's GETCONTRACTINSTANCE opcode precomputed columns)
+    pol commit is_valid_member_enum;
+    pol commit is_deployer;
+    pol commit is_class_id;
+    pol commit is_init_hash;
+    // Note: member_enum is guaranteed to be 8 bits by execution (as a U8 immediate operand),
+    // and the precomputed table is populated for the entire 8-bit range (256 rows).
+    #[PRECOMPUTED_INFO]
+    is_valid_writes_in_bounds {
+        // inputs
+        member_enum,
+        // outputs
+        is_valid_member_enum,
+        is_deployer,
+        is_class_id,
+        is_init_hash
+    } in precomputed.sel_range_8 {
+        // inputs
+        precomputed.clk,
+        // outputs
+        precomputed.is_valid_member_enum,
+        precomputed.is_deployer,
+        precomputed.is_class_id,
+        precomputed.is_init_hash
+    };
+    // Do not allow is_valid_member_enum to be 1 if the precomputed lookup is disabled.
+    #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]
+    WRITES_OUT_OF_BOUNDS * is_valid_member_enum = 0;
+
+    // Error aggregation
+    // "Some/any error happened"
+    // sel_error is 1 if EITHER out of bounds OR invalid enum.
+    // Note that they are NOT mutually exclusive, so we can't just add them.
+    #[ERROR_AGGREGATION]
+    sel_error = sel * (1 - is_valid_writes_in_bounds * is_valid_member_enum);
+
+    // Retrieved instance members and existence (from lookup to the core instance retrieval gadget)
+    pol commit instance_exists;
+    pol commit retrieved_deployer_addr;
+    pol commit retrieved_class_id;
+    pol commit retrieved_init_hash;
+
+    #[CONTRACT_INSTANCE_RETRIEVAL]
+    is_valid_member_enum {
+        // inputs
+        contract_address,
+        nullifier_tree_root,
+        public_data_tree_root,
+        // outputs
+        instance_exists,
+        retrieved_deployer_addr,
+        retrieved_class_id,
+        retrieved_init_hash
+    } in contract_instance_retrieval.sel {
+        // inputs
+        contract_instance_retrieval.address,
+        contract_instance_retrieval.nullifier_tree_root,
+        contract_instance_retrieval.public_data_tree_root,
+        // outputs
+        contract_instance_retrieval.exists,
+        contract_instance_retrieval.deployer_addr,
+        contract_instance_retrieval.current_class_id,
+        contract_instance_retrieval.init_hash
+    };
+
+    // Select the member indicated by the enum for writing to memory
+    // Note: is_* selectors are guaranteed to be mutually exclusive booleans by the precomputed table.
+    pol commit selected_member;
+    #[SELECTED_MEMBER]
+    selected_member = is_deployer * retrieved_deployer_addr + is_class_id * retrieved_class_id + is_init_hash * retrieved_init_hash;
+
+    // Compute memory offsets for writing to
+    pol commit member_write_offset;
+    member_write_offset = is_valid_writes_in_bounds * (dst_offset + 1);
+    // TODO: remove these once we can use constants in permutations
+    pol commit exists_tag;
+    exists_tag = is_valid_writes_in_bounds * constants.MEM_TAG_U1;
+    pol commit member_tag;
+    member_tag = is_valid_writes_in_bounds * constants.MEM_TAG_FF;
+
+    // Write to memory (write both exists and member)
+    // FIXME: these should eventually be a permutation.
+    #[MEM_WRITE_CONTRACT_INSTANCE_EXISTS]
+    is_valid_member_enum {
+        clk,
+        /*address=*/ dst_offset, // (aka exists_write_offset)
+        /*value=*/ instance_exists,
+        /*tag=*/ exists_tag,
+        /*rw=*/ is_valid_member_enum, // 1: write
+        space_id
+    } in memory.sel {
+        memory.clk,
+        memory.address,
+        memory.value,
+        memory.tag,
+        memory.rw,
+        memory.space_id
+    };
+    // TODO(dbanks12): consider reusing a single memory permutation for both writes,
+    // or do the first write in execution (after returning `exists` to execution).
+    #[MEM_WRITE_CONTRACT_INSTANCE_MEMBER]
+    is_valid_member_enum {
+        clk,
+        /*address=*/ member_write_offset,
+        /*value=*/ selected_member,
+        /*tag=*/ member_tag,
+        /*rw=*/ is_valid_member_enum, // 1: write
+        space_id
+    } in memory.sel {
+        memory.clk,
+        memory.address,
+        memory.value,
+        memory.tag,
+        memory.rw,
+        memory.space_id
+    };
