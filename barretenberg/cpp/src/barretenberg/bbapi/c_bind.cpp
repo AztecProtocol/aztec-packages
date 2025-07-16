@@ -11,9 +11,11 @@ namespace bb::bbapi {
 // Global map to store BBApiRequest objects by request ID
 namespace {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::map<uint128_t, BBApiRequest> request_map;
+std::unordered_map<uint128_t, BBApiRequest> request_map;
+#ifndef NO_MULTITHREADING
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex request_map_mutex;
+#endif
 
 /**
  * @brief Convert a vector of bytes to uint128_t
@@ -42,15 +44,20 @@ uint128_t bytes_to_uint128(const std::vector<uint8_t>& bytes)
  */
 CommandResponse bbapi(const std::vector<uint8_t>& request_id_bytes, Command&& command)
 {
+    static BBApiRequest empty_request;
     uint128_t request_id = bytes_to_uint128(request_id_bytes);
+    BBApiRequest* request = nullptr;
+    {
+#ifndef NO_MULTITHREADING
+        std::lock_guard<std::mutex> lock(request_map_mutex);
+#endif
 
-    std::lock_guard<std::mutex> lock(request_map_mutex);
-
-    // Get or create the BBApiRequest for this request ID
-    auto& request = request_map[request_id];
+        // Get or create the BBApiRequest for this request ID
+        request = &request_map[request_id];
+    }
 
     // Execute the command and return the response
-    return execute(request, std::move(command));
+    return execute(*request, std::move(command));
 }
 
 } // namespace bb::bbapi

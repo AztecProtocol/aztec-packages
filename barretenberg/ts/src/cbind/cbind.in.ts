@@ -47,20 +47,7 @@ export async function main() {
   // Write the generated TypeScript code - async version
   const asyncOutputPath = join(__dirname, 'cbind.async.gen.ts');
   writeFileSync(asyncOutputPath, asyncCompiler.compile());
-
-  // Also create an index file that exports both
-  const indexContent = `/* eslint-disable */
-// GENERATED FILE DO NOT EDIT, RUN yarn generate
-export * from './cbind.sync.gen.js';
-export * as async from './cbind.async.gen.js';
-`;
-  const indexPath = join(__dirname, 'cbind.gen.ts');
-  writeFileSync(indexPath, indexContent);
-
-  console.log(`Generated TypeScript bindings:
-  - Sync: ${syncOutputPath}
-  - Async: ${asyncOutputPath}
-  - Index: ${indexPath}`);
+  console.log(`Generated TypeScript bindings at `, syncOutputPath, ' and ', asyncOutputPath);
 }
 
 // eslint-disable-next-line no-console
