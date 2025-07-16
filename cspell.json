@@ -200,6 +200,7 @@
     "namespacing",
     "napi",
     "Nargo",
+    "Nemi",
     "nixpkgs",
     "nodebuffer",
     "noinitcheck",
