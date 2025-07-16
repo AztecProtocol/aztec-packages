@@ -23,7 +23,7 @@ using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace {
 
-TEST(AvmSimulationNoteHashTree, Read)
+TEST(AvmSimulationNoteHashTree, Exists)
 {
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
@@ -40,16 +40,24 @@ TEST(AvmSimulationNoteHashTree, Read)
     FF note_hash = 42;
     index_t leaf_index = 30;
 
-    EXPECT_CALL(merkle_check, assert_membership(note_hash, leaf_index, _, snapshot.root)).WillOnce(Return());
+    EXPECT_CALL(merkle_check, assert_membership(note_hash, leaf_index, _, snapshot.root)).WillRepeatedly(Return());
 
-    note_hash_tree_check.assert_read(note_hash, leaf_index, sibling_path, snapshot);
-
-    NoteHashTreeReadWriteEvent expect_event = {
-        .note_hash = note_hash,
-        .leaf_index = leaf_index,
-        .prev_snapshot = snapshot,
-    };
-    EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
+    EXPECT_TRUE(note_hash_tree_check.note_hash_exists(note_hash, note_hash, leaf_index, sibling_path, snapshot));
+    EXPECT_FALSE(note_hash_tree_check.note_hash_exists(27, note_hash, leaf_index, sibling_path, snapshot));
+    EXPECT_THAT(event_emitter.dump_events(),
+                ElementsAre(
+                    NoteHashTreeReadWriteEvent{
+                        .note_hash = note_hash,
+                        .existing_leaf_value = note_hash,
+                        .leaf_index = leaf_index,
+                        .prev_snapshot = snapshot,
+                    },
+                    NoteHashTreeReadWriteEvent{
+                        .note_hash = 27,
+                        .existing_leaf_value = note_hash,
+                        .leaf_index = leaf_index,
+                        .prev_snapshot = snapshot,
+                    }));
 }
 
 TEST(AvmSimulationNoteHashTree, WriteUnique)

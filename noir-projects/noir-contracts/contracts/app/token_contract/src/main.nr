@@ -14,7 +14,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Token {
     // Libs
-    use std::{meta::ctstring::AsCtString, ops::{Add, Sub}};
+    use std::ops::{Add, Sub};
 
     use dep::compressed_string::FieldCompressedString;
 
@@ -355,7 +355,7 @@ pub contract Token {
         context: PrivateContext,
         account: AztecAddress,
         remaining: u128,
-    ) -> PrivateCallInterface<25, u128, 1> {
+    ) -> PrivateCallInterface<25, u128> {
         Token::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 

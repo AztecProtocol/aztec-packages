@@ -2,9 +2,9 @@ use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `load`. If
 /// data was already stored at this slot, it is overwritten.
-pub unconstrained fn store<T, let N: u32>(contract_address: AztecAddress, slot: Field, value: T)
+pub unconstrained fn store<T>(contract_address: AztecAddress, slot: Field, value: T)
 where
-    T: Serialize<N>,
+    T: Serialize,
 {
     let serialized = value.serialize();
     store_oracle(contract_address, slot, serialized);
@@ -12,11 +12,11 @@ where
 
 /// Returns data previously stored via `storeCapsule` in the per-contract non-volatile database. Returns Option::none() if
 /// nothing was stored at the given slot.
-pub unconstrained fn load<T, let N: u32>(contract_address: AztecAddress, slot: Field) -> Option<T>
+pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field) -> Option<T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
-    let serialized_option = load_oracle::<N>(contract_address, slot, N);
+    let serialized_option = load_oracle(contract_address, slot, <T as Deserialize>::N);
     serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 

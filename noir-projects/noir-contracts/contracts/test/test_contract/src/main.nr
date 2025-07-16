@@ -15,7 +15,8 @@ pub contract Test {
     use dep::aztec::{
         note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
         state_vars::{
-            Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
+            DelayedPublicMutable, Map, PrivateImmutable, PrivateMutable, PrivateSet,
+            PublicImmutable,
         },
     };
 
@@ -73,7 +74,7 @@ pub contract Test {
         value4: Field,
     }
 
-    global SHARED_MUTABLE_INITIAL_DELAY: u64 = 2;
+    global DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY: u64 = 2;
 
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
@@ -88,7 +89,7 @@ pub contract Test {
         note_in_public_immutable: PublicImmutable<TestNote, Context>,
         struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
         struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-        struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
+        struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
         dummy_variable: PrivateImmutable<TestNote, Context>,
     }
 
@@ -428,9 +429,11 @@ pub contract Test {
     // 2. Strings become arrays of bytes (no strings here)
     // 4. Arrays become arrays of Fields following rules 2 and 3 (no arrays here)
     // 5. Structs become arrays of Fields, with every item defined in the same order as they are in Noir code, following rules 2, 3, 4 and 5 (recursive)
-    impl Serialize<10> for DeepStruct {
-        fn serialize(self) -> [Field; 10] {
-            let mut result = [0; 10];
+    impl Serialize for DeepStruct {
+        let N: u32 = 10;
+
+        fn serialize(self) -> [Field; Self::N] {
+            let mut result = [0; Self::N];
             result[0] = self.a_field;
             result[1] = self.a_bool as Field;
             result[2] = self.a_note.amount;

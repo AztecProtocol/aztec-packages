@@ -1,10 +1,11 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize};
-use aztec::protocol_types::traits::ToField;
+use dep::aztec::protocol_types::traits::{Deserialize, FromField, Packable, Serialize, ToField};
+use std::meta::derive;
 
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
 global BLACKLIST_FLAG: u64 = 4;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct UserFlags {
     is_admin: bool,
     is_minter: bool,
@@ -37,33 +38,6 @@ impl Packable<1> for UserFlags {
         let is_blacklisted = value & BLACKLIST_FLAG == BLACKLIST_FLAG;
 
         Self { is_admin, is_minter, is_blacklisted }
-    }
-}
-
-impl Eq for UserFlags {
-    fn eq(self, other: Self) -> bool {
-        (self.is_admin == other.is_admin)
-            & (self.is_minter == other.is_minter)
-            & (self.is_blacklisted == other.is_blacklisted)
-    }
-}
-
-// We implement this as it is used when serializing the state variable into return values
-// This is very inefficient if used to store the state variable.
-// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
-// where we are using this value.
-impl Serialize<3> for UserFlags {
-    fn serialize(self) -> [Field; 3] {
-        [self.is_admin.to_field(), self.is_minter.to_field(), self.is_blacklisted.to_field()]
-        // [self.to_field()]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<3> for UserFlags {
-    fn deserialize(fields: [Field; 3]) -> Self {
-        Self { is_admin: fields[0] != 0, is_minter: fields[1] != 0, is_blacklisted: fields[2] != 0 }
     }
 }
 
