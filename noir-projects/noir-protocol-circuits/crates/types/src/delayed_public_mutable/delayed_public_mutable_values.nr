@@ -1,8 +1,8 @@
 use crate::{
-    hash::poseidon2_hash,
-    shared_mutable::{
+    delayed_public_mutable::{
         scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
     },
+    hash::poseidon2_hash,
     traits::{Hash, Packable},
     utils::arrays,
 };
@@ -10,7 +10,7 @@ use std::meta::derive;
 
 mod test;
 
-/// SharedMutableValues is just a wrapper around ScheduledValueChange and ScheduledDelayChange that then allows us
+/// DelayedPublicMutableValues is just a wrapper around ScheduledValueChange and ScheduledDelayChange that then allows us
 /// to wrap both of these values in WithHash. WithHash allows for efficient read of values in private.
 ///
 /// Note that the WithHash optimization does not work in public (due to there being no unconstrained). But we also want
@@ -20,14 +20,14 @@ mod test;
 /// `unpack_delay_change` functions that can be used to extract the values from the packed representation. This
 /// is "hacky" but there is no way around it.
 #[derive(Eq)]
-pub struct SharedMutableValues<T, let INITIAL_DELAY: u64> {
+pub struct DelayedPublicMutableValues<T, let INITIAL_DELAY: u64> {
     pub svc: ScheduledValueChange<T>,
     pub sdc: ScheduledDelayChange<INITIAL_DELAY>,
 }
 
-impl<T, let INITIAL_DELAY: u64> SharedMutableValues<T, INITIAL_DELAY> {
+impl<T, let INITIAL_DELAY: u64> DelayedPublicMutableValues<T, INITIAL_DELAY> {
     pub fn new(svc: ScheduledValueChange<T>, sdc: ScheduledDelayChange<INITIAL_DELAY>) -> Self {
-        SharedMutableValues { svc, sdc }
+        DelayedPublicMutableValues { svc, sdc }
     }
 }
 
@@ -92,7 +92,7 @@ global TWO_POW_8: Field = 2.pow_32(8);
 
 // We pack to `2 * N + 1` fields because ScheduledValueChange contains T twice (hence `2 * N`) and we need one extra
 // field to store ScheduledDelayChange and the timestamp_of_change of ScheduledValueChange.
-impl<T, let INITIAL_DELAY: u64, let N: u32> Packable<2 * N + 1> for SharedMutableValues<T, INITIAL_DELAY>
+impl<T, let INITIAL_DELAY: u64, let N: u32> Packable<2 * N + 1> for DelayedPublicMutableValues<T, INITIAL_DELAY>
 where
     T: Packable<N>,
 {
@@ -126,7 +126,7 @@ where
     }
 }
 
-impl<T, let INITIAL_DELAY: u64, let N: u32> Hash for SharedMutableValues<T, INITIAL_DELAY>
+impl<T, let INITIAL_DELAY: u64, let N: u32> Hash for DelayedPublicMutableValues<T, INITIAL_DELAY>
 where
     T: Packable<N>,
 {
