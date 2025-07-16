@@ -209,6 +209,11 @@ export class CbindCompiler {
   private typeInfos: Record<string, TypeInfo> = {};
   // cbind outputs, put at end
   private funcDecls: string[] = [];
+  private mode: 'sync' | 'async' = 'sync';
+
+  constructor(mode: 'sync' | 'async' = 'sync') {
+    this.mode = mode;
+  }
 
   /**
    * Retrieve the TypeScript type name for a given schema.
@@ -562,11 +567,14 @@ ${checkerSyntax()};
     const typeInfos = args.map(arg => this.getTypeInfo(arg));
     const argStrings = typeInfos.map((typeInfo, i) => `arg${i}: ${typeInfo.typeName}`);
     const callStrings = typeInfos.map((typeInfo, i) => `${classConverterExpr(typeInfo, `arg${i}`)}`);
-    const innerCall = `callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
     const retType = this.getTypeInfo(cbind.ret);
-    this.funcDecls.push(`export function ${camelCase(name)}(wasm: BarretenbergApi, ${argStrings.join(', ')}): ${
-      retType.typeName
-    } {
+    const wasmType = this.mode === 'sync' ? 'BarretenbergWasmMain' : 'BarretenbergWasmMainWorker';
+    const asyncKeyword = this.mode === 'async' ? 'async ' : '';
+    const awaitKeyword = this.mode === 'async' ? 'await ' : '';
+    const returnType = this.mode === 'async' ? `Promise<${retType.typeName}>` : retType.typeName;
+    const innerCall = `${awaitKeyword}wasm.callCbind('${name}', [${callStrings.join(', ')}])`;
+    
+    this.funcDecls.push(`export ${asyncKeyword}function ${camelCase(name)}(wasm: ${wasmType}, ${argStrings.join(', ')}): ${returnType} {
   return ${msgpackConverterExpr(retType, innerCall)};
 }`);
   }
@@ -606,9 +614,14 @@ ${checkerSyntax()};
       const funcName = camelCase(commandName);
 
       // Generate the function
-      this.funcDecls.push(`export async function ${funcName}(wasm: BarretenbergApi, command: ${cmdType.typeName}): Promise<${respType.typeName}> {
+      const wasmType = this.mode === 'sync' ? 'BarretenbergWasmMain' : 'BarretenbergWasmMainWorker';
+      const asyncKeyword = this.mode === 'async' ? 'async ' : '';
+      const awaitKeyword = this.mode === 'async' ? 'await ' : '';
+      const returnType = this.mode === 'async' ? `Promise<${respType.typeName}>` : respType.typeName;
+      
+      this.funcDecls.push(`export ${asyncKeyword}function ${funcName}(wasm: ${wasmType}, command: ${cmdType.typeName}): ${returnType} {
   const msgpackCommand = from${cmdType.typeName}(command);
-  const [variantName, result] = await callCbind(wasm, 'bbapi', [["${commandName}", msgpackCommand]]);
+  const [variantName, result] = ${awaitKeyword}wasm.callCbind('bbapi', [["${commandName}", msgpackCommand]]);
   if (variantName !== '${responseName}') {
     throw new Error(\`Expected variant name '${responseName}' but got '\${variantName}'\`);
   }
@@ -626,12 +639,15 @@ ${checkerSyntax()};
    * @returns A string containing the complete compiled TypeScript code.
    */
   compile(): string {
+    const wasmImport = this.mode === 'sync' 
+      ? 'BarretenbergWasmMain' 
+      : 'BarretenbergWasmMainWorker';
+    
     const outputs: string[] = [
       `/* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn generate
 import { Buffer } from "buffer";
-import { callCbind } from './cbind.js';
-import { BarretenbergApi } from "../barretenberg_wasm/barretenberg_wasm_base/index.js";
+import { ${wasmImport} } from "../barretenberg_wasm/barretenberg_wasm_main/index.js";
 
 // Helper type for fixed-size arrays
 type Tuple<T, N extends number> = T[] & { length: N };

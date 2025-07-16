@@ -29,21 +29,39 @@ export async function main() {
   // Parse the JSON schema
   const schema = JSON.parse(stdout.trim());
 
-  // Process the schema with CbindCompiler
-  const compiler = new CbindCompiler();
-
-  // Process the command/response pairs from the schema
+  // Process the schema with CbindCompiler - sync version
+  const syncCompiler = new CbindCompiler('sync');
   if (schema.commands && schema.responses) {
-    // The schema has two NamedUnion types: commands and responses
-    // Each command type has a corresponding response type at the same index
-    compiler.processApiSchema(schema.commands, schema.responses);
+    syncCompiler.processApiSchema(schema.commands, schema.responses);
   }
 
-  // Write the generated TypeScript code
-  const outputPath = join(__dirname, 'cbind.gen.ts');
-  writeFileSync(outputPath, compiler.compile());
+  // Process the schema with CbindCompiler - async version
+  const asyncCompiler = new CbindCompiler('async');
+  if (schema.commands && schema.responses) {
+    asyncCompiler.processApiSchema(schema.commands, schema.responses);
+  }
 
-  console.log(`Generated TypeScript bindings at ${outputPath}`);
+  // Write the generated TypeScript code - sync version
+  const syncOutputPath = join(__dirname, 'cbind.sync.gen.ts');
+  writeFileSync(syncOutputPath, syncCompiler.compile());
+
+  // Write the generated TypeScript code - async version
+  const asyncOutputPath = join(__dirname, 'cbind.async.gen.ts');
+  writeFileSync(asyncOutputPath, asyncCompiler.compile());
+
+  // Also create an index file that exports both
+  const indexContent = `/* eslint-disable */
+// GENERATED FILE DO NOT EDIT, RUN yarn generate
+export * from './cbind.sync.gen.js';
+export * as async from './cbind.async.gen.js';
+`;
+  const indexPath = join(__dirname, 'cbind.gen.ts');
+  writeFileSync(indexPath, indexContent);
+
+  console.log(`Generated TypeScript bindings:
+  - Sync: ${syncOutputPath}
+  - Async: ${asyncOutputPath}
+  - Index: ${indexPath}`);
 }
 
 // eslint-disable-next-line no-console
