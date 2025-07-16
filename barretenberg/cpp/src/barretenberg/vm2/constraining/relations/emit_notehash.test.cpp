@@ -78,17 +78,17 @@ TEST(EmitNoteHashConstrainingTest, LimitReached)
     check_relation<emit_notehash>(trace);
 
     // Negative test: sel_opcode_error must be on
-    trace.set(0, { { { C::execution_sel_opcode_error, 0 } } });
+    trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_LIMIT_REACHED),
                               "EMIT_NOTEHASH_LIMIT_REACHED");
 
     // Negative test: tree size must be the same
-    trace.set(0, { { { C::execution_note_hash_tree_size, 2 } } });
+    trace.set(C::execution_note_hash_tree_size, 0, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_TREE_SIZE_INCREASE),
                               "EMIT_NOTEHASH_TREE_SIZE_INCREASE");
 
     // Negative test: num note hashes emitted must be the same
-    trace.set(0, { { { C::execution_num_note_hashes_emitted, prev_num_note_hashes_emitted + 1 } } });
+    trace.set(C::execution_num_note_hashes_emitted, 0, prev_num_note_hashes_emitted + 1);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE),
         "EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE");
@@ -112,7 +112,7 @@ TEST(EmitNoteHashConstrainingTest, Interactions)
     };
     uint32_t prev_num_note_hashes_emitted = 2;
 
-    EXPECT_CALL(merkle_check, write(_, _, _, _, _)).WillOnce(Return(57));
+    EXPECT_CALL(merkle_check, write).WillOnce(Return(57));
 
     AppendOnlyTreeSnapshot next_snapshot = note_hash_tree_check.append_note_hash(
         note_hash, contract_address, prev_num_note_hashes_emitted, {}, prev_snapshot);

@@ -300,7 +300,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, CheckpointBehavior)
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
         return RawPoseidon2::hash(input);
     });
-    EXPECT_CALL(merkle_check, write(_, _, _, _, _))
+    EXPECT_CALL(merkle_check, write)
         .WillRepeatedly(
             [](FF current_leaf, FF new_leaf, uint64_t leaf_index, std::span<const FF> sibling_path, FF prev_root) {
                 EXPECT_EQ(unconstrained_root_from_path(current_leaf, leaf_index, sibling_path), prev_root);

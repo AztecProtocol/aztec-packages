@@ -79,7 +79,7 @@ TEST(NoteHashExistsConstrainingTest, OutOfRange)
     check_relation<notehash_exists>(trace);
 
     // Negative test: exists must be false
-    trace.set(0, { { { C::execution_register_2_, 1 } } });
+    trace.set(C::execution_register_2_, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<notehash_exists>(trace), "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE");
 }
 
