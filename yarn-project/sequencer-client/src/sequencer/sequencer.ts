@@ -234,7 +234,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Stops the sequencer from processing txs and moves to STOPPED state.
    */
   public async stop(): Promise<void> {
-    this.log.debug(`Stopping sequencer`);
+    this.log.info(`Stopping sequencer`);
     this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();

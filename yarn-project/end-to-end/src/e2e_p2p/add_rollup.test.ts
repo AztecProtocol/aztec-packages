@@ -139,26 +139,6 @@ describe('e2e_p2p_add_rollup', () => {
     );
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
-    // Hand over the registry to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: registry.address,
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
-
-    // Hand over the GSE to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gseAddress!.toString()),
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
-
     // Now that we have passed on the registry, we can deploy the new rollup.
     const initialTestAccounts = await getInitialTestAccounts();
     const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
