@@ -24,6 +24,26 @@ comptime fn get_trait_impl_method(
         .as_typed_expr()
 }
 
+pub comptime fn get_packable_len(typ: Type) -> u32 {
+    // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
+    // I work around this by:
+
+    // 1. Getting the packable constraint
+    let packable_constraint: TraitConstraint =
+        quote { crate::traits::Packable }.as_trait_constraint();
+    // 2. Getting the trait impl
+    let trait_impl = typ.get_trait_impl(packable_constraint).unwrap();
+    // 3. Getting the return type of the pack method
+    let pack_method_return_type = trait_impl.methods()[0].return_type();
+    // 3. Representing the return type as an array - this gives me (Type, Type) where the first type is the type of
+    // elements in the array and the second is the length of the array.
+    let pack_method_return_type_as_array = pack_method_return_type.as_array().unwrap();
+    // 4. Getting the length and representing it as a constant.
+    let packed_len_as_constant = pack_method_return_type_as_array.1.as_constant().unwrap();
+
+    packed_len_as_constant
+}
+
 /// Generates code that deserializes a struct, primitive type, array or string from a field array.
 ///
 /// # Parameters
@@ -322,18 +342,7 @@ pub comptime fn generate_serialize_to_fields(
         // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
         // method, add the resulting field array to `aux_vars` and each field to `fields`.
 
-        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
-        // I work around this by:
-
-        // 1. Getting the trait impl
-        let trait_impl = typ.get_trait_impl(packable_constraint).unwrap();
-        // 2. Getting the return type of the pack method
-        let pack_method_return_type = trait_impl.methods()[0].return_type();
-        // 3. Representing the return type as an array - this gives me (Type, Type) where the first type is the type of
-        // elements in the array and the second is the length of the array.
-        let pack_method_return_type_as_array = pack_method_return_type.as_array().unwrap();
-        // 4. Getting the length and representing it as a constant.
-        let packed_len = pack_method_return_type_as_array.1.as_constant().unwrap();
+        let packed_len = get_packable_len(typ);
 
         // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
         let name_at_one_token = collapse_to_one_token(name);
