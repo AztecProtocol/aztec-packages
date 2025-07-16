@@ -55,7 +55,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, const std::string& inpu
 {}
 
 /**
- * @brief Create a byte_array of length `num_bits` out of a field element.
+ * @brief Create a byte_array of length `num_bytes` out of a field element.
  *
  * @details The length of the byte array will default to 32 bytes, but shorter lengths can be specified.
  * If a shorter length is used, the circuit will NOT truncate the input to fit the reduced length.
