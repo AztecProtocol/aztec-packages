@@ -367,7 +367,8 @@ export class PXEService implements PXE {
         contractAddress,
         functionSelector,
         msgSender,
-        // There was no need to expose this on the API so I am just setting it to undefined here
+        // The sender for tags is set by contracts, typically by an account
+        // contract entrypoint
         undefined, // senderForTags
         scopes,
       );
