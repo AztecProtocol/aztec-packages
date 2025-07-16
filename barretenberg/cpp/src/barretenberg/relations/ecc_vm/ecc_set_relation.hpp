@@ -27,7 +27,7 @@ template <typename FF_> class ECCVMSetRelationImpl {
     {
         // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
         // non-trivial copy constraints.
-        return (in.z_perm - in.z_perm_shift).is_zero();
+        return (in.z_perm - in.z_perm_shift).is_zero() && in.transcript_mul.is_zero() && in.lagrange_last.is_zero();
     }
 
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)

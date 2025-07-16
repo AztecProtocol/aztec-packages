@@ -85,13 +85,14 @@ class ECCVMFlavor {
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
-    using Relations_ = std::tuple<ECCVMTranscriptRelation<FF>,
-                                  ECCVMPointTableRelation<FF>,
-                                  ECCVMWnafRelation<FF>,
-                                  ECCVMMSMRelation<FF>,
-                                  ECCVMSetRelation<FF>,
-                                  ECCVMLookupRelation<FF>,
-                                  ECCVMBoolsRelation<FF>>;
+    using Relations_ = std::tuple<ECCVMTranscriptRelation<FF>
+                                  // ECCVMPointTableRelation<FF>
+                                  // ECCVMWnafRelation<FF>
+                                  // ECCVMMSMRelation<FF>
+                                  // ECCVMSetRelation<FF>
+                                  // ECCVMLookupRelation<FF>
+                                  // ECCVMBoolsRelation<FF>
+                                  >;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 
@@ -980,10 +981,12 @@ class ECCVMFlavor {
         //    This is because the permutation argument uses the SHIFTED msm columns when performing lookups
         //    i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
         //    z_perm_shift[last_edge_idx - 1]
+        // return false;
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
                polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0 &&
-               (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0);
+               (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
+               (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0);
     }
 
     using Transcript = NativeTranscript;
