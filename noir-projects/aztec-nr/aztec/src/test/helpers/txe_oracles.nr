@@ -72,9 +72,6 @@ pub unconstrained fn public_call_new_flow(
     (returns_hash, tx_hash)
 }
 
-#[oracle(reset)]
-pub unconstrained fn reset() {}
-
 #[oracle(getLastBlockTimestamp)]
 pub unconstrained fn get_last_block_timestamp() -> u64 {}
 
