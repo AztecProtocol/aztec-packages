@@ -43,7 +43,7 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
     echo "Done. New inputs available at:"
     echo "  ${s3_uri}"
     echo "Update the pinned_civc_inputs_url in this script to point to the new location."
-    exit
+    exit 0
 fi
 
 export inputs_tmp_dir=$(mktemp -d)
@@ -54,7 +54,7 @@ curl -s -f "$pinned_civc_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/nu
 function check_circuit_vks {
   set -eu
   local flow_folder="$inputs_tmp_dir/$1"
-  ./build/bin/bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder!";  }
+  ./build/bin/bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder!"; exit 1; }
 }
 
 export -f check_circuit_vks
