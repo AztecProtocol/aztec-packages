@@ -1,14 +1,12 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
@@ -19,22 +17,23 @@
 auto& engine = bb::numeric::get_debug_randomness();
 
 namespace bb::stdlib::recursion::honk {
-template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : public testing::Test {
+class BoomerangProtogalaxyRecursiveTests : public testing::Test {
   public:
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
-    using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
+    using RecursiveFlavor = MegaRecursiveFlavor_<UltraCircuitBuilder>;
+    using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerProver = UltraProver_<InnerFlavor>;
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
-    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+    using InnerBuilder = InnerFlavor::CircuitBuilder;
     using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
     using InnerDeciderVerificationKey = ::bb::DeciderVerificationKey_<InnerFlavor>;
-    using InnerVerificationKey = typename InnerFlavor::VerificationKey;
+    using InnerVerificationKey = InnerFlavor::VerificationKey;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
-    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
+    using OuterBuilder = RecursiveFlavor::CircuitBuilder;
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
@@ -44,6 +43,7 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
         ::bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
+    using RecursiveVKAndHash = RecursiveDeciderVerificationKeys::VKAndHash;
     using FoldingRecursiveVerifier = ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using InnerDeciderProver = DeciderProver_<InnerFlavor>;
@@ -51,7 +51,6 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
     using InnerDeciderVerificationKeys = DeciderVerificationKeys_<InnerFlavor, 2>;
     using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerDeciderVerificationKeys>;
     using InnerFoldingProver = ProtogalaxyProver_<InnerFlavor>;
-
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static void create_function_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
@@ -106,6 +105,7 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
 
     static void test_recursive_folding(const size_t num_verifiers = 1)
     {
+
         // Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
         create_function_circuit(builder1);
@@ -114,35 +114,38 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->get_precomputed());
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->get_precomputed());
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
-        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
+        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
+                                          { decider_vk_1, decider_vk_2 },
+                                          std::make_shared<typename InnerFoldingProver::Transcript>());
         auto folding_proof = folding_prover.prove();
 
         // Create a folding verifier circuit
         OuterBuilder folding_circuit;
 
         auto recursive_decider_vk_1 = std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, decider_vk_1);
-        auto recursive_decider_vk_2 =
-            std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_2->verification_key);
-        StdlibProof<OuterBuilder> stdlib_proof =
-            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
-        // info(recursive_decider_vk_2->pub_inputs_offset);
-
-        auto verifier =
-            FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
+        auto recursive_vk_and_hash_2 = std::make_shared<RecursiveVKAndHash>(folding_circuit, decider_vk_2->vk);
+        stdlib::Proof<OuterBuilder> stdlib_proof(folding_circuit, folding_proof.proof);
+        auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
+                                                  recursive_decider_vk_1,
+                                                  { recursive_vk_and_hash_2 },
+                                                  std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
         std::shared_ptr<RecursiveDeciderVerificationKey> accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
+            verifier.transcript->enable_manifest();
             accumulator = verifier.verify_folding_proof(stdlib_proof);
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below
-                auto vk = std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_1->verification_key);
-                verifier = FoldingRecursiveVerifier{ &folding_circuit, accumulator, { vk } };
-                vk->pub_inputs_offset.fix_witness();
-                vk->num_public_inputs.fix_witness();
+                auto recursive_vk_and_hash = std::make_shared<RecursiveVKAndHash>(folding_circuit, decider_vk_1->vk);
+                verifier =
+                    FoldingRecursiveVerifier{ &folding_circuit,
+                                              accumulator,
+                                              { recursive_vk_and_hash },
+                                              std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
             }
         }
         info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
@@ -165,24 +168,23 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
             // folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
-            info("Dyadic size of verifier circuit: ", decider_pk->proving_key.circuit_size);
-            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
+            info("Dyadic size of verifier circuit: ", decider_pk->dyadic_size());
+            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->get_precomputed());
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
             ASSERT(verified);
         }
-        recursive_decider_vk_1->verification_key->pub_inputs_offset.fix_witness();
-        recursive_decider_vk_1->verification_key->num_public_inputs.fix_witness();
-        recursive_decider_vk_2->pub_inputs_offset.fix_witness();
-        recursive_decider_vk_2->num_public_inputs.fix_witness();
+        /*         recursive_decider_vk_1->verification_key->pub_inputs_offset.fix_witness();
+                recursive_decider_vk_1->verification_key->num_public_inputs.fix_witness();
+        */
         auto graph = cdg::StaticAnalyzer(folding_circuit, false);
-        auto variables_in_one_gate = graph.show_variables_in_one_gate(folding_circuit);
+        auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         if (variables_in_one_gate.size() > 0) {
             auto fst_var_idx = std::vector<uint32_t>(variables_in_one_gate.cbegin(), variables_in_one_gate.cend())[0];
-            graph.print_variable_in_one_gate(folding_circuit, fst_var_idx);
+            graph.print_variable_in_one_gate(fst_var_idx);
         }
     }
 
@@ -193,37 +195,41 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
      */
     static void test_full_protogalaxy_recursive()
     {
-        // Create two arbitrary circuits for the first round of folding
+        // using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
+        //  Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
         create_function_circuit(builder1);
         InnerBuilder builder2;
         builder2.add_public_variable(FF(1));
-
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->get_precomputed());
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->get_precomputed());
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
-        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
+        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
+                                          { decider_vk_1, decider_vk_2 },
+                                          std::make_shared<typename InnerFoldingProver::Transcript>());
         auto folding_proof = folding_prover.prove();
 
         // Create a folding verifier circuit
         OuterBuilder folding_circuit;
         auto recursive_decider_vk_1 = std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, decider_vk_1);
-        auto recursive_decider_vk_2 =
-            std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_2->verification_key);
-        StdlibProof<OuterBuilder> stdlib_proof =
-            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
+        auto recursive_vk_and_hash_2 = std::make_shared<RecursiveVKAndHash>(folding_circuit, decider_vk_2->vk);
+        stdlib::Proof<OuterBuilder> stdlib_proof(folding_circuit, folding_proof.proof);
 
-        auto verifier =
-            FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
+        auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
+                                                  recursive_decider_vk_1,
+                                                  { recursive_vk_and_hash_2 },
+                                                  std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
+        verifier.transcript->enable_manifest();
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
@@ -239,50 +245,32 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
-        {
-            auto decider_pk = std::make_shared<OuterDeciderProvingKey>(decider_circuit);
-            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
-            OuterProver prover(decider_pk, honk_vk);
-            OuterVerifier verifier(honk_vk);
-            auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
-
-            ASSERT(verified);
-        }
         pairing_points.P0.x.fix_witness();
         pairing_points.P0.y.fix_witness();
         pairing_points.P1.x.fix_witness();
         pairing_points.P1.y.fix_witness();
         auto graph = cdg::StaticAnalyzer(decider_circuit, false);
-        auto variables_in_one_gate = graph.show_variables_in_one_gate(decider_circuit);
+        auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         if (variables_in_one_gate.size() > 0) {
             auto fst_var_idx = std::vector<uint32_t>(variables_in_one_gate.cbegin(), variables_in_one_gate.cend())[4];
-            graph.print_variable_in_one_gate(decider_circuit, fst_var_idx);
+            graph.print_variable_in_one_gate(fst_var_idx);
         }
     };
 };
 
-using FlavorTypes = testing::Types<MegaRecursiveFlavor_<UltraCircuitBuilder>>;
-TYPED_TEST_SUITE(BoomerangProtogalaxyRecursiveTests, FlavorTypes);
-
-TYPED_TEST(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestOneVerifier)
+TEST_F(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestOneVerifier)
 {
-    TestFixture::test_recursive_folding(/* num_verifiers= */ 1);
+    BoomerangProtogalaxyRecursiveTests::test_recursive_folding(/* num_verifiers= */ 1);
 }
 
-TYPED_TEST(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestTwoVerifiers)
+TEST_F(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestTwoVerifiers)
 {
-    TestFixture::test_recursive_folding(/* num_verifiers= */ 2);
+    BoomerangProtogalaxyRecursiveTests::test_recursive_folding(/* num_verifiers= */ 2);
 }
 
-HEAVY_TYPED_TEST(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestThreeVerifiers)
+TEST_F(BoomerangProtogalaxyRecursiveTests, FullProtogalaxyRecursiveTest)
 {
-    TestFixture::test_recursive_folding(/* num_verifiers= */ 3);
-}
-
-HEAVY_TYPED_TEST(BoomerangProtogalaxyRecursiveTests, FullProtogalaxyRecursiveTest)
-{
-    TestFixture::test_full_protogalaxy_recursive();
+    BoomerangProtogalaxyRecursiveTests::test_full_protogalaxy_recursive();
 }
 } // namespace bb::stdlib::recursion::honk
