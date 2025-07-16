@@ -118,14 +118,13 @@ TEST_F(ECCVMTests, Zeroes)
     ECCVMProver prover(builder, prover_transcript);
     ECCVMProof proof = prover.construct_proof();
 
-
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     ECCVMVerifier verifier(verifier_transcript);
     bool verified = verifier.verify_proof(proof);
 
     ASSERT_TRUE(verified);
 }
-=======
+
 /**
  * @brief Check that size of a ECCVM proof matches the corresponding constant
  *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
@@ -142,7 +141,6 @@ TEST_F(ECCVMTests, ProofLengthCheck)
     ECCVMProof proof = prover.construct_proof();
     EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
-
 
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {

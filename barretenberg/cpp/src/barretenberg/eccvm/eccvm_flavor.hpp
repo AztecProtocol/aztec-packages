@@ -1044,7 +1044,6 @@ class ECCVMFlavor {
         }
     };
 
-
     /**
      * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
      *
@@ -1073,9 +1072,6 @@ class ECCVMFlavor {
                (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
                (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
     }
-
-    using Transcript = NativeTranscript;
-
 };
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
