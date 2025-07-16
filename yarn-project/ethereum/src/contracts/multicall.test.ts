@@ -92,7 +92,7 @@ describe('Multicall3', () => {
     to: deployed.l1ContractAddresses.governanceProposerAddress.toString(),
     data: encodeFunctionData({
       abi: GovernanceProposerAbi,
-      functionName: 'vote',
+      functionName: 'signal',
       args: [EthAddress.random().toString()],
     }),
     abi: GovernanceProposerAbi,
