@@ -5,6 +5,7 @@
 // =====================
 
 #include "merge_prover.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -18,94 +19,125 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          const CommitmentKey& commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
     , pcs_commitment_key(commitment_key.initialized() ? commitment_key
                                                       : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
     , transcript(transcript){};
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
- * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
- * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
- * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
- * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:
+ * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that,
+ * for j = 1, 2, 3, 4:
+ *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
+ *      - deg(l_j(X)) < k                   (2)
+ * where k = shift_size.
  *
- *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
+ * Condition (1) is equivalent, up to negligible probability, to:
+ *      l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa) = 0
+ * so the prover constructs the polynomial
+ *      p_j(X) := l_j(X) + kappa^{k-1} r_j(X) - m_j(X)
+ * and proves that it opens to 0 at kappa.
  *
- * @note: the prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
+ * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{k-1} l_j(1/X)) and provides
+ * openings:
+ *      c = l_j(1/kappa)     d = g_j(kappa)
+ * The verifier then checks that: c * kappa^{k-1} = d. This check is equivalent, up to negligible probability, to
+ * \f$g_j(X) = X^{k-1} l_j(1/X)\f$, which implies \f$deg(l_j) < k$.
+ *
+ * In the Goblin scenario, we have:
+ * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
+ * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
+ *
+ * @note The prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
  * circuit, and therefore t_j has already been added to the transcript by PG.
  *
- * @return honk::proof
+ * @return MergeProver::MergeProof
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
 
-    // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
-    std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+    std::array<Polynomial, NUM_WIRES> left_table;
+    std::array<Polynomial, NUM_WIRES> right_table;
+    std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
+    std::array<Polynomial, NUM_WIRES> left_table_reversed;
 
-    const size_t current_table_size = T_current[0].size();
+    if (op_queue->get_current_settings() == MergeSettings::PREPEND) {
+        left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
+        right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
+    } else {
+        left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
+        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
+    }
+    // Compute g_j(X)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        left_table_reversed[idx] = left_table[idx].reverse();
+    }
+
+    const size_t merged_table_size = merged_table[0].size();
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
     // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
     // subtable when sending a merge proof to the rollup.
-    const size_t shift_size =
-        op_queue->get_current_settings() == MergeSettings::PREPEND ? t_current[0].size() : T_prev[0].size();
+    const size_t shift_size = left_table[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
-    // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove generation of commitment to T_prev
+    // Compute commitments [T_prev], [m_j], [g_j], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Compute commitments
-        Commitment T_prev_commitment = pcs_commitment_key.commit(T_prev[idx]);
-        Commitment T_commitment = pcs_commitment_key.commit(T_current[idx]);
-
-        std::string suffix = std::to_string(idx);
-        transcript->send_to_verifier("T_PREV_" + suffix, T_prev_commitment);
-        transcript->send_to_verifier("T_CURRENT_" + suffix, T_commitment);
+        // Note: This is hacky at the moment because the prover still needs to commit to T_prev. Once we connect two
+        // steps of the Merge, T_prev will not be sent by the Merge prover, so the following lines will be removed
+        auto previous_table =
+            op_queue->get_current_settings() == MergeSettings::PREPEND ? right_table[idx] : left_table[idx];
+        transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(previous_table));
+        transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
+                                     pcs_commitment_key.commit(merged_table[idx]));
+        transcript->send_to_verifier("LEFT_TABLE_REVERSED_" + std::to_string(idx),
+                                     pcs_commitment_key.commit(left_table_reversed[idx]));
     }
 
-    // Compute evaluations T_j(\kappa), T_{j,prev}(\kappa), t_j(\kappa), add to transcript. For each polynomial we add a
-    // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
+    // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF pow_kappa = kappa.pow(shift_size);
+    const FF kappa_inv = kappa.invert();
 
-    // Add univariate opening claims for each polynomial.
+    // Opening claims for each polynomial p_j, l_j, g_j
+    //
+    // The opening claims are sent in the following order:
+    // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
+    //      {1/kappa, l_1(1/kappa)}, {kappa, g_1(kappa)},
+    //          {1/kappa, l_2(1/kappa)}, {kappa, g_2(kappa)},
+    //              {1/kappa, l_3(1/kappa)}, {kappa, g_3(kappa)},
+    //                  {1/kappa, l_4(1/kappa)}, {kappa, g_4(kappa)}
     std::vector<OpeningClaim> opening_claims;
-    // Compute evaluation t(\kappa)
+
+    // Set opening claims p_j(\kappa) = l_j(X) + kappa^l r_j(X) - m_j(X)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = t_current[idx].evaluate(kappa);
-        transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ std::move(t_current[idx]), { kappa, evaluation } });
+        Polynomial partially_evaluated_difference(merged_table_size);
+        partially_evaluated_difference += left_table[idx];
+        partially_evaluated_difference.add_scaled(right_table[idx], pow_kappa);
+        partially_evaluated_difference -= merged_table[idx];
+
+        opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
     }
-    // Compute evaluation T_prev(\kappa)
+    // Compute evaluation l_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = T_prev[idx].evaluate(kappa);
-        transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ T_prev[idx], { kappa, evaluation } });
-    }
-    // Compute evaluation T(\kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = T_current[idx].evaluate(kappa);
-        transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ std::move(T_current[idx]), { kappa, evaluation } });
+        FF evaluation;
+
+        // Evaluate l_j(1/kappa)
+        evaluation = left_table[idx].evaluate(kappa_inv);
+        transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ left_table[idx], { kappa_inv, evaluation } });
+
+        // Evaluate g_j(\kappa)
+        evaluation = left_table_reversed[idx].evaluate(kappa);
+        transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ left_table_reversed[idx], { kappa, evaluation } });
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    // Shplonk prover
+    OpeningClaim shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);
 
-    // Construct batched polynomial to be opened via KZG
-    Polynomial batched_polynomial(current_table_size);
-    FF batched_eval(0);
-    FF alpha_pow(1);
-    for (auto& claim : opening_claims) {
-        batched_polynomial.add_scaled(claim.polynomial, alpha_pow);
-        batched_eval += alpha_pow * claim.opening_pair.evaluation;
-        alpha_pow *= alpha;
-    }
-
-    // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)
-    OpeningClaim batched_claim = { std::move(batched_polynomial), { kappa, batched_eval } };
-    PCS::compute_opening_proof(pcs_commitment_key, batched_claim, transcript);
+    // KZG prover
+    PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
 
     return transcript->export_proof();
 }

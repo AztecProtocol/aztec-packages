@@ -180,6 +180,15 @@ template <typename Fr> class Polynomial {
     Polynomial right_shifted(const size_t magnitude) const;
 
     /**
+     * @brief Returns the polynomial equal to the reverse of self
+     *
+     * @details If the coefficients of self are \f$(a_0, \dots, a_n)\f$, we return the polynomial with coefficients
+     * \f$(a_n, \dots, a_0)\f$
+     * @note Resulting polynomial uses new backing memory; n = self->size()
+     */
+    Polynomial reverse() const;
+
+    /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
      * (u_0,…,u_{n-1}) If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k, we
      * evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k. We fold over k dimensions and then

@@ -5,6 +5,7 @@
 // =====================
 
 #include "merge_verifier.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 
@@ -16,94 +17,145 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
- * the contribution from a single circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
- * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
- * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
- * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:
+ * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge wants to convince the verifier that the
+ * polynomials l_j, r_j, m_j for which they have sent commitments [l_j], [r_j], [m_j] satisfy
+ *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
+ *      - deg(l_j(X)) < k                   (2)
+ * where k = shift_size.
  *
- *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
+ * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
+ * the polynomial
+ *      p_j(X) = l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa)
+ * opens to 0 at kappa.
  *
- * @tparam Flavor
- * @param t_commitments The commitments to t_j read from the transcript by the PG verifier with which the Merge verifier
- * shares a transcript
+ * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and
+ * then requests proofs that
+ *      l_j(1/kappa) = c     g_j(kappa) = d
+ * Then, they verify c * kappa^{k-1} = d, which implies, up to negligible probability, that
+ * g_j(X) = X^{l-1} l_j(1/X), which means that deg(l_j(X)) < l.
+ *
+ * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, l_j(1/kappa), g_j(kappa)
+ * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [l_j], [r_j], [m_j]
+ * and then open it). We initialize the Shplonk verifier with the following commitments:
+ *      [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
+ * Then, we verify the various claims:
+ *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
+ *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
+ *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
+ *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^k, -1}, and the claimed
+ *                           evaluation: 0.
+ *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
+ *                           v_j.
+ *     - g_j(kappa) = w_j:   The index is {3 + 4 * (j-1)}, the coefficient is { 1 }, and the evaluation is w_j.
+ * The claims are passed in the following order:
+ *   {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0}, {1/kappa, v_1}, {kappa, w_1}, .., {1/kappa, v_4}, {kappa, w_4}
+ *
+ * In the Goblin scenario, we have:
+ * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
+ * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
+ *
+ * @param proof
+ * @param t_commitments The commitments to t_j read from the transcript by the PG verifier with which the Merge
+ * verifier shares a transcript
  * @return bool Verification result
  */
 bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
 {
+    using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
+
     transcript->load_proof(proof);
 
     const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
+    BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
 
-    // Receive table column polynomial commitments [T_{j,prev}], and [T_j], j = 1,2,3,4
-    std::array<Commitment, NUM_WIRES> T_prev_commitments;
+    // Vector of commitments to be passed to the Shplonk verifier
+    // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
+    std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        std::string suffix = std::to_string(idx);
-        T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
-        T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
+        auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
+        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
+        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+
+        table_commitments.emplace_back(left_table);
+        table_commitments.emplace_back(right_table);
+        table_commitments.emplace_back(
+            transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx)));
+        table_commitments.emplace_back(
+            transcript->template receive_from_prover<Commitment>("LEFT_TABLE_REVERSED_" + std::to_string(idx)));
     }
 
-    FF kappa = transcript->template get_challenge<FF>("kappa");
+    // Store T_commitments of the verifier
+    size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
+    for (auto& commitment : T_commitments) {
+        commitment = table_commitments[commitment_idx];
+        commitment_idx += NUM_WIRES;
+    }
 
-    // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
-    std::array<FF, NUM_WIRES> t_evals;
-    std::array<FF, NUM_WIRES> T_prev_evals;
-    std::array<FF, NUM_WIRES> T_evals;
+    // Evaluation challenge
+    const FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF kappa_inv = kappa.invert();
+    const FF pow_kappa = kappa.pow(shift_size);
+
+    // Opening claims to be passed to the Shplonk verifier
+    std::vector<Claims> opening_claims;
+
+    // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
+    commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
+        Claims claim{ { /*index of [l_j]*/ commitment_idx,
+                        /*index of [r_j]*/ commitment_idx + 1,
+                        /*index of [m_j]*/ commitment_idx + 2 },
+                      { FF::one(), pow_kappa, FF::neg_one() },
+                      { kappa, FF::zero() } };
+        opening_claims.emplace_back(claim);
+
+        // Move commitment_idx to the index of [l_{j+1}]
+        commitment_idx += NUM_WIRES;
     }
 
-    // Check the identity according to whether the current subtable is prepended or appended. If it fails, return false
-    bool identity_checked = true;
+    // Boolean keeping track of the degree identities
+    bool degree_check_verified = true;
+
+    // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{k-1}
+    commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        bool current_check = false;
-        if (settings == MergeSettings::PREPEND) {
-            // In prepend mode we shift the evaluation of the previous table and check the identity
-            // T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
-            FF T_prev_shifted_eval = T_prev_evals[idx] * kappa.pow(shift_size);
-            current_check = T_evals[idx] == t_evals[idx] + T_prev_shifted_eval;
-        } else {
-            // In append mode we shift the evaluation of the new subtable and check the identity
-            // T_j(\kappa) =  T_{j,prev}(\kappa) + \kappa^m * t_j(\kappa)
-            FF t_shifted_eval = t_evals[idx] * kappa.pow(shift_size);
-            current_check = T_evals[idx] == T_prev_evals[idx] + t_shifted_eval;
-        }
-        identity_checked = identity_checked && current_check;
+        Claims claim;
+
+        // Opening claim for l_j(1/kappa)
+        FF left_table_eval_kappa_inv =
+            transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
+        claim = { { commitment_idx }, { FF::one() }, { kappa_inv, left_table_eval_kappa_inv } };
+        opening_claims.emplace_back(claim);
+
+        // Move commitment_idx to index of g_j
+        commitment_idx += 3;
+
+        // Opening claim for g_j(kappa)
+        FF left_table_reversed_eval =
+            transcript->template receive_from_prover<FF>("left_table_reversed_eval_" + std::to_string(idx));
+        claim = { { commitment_idx }, { FF::one() }, { kappa, left_table_reversed_eval } };
+        opening_claims.emplace_back(claim);
+
+        // Move commitment_idx to index of left_table_{j+1}
+        commitment_idx += 1;
+
+        // Degree identity
+        degree_check_verified &= (left_table_eval_kappa_inv * kappa.pow(shift_size - 1) == left_table_reversed_eval);
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    // Initialize Shplonk verifier
+    ShplonkVerifier_<Curve> verifier(table_commitments, transcript, opening_claims.size());
+    verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
 
-    // Construct batched commitment and evaluation from constituents
-    Commitment batched_commitment = t_commitments[0];
-    FF batched_eval = t_evals[0];
-    auto alpha_pow = alpha;
-    for (size_t idx = 1; idx < NUM_WIRES; ++idx) {
-        batched_commitment = batched_commitment + (t_commitments[idx] * alpha_pow);
-        batched_eval += alpha_pow * t_evals[idx];
-        alpha_pow *= alpha;
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        batched_commitment = batched_commitment + (T_prev_commitments[idx] * alpha_pow);
-        batched_eval += alpha_pow * T_prev_evals[idx];
-        alpha_pow *= alpha;
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        batched_commitment = batched_commitment + (T_commitments[idx] * alpha_pow);
-        batched_eval += alpha_pow * T_evals[idx];
-        alpha_pow *= alpha;
-    }
+    // Export batched claim
+    auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one());
 
-    OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
-
-    auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
+    // KZG verifier
+    auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
     VerifierCommitmentKey pcs_vkey{};
-    auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
-    return identity_checked && verified;
+    bool claims_verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
+
+    return degree_check_verified && claims_verified;
 }
 } // namespace bb
