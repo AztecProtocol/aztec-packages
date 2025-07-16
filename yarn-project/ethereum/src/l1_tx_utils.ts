@@ -357,6 +357,8 @@ export class ReadOnlyL1TxUtils {
   ): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
     let initialEstimate = 0n;
+    const accountAddress = typeof account === 'string' ? account : account.address;
+    const nonce = await this.client.getTransactionCount({ address: accountAddress });
     if (_blobInputs) {
       // @note requests with blobs also require maxFeePerBlobGas to be set
       const gasPrice = await this.getGasPrice(gasConfig, true, 0);
@@ -366,11 +368,12 @@ export class ReadOnlyL1TxUtils {
         ..._blobInputs,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         gas: LARGE_GAS_LIMIT,
+        nonce,
       });
 
       this.logger?.debug(`L1 gas used in estimateGas by blob tx: ${initialEstimate}`);
     } else {
-      initialEstimate = await this.client.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
+      initialEstimate = await this.client.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT, nonce });
       this.logger?.debug(`L1 gas used in estimateGas by non-blob tx: ${initialEstimate}`);
     }
 
