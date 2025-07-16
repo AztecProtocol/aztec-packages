@@ -24,7 +24,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variable_gates_count_for_decompos
     circuit_constructor.decompose_into_default_range(a_idx, 134);
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    std::unordered_set<uint32_t> variables_in_on_gate = graph.show_variables_in_one_gate(circuit_constructor);
+    std::unordered_set<uint32_t> variables_in_on_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_on_gate.size(), 0);
 }
 
@@ -40,7 +40,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variable_gates_count_for_decompos
     circuit_constructor.decompose_into_default_range(a_idx, 42);
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    auto variables_in_on_gate = graph.show_variables_in_one_gate(circuit_constructor);
+    auto variables_in_on_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_on_gate.size(), 0);
 }
 
@@ -85,7 +85,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variable_gates_count_for_two_deco
     circuit_constructor.decompose_into_default_range(a2_idx, 42);
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
+    std::unordered_set<uint32_t> variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -110,7 +110,7 @@ TEST(boomerang_ultra_circuit_constructor, test_decompose_with_boolean_gates)
     }
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
+    std::unordered_set<uint32_t> variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 22);
 }
 
@@ -126,6 +126,6 @@ TEST(boomerang_ultra_circuit_constructor, test_decompose_for_6_bit_number)
     circuit_constructor.decompose_into_default_range(a_idx, 6);
 
     StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
-    std::unordered_set<uint32_t> variables_in_on_gate = graph.show_variables_in_one_gate(circuit_constructor);
+    std::unordered_set<uint32_t> variables_in_on_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_on_gate.size(), 0);
 }
