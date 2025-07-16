@@ -273,6 +273,8 @@ contract Governance is IGovernance {
    *
    * @dev causes all proposals proposed by the previous governance proposer to be `Droppable`.
    *
+   * @dev prevents the governance proposer from being set to the governance contract itself.
+   *
    * @param _governanceProposer The new governance proposer.
    */
   function updateGovernanceProposer(address _governanceProposer)
@@ -280,6 +282,9 @@ contract Governance is IGovernance {
     override(IGovernance)
     onlySelf
   {
+    require(
+      _governanceProposer != address(this), Errors.Governance__GovernanceProposerCannotBeSelf()
+    );
     governanceProposer = _governanceProposer;
     emit GovernanceProposerUpdated(_governanceProposer);
   }

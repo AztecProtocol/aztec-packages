@@ -30,7 +30,7 @@ import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
-import { SequencerPublisher, VoteType } from '@aztec/sequencer-client';
+import { SequencerPublisher, SignalType } from '@aztec/sequencer-client';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { fr, makeBloatedProcessedTx } from '@aztec/stdlib/testing';
@@ -563,10 +563,10 @@ describe('L1Publisher integration', () => {
       publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
 
       await publisher.enqueueProposeL2Block(block);
-      await publisher.enqueueCastVote(
+      await publisher.enqueueCastSignal(
         block.header.getSlot(),
         block.header.globalVariables.timestamp,
-        VoteType.SLASHING,
+        SignalType.SLASHING,
         EthAddress.random(),
         (_payload: `0x${string}`) => Promise.resolve(Signature.random().toString()),
       );

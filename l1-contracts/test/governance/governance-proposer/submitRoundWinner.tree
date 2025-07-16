@@ -1,4 +1,4 @@
-ExecuteProposalTest
+SubmitRoundWinnerTest
 ├── given canonical instance hold no code
 │   └── it revert
 └── given canonical instance hold code
@@ -14,14 +14,14 @@ ExecuteProposalTest
                 ├── given leader is address 0
                 │   └── it revert
                 └── given leader is not address 0
-                    ├── given insufficient yea
+                    ├── given insufficient signals
                     │   └── it revert
-                    └── given sufficient yea
+                    └── given sufficient signals
                         ├── given new canonical instance
                         │   └── it revert
                         ├── given governance call fails
                         │   └── it revert
                         └── given governance call succeeds
                             ├── it update executed to true
-                            ├── it emits {ProposalExecuted} event
+                            ├── it emits {PayloadSubmitted} event
                             └── it return true

@@ -7,4 +7,5 @@ import {IEmpire} from "./IEmpire.sol";
 
 interface IGovernanceProposer is IEmpire {
   function getProposalProposer(uint256 _proposalId) external view returns (address);
+  function getGovernance() external view returns (address);
 }
