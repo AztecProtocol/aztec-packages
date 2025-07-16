@@ -10,7 +10,7 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
-export BB_HASH_FOR_PUBLIC_BASE_ROLLUP=$(PLATFORM_TAG="x86_64" ../../barretenberg/cpp/bootstrap.sh hash)
+export BB_HASH_FOR_PUBLIC_BASE_ROLLUP=$(PLATFORM_TAG="${OSTYPE:-unknown}-x86_64" ../../barretenberg/cpp/bootstrap.sh hash)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export key_dir=./target/keys
