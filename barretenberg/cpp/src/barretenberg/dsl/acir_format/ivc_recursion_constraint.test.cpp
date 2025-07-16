@@ -435,7 +435,8 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
 {
     const TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
+
+    // First, construct the kernel VK by running the full IVC
     std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
     {
         auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/3, trace_settings);

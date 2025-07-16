@@ -75,6 +75,7 @@ class ClientIVC {
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
@@ -226,7 +227,7 @@ class ClientIVC {
 
     bool prove_and_verify();
 
-    HonkProof decider_prove() const;
+    HonkProof decider_prove();
 
     VerificationKey get_vk() const;
     void hiding_circuit_recursive_verification(ClientCircuit& circuit);
