@@ -11,6 +11,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <array>
 #include <cstdint>
 #include <iostream>
@@ -372,6 +373,11 @@ template <class Params_> struct alignas(32) field {
     static void serialize_to_buffer(const field& value, uint8_t* buffer) { write(buffer, value); }
 
     static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
+
+    template <class V>
+    static field reconstruct_from_public(const std::span<field<V>>& limbs)
+        requires((std::is_same_v<Params, Bn254FqParams> || std::is_same_v<Params, Bn254FrParams>) &&
+                 (std::is_same_v<V, Bn254FrParams>));
 
     [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
 

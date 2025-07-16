@@ -689,6 +689,34 @@ template <class T> constexpr field<T> field<T>::get_root_of_unity(size_t subgrou
     return r;
 }
 
+template <class T>
+template <class V>
+field<T> field<T>::reconstruct_from_public(const std::span<field<V>>& limbs)
+    requires((std::is_same_v<T, Bn254FqParams> || std::is_same_v<T, Bn254FrParams>) &&
+             (std::is_same_v<V, Bn254FrParams>))
+{
+    // A point in Fq is represent with 4 public inputs
+    // A point in Fr is represent with 1 public input
+    static constexpr size_t FRS_PER_FQ = std::is_same_v<T, Bn254FqParams> ? 4 : 1;
+    BB_ASSERT_EQ(limbs.size(), FRS_PER_FQ, "Incorrect number of limbs");
+
+    field<T> result;
+
+    if (std::is_same_v<T, Bn254FqParams>) {
+        const uint256_t limb =
+            static_cast<uint256_t>(limbs[0]) +
+            (static_cast<uint256_t>(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+            (static_cast<uint256_t>(limbs[2]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+            (static_cast<uint256_t>(limbs[3]) << (bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+
+        result = field<T>(limb);
+    } else {
+        result = field<T>(limbs[0]);
+    }
+
+    return result;
+}
+
 template <class T> field<T> field<T>::random_element(numeric::RNG* engine) noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::random_element");
