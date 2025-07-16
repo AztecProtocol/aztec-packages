@@ -25,7 +25,7 @@ class API {
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials
-        bool update_inputs{ false };            // use file backed memory for polynomials
+        bool fix{ false };                      // fix precomputed VKs by overwriting them in the ivc-inputs file
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -45,6 +45,7 @@ class API {
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "  slow_low_memory " << flags.slow_low_memory << "\n"
+               << "  fix " << flags.fix << "\n"
                << "]" << std::endl;
             return os;
         }
