@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
@@ -182,6 +183,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_execute_sstore;
     case ExecutionOpCode::NOTEHASHEXISTS:
         return C::execution_sel_execute_notehash_exists;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        return C::execution_sel_execute_nullifier_exists;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -587,6 +590,8 @@ void ExecutionTraceBuilder::process(
                               { C::execution_note_hash_leaf_index_leaf_count_cmp_diff,
                                 note_hash_leaf_index_leaf_count_cmp_diff },
                           } });
+                //} else if (exec_opcode == ExecutionOpCode::NULLIFIEREXISTS) {
+                // no custom columns!
             }
         }
 
@@ -1086,6 +1091,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
         .add<lookup_notehash_exists_note_hash_index_range_settings, InteractionType::LookupGeneric>()
+        // NullifierExists opcode
+        .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
         // GetContractInstance opcode
         .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>();
 
