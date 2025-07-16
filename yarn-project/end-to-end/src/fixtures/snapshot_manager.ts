@@ -331,7 +331,7 @@ async function setupFromFresh(
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
-  const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
+  const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration, log: true });
   const anvil = res.anvil;
   aztecNodeConfig.l1RpcUrls = [res.rpcUrl];
 
