@@ -552,14 +552,10 @@ pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
-    // The following will give us <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
-    let right_hand_side_of_definition_of_n = params
-        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
-            quote {
-            <$param_type as $crate::traits::Packable>::N
-        }
-        })
-        .join(quote {+});
+    // The packed length is the sum of the packed lengths of each field type.
+    let packed_len = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| get_packable_len(param_type))
+        .fold(0, |acc, len| acc + len);
 
     // Generates packing code for each struct member that:
     // 1. Packs the member
@@ -597,12 +593,10 @@ pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted
         .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
         .join(quote {,});
 
-    // let packed_len = right_hand_side_of_definition_of_n.as_constant().unwrap();
-
     (
         quote {
         impl $crate::traits::Packable for $typ {
-            let N: u32 = $right_hand_side_of_definition_of_n;
+            let N: u32 = $packed_len;
 
             fn pack(self) -> [Field; Self::N] {
                 let mut result = [0; Self::N];
@@ -622,8 +616,7 @@ pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted
             }
         }
     },
-        // packed_len,
-        0, // TODO(benesjan): update this!
+        packed_len,
     )
 }
 
