@@ -92,8 +92,9 @@ export class NativeApi {
         
         // For now, we resolve the oldest pending request
         // In a more sophisticated implementation, we'd match request IDs
-        const [requestKey, pending] = this.pendingRequests.entries().next().value;
-        if (pending) {
+        const entry = this.pendingRequests.entries().next();
+        if (!entry.done) {
+          const [requestKey, pending] = entry.value;
           this.pendingRequests.delete(requestKey);
           pending.resolve(response);
         }

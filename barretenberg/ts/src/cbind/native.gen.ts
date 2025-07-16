@@ -352,6 +352,8 @@ export function fromClientIvcAccumulate(o: ClientIvcAccumulate): MsgpackClientIv
   return {
   witness: o.witness,};
 }
+export interface ClientIvcProve {}
+
 interface MsgpackClientIvcProve {}
 export function toClientIvcProve(o: MsgpackClientIvcProve): ClientIvcProve {
   return {};
@@ -677,6 +679,8 @@ export function fromClientIvcComputeIvcVkResponse(o: ClientIvcComputeIvcVkRespon
   return {
   bytes: o.bytes,};
 }
+export interface ClientIvcStartResponse {}
+
 interface MsgpackClientIvcStartResponse {}
 export function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): ClientIvcStartResponse {
   return {};
@@ -684,6 +688,8 @@ export function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): Clie
 export function fromClientIvcStartResponse(o: ClientIvcStartResponse): MsgpackClientIvcStartResponse {
   return {};
 }
+export interface ClientIvcLoadResponse {}
+
 interface MsgpackClientIvcLoadResponse {}
 export function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): ClientIvcLoadResponse {
   return {};
@@ -691,6 +697,8 @@ export function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): Client
 export function fromClientIvcLoadResponse(o: ClientIvcLoadResponse): MsgpackClientIvcLoadResponse {
   return {};
 }
+export interface ClientIvcAccumulateResponse {}
+
 interface MsgpackClientIvcAccumulateResponse {}
 export function toClientIvcAccumulateResponse(o: MsgpackClientIvcAccumulateResponse): ClientIvcAccumulateResponse {
   return {};
@@ -1013,8 +1021,9 @@ export class NativeApi {
         
         // For now, we resolve the oldest pending request
         // In a more sophisticated implementation, we'd match request IDs
-        const [requestKey, pending] = this.pendingRequests.entries().next().value;
-        if (pending) {
+        const entry = this.pendingRequests.entries().next();
+        if (!entry.done) {
+          const [requestKey, pending] = entry.value;
           this.pendingRequests.delete(requestKey);
           pending.resolve(response);
         }

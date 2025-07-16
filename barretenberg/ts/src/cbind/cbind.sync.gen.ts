@@ -364,6 +364,8 @@ export function fromClientIvcAccumulate(o: ClientIvcAccumulate): MsgpackClientIv
   return {
   witness: o.witness,};
 }
+export interface ClientIvcProve {}
+
 interface MsgpackClientIvcProve {}
 
 export function toClientIvcProve(o: MsgpackClientIvcProve): ClientIvcProve {
@@ -703,6 +705,8 @@ export function fromClientIvcComputeIvcVkResponse(o: ClientIvcComputeIvcVkRespon
   return {
   bytes: o.bytes,};
 }
+export interface ClientIvcStartResponse {}
+
 interface MsgpackClientIvcStartResponse {}
 
 export function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): ClientIvcStartResponse {
@@ -711,6 +715,8 @@ export function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): Clie
 export function fromClientIvcStartResponse(o: ClientIvcStartResponse): MsgpackClientIvcStartResponse {
   return {};
 }
+export interface ClientIvcLoadResponse {}
+
 interface MsgpackClientIvcLoadResponse {}
 
 export function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): ClientIvcLoadResponse {
@@ -719,6 +725,8 @@ export function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): Client
 export function fromClientIvcLoadResponse(o: ClientIvcLoadResponse): MsgpackClientIvcLoadResponse {
   return {};
 }
+export interface ClientIvcAccumulateResponse {}
+
 interface MsgpackClientIvcAccumulateResponse {}
 
 export function toClientIvcAccumulateResponse(o: MsgpackClientIvcAccumulateResponse): ClientIvcAccumulateResponse {

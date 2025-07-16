@@ -287,7 +287,7 @@ export class MsgpackSchemaCompiler {
                 typeName,
                 msgpackTypeName: 'Msgpack' + typeName,
                 isImport: true,
-                declaration: `interface Msgpack${typeName} {}`,
+                declaration: `export interface ${typeName} {}\n\ninterface Msgpack${typeName} {}`,
                 objectSchema: { __typename: schemaOrName.toLowerCase() },
                 toClassMethod: `export function to${typeName}(o: Msgpack${typeName}): ${typeName} {
   return {};
