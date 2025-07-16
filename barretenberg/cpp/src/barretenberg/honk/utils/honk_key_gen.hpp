@@ -64,12 +64,14 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
       "\n"
     "";
     print_types_import();
+    print_u256_const(1 << key->log_circuit_size, "N");
     print_u256_const(key->log_circuit_size, "LOG_N");
     print_u256_const(key->num_public_inputs, "NUMBER_OF_PUBLIC_INPUTS");
     os << ""
     "library " << class_name << " {\n"
       "    function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {\n"
       "        Honk.VerificationKey memory vk = Honk.VerificationKey({\n";
+    print_u256(1 << key->log_circuit_size, "circuitSize");
     print_u256(key->log_circuit_size, "logCircuitSize");
     print_u256(key->num_public_inputs, "publicInputsSize");
     print_g1(key->q_l, "ql");
