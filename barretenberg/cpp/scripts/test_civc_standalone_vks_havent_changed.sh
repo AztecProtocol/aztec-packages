@@ -14,8 +14,21 @@ cd ..
 pinned_short_hash="20e6f0d0"
 pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-${pinned_short_hash}.tar.gz"
 
-function compress_and_upload {
-    # 1) Compress the results
+export inputs_tmp_dir=$(mktemp -d)
+trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
+
+# For easily rerunning the inputs generation
+if [[ "${1:-}" == "--update_inputs" ]]; then
+    set -eu
+    echo "Updating pinned IVC inputs..."
+
+    # 1) Generate new inputs
+    echo "Running bootstrap to generate new IVC inputs..."
+
+    ../../bootstrap.sh # bootstrap aztec-packages from root
+    ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
+
+    # 2) Compress the results
     echo "Compressing the generated inputs..."
     tar -czf bb-civc-inputs.tar.gz -C $1 .
 
@@ -56,10 +69,10 @@ fi
 if [[ "${1:-}" == "--update_fast" ]]; then
     set -eu
     echo "Fast update mode: downloading inputs and fixing VKs..."
-    
+
     # Download current inputs
     curl -s -f "$pinned_civc_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/null
-    
+
     # Fix VKs for all folders
     for flow_folder in "$inputs_tmp_dir"/*; do
         if [ -d "$flow_folder" ]; then
@@ -67,30 +80,27 @@ if [[ "${1:-}" == "--update_fast" ]]; then
             ./build/bin/bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" --fix
         fi
     done
-    
+
     # Recompress with updated VKs
     echo "Compressing updated inputs..."
     tar -czf bb-civc-inputs-updated.tar.gz -C "$inputs_tmp_dir" .
-    
+
     # Compute hash
     full_hash=$(sha256sum bb-civc-inputs-updated.tar.gz | awk '{ print $1 }')
     short_hash=${full_hash:0:8}
     echo "New hash is: $short_hash"
-    
+
     # Upload to S3
     s3_key="bb-civc-inputs-${short_hash}.tar.gz"
     s3_uri="s3://aztec-ci-artifacts/protocol/${s3_key}"
     echo "Uploading updated inputs to ${s3_uri}..."
     aws s3 cp bb-civc-inputs-updated.tar.gz "${s3_uri}"
-    
+
     echo "Done. Updated inputs with fixed VKs available at:"
     echo "  ${s3_uri}"
     echo "Update the pinned_civc_inputs_url in this script to point to the new location."
     exit 0
 fi
-
-export inputs_tmp_dir=$(mktemp -d)
-trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
 
 curl -s -f "$pinned_civc_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/null
 
