@@ -322,8 +322,8 @@ pub comptime fn generate_serialize_to_fields(
         // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
         // method, add the resulting field array to `aux_vars` and each field to `fields`.
 
-        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so I work
-        // around this by:
+        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
+        // I work around this by:
 
         // 1. Getting the trait impl
         let trait_impl = typ.get_trait_impl(packable_constraint).unwrap();
