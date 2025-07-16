@@ -10,10 +10,10 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
 import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
+import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { UpdatedClassIdHints } from '@aztec/stdlib/kernel';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
@@ -99,12 +99,12 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
-    const { sharedMutableSlot, sharedMutableHashSlot } =
-      await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
+    const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
+      await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
       ProtocolContractAddress.ContractInstanceRegistry,
-      sharedMutableHashSlot,
+      delayedPublicMutableHashSlot,
     );
     const updatedClassIdWitness = await this.node.getPublicDataWitness(this.blockNumber, hashLeafSlot);
 
@@ -114,7 +114,10 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
 
     const readStorage = (storageSlot: Fr) =>
       this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
-    const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
+    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
+      delayedPublicMutableSlot,
+      readStorage,
+    );
 
     return new UpdatedClassIdHints(
       new MembershipWitness(
@@ -123,7 +126,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
         updatedClassIdWitness.siblingPath.toTuple(),
       ),
       updatedClassIdWitness.leafPreimage,
-      sharedMutableValues,
+      delayedPublicMutableValues,
     );
   }
 }

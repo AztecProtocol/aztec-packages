@@ -55,7 +55,7 @@ pub struct PrivateVerificationKeyHints {
     pub protocol_contract_leaf: ProtocolContractLeafPreimage,
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
-    pub updated_class_id_shared_mutable_values: [Field; 3],
+    pub updated_class_id_delayed_public_mutable_values: [Field; 3],
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {

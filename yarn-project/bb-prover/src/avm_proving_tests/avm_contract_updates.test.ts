@@ -4,7 +4,11 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { defaultGlobals } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
+import {
+  DelayedPublicMutableValuesWithHash,
+  ScheduledDelayChange,
+  ScheduledValueChange,
+} from '@aztec/stdlib/delayed-public-mutable';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
@@ -26,17 +30,18 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
     nextClassId: Fr,
     timestampOfChange: UInt64,
   ) => {
-    const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
+    const { delayedPublicMutableSlot } =
+      await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const valueChange = new ScheduledValueChange([previousClassId], [nextClassId], timestampOfChange);
     const delayChange = ScheduledDelayChange.empty();
-    const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
+    const delayedPublicMutableValuesWithHash = new DelayedPublicMutableValuesWithHash(valueChange, delayChange);
 
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
       await tester.setPublicStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot, value);
     };
 
-    await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);
+    await delayedPublicMutableValuesWithHash.writeToTree(delayedPublicMutableSlot, writeToTree);
   };
 
   it(
