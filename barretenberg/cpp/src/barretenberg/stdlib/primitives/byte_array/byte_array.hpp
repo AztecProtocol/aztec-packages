@@ -10,10 +10,28 @@
 #include "../field/field.hpp"
 namespace bb::stdlib {
 
+/**
+ * @brief Represents a dynamic array of bytes in-circuit.
+ *
+ * The `byte_array` class provides a high-level abstraction over a sequence of field elements
+ * constrained to be bytes.
+ *
+ * It supports construction from native values (`std::string`, `std::vector<uint8_t>`, or
+ * `field_t`) and conversion to a `field_t` elements, as well as various classical vector operations like slicing and
+ * reversing.
+ *
+ * Used in hashing primitives.
+ *
+ * @tparam Builder The circuit builder type (e.g., UltraCircuitBuilder).
+ */
 template <typename Builder> class byte_array {
-  public:
     using bytes_t = typename std::vector<field_t<Builder>>;
 
+  private:
+    Builder* context;
+    bytes_t values;
+
+  public:
     byte_array(Builder* parent_context = nullptr);
     byte_array(Builder* parent_context, size_t const n);
     byte_array(Builder* parent_context, std::string const& input);
@@ -97,10 +115,6 @@ template <typename Builder> class byte_array {
             value.unset_free_witness_tag();
         }
     }
-
-  private:
-    Builder* context;
-    bytes_t values;
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, byte_array<Builder> const& arr)

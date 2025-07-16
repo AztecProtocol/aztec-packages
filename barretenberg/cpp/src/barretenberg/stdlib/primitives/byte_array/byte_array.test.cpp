@@ -31,6 +31,13 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         EXPECT_TRUE(original_val.get_value() == reconstructed);
     };
 
+    fr slice_to_n_bytes(const fr& value, const uint64_t n)
+    {
+        uint256_t val(value);
+        uint256_t mask = (uint256_t(1) << (8 * n)) - 1; // lower n bytes
+        return fr(val & mask);
+    };
+
     void test_reverse()
     {
         Builder builder;
@@ -67,6 +74,58 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         std::string a = "ascii";
         byte_array_ct arr(&builder, a);
         EXPECT_EQ(arr.get_string(), a);
+    }
+
+    void test_into_bytes_decomposition_less_than_32_bytes()
+    {
+        for (size_t num_bytes = 1; num_bytes < 32; num_bytes++) {
+            Builder builder;
+
+            uint256_t raw_val = engine.get_random_uint256();
+            fr expected_val = slice_to_n_bytes(raw_val, num_bytes);
+
+            field_ct field = witness_ct(&builder, expected_val);
+            field.set_origin_tag(submitted_value_origin_tag);
+
+            byte_array_ct byte_arr(field, num_bytes);
+            EXPECT_EQ(byte_arr.size(), num_bytes);
+
+            check_byte_decomposition(byte_arr, field);
+
+            // Convert back to field
+            field_ct reconstructed_field(byte_arr);
+            EXPECT_EQ(reconstructed_field.get_value(), expected_val);
+            EXPECT_EQ(reconstructed_field.get_origin_tag(), submitted_value_origin_tag);
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+    }
+
+    void test_into_bytes_decomposition_less_than_32_bytes_const()
+    {
+        for (size_t num_bytes = 1; num_bytes < 32; num_bytes++) {
+            Builder builder;
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+            uint256_t raw_val = engine.get_random_uint256();
+            fr expected_val = slice_to_n_bytes(raw_val, num_bytes);
+
+            field_ct field(&builder, expected_val);
+            field.set_origin_tag(submitted_value_origin_tag);
+
+            byte_array_ct byte_arr(field, num_bytes);
+            EXPECT_EQ(byte_arr.size(), num_bytes);
+
+            check_byte_decomposition(byte_arr, field);
+
+            // Convert back to field
+            field_ct reconstructed_field(byte_arr);
+            EXPECT_EQ(reconstructed_field.get_value(), expected_val);
+            EXPECT_EQ(reconstructed_field.get_origin_tag(), submitted_value_origin_tag);
+
+            // Make sure no gates are added
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_start == 0);
+        }
     }
 
     void test_into_bytes_decomposition_32_bytes()
@@ -148,18 +207,12 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
     {
         Builder builder;
 
-        auto slice_to_31_bytes = [](const fr& value) {
-            uint256_t val(value);
-            uint256_t mask = (uint256_t(1) << 248) - 1; // lower 248 bits
-            return fr(val & mask);
-        };
-
         uint256_t a_expected = engine.get_random_uint256();
         uint256_t b_expected = engine.get_random_uint256();
 
-        field_ct a = witness_ct(&builder, slice_to_31_bytes(a_expected));
+        field_ct a = witness_ct(&builder, slice_to_n_bytes(a_expected, 31));
         a.set_origin_tag(submitted_value_origin_tag);
-        field_ct b = witness_ct(&builder, slice_to_31_bytes(b_expected));
+        field_ct b = witness_ct(&builder, slice_to_n_bytes(b_expected, 31));
         b.set_origin_tag(challenge_origin_tag);
 
         byte_array_ct arr(&builder);
@@ -172,8 +225,8 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         field_ct a_result(arr.slice(0, 31));
         field_ct b_result(arr.slice(31));
 
-        EXPECT_EQ(a_result.get_value(), slice_to_31_bytes(a_expected));
-        EXPECT_EQ(b_result.get_value(), slice_to_31_bytes(b_expected));
+        EXPECT_EQ(a_result.get_value(), slice_to_n_bytes(a_expected, 31));
+        EXPECT_EQ(b_result.get_value(), slice_to_n_bytes(b_expected, 31));
         // Tags should be preserved through write and slice
         EXPECT_EQ(a_result.get_origin_tag(), submitted_value_origin_tag);
         EXPECT_EQ(b_result.get_origin_tag(), challenge_origin_tag);
@@ -238,6 +291,16 @@ TYPED_TEST(ByteArrayTest, Reverse)
 TYPED_TEST(ByteArrayTest, ConstructFromString)
 {
     TestFixture::test_from_string_constructor();
+}
+
+TYPED_TEST(ByteArrayTest, ByteDecompositionUnique)
+{
+    TestFixture::test_into_bytes_decomposition_less_than_32_bytes();
+}
+
+TYPED_TEST(ByteArrayTest, ByteDecompositionUniqueConst)
+{
+    TestFixture::test_into_bytes_decomposition_less_than_32_bytes_const();
 }
 
 TYPED_TEST(ByteArrayTest, ByteDecomposition32Bytes)

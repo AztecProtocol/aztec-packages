@@ -34,6 +34,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
     : context(parent_context)
     , values(input.size())
 {
+    ASSERT(context);
     for (size_t i = 0; i < input.size(); ++i) {
         uint8_t c = input[i];
         field_t<Builder> value(witness_t(context, c));
@@ -249,13 +250,19 @@ template <typename Builder> byte_array<Builder>::operator field_t<Builder>() con
 
     return field_t<Builder>::accumulate(scaled_values);
 }
-
+/**
+ * @brief Appends the contents of another `byte_array` (`other`) to the end of this one.
+ */
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::write(byte_array const& other)
 {
     values.insert(values.end(), other.bytes().begin(), other.bytes().end());
     return *this;
 }
 
+/**
+ * @brief Overwrites this byte_array starting at index with the contents of other. Asserts that the write does not
+ * exceed the current size.
+ */
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(byte_array const& other, size_t index)
 {
     ASSERT(index + other.values.size() <= values.size());
@@ -265,6 +272,9 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(b
     return *this;
 }
 
+/**
+ * @brief Slice bytes from the byte array starting at `offset`. Does not add any constraints
+ */
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset) const
 {
     ASSERT(offset < values.size());
@@ -307,7 +317,7 @@ template <typename Builder> std::vector<uint8_t> byte_array<Builder>::get_value(
     const size_t length = values.size();
     std::vector<uint8_t> bytes(length, 0);
     for (size_t i = 0; i < length; ++i) {
-        bytes[i] = static_cast<uint8_t>(values[i].get_value().data[0]);
+        bytes[i] = static_cast<uint8_t>(values[i].get_value());
     }
     return bytes;
 }
