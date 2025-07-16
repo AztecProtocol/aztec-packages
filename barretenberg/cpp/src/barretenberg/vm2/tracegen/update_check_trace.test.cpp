@@ -73,10 +73,11 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
-    FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
-    FF shared_mutable_hash_leaf_slot = poseidon2::hash(
-        { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_hash_slot });
+    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
+    FF delayed_public_mutable_hash_leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+                                                                 CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                                                                 delayed_public_mutable_hash_slot });
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
@@ -118,8 +119,9 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillOnce(Return(PublicDataTreeLeafPreimage(PublicDataLeafValue(1, 0), 0, 0)));
-    EXPECT_CALL(mock_low_level_merkle_db,
-                get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, shared_mutable_hash_leaf_slot))
+    EXPECT_CALL(
+        mock_low_level_merkle_db,
+        get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, delayed_public_mutable_hash_leaf_slot))
         .WillOnce(Return(GetLowIndexedLeafResponse(false, leaf_index)));
 
     EXPECT_CALL(mock_field_gt, ff_gt(_, _)).WillRepeatedly(Return(true));
@@ -140,7 +142,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     constraining::check_interaction<UpdateCheckTraceBuilder,
                                     lookup_update_check_update_hash_poseidon2_settings,
-                                    lookup_update_check_shared_mutable_slot_poseidon2_settings,
+                                    lookup_update_check_delayed_public_mutable_slot_poseidon2_settings,
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,
@@ -157,7 +159,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = update_post_class;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
@@ -202,7 +204,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     for (size_t i = 0; i < update_leaf_values.size(); ++i) {
         FF leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
                                          CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-                                         shared_mutable_slot + i });
+                                         delayed_public_mutable_slot + i });
         update_leaf_slots.push_back(leaf_slot);
     }
 
@@ -243,7 +245,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     constraining::check_interaction<UpdateCheckTraceBuilder,
                                     lookup_update_check_update_hash_poseidon2_settings,
-                                    lookup_update_check_shared_mutable_slot_poseidon2_settings,
+                                    lookup_update_check_delayed_public_mutable_slot_poseidon2_settings,
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,

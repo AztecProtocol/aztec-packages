@@ -3,7 +3,7 @@ use std::cmp::min;
 
 mod test;
 
-// This data structure is used by SharedMutable to store the minimum delay with which a ScheduledValueChange object can
+// This data structure is used by DelayedPublicMutable to store the minimum delay with which a ScheduledValueChange object can
 // schedule a change.
 // This delay is initially equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
@@ -85,7 +85,7 @@ impl<let INITIAL_DELAY: u64> ScheduledDelayChange<INITIAL_DELAY> {
     /// historical timestamp (timestamp of a historical block). It only returns a meaningful value when called in
     /// private with historical timestamps. This function can be used alongside
     /// `ScheduledValueChange.get_time_horizon` to properly constrain the `include_by_timestamp` transaction
-    /// property when reading mutable shared state.
+    /// property when reading delayed mutable state.
     /// This value typically equals the current delay at the timestamp following the historical one (the earliest one in
     /// which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
     /// scheduled to happen in the near future, resulting in a way to schedule a change with an overall delay lower than

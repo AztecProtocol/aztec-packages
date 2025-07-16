@@ -36,8 +36,8 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
-    FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
+    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
 
     TreeStates tree_states = {};
     tree_states.publicDataTree.tree.root = 42;
@@ -51,8 +51,9 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     GlobalVariables globals{ .timestamp = current_timestamp };
     UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
 
-    EXPECT_CALL(merkle_db,
-                storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), shared_mutable_hash_slot))
+    EXPECT_CALL(
+        merkle_db,
+        storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), delayed_public_mutable_hash_slot))
         .WillRepeatedly(Return(FF(0)));
     EXPECT_CALL(merkle_db, get_tree_state()).WillRepeatedly(Return(tree_states));
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });
@@ -70,7 +71,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
                     .update_preimage_metadata = 0,
                     .update_preimage_pre_class_id = 0,
                     .update_preimage_post_class_id = 0,
-                    .shared_mutable_slot = shared_mutable_slot,
+                    .delayed_public_mutable_slot = delayed_public_mutable_slot,
                 }));
 
     // Negative: class id must be original class id
@@ -161,10 +162,11 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     instance.original_class_id = param.original_class_id;
 
     AztecAddress derived_address = compute_contract_address(instance);
-    FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
-    FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
-    FF shared_mutable_leaf_slot = poseidon2::hash(
-        { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_hash_slot });
+    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
+    FF delayed_public_mutable_leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+                                                            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                                                            delayed_public_mutable_hash_slot });
 
     FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + param.update_timestamp_of_change;
     std::vector<FF> update_preimage = { update_metadata, param.update_pre_class, param.update_post_class };
@@ -173,7 +175,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     for (size_t i = 0; i < update_preimage.size(); ++i) {
         FF leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
                                          CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-                                         shared_mutable_slot + i });
+                                         delayed_public_mutable_slot + i });
         update_preimage_slots.push_back(leaf_slot);
     }
 
@@ -191,8 +193,9 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     GlobalVariables globals{ .timestamp = current_timestamp };
     UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
 
-    EXPECT_CALL(merkle_db,
-                storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), shared_mutable_hash_slot))
+    EXPECT_CALL(
+        merkle_db,
+        storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), delayed_public_mutable_hash_slot))
         .WillRepeatedly(Return(update_hash));
     EXPECT_CALL(merkle_db, get_tree_state()).WillRepeatedly(Return(tree_states));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
@@ -210,7 +213,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillRepeatedly([&](const uint64_t& index) {
             return PublicDataTreeLeafPreimage(
-                PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, update_preimage[index]), 0, 0);
+                PublicDataLeafValue(FF(index) + delayed_public_mutable_leaf_slot, update_preimage[index]), 0, 0);
         });
 
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });
@@ -244,7 +247,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
                         .update_preimage_metadata = update_metadata,
                         .update_preimage_pre_class_id = param.update_pre_class,
                         .update_preimage_post_class_id = param.update_post_class,
-                        .shared_mutable_slot = shared_mutable_slot,
+                        .delayed_public_mutable_slot = delayed_public_mutable_slot,
                     }));
     }
 }
@@ -257,10 +260,11 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
-    FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
-    FF shared_mutable_leaf_slot = poseidon2::hash(
-        { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_hash_slot });
+    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
+    FF delayed_public_mutable_leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+                                                            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                                                            delayed_public_mutable_hash_slot });
 
     TreeSnapshots trees = {};
 
@@ -273,20 +277,22 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     GlobalVariables globals{ .timestamp = current_timestamp };
     UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
 
-    EXPECT_CALL(merkle_db,
-                storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), shared_mutable_hash_slot))
+    EXPECT_CALL(
+        merkle_db,
+        storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), delayed_public_mutable_hash_slot))
         .WillRepeatedly(Return(FF(27)));
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
     EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
         .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
-            return GetLowIndexedLeafResponse(true, static_cast<uint64_t>(leaf_slot - shared_mutable_leaf_slot));
+            return GetLowIndexedLeafResponse(true, static_cast<uint64_t>(leaf_slot - delayed_public_mutable_leaf_slot));
         });
 
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillRepeatedly([&](const uint64_t& index) {
-            return PublicDataTreeLeafPreimage(PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, 0), 0, 0);
+            return PublicDataTreeLeafPreimage(
+                PublicDataLeafValue(FF(index) + delayed_public_mutable_leaf_slot, 0), 0, 0);
         });
 
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });

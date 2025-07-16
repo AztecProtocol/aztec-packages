@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::shared_mutable::SharedMutable,
+    state_vars::delayed_public_mutable::DelayedPublicMutable,
     test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
 };
 use protocol_types::traits::Empty;
@@ -17,20 +17,20 @@ global TEST_INITIAL_DELAY: u64 = 60 * 60 * 24;
 
 unconstrained fn in_public(
     context: &mut PublicContext,
-) -> SharedMutable<MockStruct, TEST_INITIAL_DELAY, &mut PublicContext> {
-    SharedMutable::new(context, storage_slot)
+) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, &mut PublicContext> {
+    DelayedPublicMutable::new(context, storage_slot)
 }
 
 unconstrained fn in_private(
     context: &mut PrivateContext,
-) -> SharedMutable<MockStruct, TEST_INITIAL_DELAY, &mut PrivateContext> {
-    SharedMutable::new(context, storage_slot)
+) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, &mut PrivateContext> {
+    DelayedPublicMutable::new(context, storage_slot)
 }
 
 unconstrained fn in_utility(
     context: UtilityContext,
-) -> SharedMutable<MockStruct, TEST_INITIAL_DELAY, UtilityContext> {
-    SharedMutable::new(context, storage_slot)
+) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, UtilityContext> {
+    DelayedPublicMutable::new(context, storage_slot)
 }
 
 #[test]

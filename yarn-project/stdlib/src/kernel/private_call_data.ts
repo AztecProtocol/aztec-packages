@@ -9,8 +9,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import { DelayedPublicMutableValues } from '../delayed_public_mutable/delayed_public_mutable_values.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { SharedMutableValues } from '../shared_mutable/shared_mutable_values.js';
 import { ProtocolContractLeafPreimage, PublicDataTreeLeafPreimage } from '../trees/index.js';
 import { VerificationKeyAsFields } from '../vks/verification_key.js';
 import { PrivateCircuitPublicInputs } from './private_circuit_public_inputs.js';
@@ -162,7 +162,7 @@ export class UpdatedClassIdHints {
   constructor(
     public updatedClassIdWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
     public updatedClassIdLeaf: PublicDataTreeLeafPreimage,
-    public updatedClassIdValues: SharedMutableValues,
+    public updatedClassIdValues: DelayedPublicMutableValues,
   ) {}
 
   static getFields(fields: FieldsOf<UpdatedClassIdHints>) {
@@ -193,7 +193,7 @@ export class UpdatedClassIdHints {
       reader.readObject(PublicDataTreeLeafPreimage),
       reader.readObject({
         fromBuffer(reader) {
-          return SharedMutableValues.fromBuffer(reader, UPDATES_VALUE_SIZE);
+          return DelayedPublicMutableValues.fromBuffer(reader, UPDATES_VALUE_SIZE);
         },
       }),
     );

@@ -40,7 +40,7 @@ unconstrained fn test_storage_slot_allocation() {
     //   note_in_public_immutable: PublicImmutable<TestNote, Context>,
     //   struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
     //   struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-    //   struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
+    //   struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
     //   dummy_variable: PrivateImmutable<TestNote, Context>,
     // }
 
@@ -95,8 +95,8 @@ unconstrained fn test_storage_slot_allocation() {
     // Maps always allocate a single slot.
     expected_slot += 1;
 
-    assert_eq(Test::storage_layout().struct_in_shared_mutable.slot, expected_slot);
-    // struct_in_shared_mutable should allocate 12 slots because ExampleStruct occupies 5 slots. SharedMutable stores
+    assert_eq(Test::storage_layout().struct_in_delayed_public_mutable.slot, expected_slot);
+    // struct_in_delayed_public_mutable should allocate 12 slots because ExampleStruct occupies 5 slots. DelayedPublicMutable stores
     // the value two times (10 slots), and it also stores the time values (one slot) and the hash (another slot).
     expected_slot += 12;
 

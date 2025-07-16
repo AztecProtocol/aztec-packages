@@ -81,7 +81,7 @@ Gates | Operation
 ----- | ----------
 ~75   | Hashing 3 fields with Poseidon2
 3500  | Reading a value from a tree (public data tree, note hash tree, nullifier tree)
-4000  | Reading a shared mutable read
+4000  | Reading a delayed public mutable read
 X000  | Calculating sha256
 X000  | Constrained encryption of a log of Y fields
 X000  | Constrained encryption and tag a log of Y fields
