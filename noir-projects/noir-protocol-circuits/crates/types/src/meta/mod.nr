@@ -32,7 +32,8 @@ pub comptime fn get_packable_len(typ: Type) -> u32 {
     let packable_constraint: TraitConstraint =
         quote { crate::traits::Packable }.as_trait_constraint();
     // 2. Getting the trait impl
-    let trait_impl = typ.get_trait_impl(packable_constraint).unwrap();
+    let trait_impl =
+        typ.get_trait_impl(packable_constraint).expect(f"Type {typ} does not implement Packable");
     // 3. Getting the return type of the pack method
     let pack_method_return_type = trait_impl.methods()[0].return_type();
     // 3. Representing the return type as an array - this gives me (Type, Type) where the first type is the type of
