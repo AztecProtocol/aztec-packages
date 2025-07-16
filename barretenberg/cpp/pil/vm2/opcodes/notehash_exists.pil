@@ -19,6 +19,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     sel_execute_notehash_exists = 0; // from execution.pil.
 
     pol commit note_hash_leaf_in_range;
+    note_hash_leaf_in_range * (1 - note_hash_leaf_in_range) = 0;
 
     // Compare note_hash_leaf_in_range = register[1] (leaf_index) < NOTE_HASH_TREE_LEAF_COUNT
     pol LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT = register[1] - constants.NOTE_HASH_TREE_LEAF_COUNT;

@@ -13,7 +13,7 @@ template <typename FF_> class notehash_existsImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 3, 3 };
+    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -40,33 +40,40 @@ template <typename FF_> class notehash_existsImpl {
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp =
+                in.get(C::execution_note_hash_leaf_in_range) * (FF(1) - in.get(C::execution_note_hash_leaf_in_range));
+            tmp *= scaling_factor;
+            std::get<0>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
+            auto tmp =
                 in.get(C::execution_sel_execute_notehash_exists) *
                 (((execution_LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT - execution_LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) *
                       in.get(C::execution_note_hash_leaf_in_range) +
                   execution_LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) -
                  in.get(C::execution_note_hash_leaf_index_leaf_count_cmp_diff));
             tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
+            std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
                        (FF(1) - in.get(C::execution_note_hash_leaf_in_range)) * in.get(C::execution_register_2_);
             tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
+            std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         { // NOTEHASH_EXISTS_U1_OUTPUT_TAG
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
                        (constants_MEM_TAG_U1 - in.get(C::execution_mem_tag_reg_2_));
             tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
+            std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         { // NOTE_HASH_EXISTS_SUCCESS
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_notehash_exists) * in.get(C::execution_sel_opcode_error);
             tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
+            std::get<4>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -78,20 +85,20 @@ template <typename FF> class notehash_exists : public Relation<notehash_existsIm
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 1:
-            return "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE";
         case 2:
-            return "NOTEHASH_EXISTS_U1_OUTPUT_TAG";
+            return "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE";
         case 3:
+            return "NOTEHASH_EXISTS_U1_OUTPUT_TAG";
+        case 4:
             return "NOTE_HASH_EXISTS_SUCCESS";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE = 1;
-    static constexpr size_t SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG = 2;
-    static constexpr size_t SR_NOTE_HASH_EXISTS_SUCCESS = 3;
+    static constexpr size_t SR_NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE = 2;
+    static constexpr size_t SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG = 3;
+    static constexpr size_t SR_NOTE_HASH_EXISTS_SUCCESS = 4;
 };
 
 } // namespace bb::avm2
