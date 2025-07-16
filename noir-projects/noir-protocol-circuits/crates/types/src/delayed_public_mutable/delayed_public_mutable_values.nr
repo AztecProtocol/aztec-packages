@@ -31,12 +31,12 @@ impl<T, let INITIAL_DELAY: u64> DelayedPublicMutableValues<T, INITIAL_DELAY> {
     }
 }
 
-pub fn unpack_value_change<T>(packed: [Field; 2 * (<T as Packable>::N) + 1]) -> ScheduledValueChange<T>
+pub fn unpack_value_change<T, let M: u32>(packed: [Field; 2 * M + 1]) -> ScheduledValueChange<T>
 where
-    T: Packable,
+    T: Packable<N = M>,
 {
     let svc_pre_packed = arrays::subarray(packed, 1);
-    let svc_post_packed = arrays::subarray(packed, <T as Packable>::N + 1);
+    let svc_post_packed = arrays::subarray(packed, M + 1);
 
     // We first cast to u32 as the timestamp_of_change is packed into the same field as the delay change and it
     // occupies the first 32 bits of the field.
@@ -122,7 +122,7 @@ where
     }
 
     fn unpack(fields: [Field; Self::N]) -> Self {
-        let svc = unpack_value_change::<T>(fields);
+        let svc = unpack_value_change::<T, _>(fields);
         let sdc = unpack_delay_change::<INITIAL_DELAY>(fields[0]);
         Self::new(svc, sdc)
     }

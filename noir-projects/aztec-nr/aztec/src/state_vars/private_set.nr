@@ -56,12 +56,12 @@ where
     }
     // docs:end:insert
 
-    pub fn pop_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
+    pub fn pop_notes<let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
         self,
-        options: NoteGetterOptions<Note, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
-        Note: Packable,
+        Note: Packable<N = M>,
     {
         let (retrieved_notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
         // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
@@ -95,12 +95,12 @@ where
 
     /// Note that if you later on remove the note it's much better to use `pop_notes` as `pop_notes` results
     /// in significantly less constrains due to avoiding 1 read request check.
-    pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
+    pub fn get_notes<let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
         self,
-        options: NoteGetterOptions<Note, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
-        Note: Packable,
+        Note: Packable<N = M>,
     {
         get_notes(self.context, self.storage_slot, options).0
     }

@@ -11,7 +11,7 @@ use crate::{
     traits::{Hash, Packable},
 };
 
-pub fn validate_with_hash_hints<T, let N: u32>(
+pub fn validate_with_hash_hints<T>(
     historical_header: BlockHeader,
     with_hash_storage_slot: Field,
     contract_address: AztecAddress,
@@ -24,7 +24,7 @@ where
 {
     let storage_hash = public_storage_historical_read(
         historical_header,
-        compute_with_hash_hash_storage_slot::<T, N>(with_hash_storage_slot),
+        compute_with_hash_hash_storage_slot::<T>(with_hash_storage_slot),
         contract_address,
         witness,
         leaf_preimage,
@@ -45,11 +45,11 @@ where
     };
 }
 
-pub fn compute_with_hash_hash_storage_slot<T, let N: u32>(with_hash_storage_slot: Field) -> Field
+pub fn compute_with_hash_hash_storage_slot<T>(with_hash_storage_slot: Field) -> Field
 where
     T: Packable,
 {
-    with_hash_storage_slot + N as Field
+    with_hash_storage_slot + <T as Packable>::N as Field
 }
 
 fn public_storage_historical_read(
@@ -155,7 +155,7 @@ mod tests {
         let with_hash_storage_slot = 27;
         let contract_address = AztecAddress::from_field(42);
 
-        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>, _>(
+        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>>(
             with_hash_storage_slot,
         );
         let hash_leaf_slot = compute_public_data_tree_index(contract_address, hash_storage_slot);
@@ -312,7 +312,7 @@ mod tests {
         let with_hash_storage_slot = 27;
         let contract_address = AztecAddress::from_field(42);
 
-        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>, _>(
+        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>>(
             with_hash_storage_slot,
         );
         let hash_leaf_slot = compute_public_data_tree_index(contract_address, hash_storage_slot);

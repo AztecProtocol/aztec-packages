@@ -135,9 +135,9 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N
     }
 }
 
-impl<Note> NoteGetterOptions<Note, <Note as Packable>::N, Field, Field>
+impl<Note, let M: u32> NoteGetterOptions<Note, M, Field, Field>
 where
-    Note: NoteType + Packable,
+    Note: NoteType + Packable<N = M>,
 {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> Self {
@@ -155,9 +155,9 @@ where
     }
 }
 
-impl<Note, PREPROCESSOR_ARGS> NoteGetterOptions<Note, PREPROCESSOR_ARGS, Field>
+impl<Note, let M: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, Field>
 where
-    Note: NoteType + Packable,
+    Note: NoteType + Packable<N = M>,
 {
     // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from
     // the database and preprocessor_args as its parameters.
@@ -180,9 +180,9 @@ where
     }
 }
 
-impl<Note, FILTER_ARGS> NoteGetterOptions<Note, Field, FILTER_ARGS>
+impl<Note, let M: u32, FILTER_ARGS> NoteGetterOptions<Note, M, Field, FILTER_ARGS>
 where
-    Note: NoteType + Packable,
+    Note: NoteType + Packable<N = M>,
 {
     // This function initializes a NoteGetterOptions with a filter, which takes
     // the notes returned from the database and filter_args as its parameters.
