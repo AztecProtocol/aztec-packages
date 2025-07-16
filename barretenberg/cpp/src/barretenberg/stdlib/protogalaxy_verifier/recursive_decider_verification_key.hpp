@@ -111,10 +111,9 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     NativeDeciderVerificationKey get_value()
     {
         using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
-        // WORKTODO: dont use the constructor here, just set logn and num_public_inputs directly
-        NativeFF dyadic_size = NativeFF(2).pow(vk_and_hash->vk->log_circuit_size.get_value());
-        auto native_honk_vk = std::make_shared<NativeVerificationKey>(
-            static_cast<uint64_t>(dyadic_size), static_cast<uint64_t>(vk_and_hash->vk->num_public_inputs.get_value()));
+        auto native_honk_vk = std::make_shared<NativeVerificationKey>();
+        native_honk_vk->log_circuit_size = static_cast<uint64_t>(vk_and_hash->vk->log_circuit_size.get_value());
+        native_honk_vk->num_public_inputs = static_cast<uint64_t>(vk_and_hash->vk->num_public_inputs.get_value());
         native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(vk_and_hash->vk->pub_inputs_offset.get_value());
 
         for (auto [vk, final_decider_vk] : zip_view(vk_and_hash->vk->get_all(), native_honk_vk->get_all())) {
