@@ -17,7 +17,7 @@ CHAIN_ID=${CHAIN_ID:-"1337"}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 
 # Install cast if it is not installed
-if ! command -v cast &> /dev/null; then
+if ! command -v cast &>/dev/null; then
   curl -L https://foundry.paradigm.xyz | bash
   ## add cast to path
   $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
@@ -64,7 +64,7 @@ function create_execution_genesis {
   fi
 
   # Write the updated Genesis JSON to the output file
-  echo "$updated_json" > "$execution_genesis_output"
+  echo "$updated_json" >"$execution_genesis_output"
   echo "Execution genesis created at $execution_genesis_output"
 }
 
@@ -79,7 +79,7 @@ function prefund_accounts {
 
   # Generate addresses from key indices from mnemonic
   # Creates an array of key_indices
-  IFS=',' read -ra INDICES <<< "$key_indices"
+  IFS=',' read -ra INDICES <<<"$key_indices"
   for i in "${INDICES[@]}"; do
     # Get private key and address
     PRIVATE_KEY=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $i)
@@ -136,19 +136,18 @@ function create_beacon_genesis {
     -v "$tmp_dir:/app/tmp" \
     -v "$beacon_genesis_path:/app/out" \
     maddiaa/eth2-testnet-genesis deneb \
-      --config="./tmp/config.yaml" \
-      --eth1-config="./tmp/genesis.json" \
-      --preset-phase0=minimal \
-      --preset-altair=minimal \
-      --preset-bellatrix=minimal \
-      --preset-capella=minimal \
-      --preset-deneb=minimal \
-      --state-output="./out/genesis.ssz" \
-      --tranches-dir="./out" \
-      --mnemonics="./tmp/mnemonics.yaml" \
-      --eth1-withdrawal-address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
-      --eth1-match-genesis-time
-
+    --config="./tmp/config.yaml" \
+    --eth1-config="./tmp/genesis.json" \
+    --preset-phase0=minimal \
+    --preset-altair=minimal \
+    --preset-bellatrix=minimal \
+    --preset-capella=minimal \
+    --preset-deneb=minimal \
+    --state-output="./out/genesis.ssz" \
+    --tranches-dir="./out" \
+    --mnemonics="./tmp/mnemonics.yaml" \
+    --eth1-withdrawal-address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+    --eth1-match-genesis-time
 
   cp "$tmp_dir/genesis.json" "$GENESIS_PATH/genesis.json"
   cp "$tmp_dir/config.yaml" "$GENESIS_PATH/config.yaml"
@@ -165,11 +164,11 @@ function create_execution_chainspec {
   local execution_genesis_file="$1"
   local execution_chainspec_output="$2"
 
-  cat $execution_genesis_file | jq --from-file gen2spec.jq > $execution_chainspec_output
+  cat $execution_genesis_file | jq --from-file $DIR_PATH/config/gen2spec.jq >$execution_chainspec_output
 }
 
 function create_deposit_contract_block {
-  echo 0 > "$GENESIS_PATH/deposit_contract_block.txt"
+  echo 0 >"$GENESIS_PATH/deposit_contract_block.txt"
   echo "Deposit contract block created at $GENESIS_PATH/deposit_contract_block.txt"
 }
 
@@ -177,7 +176,7 @@ function create_deposit_contract_block {
 function write_ssz_file_base64 {
   local ssz_file="$GENESIS_PATH/genesis.ssz"
   local output_file="$GENESIS_PATH/genesis-ssz"
-  base64 -w 0 "$ssz_file" > "$output_file"
+  base64 -w 0 "$ssz_file" >"$output_file"
   echo "SSZ file base64 encoded at $output_file"
 }
 
