@@ -10,9 +10,11 @@ namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                                                 const std::shared_ptr<Transcript>& transcript)
+                                                                 const std::shared_ptr<Transcript>& transcript,
+                                                                 MergeSettings settings)
     : builder(builder)
     , transcript(transcript)
+    , settings(settings)
 {}
 
 /**
@@ -69,10 +71,17 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
         opening_claims.emplace_back(OpeningClaim{ { kappa, T_evals[idx] }, T_commitments[idx] });
     }
 
-    // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
+    // Check the appropriate identity based on the given merge settings
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
-        T_evals[idx].assert_equal(t_evals[idx] + T_prev_shifted_eval_reconstructed);
+        if (settings == MergeSettings::PREPEND) {
+            //  T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
+            FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
+            T_evals[idx].assert_equal(t_evals[idx] + T_prev_shifted_eval_reconstructed);
+        } else {
+            // T_j(\kappa) =  T_{j,prev}(\kappa) + \kappa^m * t_j(\kappa)
+            FF t_shifted_eval_reconstructed = t_evals[idx] * kappa.pow(subtable_size);
+            T_evals[idx].assert_equal(T_prev_evals[idx] + t_shifted_eval_reconstructed);
+        }
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");

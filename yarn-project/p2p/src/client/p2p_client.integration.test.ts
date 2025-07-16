@@ -24,6 +24,8 @@ import { mockAttestation } from '../mem_pools/attestation_pool/mocks.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
+import { BitVector } from '../services/reqresp/protocols/block_txs/bitvector.js';
+import { BlockTxsRequest, BlockTxsResponse } from '../services/reqresp/protocols/block_txs/block_txs_reqresp.js';
 import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import { ReqRespStatus } from '../services/reqresp/status.js';
 import {
@@ -36,6 +38,7 @@ import {
 import { MockGossipSubNetwork } from '../test-helpers/mock-pubsub.js';
 
 const TEST_TIMEOUT = 120000;
+jest.setTimeout(TEST_TIMEOUT);
 
 const NUMBER_OF_PEERS = 2;
 
@@ -60,11 +63,18 @@ describe('p2p client integration', () => {
     logger = createLogger('p2p:test:integration');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
+    //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
+    epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
+    epochCache.getRegisteredValidators.mockResolvedValue([]);
+
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
     txPool.addTxs.mockResolvedValue(1);
+    txPool.getTxsByHash.mockImplementation(() => {
+      return Promise.resolve([] as Tx[]);
+    });
 
     worldState.status.mockResolvedValue({
       state: mock(),
@@ -80,17 +90,19 @@ describe('p2p client integration', () => {
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+
     logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
-    if (clients.length > 0) {
-      await shutdown(clients);
-    }
+    await shutdown(clients);
     logger.info('Shut down p2p clients');
+
     clients = [];
   });
 
   // Shutdown all test clients
   const shutdown = async (clients: P2PClient[]) => {
-    await Promise.all([...clients.map(client => client.stop())]);
+    await Promise.all(clients.map(client => client.stop()));
     await sleep(1000);
   };
 
@@ -218,291 +230,255 @@ describe('p2p client integration', () => {
     }
   };
 
-  it(
-    'returns an empty array if unable to find a transaction from another peer',
-    async () => {
-      // We want to create a set of nodes and request transaction from them
-      // Not using a before each as a the wind down is not working as expected
-      clients = (
-        await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
-          p2pBaseConfig: { ...emptyChainConfig, ...getP2PDefaultConfig() },
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-          logger,
-        })
-      ).map(x => x.client);
-      const [client1] = clients;
+  it('returns an empty array if unable to find a transaction from another peer', async () => {
+    // We want to create a set of nodes and request transaction from them
+    // Not using a before each as a the wind down is not working as expected
+    clients = (
+      await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
+        p2pBaseConfig: { ...emptyChainConfig, ...getP2PDefaultConfig() },
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+        logger,
+      })
+    ).map(x => x.client);
+    const [client1] = clients;
 
-      await sleep(2000);
-      logger.info(`Finished waiting for clients to connect`);
+    await sleep(2000);
+    logger.info(`Finished waiting for clients to connect`);
 
-      // Perform a get tx request from client 1
-      const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+    // Perform a get tx request from client 1
+    const tx = await mockTx();
+    const txHash = await tx.getTxHash();
 
-      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
-      expect(requestedTxs).toEqual([]);
+    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    expect(requestedTxs).toEqual([]);
+  });
 
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
+  it('can request a transaction from another peer', async () => {
+    // We want to create a set of nodes and request transaction from them
+    clients = (
+      await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
+        p2pBaseConfig,
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+        logger,
+      })
+    ).map(x => x.client);
+    const [client1] = clients;
 
-  it(
-    'can request a transaction from another peer',
-    async () => {
-      // We want to create a set of nodes and request transaction from them
-      clients = (
-        await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-          logger,
-        })
-      ).map(x => x.client);
-      const [client1] = clients;
+    // Give the nodes time to discover each other
+    await sleep(6000);
+    logger.info(`Finished waiting for clients to connect`);
 
-      // Give the nodes time to discover each other
-      await sleep(6000);
-      logger.info(`Finished waiting for clients to connect`);
+    // Perform a get tx request from client 1
+    const tx = await mockTx();
+    const txHash = await tx.getTxHash();
+    // Mock the tx pool to return the tx we are looking for
+    txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-      // Perform a get tx request from client 1
-      const tx = await mockTx();
-      const txHash = await tx.getTxHash();
-      // Mock the tx pool to return the tx we are looking for
-      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
+    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    expect(requestedTxs).toHaveLength(1);
+    const requestedTx = requestedTxs[0];
 
-      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
-      expect(requestedTxs).toHaveLength(1);
-      const requestedTx = requestedTxs[0];
+    // Expect the tx to be the returned tx to be the same as the one we mocked
+    expect(requestedTx?.toBuffer()).toStrictEqual(tx.toBuffer());
+  });
 
-      // Expect the tx to be the returned tx to be the same as the one we mocked
-      expect(requestedTx?.toBuffer()).toStrictEqual(tx.toBuffer());
+  it('request batches of txs from another peer', async () => {
+    const txToRequestCount = 8;
+    const txBatchSize = 1;
 
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
+    // We want to create a set of nodes and request transaction from them
+    clients = (
+      await makeAndStartTestP2PClients(3, {
+        p2pBaseConfig,
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+        logger,
+      })
+    ).map(x => x.client);
+    const [client1] = clients;
 
-  it(
-    'request batches of txs from another peer',
-    async () => {
-      const txToRequestCount = 8;
-      const txBatchSize = 1;
+    // Give the nodes time to discover each other
+    await sleep(6000);
+    logger.info(`Finished waiting for clients to connect`);
 
-      // We want to create a set of nodes and request transaction from them
-      clients = (
-        await makeAndStartTestP2PClients(3, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-          logger,
-        })
-      ).map(x => x.client);
-      const [client1] = clients;
+    // Perform a get tx request from client 1
+    const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
-      // Give the nodes time to discover each other
-      await sleep(6000);
-      logger.info(`Finished waiting for clients to connect`);
+    // Mock the tx pool to return the tx we are looking for
+    //@ts-expect-error - txHash is protected and should not be accessed directly outside of the test env.
+    txPool.getTxByHash.mockImplementation((hash: TxHash) => Promise.resolve(txs.find(t => t.txHash?.equals(hash))));
+    //@ts-expect-error - we want to spy on the sendBatchRequest method
+    const sendBatchSpy = jest.spyOn(client1.p2pService, 'sendBatchRequest');
+    //@ts-expect-error - we want to spy on the sendRequestToPeer method
+    const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
 
-      // Perform a get tx request from client 1
-      const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
-      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+    expect(resultingTxs).toHaveLength(txs.length);
 
-      // Mock the tx pool to return the tx we are looking for
+    // Expect the tx to be the returned tx to be the same as the one we mocked
+    resultingTxs.forEach((requestedTx, i) => {
+      expect(requestedTx.toBuffer()).toStrictEqual(txs[i].toBuffer());
+    });
+
+    const request = chunkTxHashesRequest(txHashes, txBatchSize);
+    expect(request).toHaveLength(Math.ceil(txToRequestCount / txBatchSize));
+
+    expect(sendBatchSpy).toHaveBeenCalledWith(
+      ReqRespSubProtocol.TX,
+      request,
+      undefined, // pinnedPeer
+      expect.anything(), // timeoutMs
+      expect.anything(), // maxPeers
+      expect.anything(), // maxRetryAttempts
+    );
+
+    expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(request.length);
+  });
+
+  it('request batches of txs from another peers', async () => {
+    const txToRequestCount = 8;
+    const txBatchSize = 1;
+
+    // We want to create a set of nodes and request transaction from them
+    clients = (
+      await makeAndStartTestP2PClients(3, {
+        p2pBaseConfig,
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+        logger,
+      })
+    ).map(x => x.client);
+    const [client1] = clients;
+
+    // Give the nodes time to discover each other
+    await sleep(6000);
+    logger.info(`Finished waiting for clients to connect`);
+
+    // Perform a get tx request from client 1
+    const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+
+    // Mock the tx pool to return every other tx we are looking for
+    txPool.getTxByHash.mockImplementation((hash: TxHash) => {
       //@ts-expect-error - txHash is protected and should not be accessed directly outside of the test env.
-      txPool.getTxByHash.mockImplementation((hash: TxHash) => Promise.resolve(txs.find(t => t.txHash?.equals(hash))));
-      //@ts-expect-error - we want to spy on the sendBatchRequest method
-      const sendBatchSpy = jest.spyOn(client1.p2pService, 'sendBatchRequest');
-      //@ts-expect-error - we want to spy on the sendRequestToPeer method
-      const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
+      const idx = txs.findIndex(t => t.txHash.equals(hash));
+      return idx % 2 === 0 ? Promise.resolve(txs[idx]) : Promise.resolve(undefined);
+    });
+    //@ts-expect-error - we want to spy on the sendBatchRequest method
+    const sendBatchSpy = jest.spyOn(client1.p2pService, 'sendBatchRequest');
+    //@ts-expect-error - we want to spy on the sendRequestToPeer method
+    const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
 
-      const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
-      expect(resultingTxs).toHaveLength(txs.length);
+    const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+    expect(resultingTxs).toHaveLength(txs.length / 2);
 
-      // Expect the tx to be the returned tx to be the same as the one we mocked
-      resultingTxs.forEach((requestedTx, i) => {
-        expect(requestedTx.toBuffer()).toStrictEqual(txs[i].toBuffer());
-      });
+    // Expect the tx to be the returned tx to be the same as the one we mocked
+    // Note we have only returned the half of the txs, so we expect the resulting txs to be every other tx
+    resultingTxs.forEach((requestedTx, i) => {
+      expect(requestedTx.toBuffer()).toStrictEqual(txs[2 * i].toBuffer());
+    });
 
-      const request = chunkTxHashesRequest(txHashes, txBatchSize);
-      expect(request).toHaveLength(Math.ceil(txToRequestCount / txBatchSize));
+    const request = chunkTxHashesRequest(txHashes, txBatchSize);
+    expect(request).toHaveLength(Math.ceil(txToRequestCount / txBatchSize));
+    expect(request[0]).toHaveLength(txBatchSize);
 
-      expect(sendBatchSpy).toHaveBeenCalledWith(
-        ReqRespSubProtocol.TX,
-        request,
-        undefined, // pinnedPeer
-        expect.anything(), // timeoutMs
-        expect.anything(), // maxPeers
-        expect.anything(), // maxRetryAttempts
-      );
+    expect(sendBatchSpy).toHaveBeenCalledWith(
+      ReqRespSubProtocol.TX,
+      request,
+      undefined, // pinnedPeer
+      expect.anything(), // timeoutMs
+      expect.anything(), // maxPeers
+      expect.anything(), // maxRetryAttempts
+    );
 
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(request.length);
+    expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(request.length);
+  });
 
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
+  it('will penalize peers that send invalid proofs', async () => {
+    // We want to create a set of nodes and request transaction from them
+    clients = (
+      await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
+        p2pBaseConfig,
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+        alwaysTrueVerifier: false,
+        logger,
+      })
+    ).map(x => x.client);
+    const [client1, client2] = clients;
+    const client2PeerId = await client2.getEnr()!.peerId();
 
-  it(
-    'request batches of txs from another peers',
-    async () => {
-      const txToRequestCount = 8;
-      const txBatchSize = 1;
+    // Give the nodes time to discover each other
+    await sleep(6000);
+    logger.info(`Finished waiting for clients to connect`);
 
-      // We want to create a set of nodes and request transaction from them
-      clients = (
-        await makeAndStartTestP2PClients(3, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-          logger,
-        })
-      ).map(x => x.client);
-      const [client1] = clients;
+    const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
-      // Give the nodes time to discover each other
-      await sleep(6000);
-      logger.info(`Finished waiting for clients to connect`);
+    // Perform a get tx request from client 1
+    const tx = await mockTx();
+    const txHash = await tx.getTxHash();
 
-      // Perform a get tx request from client 1
-      const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
-      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    // Return the correct tx with an invalid proof -> active attack
+    txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-      // Mock the tx pool to return every other tx we are looking for
-      txPool.getTxByHash.mockImplementation((hash: TxHash) => {
-        //@ts-expect-error - txHash is protected and should not be accessed directly outside of the test env.
-        const idx = txs.findIndex(t => t.txHash.equals(hash));
-        return idx % 2 === 0 ? Promise.resolve(txs[idx]) : Promise.resolve(undefined);
-      });
-      //@ts-expect-error - we want to spy on the sendBatchRequest method
-      const sendBatchSpy = jest.spyOn(client1.p2pService, 'sendBatchRequest');
-      //@ts-expect-error - we want to spy on the sendRequestToPeer method
-      const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
+    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    // Even though we got a response, the proof was deemed invalid
+    expect(requestedTxs).toEqual([]);
 
-      const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
-      expect(resultingTxs).toHaveLength(txs.length / 2);
+    // Low tolerance error is due to the invalid proof
+    expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
+  });
 
-      // Expect the tx to be the returned tx to be the same as the one we mocked
-      // Note we have only returned the half of the txs, so we expect the resulting txs to be every other tx
-      resultingTxs.forEach((requestedTx, i) => {
-        expect(requestedTx.toBuffer()).toStrictEqual(txs[2 * i].toBuffer());
-      });
+  it('will penalize peers that send the wrong transaction', async () => {
+    // We want to create a set of nodes and request transaction from them
+    clients = (
+      await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
+        p2pBaseConfig,
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+        alwaysTrueVerifier: true,
+        logger,
+      })
+    ).map(x => x.client);
+    const [client1, client2] = clients;
+    const client2PeerId = (await client2.getEnr()?.peerId())!;
 
-      const request = chunkTxHashesRequest(txHashes, txBatchSize);
-      expect(request).toHaveLength(Math.ceil(txToRequestCount / txBatchSize));
-      expect(request[0]).toHaveLength(txBatchSize);
+    // Give the nodes time to discover each other
+    await sleep(6000);
+    logger.info(`Finished waiting for clients to connect`);
 
-      expect(sendBatchSpy).toHaveBeenCalledWith(
-        ReqRespSubProtocol.TX,
-        request,
-        undefined, // pinnedPeer
-        expect.anything(), // timeoutMs
-        expect.anything(), // maxPeers
-        expect.anything(), // maxRetryAttempts
-      );
+    const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(request.length);
+    // Perform a get tx request from client 1
+    const tx = await mockTx();
+    const txHash = await tx.getTxHash();
+    const tx2 = await mockTx(420);
 
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
+    // Return an invalid tx
+    txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
 
-  it(
-    'will penalize peers that send invalid proofs',
-    async () => {
-      // We want to create a set of nodes and request transaction from them
-      clients = (
-        await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-          alwaysTrueVerifier: false,
-          logger,
-        })
-      ).map(x => x.client);
-      const [client1, client2] = clients;
-      const client2PeerId = await client2.getEnr()!.peerId();
+    const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+    // Even though we got a response, the proof was deemed invalid
+    expect(requestedTxs).toEqual([]);
 
-      // Give the nodes time to discover each other
-      await sleep(6000);
-      logger.info(`Finished waiting for clients to connect`);
-
-      const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
-
-      // Perform a get tx request from client 1
-      const tx = await mockTx();
-      const txHash = await tx.getTxHash();
-
-      // Return the correct tx with an invalid proof -> active attack
-      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
-
-      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
-      // Even though we got a response, the proof was deemed invalid
-      expect(requestedTxs).toEqual([]);
-
-      // Low tolerance error is due to the invalid proof
-      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
-
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
-
-  it(
-    'will penalize peers that send the wrong transaction',
-    async () => {
-      // We want to create a set of nodes and request transaction from them
-      clients = (
-        await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-          alwaysTrueVerifier: true,
-          logger,
-        })
-      ).map(x => x.client);
-      const [client1, client2] = clients;
-      const client2PeerId = (await client2.getEnr()?.peerId())!;
-
-      // Give the nodes time to discover each other
-      await sleep(6000);
-      logger.info(`Finished waiting for clients to connect`);
-
-      const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
-
-      // Perform a get tx request from client 1
-      const tx = await mockTx();
-      const txHash = await tx.getTxHash();
-      const tx2 = await mockTx(420);
-
-      // Return an invalid tx
-      txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
-
-      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
-      // Even though we got a response, the proof was deemed invalid
-      expect(requestedTxs).toEqual([]);
-
-      // Received wrong tx
-      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
-
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
+    // Received wrong tx
+    expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
+  });
 
   // Test creates 3 nodes. Node 1 sends all message types to others.
   // Test confirms that nodes 2 and 3 receive all messages.
@@ -531,6 +507,11 @@ describe('p2p client integration', () => {
         (c as any).client.p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
       }
       const [client1, client2, client3] = clientsAndConfig;
+
+      //Disable handshake because it makes this test flaky
+      clientsAndConfig.forEach((c: any) => {
+        c.client.p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
+      });
 
       // Give the nodes time to discover each other
       await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 10, 0.5);
@@ -561,17 +542,16 @@ describe('p2p client integration', () => {
         logger: createLogger(`p2p:new-client-3`),
       });
 
-      //Disable handshake because it makes this test flaky
       const clients = [newClient2, newClient3];
-      for (const c of clients) {
-        (c as any).p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
-      }
+
+      //Disable handshake because it makes this test flaky
+      clients.forEach((c: any) => {
+        c.p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
+      });
 
       await startTestP2PClients(clients);
-
       // Give everyone time to connect again
-      await sleep(5000);
-      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 5, 0.5);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 10, 0.5);
       logger.info(`Finished waiting for clients to rediscover each other`);
 
       // Client 1 sends a tx a block proposal and an attestation and only client 2 should receive them, client 3 is now on a new version
@@ -658,165 +638,284 @@ describe('p2p client integration', () => {
         expect(client3HandleGossipedAttestationSpy).not.toHaveBeenCalled();
       }
 
-      await shutdown([client1.client, newClient2, newClient3]);
+      await shutdown([...clientsAndConfig.map(c => c.client), ...clients]);
     },
     TEST_TIMEOUT,
   );
 
-  it(
-    'should not disconnect clients when it returns correct status',
-    async () => {
-      clients = (
-        await makeTestP2PClients(NUMBER_OF_PEERS, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-        })
-      ).map(x => x.client);
-
-      const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
-      const statusHandshakeSpies = clients.map(c =>
-        jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
-      );
-
-      await startTestP2PClients(clients);
-      await sleep(5000);
-      logger.info(`Finished waiting for clients to connect`);
-
-      for (const handshakeSpy of statusHandshakeSpies) {
-        expect(handshakeSpy).toHaveBeenCalled();
-      }
-
-      for (const disconnectSpy of disconnectSpies) {
-        expect(disconnectSpy).not.toHaveBeenCalled();
-      }
-
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
-
-  it(
-    'should disconnect client when it returns status with wrong version',
-    async () => {
-      clients = (
-        await makeTestP2PClients(NUMBER_OF_PEERS, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-        })
-      ).map(x => x.client);
-      const [c0] = clients;
-      (c0 as any).p2pService.peerManager.protocolVersion = 'WRONG_VERSION';
-
-      const disconnectSpy = jest.spyOn((c0 as any).p2pService.peerManager, 'disconnectPeer');
-      const statusHandshakeSpies = clients.map(c =>
-        jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
-      );
-
-      await startTestP2PClients(clients);
-      await sleep(5000);
-      logger.info(`Finished waiting for clients to connect`);
-
-      for (const handshakeSpy of statusHandshakeSpies) {
-        expect(handshakeSpy).toHaveBeenCalled();
-      }
-
-      expect(disconnectSpy).toHaveBeenCalled();
-
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
-
-  it(
-    'should disconnect client when it returns an invalid status',
-    async () => {
-      const peerTestCount = 3;
-      clients = (
-        await makeTestP2PClients(peerTestCount, {
-          p2pBaseConfig,
-          mockAttestationPool: attestationPool,
-          mockTxPool: txPool,
-          mockEpochCache: epochCache,
-          mockWorldState: worldState,
-        })
-      ).map(x => x.client);
-      const [_c0, c1, _c2] = clients;
-      logger.info(`Created p2p clients`);
-
-      const statusHandshakeSpies = clients.map(c =>
-        jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
-      );
-      const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
-
-      const badPeerId = (clients[0] as any).p2pService.node.peerId;
-      const c1PeerManager = (c1 as any).p2pService.peerManager;
-      const realSend = c1PeerManager.reqresp.sendRequestToPeer.bind(c1PeerManager.reqresp);
-
-      //@ts-expect-error arguments not expected
-      jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async (peerId: PeerId, ...rest) => {
-        if (peerId.toString() === badPeerId.toString()) {
-          logger.debug(`Client 1 returning invalid status handshake for peer ${peerId.toString()}`);
-          return { status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') };
-        }
-        logger.debug(`Client 1 returning valid status handshake for peer ${peerId.toString()}`);
-        return await realSend(peerId, ...rest);
-      });
-
-      await startTestP2PClients(clients);
-      logger.info(`Started p2p clients`, { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
-      await sleep(5000);
-      logger.info(`Finished waiting for clients to connect`);
-
-      expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 <> C0 disconnected
-      expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1
-
-      const expectedHandshakeCount = peerTestCount - 1;
-      // c2 established connection exactly once with both c0 and c1
-      expect(statusHandshakeSpies[2]).toHaveBeenCalledTimes(expectedHandshakeCount);
-
-      // c1 received invalid status from c0 exactly once
-      // the connection between c0 and c1 might have been retried in the meantime
-      // I say "might" because the test is flaky especially on CI
-      // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
-      expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
-      expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
-
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
-
-  it(
-    'propagates messages using mocked gossip sub network',
-    async () => {
-      const numberOfNodes = 3;
-      const mockGossipSubNetwork = new MockGossipSubNetwork();
-
-      const testConfig = {
-        p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
+  it('should not disconnect clients when it returns correct status', async () => {
+    clients = (
+      await makeTestP2PClients(NUMBER_OF_PEERS, {
+        p2pBaseConfig,
         mockAttestationPool: attestationPool,
         mockTxPool: txPool,
         mockEpochCache: epochCache,
         mockWorldState: worldState,
-        alwaysTrueVerifier: true,
-        mockGossipSubNetwork,
-      };
+      })
+    ).map(x => x.client);
 
-      const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
-      const clients = clientsAndConfig.map(c => c.client);
+    const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
+    const statusHandshakeSpies = clients.map(c =>
+      jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
+    );
 
-      await sleep(1000);
+    await startTestP2PClients(clients);
+    await sleep(5000);
+    logger.info(`Finished waiting for clients to connect`);
 
-      await assertBroadcast(clients);
+    for (const handshakeSpy of statusHandshakeSpies) {
+      expect(handshakeSpy).toHaveBeenCalled();
+    }
 
-      await shutdown(clients);
-    },
-    TEST_TIMEOUT,
-  );
+    for (const disconnectSpy of disconnectSpies) {
+      expect(disconnectSpy).not.toHaveBeenCalled();
+    }
+  });
+
+  it('should disconnect client when it returns status with wrong version', async () => {
+    clients = (
+      await makeTestP2PClients(NUMBER_OF_PEERS, {
+        p2pBaseConfig,
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+      })
+    ).map(x => x.client);
+    const [c0] = clients;
+    (c0 as any).p2pService.peerManager.protocolVersion = 'WRONG_VERSION';
+
+    const disconnectSpy = jest.spyOn((c0 as any).p2pService.peerManager, 'disconnectPeer');
+    const statusHandshakeSpies = clients.map(c =>
+      jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
+    );
+
+    await startTestP2PClients(clients);
+    await sleep(5000);
+    logger.info(`Finished waiting for clients to connect`);
+
+    for (const handshakeSpy of statusHandshakeSpies) {
+      expect(handshakeSpy).toHaveBeenCalled();
+    }
+
+    expect(disconnectSpy).toHaveBeenCalled();
+  });
+
+  it('should disconnect client when it returns an invalid status', async () => {
+    const peerTestCount = 3;
+    clients = (
+      await makeTestP2PClients(peerTestCount, {
+        p2pBaseConfig,
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+      })
+    ).map(x => x.client);
+    const [_c0, c1, _c2] = clients;
+    logger.info(`Created p2p clients`);
+
+    const statusHandshakeSpies = clients.map(c =>
+      jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
+    );
+    const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
+
+    const badPeerId = (clients[0] as any).p2pService.node.peerId;
+    const c1PeerManager = (c1 as any).p2pService.peerManager;
+    const realSend = c1PeerManager.reqresp.sendRequestToPeer;
+
+    // @ts-expect-error arguments not expected
+    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (
+      peerId: PeerId,
+      protocol: ReqRespSubProtocol,
+      ...rest
+    ) {
+      if (peerId.toString() === badPeerId.toString() && protocol === ReqRespSubProtocol.STATUS) {
+        return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') });
+      }
+
+      return await realSend.apply(c1PeerManager.reqresp, [peerId, protocol, ...rest]);
+    });
+
+    await startTestP2PClients(clients);
+    logger.info(`Started p2p clients`, { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
+    await sleep(5000);
+    logger.info(`Finished waiting for clients to connect`);
+
+    expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 <> C0 disconnected
+    expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1
+
+    const expectedHandshakeCount = peerTestCount - 1;
+    // c2 established connection exactly once with both c0 and c1
+    expect(statusHandshakeSpies[2]).toHaveBeenCalledTimes(expectedHandshakeCount);
+
+    // c1 received invalid status from c0 exactly once
+    // the connection between c0 and c1 might have been retried in the meantime
+    // I say "might" because the test is flaky especially on CI
+    // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
+    expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
+    expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
+  });
+
+  it('propagates messages using mocked gossip sub network', async () => {
+    const numberOfNodes = 3;
+    const mockGossipSubNetwork = new MockGossipSubNetwork();
+
+    const testConfig = {
+      p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
+      mockAttestationPool: attestationPool,
+      mockTxPool: txPool,
+      mockEpochCache: epochCache,
+      mockWorldState: worldState,
+      alwaysTrueVerifier: true,
+      mockGossipSubNetwork,
+    };
+
+    const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
+    clients = clientsAndConfig.map(c => c.client);
+
+    await sleep(1000);
+
+    await assertBroadcast(clients);
+  });
+
+  describe('BlockTxs protocol', () => {
+    let clients: any[];
+    let client1: any;
+    let client2: any;
+
+    const createBlockProposal = (blockNumber: number, blockHash: any, txHashes: any[]) => {
+      return makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, blockNumber),
+        archive: blockHash,
+        txHashes,
+      });
+    };
+
+    const sendBlockTxsRequest = (blockHash: Fr, requestedIndices: number[], txCount: number) => {
+      const txIndices = BitVector.init(txCount, requestedIndices);
+      const request = new BlockTxsRequest(blockHash, txIndices);
+      return client1.p2pService.reqresp.sendRequestToPeer(
+        client2.p2pService.node.peerId,
+        ReqRespSubProtocol.BLOCK_TXS,
+        request.toBuffer(),
+      );
+    };
+
+    beforeEach(async () => {
+      clients = (
+        await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
+          p2pBaseConfig,
+          mockAttestationPool: attestationPool,
+          mockTxPool: txPool,
+          mockEpochCache: epochCache,
+          mockWorldState: worldState,
+          logger,
+        })
+      ).map(x => x.client);
+      [client1, client2] = clients;
+
+      // Give the nodes time to discover each other
+      await sleep(6000);
+      logger.info('Finished waiting for clients to connect');
+    }, TEST_TIMEOUT);
+
+    it('responds with NOT_FOUND when peer does not have the requested block proposal', async () => {
+      attestationPool.getBlockProposal.mockResolvedValue(undefined);
+
+      const response = await sendBlockTxsRequest(Fr.random(), [0, 2, 5], 10);
+
+      expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
+    });
+
+    describe('when the peer has the block proposal', () => {
+      const blockNumber = 5;
+      const blockHash = Fr.random();
+      let txs: any[];
+      let txHashes: any[];
+
+      beforeEach(async () => {
+        txs = await Promise.all(times(5, () => mockTx()));
+        txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+        const blockProposal = createBlockProposal(blockNumber, blockHash, txHashes);
+        attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
+      });
+
+      it('responds with all requested txs when the peer has them', async () => {
+        const hashToTx = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));
+        txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) =>
+          Promise.resolve(hashes.map(h => hashToTx.get(h.toString())!)),
+        );
+
+        txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+          const txsInPool = new Set(hashToTx.keys());
+          return Promise.resolve(hashes.map(h => txsInPool.has(h.toString())));
+        });
+
+        const requestedIndices = [0, 2, 4];
+        const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
+
+        expect(response.status).toBe(ReqRespStatus.SUCCESS);
+        const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+        expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+        expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
+        expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
+
+        const expectedHashes = requestedIndices.map(index => txHashes[index]);
+        const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+        expect(actualHashes).toEqual(expectedHashes);
+      });
+
+      it('responds with partial txs when the peer has only some of them', async () => {
+        const availableIndices = new Set([0, 2, 3]);
+        const hashToTx: Map<string, Tx> = new Map(
+          txs.map((tx, i) => [txHashes[i].toString(), tx] as [string, Tx]).filter((_, i) => availableIndices.has(i)),
+        );
+
+        txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) => {
+          return Promise.resolve(
+            hashes.map(hash => {
+              return hashToTx.get(hash.toString());
+            }),
+          );
+        });
+
+        txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+          const txsInPool = new Set(hashToTx.keys());
+          return Promise.resolve(hashes.map(h => txsInPool.has(h.toString())));
+        });
+
+        const requestedIndices = [0, 1, 2, 4];
+        const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
+
+        expect(response.status).toBe(ReqRespStatus.SUCCESS);
+        const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+        expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+        expect(blockTxsResponse.txs.length).toBe(2); // Only txs at indices 0 and 2 are returned
+        expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 2, 3]);
+
+        const expectedHashes = [0, 2].map(index => txHashes[index]);
+        const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+        expect(actualHashes).toEqual(expectedHashes);
+      });
+
+      it('responds with empty txs when the peer has none of the requested txs', async () => {
+        txPool.getTxsByHash.mockResolvedValue([]);
+
+        txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+          return Promise.resolve(hashes.map(_ => false));
+        });
+
+        const requestedIndices = [0, 2, 4];
+        const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
+
+        expect(response.status).toBe(ReqRespStatus.SUCCESS);
+        const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+        expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+        expect(blockTxsResponse.txs.length).toBe(0);
+        expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([]);
+      });
+    });
+  });
 });

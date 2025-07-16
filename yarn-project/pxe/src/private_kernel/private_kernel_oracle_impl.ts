@@ -114,7 +114,10 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
 
     const readStorage = (storageSlot: Fr) =>
       this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
-    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, readStorage);
+    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
+      delayedPublicMutableSlot,
+      readStorage,
+    );
 
     return new UpdatedClassIdHints(
       new MembershipWitness(

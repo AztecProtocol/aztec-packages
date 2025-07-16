@@ -47,7 +47,7 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
                                    { C::execution_pc, 0 },
                                    { C::execution_enqueued_call_start, 1 },
                                    { C::execution_next_pc, 10 },
-                                   { C::execution_sel_internal_call, 1 },
+                                   { C::execution_sel_execute_internal_call, 1 },
                                    // Operands
                                    { C::execution_rop_0_, /*loc=*/12345 },
                                    // Internal Call Cols
@@ -69,7 +69,7 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
                                {
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 100000 },
-                                   { C::execution_sel_internal_return, 1 },
+                                   { C::execution_sel_execute_internal_return, 1 },
                                    // Internal Call Cols
                                    { C::execution_next_internal_call_id, 3 },
                                    { C::execution_internal_call_id, 2 },
@@ -131,7 +131,7 @@ TEST(InternalCallStackConstrainingTest, ReturnError)
                                {
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 10 },
-                                   { C::execution_sel_internal_return, 1 },
+                                   { C::execution_sel_execute_internal_return, 1 },
                                    // Internal Call Cols
                                    { C::execution_next_internal_call_id, 2 },
                                    { C::execution_internal_call_id, 1 },

@@ -6,11 +6,10 @@ use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKer
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_call_request::PrivateCallRequest,
+        private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest,
     },
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
-    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitPublicInputsComposerBuilder {

@@ -79,24 +79,25 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
         Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ i } }, BIT_COUNT };
         vk_inputs.push_back(input);
     }
+    Acir::FunctionInput key_hash{ { Acir::ConstantOrWitnessEnum::Witness{ static_cast<uint32_t>(vk_size) } },
+                                  BIT_COUNT };
+    size_t total_num_witnesses = /* vk */ vk_size + /* key_hash */ 1;
 
     // Modeled after noir-projects/mock-protocol-circuits/crates/mock-private-kernel-init/src/main.nr
     // We mock the init or tail kernels using OINK or PG respectively.
-    Acir::BlackBoxFuncCall::RecursiveAggregation recursion{
-        .verification_key = vk_inputs,
-        .proof = {},
-        .public_inputs = {},
-        // NOTE: If this starts failing after key hash becomes required need to pass as witness! (possibly after the VK,
-        // adding +1 to witness index below)
-        .key_hash = Acir::FunctionInput{ { Acir::ConstantOrWitnessEnum::Witness{ Acir::Witness{ 0 } } }, BIT_COUNT },
-        .proof_type = is_init_kernel ? acir_format::PROOF_TYPE::OINK : acir_format::PROOF_TYPE::PG
-    };
+    Acir::BlackBoxFuncCall::RecursiveAggregation recursion{ .verification_key = vk_inputs,
+                                                            .proof = {},
+                                                            .public_inputs = {},
+                                                            .key_hash = key_hash,
+                                                            .proof_type = is_init_kernel
+                                                                              ? acir_format::PROOF_TYPE::OINK
+                                                                              : acir_format::PROOF_TYPE::PG };
 
     Acir::BlackBoxFuncCall black_box_call;
     black_box_call.value = recursion;
 
     circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call } });
-    circuit.current_witness_index = static_cast<uint32_t>(vk_inputs.size());
+    circuit.current_witness_index = static_cast<uint32_t>(total_num_witnesses);
     circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
 
     // Create the program with the circuit
@@ -120,6 +121,11 @@ inline std::vector<uint8_t> create_kernel_witness(const std::vector<bb::fr>& app
         ss << app_vk_fields[i];
         kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
     }
+    std::stringstream ss;
+    ss << crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(app_vk_fields);
+    kernel_witness.stack.back().witness.value[Witnesses::Witness{ static_cast<uint32_t>(app_vk_fields.size()) }] =
+        ss.str();
+
     return kernel_witness.bincodeSerialize();
 }
 

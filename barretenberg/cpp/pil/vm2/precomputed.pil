@@ -121,7 +121,8 @@ pol constant rw_reg[7];
 // Registers: Tag Check
 pol constant sel_tag_check_reg[7];
 pol constant expected_tag_reg[7];
-// Subtrace/Gadget Selector
+// Decomposed Subtrace/Gadget Selector
+pol constant dyn_gas_id;
 pol constant subtrace_id;
 pol constant subtrace_operation_id;
 // Whether an operand is an address

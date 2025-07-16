@@ -17,7 +17,7 @@ struct lookup_alu_register_tag_value_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_REGISTER_TAG_VALUE";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_alu;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_alu;
     static constexpr Column DST_SELECTOR = Column::alu_sel;
     static constexpr Column COUNTS = Column::lookup_alu_register_tag_value_counts;
     static constexpr Column INVERSES = Column::lookup_alu_register_tag_value_inv;
@@ -68,13 +68,13 @@ struct lookup_alu_ff_lt_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_FF_LT";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_ff_lt;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_ff_lt_ops;
     static constexpr Column DST_SELECTOR = Column::ff_gt_sel_gt;
     static constexpr Column COUNTS = Column::lookup_alu_ff_lt_counts;
     static constexpr Column INVERSES = Column::lookup_alu_ff_lt_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_ib,
-                                                                                    ColumnAndShifts::alu_ia,
-                                                                                    ColumnAndShifts::alu_ic };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::alu_lt_ops_input_b, ColumnAndShifts::alu_lt_ops_input_a, ColumnAndShifts::alu_lt_ops_result_c
+    };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
                                                                                     ColumnAndShifts::ff_gt_result };
@@ -89,12 +89,13 @@ struct lookup_alu_lt_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_LT_RANGE";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_op_lt;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_lt_ops;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_lt_range_counts;
     static constexpr Column INVERSES = Column::lookup_alu_lt_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_lt_abs_diff,
-                                                                                    ColumnAndShifts::alu_max_bits };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::alu_lt_ops_abs_diff, ColumnAndShifts::alu_max_bits
+    };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
     };

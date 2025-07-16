@@ -40,11 +40,11 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
   }
 
   public getQuorumSize() {
-    return this.proposer.read.N();
+    return this.proposer.read.QUORUM_SIZE();
   }
 
   public getRoundSize() {
-    return this.proposer.read.M();
+    return this.proposer.read.ROUND_SIZE();
   }
 
   public computeRound(slot: bigint): Promise<bigint> {
@@ -75,12 +75,13 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
 
   public async createVoteRequestWithSignature(
     payload: Hex,
+    round: bigint,
     chainId: number,
     signerAddress: Hex,
     signer: (msg: Hex) => Promise<Hex>,
   ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(signerAddress);
-    const signature = await signVoteWithSig(signer, payload, nonce, this.address.toString(), chainId);
+    const signature = await signVoteWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
     return {
       to: this.address.toString(),
       data: encodeVoteWithSignature(payload, signature),
@@ -187,7 +188,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${
+        error ?? 'Unknown error'
+      }`;
       throw new Error(errorMessage);
     }
     return response;

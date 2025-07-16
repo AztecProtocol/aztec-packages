@@ -27,7 +27,6 @@ pub contract NFT {
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;
-    use std::meta::ctstring::AsCtString;
 
     // docs:end:imports
 

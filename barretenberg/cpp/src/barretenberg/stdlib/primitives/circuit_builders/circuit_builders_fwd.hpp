@@ -45,6 +45,7 @@ template <typename BuilderType> class UltraKeccakRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
+
 namespace avm2 {
 class AvmRecursiveFlavor;
 }

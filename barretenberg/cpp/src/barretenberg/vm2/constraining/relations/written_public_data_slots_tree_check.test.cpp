@@ -247,29 +247,29 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
 
 TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, NegativeExistsFlagCheck)
 {
-    // Test constraint: sel * (SLOT_LOW_LEAF_SLOT_DIFF * (exists * (1 - slot_low_leaf_slot_diff_inv)
-    // + slot_low_leaf_slot_diff_inv) - 1 + exists) = 0
+    // Test constraint: sel * (SLOT_LOW_LEAF_SLOT_DIFF * (EXISTS * (1 - slot_low_leaf_slot_diff_inv)
+    // + slot_low_leaf_slot_diff_inv) - 1 + EXISTS) = 0
     TestTraceContainer trace({
         { { C::written_public_data_slots_tree_check_sel, 1 },
           { C::written_public_data_slots_tree_check_leaf_slot, 27 },
           { C::written_public_data_slots_tree_check_low_leaf_slot, 27 },
           { C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv, 0 },
-          { C::written_public_data_slots_tree_check_exists, 1 } },
+          { C::written_public_data_slots_tree_check_leaf_not_exists, 0 } },
         { { C::written_public_data_slots_tree_check_sel, 1 },
           { C::written_public_data_slots_tree_check_leaf_slot, 28 },
           { C::written_public_data_slots_tree_check_low_leaf_slot, 27 },
           { C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv, FF(1).invert() },
-          { C::written_public_data_slots_tree_check_exists, 0 } },
+          { C::written_public_data_slots_tree_check_leaf_not_exists, 1 } },
     });
 
     check_relation<written_public_data_slots_tree_check>(trace, written_public_data_slots_tree_check::SR_EXISTS_CHECK);
-    trace.set(C::written_public_data_slots_tree_check_exists, 0, 0);
+    trace.set(C::written_public_data_slots_tree_check_leaf_not_exists, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<written_public_data_slots_tree_check>(
                                   trace, written_public_data_slots_tree_check::SR_EXISTS_CHECK),
                               "EXISTS_CHECK");
-    trace.set(C::written_public_data_slots_tree_check_exists, 0, 1);
-    trace.set(C::written_public_data_slots_tree_check_exists, 1, 1);
+    trace.set(C::written_public_data_slots_tree_check_leaf_not_exists, 0, 0);
+    trace.set(C::written_public_data_slots_tree_check_leaf_not_exists, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<written_public_data_slots_tree_check>(
                                   trace, written_public_data_slots_tree_check::SR_EXISTS_CHECK),

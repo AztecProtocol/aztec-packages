@@ -32,12 +32,12 @@ class ClientIVCRecursionTests : public testing::Test {
      * @brief Construct a genuine ClientIVC prover output based on accumulation of an arbitrary set of mock circuits
      *
      */
-    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc, const size_t NUM_CIRCUITS = 2)
+    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
     {
         // Construct and accumulate a series of mocked private function execution circuits
         MockCircuitProducer circuit_producer;
 
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < ivc.get_num_circuits(); ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc);
             ivc.accumulate(circuit);
         }
@@ -52,7 +52,8 @@ class ClientIVCRecursionTests : public testing::Test {
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    ClientIVC ivc{ trace_settings };
+    size_t NUM_CIRCUITS = 2;
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
     auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Confirm that the IVC proof can be natively verified
@@ -68,7 +69,9 @@ TEST_F(ClientIVCRecursionTests, Basic)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ trace_settings };
+    const size_t NUM_CIRCUITS = 2;
+
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
     auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
@@ -92,7 +95,9 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ trace_settings };
+    const size_t NUM_CIRCUITS = 2;
+
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
     auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
@@ -116,7 +121,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
     auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
-    auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<NativeFlavor> tube_prover{ proving_key, native_vk_with_ipa };
     // Prove the CIVCRecursiveVerifier circuit
     auto native_tube_proof = tube_prover.construct_proof();
@@ -124,11 +129,11 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Natively verify the tube proof
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
-    EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
+    EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->ipa_proof));
 
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
-    auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
     auto stdlib_tube_vk_and_hash = std::make_shared<RollupFlavor::VKAndHash>(base_builder, tube_vk);
     stdlib::Proof<Builder> base_tube_proof(base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, stdlib_tube_vk_and_hash };
@@ -136,14 +141,14 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     output.points_accumulator.set_public();
     output.ipa_claim.set_public();
-    base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
+    base_builder.ipa_proof = tube_prover.proving_key->ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
 
     // Natively verify the IPA proof for the base rollup circuit
     auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
     auto ipa_transcript = std::make_shared<NativeTranscript>();
-    ipa_transcript->load_proof(base_proving_key->proving_key.ipa_proof);
+    ipa_transcript->load_proof(base_proving_key->ipa_proof);
     IPA<curve::Grumpkin>::reduce_verify(
         ipa_verification_key, output.ipa_claim.get_native_opening_claim(), ipa_transcript);
 }
@@ -154,9 +159,9 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
     auto get_blocks = [](size_t inner_size)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<NativeFlavor::VerificationKey>> {
-        ClientIVC ivc{ trace_settings };
+        ClientIVC ivc{ inner_size, trace_settings };
 
-        auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, inner_size);
+        auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
         auto tube_builder = std::make_shared<Builder>();
         ClientIVCVerifier verifier{ tube_builder, ivc_vk };
@@ -176,7 +181,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
         auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
 
-        auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+        auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
 
         return { tube_builder->blocks, tube_vk };
     };

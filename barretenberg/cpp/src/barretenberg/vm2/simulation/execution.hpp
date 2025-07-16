@@ -23,6 +23,7 @@
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -56,7 +57,8 @@ class Execution : public ExecutionInterface {
               ExecutionIdManagerInterface& execution_id_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
-              KeccakF1600Interface& keccakf1600)
+              KeccakF1600Interface& keccakf1600,
+              HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
@@ -65,6 +67,7 @@ class Execution : public ExecutionInterface {
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
+        , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
     {}
@@ -75,6 +78,8 @@ class Execution : public ExecutionInterface {
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
     void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
@@ -110,6 +115,8 @@ class Execution : public ExecutionInterface {
     void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr);
+    void sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -146,6 +153,7 @@ class Execution : public ExecutionInterface {
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
+    HighLevelMerkleDBInterface& merkle_db;
 
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
