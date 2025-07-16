@@ -210,6 +210,8 @@ export class CbindCompiler {
   // cbind outputs, put at end
   private funcDecls: string[] = [];
   private mode: 'sync' | 'async' = 'sync';
+  // Store function metadata for wrapper generation
+  private functionMetadata: Array<{name: string, commandType: string, responseType: string}> = [];
 
   constructor(mode: 'sync' | 'async' = 'sync') {
     this.mode = mode;
@@ -613,6 +615,13 @@ ${checkerSyntax()};
       // Generate function name (lowercase version of command)
       const funcName = camelCase(commandName);
 
+      // Store metadata for wrapper generation
+      this.functionMetadata.push({
+        name: funcName,
+        commandType: cmdType.typeName,
+        responseType: respType.typeName
+      });
+
       // Generate the function
       const wasmType = this.mode === 'sync' ? 'BarretenbergWasmMain' : 'BarretenbergWasmMainWorker';
       const asyncKeyword = this.mode === 'async' ? 'async ' : '';
@@ -703,6 +712,43 @@ export type Fr = Buffer;
       outputs.push(funcDecl);
     }
 
+    // Generate wrapper class if we have functions
+    if (this.functionMetadata.length > 0) {
+      outputs.push('');
+      outputs.push(this.generateWrapperClass());
+    }
+
     return outputs.join('\n');
+  }
+
+  /**
+   * Generate the wrapper class for the API
+   */
+  private generateWrapperClass(): string {
+    const className = this.mode === 'sync' ? 'CbindApiSync' : 'CbindApi';
+    const wasmType = this.mode === 'sync' ? 'BarretenbergWasmMain' : 'BarretenbergWasmMainWorker';
+    
+    let classContent = `/**
+ * ${this.mode === 'sync' ? 'Sync' : 'Async'} API wrapper for cbind functions using ${wasmType}.
+ * ${this.mode === 'sync' ? 'All methods are synchronous.' : 'All methods return promises.'}
+ */
+export class ${className} {
+  constructor(protected wasm: ${wasmType}) {}
+`;
+
+    // Generate methods for each function
+    for (const func of this.functionMetadata) {
+      const asyncKeyword = this.mode === 'async' ? 'async ' : '';
+      const returnType = this.mode === 'async' ? `Promise<${func.responseType}>` : func.responseType;
+      
+      classContent += `
+  ${asyncKeyword}${func.name}(command: ${func.commandType}): ${returnType} {
+    return ${func.name}(this.wasm, command);
+  }
+`;
+    }
+
+    classContent += '}';
+    return classContent;
   }
 }

@@ -1176,3 +1176,79 @@ export function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMain, command:
   }
   return toClientIvcCheckPrecomputedVkResponse(result);
 }
+
+/**
+ * Sync API wrapper for cbind functions using BarretenbergWasmMain.
+ * All methods are synchronous.
+ */
+export class CbindApiSync {
+  constructor(protected wasm: BarretenbergWasmMain) {}
+
+  circuitProve(command: CircuitProve): CircuitProveResponse {
+    return circuitProve(this.wasm, command);
+  }
+
+  circuitComputeVk(command: CircuitComputeVk): CircuitComputeVkResponse {
+    return circuitComputeVk(this.wasm, command);
+  }
+
+  circuitInfo(command: CircuitInfo): CircuitInfoResponse {
+    return circuitInfo(this.wasm, command);
+  }
+
+  circuitCheck(command: CircuitCheck): CircuitCheckResponse {
+    return circuitCheck(this.wasm, command);
+  }
+
+  circuitVerify(command: CircuitVerify): CircuitVerifyResponse {
+    return circuitVerify(this.wasm, command);
+  }
+
+  clientIvcComputeStandaloneVk(command: ClientIvcComputeStandaloneVk): ClientIvcComputeStandaloneVkResponse {
+    return clientIvcComputeStandaloneVk(this.wasm, command);
+  }
+
+  clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk): ClientIvcComputeIvcVkResponse {
+    return clientIvcComputeIvcVk(this.wasm, command);
+  }
+
+  clientIvcStart(command: ClientIvcStart): ClientIvcStartResponse {
+    return clientIvcStart(this.wasm, command);
+  }
+
+  clientIvcLoad(command: ClientIvcLoad): ClientIvcLoadResponse {
+    return clientIvcLoad(this.wasm, command);
+  }
+
+  clientIvcAccumulate(command: ClientIvcAccumulate): ClientIvcAccumulateResponse {
+    return clientIvcAccumulate(this.wasm, command);
+  }
+
+  clientIvcProve(command: ClientIvcProve): ClientIvcProveResponse {
+    return clientIvcProve(this.wasm, command);
+  }
+
+  proofAsFields(command: ProofAsFields): ProofAsFieldsResponse {
+    return proofAsFields(this.wasm, command);
+  }
+
+  vkAsFields(command: VkAsFields): VkAsFieldsResponse {
+    return vkAsFields(this.wasm, command);
+  }
+
+  circuitWriteSolidityVerifier(command: CircuitWriteSolidityVerifier): CircuitWriteSolidityVerifierResponse {
+    return circuitWriteSolidityVerifier(this.wasm, command);
+  }
+
+  circuitProveAndVerify(command: CircuitProveAndVerify): CircuitProveAndVerifyResponse {
+    return circuitProveAndVerify(this.wasm, command);
+  }
+
+  circuitBenchmark(command: CircuitBenchmark): CircuitBenchmarkResponse {
+    return circuitBenchmark(this.wasm, command);
+  }
+
+  clientIvcCheckPrecomputedVk(command: ClientIvcCheckPrecomputedVk): ClientIvcCheckPrecomputedVkResponse {
+    return clientIvcCheckPrecomputedVk(this.wasm, command);
+  }
+}

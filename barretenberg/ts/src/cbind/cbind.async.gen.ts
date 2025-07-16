@@ -1176,3 +1176,79 @@ export async function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmMainWork
   }
   return toClientIvcCheckPrecomputedVkResponse(result);
 }
+
+/**
+ * Async API wrapper for cbind functions using BarretenbergWasmMainWorker.
+ * All methods return promises.
+ */
+export class CbindApi {
+  constructor(protected wasm: BarretenbergWasmMainWorker) {}
+
+  async circuitProve(command: CircuitProve): Promise<CircuitProveResponse> {
+    return circuitProve(this.wasm, command);
+  }
+
+  async circuitComputeVk(command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
+    return circuitComputeVk(this.wasm, command);
+  }
+
+  async circuitInfo(command: CircuitInfo): Promise<CircuitInfoResponse> {
+    return circuitInfo(this.wasm, command);
+  }
+
+  async circuitCheck(command: CircuitCheck): Promise<CircuitCheckResponse> {
+    return circuitCheck(this.wasm, command);
+  }
+
+  async circuitVerify(command: CircuitVerify): Promise<CircuitVerifyResponse> {
+    return circuitVerify(this.wasm, command);
+  }
+
+  async clientIvcComputeStandaloneVk(command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
+    return clientIvcComputeStandaloneVk(this.wasm, command);
+  }
+
+  async clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
+    return clientIvcComputeIvcVk(this.wasm, command);
+  }
+
+  async clientIvcStart(command: ClientIvcStart): Promise<ClientIvcStartResponse> {
+    return clientIvcStart(this.wasm, command);
+  }
+
+  async clientIvcLoad(command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
+    return clientIvcLoad(this.wasm, command);
+  }
+
+  async clientIvcAccumulate(command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
+    return clientIvcAccumulate(this.wasm, command);
+  }
+
+  async clientIvcProve(command: ClientIvcProve): Promise<ClientIvcProveResponse> {
+    return clientIvcProve(this.wasm, command);
+  }
+
+  async proofAsFields(command: ProofAsFields): Promise<ProofAsFieldsResponse> {
+    return proofAsFields(this.wasm, command);
+  }
+
+  async vkAsFields(command: VkAsFields): Promise<VkAsFieldsResponse> {
+    return vkAsFields(this.wasm, command);
+  }
+
+  async circuitWriteSolidityVerifier(command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
+    return circuitWriteSolidityVerifier(this.wasm, command);
+  }
+
+  async circuitProveAndVerify(command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
+    return circuitProveAndVerify(this.wasm, command);
+  }
+
+  async circuitBenchmark(command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
+    return circuitBenchmark(this.wasm, command);
+  }
+
+  async clientIvcCheckPrecomputedVk(command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
+    return clientIvcCheckPrecomputedVk(this.wasm, command);
+  }
+}
