@@ -13,7 +13,7 @@
 
 namespace bb::avm2::simulation {
 
-using BytecodeId = uint8_t;
+using BytecodeId = FF;
 
 // Storage and decomposition of bytecode into sliding window.
 struct BytecodeDecompositionEvent {
@@ -22,7 +22,7 @@ struct BytecodeDecompositionEvent {
 };
 
 struct BytecodeHashingEvent {
-    BytecodeId bytecode_id;
+    BytecodeId bytecode_id; // unique ID for deduplication
     uint32_t bytecode_length;
     std::vector<FF> bytecode_fields;
 };

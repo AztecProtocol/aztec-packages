@@ -91,6 +91,10 @@ last = sel * (1 - sel');
 pol commit bytecode_id;
 pol commit sel_bytecode_retrieval_failure;
 
+// Note: the bytecode_id is a unique identifier for the bytecode, but note that bytecode retrieval
+// may happen multiple times for the same bytecode since nullifier and public data roots will change.
+// Inner gadgets deduplicate instead.
+
 #[BYTECODE_RETRIEVAL_RESULT]
 sel {
     bytecode_id,

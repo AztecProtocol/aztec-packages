@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
@@ -24,12 +23,9 @@
 namespace bb::avm2::simulation {
 
 struct BytecodeNotFoundError : public std::runtime_error {
-    BytecodeNotFoundError(BytecodeId id, const std::string& message)
+    BytecodeNotFoundError(const std::string& message)
         : std::runtime_error(message)
-        , bytecode_id(id)
     {}
-
-    BytecodeId bytecode_id;
 };
 
 struct InstructionFetchingError : public std::runtime_error {

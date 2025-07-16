@@ -30,6 +30,8 @@ class AddressDerivation : public AddressDerivationInterface {
     EventEmitterInterface<AddressDerivationEvent>& events;
     Poseidon2Interface& poseidon2;
     EccInterface& ecc;
+
+    unordered_flat_set<AztecAddress> derived_addresses;
 };
 
 } // namespace bb::avm2::simulation

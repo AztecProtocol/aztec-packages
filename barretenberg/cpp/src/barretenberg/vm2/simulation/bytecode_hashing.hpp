@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
@@ -27,6 +28,8 @@ class BytecodeHasher : public BytecodeHashingInterface {
   private:
     [[maybe_unused]] EventEmitterInterface<BytecodeHashingEvent>& events;
     Poseidon2Interface& hasher;
+
+    unordered_flat_map<BytecodeId, FF> bytecode_commitments;
 };
 
 } // namespace bb::avm2::simulation

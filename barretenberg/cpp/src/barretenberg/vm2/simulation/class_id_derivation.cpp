@@ -10,7 +10,11 @@ namespace bb::avm2::simulation {
 
 void ClassIdDerivation::assert_derivation(const ContractClassId& class_id, const ContractClass& klass)
 {
-    // TODO: Cache and deduplicate.
+    if (derived_class_ids.contains(class_id)) {
+        // Deduplicated! This was previously computed and cached.
+        return;
+    }
+
     FF computed_class_id = poseidon2.hash({ GENERATOR_INDEX__CONTRACT_LEAF,
                                             klass.artifact_hash,
                                             klass.private_function_root,

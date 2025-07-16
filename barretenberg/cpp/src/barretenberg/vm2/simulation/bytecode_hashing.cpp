@@ -8,6 +8,11 @@ namespace bb::avm2::simulation {
 FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const BytecodeId bytecode_id,
                                                       const std::vector<uint8_t>& bytecode)
 {
+    if (bytecode_commitments.contains(bytecode_id)) {
+        // Deduplicated! This was previously computed and cached.
+        return bytecode_commitments[bytecode_id];
+    }
+
     [[maybe_unused]] auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
 
     std::vector<FF> inputs = { GENERATOR_INDEX__PUBLIC_BYTECODE };
