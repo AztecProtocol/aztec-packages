@@ -27,6 +27,7 @@ class AcirFuzzer {
   public:
     using PolyTripleConstraint = bb::poly_triple_<bb::curve::BN254::ScalarField>;
     using RangeConstraint = acir_format::RangeConstraint;
+    using LogicConstraint = acir_format::LogicConstraint;
     using fr = bb::curve::BN254::ScalarField;
     using FieldVM = bb::FieldVM<bb::fr>;
 
@@ -40,6 +41,7 @@ class AcirFuzzer {
      */
     static AcirFormat create_mixed_constraint_circuit(const std::vector<PolyTripleConstraint>& poly_constraints,
                                                       const std::vector<RangeConstraint>& range_constraints,
+                                                      const std::vector<LogicConstraint>& logic_constraints,
                                                       uint32_t num_witnesses)
     {
         AcirFormat constraint_system;
@@ -79,8 +81,13 @@ class AcirFuzzer {
             constraint_system.range_constraints.push_back(constraint);
         }
 
+        for (const auto& constraint : logic_constraints) {
+            constraint_system.logic_constraints.push_back(constraint);
+        }
+
         // Set required fields
-        constraint_system.num_acir_opcodes = static_cast<uint32_t>(poly_constraints.size() + range_constraints.size());
+        constraint_system.num_acir_opcodes =
+            static_cast<uint32_t>(poly_constraints.size() + range_constraints.size() + logic_constraints.size());
         constraint_system.public_inputs = {};
         constraint_system.varnum = num_witnesses;
 
@@ -119,6 +126,9 @@ class AcirFuzzer {
         }
         for (size_t i = 0; i < range_constraints.size(); ++i) {
             constraint_system.original_opcode_indices.range_constraints.push_back(i);
+        }
+        for (size_t i = 0; i < logic_constraints.size(); ++i) {
+            constraint_system.original_opcode_indices.logic_constraints.push_back(i);
         }
 
         return constraint_system;
@@ -363,185 +373,327 @@ class AcirFuzzer {
     }
 
     /**
+     * @brief Create a poly_triple constraint from buffer data
+     *
+     * @param constants Constants from FieldVM state
+     * @param witness_vector Current witness vector (will be modified if new witnesses are created)
+     * @param buffer Buffer to use for constraint generation
+     * @param buffer_size Size of the buffer
+     * @param buffer_pos Current position in buffer (will be updated)
+     * @return std::optional<PolyTripleConstraint> Created constraint or nullopt if insufficient data
+     */
+    static std::optional<PolyTripleConstraint> create_poly_triple_constraint(const std::vector<fr>& constants,
+                                                                             WitnessVector& witness_vector,
+                                                                             const uint8_t* buffer,
+                                                                             size_t buffer_size,
+                                                                             size_t& buffer_pos)
+    {
+        // Check if we have enough bytes to read the constraint data
+        if (buffer_pos + 12 > buffer_size) {
+            return std::nullopt; // Need 12 bytes: 1 for create_new_witness + 6 for indices + 5 for q values
+        }
+
+        // Read boolean for creating new witness
+        bool create_new_witness = (buffer[buffer_pos] & 0x01) != 0;
+        buffer_pos++;
+
+        // Read 3 index uint16_ts from the buffer and use as a,b and c
+        uint16_t a_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos]) << 8) |
+                                               static_cast<uint16_t>(buffer[buffer_pos + 1]));
+        uint16_t b_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos + 2]) << 8) |
+                                               static_cast<uint16_t>(buffer[buffer_pos + 3]));
+        uint16_t c_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos + 4]) << 8) |
+                                               static_cast<uint16_t>(buffer[buffer_pos + 5]));
+        buffer_pos += 6;
+
+        // Take modulo the current size of witness vector
+        uint32_t witness_size = static_cast<uint32_t>(witness_vector.size());
+        if (witness_size == 0) {
+            return std::nullopt; // Avoid division by zero
+        }
+        uint32_t a = a_idx % witness_size;
+        uint32_t b = b_idx % witness_size;
+        // In case of creating a new witness, use the witness size as the index for c as that's where the new
+        // witness will be added
+        uint32_t c = create_new_witness ? witness_size : c_idx % witness_size;
+
+        // Read 1-byte indices from the buffer. Use them to get constants from the constant vector
+        // and set q_m, q_l, q_r, q_o, q_c
+        uint8_t q_m_idx = buffer[buffer_pos];
+        uint8_t q_l_idx = buffer[buffer_pos + 1];
+        uint8_t q_r_idx = buffer[buffer_pos + 2];
+        uint8_t q_o_idx = buffer[buffer_pos + 3];
+        uint8_t q_c_idx = buffer[buffer_pos + 4];
+        buffer_pos += 5;
+
+        // Validate constants vector
+        if (constants.empty()) {
+            return std::nullopt; // No constants available
+        }
+
+        // Get constants from the constant vector
+        fr q_m_const = constants[q_m_idx % constants.size()];
+        fr q_l_const = constants[q_l_idx % constants.size()];
+        fr q_r_const = constants[q_r_idx % constants.size()];
+        fr q_o_const = constants[q_o_idx % constants.size()];
+        fr q_c_const = constants[q_c_idx % constants.size()];
+
+        PolyTripleConstraint constraint;
+        constraint.a = a;
+        constraint.b = b;
+        constraint.c = c;
+        constraint.q_m = q_m_const;
+        constraint.q_l = q_l_const;
+        constraint.q_r = q_r_const;
+
+        fr a_val = witness_vector[a];
+        fr b_val = witness_vector[b];
+        if (!create_new_witness) {
+            fr c_val = witness_vector[c];
+
+            fr q_c_val = -(q_m_const * a_val * b_val + q_l_const * a_val + q_r_const * b_val + q_o_const * c_val);
+
+            constraint.q_o = q_o_const;
+            constraint.q_c = q_c_val;
+        } else {
+            q_o_const = q_o_const.is_zero() ? -fr(1) : q_o_const;
+            auto new_witness_value =
+                -(q_m_const * a_val * b_val + q_l_const * a_val + q_r_const * b_val + q_c_const) / q_o_const;
+            witness_vector.push_back(new_witness_value);
+
+            constraint.q_o = q_o_const;
+            constraint.q_c = q_c_const;
+        }
+
+        return constraint;
+    }
+
+    /**
+     * @brief Create a range constraint from buffer data
+     *
+     * @param witness_vector Current witness vector
+     * @param buffer Buffer to use for constraint generation
+     * @param buffer_size Size of the buffer
+     * @param buffer_pos Current position in buffer (will be updated)
+     * @return std::optional<RangeConstraint> Created constraint or nullopt if insufficient data
+     */
+    static std::optional<RangeConstraint> create_range_constraint(const WitnessVector& witness_vector,
+                                                                  const uint8_t* buffer,
+                                                                  size_t buffer_size,
+                                                                  size_t& buffer_pos)
+    {
+        // Check if we have enough bytes to read the constraint data
+        if (buffer_pos + 2 > buffer_size) {
+            return std::nullopt; // Need 2 bytes for witness index and adjustment
+        }
+
+        uint8_t witness_idx = buffer[buffer_pos];
+        uint8_t adjustment_byte = buffer[buffer_pos + 1];
+        buffer_pos += 2;
+
+        // Validate witness index
+        if (witness_vector.empty()) {
+            return std::nullopt; // Defensive: skip if empty
+        }
+        witness_idx = witness_idx % witness_vector.size();
+
+        // Get the witness value and convert to uint256_t
+        fr witness_value = witness_vector[witness_idx];
+        uint256_t witness_uint256 = static_cast<uint256_t>(witness_value);
+
+        // Get the actual number of bits used by the witness value
+        uint64_t actual_bits = witness_uint256.get_msb();
+        if (witness_uint256 == 0) {
+            actual_bits = 0; // get_msb returns 0 for zero, but we want 0 bits
+        } else {
+            actual_bits += 1; // get_msb is 0-indexed, so add 1 for actual bit count
+        }
+
+        // Use the adjustment byte to determine the target number of bits
+        // Take a value between actual_bits and 253
+        uint64_t target_bits;
+        if (actual_bits >= 253) {
+            return std::nullopt; // Don't create constraint if value is already >= 253 bits
+        }
+
+        // Use adjustment_byte to interpolate between actual_bits and 253
+        uint64_t range = 253 - actual_bits;
+        target_bits = actual_bits + (adjustment_byte % (range + 1));
+
+        // Validate target_bits (reasonable range: 1-253 bits)
+        if (target_bits == 0 || target_bits > 253) {
+            return std::nullopt; // Skip this constraint if invalid
+        }
+
+        RangeConstraint constraint;
+        constraint.witness = witness_idx;
+        constraint.num_bits = static_cast<uint32_t>(target_bits);
+
+        return constraint;
+    }
+
+    /**
+     * @brief Create a logic constraint from buffer data
+     *
+     * @param witness_vector Current witness vector (will be modified if new witnesses are created)
+     * @param buffer Buffer to use for constraint generation
+     * @param buffer_size Size of the buffer
+     * @param buffer_pos Current position in buffer (will be updated)
+     * @return std::optional<LogicConstraint> Created constraint or nullopt if insufficient data
+     */
+    static std::optional<LogicConstraint> create_logic_constraint(WitnessVector& witness_vector,
+                                                                  const uint8_t* buffer,
+                                                                  size_t buffer_size,
+                                                                  size_t& buffer_pos)
+    {
+        // Check if we have enough bytes to read the constraint data
+        if (buffer_pos + 4 > buffer_size) {
+            return std::nullopt; // Need 4 bytes: 2 for witness indices + 1 for operation + 1 for result
+        }
+
+        // Read 2 bytes for witness indices
+        uint8_t a_idx = buffer[buffer_pos];
+        uint8_t b_idx = buffer[buffer_pos + 1];
+        buffer_pos += 2;
+
+        // Validate witness indices
+        if (witness_vector.empty()) {
+            return std::nullopt;
+        }
+        uint32_t a = a_idx % witness_vector.size();
+        uint32_t b = b_idx % witness_vector.size();
+
+        // Read 1 byte for logic operation type (0 = AND, 1 = XOR)
+        uint8_t operation_type = buffer[buffer_pos] & 0x01; // 0 = AND, 1 = XOR
+        buffer_pos++;
+
+        // Create a new witness for the result
+        uint32_t result = static_cast<uint32_t>(witness_vector.size());
+
+        // Calculate the maximum bit size of the input witnesses
+        fr a_val = witness_vector[a];
+        fr b_val = witness_vector[b];
+        uint256_t a_uint256 = static_cast<uint256_t>(a_val);
+        uint256_t b_uint256 = static_cast<uint256_t>(b_val);
+
+        // Get bit sizes
+        uint64_t a_bits = a_uint256.get_msb();
+        if (a_uint256 == 0) {
+            a_bits = 0;
+        } else {
+            a_bits += 1;
+        }
+
+        uint64_t b_bits = b_uint256.get_msb();
+        if (b_uint256 == 0) {
+            b_bits = 0;
+        } else {
+            b_bits += 1;
+        }
+
+        // Check that input witnesses are less than 252 bits
+        // This prevents issues with the underlying field operations
+        if (a_bits >= 252 || b_bits >= 252) {
+            return std::nullopt; // Skip logic constraint if inputs are too large
+        }
+
+        // Set num_bits to the maximum of input bit sizes, but at least 1
+        uint32_t max_bits = static_cast<uint32_t>(std::max(a_bits, b_bits));
+        if (max_bits == 0) {
+            max_bits = 1; // Ensure at least 1 bit for logic constraints
+        }
+
+        // Create a new witness value based on the operation
+        fr result_value;
+        if (operation_type == 0) {
+            // AND operation - convert to uint256, perform AND, convert back
+            uint256_t a_uint = static_cast<uint256_t>(a_val);
+            uint256_t b_uint = static_cast<uint256_t>(b_val);
+            uint256_t result_uint = a_uint & b_uint;
+            result_value = fr(result_uint);
+        } else {
+            // XOR operation - convert to uint256, perform XOR, convert back
+            uint256_t a_uint = static_cast<uint256_t>(a_val);
+            uint256_t b_uint = static_cast<uint256_t>(b_val);
+            uint256_t result_uint = a_uint ^ b_uint;
+            result_value = fr(result_uint);
+        }
+
+        // Add the new witness to the vector
+        witness_vector.push_back(result_value);
+
+        LogicConstraint constraint;
+        constraint.a = WitnessOrConstant<bb::fr>(a);
+        constraint.b = WitnessOrConstant<bb::fr>(b);
+        constraint.result = result;
+        constraint.num_bits = max_bits;
+        constraint.is_xor_gate = operation_type;
+
+        return constraint;
+    }
+
+    /**
      * @brief Create constraints one by one, checking type for each constraint
      *
      * @param constants Constants from FieldVM state
      * @param witness_vector Current witness vector (will be modified if new witnesses are created)
      * @param buffer Buffer to use for constraint generation
      * @param buffer_size Size of the buffer
-     * @return std::pair<std::vector<PolyTripleConstraint>, std::vector<RangeConstraint>> Generated constraints
+     * @return std::tuple<std::vector<PolyTripleConstraint>, std::vector<RangeConstraint>, std::vector<LogicConstraint>>
+     * Generated constraints
      */
-    static std::pair<std::vector<PolyTripleConstraint>, std::vector<RangeConstraint>> create_constraints_one_by_one(
-        const std::vector<fr>& constants, WitnessVector& witness_vector, const uint8_t* buffer, size_t buffer_size)
+    static std::tuple<std::vector<PolyTripleConstraint>, std::vector<RangeConstraint>, std::vector<LogicConstraint>>
+    create_constraints_one_by_one(const std::vector<fr>& constants,
+                                  WitnessVector& witness_vector,
+                                  const uint8_t* buffer,
+                                  size_t buffer_size)
     {
         std::vector<PolyTripleConstraint> poly_constraints;
         std::vector<RangeConstraint> range_constraints;
+        std::vector<LogicConstraint> logic_constraints;
         size_t buffer_pos = 0;
         const size_t max_constraints = 1000; // Prevent potential DoS
 
         // Input validation
         if (buffer == nullptr || buffer_size == 0 || witness_vector.empty()) {
-            return { poly_constraints, range_constraints };
+            return { poly_constraints, range_constraints, logic_constraints };
         }
 
-        while (buffer_pos < buffer_size && (poly_constraints.size() + range_constraints.size()) < max_constraints) {
+        while (buffer_pos < buffer_size &&
+               (poly_constraints.size() + range_constraints.size() + logic_constraints.size()) < max_constraints) {
 
             // Check if we have enough bytes to read constraint type
             if (buffer_pos >= buffer_size) {
                 break;
             }
 
-            // Read constraint type (0 = poly_triple, 1 = range)
-            uint8_t constraint_type = buffer[buffer_pos] & 0x01;
+            // Read constraint type (0 = poly_triple, 1 = range, 2 = logic)
+            uint8_t constraint_type = buffer[buffer_pos] & 0x03; // Use 2 bits for 3 types
             buffer_pos++;
 
             if (constraint_type == 0) {
                 // Create poly_triple constraint
-                if (buffer_pos >= buffer_size) {
-                    break;
+                auto constraint =
+                    create_poly_triple_constraint(constants, witness_vector, buffer, buffer_size, buffer_pos);
+                if (constraint) {
+                    poly_constraints.push_back(*constraint);
                 }
-
-                // Read boolean for creating new witness
-                bool create_new_witness = (buffer[buffer_pos] & 0x01) != 0;
-                buffer_pos++;
-
-                // Read 3 index uint16_ts from the buffer and use as a,b and c
-                if (buffer_pos + 6 > buffer_size) {
-                    break; // Need 6 bytes for 3 uint16_ts
-                }
-
-                uint16_t a_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos]) << 8) |
-                                                       static_cast<uint16_t>(buffer[buffer_pos + 1]));
-                uint16_t b_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos + 2]) << 8) |
-                                                       static_cast<uint16_t>(buffer[buffer_pos + 3]));
-                uint16_t c_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos + 4]) << 8) |
-                                                       static_cast<uint16_t>(buffer[buffer_pos + 5]));
-                buffer_pos += 6;
-
-                // Take modulo the current size of witness vector
-                uint32_t witness_size = static_cast<uint32_t>(witness_vector.size());
-                if (witness_size == 0) {
-                    break; // Avoid division by zero
-                }
-                uint32_t a = a_idx % witness_size;
-                uint32_t b = b_idx % witness_size;
-                // In case of creating a new witness, use the witness size as the index for c as that's where the new
-                // witness will be added
-                uint32_t c = create_new_witness ? witness_size : c_idx % witness_size;
-
-                // Read 1-byte indices from the buffer. Use them to get constants from the constant vector
-                // and set q_m, q_l, q_r, q_o, q_c
-                if (buffer_pos + 5 > buffer_size) {
-                    break; // Need 5 bytes for q_m, q_l, q_r, q_o, q_c indices
-                }
-
-                uint8_t q_m_idx = buffer[buffer_pos];
-                uint8_t q_l_idx = buffer[buffer_pos + 1];
-                uint8_t q_r_idx = buffer[buffer_pos + 2];
-                uint8_t q_o_idx = buffer[buffer_pos + 3];
-                uint8_t q_c_idx = buffer[buffer_pos + 4];
-                buffer_pos += 5;
-
-                // Validate constants vector
-                if (constants.empty()) {
-                    break; // No constants available
-                }
-
-                // Get constants from the constant vector
-                fr q_m_const = constants[q_m_idx % constants.size()];
-                fr q_l_const = constants[q_l_idx % constants.size()];
-                fr q_r_const = constants[q_r_idx % constants.size()];
-                fr q_o_const = constants[q_o_idx % constants.size()];
-                fr q_c_const = constants[q_c_idx % constants.size()];
-
-                PolyTripleConstraint constraint;
-                constraint.a = a;
-                constraint.b = b;
-                constraint.c = c;
-                constraint.q_m = q_m_const;
-                constraint.q_l = q_l_const;
-                constraint.q_r = q_r_const;
-
-                fr a_val = witness_vector[a];
-                fr b_val = witness_vector[b];
-                if (!create_new_witness) {
-                    fr c_val = witness_vector[c];
-
-                    fr q_c_val =
-                        -(q_m_const * a_val * b_val + q_l_const * a_val + q_r_const * b_val + q_o_const * c_val);
-
-                    constraint.q_o = q_o_const;
-                    constraint.q_c = q_c_val;
-                } else {
-                    q_o_const = q_o_const.is_zero() ? -fr(1) : q_o_const;
-                    auto new_witness_value =
-                        -(q_m_const * a_val * b_val + q_l_const * a_val + q_r_const * b_val + q_c_const) / q_o_const;
-                    witness_vector.push_back(new_witness_value);
-
-                    constraint.q_o = q_o_const;
-                    constraint.q_c = q_c_const;
-                }
-
-                poly_constraints.push_back(constraint);
-
-            } else {
+            } else if (constraint_type == 1) {
                 // Create range constraint
-                if (buffer_pos >= buffer_size) {
-                    break;
+                auto constraint = create_range_constraint(witness_vector, buffer, buffer_size, buffer_pos);
+                if (constraint) {
+                    range_constraints.push_back(*constraint);
                 }
-
-                // Read 2 bytes for witness index and adjustment byte
-                if (buffer_pos + 2 > buffer_size) {
-                    break; // Need 2 bytes for witness index and adjustment
+            } else if (constraint_type == 2) {
+                // Create logic constraint
+                auto constraint = create_logic_constraint(witness_vector, buffer, buffer_size, buffer_pos);
+                if (constraint) {
+                    logic_constraints.push_back(*constraint);
                 }
-
-                uint8_t witness_idx = buffer[buffer_pos];
-                uint8_t adjustment_byte = buffer[buffer_pos + 1];
-                buffer_pos += 2;
-
-                // Validate witness index
-                if (witness_vector.empty()) {
-                    continue; // Defensive: skip if empty (shouldn't happen due to earlier check)
-                }
-                witness_idx = witness_idx % witness_vector.size();
-
-                // Get the witness value and convert to uint256_t
-                fr witness_value = witness_vector[witness_idx];
-                uint256_t witness_uint256 = static_cast<uint256_t>(witness_value);
-
-                // Get the actual number of bits used by the witness value
-                uint64_t actual_bits = witness_uint256.get_msb();
-                if (witness_uint256 == 0) {
-                    actual_bits = 0; // get_msb returns 0 for zero, but we want 0 bits
-                } else {
-                    actual_bits += 1; // get_msb is 0-indexed, so add 1 for actual bit count
-                }
-
-                // Use the adjustment byte to determine the target number of bits
-                // Take a value between actual_bits and 253
-                uint64_t target_bits;
-                if (actual_bits >= 253) {
-                    continue; // Don't create constraint if value is already >= 253 bits
-                }
-
-                // Use adjustment_byte to interpolate between actual_bits and 253
-                uint64_t range = 253 - actual_bits;
-                target_bits = actual_bits + (adjustment_byte % (range + 1));
-
-                // Validate target_bits (reasonable range: 1-253 bits)
-                if (target_bits == 0 || target_bits > 253) {
-                    continue; // Skip this constraint if invalid
-                }
-
-                RangeConstraint constraint;
-                constraint.witness = witness_idx;
-                constraint.num_bits = static_cast<uint32_t>(target_bits);
-
-                range_constraints.push_back(constraint);
             }
         }
 
-        return { poly_constraints, range_constraints };
+        return { poly_constraints, range_constraints, logic_constraints };
     }
 
     /**
@@ -611,18 +763,18 @@ class AcirFuzzer {
             // Step 2: Create constraints one by one, checking type for each constraint
             std::mt19937 rng(42); // Fixed seed for reproducibility
 
-            auto [poly_constraints, range_constraints] =
+            auto [poly_constraints, range_constraints, logic_constraints] =
                 create_constraints_one_by_one(fieldvm_constants, witness_vector, constraint_data, size_left);
 
             // If no constraints were created, try to create at least one simple constraint
-            if (poly_constraints.empty() && range_constraints.empty()) {
+            if (poly_constraints.empty() && range_constraints.empty() && logic_constraints.empty()) {
                 return 0;
             }
 
             // Step 3: Create circuit with the generated constraints
             uint32_t num_witnesses = static_cast<uint32_t>(witness_vector.size());
             AcirFormat constraint_system =
-                create_mixed_constraint_circuit(poly_constraints, range_constraints, num_witnesses);
+                create_mixed_constraint_circuit(poly_constraints, range_constraints, logic_constraints, num_witnesses);
 
             // Step 4: Create ACIR program and build circuit
             acir_format::AcirProgram program;
