@@ -2957,10 +2957,9 @@ contract HonkVerifier is IVerifier {
 
             let accumulator := mload(GEMINI_R_CHALLENGE)
             // Add series of challenge power to accumulator
-            let amount := 16
             let temp := LATER_SCRATCH_SPACE // store intermediates in scratch space - using 0x00-0xa0 for result of modexp precompile
             let challenge_power_loc := sub(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC, 0x20) // should be constant
-            for {let i := 0} lt(i, sub(amount, 1)) {i := add(i,1)} {
+            for {let i := 0} lt(i, LOG_N) {i := add(i,1)} {
 
                 // Clean up the presetting of these values
                 temp := add(temp, 0x20) // add immediately
@@ -3025,7 +3024,7 @@ contract HonkVerifier is IVerifier {
             }
 
             // Accumulate results
-            for {let i := sub(amount, 1)} gt(i, 0) {i := sub(i, 1)} {
+            for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
                 let tmp := mulmod(accumulator, mload(temp), p)
                 accumulator := mulmod(accumulator, mload(challenge_power_loc), p)
                 mstore(challenge_power_loc, tmp)
