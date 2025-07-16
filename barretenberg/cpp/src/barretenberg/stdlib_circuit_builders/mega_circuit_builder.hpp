@@ -103,12 +103,12 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
         op_queue->initialize_new_subtable(merge_settings);
 
+        // Set indices to constants corresponding to Goblin ECC op codes
+        set_goblin_ecc_op_code_constant_variables();
+
         if (is_kernel) {
             queue_ecc_eq();
         }
-
-        // Set indices to constants corresponding to Goblin ECC op codes
-        set_goblin_ecc_op_code_constant_variables();
     };
 
     /**
