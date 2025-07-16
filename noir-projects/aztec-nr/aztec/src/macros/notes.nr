@@ -3,7 +3,7 @@ use crate::{
     note::note_getter_options::PropertySelector,
 };
 use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::derive_packable_and_get_packed_len;
+use protocol_types::meta::{derive_packable_and_get_packed_len, get_packable_len};
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
 /// A map from note type to note_packed_len.
@@ -34,21 +34,8 @@ comptime fn derive_packable_if_not_implemented_and_get_len(s: TypeDefinition) ->
     let implements_packable = s.as_type().implements(packable_constraint);
 
     if implements_packable {
-        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
-        // I work around this by:
-
-        // 1. Getting the trait impl
-        let trait_impl = s.as_type().get_trait_impl(packable_constraint).unwrap();
-        // 2. Getting the return type of the pack method
-        let pack_method_return_type = trait_impl.methods()[0].return_type();
-        // 3. Representing the return type as an array - this gives me (Type, Type) where the first type is the type of
-        // elements in the array and the second is the length of the array.
-        let pack_method_return_type_as_array = pack_method_return_type.as_array().unwrap();
-        // 4. Getting the length and representing it as a constant.
-        let packed_len_as_constant = pack_method_return_type_as_array.1.as_constant().unwrap();
-
-        // Return empty quote since implementation exists
-        (quote {}, packed_len_as_constant)
+        // Return empty quote since implementation exists and the packed length.
+        (quote {}, get_packable_len(s.as_type()))
     } else {
         // We didn't manage to get the packed length which means the note struct doesn't implement `Packable`
         // so we derive it and return it along with the packed length.
