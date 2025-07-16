@@ -1212,6 +1212,9 @@ template <typename Field> struct FieldVM {
                       << std::endl;
         }
 
+        // Track bytes consumed by actually executed instructions
+        size_t executed_bytes_consumed = 0;
+
         // Then execute the parsed instructions
         for (const auto& instruction : instructions) {
             if (step_count >= max_steps) {
@@ -1222,10 +1225,13 @@ template <typename Field> struct FieldVM {
             if (!success) {
                 break;
             }
+
+            // Add the size of this instruction to the executed bytes count
+            executed_bytes_consumed += instruction.size;
             step_count++;
         }
 
-        return bytes_consumed; // Return the number of bytes consumed during parsing
+        return executed_bytes_consumed; // Return the number of bytes consumed by executed instructions
     }
 
     /**
