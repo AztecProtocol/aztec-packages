@@ -1,6 +1,6 @@
 // Simple test to verify cbind integration
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
-import { CbindApi, CbindApiSync } from './index.js';
+import { CbindApi, CbindApiSync } from './cbind_api.js';
 
 // Test sync API wrapper
 async function testSyncWrapper() {
