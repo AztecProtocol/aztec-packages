@@ -569,6 +569,12 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .dyn_da = AVM_SSTORE_DYN_DA_GAS },
         .dyn_gas_id = AVM_DYN_GAS_ID_SSTORE,
         .register_info = RegisterInfo().add_inputs({ /*src*/ ValueTag::FF, /*slot*/ ValueTag::FF }) } },
+    { ExecutionOpCode::NOTEHASHEXISTS,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_NOTEHASHEXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*unique_note_hash*/ ValueTag::FF, /*leaf_index*/ ValueTag::U64 })
+                             .add_output(/*exists*/) } },
     { ExecutionOpCode::GETCONTRACTINSTANCE,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },

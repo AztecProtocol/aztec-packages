@@ -59,6 +59,7 @@ class Execution : public ExecutionInterface {
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
               KeccakF1600Interface& keccakf1600,
+              RangeCheckInterface& range_check,
               GetContractInstanceInterface& get_contract_instance_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
@@ -69,6 +70,7 @@ class Execution : public ExecutionInterface {
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
+        , range_check(range_check)
         , get_contract_instance_component(get_contract_instance_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
@@ -120,6 +122,10 @@ class Execution : public ExecutionInterface {
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr);
     void sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr);
+    void note_hash_exists(ContextInterface& context,
+                          MemoryAddress unique_note_hash_addr,
+                          MemoryAddress leaf_index_addr,
+                          MemoryAddress dst_addr);
     void get_contract_instance(ContextInterface& context,
                                MemoryAddress address_offset,
                                MemoryAddress dst_offset,
@@ -160,6 +166,7 @@ class Execution : public ExecutionInterface {
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
+    RangeCheckInterface& range_check;
     GetContractInstanceInterface& get_contract_instance_component;
     HighLevelMerkleDBInterface& merkle_db;
 

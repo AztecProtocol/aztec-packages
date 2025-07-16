@@ -444,7 +444,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn note_hash_exists(note_hash: Field, leaf_index: Field) -> bool {
+    fn note_hash_exists(note_hash: Field, leaf_index: u64) -> bool {
         context.note_hash_exists(note_hash, leaf_index)
     }
 

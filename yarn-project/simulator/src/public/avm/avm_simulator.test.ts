@@ -553,7 +553,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   describe('Side effects, world state, nested calls', () => {
     const address = AztecAddress.fromNumber(1);
     const sender = AztecAddress.fromNumber(42);
-    const leafIndex = new Fr(7);
+    const leafIndex = 7n;
     const slotNumber = 1; // must update Noir contract if changing this
     const slot = new Fr(slotNumber);
     const listSlotNumber0 = 2; // must update Noir contract if changing this
@@ -592,16 +592,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     describe.each([
       [/*mockAtLeafIndex=*/ undefined], // doesn't exist at all
       [/*mockAtLeafIndex=*/ leafIndex], // should be found!
-      [/*mockAtLeafIndex=*/ leafIndex.add(Fr.ONE)], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
-    ])('Note hash checks', (mockAtLeafIndex?: Fr) => {
-      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex.equals(leafIndex);
-      const existsElsewhere = mockAtLeafIndex !== undefined && !mockAtLeafIndex.equals(leafIndex);
+      [/*mockAtLeafIndex=*/ leafIndex + 1n], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
+    ])('Note hash checks', (mockAtLeafIndex?: bigint) => {
+      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex == leafIndex;
+      const existsElsewhere = mockAtLeafIndex !== undefined && !(mockAtLeafIndex == leafIndex);
       const existsStr = expectFound ? 'DOES exist' : 'does NOT exist';
-      const foundAtStr = existsElsewhere
-        ? `at leafIndex=${mockAtLeafIndex.toNumber()} (exists at leafIndex=${leafIndex.toNumber()})`
-        : '';
+      const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
-        const calldata = [value0, leafIndex];
+        const calldata = [value0, new Fr(leafIndex)];
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('note_hash_exists');
         if (mockAtLeafIndex !== undefined) {
@@ -635,21 +633,19 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     describe.each([
       [/*mockAtLeafIndex=*/ undefined], // doesn't exist at all
       [/*mockAtLeafIndex=*/ leafIndex], // should be found!
-      [/*mockAtLeafIndex=*/ leafIndex.add(Fr.ONE)], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
-    ])('L1ToL2 message checks', (mockAtLeafIndex?: Fr) => {
-      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex.equals(leafIndex);
-      const existsElsewhere = mockAtLeafIndex !== undefined && !mockAtLeafIndex.equals(leafIndex);
+      [/*mockAtLeafIndex=*/ leafIndex + 1n], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
+    ])('L1ToL2 message checks', (mockAtLeafIndex?: bigint) => {
+      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex == leafIndex;
+      const existsElsewhere = mockAtLeafIndex !== undefined && !(mockAtLeafIndex == leafIndex);
       const existsStr = expectFound ? 'DOES exist' : 'does NOT exist';
-      const foundAtStr = existsElsewhere
-        ? `at leafIndex=${mockAtLeafIndex.toNumber()} (exists at leafIndex=${leafIndex.toNumber()})`
-        : '';
+      const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
 
       it(`Should return ${expectFound} (and be traced) when message ${existsStr} ${foundAtStr}`, async () => {
-        const calldata = [value0, leafIndex];
+        const calldata = [value0, new Fr(leafIndex)];
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(treesDB, new Fr(mockAtLeafIndex), value0, /*valueAtOtherIndices=*/ value1);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);

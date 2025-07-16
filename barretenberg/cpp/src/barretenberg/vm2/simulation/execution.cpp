@@ -521,10 +521,11 @@ void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, Memory
     constexpr auto opcode = ExecutionOpCode::SLOAD;
 
     auto& memory = context.get_memory();
-    get_gas_tracker().consume_gas();
 
     auto slot = memory.get(slot_addr);
     set_and_validate_inputs(opcode, { slot });
+
+    get_gas_tracker().consume_gas();
 
     auto value = MemoryValue::from<FF>(merkle_db.storage_read(context.get_address(), slot.as<FF>()));
 
@@ -552,6 +553,41 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
     }
 
     merkle_db.storage_write(context.get_address(), slot.as_ff(), value.as_ff(), false);
+}
+
+void Execution::note_hash_exists(ContextInterface& context,
+                                 MemoryAddress unique_note_hash_addr,
+                                 MemoryAddress leaf_index_addr,
+                                 MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NOTEHASHEXISTS;
+
+    auto& memory = context.get_memory();
+    auto unique_note_hash = memory.get(unique_note_hash_addr);
+    auto leaf_index = memory.get(leaf_index_addr);
+    set_and_validate_inputs(opcode, { unique_note_hash, leaf_index });
+
+    get_gas_tracker().consume_gas();
+
+    uint64_t leaf_index_value = leaf_index.as<uint64_t>();
+
+    bool out_of_range = leaf_index_value >= NOTE_HASH_TREE_LEAF_COUNT;
+    // Circuit information leak to call range check
+    uint64_t note_hash_leaf_index_leaf_count_cmp_diff =
+        out_of_range ? leaf_index_value - NOTE_HASH_TREE_LEAF_COUNT : NOTE_HASH_TREE_LEAF_COUNT - leaf_index_value - 1;
+
+    range_check.assert_range(note_hash_leaf_index_leaf_count_cmp_diff, 64);
+
+    MemoryValue value;
+
+    if (out_of_range) {
+        value = MemoryValue::from<uint1_t>(0);
+    } else {
+        value = MemoryValue::from<uint1_t>(merkle_db.note_hash_exists(leaf_index_value, unique_note_hash.as<FF>()));
+    }
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
 }
 
 void Execution::get_contract_instance(ContextInterface& context,
@@ -807,6 +843,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SSTORE:
         call_with_operands(&Execution::sstore, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NOTEHASHEXISTS:
+        call_with_operands(&Execution::note_hash_exists, context, resolved_operands);
         break;
     case ExecutionOpCode::GETCONTRACTINSTANCE:
         call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
