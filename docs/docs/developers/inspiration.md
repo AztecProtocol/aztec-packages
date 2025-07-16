@@ -3,7 +3,7 @@ id: inspiration
 title: Inspiration and Ideas
 ---
 
-This page covers requests for apps on Aztec, designs that some teams are exploring, existing contract examples, and open source ecosystem projects. 
+This page covers requests for apps on Aztec, designs that some teams are exploring, existing contract examples, and open source ecosystem projects.
 
 ## App ideas
 
@@ -27,7 +27,7 @@ This page covers requests for apps on Aztec, designs that some teams are explori
 
 ### Identity & Access Management
 
-- Private Glassdoor 
+- Private Glassdoor
 - Private Yelp
 - Onchain Loyalty System
 - History-based Gating
@@ -64,11 +64,11 @@ Many of these are not official resources, may be outdated, or are works in progr
 
 Explore the [tutorials section](../developers/tutorials/codealong/contract_tutorials/counter_contract.md) for some contract and full-stack project examples.
 
-There is also a list of up-to-date contract examples in the [aztec-packages Github repo](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts). 
+There is also a list of up-to-date contract examples in the [aztec-packages Github repo](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts).
 
 ## Ecosystem projects
 
-- [ShieldSwap](https://app.shieldswap.org/?type=market)
+- [Nemi](https://nemi.fi)
 - [AztecScan](https://aztecscan.xyz/)
 - [Azguard](https://azguardwallet.io/terms)
 
@@ -76,7 +76,7 @@ Explore the [Aztec Network ecosystem page](https://aztec.network/ecosystem) to d
 
 ### Proof of concepts
 
-Many of these are outdated. 
+Many of these are outdated.
 
 - [Ikegai](https://github.com/resurgencelabs/ikigai_backend)
 - [Aztec private oracle](https://github.com/defi-wonderland/aztec-private-oracle)
