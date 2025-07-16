@@ -381,7 +381,7 @@ struct AvmFlavorVariables {
         lookup_note_hash_tree_check_silo_poseidon2_relation<FF_>,
         lookup_note_hash_tree_check_unique_note_hash_poseidon2_relation<FF_>,
         lookup_note_hash_tree_check_write_note_hash_to_public_inputs_relation<FF_>,
-        lookup_notehash_exists_note_hash_index_range_relation<FF_>,
+        lookup_notehash_exists_note_hash_leaf_index_in_range_relation<FF_>,
         lookup_notehash_exists_note_hash_read_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
         lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF_>,

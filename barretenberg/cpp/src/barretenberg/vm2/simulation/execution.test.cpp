@@ -27,6 +27,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
@@ -80,7 +81,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGasTracker> gas_tracker;
     StrictMock<MockHighLevelMerkleDB> merkle_db;
-    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockGreaterThan> greater_than;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -91,7 +92,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   execution_event_emitter,
                                                   context_stack_event_emitter,
                                                   keccakf1600,
-                                                  range_check,
+                                                  greater_than,
                                                   get_contract_instance,
                                                   merkle_db);
 };
@@ -471,7 +472,7 @@ TEST_F(ExecutionSimulationTest, NoteHashExists)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(range_check, assert_range(NOTE_HASH_TREE_LEAF_COUNT - 1 - leaf_index.as<uint64_t>(), 64));
+    EXPECT_CALL(greater_than, gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(true));
 
     EXPECT_CALL(merkle_db, note_hash_exists(leaf_index.as<uint64_t>(), unique_note_hash.as<FF>()))
         .WillOnce(Return(true));
@@ -496,7 +497,7 @@ TEST_F(ExecutionSimulationTest, NoteHashExistsOutOfRange)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(range_check, assert_range(leaf_index.as<uint64_t>() - NOTE_HASH_TREE_LEAF_COUNT, 64));
+    EXPECT_CALL(greater_than, gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(false));
 
     EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
 

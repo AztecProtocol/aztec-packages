@@ -571,19 +571,14 @@ void Execution::note_hash_exists(ContextInterface& context,
 
     uint64_t leaf_index_value = leaf_index.as<uint64_t>();
 
-    bool out_of_range = leaf_index_value >= NOTE_HASH_TREE_LEAF_COUNT;
-    // Circuit information leak to call range check
-    uint64_t note_hash_leaf_index_leaf_count_cmp_diff =
-        out_of_range ? leaf_index_value - NOTE_HASH_TREE_LEAF_COUNT : NOTE_HASH_TREE_LEAF_COUNT - leaf_index_value - 1;
-
-    range_check.assert_range(note_hash_leaf_index_leaf_count_cmp_diff, 64);
+    bool index_in_range = greater_than.gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index_value);
 
     MemoryValue value;
 
-    if (out_of_range) {
-        value = MemoryValue::from<uint1_t>(0);
-    } else {
+    if (index_in_range) {
         value = MemoryValue::from<uint1_t>(merkle_db.note_hash_exists(leaf_index_value, unique_note_hash.as<FF>()));
+    } else {
+        value = MemoryValue::from<uint1_t>(0);
     }
 
     memory.set(dst_addr, value);

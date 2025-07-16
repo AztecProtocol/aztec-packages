@@ -13,7 +13,7 @@ template <typename FF_> class notehash_existsImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 3, 3 };
+    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -32,10 +32,6 @@ template <typename FF_> class notehash_existsImpl {
 
         const auto constants_NOTE_HASH_TREE_LEAF_COUNT = FF(1099511627776UL);
         const auto constants_MEM_TAG_U1 = FF(1);
-        const auto execution_LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT =
-            (in.get(C::execution_register_1_) - constants_NOTE_HASH_TREE_LEAF_COUNT);
-        const auto execution_LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT =
-            ((constants_NOTE_HASH_TREE_LEAF_COUNT - in.get(C::execution_register_1_)) - FF(1));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -46,12 +42,8 @@ template <typename FF_> class notehash_existsImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_execute_notehash_exists) *
-                (((execution_LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT - execution_LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) *
-                      in.get(C::execution_note_hash_leaf_in_range) +
-                  execution_LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) -
-                 in.get(C::execution_note_hash_leaf_index_leaf_count_cmp_diff));
+            auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
+                       (in.get(C::execution_note_hash_tree_leaf_count) - constants_NOTE_HASH_TREE_LEAF_COUNT);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
