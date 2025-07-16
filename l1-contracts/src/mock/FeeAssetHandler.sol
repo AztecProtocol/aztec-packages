@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {IMintableERC20} from "./../governance/interfaces/IMintableERC20.sol";
 
 interface IFeeAssetHandler {
   event MintAmountSet(uint256 amount);

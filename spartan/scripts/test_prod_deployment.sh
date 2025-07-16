@@ -45,7 +45,7 @@ offshoot_values_file=slim.yaml
 
 kubectl delete namespace $NAMESPACE --ignore-not-found=true
 
-HELM_INSTANCE=$release ./test_kind.sh src/spartan/smoke.test.ts $original_values_file $NAMESPACE
+HELM_INSTANCE=$release ./test_k8s.sh kind src/spartan/smoke.test.ts $original_values_file $NAMESPACE
 
 # Delete stuff in the original namespace, we'll recreate it in the offshoot
 kubectl delete statefulset $release-aztec-network-validator -n $NAMESPACE --wait=true
@@ -124,4 +124,4 @@ export OVERRIDES="bootNode.externalHost=$boot_node_host,ethereum.execution.exter
 
 echo "OVERRIDES: $OVERRIDES"
 
-FRESH_INSTALL=false INSTALL_METRICS=false HELM_INSTANCE=$offshoot ./test_kind.sh src/spartan/smoke.test.ts $offshoot_values_file $NAMESPACE
+FRESH_INSTALL=false INSTALL_METRICS=false HELM_INSTANCE=$offshoot ./test_k8s.sh kind src/spartan/smoke.test.ts $offshoot_values_file $NAMESPACE

@@ -1,5 +1,5 @@
 use crate::{NFT, test::utils, types::nft_note::PartialNFTNote};
-use dep::aztec::{oracle::random::random, prelude::AztecAddress};
+use dep::aztec::{oracle::random::random, protocol_types::address::AztecAddress};
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.
@@ -38,7 +38,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Recipient should have the note in their private nfts
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);

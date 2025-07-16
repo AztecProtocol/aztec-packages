@@ -17,7 +17,6 @@ class IPATest : public CommitmentTest<Curve> {
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
-    using PCS = IPA<curve::Grumpkin>;
 
     using ShplonkProver = ShplonkProver_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
@@ -27,15 +26,15 @@ class IPATest : public CommitmentTest<Curve> {
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    static std::shared_ptr<CK> ck;
-    static std::shared_ptr<VK> vk;
-
-    // Default polynomial size
-    static constexpr size_t n = 128;
+    static CK ck;
+    static VK vk;
 
     // For edge cases
-    static constexpr size_t small_log_n = 3;
-    static constexpr size_t small_n = 1UL << small_log_n;
+    static constexpr size_t log_n = 7;
+
+    using PCS = IPA<curve::Grumpkin, log_n>;
+
+    static constexpr size_t n = 1UL << log_n;
 
     static void SetUpTestSuite()
     {
@@ -56,14 +55,14 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
         p.at(i) = Fr::zero();
     }
     p.at(3) = Fr::one();
-    GroupElement commitment = ck->commit(p);
-    auto srs_elements = ck->srs->get_monomial_points();
+    GroupElement commitment = ck.commit(p);
+    auto srs_elements = ck.srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
     // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 2; i < 2 * n; i += 2) {
-        expected += srs_elements[i] * p[i >> 1];
+    for (size_t i = 1; i < n; i += 1) {
+        expected += srs_elements[i] * p[i];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
@@ -72,9 +71,9 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 // detects those.
 TEST_F(IPATest, OpenZeroPolynomial)
 {
-    Polynomial poly(small_n);
+    Polynomial poly(n);
     // Commit to a zero polynomial
-    Commitment commitment = ck->commit(poly);
+    Commitment commitment = ck.commit(poly);
     EXPECT_TRUE(commitment.is_point_at_infinity());
 
     auto [x, eval] = this->random_eval(poly);
@@ -87,7 +86,8 @@ TEST_F(IPATest, OpenZeroPolynomial)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -101,7 +101,7 @@ TEST_F(IPATest, OpenAtZero)
     auto poly = Polynomial::random(n);
     const Fr x = Fr::zero();
     const Fr eval = poly.evaluate(x);
-    const Commitment commitment = ck->commit(poly);
+    const Commitment commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -110,7 +110,8 @@ TEST_F(IPATest, OpenAtZero)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -124,7 +125,7 @@ TEST_F(IPATest, ChallengesAreZero)
     // generate a random polynomial, degree needs to be a power of two
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = ck->commit(poly);
+    auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -165,22 +166,21 @@ TEST_F(IPATest, ChallengesAreZero)
 // This test checks that if the vector \vec{a_new} becomes zero after one round, it doesn't break IPA.
 TEST_F(IPATest, AIsZeroAfterOneRound)
 {
-    // generate a random polynomial, degree needs to be a power of two
-    constexpr size_t n = 4;
+    // generate a random polynomial of degree < n / 2
     auto poly = Polynomial(n);
     for (size_t i = 0; i < n / 2; i++) {
         poly.at(i) = Fr::random_element();
         poly.at(i + (n / 2)) = poly[i];
     }
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = ck->commit(poly);
+    auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
     // initialize an empty mock transcript
     auto transcript = std::make_shared<MockTranscript>();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constant from IPA.
-    const size_t num_challenges = CONST_ECCVM_LOG_N + 1;
+    const size_t num_challenges = log_n + 1;
     std::vector<uint256_t> random_vector(num_challenges);
 
     // Generate a random element vector with challenges
@@ -208,14 +208,14 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 TEST_F(IPATest, Commit)
 {
     auto poly = Polynomial::random(n);
-    const GroupElement commitment = ck->commit(poly);
-    auto srs_elements = ck->srs->get_monomial_points();
+    const GroupElement commitment = ck.commit(poly);
+    auto srs_elements = ck.srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
     // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 2; i < 2 * n; i += 2) {
-        expected += srs_elements[i] * poly[i >> 1];
+    for (size_t i = 1; i < n; i += 1) {
+        expected += srs_elements[i] * poly[i];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
@@ -225,7 +225,7 @@ TEST_F(IPATest, Open)
     // generate a random polynomial, degree needs to be a power of two
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = ck->commit(poly);
+    auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -234,7 +234,8 @@ TEST_F(IPATest, Open)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     auto result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -246,9 +247,9 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
+    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
 
-    MockClaimGenerator mock_claims(small_n,
+    MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 2,
                                    /*num_to_be_shifted*/ 0,
                                    /*num_to_be_right_shifted_by_k*/ 0,
@@ -262,7 +263,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
@@ -273,7 +274,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
         GeminiVerifier::reduce_verification(mle_opening_point, mock_claims.claim_batcher, verifier_transcript);
 
     const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(vk->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
+        ShplonkVerifier::reduce_verification(vk.get_g1_identity(), gemini_verifier_claim, verifier_transcript);
     auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);
@@ -282,8 +283,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    MockClaimGenerator mock_claims(small_n,
+    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
+    MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 2,
                                    /*num_to_be_shifted*/ 0,
                                    /*num_to_be_right_shifted_by_k*/ 0,
@@ -297,19 +298,19 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    std::array<Fr, small_log_n> padding_indicator_array;
+    std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
 
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
@@ -325,8 +326,8 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
 {
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
-    MockClaimGenerator mock_claims(small_n,
+    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
+    MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,
                                    /*num_to_be_right_shifted_by_k*/ 0,
@@ -341,7 +342,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
@@ -361,18 +362,18 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // vectors corresponding to the "shifted" commitment
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    std::array<Fr, small_log_n> padding_indicator_array;
+    std::array<Fr, log_n> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, Fr{ 1 });
 
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     repeated_commitments);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     EXPECT_EQ(result, true);
 }
-std::shared_ptr<typename IPATest::CK> IPATest::ck = nullptr;
-std::shared_ptr<typename IPATest::VK> IPATest::vk = nullptr;
+typename IPATest::CK IPATest::ck;
+typename IPATest::VK IPATest::vk;

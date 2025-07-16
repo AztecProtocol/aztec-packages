@@ -9,7 +9,7 @@ pub contract Escrow {
         macros::{functions::{initializer, private}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
     };
-    use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
+    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::PrivateImmutable};
 
     // docs:start:addressnote_import
     use dep::address_note::address_note::AddressNote;

@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 enum VoteTabulationReturn {
@@ -43,7 +43,7 @@ enum VoteTabulationInfo {
  *          for example ending at 0, having a case where no votes are needed
  */
 library ProposalLib {
-  function voteTabulation(DataStructures.Proposal storage _self, uint256 _totalPower)
+  function voteTabulation(Proposal storage _self, uint256 _totalPower)
     internal
     view
     returns (VoteTabulationReturn, VoteTabulationInfo)
@@ -102,28 +102,28 @@ library ProposalLib {
   /**
    * @notice	A stable state is one which cannoted be moved away from
    */
-  function isStable(DataStructures.Proposal storage _self) internal view returns (bool) {
-    DataStructures.ProposalState s = _self.state; // cache
-    return s == DataStructures.ProposalState.Executed || s == DataStructures.ProposalState.Dropped;
+  function isStable(Proposal storage _self) internal view returns (bool) {
+    ProposalState s = _self.state; // cache
+    return s == ProposalState.Executed || s == ProposalState.Dropped;
   }
 
-  function pendingThrough(DataStructures.Proposal storage _self) internal view returns (Timestamp) {
+  function pendingThrough(Proposal storage _self) internal view returns (Timestamp) {
     return _self.creation + _self.config.votingDelay;
   }
 
-  function activeThrough(DataStructures.Proposal storage _self) internal view returns (Timestamp) {
+  function activeThrough(Proposal storage _self) internal view returns (Timestamp) {
     return ProposalLib.pendingThrough(_self) + _self.config.votingDuration;
   }
 
-  function queuedThrough(DataStructures.Proposal storage _self) internal view returns (Timestamp) {
+  function queuedThrough(Proposal storage _self) internal view returns (Timestamp) {
     return ProposalLib.activeThrough(_self) + _self.config.executionDelay;
   }
 
-  function executableThrough(DataStructures.Proposal storage _self)
-    internal
-    view
-    returns (Timestamp)
-  {
+  function executableThrough(Proposal storage _self) internal view returns (Timestamp) {
     return ProposalLib.queuedThrough(_self) + _self.config.gracePeriod;
+  }
+
+  function pendingThroughMemory(Proposal memory _self) internal pure returns (Timestamp) {
+    return _self.creation + _self.config.votingDelay;
   }
 }

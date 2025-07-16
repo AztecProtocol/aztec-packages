@@ -33,7 +33,7 @@ pub contract Router {
     /// Asserts that the current block number in the enqueued public call satisfies the `operation` with respect
     /// to the `value.
     #[private]
-    fn check_block_number(operation: u8, value: Field) {
+    fn check_block_number(operation: u8, value: u32) {
         Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(
             &mut context,
         );
@@ -42,7 +42,10 @@ pub contract Router {
     #[public]
     #[internal]
     #[view]
-    fn _check_block_number(operation: u8, value: Field) {
-        assert(compare(context.block_number(), operation, value), "Block number mismatch.");
+    fn _check_block_number(operation: u8, value: u32) {
+        assert(
+            compare(context.block_number() as Field, operation, value as Field),
+            "Block number mismatch.",
+        );
     }
 }

@@ -1,13 +1,15 @@
 import type { Gossipable } from '@aztec/stdlib/p2p';
 import {
   Attributes,
+  type BatchObservableResult,
   type Histogram,
   LmdbMetrics,
   type LmdbStatsCallback,
+  type Meter,
   Metrics,
   type MetricsType,
+  type ObservableGauge,
   type TelemetryClient,
-  type UpDownCounter,
 } from '@aztec/telemetry-client';
 
 export enum PoolName {
@@ -41,86 +43,70 @@ function getMetricsLabels(name: PoolName): MetricsLabels {
   throw new Error('Invalid pool type');
 }
 
+export type PoolStatsCallback = () => Promise<{
+  itemCount: number | Record<string, number>;
+}>;
+
 /**
  * Instrumentation class for the Pools (TxPool, AttestationPool, etc).
  */
 export class PoolInstrumentation<PoolObject extends Gossipable> {
   /** The number of txs in the mempool */
-  private objectsInMempool: UpDownCounter;
+  private objectsInMempool: ObservableGauge;
   /** Tracks tx size */
   private objectSize: Histogram;
 
   private dbMetrics: LmdbMetrics;
 
   private defaultAttributes;
+  private meter: Meter;
 
-  constructor(telemetry: TelemetryClient, name: PoolName, dbStats?: LmdbStatsCallback) {
-    const meter = telemetry.getMeter(name);
+  constructor(
+    telemetry: TelemetryClient,
+    name: PoolName,
+    private poolStats: PoolStatsCallback,
+    dbStats?: LmdbStatsCallback,
+  ) {
+    this.meter = telemetry.getMeter(name);
     this.defaultAttributes = { [Attributes.POOL_NAME]: name };
 
     const metricsLabels = getMetricsLabels(name);
 
-    this.objectsInMempool = meter.createUpDownCounter(metricsLabels.objectInMempool, {
+    this.objectsInMempool = this.meter.createObservableGauge(metricsLabels.objectInMempool, {
       description: 'The current number of transactions in the mempool',
     });
 
-    this.objectSize = meter.createHistogram(metricsLabels.objectSize, {
+    this.objectSize = this.meter.createHistogram(metricsLabels.objectSize, {
       unit: 'By',
       description: 'The size of transactions in the mempool',
     });
 
     this.dbMetrics = new LmdbMetrics(
-      meter,
+      this.meter,
       {
         [Attributes.DB_DATA_TYPE]: 'tx-pool',
       },
       dbStats,
     );
+
+    this.meter.addBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
   }
 
   public recordSize(poolObject: PoolObject) {
     this.objectSize.record(poolObject.getSize());
   }
 
-  /**
-   * Updates the metrics with the new objects.
-   * @param txs - The objects to record
-   */
-  public recordAddedObjects(count = 1, status?: string) {
-    if (count < 0) {
-      throw new Error('Count must be positive');
-    }
-    if (count === 0) {
-      return;
-    }
-    const attributes = status
-      ? {
+  private observeStats = async (observer: BatchObservableResult) => {
+    const { itemCount } = await this.poolStats();
+    if (typeof itemCount === 'number') {
+      observer.observe(this.objectsInMempool, itemCount, this.defaultAttributes);
+    } else {
+      for (const [status, count] of Object.entries(itemCount)) {
+        observer.observe(this.objectsInMempool, count, {
           ...this.defaultAttributes,
           [Attributes.STATUS]: status,
-        }
-      : this.defaultAttributes;
-
-    this.objectsInMempool.add(count, attributes);
-  }
-
-  /**
-   * Updates the metrics by removing objects from the mempool.
-   * @param count - The number of objects to remove from the mempool
-   */
-  public recordRemovedObjects(count = 1, status?: string) {
-    if (count < 0) {
-      throw new Error('Count must be positive');
+        });
+      }
     }
-    if (count === 0) {
-      return;
-    }
-
-    const attributes = status
-      ? {
-          ...this.defaultAttributes,
-          [Attributes.STATUS]: status,
-        }
-      : this.defaultAttributes;
-    this.objectsInMempool.add(-1 * count, attributes);
-  }
+  };
 }

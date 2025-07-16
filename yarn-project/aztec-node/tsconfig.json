@@ -58,6 +58,9 @@
       "path": "../simulator"
     },
     {
+      "path": "../slasher"
+    },
+    {
       "path": "../stdlib"
     },
     {

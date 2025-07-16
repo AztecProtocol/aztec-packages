@@ -1,5 +1,7 @@
 use crate::tests::tail_output_validator_builder::TailOutputValidatorBuilder;
-use dep::types::{address::AztecAddress, traits::FromField};
+use dep::types::{
+    address::AztecAddress, constants::MAX_INCLUDE_BY_TIMESTAMP_DURATION, traits::FromField,
+};
 
 /**
  * constants
@@ -59,25 +61,113 @@ fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
 }
 
 /**
- * max_block_number
+ * include_by_timestamp
  */
 #[test]
-fn validate_propagated_values_max_block_number_succeeds() {
+fn validate_propagated_values_include_by_timestamp_use_previous_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.include_by_timestamp_upper_bound = 9999;
+    builder.previous_kernel.include_by_timestamp = 123;
+    builder.output.include_by_timestamp = 123;
 
     builder.validate();
 }
 
-#[test(should_fail_with = "mismatch rollup_validation_requests")]
-fn validate_propagated_values_max_block_number_mismatch_fails() {
+#[test]
+fn validate_propagated_values_include_by_timestamp_use_custom_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(123);
-    // Tweak the value in the output.
-    builder.output.set_max_block_number(45);
+    builder.include_by_timestamp_upper_bound = 99;
+    builder.previous_kernel.include_by_timestamp = 123;
+    builder.output.include_by_timestamp = 99;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "incorrect include_by_timestamp")]
+fn validate_propagated_values_include_by_timestamp_use_larger_custom_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.include_by_timestamp_upper_bound = 9999;
+    builder.previous_kernel.include_by_timestamp = 123;
+    builder.output.include_by_timestamp = 9999;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "incorrect include_by_timestamp")]
+fn validate_propagated_values_include_by_timestamp_use_larger_previous_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    builder.include_by_timestamp_upper_bound = 99;
+    builder.previous_kernel.include_by_timestamp = 123;
+    // The value in the output should be 99.
+    builder.output.include_by_timestamp = 123;
+
+    builder.validate();
+}
+
+#[test]
+fn validate_propagated_values_include_by_timestamp_custom_equals_max_duration_succeeds() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    let block_timestamp = 99;
+    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
+    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+
+    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+    builder.include_by_timestamp_upper_bound = max_timestamp;
+    builder.previous_kernel.include_by_timestamp = max_timestamp;
+    builder.output.include_by_timestamp = max_timestamp;
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "include_by_timestamp exceeds the maximum duration")]
+fn validate_propagated_values_include_by_timestamp_custom_exceeds_max_duration_fails() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    let block_timestamp = 99;
+    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
+    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+
+    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+    builder.include_by_timestamp_upper_bound = max_timestamp + 1;
+    builder.previous_kernel.include_by_timestamp = max_timestamp + 1;
+    builder.output.include_by_timestamp = max_timestamp + 1;
+
+    builder.validate();
+}
+
+#[test]
+fn validate_propagated_values_include_by_timestamp_custom_exceeds_max_pick_previous_succeeds() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    let block_timestamp = 99;
+    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
+    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+
+    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+    builder.include_by_timestamp_upper_bound = max_timestamp + 1;
+    builder.previous_kernel.include_by_timestamp = max_timestamp;
+    builder.output.include_by_timestamp = max_timestamp;
+
+    builder.validate();
+}
+
+#[test]
+fn validate_propagated_values_include_by_timestamp_previous_exceeds_max_pick_custom_succeeds() {
+    let mut builder = TailOutputValidatorBuilder::new();
+
+    let block_timestamp = 99;
+    builder.previous_kernel.historical_header.global_variables.timestamp = block_timestamp;
+    builder.output.historical_header.global_variables.timestamp = block_timestamp;
+
+    let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+    builder.include_by_timestamp_upper_bound = max_timestamp;
+    builder.previous_kernel.include_by_timestamp = max_timestamp + 1;
+    builder.output.include_by_timestamp = max_timestamp;
 
     builder.validate();
 }

@@ -5,7 +5,7 @@
 // =====================
 
 #include "merge_prover.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
 
@@ -15,11 +15,12 @@ namespace bb {
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         const std::shared_ptr<CommitmentKey>& commitment_key,
+                         const CommitmentKey& commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
-    , pcs_commitment_key(commitment_key ? commitment_key
-                                        : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
+    , pcs_commitment_key(commitment_key.initialized() ? commitment_key
+                                                      : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
     , transcript(transcript){};
 
 /**
@@ -32,7 +33,8 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1270): connect [t_j] used herein those used in PG verifier
+ * @note: the prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
+ * circuit, and therefore t_j has already been added to the transcript by PG.
  *
  * @return honk::proof
  */
@@ -45,19 +47,21 @@ MergeProver::MergeProof MergeProver::construct_proof()
     std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 
     const size_t current_table_size = T_current[0].size();
-    const size_t current_subtable_size = t_current[0].size();
 
-    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
+    // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
+    // subtable when sending a merge proof to the rollup.
+    const size_t shift_size =
+        op_queue->get_current_settings() == MergeSettings::PREPEND ? t_current[0].size() : T_prev[0].size();
+    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute commitments
-        Commitment t_commitment = pcs_commitment_key->commit(t_current[idx]);
-        Commitment T_prev_commitment = pcs_commitment_key->commit(T_prev[idx]);
-        Commitment T_commitment = pcs_commitment_key->commit(T_current[idx]);
+        Commitment T_prev_commitment = pcs_commitment_key.commit(T_prev[idx]);
+        Commitment T_commitment = pcs_commitment_key.commit(T_current[idx]);
 
         std::string suffix = std::to_string(idx);
-        transcript->send_to_verifier("t_CURRENT_" + suffix, t_commitment);
         transcript->send_to_verifier("T_PREV_" + suffix, T_prev_commitment);
         transcript->send_to_verifier("T_CURRENT_" + suffix, T_commitment);
     }

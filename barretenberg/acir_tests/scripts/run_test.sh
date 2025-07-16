@@ -6,18 +6,18 @@ cd ..
 TEST_NAME=$1
 
 COMPILE=${COMPILE:-0}
-BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
-CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
+native_build_dir=$(../cpp/scripts/native-preset-build-dir)
+export BIN=$(realpath ${BIN:-../cpp/$native_build_dir/bin/bb})
+export CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
 FLOW=${FLOW:-prove_and_verify}
-RECURSIVE=${RECURSIVE:-false}
-HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
+export RECURSIVE=${RECURSIVE:-false}
+export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-8}
 RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-8}
-VERBOSE=${VERBOSE:-0}
+export VERBOSE=${VERBOSE:-0}
 
 flow_script=$(realpath ./flows/${FLOW}.sh)
 nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
 
-export BIN CRS_PATH RECURSIVE HARDWARE_CONCURRENCY VERBOSE
 
 cd ./acir_tests/$TEST_NAME
 

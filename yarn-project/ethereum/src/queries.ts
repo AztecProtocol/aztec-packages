@@ -32,9 +32,10 @@ export async function getL1ContractsConfig(
     l1StartBlock,
     l1GenesisTime,
     aztecEpochDuration,
-    aztecProofSubmissionWindow,
     aztecSlotDuration,
+    aztecProofSubmissionEpochs,
     aztecTargetCommitteeSize,
+    depositAmount,
     minimumStake,
     governanceProposerQuorum,
     governanceProposerRoundSize,
@@ -44,13 +45,15 @@ export async function getL1ContractsConfig(
     provingCostPerMana,
     rollupVersion,
     genesisArchiveTreeRoot,
+    exitDelay,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
     rollup.getEpochDuration(),
-    rollup.getProofSubmissionWindow(),
     rollup.getSlotDuration(),
+    rollup.getProofSubmissionEpochs(),
     rollup.getTargetCommitteeSize(),
+    rollup.getDepositAmount(),
     rollup.getMinimumStake(),
     governanceProposer.getQuorumSize(),
     governanceProposer.getRoundSize(),
@@ -60,17 +63,19 @@ export async function getL1ContractsConfig(
     rollup.getProvingCostPerMana(),
     rollup.getVersion(),
     rollup.getGenesisArchiveTreeRoot(),
+    rollup.getExitDelay(),
   ] as const);
 
   return {
     l1StartBlock,
     l1GenesisTime,
     aztecEpochDuration: Number(aztecEpochDuration),
-    aztecProofSubmissionWindow: Number(aztecProofSubmissionWindow),
     aztecSlotDuration: Number(aztecSlotDuration),
+    aztecProofSubmissionEpochs: Number(aztecProofSubmissionEpochs),
     aztecTargetCommitteeSize: Number(aztecTargetCommitteeSize),
     governanceProposerQuorum: Number(governanceProposerQuorum),
     governanceProposerRoundSize: Number(governanceProposerRoundSize),
+    depositAmount,
     minimumStake,
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
@@ -78,6 +83,7 @@ export async function getL1ContractsConfig(
     provingCostPerMana: provingCostPerMana,
     rollupVersion: Number(rollupVersion),
     genesisArchiveTreeRoot,
+    exitDelaySeconds: Number(exitDelay),
   };
 }
 

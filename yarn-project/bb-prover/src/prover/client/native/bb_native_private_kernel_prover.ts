@@ -1,7 +1,7 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
-import type { SimulationProvider } from '@aztec/simulator/server';
+import type { CircuitSimulator } from '@aztec/simulator/server';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
@@ -21,19 +21,19 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private skipCleanup: boolean,
-    protected override simulationProvider: SimulationProvider,
+    protected override simulator: CircuitSimulator,
     protected override log = createLogger('bb-prover:native'),
   ) {
-    super(new BundleArtifactProvider(), simulationProvider, log);
+    super(new BundleArtifactProvider(), simulator, log);
   }
 
-  public static async new(config: BBConfig, simulationProvider: SimulationProvider, log?: Logger) {
+  public static async new(config: BBConfig, simulator: CircuitSimulator, log?: Logger) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     return new BBNativePrivateKernelProver(
       config.bbBinaryPath,
       config.bbWorkingDirectory,
       !!config.bbSkipCleanup,
-      simulationProvider,
+      simulator,
       log,
     );
   }

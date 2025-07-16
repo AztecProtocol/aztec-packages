@@ -33,7 +33,7 @@ export async function simulateWithoutSignature(
   const entrypoint = new DefaultEntrypoint(chainId, rollupVersion);
   const signerlessTxExecutionRequest = await entrypoint.createTxExecutionRequest(request, fee, {});
 
-  const simulationResult = await wallet.simulateTx(signerlessTxExecutionRequest, false, undefined, undefined, true);
+  const simulationResult = await wallet.simulateTx(signerlessTxExecutionRequest, false, undefined, true);
   const rawReturnValues = simulationResult.getPrivateReturnValues().values;
   return decodeFromAbi(abi.returnTypes, rawReturnValues!);
 }

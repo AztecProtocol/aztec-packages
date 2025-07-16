@@ -1,5 +1,5 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { type Operator, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -18,7 +18,8 @@ export async function deployNewRollup(
   testAccounts: boolean,
   sponsoredFPC: boolean,
   json: boolean,
-  initialValidators: EthAddress[],
+  initialValidators: Operator[],
+  realVerifier: boolean,
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -41,6 +42,7 @@ export async function deployNewRollup(
     genesisArchiveRoot,
     fundingNeeded,
     config,
+    realVerifier,
     debugLogger,
   );
 
@@ -50,7 +52,7 @@ export async function deployNewRollup(
         {
           rollupAddress: rollup.address,
           initialFundedAccounts: initialFundedAccounts.map(a => a.toString()),
-          initialValidators: initialValidators.map(a => a.toString()),
+          initialValidators: initialValidators.map(a => a.attester.toString()),
           genesisArchiveRoot: genesisArchiveRoot.toString(),
           slashFactoryAddress: slashFactoryAddress.toString(),
         },
@@ -61,7 +63,7 @@ export async function deployNewRollup(
   } else {
     log(`Rollup Address: ${rollup.address}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-    log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+    log(`Initial validators: ${initialValidators.map(a => a.attester.toString()).join(', ')}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
     log(`Slash Factory Address: ${slashFactoryAddress.toString()}`);
   }

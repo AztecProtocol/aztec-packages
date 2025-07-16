@@ -34,7 +34,7 @@ proverAgent:
   resources:
     requests:
       memory: "64Gi"
-      cpu: "16"
+      cpu: "15"
 
 proverBroker:
   resources:

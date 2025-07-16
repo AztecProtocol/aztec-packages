@@ -6,6 +6,7 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function deploy(
   wallet: AccountWalletWithSecretKey,
@@ -15,13 +16,14 @@ export async function deploy(
   rawArgs: any[],
   salt: Fr | undefined,
   initializer: string | undefined,
-  skipPublicDeployment: boolean,
-  skipClassRegistration: boolean,
+  skipInstancePublication: boolean,
+  skipClassPublication: boolean,
   skipInitialization: boolean | undefined,
   universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
   verbose: boolean,
+  timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
   log: LogFn,
   logJson: (output: any) => void,
@@ -50,9 +52,9 @@ export async function deploy(
     ...(await feeOpts.toDeployAccountOpts(wallet)),
     contractAddressSalt: salt,
     universalDeploy,
-    skipClassRegistration,
+    skipClassPublication,
     skipInitialization,
-    skipPublicDeployment,
+    skipInstancePublication,
   };
 
   if (feeOpts.estimateOnly) {
@@ -63,7 +65,7 @@ export async function deploy(
 
   const provenTx = await deploy.prove(deployOpts);
   if (verbose) {
-    printProfileResult(provenTx.timings!, log);
+    printProfileResult(provenTx.stats!, log);
   }
 
   const tx = provenTx.send();
@@ -71,7 +73,7 @@ export async function deploy(
   const txHash = await tx.getTxHash();
   debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
   if (wait) {
-    const deployed = await tx.wait();
+    const deployed = await tx.wait({ timeout });
     const { address, partialAddress, instance } = deployed.contract;
     if (json) {
       logJson({

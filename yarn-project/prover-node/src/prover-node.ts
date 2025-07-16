@@ -5,9 +5,9 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import type { P2PClient } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
@@ -16,7 +16,6 @@ import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
-  type ProverCoordination,
   type ProverNodeApi,
   type Service,
   type WorldStateSyncStatus,
@@ -24,7 +23,7 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { TxHash } from '@aztec/stdlib/tx';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
 import {
   Attributes,
   L1Metrics,
@@ -61,9 +60,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private rewardsMetrics: ProverNodeRewardsMetrics;
   private l1Metrics: L1Metrics;
 
-  private txFetcher: RunningPromise;
-  private lastBlockNumber: number | undefined;
-
   public readonly tracer: Tracer;
 
   constructor(
@@ -73,7 +69,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
-    protected readonly coordination: ProverCoordination & Partial<Service>,
+    protected readonly p2pClient: Pick<P2PClient<P2PClientType.Prover>, 'getTxProvider'> & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -91,6 +87,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       txGatheringIntervalMs: 1_000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 100,
+      txGatheringTimeoutMs: 120_000,
       proverNodeFailedEpochStore: undefined,
       ...compact(config),
     };
@@ -107,8 +104,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       EthAddress.fromField(this.prover.getProverId()),
       this.publisher.getRollupContract(),
     );
-
-    this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.config.txGatheringIntervalMs);
   }
 
   public getProverId() {
@@ -116,7 +111,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   public getP2P() {
-    return this.coordination.getP2PClient();
+    return this.p2pClient;
   }
 
   /**
@@ -153,7 +148,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * starts proving jobs for them.
    */
   async start() {
-    this.txFetcher.start();
     this.epochsMonitor.start(this);
     this.l1Metrics.start();
     await this.rewardsMetrics.start();
@@ -165,14 +159,13 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   async stop() {
     this.log.info('Stopping ProverNode');
-    await this.txFetcher.stop();
     await this.epochsMonitor.stop();
     await this.prover.stop();
+    await tryStop(this.p2pClient);
     await tryStop(this.l2BlockSource);
     this.publisher.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
-    await tryStop(this.coordination);
     this.l1Metrics.stop();
     this.rewardsMetrics.stop();
     await this.telemetryClient.stop();
@@ -307,22 +300,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return this.l2BlockSource.getL1Constants();
   }
 
-  /** Monitors for new blocks and requests their txs from the p2p layer to ensure they are available for proving. */
-  @trackSpan('ProverNode.checkForTxs')
-  private async checkForTxs() {
-    const blockNumber = await this.l2BlockSource.getBlockNumber();
-    if (this.lastBlockNumber === undefined || blockNumber > this.lastBlockNumber) {
-      const block = await this.l2BlockSource.getBlock(blockNumber);
-      if (!block) {
-        return;
-      }
-      const txHashes = block.body.txEffects.map(tx => tx.txHash);
-      this.log.verbose(`Fetching ${txHashes.length} tx hashes for block number ${blockNumber} from coordination`);
-      await this.coordination.gatherTxs(txHashes); // This stores the txs in the tx pool, no need to persist them here
-      this.lastBlockNumber = blockNumber;
-    }
-  }
-
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
   private async gatherEpochData(epochNumber: bigint): Promise<EpochProvingJobData> {
     const blocks = await this.gatherBlocks(epochNumber);
@@ -342,24 +319,22 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   private async gatherTxs(epochNumber: bigint, blocks: L2Block[]) {
-    const txsToFind: TxHash[] = blocks.flatMap(block => block.body.txEffects.map(tx => tx.txHash));
-    const txs = await this.coordination.getTxsByHash(txsToFind);
+    const deadline = new Date(this.dateProvider.now() + this.config.txGatheringTimeoutMs);
+    const txProvider = this.p2pClient.getTxProvider();
+    const txsByBlock = await Promise.all(blocks.map(block => txProvider.getTxsForBlock(block, { deadline })));
+    const txs = txsByBlock.map(({ txs }) => txs).flat();
+    const missingTxs = txsByBlock.map(({ missingTxs }) => missingTxs).flat();
 
-    if (txs.length === txsToFind.length) {
+    if (missingTxs.length === 0) {
       this.log.verbose(`Gathered all ${txs.length} txs for epoch ${epochNumber}`, { epochNumber });
       return txs;
     }
 
-    const txHashesFound = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const missingTxHashes = txsToFind
-      .filter(txHashToFind => !txHashesFound.some(txHashFound => txHashToFind.equals(txHashFound)))
-      .join(', ');
-
-    throw new Error(`Txs not found for epoch ${epochNumber}: ${missingTxHashes}`);
+    throw new Error(`Txs not found for epoch ${epochNumber}: ${missingTxs.map(hash => hash.toString()).join(', ')}`);
   }
 
   private async gatherMessages(epochNumber: bigint, blocks: L2Block[]) {
-    const messages = await Promise.all(blocks.map(b => this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(b.number))));
+    const messages = await Promise.all(blocks.map(b => this.l1ToL2MessageSource.getL1ToL2Messages(b.number)));
     const messageCount = sum(messages.map(m => m.length));
     this.log.verbose(`Gathered all ${messageCount} messages for epoch ${epochNumber}`, { epochNumber });
     const messagesByBlock: Record<number, Fr[]> = {};

@@ -404,8 +404,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     }
 
     /**
-     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials representing
-     * commitments to ECCOpQueue
+     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials
+     * representing commitments to ECCOpQueue
      *
      * @param ecc_op_queue The queue
      */

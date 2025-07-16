@@ -1,32 +1,33 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, EthAddress } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
   L1TxUtils,
+  type Operator,
   RollupContract,
+  type ViemClient,
   deployL1Contract,
-  getExpectedAddress,
   getL1ContractsConfigEnvVars,
   l1Artifacts,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
-import { getContract } from 'viem';
+import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
-  PROPOSER_PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,
   generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
@@ -61,10 +62,8 @@ export class P2PNetworkTest {
   public ctx!: SubsystemsContext;
   public attesterPrivateKeys: `0x${string}`[] = [];
   public attesterPublicKeys: string[] = [];
-  public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
-  public validators: { attester: `0x${string}`; proposer: `0x${string}`; withdrawer: `0x${string}`; amount: bigint }[] =
-    [];
+  public validators: Operator[] = [];
 
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
@@ -78,18 +77,23 @@ export class P2PNetworkTest {
     testName: string,
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
-    private numberOfNodes: number,
+    public numberOfValidators: number,
     initialValidatorConfig: AztecNodeConfig,
+    public numberOfNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
+    startProverNode?: boolean,
+    mockZkPassportVerifier?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
-    this.proposerPrivateKeys = generatePrivateKeys(PROPOSER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
-    this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
+    this.attesterPrivateKeys = generatePrivateKeys(
+      ATTESTER_PRIVATE_KEYS_START_INDEX + numberOfNodes,
+      numberOfValidators,
+    );
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
     this.snapshotManager = createSnapshotManager(
@@ -100,20 +104,26 @@ export class P2PNetworkTest {
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-        aztecProofSubmissionWindow:
-          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
+        aztecProofSubmissionEpochs:
+          initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+        aztecTargetCommitteeSize: numberOfValidators,
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
+        startProverNode,
       },
       {
         ...initialValidatorConfig,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-        aztecProofSubmissionWindow:
-          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
+        aztecProofSubmissionEpochs:
+          initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+        aztecTargetCommitteeSize: numberOfValidators,
         initialValidators: [],
+        zkPassportArgs: {
+          mockZkPassportVerifier,
+        },
       },
     );
   }
@@ -121,15 +131,21 @@ export class P2PNetworkTest {
   static async create({
     testName,
     numberOfNodes,
+    numberOfValidators,
     basePort,
     metricsPort,
     initialConfig,
+    startProverNode,
+    mockZkPassportVerifier,
   }: {
     testName: string;
     numberOfNodes: number;
+    numberOfValidators: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
+    startProverNode?: boolean;
+    mockZkPassportVerifier?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -141,7 +157,17 @@ export class P2PNetworkTest {
       bootstrapNodeEnr,
     );
 
-    return new P2PNetworkTest(testName, bootstrapNodeEnr, port, numberOfNodes, initialValidatorConfig, metricsPort);
+    return new P2PNetworkTest(
+      testName,
+      bootstrapNodeEnr,
+      port,
+      numberOfValidators,
+      initialValidatorConfig,
+      numberOfNodes,
+      metricsPort,
+      startProverNode,
+      mockZkPassportVerifier,
+    );
   }
 
   get fundedAccount() {
@@ -166,29 +192,20 @@ export class P2PNetworkTest {
   }
 
   getValidators() {
-    const validators = [];
-    const proposerEOAs = [];
+    const validators: Operator[] = [];
 
-    for (let i = 0; i < this.numberOfNodes; i++) {
-      const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
-      const proposerEOA = privateKeyToAccount(this.proposerPrivateKeys[i]!);
-      proposerEOAs.push(proposerEOA.address);
-      const forwarder = getExpectedAddress(
-        ForwarderAbi,
-        ForwarderBytecode,
-        [proposerEOA.address],
-        proposerEOA.address,
-      ).address;
+    for (let i = 0; i < this.numberOfValidators; i++) {
+      const keyIndex = i;
+      const attester = privateKeyToAccount(this.attesterPrivateKeys[keyIndex]!);
+
       validators.push({
-        attester: attester.address,
-        proposer: forwarder,
-        withdrawer: attester.address,
-        amount: l1ContractsConfig.minimumStake,
-      } as const);
+        attester: EthAddress.fromString(attester.address),
+        withdrawer: EthAddress.fromString(attester.address),
+      });
 
-      this.logger.info(`Adding attester ${attester.address} proposer ${forwarder} as validator`);
+      this.logger.info(`Adding attester ${attester.address} as validator`);
     }
-    return { validators, proposerEOAs };
+    return { validators };
   }
 
   async applyBaseSnapshots() {
@@ -202,7 +219,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
+        this.logger.info(`Adding ${this.numberOfValidators} validators`);
 
         const stakingAsset = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
@@ -223,7 +240,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.minimumStake * BigInt(this.numberOfNodes);
+        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
@@ -234,10 +251,18 @@ export class P2PNetworkTest {
         this.validators = validators;
 
         await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
-          hash: await multiAdder.write.addValidators([this.validators]),
+          hash: await multiAdder.write.addValidators([
+            this.validators.map(
+              v =>
+                ({
+                  attester: v.attester.toString() as `0x${string}`,
+                  withdrawer: v.withdrawer.toString() as `0x${string}`,
+                }) as const,
+            ),
+          ]),
         });
 
-        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n);
+        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         await this._sendDummyTx(deployL1ContractsValues.l1Client);
@@ -283,7 +308,7 @@ export class P2PNetworkTest {
 
   async removeInitialNode() {
     await this.snapshotManager.snapshot(
-      'remove-inital-validator',
+      'remove-initial-validator',
       async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         const { receipt } = await this._sendDummyTx(deployL1ContractsValues.l1Client);
@@ -318,7 +343,8 @@ export class P2PNetworkTest {
     const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
     this.prefilledPublicData = prefilledPublicData;
 
-    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues)).start();
+    const rollupContract = RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues);
+    this.monitor = new ChainMonitor(rollupContract, this.ctx.dateProvider).start();
     this.monitor.on('l1-block', ({ timestamp }) => this.ctx.dateProvider.setTime(Number(timestamp) * 1000));
   }
 
@@ -336,8 +362,44 @@ export class P2PNetworkTest {
   }
 
   async teardown() {
-    this.monitor.stop();
-    await this.bootstrapNode?.stop();
+    await this.monitor.stop();
+    await tryStop(this.bootstrapNode, this.logger);
     await this.snapshotManager.teardown();
+  }
+
+  async getContracts(): Promise<{
+    rollup: RollupContract;
+    slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
+    slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+    slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
+  }> {
+    if (!this.ctx.deployL1ContractsValues) {
+      throw new Error('DeployL1ContractsValues not set');
+    }
+
+    const rollup = new RollupContract(
+      this.ctx.deployL1ContractsValues!.l1Client,
+      this.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+    );
+
+    const slasherContract = getContract({
+      address: getAddress(await rollup.getSlasher()),
+      abi: SlasherAbi,
+      client: this.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    const slashingProposer = getContract({
+      address: getAddress(await slasherContract.read.PROPOSER()),
+      abi: SlashingProposerAbi,
+      client: this.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    const slashFactory = getContract({
+      address: getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
+      abi: SlashFactoryAbi,
+      client: this.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    return { rollup, slasherContract, slashingProposer, slashFactory };
   }
 }

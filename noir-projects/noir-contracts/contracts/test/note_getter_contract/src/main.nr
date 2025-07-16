@@ -9,8 +9,8 @@ pub contract NoteGetter {
         note::note_interface::NoteProperties,
         // Macros
         macros::{functions::{private, utility}, storage::storage},
-        // Prelude types
-        prelude::{NoteViewerOptions, PrivateSet},
+        note::note_viewer_options::NoteViewerOptions,
+        state_vars::PrivateSet,
     };
 
     use value_note::value_note::ValueNote;

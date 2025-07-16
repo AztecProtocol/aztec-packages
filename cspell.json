@@ -15,6 +15,7 @@
     "auditability",
     "authwit",
     "authwitness",
+    "authwitnesses",
     "authwits",
     "Automine",
     "autonat",
@@ -39,6 +40,7 @@
     "buildx",
     "bytecodes",
     "calldatacopy",
+    "callsites",
     "callstack",
     "callstacks",
     "camelcase",
@@ -257,6 +259,8 @@
     "realpath",
     "rebundle",
     "reentrancy",
+    "reexecute",
+    "reexecution",
     "repr",
     "Reserialize",
     "retag",
@@ -272,6 +276,7 @@
     "secp",
     "SEMRESATTRS",
     "Sepolia",
+    "serde",
     "setsid",
     "sigchld",
     "Signerless",
@@ -376,6 +381,8 @@
     "*.cmake"
   ],
   "flagWords": [
-    "anonymous"
+    "anonymous",
+    "offence",
+    "offences"
   ]
 }

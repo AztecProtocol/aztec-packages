@@ -14,7 +14,6 @@
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -28,9 +27,8 @@ using simulation::MerkleCheckEvent;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
-using simulation::root_from_path;
+using simulation::unconstrained_root_from_path;
 
-using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
@@ -39,9 +37,6 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using merkle_check = bb::avm2::merkle_check<FF>;
 using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-
-using lookup_poseidon2_read_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_read_relation<FF>;
-using lookup_poseidon2_write_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_write_relation<FF>;
 
 TEST(MerkleCheckConstrainingTest, EmptyRow)
 {
@@ -504,7 +499,7 @@ TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
     std::vector<FF> sibling_path = { FF(456), FF(789), FF(3333) };
 
     // Compute expected root
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
 
     MerkleCheckEvent event = {
         .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
@@ -539,9 +534,9 @@ TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
     std::vector<FF> sibling_path = { FF(456), FF(789), FF(3333) };
 
     // Compute read root
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
     // Compute new root
-    FF new_root = root_from_path(new_leaf_value, leaf_index, sibling_path);
+    FF new_root = unconstrained_root_from_path(new_leaf_value, leaf_index, sibling_path);
 
     MerkleCheckEvent event = { .leaf_value = leaf_value,
                                .new_leaf_value = new_leaf_value,
@@ -572,23 +567,25 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    check_interaction<MerkleCheckTraceBuilder,
+                      lookup_merkle_check_merkle_poseidon2_read_settings,
+                      lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
     trace.set(Column::merkle_check_read_output_hash, static_cast<uint32_t>(sibling_path.size()), 66);
 
-    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace),
-                              "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_read_settings>(trace)),
+        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
+    check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 }
 
 TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
@@ -608,8 +605,8 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     FF new_leaf_value = 444;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
-    FF expected_new_root = root_from_path(new_leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF expected_new_root = unconstrained_root_from_path(new_leaf_value, leaf_index, sibling_path);
 
     FF new_root = merkle_check_sim.write(leaf_value, new_leaf_value, leaf_index, sibling_path, root);
 
@@ -618,8 +615,9 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    check_interaction<MerkleCheckTraceBuilder,
+                      lookup_merkle_check_merkle_poseidon2_read_settings,
+                      lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 
     check_relation<merkle_check>(trace);
 
@@ -628,12 +626,13 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     trace.set(Column::merkle_check_write_output_hash, static_cast<uint32_t>(sibling_path.size()), 77);
 
     EXPECT_THROW_WITH_MESSAGE(
-        LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace),
-        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_READ.* Could not find tuple in destination");
+        (check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_read_settings>(trace)),
+        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
 
-    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace),
-                              "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE.* Could not find tuple in "
-                              "destination");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_write_settings>(trace)),
+        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE.* Could not find tuple in "
+        "destination");
 }
 
 TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
@@ -646,7 +645,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
     MerkleCheckEvent event = {
         .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
     };
@@ -655,8 +654,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     FF new_leaf_value2 = 555;
     uint64_t leaf_index2 = 40;
     std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
-    FF root2 = root_from_path(leaf_value2, leaf_index2, sibling_path2);
-    FF new_root2 = root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
+    FF root2 = unconstrained_root_from_path(leaf_value2, leaf_index2, sibling_path2);
+    FF new_root2 = unconstrained_root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
     MerkleCheckEvent event2 = { .leaf_value = leaf_value2,
                                 .new_leaf_value = new_leaf_value2,
                                 .leaf_index = leaf_index2,
@@ -708,7 +707,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
 
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
@@ -716,8 +715,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     FF new_leaf_value2 = 555;
     uint64_t leaf_index2 = 40;
     std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
-    FF root2 = root_from_path(leaf_value2, leaf_index2, sibling_path2);
-    FF expected_new_root2 = root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
+    FF root2 = unconstrained_root_from_path(leaf_value2, leaf_index2, sibling_path2);
+    FF expected_new_root2 = unconstrained_root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
 
     FF new_root2 = merkle_check_sim.write(leaf_value2, new_leaf_value2, leaf_index2, sibling_path2, root2);
     EXPECT_EQ(new_root2, expected_new_root2);
@@ -725,8 +724,9 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    check_interaction<MerkleCheckTraceBuilder,
+                      lookup_merkle_check_merkle_poseidon2_read_settings,
+                      lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 
     check_relation<merkle_check>(trace);
 }

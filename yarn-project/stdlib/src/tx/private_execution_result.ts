@@ -12,7 +12,9 @@ import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
+import type { UInt32 } from '../types/index.js';
 import { HashedValues } from './hashed_values.js';
+import type { OffchainEffect } from './offchain_effect.js';
 
 /**
  * The contents of a new note.
@@ -103,8 +105,8 @@ export class PrivateExecutionResult {
   /**
    * The block number that this execution was simulated with.
    */
-  getSimulationBlockNumber(): number {
-    return this.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+  getSimulationBlockNumber(): UInt32 {
+    return this.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber;
   }
 }
 
@@ -131,8 +133,10 @@ export class PrivateCallExecutionResult {
     public noteHashNullifierCounterMap: Map<number, number>,
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
+    /** The offchain effects emitted during execution of this function call via the `emit_offchain_effect` oracle. */
+    public offchainEffects: { data: Fr[] }[],
     /** The nested executions. */
-    public nestedExecutions: PrivateCallExecutionResult[],
+    public nestedExecutionResults: PrivateCallExecutionResult[],
     /**
      * Contract class logs emitted during execution of this function call.
      * Note: We only need to collect the ContractClassLogFields as preimages for the tx.
@@ -153,7 +157,8 @@ export class PrivateCallExecutionResult {
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
-        nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
+        offchainEffects: z.array(z.object({ data: z.array(schemas.Fr) })),
+        nestedExecutionResults: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
       .transform(PrivateCallExecutionResult.from);
@@ -169,7 +174,8 @@ export class PrivateCallExecutionResult {
       fields.newNotes,
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
-      fields.nestedExecutions,
+      fields.offchainEffects,
+      fields.nestedExecutionResults,
       fields.contractClassLogs,
     );
   }
@@ -184,6 +190,11 @@ export class PrivateCallExecutionResult {
       [NoteAndSlot.random()],
       new Map([[0, 0]]),
       [Fr.random()],
+      [
+        {
+          data: [Fr.random()],
+        },
+      ],
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
       [new CountedContractClassLog(await ContractClassLog.random(), randomInt(10))],
     );
@@ -194,7 +205,7 @@ export function collectNoteHashLeafIndexMap(execResult: PrivateExecutionResult) 
   const accum: Map<bigint, bigint> = new Map();
   const collectNoteHashLeafIndexMapRecursive = (callResult: PrivateCallExecutionResult, accum: Map<bigint, bigint>) => {
     callResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
-    callResult.nestedExecutions.forEach(nested => collectNoteHashLeafIndexMapRecursive(nested, accum));
+    callResult.nestedExecutionResults.forEach(nested => collectNoteHashLeafIndexMapRecursive(nested, accum));
   };
   collectNoteHashLeafIndexMapRecursive(execResult.entrypoint, accum);
   return accum;
@@ -207,7 +218,7 @@ export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionR
     accum: Map<number, number>,
   ) => {
     callResult.noteHashNullifierCounterMap.forEach((value, key) => accum.set(key, value));
-    callResult.nestedExecutions.forEach(nested => collectNoteHashNullifierCounterMapRecursive(nested, accum));
+    callResult.nestedExecutionResults.forEach(nested => collectNoteHashNullifierCounterMapRecursive(nested, accum));
   };
   collectNoteHashNullifierCounterMapRecursive(execResult.entrypoint, accum);
   return accum;
@@ -219,7 +230,7 @@ export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionR
  * @returns All contract class logs.
  */
 function collectContractClassLogs(execResult: PrivateCallExecutionResult): CountedContractClassLog[] {
-  return [execResult.contractClassLogs, ...execResult.nestedExecutions.flatMap(collectContractClassLogs)].flat();
+  return [execResult.contractClassLogs, ...execResult.nestedExecutionResults.flatMap(collectContractClassLogs)].flat();
 }
 
 /**
@@ -233,9 +244,27 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
   return sortedLogs.map(l => l.log.fields);
 }
 
+/**
+ * Collect all offchain effects emitted across all nested executions.
+ * @param execResult - The execution result to collect offchain effects from.
+ * @returns Array of offchain effects.
+ */
+export function collectOffchainEffects(execResult: PrivateExecutionResult): OffchainEffect[] {
+  const collectEffectsRecursive = (callResult: PrivateCallExecutionResult): OffchainEffect[] => {
+    return [
+      ...callResult.offchainEffects.map(msg => ({
+        ...msg,
+        contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the effect
+      })),
+      ...callResult.nestedExecutionResults.flatMap(nested => collectEffectsRecursive(nested)),
+    ];
+  };
+  return collectEffectsRecursive(execResult.entrypoint);
+}
+
 export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {
   const collectFinalMinRevertibleSideEffectCounterRecursive = (callResult: PrivateCallExecutionResult): number => {
-    return callResult.nestedExecutions.reduce((counter, exec) => {
+    return callResult.nestedExecutionResults.reduce((counter, exec) => {
       const nestedCounter = collectFinalMinRevertibleSideEffectCounterRecursive(exec);
       return nestedCounter ? nestedCounter : counter;
     }, callResult.publicInputs.minRevertibleSideEffectCounter.toNumber());
@@ -250,10 +279,12 @@ export function collectNested<T>(
   const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
 
   return thisExecutionReads.concat(
-    executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
+    executionStack.flatMap(({ nestedExecutionResults }) =>
+      collectNested(nestedExecutionResults, extractExecutionItems),
+    ),
   );
 }
 
 export class PrivateExecutionProfileResult {
-  constructor(public timings: { witgen: number }) {}
+  constructor(public timings: { witgen: number; oracles?: Record<string, { times: number[] }> }) {}
 }

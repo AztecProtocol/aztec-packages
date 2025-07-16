@@ -13,6 +13,7 @@ export function serializeWithMessagePack(obj: any): Buffer {
     // this makes it compatible with other MessagePack decoders
     useRecords: false,
     int64AsType: 'bigint',
+    largeBigIntToString: true,
   });
   return encoder.encode(obj);
 }

@@ -16,7 +16,7 @@ describe('note', () => {
     expect(Note.fromBuffer(note.toBuffer())).toEqual(note);
   });
 
-  it('converts to and from json', async () => {
-    expect(await jsonParseWithSchema(jsonStringify(note), Note.schema)).toEqual(note);
+  it('converts to and from json', () => {
+    expect(jsonParseWithSchema(jsonStringify(note), Note.schema)).toEqual(note);
   });
 });

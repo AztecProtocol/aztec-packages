@@ -12,6 +12,7 @@ import { GasSettings } from '@aztec/stdlib/gas';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function send(
   wallet: AccountWalletWithSecretKey,
@@ -31,13 +32,13 @@ export async function send(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
 
-  const nonce = Fr.random();
+  const txNonce = Fr.random();
 
   const sendOptions: SendMethodOptions = {
     ...(await feeOpts.toSendOpts(wallet)),
     authWitnesses,
     cancellable,
-    nonce,
+    txNonce,
   };
 
   const gasLimits = await call.estimateGas(sendOptions);
@@ -49,7 +50,7 @@ export async function send(
 
   const provenTx = await call.prove(sendOptions);
   if (verbose) {
-    printProfileResult(provenTx.timings!, log);
+    printProfileResult(provenTx.stats!, log);
   }
 
   const tx = provenTx.send();
@@ -57,7 +58,7 @@ export async function send(
   log(`\nTransaction hash: ${txHash.toString()}`);
   if (wait) {
     try {
-      await tx.wait();
+      await tx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 
       log('Transaction has been mined');
 
@@ -78,7 +79,7 @@ export async function send(
   });
   return {
     txHash,
-    nonce,
+    txNonce,
     cancellable,
     gasSettings,
   };

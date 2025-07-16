@@ -215,8 +215,8 @@
     },
     {
       "name": "clang16-no-avm",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "displayName": "Optimized build with Clang-16 (no AVM)",
+      "description": "Build with globally installed Clang-16 excluding the Aztec VM",
       "inherits": "clang16",
       "binaryDir": "build-no-avm",
       "cacheVariables": {
@@ -225,8 +225,8 @@
     },
     {
       "name": "clang16-dbg-no-avm",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "displayName": "Optimized debug build with Clang-16 (no AVM)",
+      "description": "Build with globally installed Clang-16 in debug mode excluding the Aztec VM",
       "inherits": "clang16-dbg",
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {
@@ -339,20 +339,42 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
       "name": "fuzzing-asan",
       "displayName": "Build with fuzzing",
-      "description": "Build default preset but with fuzzing enabled",
+      "description": "Build default preset but with fuzzing and asan enabled",
       "inherits": "clang16-dbg",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
-        "SHOW_INFORMATION": "ON",
         "FUZZING": "ON",
+        "FUZZING_SHOW_INFORMATION": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
+      "name": "fuzzing-coverage",
+      "displayName": "Build with coverage flags",
+      "description": "Build default preset but with fuzzing and coverage enabled",
+      "inherits": "clang16",
+      "binaryDir": "build-fuzzing-cov",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_ASM": "ON",
+        "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping",
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -431,14 +453,15 @@
       }
     },
     {
-      "name": "coverage",
+      "name": "clang16-coverage",
       "displayName": "Build with coverage",
-      "description": "Build default preset but with coverage enabled",
-      "inherits": "default",
+      "description": "Build clang16 preset but with coverage enabled",
+      "inherits": "clang16",
       "binaryDir": "build-coverage",
       "cacheVariables": {
         "COVERAGE": "ON",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "DISABLE_ASM": "ON",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
@@ -706,6 +729,11 @@
       "configurePreset": "fuzzing-asan"
     },
     {
+      "name": "fuzzing-coverage",
+      "inherits": "clang16",
+      "configurePreset": "fuzzing-coverage"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang16",
       "configurePreset": "gperftools"
@@ -731,9 +759,9 @@
       "configurePreset": "ubsan"
     },
     {
-      "name": "coverage",
-      "inherits": "default",
-      "configurePreset": "coverage"
+      "name": "clang16-coverage",
+      "inherits": "clang16-dbg-fast",
+      "configurePreset": "clang16-coverage"
     },
     {
       "name": "wasm",
@@ -833,7 +861,7 @@
     },
     {
       "name": "fuzzing",
-      "inherits": "default",
+      "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
     {
@@ -847,9 +875,9 @@
       "configurePreset": "smt-verification"
     },
     {
-      "name": "coverage",
+      "name": "clang16-coverage",
       "inherits": "default",
-      "configurePreset": "coverage"
+      "configurePreset": "clang16-coverage"
     },
     {
       "name": "wasm",

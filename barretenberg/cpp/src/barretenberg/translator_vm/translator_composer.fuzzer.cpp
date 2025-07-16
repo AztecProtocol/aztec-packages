@@ -43,7 +43,8 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     auto proof = prover.construct_proof();
 
     // Verify proof
-    auto verifier_transcript = std::make_shared<bb::TranslatorFlavor::Transcript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<bb::TranslatorFlavor::Transcript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
     verifier_transcript->template receive_from_prover<Fq>("init");
     auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
     TranslatorVerifier verifier(verification_key, verifier_transcript);

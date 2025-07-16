@@ -1,3 +1,5 @@
+#include "barretenberg/serialize/msgpack_impl.hpp"
+
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -85,6 +87,48 @@ template <typename G1> class TestAffineElement : public testing::Test {
             // good read
             read(read_ptr, R);
             ASSERT_TRUE(R.on_curve());
+            ASSERT_TRUE(P == R);
+        }
+    }
+
+    static void test_msgpack_serialization()
+    {
+        // a generic point
+        {
+            affine_element P = affine_element(element::random_element());
+
+            // Serialize using msgpack
+            msgpack::sbuffer sbuf;
+            msgpack::pack(sbuf, P);
+
+            // Deserialize using msgpack
+            msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
+            msgpack::object deserialized = oh.get();
+
+            affine_element R;
+            deserialized.convert(R);
+
+            ASSERT_TRUE(R.on_curve() && !R.is_point_at_infinity());
+            ASSERT_TRUE(P == R);
+        }
+
+        // point at infinity
+        {
+            affine_element P = affine_element(element::random_element());
+            P.self_set_infinity();
+
+            // Serialize using msgpack
+            msgpack::sbuffer sbuf;
+            msgpack::pack(sbuf, P);
+
+            // Deserialize using msgpack
+            msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
+            msgpack::object deserialized = oh.get();
+
+            affine_element R;
+            deserialized.convert(R);
+
+            ASSERT_TRUE(R.is_point_at_infinity());
             ASSERT_TRUE(P == R);
         }
     }
@@ -180,6 +224,7 @@ TYPED_TEST(TestAffineElement, ReadWrite)
 TYPED_TEST(TestAffineElement, ReadWriteBuffer)
 {
     TestFixture::test_read_write_buffer();
+    TestFixture::test_msgpack_serialization();
 }
 
 TYPED_TEST(TestAffineElement, PointCompression)

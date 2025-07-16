@@ -2,8 +2,8 @@ import { AVM_MAX_OPERANDS } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 
-import { TaggedMemory, type TaggedMemoryInterface } from '../avm_memory_types.js';
-import { RelativeAddressOutOfRangeError } from '../errors.js';
+import { MemoryValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
+import { RelativeAddressOutOfRangeError, TagCheckError } from '../errors.js';
 
 export enum AddressingMode {
   DIRECT = 0,
@@ -54,35 +54,56 @@ export class Addressing {
     return wire;
   }
 
+  public indirectOperandsCount(): number {
+    return this.modePerOperand.filter(mode => mode & AddressingMode.INDIRECT).length;
+  }
+
+  public relativeOperandsCount(): number {
+    return this.modePerOperand.filter(mode => mode & AddressingMode.RELATIVE).length;
+  }
+
   /**
    * Resolves the offsets using the addressing mode.
    * @param offsets The offsets to resolve.
    * @param mem The memory to use for resolution.
-   * @returns The resolved offsets. The length of the returned array is the same as the length of the input array.
+   * @returns The resolved offsets. The length of the returned array is the same as the length of the input array and the resolved offsets are guaranteed to be valid addresses.
+   * @throws An error if any step failed. Should be treated as a black box.
    */
   public resolve(offsets: number[], mem: TaggedMemoryInterface): number[] {
-    const resolved = new Array(offsets.length);
-
-    let didRelativeOnce = false;
-    let baseAddr = 0;
+    const resolved: number[] = new Array(offsets.length);
+    // These will be read (once) if we have any relative operands.
+    let baseAddr: MemoryValue | undefined;
 
     for (const [i, offset] of offsets.entries()) {
       const mode = this.modePerOperand[i];
+      // The given offsets are assumed to be valid addresses.
       resolved[i] = offset;
       if (mode & AddressingMode.RELATIVE) {
-        if (!didRelativeOnce) {
-          mem.checkIsValidMemoryOffsetTag(0);
-          baseAddr = Number(mem.get(0).toBigInt());
-          didRelativeOnce = true;
+        if (!baseAddr) {
+          baseAddr = mem.get(0);
+          const baseAddrTag = baseAddr.getTag();
+          if (!TaggedMemory.isValidMemoryAddressTag(baseAddrTag!)) {
+            throw TagCheckError.forOffset(0, TypeTag[baseAddrTag!], TypeTag[TypeTag.UINT32]);
+          }
         }
-        resolved[i] += baseAddr;
+        // Here we know that resolved[i] is at most 32 bits and baseAddr is at most 32 bits.
+        // Therefore, the addition is safe since the `number` type fits more than 33 bits.
+        resolved[i] += Number(baseAddr.toBigInt());
         if (resolved[i] >= TaggedMemory.MAX_MEMORY_SIZE) {
-          throw new RelativeAddressOutOfRangeError(baseAddr, offset);
+          throw new RelativeAddressOutOfRangeError(Number(baseAddr.toBigInt()), offset);
         }
       }
       if (mode & AddressingMode.INDIRECT) {
-        mem.checkIsValidMemoryOffsetTag(resolved[i]);
-        resolved[i] = Number(mem.get(resolved[i]).toBigInt());
+        // At this point we know that resolved[i] is a valid memory address.
+        const resolvedValue = mem.get(resolved[i]);
+        const resolvedTag = resolvedValue.getTag();
+
+        // Final check.
+        if (!TaggedMemory.isValidMemoryAddressTag(resolvedTag)) {
+          throw TagCheckError.forOffset(resolved[i], TypeTag[resolvedTag], TypeTag[TypeTag.UINT32]);
+        }
+
+        resolved[i] = Number(resolvedValue.toBigInt());
       }
     }
     return resolved;

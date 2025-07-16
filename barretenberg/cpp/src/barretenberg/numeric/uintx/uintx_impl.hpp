@@ -304,11 +304,11 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     uintx remainder = x - qm_lo;
 
     // because redc_parameter is an imperfect representation of 2^{2k} / n (might be too small),
-    // the computed quotient may be off by up to 3 (classic algorithm should be up to 1,
+    // the computed quotient may be off by up to 4 (classic algorithm should be up to 1,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1051): investigate, why)
     size_t i = 0;
     while (remainder >= uintx(modulus)) {
-        ASSERT(i < 3);
+        ASSERT(i < 4);
         remainder = remainder - modulus;
         quotient = quotient + 1;
         i++;

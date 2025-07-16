@@ -4,9 +4,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Parent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector};
     use dep::aztec::protocol_types::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
-    use aztec::protocol_types::traits::ToField;
+    use aztec::protocol_types::{
+        abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
+    };
     // Private function to call another private function in the target_contract using the provided selector
     #[private]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
@@ -262,7 +263,7 @@ pub contract Parent {
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
-    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
+    use dep::aztec::test::helpers::{test_environment::TestEnvironment, txe_oracles};
     use dep::child_contract::Child;
     use dep::value_note::value_note::ValueNote;
     #[test]
@@ -276,7 +277,7 @@ pub contract Parent {
         // Deploy child contract
         let child_contract = env.deploy("./@child_contract", "Child").without_initializer();
         let child_contract_address = child_contract.to_address();
-        cheatcodes::advance_blocks_by(1);
+        txe_oracles::advance_blocks_by(1);
         // Set value in child through parent
         let value_to_set = 7;
         let result = Parent::at(parent_contract_address)

@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 
 contract EmptyPayload is IPayload {

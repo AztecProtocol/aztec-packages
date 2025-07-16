@@ -19,6 +19,7 @@ enum LMDBStoreMessageType {
 
     START_CURSOR,
     ADVANCE_CURSOR,
+    ADVANCE_CURSOR_COUNT,
     CLOSE_CURSOR,
 
     BATCH,
@@ -92,6 +93,12 @@ struct AdvanceCursorRequest {
     MSGPACK_FIELDS(cursor, count);
 };
 
+struct AdvanceCursorCountRequest {
+    uint64_t cursor;
+    lmdblib::Key endKey;
+    MSGPACK_FIELDS(cursor, endKey);
+};
+
 struct CloseCursorRequest {
     uint64_t cursor;
     MSGPACK_FIELDS(cursor);
@@ -101,6 +108,12 @@ struct AdvanceCursorResponse {
     lmdblib::KeyDupValuesVector entries;
     bool done;
     MSGPACK_FIELDS(entries, done);
+};
+
+struct AdvanceCursorCountResponse {
+    uint64_t count;
+    bool done;
+    MSGPACK_FIELDS(count, done);
 };
 
 struct BoolResponse {

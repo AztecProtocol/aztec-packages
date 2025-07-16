@@ -4,11 +4,11 @@ use dep::types::{
         public_call_request::PublicCallRequest,
     },
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
-        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
+        DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
     },
-    traits::{Empty, is_empty},
+    traits::Empty,
     utils::arrays::array_length,
 };
 
@@ -18,11 +18,11 @@ fn meter_accumulated_data_gas_used(data: PrivateToPublicAccumulatedData) -> Gas 
 
     let num_note_hashes = array_length(data.note_hashes);
     metered_da_fields += num_note_hashes;
-    metered_l2_gas += num_note_hashes * L2_GAS_PER_NOTE_HASH;
+    metered_l2_gas += num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE;
 
     let num_nullifiers = array_length(data.nullifiers);
     metered_da_fields += num_nullifiers;
-    metered_l2_gas += num_nullifiers * L2_GAS_PER_NULLIFIER;
+    metered_l2_gas += num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE;
 
     let num_l2_to_l1_msgs = array_length(data.l2_to_l1_msgs);
     metered_da_fields += num_l2_to_l1_msgs;
@@ -57,7 +57,7 @@ pub fn meter_gas_used(
     public_teardown_call_request: PublicCallRequest,
     teardown_gas_limits: Gas,
 ) -> Gas {
-    let teardown_gas = if is_empty(public_teardown_call_request) {
+    let teardown_gas = if public_teardown_call_request.is_empty() {
         Gas::empty()
     } else {
         teardown_gas_limits

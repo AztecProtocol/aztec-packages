@@ -7,7 +7,7 @@ import { mock } from 'jest-mock-extended';
 import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { initContext } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {

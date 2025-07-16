@@ -5,11 +5,15 @@
 // =====================
 
 #pragma once
+
+#include <tuple>
+#include <type_traits>
+#include <utility>
+
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include <tuple>
-#include <utility>
 
 namespace bb {
 
@@ -19,7 +23,7 @@ template <typename Flavor> class RelationUtils {
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -31,29 +35,20 @@ template <typename Flavor> class RelationUtils {
      * @brief General purpose method for applying an operation to a tuple of tuples of Univariates
      *
      * @tparam Operation Any operation valid on Univariates
-     * @tparam outer_idx Index into the outer tuple
-     * @tparam inner_idx Index into the inner tuple
      * @param tuple A Tuple of tuples of Univariates
      * @param operation Operation to apply to Univariates
      */
-    template <size_t outer_idx = 0, size_t inner_idx = 0, class Operation>
-    static void apply_to_tuple_of_tuples(auto& tuple, Operation&& operation)
+    template <class Operation> static void apply_to_tuple_of_tuples(auto& tuple, Operation&& operation)
     {
-        auto& inner_tuple = std::get<outer_idx>(tuple);
-        auto& univariate = std::get<inner_idx>(inner_tuple);
-
-        // Apply the specified operation to each Univariate
-        operation.template operator()<outer_idx, inner_idx>(univariate);
-
-        const size_t inner_size = std::tuple_size_v<std::decay_t<decltype(std::get<outer_idx>(tuple))>>;
-        const size_t outer_size = std::tuple_size_v<std::decay_t<decltype(tuple)>>;
-
-        // Recurse over inner and outer tuples
-        if constexpr (inner_idx + 1 < inner_size) {
-            apply_to_tuple_of_tuples<outer_idx, inner_idx + 1, Operation>(tuple, std::forward<Operation>(operation));
-        } else if constexpr (outer_idx + 1 < outer_size) {
-            apply_to_tuple_of_tuples<outer_idx + 1, 0, Operation>(tuple, std::forward<Operation>(operation));
-        }
+        constexpr size_t outer_tuple_size = std::tuple_size_v<std::decay_t<decltype(tuple)>>;
+        constexpr_for<0, outer_tuple_size, 1>([&]<size_t outer_idx>() {
+            auto& inner_tuple = std::get<outer_idx>(tuple);
+            constexpr size_t inner_tuple_size = std::tuple_size_v<std::decay_t<decltype(inner_tuple)>>;
+            constexpr_for<0, inner_tuple_size, 1>([&]<size_t inner_idx>() {
+                std::forward<Operation>(operation).template operator()<outer_idx, inner_idx>(
+                    std::get<inner_idx>(inner_tuple));
+            });
+        });
     }
 
     /**
@@ -73,38 +68,19 @@ template <typename Flavor> class RelationUtils {
      * @brief Scale Univariates, each representing a subrelation, by different challenges
      *
      * @param tuple Tuple of tuples of Univariates
-     * @param challenge Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation doesn't need to be
+     * @param subrelation_separators Array of NUM_SUBRELATIONS challenges with the first entry equal to 1.
      * scaled)
-     * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const RelationSeparator& challenges, FF& current_scalar)
-        requires bb::IsFoldingFlavor<Flavor>
+    static void scale_univariates(auto& tuple, const SubrelationSeparators& subrelation_separators)
     {
         size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) {
-            element *= tmp[idx];
-            idx++;
+        auto scale_by_challenges = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            // Don't need to scale first univariate
+            if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
+                element *= subrelation_separators[idx++];
+            }
         };
         apply_to_tuple_of_tuples(tuple, scale_by_challenges);
-    }
-
-    /**
-     * @brief Scale Univariates by consecutive powers of the provided challenge
-     *
-     * @param tuple Tuple of tuples of Univariates
-     * @param challenge
-     * @param current_scalar power of the challenge
-     */
-    static void scale_univariates(auto& tuple, const RelationSeparator& challenge, FF& current_scalar)
-        requires(!bb::IsFoldingFlavor<Flavor>)
-    {
-        auto scale_by_consecutive_powers_of_challenge = [&](auto&... elements) {
-            ((elements *= current_scalar, current_scalar *= challenge), ...);
-        };
-
-        std::apply([&](auto&&... args) { (std::apply(scale_by_consecutive_powers_of_challenge, args), ...); }, tuple);
     }
 
     /**
@@ -238,38 +214,21 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple,
-                                         const RelationSeparator& challenges,
-                                         FF current_scalar,
-                                         FF& result)
-        requires bb::IsFoldingFlavor<Flavor>
+    static FF scale_and_batch_elements(auto& tuple, const SubrelationSeparators& subrelation_separators)
     {
-        size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-        auto scale_by_challenges_and_accumulate = [&](auto& element) {
-            for (auto& entry : element) {
-                result += entry * tmp[idx];
-                idx++;
-            }
-        };
-        apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
-    }
+        // Initialize result with the contribution from the first subrelation
+        FF result = std::get<0>(tuple)[0];
 
-    /**
-     * @brief Scale elements by consecutive powers of a given challenge then sum the result
-     * @param result Batched result
-     */
-    static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenge, FF current_scalar, FF& result)
-        requires(!bb::IsFoldingFlavor<Flavor>)
-    {
-        auto scale_by_challenge_and_accumulate = [&](auto& element) {
-            for (auto& entry : element) {
-                result += entry * current_scalar;
-                current_scalar *= challenge;
+        size_t idx = 0;
+
+        auto scale_by_challenges_and_accumulate = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
+                // Accumulate scaled subrelation contribution
+                result += element * subrelation_separators[idx++];
             }
         };
-        apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);
+        apply_to_tuple_of_arrays_elements(scale_by_challenges_and_accumulate, tuple);
+        return result;
     }
 
     /**
@@ -278,16 +237,17 @@ template <typename Flavor> class RelationUtils {
      * @tparam Operation Any operation valid on elements of the inner arrays (FFs)
      * @param tuple Tuple of arrays (of FFs)
      */
-    template <size_t idx = 0, typename Operation, typename... Ts>
+    template <typename Operation, typename... Ts>
     static void apply_to_tuple_of_arrays(Operation&& operation, std::tuple<Ts...>& tuple)
     {
-        auto& element = std::get<idx>(tuple);
-
-        std::invoke(std::forward<Operation>(operation), element);
-
-        if constexpr (idx + 1 < sizeof...(Ts)) {
-            apply_to_tuple_of_arrays<idx + 1, Operation>(operation, tuple);
-        }
+        std::apply(
+            [&operation](auto&... elements_ref) {
+                // The comma operator ensures sequential application of the operation to each element.
+                // (void) cast is used to discard the result of std::invoke if it's not void,
+                // to prevent issues with overloaded comma operators.
+                ((void)std::invoke(std::forward<Operation>(operation), elements_ref), ...);
+            },
+            tuple);
     }
 
     /**
@@ -298,24 +258,35 @@ template <typename Flavor> class RelationUtils {
      * of array are values of subrelations and we want to accumulate some of these values separately (the linearly
      * dependent contribution when we compute the evaluation of full rel_U(G)H at particular row.)
      */
-    template <size_t outer_idx = 0, size_t inner_idx = 0, typename Operation, typename... Ts>
+    template <typename Operation, typename... Ts>
     static void apply_to_tuple_of_arrays_elements(Operation&& operation, const std::tuple<Ts...>& tuple)
     {
-        using Relation = typename std::tuple_element_t<outer_idx, Relations>;
-        const auto subrelation_length = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
-        auto& element = std::get<outer_idx>(tuple);
+        // Iterate over each array in the outer tuple.
+        // OuterIdx is the compile-time index of the current array in the tuple.
+        constexpr_for<0, sizeof...(Ts), 1>([&]<size_t OuterIdx>() {
+            // Determine the specific Relation type corresponding to the OuterIdx-th array.
+            // This is used to find the number of elements in the current array.
+            using Relation = typename std::tuple_element_t<OuterIdx, Relations>;
 
-        // Invoke the operation with outer_idx (array index) and inner_idx (element index) as template arguments
-        operation.template operator()<outer_idx, inner_idx>(element[inner_idx]);
+            // Determine the number of elements in the current array.
+            // This relies on Relation::SUBRELATION_PARTIAL_LENGTHS.size() being a constexpr value,
+            // which indicates how many subrelations (and thus, evaluations) are in this relation's array.
+            constexpr size_t num_elements_in_current_array = Relation::SUBRELATION_PARTIAL_LENGTHS.size();
 
-        if constexpr (inner_idx + 1 < subrelation_length) {
-            // Recursively call for the next element within the same array
-            apply_to_tuple_of_arrays_elements<outer_idx, inner_idx + 1, Operation>(std::forward<Operation>(operation),
-                                                                                   tuple);
-        } else if constexpr (outer_idx + 1 < sizeof...(Ts)) {
-            // Move to the next array in the tuple
-            apply_to_tuple_of_arrays_elements<outer_idx + 1, 0, Operation>(std::forward<Operation>(operation), tuple);
-        }
+            // Get a const reference to the current array from the tuple.
+            const auto& current_array = std::get<OuterIdx>(tuple);
+
+            // Iterate over each element within the current_array.
+            // InnerIdx is the compile-time index of the element within this specific array.
+            constexpr_for<0, num_elements_in_current_array, 1>([&]<size_t InnerIdx>() {
+                // Invoke the operation.
+                // The operation is called with OuterIdx (array index in the tuple) and
+                // InnerIdx (element index in the current array) as template arguments.
+                // The current element (e.g., an FF value) is passed as an argument.
+                std::forward<Operation>(operation).template operator()<OuterIdx, InnerIdx>(current_array[InnerIdx]);
+            });
+        });
     }
 };
+
 } // namespace bb

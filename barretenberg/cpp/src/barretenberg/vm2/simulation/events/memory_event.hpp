@@ -12,6 +12,7 @@ enum class MemoryMode {
 };
 
 struct MemoryEvent {
+    uint32_t execution_clk;
     MemoryMode mode;
     MemoryAddress addr;
     MemoryValue value;

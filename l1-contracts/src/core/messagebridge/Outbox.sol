@@ -8,6 +8,7 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 /**
  * @title Outbox
@@ -17,17 +18,17 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  */
 contract Outbox is IOutbox {
   using Hash for DataStructures.L2ToL1Msg;
+  using BitMaps for BitMaps.BitMap;
 
   struct RootData {
     // This is the outhash specified by header.globalvariables.outHash of any given block.
     bytes32 root;
-    uint256 minHeight;
-    mapping(uint256 => bool) nullified;
+    BitMaps.BitMap nullified;
   }
 
   IRollup public immutable ROLLUP;
   uint256 public immutable VERSION;
-  mapping(uint256 l2BlockNumber => RootData) internal roots;
+  mapping(uint256 l2BlockNumber => RootData root) internal roots;
 
   constructor(address _rollup, uint256 _version) {
     ROLLUP = IRollup(_rollup);
@@ -42,18 +43,13 @@ contract Outbox is IOutbox {
    *
    * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
-   * @param _minHeight - The min height of the merkle tree that the root corresponds to
    */
-  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight)
-    external
-    override(IOutbox)
-  {
+  function insert(uint256 _l2BlockNumber, bytes32 _root) external override(IOutbox) {
     require(msg.sender == address(ROLLUP), Errors.Outbox__Unauthorized());
 
     roots[_l2BlockNumber].root = _root;
-    roots[_l2BlockNumber].minHeight = _minHeight;
 
-    emit RootAdded(_l2BlockNumber, _root, _minHeight);
+    emit RootAdded(_l2BlockNumber, _root);
   }
 
   /**
@@ -97,21 +93,15 @@ contract Outbox is IOutbox {
     require(blockRoot != bytes32(0), Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber));
 
     require(
-      !rootData.nullified[_leafIndex], Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex)
+      !rootData.nullified.get(_leafIndex),
+      Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex)
     );
-    // TODO(#7218): We will eventually move back to a balanced tree and constrain the path length
-    // to be equal to height - for now we just check the min
-
-    // Min height = height of rollup layers
-    // The smallest num of messages will require a subtree of height 1
-    uint256 minHeight = rootData.minHeight;
-    require(minHeight <= _path.length, Errors.Outbox__InvalidPathLength(minHeight, _path.length));
 
     bytes32 messageHash = _message.sha256ToField();
 
     MerkleLib.verifyMembership(_path, messageHash, _leafIndex, blockRoot);
 
-    rootData.nullified[_leafIndex] = true;
+    rootData.nullified.set(_leafIndex);
 
     emit MessageConsumed(_l2BlockNumber, blockRoot, messageHash, _leafIndex);
   }
@@ -132,7 +122,7 @@ contract Outbox is IOutbox {
     override(IOutbox)
     returns (bool)
   {
-    return roots[_l2BlockNumber].nullified[_leafIndex];
+    return roots[_l2BlockNumber].nullified.get(_leafIndex);
   }
 
   /**
@@ -141,19 +131,13 @@ contract Outbox is IOutbox {
    *
    * @param _l2BlockNumber - The block number to fetch the root data for
    *
-   * @return root - The root of the merkle tree containing the L2 to L1 messages
-   * @return minHeight - The min height for the merkle tree that the root corresponds to
+   * @return bytes32 - The root of the merkle tree containing the L2 to L1 messages
    */
-  function getRootData(uint256 _l2BlockNumber)
-    external
-    view
-    override(IOutbox)
-    returns (bytes32 root, uint256 minHeight)
-  {
+  function getRootData(uint256 _l2BlockNumber) external view override(IOutbox) returns (bytes32) {
     if (_l2BlockNumber > ROLLUP.getProvenBlockNumber()) {
-      return (bytes32(0), 0);
+      return bytes32(0);
     }
     RootData storage rootData = roots[_l2BlockNumber];
-    return (rootData.root, rootData.minHeight);
+    return rootData.root;
   }
 }

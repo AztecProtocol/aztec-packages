@@ -9,7 +9,16 @@ VERSION=$1
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf $TEMP_DIR' EXIT
 
-BB_PATH=$TEMP_DIR ./bbup -v $VERSION
+for attempt in {1..3}; do
+    set +e
+    BB_PATH=$TEMP_DIR ./bbup -v $VERSION && break
+    status=$?
+    if ! [[ $status -eq 22 && $attempt -lt 3 ]]; then
+        exit $status
+    fi
+    set -e
+    echo "bbup failed with exit code 22 possibly indicating bad download, retrying..."
+done
 
 if ! grep "$VERSION" <<< $($TEMP_DIR/bb --version) > /dev/null; then
     echo "Did not find expected version of bb"

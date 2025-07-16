@@ -13,11 +13,13 @@ template <typename FF_> class nullifier_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 5 };
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 4,
+                                                                            3, 3, 3, 5, 3, 3, 5, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::nullifier_check_sel)).is_zero();
     }
 
@@ -30,8 +32,10 @@ template <typename FF_> class nullifier_checkImpl {
         using C = ColumnAndShifts;
 
         const auto constants_NULLIFIER_TREE_HEIGHT = FF(40);
+        const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(439);
+        const auto constants_GENERATOR_INDEX__OUTER_NULLIFIER = FF(7);
         const auto nullifier_check_NULLIFIER_LOW_LEAF_NULLIFIER_DIFF =
-            (in.get(C::nullifier_check_nullifier) - in.get(C::nullifier_check_low_leaf_nullifier));
+            (in.get(C::nullifier_check_siloed_nullifier) - in.get(C::nullifier_check_low_leaf_nullifier));
         const auto nullifier_check_NEXT_NULLIFIER_IS_ZERO =
             (FF(1) - in.get(C::nullifier_check_next_nullifier_is_nonzero));
 
@@ -43,45 +47,81 @@ template <typename FF_> class nullifier_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::nullifier_check_exists) * (FF(1) - in.get(C::nullifier_check_exists));
+            auto tmp = in.get(C::nullifier_check_write) * (FF(1) - in.get(C::nullifier_check_write));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::nullifier_check_write) * (FF(1) - in.get(C::nullifier_check_write));
+            auto tmp = in.get(C::nullifier_check_write) * (FF(1) - in.get(C::nullifier_check_sel));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITE_EXISTS_NAND
+        {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::nullifier_check_write) * in.get(C::nullifier_check_exists);
+            auto tmp = in.get(C::nullifier_check_exists) * (FF(1) - in.get(C::nullifier_check_exists));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::nullifier_check_write) * (in.get(C::nullifier_check_tree_size_before_write) -
-                                                           in.get(C::nullifier_check_updated_low_leaf_next_index));
+            auto tmp = in.get(C::nullifier_check_should_silo) * (FF(1) - in.get(C::nullifier_check_should_silo));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PASSTHROUGH_SILOING
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::nullifier_check_write) * (in.get(C::nullifier_check_nullifier) -
-                                                           in.get(C::nullifier_check_updated_low_leaf_next_nullifier));
+            auto tmp = (FF(1) - in.get(C::nullifier_check_should_silo)) *
+                       (in.get(C::nullifier_check_nullifier) - in.get(C::nullifier_check_siloed_nullifier));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = in.get(C::nullifier_check_sel) *
-                       (in.get(C::nullifier_check_tree_height) - constants_NULLIFIER_TREE_HEIGHT);
+                       (constants_GENERATOR_INDEX__OUTER_NULLIFIER - in.get(C::nullifier_check_siloing_separator));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        { // EXISTS_CHECK
+        {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::nullifier_check_should_insert) -
+                        in.get(C::nullifier_check_write) * (FF(1) - in.get(C::nullifier_check_exists)));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            auto tmp = in.get(C::nullifier_check_write) * in.get(C::nullifier_check_exists) *
+                       (in.get(C::nullifier_check_root) - in.get(C::nullifier_check_write_root));
+            tmp *= scaling_factor;
+            std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::nullifier_check_should_insert) * (in.get(C::nullifier_check_tree_size_before_write) -
+                                                            in.get(C::nullifier_check_updated_low_leaf_next_index));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::nullifier_check_should_insert) * (in.get(C::nullifier_check_siloed_nullifier) -
+                                                            in.get(C::nullifier_check_updated_low_leaf_next_nullifier));
+            tmp *= scaling_factor;
+            std::get<10>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            auto tmp = in.get(C::nullifier_check_sel) *
+                       (in.get(C::nullifier_check_tree_height) - constants_NULLIFIER_TREE_HEIGHT);
+            tmp *= scaling_factor;
+            std::get<11>(evals) += typename Accumulator::View(tmp);
+        }
+        { // EXISTS_CHECK
+            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = in.get(C::nullifier_check_sel) *
                        ((nullifier_check_NULLIFIER_LOW_LEAF_NULLIFIER_DIFF *
                              (in.get(C::nullifier_check_exists) *
@@ -90,30 +130,24 @@ template <typename FF_> class nullifier_checkImpl {
                          FF(1)) +
                         in.get(C::nullifier_check_exists));
             tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
+            std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::nullifier_check_sel) * (FF(1) - in.get(C::nullifier_check_one));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = in.get(C::nullifier_check_sel) *
                        ((FF(1) - in.get(C::nullifier_check_exists)) - in.get(C::nullifier_check_leaf_not_exists));
             tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
+            std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = in.get(C::nullifier_check_next_nullifier_is_nonzero) *
                        (FF(1) - in.get(C::nullifier_check_next_nullifier_is_nonzero));
             tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
+            std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_NULLIFIER_IS_ZERO_CHECK
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = in.get(C::nullifier_check_leaf_not_exists) *
                        ((in.get(C::nullifier_check_low_leaf_next_nullifier) *
                              (nullifier_check_NEXT_NULLIFIER_IS_ZERO *
@@ -122,7 +156,23 @@ template <typename FF_> class nullifier_checkImpl {
                          FF(1)) +
                         nullifier_check_NEXT_NULLIFIER_IS_ZERO);
             tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
+            std::get<15>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::nullifier_check_should_insert) * (FF(1) - in.get(C::nullifier_check_discard)) -
+                        in.get(C::nullifier_check_should_write_to_public_inputs));
+            tmp *= scaling_factor;
+            std::get<16>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+            auto tmp = in.get(C::nullifier_check_should_write_to_public_inputs) *
+                       ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX +
+                         in.get(C::nullifier_check_nullifier_index)) -
+                        in.get(C::nullifier_check_public_inputs_index));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -134,20 +184,20 @@ template <typename FF> class nullifier_check : public Relation<nullifier_checkIm
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 3:
-            return "WRITE_EXISTS_NAND";
-        case 7:
+        case 5:
+            return "PASSTHROUGH_SILOING";
+        case 12:
             return "EXISTS_CHECK";
-        case 11:
+        case 15:
             return "NEXT_NULLIFIER_IS_ZERO_CHECK";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_WRITE_EXISTS_NAND = 3;
-    static constexpr size_t SR_EXISTS_CHECK = 7;
-    static constexpr size_t SR_NEXT_NULLIFIER_IS_ZERO_CHECK = 11;
+    static constexpr size_t SR_PASSTHROUGH_SILOING = 5;
+    static constexpr size_t SR_EXISTS_CHECK = 12;
+    static constexpr size_t SR_NEXT_NULLIFIER_IS_ZERO_CHECK = 15;
 };
 
 } // namespace bb::avm2

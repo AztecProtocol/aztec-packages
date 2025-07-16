@@ -106,6 +106,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             out.y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+
+        // Mark the element as coming out of nowhere
+        out.set_free_witness_tag();
         out.validate_on_curve();
         return out;
     }
@@ -134,6 +137,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     {
         this->x.convert_constant_to_fixed_witness(builder);
         this->y.convert_constant_to_fixed_witness(builder);
+        // Origin tags should be unset after fixing the witness
+        unset_free_witness_tag();
     }
 
     static element one(Builder* ctx)
@@ -355,17 +360,37 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
+    /**
+     * @brief Unset the free witness flag for the element's tags
+     */
+    void unset_free_witness_tag()
+    {
+        x.unset_free_witness_tag();
+        y.unset_free_witness_tag();
+        _is_infinity.unset_free_witness_tag();
+    }
+
+    /**
+     * @brief Set the free witness flag for the element's tags
+     */
+    void set_free_witness_tag()
+    {
+        x.set_free_witness_tag();
+        y.set_free_witness_tag();
+        _is_infinity.set_free_witness_tag();
+    }
+
     Fq x;
     Fq y;
 
   private:
     bool_ct _is_infinity;
 
-    template <size_t num_elements, typename = typename std::enable_if<HasPlookup<Builder>>>
+    template <size_t num_elements>
     static std::array<twin_rom_table<Builder>, 5> create_group_element_rom_tables(
         const std::array<element, num_elements>& elements, std::array<uint256_t, 8>& limb_max);
 
-    template <size_t num_elements, typename = typename std::enable_if<HasPlookup<Builder>>>
+    template <size_t num_elements>
     static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, 5>& tables,
                                                  const field_t<Builder>& index,
                                                  const std::array<uint256_t, 8>& limb_max);
@@ -373,7 +398,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
     static typename NativeGroup::affine_element compute_table_offset_generator();
 
-    template <typename = typename std::enable_if<HasPlookup<Builder>>> struct four_bit_table_plookup {
+    struct four_bit_table_plookup {
         four_bit_table_plookup(){};
         four_bit_table_plookup(const element& input);
 
@@ -387,7 +412,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         std::array<uint256_t, 8> limb_max; // tracks the maximum limb size represented in each element_table entry
     };
 
-    template <typename = typename std::enable_if<HasPlookup<Builder>>> struct eight_bit_fixed_base_table {
+    struct eight_bit_fixed_base_table {
         enum CurveType { BN254, SECP256K1, SECP256R1 };
         eight_bit_fixed_base_table(const CurveType input_curve_type, bool use_endo)
             : curve_type(input_curve_type)
@@ -404,12 +429,11 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         bool use_endomorphism;
     };
 
-    template <typename = typename std::enable_if<HasPlookup<Builder>>>
-    static std::pair<four_bit_table_plookup<>, four_bit_table_plookup<>> create_endo_pair_four_bit_table_plookup(
+    static std::pair<four_bit_table_plookup, four_bit_table_plookup> create_endo_pair_four_bit_table_plookup(
         const element& input)
     {
-        four_bit_table_plookup<> P1;
-        four_bit_table_plookup<> endoP1;
+        four_bit_table_plookup P1;
+        four_bit_table_plookup endoP1;
         element d2 = input.dbl();
 
         P1.element_table[8] = input;
@@ -430,8 +454,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         }
         P1.coordinates = create_group_element_rom_tables<16>(P1.element_table, P1.limb_max);
         endoP1.coordinates = create_group_element_rom_tables<16>(endoP1.element_table, endoP1.limb_max);
-        auto result = std::make_pair<four_bit_table_plookup<>, four_bit_table_plookup<>>(
-            (four_bit_table_plookup<>)P1, (four_bit_table_plookup<>)endoP1);
+        auto result = std::make_pair(four_bit_table_plookup(P1), four_bit_table_plookup(endoP1));
         return result;
     }
 
@@ -483,7 +506,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
      *
      * Uses ROM tables to efficiently access lookup table
      **/
-    template <size_t length, typename = typename std::enable_if<HasPlookup<Builder>>> struct lookup_table_plookup {
+    template <size_t length> struct lookup_table_plookup {
         static constexpr size_t table_size = (1ULL << (length));
         lookup_table_plookup() {}
         lookup_table_plookup(const std::array<element, length>& inputs);
@@ -499,14 +522,11 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         std::array<uint256_t, 8> limb_max;
     };
 
-    using twin_lookup_table =
-        typename std::conditional<HasPlookup<Builder>, lookup_table_plookup<2, void>, lookup_table_base<2>>::type;
+    using twin_lookup_table = lookup_table_plookup<2>;
 
-    using triple_lookup_table =
-        typename std::conditional<HasPlookup<Builder>, lookup_table_plookup<3, void>, lookup_table_base<3>>::type;
+    using triple_lookup_table = lookup_table_plookup<3>;
 
-    using quad_lookup_table =
-        typename std::conditional<HasPlookup<Builder>, lookup_table_plookup<4, void>, lookup_table_base<4>>::type;
+    using quad_lookup_table = lookup_table_plookup<4>;
 
     /**
      * Creates a pair of 4-bit lookup tables, the former corresponding to 4 input points,
@@ -519,23 +539,14 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         quad_lookup_table endo_table;
         uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
         Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
-        if constexpr (HasPlookup<Builder>) {
-            for (size_t i = 0; i < 8; ++i) {
-                endo_table.element_table[i + 8].x = base_table[7 - i].x * beta;
-                endo_table.element_table[i + 8].y = base_table[7 - i].y;
+        for (size_t i = 0; i < 8; ++i) {
+            endo_table.element_table[i + 8].x = base_table[7 - i].x * beta;
+            endo_table.element_table[i + 8].y = base_table[7 - i].y;
 
-                endo_table.element_table[7 - i] = (-endo_table.element_table[i + 8]);
-            }
-
-            endo_table.coordinates = create_group_element_rom_tables<16>(endo_table.element_table, endo_table.limb_max);
-        } else {
-            std::array<element, 4> endo_inputs(inputs);
-            for (auto& input : endo_inputs) {
-                input.x *= beta;
-                input.y = -input.y;
-            }
-            endo_table = quad_lookup_table(endo_inputs);
+            endo_table.element_table[7 - i] = (-endo_table.element_table[i + 8]);
         }
+
+        endo_table.coordinates = create_group_element_rom_tables<16>(endo_table.element_table, endo_table.limb_max);
         return std::make_pair<quad_lookup_table, quad_lookup_table>((quad_lookup_table)base_table,
                                                                     (quad_lookup_table)endo_table);
     }
@@ -544,24 +555,22 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
      * Creates a pair of 5-bit lookup tables, the former corresponding to 5 input points,
      * the latter corresponding to the endomorphism equivalent of the 5 input points (e.g. x -> \beta * x, y -> -y)
      **/
-    template <typename X = typename std::enable_if<HasPlookup<Builder>>>
-    static std::pair<lookup_table_plookup<5, X>, lookup_table_plookup<5, X>> create_endo_pair_five_lookup_table(
+    static std::pair<lookup_table_plookup<5>, lookup_table_plookup<5>> create_endo_pair_five_lookup_table(
         const std::array<element, 5>& inputs)
     {
         lookup_table_plookup<5> base_table(inputs);
         lookup_table_plookup<5> endo_table;
         uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
         Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
-        if constexpr (HasPlookup<Builder>) {
-            for (size_t i = 0; i < 16; ++i) {
-                endo_table.element_table[i + 16].x = base_table[15 - i].x * beta;
-                endo_table.element_table[i + 16].y = base_table[15 - i].y;
+        for (size_t i = 0; i < 16; ++i) {
+            endo_table.element_table[i + 16].x = base_table[15 - i].x * beta;
+            endo_table.element_table[i + 16].y = base_table[15 - i].y;
 
-                endo_table.element_table[15 - i] = (-endo_table.element_table[i + 16]);
-            }
-
-            endo_table.coordinates = create_group_element_rom_tables<32>(endo_table.element_table, endo_table.limb_max);
+            endo_table.element_table[15 - i] = (-endo_table.element_table[i + 16]);
         }
+
+        endo_table.coordinates = create_group_element_rom_tables<32>(endo_table.element_table, endo_table.limb_max);
+
         return std::make_pair<lookup_table_plookup<5>, lookup_table_plookup<5>>((lookup_table_plookup<5>)base_table,
                                                                                 (lookup_table_plookup<5>)endo_table);
     }
@@ -571,7 +580,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
      *
      * Ultra version
      **/
-    template <typename X = typename std::enable_if<HasPlookup<Builder>>> struct batch_lookup_table_plookup {
+    struct batch_lookup_table_plookup {
         batch_lookup_table_plookup(const std::vector<element>& points)
         {
             num_points = points.size();
@@ -992,8 +1001,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         bool has_singleton;
     };
 
-    using batch_lookup_table =
-        typename std::conditional<HasPlookup<Builder>, batch_lookup_table_plookup<>, batch_lookup_table_base>::type;
+    using batch_lookup_table = batch_lookup_table_plookup;
 };
 
 template <typename C, typename Fq, typename Fr, typename G>

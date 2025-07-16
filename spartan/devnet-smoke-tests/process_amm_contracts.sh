@@ -90,7 +90,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
     echo "Balances for account $current_user_address"
     echo "Token 0 at at address $token_0_address: private balance is $current_user_private_balance_token_0_initial"
     echo "Token 1 at address $token_1_address: private balance is $current_user_private_balance_token_1_initial"
-    echo "Liquidity token at address $token_liquidity_address: private blance is $current_user_liquidity_token_balance_initial"
+    echo "Liquidity token at address $token_liquidity_address: private balance is $current_user_liquidity_token_balance_initial"
 
     # Adding liquidity
 
@@ -104,14 +104,14 @@ jq -c '.accounts[]' state.json | while read -r account; do
       -a add-liquidity-nonce
 
     aztec-wallet \
-      create-authwit transfer_to_public $amm_address \
+      create-authwit transfer_to_public_and_prepare_private_balance_increase $amm_address \
       -ca $token_0_address \
       --args $current_user_address $amm_address $amount_0_max secrets:add-liquidity-nonce \
       -f $current_user_address \
       -a add_liquidity_token_0
 
     aztec-wallet \
-      create-authwit transfer_to_public $amm_address \
+      create-authwit transfer_to_public_and_prepare_private_balance_increase $amm_address \
       -ca $token_1_address \
       --args $current_user_address $amm_address $amount_1_max secrets:add-liquidity-nonce \
       -f $current_user_address \

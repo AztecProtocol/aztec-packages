@@ -13,35 +13,47 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Create a circuit used to prove that a Protogalaxy folding verification was executed.
+ * @brief Creates a circuit that executes the decider verifier algorithm up to the final pairing check.
  *
+ * @param proof Native proof
  */
 template <typename Flavor>
 DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+{
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify_proof(stdlib_proof);
+}
+
+/**
+ * @brief Creates a circuit that executes the decider verifier algorithm up to the final pairing check.
+ *
+ * @param proof Stdlib proof
+ */
+template <typename Flavor>
+DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript->load_proof(proof);
 
-    VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
+    VerifierCommitments commitments{ accumulator->vk_and_hash->vk, accumulator->witness_commitments };
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
+        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->vk_and_hash->vk->log_circuit_size);
 
-    constrain_log_circuit_size(padding_indicator_array, accumulator->verification_key->circuit_size);
+    constrain_log_circuit_size(padding_indicator_array, accumulator->vk_and_hash->vk->circuit_size);
 
-    Sumcheck sumcheck(transcript, accumulator->target_sum);
+    Sumcheck sumcheck(transcript, accumulator->alphas, accumulator->target_sum);
 
-    SumcheckOutput<Flavor> output = sumcheck.verify(
-        accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output =
+        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{

@@ -124,7 +124,7 @@ pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX
 where
     Note: NoteType + Packable<NOTE_PCKD_LEN>,
 {
-    // N + 3 because of the contract address, nonce, and note_hash_counter that are stored out of the packed note.
+    // N + 3 because of the contract address, note nonce, and note_hash_counter that are stored out of the packed note.
     let packed_retrieved_notes: BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> = get_notes_oracle(
         storage_slot,
         num_selects,

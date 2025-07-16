@@ -19,6 +19,7 @@ template <typename FF_> class poseidon2_hashImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::poseidon2_hash_sel)).is_zero();
     }
 

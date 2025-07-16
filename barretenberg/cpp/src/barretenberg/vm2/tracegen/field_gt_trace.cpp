@@ -5,9 +5,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_ff_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/u256_decomposition.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -83,11 +81,9 @@ void FieldGreaterThanTraceBuilder::process(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> FieldGreaterThanTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_ff_gt_a_lo_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_ff_gt_a_hi_range_settings>>());
-}
+const InteractionDefinition FieldGreaterThanTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_ff_gt_a_lo_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_ff_gt_a_hi_range_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

@@ -3,12 +3,13 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Child {
-    use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
+    use dep::aztec::protocol_types::address::AztecAddress;
 
     use dep::aztec::{
         macros::{functions::{internal, private, public}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
+        state_vars::{Map, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
     // docs:start:import_valuenote
@@ -40,7 +41,7 @@ pub contract Child {
         let return_value = base_value
             + context.chain_id()
             + context.version()
-            + context.block_number()
+            + context.block_number() as Field
             + context.timestamp() as Field;
 
         return_value

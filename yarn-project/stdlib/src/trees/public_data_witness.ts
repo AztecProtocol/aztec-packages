@@ -3,7 +3,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { SiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -90,6 +90,10 @@ export class PublicDataWitness {
       PublicDataTreeLeafPreimage.random(),
       SiblingPath.random(PUBLIC_DATA_TREE_HEIGHT),
     );
+  }
+
+  public withoutPreimage(): MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT> {
+    return new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, this.index, this.siblingPath.toTuple());
   }
 
   /**

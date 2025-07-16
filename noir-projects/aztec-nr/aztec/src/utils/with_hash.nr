@@ -4,7 +4,7 @@ use crate::{
     oracle,
 };
 use dep::protocol_types::{
-    address::AztecAddress, block_header::BlockHeader, hash::poseidon2_hash, traits::Packable,
+    abis::block_header::BlockHeader, address::AztecAddress, hash::poseidon2_hash, traits::Packable,
 };
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
@@ -55,7 +55,7 @@ where
         address: AztecAddress,
         storage_slot: Field,
     ) -> T {
-        let historical_block_number = header.global_variables.block_number as u32;
+        let historical_block_number = header.global_variables.block_number;
 
         // We could simply produce historical inclusion proofs for each field in `packed`, but that would require one
         // full sibling path per storage slot (since due to kernel siloing the storage is not contiguous). Instead, we
@@ -115,7 +115,7 @@ mod test {
     use crate::{
         oracle::random::random,
         test::{
-            helpers::{cheatcodes, test_environment::TestEnvironment},
+            helpers::{test_environment::TestEnvironment, txe_oracles},
             mocks::mock_struct::MockStruct,
         },
         utils::with_hash::WithHash,
@@ -163,14 +163,14 @@ mod test {
         let value_with_hash = WithHash::new(value);
 
         // We write the value with hash to storage
-        cheatcodes::direct_storage_write(
+        txe_oracles::direct_storage_write(
             env.contract_address(),
             storage_slot,
             value_with_hash.pack(),
         );
 
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.advance_block_by(1);
+        env.mine_block();
 
         let result = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,
@@ -182,10 +182,10 @@ mod test {
     }
 
     #[test(should_fail_with = "Non-zero hint for zero hash")]
-    unconstrained fn test_bad_hint_uninitialized_value() {
+    unconstrained fn bad_hint_uninitialized_value() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_to(6);
+        env.mine_block();
 
         let value_packed = MockStruct { a: 1, b: 1 }.pack();
 
@@ -195,7 +195,7 @@ mod test {
         // Mock the oracle to return a non-zero hint/packed value
         let _ = OracleMock::mock("storageRead")
             .with_params((
-                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
+                address.to_field(), storage_slot, block_header.global_variables.block_number,
                 value_packed.len(),
             ))
             .returns(value_packed)
@@ -210,25 +210,25 @@ mod test {
     }
 
     #[test(should_fail_with = "Hint values do not match hash")]
-    unconstrained fn test_bad_hint_initialized_value() {
+    unconstrained fn bad_hint_initialized_value() {
         let mut env = TestEnvironment::new();
 
         let value_packed = MockStruct { a: 5, b: 3 }.pack();
 
         // We write the value to storage
-        cheatcodes::direct_storage_write(env.contract_address(), storage_slot, value_packed);
+        txe_oracles::direct_storage_write(env.contract_address(), storage_slot, value_packed);
 
         // Now we write incorrect hash to the hash storage slot
         let incorrect_hash = random();
         let hash_storage_slot = storage_slot + (value_packed.len() as Field);
-        cheatcodes::direct_storage_write(
+        txe_oracles::direct_storage_write(
             env.contract_address(),
             hash_storage_slot,
             [incorrect_hash],
         );
 
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.advance_block_by(1);
+        env.mine_block();
 
         let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,

@@ -76,7 +76,7 @@ export class PublicTxSimulator {
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
       // Create hinting DBs.
-      const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
+      const hints = new AvmExecutionHints(this.globalVariables, await AvmTxHint.fromTx(tx));
       const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
       const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
       const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
@@ -121,9 +121,6 @@ export class PublicTxSimulator {
 
       const revertCode = context.getFinalRevertCode();
 
-      if (!revertCode.isOK()) {
-        await tx.filterRevertedLogs();
-      }
       // Commit contracts from this TX to the block-level cache and clear tx cache
       // If the tx reverted, only commit non-revertible contracts
       // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts

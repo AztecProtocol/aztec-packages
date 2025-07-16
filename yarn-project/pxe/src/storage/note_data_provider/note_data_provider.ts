@@ -80,12 +80,12 @@ export class NoteDataProvider implements DataProvider {
     return true;
   }
 
-  async addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
-    if (!(await this.#scopes.hasAsync(scope.toString()))) {
-      await this.addScope(scope);
-    }
-
+  addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     return this.#store.transactionAsync(async () => {
+      if (!(await this.#scopes.hasAsync(scope.toString()))) {
+        await this.addScope(scope);
+      }
+
       for (const dao of notes) {
         // store notes by their index in the notes hash tree
         // this provides the uniqueness we need to store individual notes
@@ -127,24 +127,24 @@ export class NoteDataProvider implements DataProvider {
   }
 
   public async unnullifyNotesAfter(blockNumber: number, synchedBlockNumber?: number): Promise<void> {
-    const nullifiersToUndo: string[] = [];
-    const currentBlockNumber = blockNumber + 1;
-    const maxBlockNumber = synchedBlockNumber ?? currentBlockNumber;
-    for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
-      nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValuesAsync(i))));
-    }
-    const notesIndexesToReinsert = await Promise.all(
-      nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.getAsync(nullifier)),
-    );
-    const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
-    const nullifiedNoteBuffers = await Promise.all(
-      notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.getAsync(noteIndex!)),
-    );
-    const noteDaos = nullifiedNoteBuffers
-      .filter(buffer => buffer != undefined)
-      .map(buffer => NoteDao.fromBuffer(buffer!));
-
     await this.#store.transactionAsync(async () => {
+      const nullifiersToUndo: string[] = [];
+      const currentBlockNumber = blockNumber + 1;
+      const maxBlockNumber = synchedBlockNumber ?? currentBlockNumber;
+      for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
+        nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValuesAsync(i))));
+      }
+      const notesIndexesToReinsert = await Promise.all(
+        nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.getAsync(nullifier)),
+      );
+      const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
+      const nullifiedNoteBuffers = await Promise.all(
+        notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.getAsync(noteIndex!)),
+      );
+      const noteDaos = nullifiedNoteBuffers
+        .filter(buffer => buffer != undefined)
+        .map(buffer => NoteDao.fromBuffer(buffer!));
+
       for (const dao of noteDaos) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         await this.#notes.set(noteIndex, dao.toBuffer());
@@ -202,19 +202,17 @@ export class NoteDataProvider implements DataProvider {
             ? await toArray(
                 this.#notesByTxHashAndScope.get(formattedScopeString)!.getValuesAsync(filter.txHash.toString()),
               )
-            : filter.contractAddress
+            : filter.storageSlot
               ? await toArray(
+                  this.#notesByStorageSlotAndScope
+                    .get(formattedScopeString)!
+                    .getValuesAsync(filter.storageSlot.toString()),
+                )
+              : await toArray(
                   this.#notesByContractAndScope
                     .get(formattedScopeString)!
                     .getValuesAsync(filter.contractAddress.toString()),
-                )
-              : filter.storageSlot
-                ? await toArray(
-                    this.#notesByStorageSlotAndScope
-                      .get(formattedScopeString)!
-                      .getValuesAsync(filter.storageSlot.toString()),
-                  )
-                : await toArray(this.#notesByRecipientAndScope.get(formattedScopeString)!.valuesAsync()),
+                ),
       );
     }
 
@@ -229,11 +227,9 @@ export class NoteDataProvider implements DataProvider {
           ? await toArray(this.#nullifiedNotesByRecipient.getValuesAsync(filter.recipient.toString()))
           : filter.txHash
             ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
-            : filter.contractAddress
-              ? await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()))
-              : filter.storageSlot
-                ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
-                : await toArray(this.#nullifiedNotes.keysAsync()),
+            : filter.storageSlot
+              ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
+              : await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString())),
         notes: this.#nullifiedNotes,
       });
     }
@@ -247,7 +243,7 @@ export class NoteDataProvider implements DataProvider {
         }
 
         const note = NoteDao.fromBuffer(serializedNote);
-        if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
+        if (!note.contractAddress.equals(filter.contractAddress)) {
           continue;
         }
 
@@ -334,6 +330,21 @@ export class NoteDataProvider implements DataProvider {
   }
 
   async getSize() {
-    return (await this.getNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
+    const scopes = await toArray(this.#scopes.keysAsync());
+    const contractAddresses = new Set<string>();
+
+    // Collect all unique contract addresses across all scopes
+    for (const scope of scopes) {
+      const addresses = await toArray(this.#notesByContractAndScope.get(scope)!.keysAsync());
+      addresses.forEach(addr => contractAddresses.add(addr));
+    }
+
+    // Get all notes for each contract address
+    const allNotes = await Promise.all(
+      Array.from(contractAddresses).map(addr => this.getNotes({ contractAddress: AztecAddress.fromString(addr) })),
+    );
+
+    // Reduce all notes to get total size
+    return allNotes.flat().reduce((sum, note) => sum + note.getSize(), 0);
   }
 }

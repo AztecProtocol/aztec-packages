@@ -21,8 +21,7 @@ describe('BlockHeaderTxValidator', () => {
 
   it('rejects tx with invalid block header', async () => {
     const badTx = await mockTxForRollup();
-    badTx.data.constants.historicalHeader.globalVariables.blockNumber =
-      badTx.data.constants.historicalHeader.globalVariables.blockNumber.add(new Fr(1));
+    badTx.data.constants.historicalHeader.globalVariables.blockNumber += 1;
 
     const goodTx = await mockTxForRollup();
     archiveSource.getArchiveIndices.mockImplementation(async (archives: Fr[]) => {

@@ -145,30 +145,14 @@ fn create_permutation_settings_data(permutation: &Permutation) -> Json {
     let lhs_cols = permutation.left.cols.clone();
     let rhs_cols = permutation.right.cols.clone();
 
-    // 0.                       The polynomial containing the inverse products -> taken from the attributes
-    // 1.                       The polynomial enabling the relation (the selector)
-    // 2.                       lhs selector
-    // 3.                       rhs selector
-    // 4.. + columns per set.   lhs cols
-    // 4 + columns per set.. .  rhs cols
-    let mut perm_entities: Vec<String> = [
-        permutation.inverse.clone(),
-        lhs_selector.clone(),
-        lhs_selector.clone(),
-        rhs_selector.clone(),
-    ]
-    .to_vec();
-
-    perm_entities.extend(lhs_cols);
-    perm_entities.extend(rhs_cols);
-
     json!({
         "perm_name": permutation.name,
         "relation_name": permutation.owning_relation,
         "columns_per_set": columns_per_set,
+        "lhs_cols": lhs_cols,
+        "rhs_cols": rhs_cols,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
-        "perm_entities": perm_entities,
         "inverses_col": permutation.inverse.clone(),
     })
 }

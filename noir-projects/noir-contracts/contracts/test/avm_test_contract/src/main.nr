@@ -18,7 +18,6 @@ pub contract AvmTest {
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
-    use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
@@ -31,6 +30,7 @@ pub contract AvmTest {
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
     };
+    use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
@@ -198,6 +198,13 @@ pub contract AvmTest {
         } else {
             y
         }
+    }
+
+    #[public]
+    fn bitwise_ops(x: u32, y: u32) -> u32 {
+        let mut result = x & y;
+        result = result | x;
+        result ^ y
     }
 
     /************************************************************************
@@ -393,7 +400,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_block_number() -> Field {
+    fn get_block_number() -> u32 {
         context.block_number()
     }
 
@@ -403,22 +410,22 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_fee_per_l2_gas() -> Field {
-        context.fee_per_l2_gas()
+    fn get_fee_per_l2_gas() -> u128 {
+        context.base_fee_per_l2_gas()
     }
 
     #[public]
-    fn get_fee_per_da_gas() -> Field {
-        context.fee_per_da_gas()
+    fn get_fee_per_da_gas() -> u128 {
+        context.base_fee_per_da_gas()
     }
 
     #[public]
-    fn get_l2_gas_left() -> Field {
+    fn get_l2_gas_left() -> u32 {
         context.l2_gas_left()
     }
 
     #[public]
-    fn get_da_gas_left() -> Field {
+    fn get_da_gas_left() -> u32 {
         context.da_gas_left()
     }
 
@@ -437,7 +444,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn note_hash_exists(note_hash: Field, leaf_index: Field) -> bool {
+    fn note_hash_exists(note_hash: Field, leaf_index: u64) -> bool {
         context.note_hash_exists(note_hash, leaf_index)
     }
 
@@ -552,8 +559,8 @@ pub contract AvmTest {
     fn nested_call_to_add_with_gas(
         arg_a: Field,
         arg_b: Field,
-        l2_gas: Field,
-        da_gas: Field,
+        l2_gas: u32,
+        da_gas: u32,
     ) -> pub Field {
         AvmTest::at(context.this_address())
             .add_args_return(arg_a, arg_b)
@@ -608,6 +615,17 @@ pub contract AvmTest {
         AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
     }
 
+    // function with large array as calldata (for benchmarking call interface macros)
+    #[public]
+    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+        // do nothing and return...
+        5
+    }
+    #[public]
+    fn nested_call_large_calldata(arr: [Field; 300]) -> pub Field {
+        AvmTest::at(context.this_address()).fn_w_large_calldata(arr).call(&mut context)
+    }
+
     /**
      * Enqueue a public call from private
      */
@@ -632,6 +650,9 @@ pub contract AvmTest {
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
     ) {
+        dep::aztec::oracle::debug_log::debug_log("biwise_ops");
+        let num = get_block_number();
+        let _ = bitwise_ops(num, num);
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");

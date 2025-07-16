@@ -1,24 +1,18 @@
 use crate::{
     address::AztecAddress,
-    constants::PUBLIC_CALL_REQUEST_LENGTH,
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils::reader::Reader,
+    constants::{
+        MAX_ENQUEUED_CALLS_PER_TX, NUM_PUBLIC_CALL_REQUEST_ARRAYS, PUBLIC_CALL_REQUEST_LENGTH,
+    },
+    traits::{Deserialize, Empty, FromField, Serialize},
+    utils::arrays::array_length,
 };
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PublicCallRequest {
     pub msg_sender: AztecAddress,
     pub contract_address: AztecAddress,
     pub is_static_call: bool,
     pub calldata_hash: Field,
-}
-
-impl Eq for PublicCallRequest {
-    fn eq(self, other: PublicCallRequest) -> bool {
-        (self.msg_sender == other.msg_sender)
-            & (self.contract_address == other.contract_address)
-            & (self.is_static_call == other.is_static_call)
-            & (self.calldata_hash == other.calldata_hash)
-    }
 }
 
 impl Empty for PublicCallRequest {
@@ -32,40 +26,55 @@ impl Empty for PublicCallRequest {
     }
 }
 
-impl Serialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
-    fn serialize(self) -> [Field; PUBLIC_CALL_REQUEST_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_CALL_REQUEST_LENGTH> = BoundedVec::new();
+#[derive(Deserialize, Eq, Serialize)]
+pub struct PublicCallRequestArrayLengths {
+    pub setup_calls: u32,
+    pub app_logic_calls: u32,
+    pub teardown_call: bool,
+}
 
-        fields.push(self.msg_sender.to_field());
-        fields.push(self.contract_address.to_field());
-        fields.push(self.is_static_call as Field);
-        fields.push(self.calldata_hash);
-
-        assert_eq(fields.len(), PUBLIC_CALL_REQUEST_LENGTH);
-
-        fields.storage()
+impl PublicCallRequestArrayLengths {
+    pub fn new(
+        setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+        app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
+        teardown_call_request: PublicCallRequest,
+    ) -> Self {
+        PublicCallRequestArrayLengths {
+            setup_calls: array_length(setup_call_requests),
+            app_logic_calls: array_length(app_logic_call_requests),
+            teardown_call: !teardown_call_request.is_empty(),
+        }
     }
 }
 
-impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
-    fn deserialize(fields: [Field; PUBLIC_CALL_REQUEST_LENGTH]) -> PublicCallRequest {
-        let mut reader = Reader::new(fields);
-
-        let request = PublicCallRequest {
-            msg_sender: AztecAddress::from_field(reader.read()),
-            contract_address: AztecAddress::from_field(reader.read()),
-            is_static_call: reader.read() as bool,
-            calldata_hash: reader.read(),
-        };
-        reader.finish();
-        request
+impl Empty for PublicCallRequestArrayLengths {
+    fn empty() -> Self {
+        PublicCallRequestArrayLengths { setup_calls: 0, app_logic_calls: 0, teardown_call: false }
     }
 }
 
 #[test]
-fn serialization_of_empty_public_call_request() {
-    let item = PublicCallRequest::empty();
-    let serialized = item.serialize();
+fn serialization_of_public_call_request() {
+    let item = PublicCallRequest {
+        msg_sender: AztecAddress::from_field(123),
+        contract_address: AztecAddress::from_field(456),
+        is_static_call: true,
+        calldata_hash: 789,
+    };
+    // We use the PUBLIC_CALL_REQUEST_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; PUBLIC_CALL_REQUEST_LENGTH] = item.serialize();
     let deserialized = PublicCallRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_public_call_request_array_lengths() {
+    let item =
+        PublicCallRequestArrayLengths { setup_calls: 2, app_logic_calls: 3, teardown_call: true };
+    // We use the NUM_PUBLIC_CALL_REQUEST_ARRAYS constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; NUM_PUBLIC_CALL_REQUEST_ARRAYS] = item.serialize();
+    let deserialized = PublicCallRequestArrayLengths::deserialize(serialized);
     assert(item.eq(deserialized));
 }

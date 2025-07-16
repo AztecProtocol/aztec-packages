@@ -44,6 +44,10 @@ export class PrivateLog {
     return this.fields.slice(0, this.emittedLength);
   }
 
+  getEmittedFieldsWithoutTag() {
+    return this.fields.slice(1, this.emittedLength);
+  }
+
   toBlobFields(): Fr[] {
     return [new Fr(this.emittedLength)].concat(this.getEmittedFields());
   }

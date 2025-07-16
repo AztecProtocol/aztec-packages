@@ -1,7 +1,6 @@
 export * from './block_header.js';
 export * from './call_context.js';
 export * from './global_variables.js';
-export * from './max_block_number.js';
 export * from './content_commitment.js';
 export * from './state_reference.js';
 export * from './partial_state_reference.js';
@@ -29,4 +28,5 @@ export * from './capsule.js';
 export * from './global_variable_builder.js';
 export * from './hashed_values.js';
 export * from './indexed_tx_effect.js';
+export * from './offchain_effect.js';
 export * from './profiling.js';

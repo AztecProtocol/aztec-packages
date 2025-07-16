@@ -1,4 +1,4 @@
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField};
 
 // docs:start:map
@@ -12,7 +12,7 @@ pub struct Map<K, V, Context> {
 // Map reserves a single storage slot regardless of what it stores because nothing is stored at said slot: it is only
 // used to derive the storage slots of nested state variables, which is expected to never result in collisions or slots
 // being close to one another due to these being hashes. This mirrors the strategy adopted by Solidity mappings.
-impl<K, T, Context> Storage<1> for Map<K, T, Context> {
+impl<K, T, Context> HasStorageSlot<1> for Map<K, T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }

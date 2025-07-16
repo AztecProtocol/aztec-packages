@@ -20,6 +20,8 @@ import { createPublicClient, fallback, http } from 'viem';
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
+  private currentBaseFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
+  private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
   private readonly publicClient: ViemPublicClient;
@@ -46,9 +48,9 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
   /**
    * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Base fees for the expected next block
+   * @returns Base fees for the next block
    */
-  public async getCurrentBaseFees(): Promise<GasFees> {
+  private async computeCurrentBaseFees(): Promise<GasFees> {
     // Since this might be called in the middle of a slot where a block might have been published,
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
@@ -58,7 +60,19 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
-    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
+    return new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
+  }
+
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    // Get the current block number
+    const blockNumber = await this.publicClient.getBlockNumber();
+
+    // If the L1 block number has changed then chain a new promise to get the current base fees
+    if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
+      this.currentL1BlockNumber = blockNumber;
+      this.currentBaseFees = this.currentBaseFees.then(() => this.computeCurrentBaseFees());
+    }
+    return this.currentBaseFees;
   }
 
   public async getGlobalConstantVariables(): Promise<Pick<GlobalVariables, 'chainId' | 'version'>> {
@@ -80,7 +94,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
-    blockNumber: Fr,
+    blockNumber: number,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
@@ -95,17 +109,16 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const timestamp = await this.rollupContract.getTimestampForSlot(slotNumber);
 
     const slotFr = new Fr(slotNumber);
-    const timestampFr = new Fr(timestamp);
 
     // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
-    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
+    const gasFees = new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
 
     const globalVariables = new GlobalVariables(
       chainId,
       version,
       blockNumber,
       slotFr,
-      timestampFr,
+      timestamp,
       coinbase,
       feeRecipient,
       gasFees,

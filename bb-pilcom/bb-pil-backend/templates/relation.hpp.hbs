@@ -21,6 +21,11 @@ template <typename FF_> class {{name}}Impl {
         template <typename AllEntities> inline static bool skip(const AllEntities& in)
         {
             using C = ColumnAndShifts;
+
+            {{#each skippable_alias_defs as |alias|}}
+            const auto {{alias.name}} = {{alias.expr}};
+            {{/each}}
+
             return ({{skippable_if}}).is_zero();
         }
         {{/if}}

@@ -53,7 +53,7 @@ type MetricFilter = {
 };
 
 // See https://github.com/benchmark-action/github-action-benchmark/blob/e3c661617bc6aa55f26ae4457c737a55545a86a4/src/extract.ts#L659-L670
-type GithubActionBenchmarkResult = {
+export type GithubActionBenchmarkResult = {
   name: string;
   value: number;
   range?: string;
@@ -160,7 +160,7 @@ export async function createNewPXE(node: AztecNode, contract: BenchmarkingContra
   const l1Contracts = await node.getL1ContractAddresses();
   const { l1ChainId, rollupVersion } = await node.getNodeInfo();
   const pxeConfig = {
-    l2BlockBatchSize: 200,
+    l2BlockBatchSize: 50,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,

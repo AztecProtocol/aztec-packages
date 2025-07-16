@@ -206,7 +206,6 @@ export class TxEffect {
 
   /**
    * Computes txOutHash of this tx effect.
-   * TODO(#7218): Revert to fixed height tree for outbox
    * @dev Follows new_sha in variable_merkle_tree.nr
    */
   txOutHash() {
@@ -232,15 +231,33 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static async random(numPublicCallsPerTx = 3, numPublicLogsPerCall = 1): Promise<TxEffect> {
+  static async random(
+    numPublicCallsPerTx = 3,
+    numPublicLogsPerCall = 1,
+    maxEffects: number | undefined = undefined,
+  ): Promise<TxEffect> {
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
-      makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.random),
-      makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
-      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+      makeTuple(
+        maxEffects === undefined ? MAX_NOTE_HASHES_PER_TX : Math.min(maxEffects, MAX_NOTE_HASHES_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined ? MAX_NULLIFIERS_PER_TX : Math.min(maxEffects, MAX_NULLIFIERS_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined ? MAX_L2_TO_L1_MSGS_PER_TX : Math.min(maxEffects, MAX_L2_TO_L1_MSGS_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined
+          ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+          : Math.min(maxEffects, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+        PublicDataWrite.random,
+      ),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => PrivateLog.random()),
       await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, async () => await PublicLog.random()),
       await makeTupleAsync(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.random),

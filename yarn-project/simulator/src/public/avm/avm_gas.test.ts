@@ -1,8 +1,12 @@
+import { AVM_MAX_OPERANDS } from '@aztec/constants';
+
+import { computeAddressingCost, getBaseGasCost, getDynamicGasCost, sumGas } from './avm_gas.js';
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { initContext } from './fixtures/index.js';
+import { initContext } from './fixtures/initializers.js';
 import { Add, CalldataCopy, Div, Mul, Set as SetInstruction, Sub } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { MAX_OPCODE_VALUE } from './serialization/instruction_serialization.js';
 
 describe.skip('AVM simulator: dynamic gas costs per instruction', () => {
   it.each([
@@ -32,5 +36,26 @@ describe.skip('AVM simulator: dynamic gas costs per instruction', () => {
 
     expect(initialL2GasLeft - context.machineState.l2GasLeft).toEqual(l2GasCost ?? 0);
     expect(initialDaGasLeft - context.machineState.daGasLeft).toEqual(daGasCost ?? 0);
+  });
+});
+
+// See gas.pil for the reasoning behind these limits.
+describe('Gas values limits', () => {
+  const MAX_U32 = 2 ** 32 - 1;
+  it('Base gas should not be higher than u32::MAX_VALUE', () => {
+    const maxAddressingCost = computeAddressingCost(AVM_MAX_OPERANDS, AVM_MAX_OPERANDS);
+    for (let opcode = 0; opcode <= MAX_OPCODE_VALUE; opcode++) {
+      const maxGas = sumGas(getBaseGasCost(opcode), maxAddressingCost);
+      expect(maxGas.l2Gas).toBeLessThanOrEqual(MAX_U32);
+      expect(maxGas.daGas).toBeLessThanOrEqual(MAX_U32);
+    }
+  });
+
+  it('Dynamic gas should not be higher than u32::MAX_VALUE', () => {
+    for (let opcode = 0; opcode <= MAX_OPCODE_VALUE; opcode++) {
+      const maxGas = getDynamicGasCost(opcode);
+      expect(maxGas.l2Gas).toBeLessThanOrEqual(MAX_U32);
+      expect(maxGas.daGas).toBeLessThanOrEqual(MAX_U32);
+    }
   });
 });

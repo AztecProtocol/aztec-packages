@@ -40,17 +40,17 @@ You can specify which proving system to use with the `SYS` variable (ultra_honk,
 If not specified it defaults to plonk (TODO: Make explicit).
 
 ```
-$ SYS=ultra_honk BIN=bb.js VERBOSE=1 ./run_test.sh 1_mul
+$ SYS=ultra_honk BIN=bb.js VERBOSE=1 ./run_test.sh a_1_mul
 ```
 
 You can use a relative path to an executable. e.g. if bb.js-dev is not symlinked into your PATH:
 
 ```
-$ BIN=../ts/bb.js-dev VERBOSE=1 ./run_test.sh 1_mul
+$ BIN=../ts/bb.js-dev VERBOSE=1 ./run_test.sh a_1_mul
 ```
 
 ```
-$ BIN=./headless-test/bb.js.browser VERBOSE=1 ./run_test.sh 1_mul
+$ BIN=./headless-test/bb.js.browser VERBOSE=1 ./run_test.sh a_1_mul
 ```
 
 You can specify a different testing "flow" with `FLOW` environment variable. Flows are in the `flows` dir.
@@ -59,7 +59,7 @@ test vectors actually all pass in whichever version of the backend is being run.
 The `all_cmds` flow tests all the supported commands on the binary. Slower, but is there to test the cli.
 
 ```
-$ FLOW=all_cmds ./run_acir_tests.sh 1_mul
+$ FLOW=all_cmds ./run_acir_tests.sh a_1_mul
 ```
 
 We currently have to use a separate flow script to run client_ivc scheme as opposed to just setting `SYS` due to

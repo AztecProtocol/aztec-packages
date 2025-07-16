@@ -8,6 +8,6 @@ pub use note_hash_read_request_reset::NoteHashReadRequestHints;
 pub use nullifier_read_request_reset::NullifierReadRequestHints;
 pub use private_validation_request_processor::PrivateValidationRequestProcessor;
 pub use reset::{
-    key_validation_hint::KeyValidationHint,
+    key_validation_request::KeyValidationHint,
     transient_data::{TransientDataIndexHint, verify_squashed_transient_data},
 };

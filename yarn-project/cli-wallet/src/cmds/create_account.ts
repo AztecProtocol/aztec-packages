@@ -6,6 +6,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function createAccount(
   client: PXE,
@@ -68,17 +69,17 @@ export async function createAccount(
   } else {
     const wallet = await account.getWallet();
     const deployOpts: DeployAccountOptions = {
-      skipClassRegistration: !publicDeploy,
-      skipPublicDeployment: !publicDeploy,
+      skipClassPublication: !publicDeploy,
+      skipInstancePublication: !publicDeploy,
       skipInitialization: skipInitialization,
       ...(await feeOpts.toDeployAccountOpts(wallet)),
     };
     /*
-     * This is usually handled by accountManager.deploy(), but we're accessing the lower
+     * This is usually handled by accountManager.create(), but we're accessing the lower
      * level method to get gas and timings. That means we have to replicate some of the logic here.
-     * In case we're deploying our own account, we need to hijack the payment method for the fee,
+     * In case we're initializing and/or publishing our own account, we need to hijack the payment method for the fee,
      * wrapping it in the one that will make use of the freshly deployed account's
-     * entrypoint. For reference, see aztec.js/src/account_manager.ts:deploy()
+     * entrypoint. For reference, see aztec.js/src/account_manager.ts:sendAccountContractSetupTx()
      * Also, salt and universalDeploy have to be explicitly provided
      */
     deployOpts.fee =
@@ -107,7 +108,7 @@ export async function createAccount(
     } else {
       const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
       if (verbose) {
-        printProfileResult(provenTx.timings!, log);
+        printProfileResult(provenTx.stats!, log);
       }
       tx = provenTx.send();
 
@@ -118,7 +119,7 @@ export async function createAccount(
         if (!json) {
           log(`\nWaiting for account contract deployment...`);
         }
-        txReceipt = await tx.wait();
+        txReceipt = await tx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
         out.txReceipt = {
           status: txReceipt.status,
           transactionFee: txReceipt.transactionFee,

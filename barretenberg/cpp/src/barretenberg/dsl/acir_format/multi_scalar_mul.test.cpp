@@ -73,7 +73,6 @@ TEST_F(MSMTests, TestMSM)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = { msm_constrain },
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -96,7 +95,8 @@ TEST_F(MSMTests, TestMSM)
         fr(0),
     };
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

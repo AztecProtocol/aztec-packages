@@ -18,7 +18,6 @@ import type { ConnectionSampler } from './connection_sampler.js';
  * If a peer fails, it is replaced while maintaining the same bucket.
  */
 export class BatchConnectionSampler {
-  private readonly logger = createLogger('p2p:reqresp:batch-connection-sampler');
   private readonly batch: PeerId[] = [];
   private readonly requestsPerPeer: number;
 
@@ -26,6 +25,8 @@ export class BatchConnectionSampler {
     private readonly connectionSampler: ConnectionSampler,
     batchSize: number,
     maxPeers: number,
+    exclude?: PeerId[],
+    private readonly logger = createLogger('p2p:reqresp:batch-connection-sampler'),
   ) {
     if (maxPeers <= 0) {
       throw new Error('Max peers cannot be 0');
@@ -38,7 +39,8 @@ export class BatchConnectionSampler {
     this.requestsPerPeer = Math.max(1, Math.floor(batchSize / maxPeers));
 
     // Sample initial peers
-    this.batch = this.connectionSampler.samplePeersBatch(maxPeers);
+    const excluding = exclude && new Map(exclude.map(peerId => [peerId.toString(), true] as const));
+    this.batch = this.connectionSampler.samplePeersBatch(maxPeers, excluding);
   }
 
   /**
@@ -70,7 +72,7 @@ export class BatchConnectionSampler {
     }
 
     const excluding = new Map([[peerId.toString(), true]]);
-    const newPeer = this.connectionSampler.getPeer(excluding);
+    const newPeer = this.connectionSampler.getPeer(excluding); // Q: Shouldn't we accumulate all excluded peers? Otherwise the sampler could return us a previously excluded peer?
 
     if (newPeer) {
       this.batch[index] = newPeer;

@@ -21,6 +21,7 @@ template <typename FF_> class sha256Impl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::sha256_sel)).is_zero();
     }
 

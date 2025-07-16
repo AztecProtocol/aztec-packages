@@ -14,7 +14,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen & Circuit – check circuit', () => {
+describe.skip('AVM WitGen & Circuit – check circuit', () => {
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
 

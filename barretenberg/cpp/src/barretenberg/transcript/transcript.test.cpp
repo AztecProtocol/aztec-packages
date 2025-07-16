@@ -6,7 +6,15 @@ using namespace bb;
 using FF = bb::fr;
 using Fr = bb::fr;
 using Fq = bb::fq;
-using Transcript = NativeTranscript;
+
+class TestTranscript : public NativeTranscript {
+  public:
+    void tamper_proof_data()
+    {
+        // Modify the integer value in the proof data.
+        proof_data.back() += 1;
+    }
+};
 
 /**
  * @brief Test sending, receiving, and exporting proofs
@@ -14,32 +22,34 @@ using Transcript = NativeTranscript;
  */
 TEST(NativeTranscript, TwoProversTwoFields)
 {
-    const auto EXPECT_PROVER_STATE = [](const Transcript& transcript, size_t start, size_t written) {
+    const auto EXPECT_PROVER_STATE = [](const TestTranscript& transcript, size_t start, size_t written) {
         EXPECT_EQ(transcript.proof_start, static_cast<std::ptrdiff_t>(start));
         EXPECT_EQ(transcript.num_frs_written, written);
     };
-    const auto EXPECT_VERIFIER_STATE = [](const Transcript& verifier_transcript, size_t read, size_t proof_size = 0) {
-        EXPECT_EQ(verifier_transcript.num_frs_read, read);
-        if (proof_size != 0) {
-            EXPECT_EQ(verifier_transcript.num_frs_read, proof_size);
-        }
-    };
+    const auto EXPECT_VERIFIER_STATE =
+        [](const TestTranscript& verifier_transcript, size_t read, size_t proof_size = 0) {
+            EXPECT_EQ(verifier_transcript.num_frs_read, read);
+            if (proof_size != 0) {
+                EXPECT_EQ(verifier_transcript.num_frs_read, proof_size);
+            }
+        };
 
-    Transcript prover_transcript;
+    TestTranscript prover_transcript;
     // state initializes to zero
 
     EXPECT_PROVER_STATE(prover_transcript, /*start*/ 0, /*written*/ 0);
     Fr elt_a = 1377;
     prover_transcript.send_to_verifier("a", elt_a);
     EXPECT_PROVER_STATE(prover_transcript, /*start*/ 0, /*written*/ 1);
-    Transcript verifier_transcript{ prover_transcript.export_proof() };
+    TestTranscript verifier_transcript;
+    verifier_transcript.load_proof(prover_transcript.export_proof());
     // export resets read/write state and sets start in prep for next export
     EXPECT_PROVER_STATE(prover_transcript, /*start*/ 1, /*written*/ 0);
     // state initializes to zero
     EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 0);
     Fr received_a = verifier_transcript.receive_from_prover<Fr>("a");
     // receiving is reading frs input and writing them to an internal proof_data buffer
-    EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1, prover_transcript.proof_data.size());
+    EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1, prover_transcript.size_proof_data());
     EXPECT_EQ(received_a, elt_a);
 
     { // send grumpkin::fr
@@ -51,7 +61,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         // load proof is not an action by a prover or verifier, so it does not change read/write counts
         EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1);
         Fq received_b = verifier_transcript.receive_from_prover<Fq>("b");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3, prover_transcript.proof_data.size());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3, prover_transcript.size_proof_data());
         EXPECT_EQ(received_b, elt_b);
     }
     { // send uint32_t
@@ -62,7 +72,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         EXPECT_PROVER_STATE(prover_transcript, /*start*/ 4, /*written*/ 0);
         EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3);
         auto received_c = verifier_transcript.receive_from_prover<uint32_t>("c");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 4, prover_transcript.proof_data.size());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 4, prover_transcript.size_proof_data());
         EXPECT_EQ(received_c, elt_c);
     }
     { // send curve::BN254::AffineElement
@@ -72,7 +82,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_PROVER_STATE(prover_transcript, /*start*/ 8, /*written*/ 0);
         auto received_d = verifier_transcript.receive_from_prover<curve::BN254::AffineElement>("d");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 8, prover_transcript.proof_data.size());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 8, prover_transcript.size_proof_data());
         EXPECT_EQ(received_d, elt_d);
     }
     { // send std::array<bb::fr, 4>
@@ -157,7 +167,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
  */
 TEST(NativeTranscript, ConsumeElement)
 {
-    Transcript prover_transcript, verifier_transcript;
+    TestTranscript prover_transcript, verifier_transcript;
     prover_transcript.add_to_hash_buffer("a", Fr(1));
     verifier_transcript.add_to_hash_buffer("a", Fr(1));
     auto prover_chal = prover_transcript.get_challenge<Fr>("alpha");
@@ -175,8 +185,8 @@ TEST(NativeTranscript, MultipleProversWithAddToHashBuffer)
     // Populate prover and verifier transcripts. Make sure that some elements are hashed without being placed into the
     // proof data, i.e. use `add_to_hash_buffer()` method.
     auto simulate_transcript_interaction_with_multiple_provers = [](const size_t num_proof_exports,
-                                                                    Transcript& prover_transcript,
-                                                                    Transcript& verifier_transcript,
+                                                                    TestTranscript& prover_transcript,
+                                                                    TestTranscript& verifier_transcript,
                                                                     bool tampered_transcript = false) {
         for (size_t idx = 0; idx < num_proof_exports; idx++) {
 
@@ -186,7 +196,7 @@ TEST(NativeTranscript, MultipleProversWithAddToHashBuffer)
 
             if (tampered_transcript) {
                 // Modify the integer value in the proof data.
-                prover_transcript.proof_data.back() += 1;
+                prover_transcript.tamper_proof_data();
             }
 
             prover_transcript.send_to_verifier("random_field_element", Fr::random_element());
@@ -212,15 +222,15 @@ TEST(NativeTranscript, MultipleProversWithAddToHashBuffer)
 
     // Test valid transcript data
     for (size_t num_proof_exports = 2; num_proof_exports < 5; num_proof_exports++) {
-        Transcript prover_transcript;
-        Transcript verifier_transcript;
+        TestTranscript prover_transcript;
+        TestTranscript verifier_transcript;
         simulate_transcript_interaction_with_multiple_provers(
             num_proof_exports, prover_transcript, verifier_transcript);
     }
 
     // Test tampered transcript data
-    Transcript prover_transcript;
-    Transcript verifier_transcript;
+    TestTranscript prover_transcript;
+    TestTranscript verifier_transcript;
     simulate_transcript_interaction_with_multiple_provers(
         /*num_proof_exports=*/2, prover_transcript, verifier_transcript, true);
 }

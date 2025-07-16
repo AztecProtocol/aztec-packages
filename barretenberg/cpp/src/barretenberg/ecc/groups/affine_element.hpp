@@ -178,8 +178,60 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     Fq x;
     Fq y;
 
-    // Note: this serialization from typescript does not support infinity.
-    MSGPACK_FIELDS(x, y);
+    // Note: only applicable to field-templated curves (i.e. not something like G2).
+    struct MsgpackRawAffineElement {
+        uint256_t x{};
+        uint256_t y{};
+        MSGPACK_FIELDS(x, y);
+    };
+    void msgpack_pack(auto& packer) const
+    {
+        MsgpackRawAffineElement raw_element{};
+        if (is_point_at_infinity()) {
+            // If we are a point at infinity, just set all bits to 1
+            // We only need this case because the below gets mangled converting from montgomery for infinity points
+            constexpr uint256_t all_ones = {
+                0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
+            };
+            raw_element = { all_ones, all_ones };
+        } else {
+            // Note: internally calls from_montgomery_form()
+            raw_element = { x, y };
+        }
+        packer.pack(raw_element);
+    }
+    void msgpack_unpack(auto o)
+    {
+        using namespace serialize;
+        MsgpackRawAffineElement raw_element = o;
+        // If we are point and infinity, the serialized bits will be all ones.
+        constexpr uint256_t all_ones = {
+            0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
+        };
+        if (raw_element.x == all_ones && raw_element.y == all_ones) {
+            // If we are infinity, just set all bits to 1
+            // We only need this case because the below gets mangled converting from montgomery for infinity points
+            self_set_infinity();
+        } else {
+            // Note: internally calls to_montgomery_form()
+            x = raw_element.x;
+            y = raw_element.y;
+        }
+    }
+    void msgpack_schema(auto& packer) const
+    {
+        if (packer.set_emitted("affine_element")) {
+            packer.pack("affine_element");
+            return; // already emitted
+        }
+        packer.pack_map(3);
+        packer.pack("__typename");
+        packer.pack("affine_element");
+        packer.pack("x");
+        packer.pack_schema(x);
+        packer.pack("y");
+        packer.pack_schema(y);
+    }
 };
 
 template <typename B, typename Fq_, typename Fr_, typename Params>

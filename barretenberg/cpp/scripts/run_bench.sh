@@ -16,13 +16,19 @@ export HARDWARE_CONCURRENCY=${CPUS:-8}
 
 mkdir -p bench-out/$(dirname $name)
 
+export MEMUSAGE_OUT="bench-out/$name-peak-memory-mb.txt"
+
 case $arch in
   native)
-    $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
+    memusage $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
   wasm)
-    ./scripts/wasmtime.sh $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
+    memusage ./scripts/wasmtime.sh $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
 esac
 
-jq --arg name $name '[{name: $name, value: .benchmarks[0].real_time, unit: .benchmarks[0].time_unit}]' ./bench-out/$name.json > ./bench-out/$name.bench.json
+# Read the benchmark json, making it smaller-is-better format and adding memory usage stats
+jq --arg name_time "$name/seconds" --arg name_mem "$name/memory" --arg value_mem "$(cat "$MEMUSAGE_OUT")" '[
+  {name: $name_time, value: .benchmarks[0].real_time, unit: .benchmarks[0].time_unit},
+  {name: $name_mem, value: $value_mem, unit: "MB"}
+]' ./bench-out/$name.json > ./bench-out/$name.bench.json

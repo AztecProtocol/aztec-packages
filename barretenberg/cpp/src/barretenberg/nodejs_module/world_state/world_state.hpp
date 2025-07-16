@@ -42,6 +42,7 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
 
     bool find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool find_sibling_paths(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 
     bool append_leaves(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool batch_insert(msgpack::object& obj, msgpack::sbuffer& buffer);
@@ -68,6 +69,8 @@ class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
     bool checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool commit_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool revert_checkpoint(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool commit_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool revert_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer);
 
     bool copy_stores(msgpack::object& obj, msgpack::sbuffer& buffer);
 };

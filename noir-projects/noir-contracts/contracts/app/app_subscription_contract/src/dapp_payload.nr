@@ -1,14 +1,14 @@
 use dep::aztec::{
-    prelude::{AztecAddress, PrivateContext},
+    authwit::entrypoint::function_call::FunctionCall,
+    context::PrivateContext,
     protocol_types::{
+        address::AztecAddress,
         constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
         hash::poseidon2_hash_with_separator,
         traits::{Hash, Serialize},
     },
 };
 use std::meta::derive;
-
-use dep::authwit::entrypoint::function_call::FunctionCall;
 
 global DAPP_MAX_CALLS: u32 = 1;
 // FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32
@@ -19,7 +19,10 @@ global DAPP_PAYLOAD_SIZE_IN_BYTES: u32 = 130;
 #[derive(Serialize)]
 pub struct DAppPayload {
     function_calls: [FunctionCall; DAPP_MAX_CALLS],
-    nonce: Field,
+    // A nonce that enables transaction cancellation. When the cancellable flag is enabled, this nonce is used to
+    // compute a nullifier that is then emitted. This guarantees that we can cancel the transaction by using the same
+    // nonce.
+    tx_nonce: Field,
 }
 // docs:end:app-payload-struct
 
@@ -37,7 +40,7 @@ impl DAppPayload {
         for i in 0..DAPP_MAX_CALLS {
             bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-        bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
+        bytes.extend_from_array(self.tx_nonce.to_be_bytes::<32>());
 
         bytes.storage()
     }

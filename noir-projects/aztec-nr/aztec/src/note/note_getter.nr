@@ -245,7 +245,8 @@ where
 }
 
 /// Unconstrained variant of `get_notes`, meant to be used in unconstrained execution contexts. Notably only the note
-/// content is returned, and not any of the information used when proving its existence (e.g. nonce, note hash, etc.).
+/// content is returned, and not any of the information used when proving its existence (e.g. note nonce, note hash,
+/// etc.).
 pub unconstrained fn view_notes<Note, let N: u32>(
     storage_slot: Field,
     options: NoteViewerOptions<Note, N>,

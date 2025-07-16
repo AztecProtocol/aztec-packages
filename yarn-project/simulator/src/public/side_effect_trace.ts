@@ -82,6 +82,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     private readonly previousSideEffectArrayLengths: SideEffectArrayLengths = SideEffectArrayLengths.empty(),
     /** We need to track the set of class IDs used, to enforce limits. */
     private uniqueClassIds: UniqueClassIds = new UniqueClassIds(),
+    private writtenPublicDataSlots: Set<string> = new Set(),
   ) {
     this.sideEffectCounter = startSideEffectCounter;
   }
@@ -98,6 +99,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
         this.previousSideEffectArrayLengths.publicLogs + this.publicLogs.length,
       ),
       this.uniqueClassIds.fork(),
+      new Set(this.writtenPublicDataSlots),
     );
   }
 
@@ -118,6 +120,11 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       this.nullifiers.push(...forkedTrace.nullifiers);
       this.l2ToL1Messages.push(...forkedTrace.l2ToL1Messages);
       this.publicLogs.push(...forkedTrace.publicLogs);
+      this.userPublicDataWritesLength += forkedTrace.userPublicDataWritesLength;
+      this.protocolPublicDataWritesLength += forkedTrace.protocolPublicDataWritesLength;
+      for (const slot of forkedTrace.writtenPublicDataSlots) {
+        this.writtenPublicDataSlots.add(slot);
+      }
     }
   }
 
@@ -139,28 +146,31 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     value: Fr,
     protocolWrite: boolean,
   ): Promise<void> {
-    if (protocolWrite) {
-      if (
-        this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
-        PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-      ) {
-        throw new SideEffectLimitReachedError(
-          'protocol public data (contract storage) write',
-          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
+    // Only increment counts if the storage slot has not been written to before.
+    if (this.isStorageCold(contractAddress, slot)) {
+      if (protocolWrite) {
+        if (
+          this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
+          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+        ) {
+          throw new SideEffectLimitReachedError(
+            'protocol public data (contract storage) write',
+            PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          );
+        }
+        this.protocolPublicDataWritesLength++;
+      } else {
+        if (
+          this.userPublicDataWritesLength + this.previousSideEffectArrayLengths.publicDataWrites >=
+          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+        ) {
+          throw new SideEffectLimitReachedError(
+            'public data (contract storage) write',
+            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          );
+        }
+        this.userPublicDataWritesLength++;
       }
-      this.protocolPublicDataWritesLength++;
-    } else {
-      if (
-        this.userPublicDataWritesLength + this.previousSideEffectArrayLengths.publicDataWrites >=
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-      ) {
-        throw new SideEffectLimitReachedError(
-          'public data (contract storage) write',
-          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
-      }
-      this.userPublicDataWritesLength++;
     }
 
     const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
@@ -170,6 +180,15 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
     );
     this.incrementSideEffectCounter();
+    this.writtenPublicDataSlots.add(this.computePublicDataSlotKey(contractAddress, slot));
+  }
+
+  private computePublicDataSlotKey(contractAddress: AztecAddress, slot: Fr): string {
+    return `${contractAddress.toString()}:${slot.toString()}`;
+  }
+
+  public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
+    return !this.writtenPublicDataSlots.has(this.computePublicDataSlotKey(contractAddress, slot));
   }
 
   public traceNewNoteHash(noteHash: Fr) {
@@ -199,7 +218,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     const recipientAddress = EthAddress.fromField(recipient);
-    this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content, 0).scope(contractAddress));
+    this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content).scope(contractAddress));
     this.log.trace(`Tracing new l2 to l1 message (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }

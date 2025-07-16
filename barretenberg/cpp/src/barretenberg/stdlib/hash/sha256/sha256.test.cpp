@@ -448,14 +448,14 @@ TEST(stdlib_sha256, test_boomerang_value_regression)
         auto random32bits = engine.get_random_uint32();
         uint32_t variable_index = single_extended_witness.witness_index;
         // Ensure our random value is different
-        while (builder.variables[builder.real_variable_index[variable_index]] == fr(random32bits)) {
+        while (builder.get_variable(variable_index) == fr(random32bits)) {
             random32bits = engine.get_random_uint32();
         }
-        auto backup = builder.variables[builder.real_variable_index[variable_index]];
-        builder.variables[builder.real_variable_index[variable_index]] = fr(random32bits);
+        auto backup = builder.get_variable(variable_index);
+        builder.set_variable(variable_index, fr(random32bits));
         // Check that the circuit fails
         result2 = result2 || CircuitChecker::check(builder);
-        builder.variables[builder.real_variable_index[variable_index]] = backup;
+        builder.set_variable(variable_index, backup);
     }
     // If at least one of the updated witnesses hasn't caused the circuit to fail, we're in trouble
     EXPECT_EQ(result2, false);

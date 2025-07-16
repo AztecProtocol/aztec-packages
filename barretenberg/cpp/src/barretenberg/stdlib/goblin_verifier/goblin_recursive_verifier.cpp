@@ -9,19 +9,36 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
+ * @brief Creates a circuit that executes the ECCVM, Translator and Merge verifiers.
+ *
+ * @param proof Native Goblin proof
+ * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
-GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof)
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
+    const GoblinProof& proof, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
+{
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify(stdlib_proof, t_commitments);
+}
+
+/**
+ * @brief Creates a circuit that executes the ECCVM, Translator and Merge verifiers.
+ *
+ * @param proof Stdlib Goblin proof
+ * @param t_commitments The commitments to the subtable for the merge being verified
+ *
+ */
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
+    const StdlibProof& proof, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, transcript };
-    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(proof.merge_proof, t_commitments);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
-    auto [opening_claim, ipa_transcript] = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
@@ -38,6 +55,6 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     // and final merge verifier
     translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
 
-    return { translator_pairing_points, opening_claim, ipa_transcript };
+    return { translator_pairing_points, opening_claim, ipa_proof };
 }
 } // namespace bb::stdlib::recursion::honk

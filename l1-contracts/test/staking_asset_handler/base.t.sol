@@ -7,11 +7,12 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {StakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {ZKPassportBase} from "./zkpassport/ZKPassportBase.sol";
+
 // solhint-disable comprehensive-interface
 
-contract StakingAssetHandlerBase is TestBase {
+contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
   IStaking internal staking;
   TestERC20 internal stakingAsset;
   Registry internal registry;
@@ -22,9 +23,17 @@ contract StakingAssetHandlerBase is TestBase {
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
-  uint256 internal MINIMUM_STAKE;
+  bytes internal EMPTY_PROOF = bytes(string(""));
+  bytes32[] internal EMPTY_PUBLIC_INPUTS = new bytes32[](0);
+
+  uint256 internal DEPOSIT_AMOUNT;
   uint256 internal mintInterval = 1;
   uint256 internal depositsPerMint = 1;
+
+  bytes32 internal depositMerkleRoot = bytes32(0x0);
+
+  bytes32[] internal validMerkleProof;
+  bytes32[] internal invalidMerkleProof;
 
   function setUp() public virtual {
     RollupBuilder builder = new RollupBuilder(address(this));
@@ -33,18 +42,39 @@ contract StakingAssetHandlerBase is TestBase {
 
     stakingAsset = builder.getConfig().testERC20;
     registry = builder.getConfig().registry;
-    MINIMUM_STAKE = builder.getConfig().rollup.getMinimumStake();
+    DEPOSIT_AMOUNT = builder.getConfig().rollup.getDepositAmount();
     staking = IStaking(address(builder.getConfig().rollup));
 
-    stakingAssetHandler = new StakingAssetHandler(
-      address(this),
-      address(stakingAsset),
-      registry,
-      WITHDRAWER,
-      mintInterval,
-      depositsPerMint,
-      new address[](0)
-    );
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
+      owner: address(this),
+      stakingAsset: address(stakingAsset),
+      registry: registry,
+      withdrawer: WITHDRAWER,
+      mintInterval: mintInterval,
+      depositsPerMint: depositsPerMint,
+      depositMerkleRoot: depositMerkleRoot,
+      zkPassportVerifier: zkPassportVerifier,
+      unhinged: new address[](0),
+      scope: CORRECT_SCOPE,
+      subscope: CORRECT_SUBSCOPE,
+      skipBindCheck: true,
+      skipMerkleCheck: true
+    });
+
+    stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
     stakingAsset.addMinter(address(stakingAssetHandler));
+  }
+
+  function setMockZKPassportVerifier() internal {
+    stakingAssetHandler.setZKPassportVerifier(address(mockZKPassportVerifier));
+  }
+
+  function enableBindCheck() internal {
+    stakingAssetHandler.setSkipBindCheck(false);
+  }
+
+  function enableMerkleCheck() internal {
+    stakingAssetHandler.setSkipMerkleCheck(false);
   }
 }

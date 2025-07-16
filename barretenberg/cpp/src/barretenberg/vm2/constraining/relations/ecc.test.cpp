@@ -13,29 +13,28 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::EccTraceBuilder;
 using tracegen::TestTraceContainer;
+using tracegen::ToRadixTraceBuilder;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using ecc = bb::avm2::ecc<FF>;
 using scalar_mul = bb::avm2::scalar_mul<FF>;
 using EccSimulator = simulation::Ecc;
 using ToRadixSimulator = simulation::ToRadix;
+
 using simulation::EccAddEvent;
 using simulation::EventEmitter;
 using simulation::NoopEventEmitter;
 using simulation::ScalarMulEvent;
 using simulation::ToRadixEvent;
-using lookup_scalar_mul_double_relation = bb::avm2::lookup_scalar_mul_double_relation<FF>;
-using lookup_scalar_mul_add_relation = bb::avm2::lookup_scalar_mul_add_relation<FF>;
-using lookup_scalar_mul_to_radix_relation = bb::avm2::lookup_scalar_mul_to_radix_relation<FF>;
-using tracegen::LookupIntoDynamicTableGeneric;
 
 // Known good points for P and Q
 FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
@@ -86,6 +85,7 @@ TEST(EccAddConstrainingTest, EccAdd)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_use_computed_result = 1,
         .ecc_x_match = 0,
         .ecc_y_match = 0,
 
@@ -129,6 +129,7 @@ TEST(EccAddConstrainingTest, EccDouble)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_use_computed_result = 1,
         .ecc_x_match = 1,
         .ecc_y_match = 1,
 
@@ -340,6 +341,7 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                                      .ecc_result_infinity = 0,
 
                                                      .ecc_sel = 1,
+                                                     .ecc_use_computed_result = 1,
                                                      .ecc_x_match = 0,
                                                      .ecc_y_match = 0,
 
@@ -372,6 +374,7 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                                      .ecc_result_infinity = 0,
 
                                                      .ecc_sel = 1,
+                                                     .ecc_use_computed_result = 1,
                                                      .ecc_x_match = 1,
                                                      .ecc_y_match = 1,
 
@@ -489,7 +492,7 @@ TEST(ScalarMulConstrainingTest, MulByOne)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
     check_relation<scalar_mul>(trace);
@@ -511,7 +514,7 @@ TEST(ScalarMulConstrainingTest, BasicMul)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
     check_relation<scalar_mul>(trace);
@@ -533,7 +536,7 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + (254) * 2);
     check_relation<scalar_mul>(trace);
@@ -555,15 +558,16 @@ TEST(ScalarMulConstrainingTest, MulInteractions)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
-    tracegen::ToRadixTraceBuilder to_radix_builder;
+    EccTraceBuilder builder;
+    ToRadixTraceBuilder to_radix_builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_relation::Settings>().process(trace);
+    check_interaction<EccTraceBuilder,
+                      lookup_scalar_mul_double_settings,
+                      lookup_scalar_mul_add_settings,
+                      lookup_scalar_mul_to_radix_settings>(trace);
 }
 
 TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
@@ -582,12 +586,11 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
+    check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings, lookup_scalar_mul_add_settings>(trace);
 
     check_relation<scalar_mul>(trace);
     check_relation<ecc>(trace);
@@ -609,13 +612,12 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
 
-    EXPECT_THROW_WITH_MESSAGE(
-        LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace),
-        "Failed.*SCALAR_MUL_DOUBLE. Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace),
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings>(trace)),
+                              "Failed.*SCALAR_MUL_DOUBLE. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<EccTraceBuilder, lookup_scalar_mul_add_settings>(trace)),
                               "Failed.*SCALAR_MUL_ADD. Could not find tuple in destination.");
 }
 
@@ -635,12 +637,11 @@ TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
 
-    EXPECT_THROW_WITH_MESSAGE(
-        LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_relation::Settings>().process(trace),
-        "Failed.*SCALAR_MUL_TO_RADIX. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<EccTraceBuilder, lookup_scalar_mul_to_radix_settings>(trace)),
+                              "Failed.*SCALAR_MUL_TO_RADIX. Could not find tuple in destination.");
 
     check_relation<scalar_mul>(trace);
 }
@@ -661,7 +662,7 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Disable the selector in one of the rows between start and end
     trace.set(Column::scalar_mul_sel, 5, 0);
@@ -685,7 +686,7 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Enable the start in the first row
     trace.set(Column::scalar_mul_start, 0, 1);
@@ -708,7 +709,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the scalar on the end row
     trace.set(Column::scalar_mul_scalar, 254, 27);
@@ -732,7 +733,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the point on the end row
     trace.set(Column::scalar_mul_point_x, 254, q.x());
@@ -757,7 +758,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the point on the end row
     trace.set(Column::scalar_mul_point_y, 254, q.y());
@@ -782,7 +783,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::EccTraceBuilder builder;
+    EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the point on the end row
     trace.set(Column::scalar_mul_point_inf, 254, 1);

@@ -696,6 +696,8 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
     // iterate over our lanes to perform the above listed checks
     for (size_t i = 0; i < sliced_buffer.size(); ++i) {
         // If i > terminating_index, limb must be 0
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1415): Insecure usage of field_t::ranged_less_than
+        // in stdlib::keccak
         bool_ct limb_must_be_zeroes =
             terminating_index.template ranged_less_than<Builder::DEFAULT_PLOOKUP_RANGE_BITNUM>(field_ct(i));
         // Is i == terminating_limb_index?
