@@ -828,7 +828,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         // Set the bit at index 252 to 1, i.e., the 253-rd bit is set.
         scalar_raw |= (uint256_t(1) << 252);
-        ASSERT(scalar_raw > (uint256_t(1) << 252 - 1)); // value is larger than 252 bits!
+        ASSERT(scalar_raw > ((uint256_t(1) << 252) - 1)); // value is larger than 252 bits!
         uint256_t scalar_raw_lo = 3;
         uint256_t scalar_raw_mid = 169;
         uint256_t scalar_raw_hi = uint256_t(61) + (uint256_t(1) << 241); // 242-nd bit is set.
