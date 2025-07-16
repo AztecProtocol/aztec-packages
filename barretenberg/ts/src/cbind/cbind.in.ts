@@ -5,7 +5,6 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 
-import { getCbindSchema } from './cbind.js';
 import { CbindCompiler } from './compiler.js';
 
 const execAsync = promisify(exec);
