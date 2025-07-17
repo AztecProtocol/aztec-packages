@@ -70,7 +70,7 @@ namespace execution;
     pol commit prev_l1_l2_tree_size;
 
     // Next Tree State
-    pol commit note_hash_tree_root;
+    pol commit note_hash_tree_root; //TODO: Constrain root, sizes and emitted not changing unless specific opcode selectors are on
     pol commit note_hash_tree_size;
     pol commit num_note_hashes_emitted;
 
