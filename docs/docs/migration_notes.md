@@ -86,16 +86,14 @@ While all of the cheatcodes can be imported from the `@aztec/aztec` package `Eth
 
 ### Note exports dropped from artifact
 
-Notes are no longer exported on the contract artifact.
-Having them exported was a tech debt from time when we needed to interpret notes in TypeScript.
+Notes are no longer exported in the contract artifact.
+Exporting notes was technical debt from when we needed to interpret notes in TypeScript.
 
-The following code will no longer work as `notes` is no longer to be found on the artifact.
+The following code will no longer work since `notes` is no longer available on the artifact:
 
 ```rust
 const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 ```
-
-If you need to obtain some information about notes of a contract, instead implement a `#[utility]` function on the contract that gives you the necessary note-related information (an exmaple of such a function is `get_private_balance(owner: AztecAddress)` function on the `Token` contract).
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
