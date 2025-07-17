@@ -12,8 +12,10 @@
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_to_radix.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
@@ -46,6 +48,7 @@ using simulation::EccAddEvent;
 using simulation::EccAddMemoryEvent;
 using simulation::EventEmitter;
 using simulation::FakeGreaterThan;
+using simulation::FakeToRadix;
 using simulation::MemoryStore;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
@@ -53,6 +56,7 @@ using simulation::MockMemory;
 using simulation::NoopEventEmitter;
 using simulation::ScalarMulEvent;
 using simulation::ToRadixEvent;
+using simulation::ToRadixMemoryEvent;
 
 // Known good points for P and Q
 FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
@@ -501,11 +505,10 @@ TEST(ScalarMulConstrainingTest, MulByOne)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -532,11 +535,10 @@ TEST(ScalarMulConstrainingTest, BasicMul)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -563,11 +565,10 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -595,10 +596,11 @@ TEST(ScalarMulConstrainingTest, MulInteractions)
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
+    NoopEventEmitter<ToRadixMemoryEvent> to_radix_mem_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    ToRadixSimulator to_radix_simulator(execution_id_manager, gt, to_radix_event_emitter, to_radix_mem_event_emitter);
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -631,11 +633,10 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -666,11 +667,10 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -700,11 +700,10 @@ TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -734,11 +733,10 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -767,11 +765,10 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -799,11 +796,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -832,11 +828,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -866,11 +861,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -900,11 +894,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGreaterThan> gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -951,7 +944,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemory)
     EXPECT_CALL(execution_id_manager, get_execution_id)
         .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
     FakeGreaterThan gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -973,16 +966,16 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
     EccTraceBuilder builder;
     MemoryStore memory;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
+    FakeGreaterThan gt;
+    FakeToRadix to_radix_simulator = FakeToRadix();
+
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
-
-    StrictMock<MockExecutionIdManager> execution_id_manager;
-    EXPECT_CALL(execution_id_manager, get_execution_id)
-        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
-    FakeGreaterThan gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -1061,7 +1054,8 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
     EXPECT_CALL(execution_id_manager, get_execution_id)
         .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
     FakeGreaterThan gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
+
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,
@@ -1107,17 +1101,16 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
 
     EccTraceBuilder builder;
     MemoryStore memory;
-
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id)
         .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
     FakeGreaterThan gt;
-    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    FakeToRadix to_radix_simulator = FakeToRadix();
+
     EccSimulator ecc_simulator(execution_id_manager,
                                gt,
                                to_radix_simulator,

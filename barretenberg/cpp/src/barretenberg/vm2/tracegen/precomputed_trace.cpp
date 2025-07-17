@@ -318,6 +318,7 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
         if (decomposition_len > 0) {
             trace.set(C::precomputed_sel_to_radix_safe_limbs, static_cast<uint32_t>(i), 1);
             trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
+            trace.set(C::precomputed_to_radix_num_limbs_for_p, static_cast<uint32_t>(i), decomposition_len);
         }
     }
 }
