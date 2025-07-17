@@ -137,6 +137,9 @@ pub contract Test {
             &mut context,
             owner,
         ));
+
+        // The following line causes crate::test::note_delivery tests to fail if removed
+        Test::at(context.this_address()).emit_nullifier_public(99).enqueue(&mut context);
     }
     // docs:end:create_note
 
@@ -275,13 +278,11 @@ pub contract Test {
         context.message_portal(recipient, content);
     }
 
-    // Purely exists for testing
     #[public]
     fn emit_nullifier_public(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
-    // Forcefully emits a nullifier (for testing purposes)
     #[private]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
