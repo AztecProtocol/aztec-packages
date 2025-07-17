@@ -322,7 +322,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
@@ -337,7 +336,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.provideEmptyAttestations = _flags.provideEmptyAttestations || !_expectRevert;
       ree.attestationsCount = ree.provideEmptyAttestations ? validators.length : _signatureCount;
       ree.proposePayload = ProposePayload({
-        archive: args.archive,
         stateReference: args.stateReference,
         oracleInput: args.oracleInput,
         headerHash: ProposedHeaderLib.hash(header)

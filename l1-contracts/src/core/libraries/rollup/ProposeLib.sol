@@ -21,7 +21,6 @@ import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeade
 import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
-  bytes32 archive;
   // Including stateReference here so that the archiver can reconstruct the full block header.
   // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
   // by the last archive and blobs hash.
@@ -32,7 +31,6 @@ struct ProposeArgs {
 }
 
 struct ProposePayload {
-  bytes32 archive;
   StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
@@ -115,7 +113,6 @@ library ProposeLib {
         attestations: _attestations,
         digest: digest(
           ProposePayload({
-            archive: _args.archive,
             stateReference: _args.stateReference,
             oracleInput: _args.oracleInput,
             headerHash: v.headerHash

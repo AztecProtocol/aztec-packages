@@ -249,7 +249,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
-      archive: archiveRoot,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
@@ -264,7 +263,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
       ProposePayload memory proposePayload = ProposePayload({
-        archive: proposeArgs.archive,
         stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
         headerHash: headerHash
