@@ -1,3 +1,4 @@
+import { randomBigInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -25,7 +26,7 @@ import type { PublicPersistableStateManager } from './state_manager.js';
 describe('state_manager', () => {
   let address: AztecAddress;
   const utxo = Fr.random();
-  const leafIndex = Fr.random();
+  const leafIndex = randomBigInt(2n << 64n);
   const firstNullifier = new Fr(4200);
 
   let treesDB: PublicTreesDB;
@@ -86,13 +87,13 @@ describe('state_manager', () => {
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {
-      mockCheckNullifierExists(treesDB, false, leafIndex);
+      mockCheckNullifierExists(treesDB, false, new Fr(leafIndex));
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
-      mockCheckNullifierExists(treesDB, true, leafIndex);
+      mockCheckNullifierExists(treesDB, true, new Fr(leafIndex));
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
     });
@@ -105,13 +106,13 @@ describe('state_manager', () => {
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {
-      const exists = await persistableState.checkL1ToL2MessageExists(utxo, leafIndex);
+      const exists = await persistableState.checkL1ToL2MessageExists(utxo, new Fr(leafIndex));
       expect(exists).toEqual(false);
     });
 
     it('checkL1ToL2MessageExists works for existing message', async () => {
-      mockL1ToL2MessageExists(treesDB, leafIndex, utxo);
-      const exists = await persistableState.checkL1ToL2MessageExists(utxo, leafIndex);
+      mockL1ToL2MessageExists(treesDB, new Fr(leafIndex), utxo);
+      const exists = await persistableState.checkL1ToL2MessageExists(utxo, new Fr(leafIndex));
       expect(exists).toEqual(true);
     });
 
@@ -129,7 +130,7 @@ describe('state_manager', () => {
       const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceRegistry, address.toField());
 
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
-      mockCheckNullifierExists(treesDB, true, leafIndex);
+      mockCheckNullifierExists(treesDB, true, new Fr(leafIndex));
 
       await persistableState.getContractInstance(address);
 
@@ -152,7 +153,7 @@ describe('state_manager', () => {
       const contractClass = await makeContractClassPublic();
       contractClass.packedBytecode = bytecode;
 
-      mockCheckNullifierExists(treesDB, true, leafIndex);
+      mockCheckNullifierExists(treesDB, true, new Fr(leafIndex));
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, bytecodeCommitment);

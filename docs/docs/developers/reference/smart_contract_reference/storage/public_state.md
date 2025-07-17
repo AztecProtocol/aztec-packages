@@ -17,7 +17,7 @@ The struct contains a `storage_slot` which, similar to Ethereum, is used to figu
 
 You can find the details of `PublicMutable` in the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/public_mutable.nr).
 
-For a version of `PublicMutable` that can also be read in private, head to [`SharedMutable`](./shared_state.md#sharedmutable).
+For a version of `PublicMutable` that can also be read in private, head to [`DelayedPublicMutable`](./delayed_public_mutable.md#delayedpublicmutable).
 
 :::info
 An example using a larger struct can be found in the [lending example (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/lending_contract)'s use of an [`Asset` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/lending_contract/src/asset.nr).

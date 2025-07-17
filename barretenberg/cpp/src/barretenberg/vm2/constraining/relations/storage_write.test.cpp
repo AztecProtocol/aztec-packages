@@ -36,13 +36,9 @@ using tracegen::WrittenPublicDataSlotsTreeCheckTraceBuilder;
 
 using simulation::build_public_data_slots_tree;
 using simulation::EventEmitter;
-using simulation::MerkleDB;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
-using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
-using simulation::MockNoteHashTreeCheck;
-using simulation::MockNullifierTreeCheck;
 using simulation::MockPoseidon2;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
@@ -54,8 +50,6 @@ using simulation::WrittenPublicDataSlotsTreeCheckEvent;
 
 using testing::_;
 using testing::NiceMock;
-using testing::Return;
-using testing::ReturnRef;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;

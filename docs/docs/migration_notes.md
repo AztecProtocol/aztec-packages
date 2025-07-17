@@ -9,7 +9,9 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-### [Aztec.nr] Tagging sender now managed via oracle functions
+## [Aztec.nr]
+
+### Tagging sender now managed via oracle functions
 
 Now, instead of manually needing to pass a tagging sender as an argument to log emission functions (e.g. `encode_and_encrypt_note`, `encode_and_encrypt_note_unconstrained`, `emit_event_in_private_log`, ...) we automatically load the sender via the `get_sender_for_tags()` oracle.
 This value is expected to be populated by account contracts that should call `set_sender_for_tags()` in their entry point functions.
@@ -56,6 +58,10 @@ let token_out_partial_note = Token::at(token_out).prepare_private_balance_increa
 -    tagging_sender
 ).call(&mut context);
 ```
+
+### SharedMutable -> DelayedPublicMutable
+
+The `SharedMutable` state variable has been renamed to `DelayedPublicMutable`. It is a public mutable with a delay before state changes take effect. It can be read in private during the delay period. The name "shared" confuses developers who actually wish to work with so-called "shared private state". Also, we're working on a `DelayedPrivateMutable` which will have similar properties, except writes will be scheduled from private instead. With this new state variable in mind, the new name works nicely.
 
 ## [TXE]
 
