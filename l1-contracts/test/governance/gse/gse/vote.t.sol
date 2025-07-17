@@ -71,7 +71,7 @@ contract VoteTest is WithGSE {
     internal
     returns (address, uint256)
   {
-    vm.assume(_instance != address(0) && _instance != gse.getCanonicalMagicAddress());
+    vm.assume(_instance != address(0) && _instance != gse.getBonusInstanceAddress());
 
     vm.prank(gse.owner());
     gse.addRollup(_instance);

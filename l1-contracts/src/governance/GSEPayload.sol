@@ -67,7 +67,7 @@ contract GSEPayload is IProposerPayload {
 
   /**
    * @notice We see the proposal as valid if after its execution,
-   * the canonical rollup in the GSE (both the instance and the "magical address")
+   * the latest rollup in the GSE (including the "bonus instance")
    * have >2/3 of total stake.
    *
    * @dev This function is ONLY meant to be called by the entity executing the proposal, i.e. Governance.
@@ -76,11 +76,14 @@ contract GSEPayload is IProposerPayload {
    */
   function amIValid() external view override(IProposerPayload) returns (bool) {
     uint256 totalSupply = GSE.totalSupply();
-    address canonical = GSE.getCanonical();
-    address magicCanonical = GSE.getCanonicalMagicAddress();
-    uint256 supplyOfInstance = GSE.supplyOf(canonical) + GSE.supplyOf(magicCanonical);
+    address latestRollup = GSE.getLatestRollup();
+    address bonusInstance = GSE.getBonusInstanceAddress();
+    uint256 effectiveSupplyOfLatestRollup = GSE.supplyOf(latestRollup) + GSE.supplyOf(bonusInstance);
 
-    require(supplyOfInstance > totalSupply * 2 / 3, Errors.GovernanceProposer__GSEPayloadInvalid());
+    require(
+      effectiveSupplyOfLatestRollup > totalSupply * 2 / 3,
+      Errors.GovernanceProposer__GSEPayloadInvalid()
+    );
     return true;
   }
 }

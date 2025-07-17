@@ -3,17 +3,17 @@ WithdrawTest
 │   └── it reverts
 └── when caller is registered rollup
     ├── given attester not found in caller instance
-    │   ├── given caller is not canonical
+    │   ├── given caller is not latest
     │   │   └── it reverts
-    │   └── given caller is canonical
-    │       ├── given attester not found in canonical
+    │   └── given caller is latest
+    │       ├── given attester not found in bonus
     │       │   └── it reverts
-    │       └── given attester found in canonical
+    │       └── given attester found in bonus
     │           ├── given balance less than amount
     │           │   └── it reverts
     │           └── given balance greater or equal to amount
     │               ├── given balance minus amount less than minimum stake
-    │               │   ├── it removes attester from canonical instance
+    │               │   ├── it removes attester from bonus instance
     │               │   ├── it deletes attester config
     │               │   ├── it delegates attester to address zero
     │               │   ├── it withdraws full balance
