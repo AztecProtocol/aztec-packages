@@ -1,7 +1,6 @@
 #pragma once
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
