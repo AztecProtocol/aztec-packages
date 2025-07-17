@@ -196,7 +196,9 @@ export class NativeApi {
 
   async clientIvcStart(command: apiTypes.ClientIvcStart): Promise<apiTypes.ClientIvcStartResponse> {
     const msgpackCommand = apiTypes.fromClientIvcStart(command);
-    const [variantName, result] = await this.sendCommand(["ClientIvcStart", msgpackCommand]);
+    const out = await this.sendCommand(["ClientIvcStart", msgpackCommand]);
+    console.log({ out });
+    const [variantName, result] = out;
     if (variantName !== 'ClientIvcStartResponse') {
       throw new Error(`Expected variant name 'ClientIvcStartResponse' but got '${variantName}'`);
     }

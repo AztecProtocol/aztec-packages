@@ -1,0 +1,83 @@
+/**
+ * Generate TypeScript bindings from msgpack schema
+ */
+
+import { writeFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { fileURLToPath } from 'url';
+import {
+  createSharedTypesCompiler,
+  createSyncApiCompiler,
+  createAsyncApiCompiler,
+  createNativeApiCompiler,
+  type SchemaCompiler,
+} from './schema_compiler.js';
+
+const execAsync = promisify(exec);
+
+interface GeneratorConfig {
+  name: string;
+  outputFile: string;
+  createCompiler: () => SchemaCompiler;
+}
+
+const GENERATORS: GeneratorConfig[] = [
+  {
+    name: 'Shared types',
+    outputFile: 'api_types.gen.ts',
+    createCompiler: createSharedTypesCompiler,
+  },
+  {
+    name: 'Sync API',
+    outputFile: 'cbind.sync.gen.ts',
+    createCompiler: createSyncApiCompiler,
+  },
+  {
+    name: 'Async API',
+    outputFile: 'cbind.async.gen.ts',
+    createCompiler: createAsyncApiCompiler,
+  },
+  {
+    name: 'Native API',
+    outputFile: 'native.gen.ts',
+    createCompiler: createNativeApiCompiler,
+  },
+];
+
+async function generate() {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const bbBuildPath = join(__dirname, '..', '..', '..', 'cpp', 'build', 'bin', 'bb');
+
+  // Get schema from bb
+  console.log('Fetching msgpack schema from bb...');
+  const { stdout } = await execAsync(`${bbBuildPath} msgpack schema`);
+  const schema = JSON.parse(stdout.trim());
+
+  if (!schema.commands || !schema.responses) {
+    throw new Error('Invalid schema: missing commands or responses');
+  }
+
+  console.log('Generating TypeScript bindings...\n');
+
+  // Generate each output file
+  for (const config of GENERATORS) {
+    const compiler = config.createCompiler();
+    compiler.processApiSchema(schema.commands, schema.responses);
+    
+    const outputPath = join(__dirname, config.outputFile);
+    const content = compiler.compile();
+    writeFileSync(outputPath, content);
+    
+    console.log(`✓ ${config.name}: ${outputPath}`);
+  }
+
+  console.log('\nGeneration complete!');
+}
+
+// Run the generator
+generate().catch(error => {
+  console.error('Generation failed:', error);
+  process.exit(1);
+});
