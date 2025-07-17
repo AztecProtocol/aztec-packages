@@ -237,21 +237,21 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_TRUNC_NON_TRIVIAL
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_sel_trunc_non_trivial) -
                         (in.get(C::alu_sel_trunc_gte_128) + in.get(C::alu_sel_trunc_lt_128)));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_TRUNCATE
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_sel_op_truncate) -
                         (in.get(C::alu_sel_trunc_non_trivial) + in.get(C::alu_sel_trunc_trivial)));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // TRUNC_TRIVIAL_CASE
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_sel_trunc_trivial) * (in.get(C::alu_ia) - in.get(C::alu_ic));
             tmp *= scaling_factor;
@@ -263,7 +263,7 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // TRUNC_LO_128_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::alu_sel_trunc_non_trivial) *
@@ -271,7 +271,7 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // TRUNC_MID_BITS
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::alu_mid_bits) - in.get(C::alu_sel_trunc_non_trivial) * (FF(128) - in.get(C::alu_max_bits)));
@@ -310,8 +310,18 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "NOT_OP_MAIN";
         case 21:
             return "NOT_OP_TAG_ERROR";
+        case 26:
+            return "SEL_TRUNC_NON_TRIVIAL";
+        case 27:
+            return "SEL_TRUNCATE";
+        case 28:
+            return "TRUNC_TRIVIAL_CASE";
         case 29:
             return "SMALL_TRUNC_VAL_IS_LO";
+        case 30:
+            return "TRUNC_LO_128_DECOMPOSITION";
+        case 31:
+            return "TRUNC_MID_BITS";
         }
         return std::to_string(index);
     }
@@ -328,7 +338,12 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_LTE_NEGATE_RESULT_C = 18;
     static constexpr size_t SR_NOT_OP_MAIN = 20;
     static constexpr size_t SR_NOT_OP_TAG_ERROR = 21;
+    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 26;
+    static constexpr size_t SR_SEL_TRUNCATE = 27;
+    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 28;
     static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 29;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 30;
+    static constexpr size_t SR_TRUNC_MID_BITS = 31;
 };
 
 } // namespace bb::avm2

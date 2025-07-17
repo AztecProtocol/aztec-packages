@@ -252,10 +252,15 @@ sel_trunc_lt_128 * (1 - sel_trunc_lt_128) = 0;
 // Truncation separation case
 // Mutually exclusive due to sel_op_truncate being boolean
 pol commit sel_trunc_non_trivial; // TODO: Aliases this once lookups support aliases for selectors.
+
+#[SEL_TRUNC_NON_TRIVIAL]
 sel_trunc_non_trivial = sel_trunc_gte_128 + sel_trunc_lt_128;
+
+#[SEL_TRUNCATE]
 sel_op_truncate = sel_trunc_non_trivial + sel_trunc_trivial;
 
 // Trivial case: (the constraint that ic <= max_value is enforced by the memory write)
+#[TRUNC_TRIVIAL_CASE]
 sel_trunc_trivial * (ia - ic) = 0;
 
 pol commit lo_128; // 128-bit low limb of ia.
@@ -270,10 +275,12 @@ ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo, ff_gt.a_hi };
 #[SMALL_TRUNC_VAL_IS_LO]
 sel_trunc_lt_128 * (lo_128 - ia) = 0;
 
+#[TRUNC_LO_128_DECOMPOSITION]
 sel_trunc_non_trivial * (ic + mid * (max_value + 1) - lo_128) = 0;
 
 // TODO: Once lookups support expression in tuple, we can inline mid_bits into the lookup.
 pol commit mid_bits;
+#[TRUNC_MID_BITS]
 mid_bits = sel_trunc_non_trivial * (128 - max_bits);
 
 // Note that for ia_tag == U128 the range check is trivial (0, 0) but

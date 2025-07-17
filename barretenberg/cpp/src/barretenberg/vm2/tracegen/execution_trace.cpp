@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
@@ -1132,6 +1133,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
         // L1ToL2MsgExists
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>();
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
+        // Alu dispatching
+        .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

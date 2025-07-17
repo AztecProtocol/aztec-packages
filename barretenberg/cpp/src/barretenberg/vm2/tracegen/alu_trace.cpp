@@ -166,12 +166,9 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 
 const InteractionDefinition AluTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
 } // namespace bb::avm2::tracegen

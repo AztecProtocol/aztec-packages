@@ -39,7 +39,7 @@ constexpr std::array<WireOpCode, 20> WIRE_OPCODES = {
     WireOpCode::JUMPI_32,     WireOpCode::CALL,           WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN,
     WireOpCode::RETURN,       WireOpCode::SUCCESSCOPY,    WireOpCode::STATICCALL,   WireOpCode::REVERT_8,
     WireOpCode::REVERT_16,    WireOpCode::RETURNDATASIZE, WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,
-    WireOpCode::SSTORE,       WireOpCode::NOTEHASHEXISTS, WireOpCode::EMITNOTEHASH, WireOpCode::L1TO2MESSAGE
+    WireOpCode::SSTORE,       WireOpCode::NOTEHASHEXISTS, WireOpCode::EMITNOTEHASH, WireOpCode::L1TOL2MSGEXISTS,
 };
 
 constexpr std::array<uint32_t, 20> OPERATION_IDS = {

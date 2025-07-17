@@ -94,8 +94,11 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
             a_lo = static_cast<uint128_t>(a);
         }
 
-        const uint128_t mid = a_lo >> get_tag_bits(dst_tag);
-        range_check.assert_range(static_cast<uint128_t>(mid), 128 - get_tag_bits(dst_tag));
+        // cpp standard on bitwise shifts:
+        // "If the value of rhs is negative or is not less than the number of bits in lhs, the behavior is undefined."
+        // For this reason, we handle the case where dst_tag is U128 separately as shifting of 128 bits is undefined.
+        const uint128_t mid = dst_tag == MemoryTag::U128 ? 0 : a_lo >> get_tag_bits(dst_tag);
+        range_check.assert_range(mid, 128 - get_tag_bits(dst_tag));
     }
 
     // We put dst_tag in b to have correct deduplication and also to encode it in the event.
