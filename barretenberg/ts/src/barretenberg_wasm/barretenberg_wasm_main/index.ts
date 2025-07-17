@@ -154,7 +154,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     }
   }
 
-  callCbind(cbind: string, input: any[]): any {
+  msgpackCall(cbind: string, input: any[]): any {
     const outputSizePtr = this.call('bbmalloc', 4);
     const outputMsgpackPtr = this.call('bbmalloc', 4);
 
@@ -162,12 +162,12 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     const inputPtr = this.call('bbmalloc', inputBuffer.length);
     this.writeMemory(inputPtr, inputBuffer);
     this.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
-    
+
     const readPtr32 = (ptr32: number) => {
       const dataView = new DataView(this.getMemorySlice(ptr32, ptr32 + 4).buffer);
       return dataView.getUint32(0, true);
     };
-    
+
     const encodedResult = this.getMemorySlice(
       readPtr32(outputMsgpackPtr),
       readPtr32(outputMsgpackPtr) + readPtr32(outputSizePtr),

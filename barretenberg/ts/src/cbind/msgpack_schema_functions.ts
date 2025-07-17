@@ -141,7 +141,7 @@ export function generateCbindFunction(
 
   return `export ${asyncKeyword}function ${funcMeta.name}(wasm: ${wasmType}, command: ${funcMeta.commandType}): ${returnType} {
   const msgpackCommand = from${funcMeta.commandType}(command);
-  const [variantName, result] = ${awaitKeyword}wasm.callCbind('bbapi', ["${commandName}", msgpackCommand]);
+  const [variantName, result] = ${awaitKeyword}wasm.msgpackCall('bbapi', ["${commandName}", msgpackCommand]);
   if (variantName !== '${funcMeta.responseType}') {
     throw new Error(\`Expected variant name '${funcMeta.responseType}' but got '\${variantName}'\`);
   }

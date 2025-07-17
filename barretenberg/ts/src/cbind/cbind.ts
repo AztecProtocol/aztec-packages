@@ -48,7 +48,7 @@ function readPtr32(wasm: BarretenbergWasmBase, ptr32: number) {
  * @param input - An array of input arguments to wrap with msgpack.
  * @returns The msgpack-decoded result.
  */
-export function callCbind(wasm: BarretenbergWasmBase, cbind: string, input: any[]): any {
+export function msgpackCall(wasm: BarretenbergWasmBase, cbind: string, input: any[]): any {
   const outputSizePtr = wasm.call('bbmalloc', 4);
   const outputMsgpackPtr = wasm.call('bbmalloc', 4);
 

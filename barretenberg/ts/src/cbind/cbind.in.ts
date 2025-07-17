@@ -5,8 +5,10 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 
-import { MsgpackSchemaCompiler } from './msgpack_schema_compiler.js';
-import { NativeCompiler } from './native_compiler.js';
+import { SharedTypesCompiler } from './shared_types_compiler.js';
+import { SyncApiCompiler } from './sync_api_compiler.js';
+import { AsyncApiCompiler } from './async_api_compiler.js';
+import { NativeApiCompiler } from './native_api_compiler.js';
 
 const execAsync = promisify(exec);
 
@@ -29,20 +31,30 @@ export async function main() {
   // Parse the JSON schema
   const schema = JSON.parse(stdout.trim());
 
-  // Process the schema with MsgpackSchemaCompiler - sync version
-  const syncCompiler = new MsgpackSchemaCompiler('sync');
+  // First, generate shared types
+  const sharedTypesCompiler = new SharedTypesCompiler();
+  if (schema.commands && schema.responses) {
+    sharedTypesCompiler.processApiSchema(schema.commands, schema.responses);
+  }
+
+  // Write the shared types file
+  const sharedTypesPath = join(__dirname, 'api_types.gen.ts');
+  writeFileSync(sharedTypesPath, sharedTypesCompiler.compile());
+
+  // Process the schema with SyncApiCompiler
+  const syncCompiler = new SyncApiCompiler();
   if (schema.commands && schema.responses) {
     syncCompiler.processApiSchema(schema.commands, schema.responses);
   }
 
-  // Process the schema with MsgpackSchemaCompiler - async version
-  const asyncCompiler = new MsgpackSchemaCompiler('async');
+  // Process the schema with AsyncApiCompiler
+  const asyncCompiler = new AsyncApiCompiler();
   if (schema.commands && schema.responses) {
     asyncCompiler.processApiSchema(schema.commands, schema.responses);
   }
 
-  // Process the schema with NativeCompiler
-  const nativeCompiler = new NativeCompiler();
+  // Process the schema with NativeApiCompiler
+  const nativeCompiler = new NativeApiCompiler();
   if (schema.commands && schema.responses) {
     nativeCompiler.processApiSchema(schema.commands, schema.responses);
   }
@@ -54,12 +66,13 @@ export async function main() {
   // Write the generated TypeScript code - async version
   const asyncOutputPath = join(__dirname, 'cbind.async.gen.ts');
   writeFileSync(asyncOutputPath, asyncCompiler.compile());
-  
+
   // Write the generated TypeScript code - native version
   const nativeOutputPath = join(__dirname, 'native.gen.ts');
   writeFileSync(nativeOutputPath, nativeCompiler.compile());
-  
+
   console.log(`Generated TypeScript bindings:`);
+  console.log(`  - Shared types: ${sharedTypesPath}`);
   console.log(`  - Sync: ${syncOutputPath}`);
   console.log(`  - Async: ${asyncOutputPath}`);
   console.log(`  - Native: ${nativeOutputPath}`);

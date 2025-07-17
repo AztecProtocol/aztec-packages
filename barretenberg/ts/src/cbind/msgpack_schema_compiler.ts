@@ -473,7 +473,7 @@ export class MsgpackSchemaCompiler {
 
     // Check if this is an empty object (only has __typename)
     const isEmptyObject = Object.keys(type).filter(key => key !== '__typename').length === 0;
-    
+
     if (isEmptyObject) {
       return `function to${name}(o: Msgpack${name}): ${name} {
   return {};
@@ -524,7 +524,7 @@ ${objectBodySyntax()}
 
     // Check if this is an empty object (only has __typename)
     const isEmptyObject = Object.keys(type).filter(key => key !== '__typename').length === 0;
-    
+
     if (isEmptyObject) {
       return `function from${name}(o: ${name}): Msgpack${name} {
   return {};
@@ -593,8 +593,8 @@ ${checkerSyntax()};
     const asyncKeyword = this.mode === 'async' ? 'async ' : '';
     const awaitKeyword = this.mode === 'async' ? 'await ' : '';
     const returnType = this.mode === 'async' ? `Promise<${retType.typeName}>` : retType.typeName;
-    const innerCall = `${awaitKeyword}wasm.callCbind('${name}', [${callStrings.join(', ')}])`;
-    
+    const innerCall = `${awaitKeyword}wasm.msgpackCall('${name}', [${callStrings.join(', ')}])`;
+
     this.funcDecls.push(`export ${asyncKeyword}function ${camelCase(name)}(wasm: ${wasmType}, ${argStrings.join(', ')}): ${returnType} {
   return ${msgpackConverterExpr(retType, innerCall)};
 }`);
@@ -646,10 +646,10 @@ ${checkerSyntax()};
       const asyncKeyword = this.mode === 'async' ? 'async ' : '';
       const awaitKeyword = this.mode === 'async' ? 'await ' : '';
       const returnType = this.mode === 'async' ? `Promise<${respType.typeName}>` : respType.typeName;
-      
+
       this.funcDecls.push(`export ${asyncKeyword}function ${funcName}(wasm: ${wasmType}, command: ${cmdType.typeName}): ${returnType} {
   const msgpackCommand = from${cmdType.typeName}(command);
-  const [variantName, result] = ${awaitKeyword}wasm.callCbind('bbapi', ["${commandName}", msgpackCommand]);
+  const [variantName, result] = ${awaitKeyword}wasm.msgpackCall('bbapi', ["${commandName}", msgpackCommand]);
   if (variantName !== '${responseName}') {
     throw new Error(\`Expected variant name '${responseName}' but got '\${variantName}'\`);
   }
@@ -667,10 +667,10 @@ ${checkerSyntax()};
    * @returns A string containing the complete compiled TypeScript code.
    */
   compile(): string {
-    const wasmImport = this.mode === 'sync' 
-      ? 'BarretenbergWasmMain' 
+    const wasmImport = this.mode === 'sync'
+      ? 'BarretenbergWasmMain'
       : 'BarretenbergWasmMainWorker';
-    
+
     const outputs: string[] = [
       `/* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn generate
@@ -727,10 +727,10 @@ export type Fr = Buffer;
   /**
    * Generate the wrapper class for the API
    */
-  private generateWrapperClass(): string {
+  protected generateWrapperClass(): string {
     const className = this.mode === 'sync' ? 'CbindApiSync' : 'CbindApi';
     const wasmType = this.mode === 'sync' ? 'BarretenbergWasmMain' : 'BarretenbergWasmMainWorker';
-    
+
     let classContent = `/**
  * ${this.mode === 'sync' ? 'Sync' : 'Async'} API wrapper for cbind functions using ${wasmType}.
  * ${this.mode === 'sync' ? 'All methods are synchronous.' : 'All methods return promises.'}
@@ -743,7 +743,7 @@ export class ${className} {
     for (const func of this.functionMetadata) {
       const asyncKeyword = this.mode === 'async' ? 'async ' : '';
       const returnType = this.mode === 'async' ? `Promise<${func.responseType}>` : func.responseType;
-      
+
       classContent += `
   ${asyncKeyword}${func.name}(command: ${func.commandType}): ${returnType} {
     return ${func.name}(this.wasm, command);
