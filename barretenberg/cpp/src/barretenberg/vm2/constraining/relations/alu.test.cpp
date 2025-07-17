@@ -36,51 +36,62 @@ using tracegen::PrecomputedTraceBuilder;
 
 constexpr uint8_t NUM_OF_TAGS = static_cast<uint8_t>(MemoryTag::MAX) + 1;
 
+// Generic structure for three-operand opcodes
+struct ThreeOperandTestInputs {
+    MemoryValue a;
+    MemoryValue b;
+};
+
 // The below test values do not carry for ADD operations:
-const std::unordered_map<MemoryTag, std::array<FF, 3>> TEST_VALUES = {
-    { MemoryTag::FF,
+const std::unordered_map<MemoryTag, ThreeOperandTestInputs> TEST_VALUES = {
+    { MemoryTag::U1,
       {
-          FF::modulus - 4,
-          2,
-          FF::modulus - 2,
+          MemoryValue::from_tag(MemoryTag::U1, 1),
+          MemoryValue::from_tag(MemoryTag::U1, 0),
       } },
-    { MemoryTag::U1, { 1, 0, 1 } },
     { MemoryTag::U8,
       {
-          200,
-          50,
-          250,
+          MemoryValue::from_tag(MemoryTag::U8, 42),
+          MemoryValue::from_tag(MemoryTag::U8, 24),
       } },
     { MemoryTag::U16,
       {
-          30,
-          65500,
-          65530,
+          MemoryValue::from_tag(MemoryTag::U16, 5432),
+          MemoryValue::from_tag(MemoryTag::U16, 54321),
       } },
     { MemoryTag::U32,
       {
-          (uint256_t(1) << 32) - 10,
-          5,
-          (uint256_t(1) << 32) - 5,
+          MemoryValue::from_tag(MemoryTag::U32, 123456789),
+          MemoryValue::from_tag(MemoryTag::U32, 987654321),
       } },
     { MemoryTag::U64,
       {
-          (uint256_t(1) << 64) - 10,
-          5,
-          (uint256_t(1) << 64) - 5,
+          MemoryValue::from_tag(MemoryTag::U64, 1234567890123456789ULL),
+          MemoryValue::from_tag(MemoryTag::U64, 9876543210987654321ULL),
       } },
     { MemoryTag::U128,
       {
-          (uint256_t(1) << 128) - 10,
-          5,
-          (uint256_t(1) << 128) - 5,
+          MemoryValue::from_tag(MemoryTag::U128, 9876543210987654320ULL),
+          MemoryValue::from_tag(MemoryTag::U128, (uint256_t(1) << 128) - 9876543210987654321ULL),
+      } },
+    { MemoryTag::FF,
+      {
+          MemoryValue::from_tag(MemoryTag::FF, FF::modulus - 3),
+          MemoryValue::from_tag(MemoryTag::FF, FF::modulus - 1),
       } },
 };
 
-auto process_basic_add_trace(MemoryTag input_tag)
+const std::unordered_map<MemoryTag, MemoryTag> TAG_ERROR_TEST_VALUES = {
+    { MemoryTag::FF, MemoryTag::U1 },   { MemoryTag::U1, MemoryTag::U8 },   { MemoryTag::U8, MemoryTag::U16 },
+    { MemoryTag::U16, MemoryTag::U32 }, { MemoryTag::U32, MemoryTag::U64 }, { MemoryTag::U64, MemoryTag::U128 },
+    { MemoryTag::U128, MemoryTag::FF },
+};
+
+TestTraceContainer process_basic_add_trace(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
-    auto [a, b, c] = TEST_VALUES.at(input_tag);
+    auto [a, b] = TEST_VALUES.at(input_tag);
+    auto c = a + b;
     auto tag = static_cast<uint8_t>(input_tag);
     auto trace = TestTraceContainer::from_rows({
         {
@@ -111,19 +122,22 @@ auto process_basic_add_trace(MemoryTag input_tag)
     return trace;
 }
 
-auto process_basic_add_with_tracegen(MemoryTag input_tag)
+TestTraceContainer process_basic_add_with_tracegen(MemoryTag input_tag, bool error = false)
 {
     PrecomputedTraceBuilder precomputed_builder;
     TestTraceContainer trace;
     AluTraceBuilder builder;
-    auto [a, b, c] = TEST_VALUES.at(input_tag);
-
+    auto [a, b] = TEST_VALUES.at(input_tag);
+    auto c = a + b;
+    // Using from_tag_truncating for tag error testing:
+    b = error ? MemoryValue::from_tag_truncating(TAG_ERROR_TEST_VALUES.at(input_tag), b) : b;
     builder.process(
         {
             { .operation = simulation::AluOperation::ADD,
-              .a = MemoryValue::from_tag(input_tag, a),
-              .b = MemoryValue::from_tag(input_tag, b),
-              .c = MemoryValue::from_tag(input_tag, c) },
+              .a = a,
+              .b = b,
+              .c = c,
+              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
         },
         trace);
 
@@ -132,7 +146,7 @@ auto process_basic_add_with_tracegen(MemoryTag input_tag)
     return trace;
 }
 
-auto process_carry_add_trace(MemoryTag input_tag)
+TestTraceContainer process_carry_add_trace(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
     auto tag = static_cast<uint8_t>(input_tag);
@@ -171,7 +185,7 @@ auto process_carry_add_trace(MemoryTag input_tag)
     return trace;
 }
 
-auto process_carry_add_with_tracegen(MemoryTag input_tag)
+TestTraceContainer process_carry_add_with_tracegen(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
     TestTraceContainer trace;
@@ -201,10 +215,10 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     PrecomputedTraceBuilder precomputed_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
     GreaterThanTraceBuilder gt_builder;
-    auto [a, b, _c] = TEST_VALUES.at(input_tag);
+    auto [a, b] = TEST_VALUES.at(input_tag);
     auto tag = static_cast<uint8_t>(input_tag);
     auto is_ff = input_tag == MemoryTag::FF;
-    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) < static_cast<uint256_t>(b));
+    auto c = static_cast<uint256_t>(a.as_ff()) < static_cast<uint256_t>(b.as_ff()) ? 1 : 0;
 
     auto trace = TestTraceContainer::from_rows({
         {
@@ -241,8 +255,9 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     if (is_ff) {
         field_gt_builder.process({ { .a = b, .b = a, .result = c == 1 } }, trace);
     } else {
-        gt_builder.process({ { .a = static_cast<uint128_t>(b), .b = static_cast<uint128_t>(a), .result = c == 1 } },
-                           trace);
+        gt_builder.process(
+            { { .a = static_cast<uint128_t>(b.as_ff()), .b = static_cast<uint128_t>(a.as_ff()), .result = c == 1 } },
+            trace);
     }
 
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
@@ -250,31 +265,35 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     return trace;
 }
 
-auto process_lt_with_tracegen(MemoryTag input_tag)
+TestTraceContainer process_lt_with_tracegen(MemoryTag input_tag, bool error = false)
 {
     PrecomputedTraceBuilder precomputed_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
     GreaterThanTraceBuilder gt_builder;
     TestTraceContainer trace;
     AluTraceBuilder builder;
-    auto [a, b, _c] = TEST_VALUES.at(input_tag);
+    auto [a, b] = TEST_VALUES.at(input_tag);
     auto is_ff = input_tag == MemoryTag::FF;
-    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) < static_cast<uint256_t>(b));
+    auto c = static_cast<uint256_t>(a.as_ff()) < static_cast<uint256_t>(b.as_ff()) ? 1 : 0;
+    // Using from_tag_truncating for tag error testing:
+    b = error ? MemoryValue::from_tag_truncating(TAG_ERROR_TEST_VALUES.at(input_tag), b) : b;
 
     builder.process(
         {
             { .operation = simulation::AluOperation::LT,
-              .a = MemoryValue::from_tag(input_tag, a),
-              .b = MemoryValue::from_tag(input_tag, b),
-              .c = MemoryValue::from_tag(MemoryTag::U1, c) },
+              .a = a,
+              .b = b,
+              .c = MemoryValue::from_tag(MemoryTag::U1, c),
+              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
         },
         trace);
 
     if (is_ff) {
         field_gt_builder.process({ { .a = b, .b = a, .result = c == 1 } }, trace);
     } else {
-        gt_builder.process({ { .a = static_cast<uint128_t>(b), .b = static_cast<uint128_t>(a), .result = c == 1 } },
-                           trace);
+        gt_builder.process(
+            { { .a = static_cast<uint128_t>(b.as_ff()), .b = static_cast<uint128_t>(a.as_ff()), .result = c == 1 } },
+            trace);
     }
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
@@ -286,11 +305,11 @@ TestTraceContainer process_lte_trace(MemoryTag input_tag, bool eq = false)
     PrecomputedTraceBuilder precomputed_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
     GreaterThanTraceBuilder gt_builder;
-    auto [a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto [a, _b] = TEST_VALUES.at(input_tag);
     auto tag = static_cast<uint8_t>(input_tag);
     auto is_ff = input_tag == MemoryTag::FF;
     auto b = eq ? a : _b;
-    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) <= static_cast<uint256_t>(b));
+    auto c = static_cast<uint256_t>(a.as_ff()) <= static_cast<uint256_t>(b.as_ff()) ? 1 : 0;
 
     auto trace = TestTraceContainer::from_rows({
         {
@@ -327,41 +346,100 @@ TestTraceContainer process_lte_trace(MemoryTag input_tag, bool eq = false)
     if (is_ff) {
         field_gt_builder.process({ { .a = a, .b = b, .result = c == 0 } }, trace);
     } else {
-        gt_builder.process({ { .a = static_cast<uint128_t>(a), .b = static_cast<uint128_t>(b), .result = c == 0 } },
-                           trace);
+        gt_builder.process(
+            { { .a = static_cast<uint128_t>(a.as_ff()), .b = static_cast<uint128_t>(b.as_ff()), .result = c == 0 } },
+            trace);
     }
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
 }
 
-auto process_lte_with_tracegen(MemoryTag input_tag, bool eq = false)
+TestTraceContainer process_lte_with_tracegen(MemoryTag input_tag, bool eq = false, bool error = false)
 {
     PrecomputedTraceBuilder precomputed_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
     GreaterThanTraceBuilder gt_builder;
     TestTraceContainer trace;
     AluTraceBuilder builder;
-    auto [a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto [a, _b] = TEST_VALUES.at(input_tag);
     auto is_ff = input_tag == MemoryTag::FF;
     auto b = eq ? a : _b;
-    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) <= static_cast<uint256_t>(b));
+    auto c = static_cast<uint256_t>(a.as_ff()) <= static_cast<uint256_t>(b.as_ff()) ? 1 : 0;
+    // Using from_tag_truncating for tag error testing:
+    b = error ? MemoryValue::from_tag_truncating(TAG_ERROR_TEST_VALUES.at(input_tag), b) : b;
 
     builder.process(
         {
             { .operation = simulation::AluOperation::LTE,
-              .a = MemoryValue::from_tag(input_tag, a),
-              .b = MemoryValue::from_tag(input_tag, b),
-              .c = MemoryValue::from_tag(MemoryTag::U1, c) },
+              .a = a,
+              .b = b,
+              .c = MemoryValue::from_tag(MemoryTag::U1, c),
+              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
         },
         trace);
 
     if (is_ff) {
         field_gt_builder.process({ { .a = a, .b = b, .result = c == 0 } }, trace);
     } else {
-        gt_builder.process({ { .a = static_cast<uint128_t>(a), .b = static_cast<uint128_t>(b), .result = c == 0 } },
-                           trace);
+        gt_builder.process(
+            { { .a = static_cast<uint128_t>(a.as_ff()), .b = static_cast<uint128_t>(b.as_ff()), .result = c == 0 } },
+            trace);
     }
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+TestTraceContainer process_eq_trace_with_tracegen(MemoryTag input_tag, bool eq = true, bool error = false)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+    auto [a, _b] = TEST_VALUES.at(input_tag);
+    auto b = eq ? a : _b;
+    auto c = static_cast<uint8_t>(a == b);
+    // Using from_tag_truncating for tag error testing:
+    b = error ? MemoryValue::from_tag_truncating(TAG_ERROR_TEST_VALUES.at(input_tag), b) : b;
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::EQ,
+              .a = a,
+              .b = b,
+              .c = MemoryValue::from_tag(MemoryTag::U1, c),
+              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
+        },
+        trace);
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+TestTraceContainer process_not_trace_with_tracegen(MemoryTag input_tag, bool error = false)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    auto [a, _b] = TEST_VALUES.at(input_tag);
+    auto b_tag = error ? TAG_ERROR_TEST_VALUES.at(input_tag) : input_tag;
+    bool is_ff = b_tag == MemoryTag::FF;
+    auto b = is_ff ? MemoryValue::from_tag(b_tag, 0)
+                   : ~MemoryValue::from_tag_truncating(b_tag, a); // Using from_tag_truncating for tag error testing
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::NOT,
+              .a = a,
+              .b = b,
+              .error = error || is_ff ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
+        },
+        trace);
+
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
@@ -381,26 +459,6 @@ TEST(AluConstrainingTest, EmptyRow)
 }
 
 // ADD TESTS
-
-TEST(AluConstrainingTest, BasicAdd)
-{
-    auto tag = static_cast<uint8_t>(MemoryTag::U8);
-    auto trace = TestTraceContainer::from_rows({
-        {
-            .alu_ia = 1,
-            .alu_ia_tag = tag,
-            .alu_ib = 2,
-            .alu_ib_tag = tag,
-            .alu_ic = 3,
-            .alu_ic_tag = tag,
-            .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
-            .alu_sel = 1,
-            .alu_sel_op_add = 1,
-        },
-    });
-
-    check_relation<alu>(trace);
-}
 
 TEST_P(AluTagTest, AluBasicAddTag)
 {
@@ -434,7 +492,7 @@ TEST_P(AluTagTest, AluCarryAddTagTraceGen)
     check_relation<alu>(trace);
 }
 
-TEST(AluConstrainingTest, NegativeAddWrongOpId)
+TEST(AluConstrainingTest, AluNegativeAddWrongOpId)
 {
     auto trace = TestTraceContainer::from_rows({
         {
@@ -446,29 +504,33 @@ TEST(AluConstrainingTest, NegativeAddWrongOpId)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_OP_ID_CHECK), "OP_ID_CHECK");
 }
 
-TEST(AluConstrainingTest, NegativeBasicAdd)
+TEST_P(AluTagTest, AluNegativeBasicAddTag)
 {
-    auto tag = static_cast<uint8_t>(MemoryTag::U8);
-    auto trace = TestTraceContainer::from_rows({
-        {
-            .alu_ia = 1,
-            .alu_ia_tag = tag,
-            .alu_ib = 2,
-            .alu_ib_tag = tag,
-            .alu_ic = 3,
-            .alu_ic_tag = tag,
-            .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
-            .alu_sel = 1,
-            .alu_sel_op_add = 1,
-        },
-    });
-
+    const auto tag = GetParam();
+    auto trace = process_basic_add_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
-    trace.set(Column::alu_ic, 0, 0);
+    trace.set(Column::alu_ic, 0, trace.get(Column::alu_ic, 0) + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
 }
 
-TEST(AluConstrainingTest, NegativeAddCarryU1)
+TEST_P(AluTagTest, AluBasicAddTagTraceGenError)
+{
+    const auto tag = GetParam();
+    auto trace = process_basic_add_with_tracegen(tag, true);
+    // Though the tags don't match, with error handling we can return the error rather than fail:
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+    // Removing the error will fail:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    // Correctly using the error, but injecting the wrong inverse will fail:
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+}
+
+TEST(AluConstrainingTest, AluNegativeAddCarryU1)
 {
     auto trace = process_carry_add_trace(MemoryTag::U1);
     check_all_interactions<AluTraceBuilder>(trace);
@@ -483,7 +545,7 @@ TEST(AluConstrainingTest, NegativeAddCarryU1)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
 }
 
-TEST(AluConstrainingTest, NegativeAddCarryU8)
+TEST(AluConstrainingTest, AluNegativeAddCarryU8)
 {
     auto trace = process_carry_add_trace(MemoryTag::U8);
     check_all_interactions<AluTraceBuilder>(trace);
@@ -494,7 +556,7 @@ TEST(AluConstrainingTest, NegativeAddCarryU8)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
 }
 
-TEST(AluConstrainingTest, NegativeAddWrongTag)
+TEST(AluConstrainingTest, AluNegativeAddWrongTag)
 {
     // If the values are actually U8s, but we set the tags as U16, then the max value will fail
     auto trace = process_basic_add_trace(MemoryTag::U16);
@@ -504,26 +566,7 @@ TEST(AluConstrainingTest, NegativeAddWrongTag)
     EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_TAG_MAX_BITS_VALUE");
 }
 
-TEST(AluConstrainingTest, NegativeAddWrongTagABMismatch)
-{
-    auto tag = static_cast<uint8_t>(MemoryTag::U16);
-    auto trace = process_basic_add_trace(MemoryTag::U16);
-    trace.set(Column::alu_ib_tag, 0, tag - 1);
-    // ab_tags_diff_inv = inv(a_tag - b_tag) = inv(1) = 1:
-    trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    // Though the tags don't match, with error handling we can return the error rather than fail:
-    check_relation<alu>(trace);
-    // Removing the error will fail:
-    trace.set(Column::alu_sel_tag_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-    // Correctly using the error, but injecting the wrong inverse will fail:
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-}
-
-TEST(AluConstrainingTest, NegativeAddWrongTagCMismatch)
+TEST(AluConstrainingTest, AluNegativeAddWrongTagCMismatch)
 {
     auto tag = static_cast<uint8_t>(MemoryTag::U16);
     auto trace = process_basic_add_trace(MemoryTag::U16);
@@ -550,82 +593,12 @@ TEST_P(AluTagTest, AluLTTagTraceGen)
     check_relation<alu>(trace);
 }
 
-TEST(AluConstrainingTest, NegativeLTU8)
+TEST_P(AluTagTest, AluLTTagTraceGenError)
 {
-    auto trace = process_lt_trace(MemoryTag::U8);
-
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    bool c = trace.get(Column::alu_ic, 0) == 1;
-    // Swap the result bool:
-    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(!c));
-
-    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
-                              "LOOKUP_ALU_INT_GT");
-}
-
-TEST(AluConstrainingTest, NegativeLTU64)
-{
-    auto trace = process_lt_trace(MemoryTag::U64);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    bool c = trace.get(Column::alu_ic, 0) == 1;
-    auto a = trace.get(Column::alu_ia, 0);
-    auto wrong_b = c ? a - 1 : a + 1;
-    trace.set(Column::alu_ib, 0, wrong_b);
-    trace.set(Column::alu_lt_ops_input_a, 0, wrong_b);
-    // We rely on lookups, so we expect the relations to still pass...
-    check_relation<alu>(trace);
-
-    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
-    // wrong, rather than because this test has not processed the events):
-    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
-                              "LOOKUP_ALU_INT_GT");
-}
-
-TEST(AluConstrainingTest, NegativeLTFF)
-{
-    auto trace = process_lt_trace(MemoryTag::FF);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    bool c = trace.get(Column::alu_ic, 0) == 1;
-    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(!c));
-    // We rely on lookups, so we expect the relations to still pass...
-    check_relation<alu>(trace);
-
-    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
-    // wrong, rather than because this test has not processed the events):
-    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
-                              "LOOKUP_ALU_FF_GT");
-}
-
-// TODO(MW): Below tests needed? Same as add case:
-// ----------------
-
-TEST(AluConstrainingTest, NegativeLTWrongTag)
-{
-    // If the values are actually U8s, but we set the tags as U16, then the max value will fail
-    auto trace = process_lt_trace(MemoryTag::U16);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-    trace.set(Column::alu_max_value, 0, get_tag_max_value(MemoryTag::U8));
-    EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_TAG_MAX_BITS_VALUE");
-}
-
-TEST(AluConstrainingTest, NegativeLTWrongTagABMismatch)
-{
-    auto tag = static_cast<uint8_t>(MemoryTag::U16);
-    auto trace = process_lt_trace(MemoryTag::U16);
-    trace.set(Column::alu_ib_tag, 0, tag - 1);
-    // ab_tags_diff_inv = inv(a_tag - b_tag) = inv(1) = 1:
-    trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    // We gate any lt or lte ops by the tag error, so must switch off the selector:
-    trace.set(Column::alu_sel_lt_ops, 0, 0);
-    trace.set(Column::alu_sel_int_lt_ops, 0, 0);
+    const auto tag = GetParam();
+    auto trace = process_lt_with_tracegen(tag, true);
     // Though the tags don't match, with error handling we can return the error rather than fail:
+    check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
     // Removing the error will fail:
     trace.set(Column::alu_sel_tag_err, 0, 0);
@@ -636,18 +609,33 @@ TEST(AluConstrainingTest, NegativeLTWrongTagABMismatch)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
 }
 
-TEST(AluConstrainingTest, NegativeLTWrongTagCMismatch)
+TEST_P(AluTagTest, AluLTTagNegative)
 {
-    auto tag = static_cast<uint8_t>(MemoryTag::U16);
-    auto trace = process_lt_trace(MemoryTag::U16);
+    const auto tag = GetParam();
+    auto trace = process_lt_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
-    trace.set(Column::alu_ic_tag, 0, tag - 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
+    bool c = trace.get(Column::alu_ic, 0) == 1;
+
+    // Swap the result bool:
+    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(!c));
+
+    // We rely on lookups, so we expect the relations to still pass...
+    check_relation<alu>(trace);
+
+    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c
+    // is wrong, rather than because this test has not processed the events):
+    if (tag == MemoryTag::FF) {
+        EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
+                                  "LOOKUP_ALU_FF_GT");
+    } else {
+        EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
+                                  "LOOKUP_ALU_INT_GT");
+    }
 }
 
 // LTE TESTS
-
-// TODO(MW): reduce footprint of negative tests by using TEST_P
 
 TEST_P(AluTagTest, AluLTETag)
 {
@@ -681,252 +669,16 @@ TEST_P(AluTagTest, AluLTEEqTagTraceGen)
     check_relation<alu>(trace);
 }
 
-TEST(AluConstrainingTest, NegativeLTEU8)
+TEST_P(AluTagTest, AluLTETagTraceGenError)
 {
-    auto trace = process_lte_trace(MemoryTag::U8);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    bool c = trace.get(Column::alu_ic, 0) == 1;
-    // Swap the result bool:
-    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
-
-    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
-                              "LOOKUP_ALU_INT_GT");
-}
-
-TEST(AluConstrainingTest, NegativeLTEU64)
-{
-    auto trace = process_lte_trace(MemoryTag::U64);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    bool c = trace.get(Column::alu_ic, 0) == 1;
-    auto a = trace.get(Column::alu_ia, 0);
-    auto wrong_b = c ? a - 1 : a + 1;
-    trace.set(Column::alu_ib, 0, wrong_b);
-    trace.set(Column::alu_lt_ops_input_b, 0, wrong_b);
-    // We rely on lookups, so we expect the relations to still pass...
-    check_relation<alu>(trace);
-
-    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
-    // wrong, rather than because this test has not processed the events):
-    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
-                              "LOOKUP_ALU_INT_GT");
-}
-
-TEST(AluConstrainingTest, NegativeLTEFF)
-{
-    auto trace = process_lte_trace(MemoryTag::FF);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    bool c = trace.get(Column::alu_ic, 0) == 1;
-    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
-    // We rely on lookups, so we expect the relations to still pass...
-    check_relation<alu>(trace);
-    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
-    // wrong, rather than because this test has not processed the events):
-    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
-                              "LOOKUP_ALU_FF_GT");
-}
-
-TEST(AluConstrainingTest, NegativeLTEFFEq)
-{
-    auto trace = process_lte_trace(MemoryTag::FF, true);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    bool c = trace.get(Column::alu_ic, 0) == 1;
-    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
-    // We rely on lookups, so we expect the relations to still pass...
-    check_relation<alu>(trace);
-    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
-    // wrong, rather than because this test has not processed the events):
-    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
-                              "LOOKUP_ALU_FF_GT");
-}
-
-// EQ TESTS
-
-// Generic structure for three-operand opcodes
-struct ThreeOperandTestParams {
-    MemoryValue a;
-    MemoryValue b;
-    MemoryValue c;
-};
-
-TestTraceContainer process_eq_trace(const ThreeOperandTestParams& params, bool error = false)
-{
-    PrecomputedTraceBuilder precomputed_builder;
-
-    TestTraceContainer trace;
-    AluTraceBuilder builder;
-
-    builder.process(
-        {
-            { .operation = simulation::AluOperation::EQ,
-              .a = params.a,
-              .b = params.b,
-              .c = params.c,
-              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
-        },
-        trace);
-
-    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
-    precomputed_builder.process_tag_parameters(trace);
-    return trace;
-}
-
-// Parametrized test for EQ operations with same values and tags
-class EQSameValuesAndTagsTest : public ::testing::TestWithParam<MemoryValue> {};
-
-TEST_P(EQSameValuesAndTagsTest, Basic)
-{
-    const MemoryValue& param = GetParam();
-    auto trace = process_eq_trace(ThreeOperandTestParams{ .a = param, .b = param, .c = MemoryValue::from<uint1_t>(1) });
+    const auto tag = GetParam();
+    auto trace = process_lte_with_tracegen(tag, true, true);
+    // Though the tags don't match, with error handling we can return the error rather than fail:
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
-}
 
-// Test parameters: MemoryValue a
-INSTANTIATE_TEST_SUITE_P(AluConstrainingTest,
-                         EQSameValuesAndTagsTest,
-                         ::testing::Values(MemoryValue::from<uint1_t>(1),
-                                           MemoryValue::from<uint8_t>(42),
-                                           MemoryValue::from<uint16_t>(12345),
-                                           MemoryValue::from<uint32_t>(123456789),
-                                           MemoryValue::from<uint64_t>(1234567890123456789ULL),
-                                           MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 23423429816234ULL),
-                                           MemoryValue::from<FF>(FF(uint256_t(1) << 255) + 123423429816234ULL)));
-
-class EQInequalityTest : public ::testing::TestWithParam<ThreeOperandTestParams> {};
-
-TEST_P(EQInequalityTest, Basic)
-{
-    auto trace = process_eq_trace(GetParam());
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-const std::vector<ThreeOperandTestParams> EQ_INEQUALITY_TEST_PARAMS = {
-    { .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint1_t>(0), .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint8_t>(24), .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint16_t>(12345),
-      .b = MemoryValue::from<uint16_t>(54321),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint32_t>(123456789),
-      .b = MemoryValue::from<uint32_t>(987654321),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-      .b = MemoryValue::from<uint64_t>(9876543210987654321ULL),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 23423429816234ULL),
-      .b = MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 9876543210987654321ULL),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<FF>(FF::modulus - 3),
-      .b = MemoryValue::from<FF>(FF::modulus - 1),
-      .c = MemoryValue::from<uint1_t>(0) }
-};
-
-// Test parameters for inequality: (MemoryValue a, MemoryValue b) - values are different
-INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, EQInequalityTest, ::testing::ValuesIn(EQ_INEQUALITY_TEST_PARAMS));
-
-// Parametrized test for EQ operations with different value tags (tag error case)
-class EQTagErrorTest : public ::testing::TestWithParam<ThreeOperandTestParams> {};
-
-TEST_P(EQTagErrorTest, Basic)
-{
-    auto trace = process_eq_trace(GetParam(), true);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-const std::vector<ThreeOperandTestParams> EQ_TAG_ERROR_TEST_PARAMS = {
-    // Equality case
-    { .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint16_t>(42), .c = MemoryValue::from<uint1_t>(1) },
-    { .a = MemoryValue::from<uint32_t>(123456789),
-      .b = MemoryValue::from<uint64_t>(123456789),
-      .c = MemoryValue::from<uint1_t>(1) },
-    { .a = MemoryValue::from<uint128_t>(123456789),
-      .b = MemoryValue::from<FF>(123456789),
-      .c = MemoryValue::from<uint1_t>(1) },
-    { .a = MemoryValue::from<FF>(42), .b = MemoryValue::from<uint8_t>(42), .c = MemoryValue::from<uint1_t>(1) },
-    { .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint8_t>(1), .c = MemoryValue::from<uint1_t>(1) },
-    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-      .b = MemoryValue::from<uint128_t>(1234567890123456789ULL),
-      .c = MemoryValue::from<uint1_t>(1) },
-    // Inequality case
-    { .a = MemoryValue::from<uint8_t>(42),
-      .b = MemoryValue::from<uint16_t>(12345),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint32_t>(123456789),
-      .b = MemoryValue::from<uint64_t>(9876543210987654321ULL),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint128_t>(123456789),
-      .b = MemoryValue::from<FF>(FF::modulus - 42),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<FF>(42), .b = MemoryValue::from<uint8_t>(200), .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint8_t>(255), .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-      .b = MemoryValue::from<uint128_t>(9876543210987654321ULL),
-      .c = MemoryValue::from<uint1_t>(0) }
-};
-
-// Test parameters for tag error: (MemoryValue a, MemoryValue b) - different tags
-INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, EQTagErrorTest, ::testing::ValuesIn(EQ_TAG_ERROR_TEST_PARAMS));
-
-// Negative tests for EQ operations
-TEST(AluConstrainingTest, NegativeEQWrongOpId)
-{
-    auto test_a = MemoryValue::from<uint8_t>(42);
-    auto test_b = MemoryValue::from<uint8_t>(42);
-    auto trace =
-        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
-    check_relation<alu>(trace);
-    trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_ADD);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "OP_ID_CHECK");
-}
-
-TEST(AluConstrainingTest, NegativeEQWrongResult)
-{
-    auto test_a = MemoryValue::from<uint8_t>(42);
-    auto test_b = MemoryValue::from<uint8_t>(42);
-    auto trace =
-        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
-    check_relation<alu>(trace);
-    trace.set(Column::alu_ic, 0, 0); // Wrong result
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
-}
-
-TEST(AluConstrainingTest, NegativeEQWrongHelper1)
-{
-    auto test_a = MemoryValue::from<uint8_t>(42);
-    auto test_b = MemoryValue::from<uint8_t>(24);
-    auto trace =
-        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(0) });
-    check_relation<alu>(trace);
-    trace.set(Column::alu_helper1, 0, 1111); // Wrong helper1 for inequality
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
-}
-
-TEST(AluConstrainingTest, NegativeEQWrongTagCMismatch)
-{
-    auto test_a = MemoryValue::from<uint16_t>(12345);
-    auto test_b = MemoryValue::from<uint16_t>(12345);
-    auto trace =
-        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
-    check_relation<alu>(trace);
-    trace.set(Column::alu_ic_tag, 0, static_cast<uint8_t>(bb::avm2::MemoryTag::U16) - 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
-}
-
-TEST(AluConstrainingTest, NegativeEQWrongTagABMismatch)
-{
-    auto test_a = MemoryValue::from<uint16_t>(12345);
-    auto test_b = MemoryValue::from<uint64_t>(12345);
-    auto trace =
-        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
-    trace.set(Column::alu_sel_tag_err, 0, 0); // Remove tag error flag
+    // Removing the error will fail:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
     // Correctly using the error, but injecting the wrong inverse will fail:
     trace.set(Column::alu_sel_tag_err, 0, 1);
@@ -934,102 +686,134 @@ TEST(AluConstrainingTest, NegativeEQWrongTagABMismatch)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
 }
 
-// NOT Opcode TESTS
-TestTraceContainer process_not_op_trace(const ThreeOperandTestParams& params, bool error = false)
+TEST_P(AluTagTest, AluLTETagNegative)
 {
-    PrecomputedTraceBuilder precomputed_builder;
+    const auto tag = GetParam();
+    auto trace = process_lte_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+    bool c = trace.get(Column::alu_ic, 0) == 1;
 
-    TestTraceContainer trace;
-    AluTraceBuilder builder;
+    // Swap the result bool:
+    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
 
-    builder.process(
-        {
-            { .operation = simulation::AluOperation::NOT,
-              .a = params.a,
-              .b = params.b,
-              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
-        },
-        trace);
+    // We rely on lookups, so we expect the relations to still pass...
+    check_relation<alu>(trace);
 
-    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
-    precomputed_builder.process_tag_parameters(trace);
-    return trace;
+    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c
+    // is wrong, rather than because this test has not processed the events):
+    if (tag == MemoryTag::FF) {
+        EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
+                                  "LOOKUP_ALU_FF_GT");
+    } else {
+        EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
+                                  "LOOKUP_ALU_INT_GT");
+    }
 }
 
-class NotIntegralTest : public ::testing::TestWithParam<ThreeOperandTestParams> {};
+// EQ TESTS
 
-TEST_P(NotIntegralTest, Basic)
+TEST_P(AluTagTest, AluEQ)
 {
-    const auto& params = GetParam();
-    auto trace = process_not_op_trace(params);
+    const auto tag = GetParam();
+    auto trace = process_eq_trace_with_tracegen(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluEQInequality)
+{
+    const auto tag = GetParam();
+    auto trace = process_eq_trace_with_tracegen(tag, false);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluEQTagError)
+{
+    const auto tag = GetParam();
+    auto trace = process_eq_trace_with_tracegen(tag, false, true);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+// Negative tests for EQ operations
+TEST(AluConstrainingTest, AluNegativeEQWrongOpId)
+{
+    auto trace = process_eq_trace_with_tracegen(MemoryTag::U8);
+    check_relation<alu>(trace);
+    trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_ADD);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "OP_ID_CHECK");
+}
+
+TEST(AluConstrainingTest, AluNegativeEQWrongResult)
+{
+    auto trace = process_eq_trace_with_tracegen(MemoryTag::U8);
+    check_relation<alu>(trace);
+    trace.set(Column::alu_ic, 0, 0); // Wrong result
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
+}
+
+TEST(AluConstrainingTest, AluNegativeEQWrongHelper1)
+{
+    auto trace = process_eq_trace_with_tracegen(MemoryTag::U8, false);
+    check_relation<alu>(trace);
+    trace.set(Column::alu_helper1, 0, 1111); // Wrong helper1 for inequality
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
+}
+
+TEST(AluConstrainingTest, AluNegativeEQWrongTagCMismatch)
+{
+    auto trace = process_eq_trace_with_tracegen(MemoryTag::U16);
+    check_relation<alu>(trace);
+    trace.set(Column::alu_ic_tag, 0, static_cast<uint8_t>(bb::avm2::MemoryTag::U8));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
+}
+
+// NOT TESTS
+
+TEST_P(AluTagTest, AluNotTest)
+{
+    const auto tag = GetParam();
+    auto trace = process_not_trace_with_tracegen(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluNotNegativeTest)
+{
+    const auto tag = GetParam();
+    auto trace = process_not_trace_with_tracegen(tag);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 
     trace.set(Column::alu_ib, 0, trace.get(Column::alu_ib, 0) + 1); // Mutate output
+    // If we use an FF input, the tag err is set automatically and gates NOT_OP_MAIN, so flip it back here:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "NOT_OP_MAIN");
 }
 
-const MemoryValue NOT_INTEGRAL_TEST_A_U1 = MemoryValue::from<uint1_t>(1);
-const MemoryValue NOT_INTEGRAL_TEST_A_U8 = MemoryValue::from<uint8_t>(42);
-const MemoryValue NOT_INTEGRAL_TEST_A_U16 = MemoryValue::from<uint16_t>(12345);
-const MemoryValue NOT_INTEGRAL_TEST_A_U32 = MemoryValue::from<uint32_t>(123456789);
-const MemoryValue NOT_INTEGRAL_TEST_A_U64 = MemoryValue::from<uint64_t>(1234567890123456789ULL);
-const MemoryValue NOT_INTEGRAL_TEST_A_U128 = MemoryValue::from<uint128_t>(987654);
-
-const std::vector<ThreeOperandTestParams> NOT_INTEGRAL_TEST_PARAMS = {
-    {
-        .a = NOT_INTEGRAL_TEST_A_U1,
-        .b = ~NOT_INTEGRAL_TEST_A_U1,
-    },
-    {
-        .a = NOT_INTEGRAL_TEST_A_U8,
-        .b = ~NOT_INTEGRAL_TEST_A_U8,
-    },
-    {
-        .a = NOT_INTEGRAL_TEST_A_U16,
-        .b = ~NOT_INTEGRAL_TEST_A_U16,
-    },
-    {
-        .a = NOT_INTEGRAL_TEST_A_U32,
-        .b = ~NOT_INTEGRAL_TEST_A_U32,
-    },
-    {
-        .a = NOT_INTEGRAL_TEST_A_U64,
-        .b = ~NOT_INTEGRAL_TEST_A_U64,
-    },
-    {
-        .a = NOT_INTEGRAL_TEST_A_U128,
-        .b = ~NOT_INTEGRAL_TEST_A_U128,
-    },
-};
-
-INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, NotIntegralTest, ::testing::ValuesIn(NOT_INTEGRAL_TEST_PARAMS));
-
-TEST(AluConstrainingTest, NotFF)
+TEST_P(AluTagTest, AluNotTagError)
 {
-    auto trace = process_not_op_trace(
-        { .a = MemoryValue::from<FF>(FF::modulus - 3), .b = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) },
-        true);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
+    const auto tag = GetParam();
+    auto trace = process_not_trace_with_tracegen(tag, true);
+
+    // Tag error for NOT means that the tag of a is FF:
+    if (tag == MemoryTag::FF) {
+        check_all_interactions<AluTraceBuilder>(trace);
+        check_relation<alu>(trace);
+    } else {
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    }
 }
 
-TEST(AluConstrainingTest, NegativeNotWrongOpId)
+TEST(AluConstrainingTest, AluNegativeNotWrongOpId)
 {
-    const auto a = MemoryValue::from<uint8_t>(42);
-    auto trace = process_not_op_trace({ .a = a, .b = ~a });
+    auto trace = process_not_trace_with_tracegen(MemoryTag::U8);
     check_relation<alu>(trace);
     trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_EQ);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "OP_ID_CHECK");
-}
-
-TEST(AluConstrainingTest, NegativeNotWrongTag)
-{
-    const auto a = MemoryValue::from<uint8_t>(42);
-    auto trace = process_not_op_trace({ .a = a, .b = ~a });
-    check_relation<alu>(trace);
-    trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(bb::avm2::MemoryTag::U16));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
 }
 
 } // namespace
