@@ -79,8 +79,23 @@ As part of a broader effort to make TXE easier to use and reason about, large pa
 
 ## [Aztec.js]
 
+### Cheatcodes
+
 Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
 While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
+
+### Note exports dropped from artifact
+
+Notes are no longer exported on the contract artifact.
+Having them exported was a tech debt from time when we needed to interpret notes in TypeScript.
+
+The following code will no longer work as `notes` is no longer to be found on the artifact.
+
+```rust
+const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
+```
+
+If you need to obtain some information about notes of a contract, instead implement a `#[utility]` function on the contract that gives you the necessary note-related information (an exmaple of such a function is `get_private_balance(owner: AztecAddress)` function on the `Token` contract).
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
