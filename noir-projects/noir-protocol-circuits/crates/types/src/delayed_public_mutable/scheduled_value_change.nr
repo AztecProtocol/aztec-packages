@@ -3,7 +3,7 @@ use std::cmp::min;
 
 mod test;
 
-// This data structure is used by SharedMutable to represent a value that changes from `pre` to `post` at some timestamp
+// This data structure is used by DelayedPublicMutable to represent a value that changes from `pre` to `post` at some timestamp
 // called the `timestamp_of_change`. The value can only be made to change by scheduling a change event at some future
 // timestamp after some minimum delay measured in seconds has elapsed. This means that at any given timestamp we know
 // both the current value and the smallest timestamp at which the value might change - this is called the

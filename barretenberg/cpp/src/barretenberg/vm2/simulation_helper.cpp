@@ -200,7 +200,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_emitter,
                         context_stack_emitter,
                         keccakf1600,
-                        range_check,
+                        greater_than,
                         get_contract_instance,
                         merkle_db);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);

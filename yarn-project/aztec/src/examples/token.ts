@@ -34,8 +34,7 @@ async function main() {
 
   // Mint tokens to Alice
   logger.info(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
-  const from = aliceWallet.getAddress(); // we are setting from to Alice here because we need a sender to calculate the tag
-  await tokenAlice.methods.mint_to_private(from, aliceWallet.getAddress(), ALICE_MINT_BALANCE).send().wait();
+  await tokenAlice.methods.mint_to_private(aliceWallet.getAddress(), ALICE_MINT_BALANCE).send().wait();
 
   logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
 

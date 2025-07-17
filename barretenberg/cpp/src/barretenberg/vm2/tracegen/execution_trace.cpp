@@ -575,17 +575,13 @@ void ExecutionTraceBuilder::process(
                           } });
             } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();
-                bool note_hash_leaf_in_range = leaf_index < NOTE_HASH_TREE_LEAF_COUNT;
-
-                FF note_hash_leaf_index_leaf_count_cmp_diff = note_hash_leaf_in_range
-                                                                  ? NOTE_HASH_TREE_LEAF_COUNT - leaf_index - 1
-                                                                  : leaf_index - NOTE_HASH_TREE_LEAF_COUNT;
+                uint64_t note_hash_tree_leaf_count = NOTE_HASH_TREE_LEAF_COUNT;
+                bool note_hash_leaf_in_range = leaf_index < note_hash_tree_leaf_count;
 
                 trace.set(row,
                           { {
                               { C::execution_note_hash_leaf_in_range, note_hash_leaf_in_range },
-                              { C::execution_note_hash_leaf_index_leaf_count_cmp_diff,
-                                note_hash_leaf_index_leaf_count_cmp_diff },
+                              { C::execution_note_hash_tree_leaf_count, FF(note_hash_tree_leaf_count) },
                           } });
             }
         }
@@ -1085,7 +1081,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_notehash_exists_note_hash_index_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
         // GetContractInstance opcode
         .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>();
 
