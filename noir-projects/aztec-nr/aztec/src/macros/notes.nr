@@ -5,8 +5,7 @@ use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
 /// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
-/// in `TokenNote`), the index of where the packed member starts in the packed note and a flag indicating
-/// whether the field is nullable or not.
+/// in `TokenNote`) and a flag indicating whether the field is nullable or not.
 pub comptime mut global NOTES: UHashMap<Type, (TypeDefinition, u32, Field, [(Quoted, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
