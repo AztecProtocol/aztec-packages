@@ -464,12 +464,16 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
         }
 
         {
-            // Check the verificaiton queue contains a single PG_FINAL entry
+            // Construct the hiding kernel and its VK
             EXPECT_TRUE(ivc->verification_queue.size() == 1);
             EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_FINAL);
+            AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+            Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+            // Note: Cannot call ivc->accumulate(kernel) here; hiding circuit is not yet supported
+            auto proving_key = std::make_shared<DeciderProvingKey_<ClientIVC::Flavor>>(kernel, TraceSettings());
+            expected_hiding_kernel_vk =
+                std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         }
-        ivc->construct_hiding_circuit_key();
-        expected_hiding_kernel_vk = ivc->honk_vk;
     }
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
