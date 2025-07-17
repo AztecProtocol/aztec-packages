@@ -82,8 +82,7 @@ describe('guides/writing_an_account_contract', () => {
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    const from = fundedWallet.getAddress(); // we are setting from here because we need a sender to calculate the tag
-    await token.methods.mint_to_private(from, address, mintAmount).send().wait();
+    await token.methods.mint_to_private(address, mintAmount).send().wait();
 
     const balance = await token.methods.balance_of_private(address).simulate();
     logger.info(`Balance of wallet is now ${balance}`);

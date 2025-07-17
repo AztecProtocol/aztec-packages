@@ -1,6 +1,7 @@
 use crate::NFT;
-use dep::aztec::{
-    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+use aztec::{
+    oracle::notes::set_sender_for_tags, protocol_types::address::AztecAddress,
+    test::helpers::test_environment::TestEnvironment,
 };
 
 pub unconstrained fn setup(
@@ -15,6 +16,12 @@ pub unconstrained fn setup(
     } else {
         let owner = env.create_account(1);
         let recipient = env.create_account(2);
+
+        // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
+        // usually done by account contract's entrypoint.
+        let sender = env.create_account(7097070);
+        set_sender_for_tags(sender);
+
         (owner, recipient)
     };
 

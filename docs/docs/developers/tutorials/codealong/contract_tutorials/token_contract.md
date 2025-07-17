@@ -292,7 +292,7 @@ First a partial note is prepared then a call to the public, internal `_finalize_
 
 #### `mint_to_private`
 
-This private function prepares a partial `UintNote` at the recipients storage slot in the contract and enqueues a public call to `_finalize_mint_to_private_unsafe`, which asserts that the `msg_sender` is an authorized minter and finalized the mint by incrementing the total supply and emitting the complete, encrypted `UintNote` to the intended recipient. Note that the `amount` and the minter (`from`) are public, but the recipient is private.
+This private function prepares a partial `UintNote` at the recipients storage slot in the contract and enqueues a public call to `_finalize_mint_to_private_unsafe`, which asserts that the `msg_sender` is an authorized minter and finalized the mint by incrementing the total supply and emitting the complete, encrypted `UintNote` to the intended recipient. Note that the `amount` and the minter (`msg_sender`) are public, but the recipient is private.
 
 #include_code mint_to_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 

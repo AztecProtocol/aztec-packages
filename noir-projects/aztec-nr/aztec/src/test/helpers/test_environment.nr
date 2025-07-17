@@ -45,12 +45,10 @@ pub struct CallResult<T> {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        txe_oracles::reset();
         Self {}
     }
 
     pub unconstrained fn _new() -> Self {
-        txe_oracles::reset();
         txe_oracles::enable_context_checks();
         Self {}
     }
