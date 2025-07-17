@@ -19,8 +19,8 @@ aztec-wallet deploy Token --args accounts:test0 Liquidity LIQ 18 -f test0 -a liq
 aztec-wallet deploy AMM --args contracts:token0 contracts:token1 contracts:liquidity -f test0 -a amm -p none
 aztec-wallet send set_minter -ca contracts:liquidity --args contracts:amm true -f test0 -p none
 
-aztec-wallet send mint_to_private -ca contracts:token0 --args accounts:test0 accounts:test1 $INITIAL_AMOUNT -f test0 -p none
-aztec-wallet send mint_to_private -ca contracts:token1 --args accounts:test0 accounts:test1 $INITIAL_AMOUNT -f test0 -p none
+aztec-wallet send mint_to_private -ca contracts:token0 --args accounts:test1 $INITIAL_AMOUNT -f test0 -p none
+aztec-wallet send mint_to_private -ca contracts:token1 --args accounts:test1 $INITIAL_AMOUNT -f test0 -p none
 
 aztec-wallet create-secret -a add-liquidity-nonce
 

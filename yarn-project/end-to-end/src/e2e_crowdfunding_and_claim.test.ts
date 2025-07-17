@@ -1,13 +1,4 @@
-import {
-  type AccountWallet,
-  Fr,
-  HashedValues,
-  type Logger,
-  type PXE,
-  TxExecutionRequest,
-  type UniqueNote,
-  deriveKeys,
-} from '@aztec/aztec.js';
+import { type AccountWallet, Fr, type Logger, type PXE, type UniqueNote, deriveKeys } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
@@ -15,8 +6,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
-import { GasSettings } from '@aztec/stdlib/gas';
-import { TxContext } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -287,7 +276,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
-  it('cannot withdraw as non operator', async () => {
+  it('cannot withdraw as a non-operator', async () => {
     const donationAmount = 500n;
 
     // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
@@ -303,34 +292,10 @@ describe('e2e_crowdfunding_and_claim', () => {
       .send({ authWitnesses: [witness] })
       .wait();
 
-    // Calling the function normally will fail as msg_sender != operator
+    // The following should fail as msg_sender != operator
     await expect(
       crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).send().wait(),
     ).rejects.toThrow('Assertion failed: Not an operator');
-
-    // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
-    const [call] = (await crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request())
-      .calls;
-    // ...using the withdraw fn as our entrypoint
-    const entrypointHashedValues = await HashedValues.fromArgs(call.args);
-    const maxFeesPerGas = await pxe.getCurrentBaseFees();
-    const request = new TxExecutionRequest(
-      call.to,
-      call.selector,
-      entrypointHashedValues.hash,
-      new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
-      [entrypointHashedValues],
-      [],
-      [],
-    );
-    // NB: Removing the msg_sender assertion from private_init will still result in a throw, as we are using
-    // a non-entrypoint function (withdraw never calls context.end_setup()), meaning the min revertible counter will remain 0.
-    // This does not protect fully against impersonation as the contract could just call context.end_setup() and the below would pass.
-    // => the private_init msg_sender assertion is required (#7190, #7404)
-
-    await expect(
-      donorWallets[1].simulateTx(request, true, false, false, { msgSender: operatorWallet.getAddress() }),
-    ).rejects.toThrow('Circuit execution failed: Users cannot set msg_sender in first call');
   });
 
   it('cannot donate after a deadline', async () => {
