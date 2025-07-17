@@ -302,6 +302,9 @@ export async function generateSimulatedProvingResult(
           // Leaving this as a reference because this is obscure af.
           //const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
           const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
+
+          createLogger('!!!!').warn('SILOED NOTE HASH', { inner: noteHash.value, siloed: siloedNoteHash });
+
           return new OrderedSideEffect(
             /*await computeUniqueNoteHash(nonce, siloedNoteHash)*/ siloedNoteHash,
             noteHash.counter,

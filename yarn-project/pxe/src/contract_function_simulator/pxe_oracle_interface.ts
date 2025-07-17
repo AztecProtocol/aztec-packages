@@ -597,8 +597,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
           throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
         }
 
-        this.log.warn('PENDING TAGGED LOGS', {
-          tx: scopedLog.txHash,
+        this.log.warn('TX METADATA FOR LOGS', {
           notes: txEffect.data.noteHashes,
           nullif: txEffect.data.nullifiers[0],
         });

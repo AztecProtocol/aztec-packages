@@ -139,7 +139,7 @@ pub contract Test {
         ));
 
         // The following line causes crate::test::note_delivery tests to fail if removed
-        Test::at(context.this_address()).emit_nullifier_public(99).enqueue(&mut context);
+        // Test::at(context.this_address()).emit_nullifier_public(99).enqueue(&mut context);
     }
     // docs:end:create_note
 
