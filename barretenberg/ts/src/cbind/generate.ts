@@ -65,11 +65,11 @@ async function generate() {
   for (const config of GENERATORS) {
     const compiler = config.createCompiler();
     compiler.processApiSchema(schema.commands, schema.responses);
-    
+
     const outputPath = join(__dirname, config.outputFile);
     const content = compiler.compile();
     writeFileSync(outputPath, content);
-    
+
     console.log(`✓ ${config.name}: ${outputPath}`);
   }
 
