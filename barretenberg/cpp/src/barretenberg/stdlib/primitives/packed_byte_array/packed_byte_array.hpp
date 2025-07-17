@@ -52,7 +52,6 @@ template <typename Builder> class packed_byte_array {
     static constexpr uint64_t BYTES_PER_ELEMENT = 16;
     Builder* context;
     size_t num_bytes;
-    // Assumed to be <16 bytes?
     std::vector<field_ct> limbs;
 };
 
