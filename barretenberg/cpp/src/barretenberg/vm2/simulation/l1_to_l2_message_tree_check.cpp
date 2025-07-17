@@ -7,7 +7,7 @@ namespace bb::avm2::simulation {
 
 bool L1ToL2MessageTreeCheck::exists(const FF& msg_hash,
                                     const FF& leaf_value,
-                                    index_t leaf_index,
+                                    uint64_t leaf_index,
                                     std::span<const FF> sibling_path,
                                     const AppendOnlyTreeSnapshot& snapshot)
 {
