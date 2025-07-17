@@ -2,7 +2,7 @@ use crate::{
     macros::{
         dispatch::generate_public_dispatch,
         functions::{stub_registry, utils::check_each_fn_macroified},
-        notes::{generate_note_export, NOTES},
+        notes::NOTES,
         storage::STORAGE_LAYOUT_NAME,
         utils::{get_trait_impl_method, module_has_storage},
     },
@@ -39,12 +39,9 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
-
-    let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
 
     quote {
-        $note_exports
         $interface
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
@@ -130,7 +127,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     if notes.len() > 0 {
         let max_note_packed_len = notes.fold(
             0,
-            |acc, (_, (_, len, _, _)): (Type, (TypeDefinition, u32, Field, [(Quoted, u32, bool)]))| {
+            |acc, (_, (_, len, _, _)): (Type, (TypeDefinition, u32, Field, [(Quoted, bool)]))| {
                 if len > acc {
                     len
                 } else {
@@ -270,17 +267,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             }
         }
     }
-}
-
-comptime fn generate_note_exports() -> Quoted {
-    let notes = NOTES.values();
-    // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
-    // generating partial note helper functions.
-    notes
-        .map(|(s, _, note_type_id, fields): (TypeDefinition, u32, Field, [(Quoted, u32, bool)])| {
-            generate_note_export(s, note_type_id, fields)
-        })
-        .join(quote {})
 }
 
 comptime fn generate_sync_private_state() -> Quoted {
