@@ -136,7 +136,6 @@ describe('Contract Class', () => {
     },
     fileMap: {},
     storageLayout: {},
-    notes: {},
   };
 
   beforeEach(async () => {
