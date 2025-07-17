@@ -131,6 +131,10 @@ class Execution : public ExecutionInterface {
                                MemoryAddress dst_offset,
                                uint8_t member_enum);
     void emit_note_hash(ContextInterface& context, MemoryAddress note_hash_addr);
+    void l1_to_l2_message_exists(ContextInterface& context,
+                                 MemoryAddress msg_hash_addr,
+                                 MemoryAddress leaf_index_addr,
+                                 MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
