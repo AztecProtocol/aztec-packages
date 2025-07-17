@@ -13,8 +13,8 @@ template <typename FF_> class eccImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 27> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 6, 5, 6, 5, 3, 5, 3, 3, 3, 3,
-                                                                            3, 3, 5, 3, 5, 3, 6, 5, 6, 6, 6, 6, 3 };
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
+                                                                            5, 3, 6, 5, 6, 6, 6, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -33,10 +33,6 @@ template <typename FF_> class eccImpl {
 
         const auto ecc_INFINITY_X = FF(0);
         const auto ecc_INFINITY_Y = FF(0);
-        const auto ecc_P_X3 = in.get(C::ecc_p_x) * in.get(C::ecc_p_x) * in.get(C::ecc_p_x);
-        const auto ecc_P_Y2 = in.get(C::ecc_p_y) * in.get(C::ecc_p_y);
-        const auto ecc_Q_X3 = in.get(C::ecc_q_x) * in.get(C::ecc_q_x) * in.get(C::ecc_q_x);
-        const auto ecc_Q_Y2 = in.get(C::ecc_q_y) * in.get(C::ecc_q_y);
         const auto ecc_X_DIFF = (in.get(C::ecc_q_x) - in.get(C::ecc_p_x));
         const auto ecc_Y_DIFF = (in.get(C::ecc_q_y) - in.get(C::ecc_p_y));
         const auto ecc_INFINITY_PRED = in.get(C::ecc_x_match) * (FF(1) - in.get(C::ecc_y_match));
@@ -56,195 +52,134 @@ template <typename FF_> class eccImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_p_on_curve_err) * (FF(1) - in.get(C::ecc_sel_p_on_curve_err));
+            auto tmp = in.get(C::ecc_double_op) * (FF(1) - in.get(C::ecc_double_op));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_q_on_curve_err) * (FF(1) - in.get(C::ecc_sel_q_on_curve_err));
+            auto tmp = in.get(C::ecc_add_op) * (FF(1) - in.get(C::ecc_add_op));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ecc_err) - (FF(1) - (FF(1) - in.get(C::ecc_sel_p_on_curve_err)) *
-                                                          (FF(1) - in.get(C::ecc_sel_q_on_curve_err))));
+            auto tmp = (in.get(C::ecc_sel) - (in.get(C::ecc_double_op) + in.get(C::ecc_add_op) + ecc_INFINITY_PRED));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        { // P_CURVE_EQN
+        {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ecc_p_is_on_curve_eqn) -
-                        in.get(C::ecc_sel) * (ecc_P_Y2 - (ecc_P_X3 - FF(17))) * (FF(1) - in.get(C::ecc_p_is_inf)));
+            auto tmp = in.get(C::ecc_p_is_inf) * (FF(1) - in.get(C::ecc_p_is_inf));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        { // P_ON_CURVE_CHECK
+        {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel) *
-                       (in.get(C::ecc_p_is_on_curve_eqn) *
-                            ((FF(1) - in.get(C::ecc_sel_p_on_curve_err)) * (FF(1) - in.get(C::ecc_p_on_curve_eqn_inv)) +
-                             in.get(C::ecc_p_on_curve_eqn_inv)) -
-                        in.get(C::ecc_sel_p_on_curve_err));
+            auto tmp = in.get(C::ecc_q_is_inf) * (FF(1) - in.get(C::ecc_q_is_inf));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        { // Q_CURVE_EQN
+        {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ecc_q_is_on_curve_eqn) -
-                        in.get(C::ecc_sel) * (ecc_Q_Y2 - (ecc_Q_X3 - FF(17))) * (FF(1) - in.get(C::ecc_q_is_inf)));
+            auto tmp = in.get(C::ecc_r_is_inf) * (FF(1) - in.get(C::ecc_r_is_inf));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        { // Q_ON_CURVE_CHECK
+        {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel) *
-                       (in.get(C::ecc_q_is_on_curve_eqn) *
-                            ((FF(1) - in.get(C::ecc_sel_q_on_curve_err)) * (FF(1) - in.get(C::ecc_q_on_curve_eqn_inv)) +
-                             in.get(C::ecc_q_on_curve_eqn_inv)) -
-                        in.get(C::ecc_sel_q_on_curve_err));
+            auto tmp = in.get(C::ecc_x_match) * (FF(1) - in.get(C::ecc_x_match));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) * (FF(1) - in.get(C::ecc_sel_should_exec));
+            auto tmp =
+                in.get(C::ecc_sel) * ((ecc_X_DIFF * (in.get(C::ecc_x_match) * (FF(1) - in.get(C::ecc_inv_x_diff)) +
+                                                     in.get(C::ecc_inv_x_diff)) -
+                                       FF(1)) +
+                                      in.get(C::ecc_x_match));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ecc_sel_should_exec) -
-                        (in.get(C::ecc_double_op) + in.get(C::ecc_add_op) + ecc_INFINITY_PRED) *
-                            (FF(1) - in.get(C::ecc_err)) * in.get(C::ecc_sel));
+            auto tmp = in.get(C::ecc_y_match) * (FF(1) - in.get(C::ecc_y_match));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_double_op) * (FF(1) - in.get(C::ecc_double_op));
+            auto tmp =
+                in.get(C::ecc_sel) * ((ecc_Y_DIFF * (in.get(C::ecc_y_match) * (FF(1) - in.get(C::ecc_inv_y_diff)) +
+                                                     in.get(C::ecc_inv_y_diff)) -
+                                       FF(1)) +
+                                      in.get(C::ecc_y_match));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // DOUBLE_PRED
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_add_op) * (FF(1) - in.get(C::ecc_add_op));
+            auto tmp = (in.get(C::ecc_double_op) - in.get(C::ecc_x_match) * in.get(C::ecc_y_match));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INFINITY_RESULT
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_p_is_inf) * (FF(1) - in.get(C::ecc_p_is_inf));
+            auto tmp = in.get(C::ecc_sel) *
+                       (in.get(C::ecc_result_infinity) - (ecc_INFINITY_PRED * ecc_BOTH_NON_INF + ecc_BOTH_INF));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_q_is_inf) * (FF(1) - in.get(C::ecc_q_is_inf));
+            auto tmp = (FF(1) - in.get(C::ecc_result_infinity)) * in.get(C::ecc_double_op) *
+                       (FF(2) * in.get(C::ecc_p_y) * in.get(C::ecc_inv_2_p_y) - FF(1));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // COMPUTED_LAMBDA
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_r_is_inf) * (FF(1) - in.get(C::ecc_r_is_inf));
+            auto tmp = in.get(C::ecc_sel) *
+                       (in.get(C::ecc_lambda) - (in.get(C::ecc_double_op) * FF(3) * in.get(C::ecc_p_x) *
+                                                     in.get(C::ecc_p_x) * in.get(C::ecc_inv_2_p_y) +
+                                                 in.get(C::ecc_add_op) * ecc_Y_DIFF * in.get(C::ecc_inv_x_diff)));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_x_match) * (FF(1) - in.get(C::ecc_x_match));
+            auto tmp = (in.get(C::ecc_use_computed_result) - in.get(C::ecc_sel) * (FF(1) - in.get(C::ecc_p_is_inf)) *
+                                                                 (FF(1) - in.get(C::ecc_q_is_inf)) *
+                                                                 (FF(1) - ecc_INFINITY_PRED));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        {
-            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) *
-                       ((ecc_X_DIFF * (in.get(C::ecc_x_match) * (FF(1) - in.get(C::ecc_inv_x_diff)) +
-                                       in.get(C::ecc_inv_x_diff)) -
-                         FF(1)) +
-                        in.get(C::ecc_x_match));
-            tmp *= scaling_factor;
-            std::get<16>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_y_match) * (FF(1) - in.get(C::ecc_y_match));
-            tmp *= scaling_factor;
-            std::get<17>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) *
-                       ((ecc_Y_DIFF * (in.get(C::ecc_y_match) * (FF(1) - in.get(C::ecc_inv_y_diff)) +
-                                       in.get(C::ecc_inv_y_diff)) -
-                         FF(1)) +
-                        in.get(C::ecc_y_match));
-            tmp *= scaling_factor;
-            std::get<18>(evals) += typename Accumulator::View(tmp);
-        }
-        { // DOUBLE_PRED
-            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ecc_double_op) - in.get(C::ecc_x_match) * in.get(C::ecc_y_match));
-            tmp *= scaling_factor;
-            std::get<19>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INFINITY_RESULT
-            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) *
-                       (in.get(C::ecc_result_infinity) - (ecc_INFINITY_PRED * ecc_BOTH_NON_INF + ecc_BOTH_INF));
-            tmp *= scaling_factor;
-            std::get<20>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::ecc_result_infinity)) * in.get(C::ecc_double_op) *
-                       (FF(2) * in.get(C::ecc_p_y) * in.get(C::ecc_inv_2_p_y) - FF(1));
-            tmp *= scaling_factor;
-            std::get<21>(evals) += typename Accumulator::View(tmp);
-        }
-        { // COMPUTED_LAMBDA
-            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) *
-                       (in.get(C::ecc_lambda) - (in.get(C::ecc_double_op) * FF(3) * in.get(C::ecc_p_x) *
-                                                     in.get(C::ecc_p_x) * in.get(C::ecc_inv_2_p_y) +
-                                                 in.get(C::ecc_add_op) * ecc_Y_DIFF * in.get(C::ecc_inv_x_diff)));
-            tmp *= scaling_factor;
-            std::get<22>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ecc_use_computed_result) -
-                        in.get(C::ecc_sel_should_exec) * (FF(1) - in.get(C::ecc_p_is_inf)) *
-                            (FF(1) - in.get(C::ecc_q_is_inf)) * (FF(1) - ecc_INFINITY_PRED));
-            tmp *= scaling_factor;
-            std::get<23>(evals) += typename Accumulator::View(tmp);
-        }
         { // OUTPUT_X_COORD
-            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) *
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+            auto tmp = in.get(C::ecc_sel) *
                        (((in.get(C::ecc_r_x) - ecc_EITHER_INF * (in.get(C::ecc_p_is_inf) * in.get(C::ecc_q_x) +
                                                                  in.get(C::ecc_q_is_inf) * in.get(C::ecc_p_x))) -
                          in.get(C::ecc_result_infinity) * ecc_INFINITY_X) -
                         in.get(C::ecc_use_computed_result) * ecc_COMPUTED_R_X);
             tmp *= scaling_factor;
-            std::get<24>(evals) += typename Accumulator::View(tmp);
+            std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         { // OUTPUT_Y_COORD
-            using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) *
+            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+            auto tmp = in.get(C::ecc_sel) *
                        (((in.get(C::ecc_r_y) - ecc_EITHER_INF * (in.get(C::ecc_p_is_inf) * in.get(C::ecc_q_y) +
                                                                  in.get(C::ecc_q_is_inf) * in.get(C::ecc_p_y))) -
                          in.get(C::ecc_result_infinity) * ecc_INFINITY_Y) -
                         in.get(C::ecc_use_computed_result) * ecc_COMPUTED_R_Y);
             tmp *= scaling_factor;
-            std::get<25>(evals) += typename Accumulator::View(tmp);
+            std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         { // OUTPUT_INF_FLAG
-            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel_should_exec) * (in.get(C::ecc_r_is_inf) - in.get(C::ecc_result_infinity));
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            auto tmp = in.get(C::ecc_sel) * (in.get(C::ecc_r_is_inf) - in.get(C::ecc_result_infinity));
             tmp *= scaling_factor;
-            std::get<26>(evals) += typename Accumulator::View(tmp);
+            std::get<18>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -256,41 +191,29 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 4:
-            return "P_CURVE_EQN";
-        case 5:
-            return "P_ON_CURVE_CHECK";
-        case 6:
-            return "Q_CURVE_EQN";
-        case 7:
-            return "Q_ON_CURVE_CHECK";
-        case 19:
+        case 11:
             return "DOUBLE_PRED";
-        case 20:
+        case 12:
             return "INFINITY_RESULT";
-        case 22:
+        case 14:
             return "COMPUTED_LAMBDA";
-        case 24:
+        case 16:
             return "OUTPUT_X_COORD";
-        case 25:
+        case 17:
             return "OUTPUT_Y_COORD";
-        case 26:
+        case 18:
             return "OUTPUT_INF_FLAG";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_P_CURVE_EQN = 4;
-    static constexpr size_t SR_P_ON_CURVE_CHECK = 5;
-    static constexpr size_t SR_Q_CURVE_EQN = 6;
-    static constexpr size_t SR_Q_ON_CURVE_CHECK = 7;
-    static constexpr size_t SR_DOUBLE_PRED = 19;
-    static constexpr size_t SR_INFINITY_RESULT = 20;
-    static constexpr size_t SR_COMPUTED_LAMBDA = 22;
-    static constexpr size_t SR_OUTPUT_X_COORD = 24;
-    static constexpr size_t SR_OUTPUT_Y_COORD = 25;
-    static constexpr size_t SR_OUTPUT_INF_FLAG = 26;
+    static constexpr size_t SR_DOUBLE_PRED = 11;
+    static constexpr size_t SR_INFINITY_RESULT = 12;
+    static constexpr size_t SR_COMPUTED_LAMBDA = 14;
+    static constexpr size_t SR_OUTPUT_X_COORD = 16;
+    static constexpr size_t SR_OUTPUT_Y_COORD = 17;
+    static constexpr size_t SR_OUTPUT_INF_FLAG = 18;
 };
 
 } // namespace bb::avm2

@@ -1,6 +1,5 @@
 include "ecc.pil";
 include "to_radix.pil";
-include "precomputed.pil";
 
 // Performs scalar_mul with Fr scalars doing the following algorithm:
 //
@@ -21,6 +20,9 @@ include "precomputed.pil";
 // ...
 // |     0 |   1 |       0 | p           | s      | p         |   1 |       0 | p          |          0 |
 // +-------+-----+---------+-------------+--------+-----------+-----+---------+------------+------------+
+
+
+// Needs to radix, update when implemented
 
 namespace scalar_mul;
 
@@ -162,15 +164,11 @@ namespace scalar_mul;
     should_add - not_end * bit = 0;
     pol should_pass = not_end * (1 - bit);
 
-    // The ecc add operation in scalar mul is considered infallible. This is enforced by the lookup
-    // requiring the error flag to be 0. This is *considered safe* since scalar_mul is only used internally
-    // during address derivation. Here the point is a standard generator point on the curve, if a different point
-    // (that is not on the curve) is used - it is considered to be malicious behavior by the prover so we panic.
     #[ADD]
-    should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf, /*error=*/precomputed.zero }
+    should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
     in
     ecc.sel
-        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf, ecc.err };
+        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
 
     should_pass * (res_x - res_x') = 0;
     should_pass * (res_y - res_y') = 0;

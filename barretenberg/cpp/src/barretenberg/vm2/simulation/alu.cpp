@@ -29,7 +29,6 @@ MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
     }
 
     MemoryValue c = MemoryValue::from<uint1_t>(a == b ? 1 : 0);
-
     events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .c = c });
     return c;
 }

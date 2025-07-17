@@ -42,23 +42,20 @@ using lookup_ecc_mem_check_dst_addr_in_range_relation =
 struct lookup_ecc_mem_input_output_ecc_add_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_INPUT_OUTPUT_ECC_ADD";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
     static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
     static constexpr Column DST_SELECTOR = Column::ecc_sel;
     static constexpr Column COUNTS = Column::lookup_ecc_mem_input_output_ecc_add_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_input_output_ecc_add_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_p_x,        ColumnAndShifts::ecc_add_mem_p_y,
-        ColumnAndShifts::ecc_add_mem_p_is_inf,   ColumnAndShifts::ecc_add_mem_q_x,
-        ColumnAndShifts::ecc_add_mem_q_y,        ColumnAndShifts::ecc_add_mem_q_is_inf,
-        ColumnAndShifts::ecc_add_mem_res_x,      ColumnAndShifts::ecc_add_mem_res_y,
-        ColumnAndShifts::ecc_add_mem_res_is_inf, ColumnAndShifts::ecc_add_mem_sel_point_not_on_curve_err
+        ColumnAndShifts::ecc_add_mem_p_x,   ColumnAndShifts::ecc_add_mem_p_y,   ColumnAndShifts::ecc_add_mem_p_is_inf,
+        ColumnAndShifts::ecc_add_mem_q_x,   ColumnAndShifts::ecc_add_mem_q_y,   ColumnAndShifts::ecc_add_mem_q_is_inf,
+        ColumnAndShifts::ecc_add_mem_res_x, ColumnAndShifts::ecc_add_mem_res_y, ColumnAndShifts::ecc_add_mem_res_is_inf
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
         ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf,
-        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf,
-        ColumnAndShifts::ecc_err
+        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf
     };
 };
 
@@ -73,7 +70,7 @@ struct lookup_ecc_mem_write_mem_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_WRITE_MEM_0";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_write;
+    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
     static constexpr Column DST_SELECTOR = Column::memory_sel;
     static constexpr Column COUNTS = Column::lookup_ecc_mem_write_mem_0_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_write_mem_0_inv;
@@ -98,7 +95,7 @@ struct lookup_ecc_mem_write_mem_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_WRITE_MEM_1";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_write;
+    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
     static constexpr Column DST_SELECTOR = Column::memory_sel;
     static constexpr Column COUNTS = Column::lookup_ecc_mem_write_mem_1_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_write_mem_1_inv;
@@ -123,7 +120,7 @@ struct lookup_ecc_mem_write_mem_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_WRITE_MEM_2";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_write;
+    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
     static constexpr Column DST_SELECTOR = Column::memory_sel;
     static constexpr Column COUNTS = Column::lookup_ecc_mem_write_mem_2_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_write_mem_2_inv;

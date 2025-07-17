@@ -33,10 +33,12 @@ FF compute_lambda(bool double_predicate,
     return 0;
 }
 
+// Helper to compute the (re-formulated) Grumpkin curve equation: y^2 - (x^3 - 17)
 FF compute_curve_eqn_diff(const EmbeddedCurvePoint& p)
 {
     if (p.is_infinity()) {
-        return FF::zero(); // The curve equation is trivially satisfied for the infinity point.
+        // We consider the curve equation to be trivially satisfied for the infinity point.
+        return FF::zero();
     }
     // The curve equation is y^2 = x^3 - 17
     const FF y2 = p.y() * p.y();
@@ -57,44 +59,6 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         EmbeddedCurvePoint q = event.q;
         EmbeddedCurvePoint result = event.result;
 
-        // Handle Errors
-        bool p_is_on_curve = p.on_curve();
-        FF p_is_on_curve_eqn = compute_curve_eqn_diff(p);
-        FF p_on_curve_eqn_inv = p_is_on_curve ? FF::zero() : p_is_on_curve_eqn.invert();
-
-        bool q_is_on_curve = q.on_curve();
-        FF q_is_on_curve_eqn = compute_curve_eqn_diff(q);
-        FF q_on_curve_eqn_inv = q_is_on_curve ? FF::zero() : q_is_on_curve_eqn.invert();
-
-        if (!p_is_on_curve || !q_is_on_curve) {
-            trace.set(row,
-                      { {
-                          { C::ecc_sel, 1 },
-                          { C::ecc_sel_should_exec, 0 }, // Do not execute the add operation
-                          // Error Handling
-                          { C::ecc_sel_p_on_curve_err, !p_is_on_curve ? 1 : 0 },
-                          { C::ecc_p_is_on_curve_eqn, p_is_on_curve_eqn },
-                          { C::ecc_p_on_curve_eqn_inv, p_on_curve_eqn_inv },
-
-                          { C::ecc_sel_q_on_curve_err, !q_is_on_curve ? 1 : 0 },
-                          { C::ecc_q_is_on_curve_eqn, q_is_on_curve_eqn },
-                          { C::ecc_q_on_curve_eqn_inv, q_on_curve_eqn_inv },
-
-                          { C::ecc_err, 1 }, // General error flag
-                          // Point P
-                          { C::ecc_p_x, p.x() },
-                          { C::ecc_p_y, p.y() },
-                          { C::ecc_p_is_inf, p.is_infinity() },
-                          // Point Q
-                          { C::ecc_q_x, q.x() },
-                          { C::ecc_q_y, q.y() },
-                          { C::ecc_q_is_inf, q.is_infinity() },
-                      } });
-            row++;
-            continue; // Skip to the next event
-        }
-
-        // If we do not encounter an error, we proceed with the add operation.
         bool x_match = p.x() == q.x();
         bool y_match = p.y() == q.y();
 
@@ -117,9 +81,6 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         trace.set(row,
                   { {
                       { C::ecc_sel, 1 },
-                      { C::ecc_sel_should_exec, 1 },
-                      { C::ecc_p_is_on_curve_eqn, p_is_on_curve_eqn },
-                      { C::ecc_q_is_on_curve_eqn, q_is_on_curve_eqn },
                       // Point P
                       { C::ecc_p_x, p.x() },
                       { C::ecc_p_y, p.y() },
@@ -229,39 +190,51 @@ void EccTraceBuilder::process_add_with_memory(
         bool dst_out_of_range_err = dst_addr + 2 > AVM_HIGHEST_MEM_ADDRESS;
 
         // Error handling, check if the points are on the curve.
-        // Note, this error is a result of propagating the error from the ECC add operation.
-        // It could be included in the event, but it's simple enough to check here
-        bool points_not_on_curve_err = !event.p.on_curve() || !event.q.on_curve();
-        bool error = (dst_out_of_range_err || points_not_on_curve_err);
+        bool p_is_on_curve = event.p.on_curve();
+        FF p_is_on_curve_eqn = compute_curve_eqn_diff(event.p);
+        FF p_is_on_curve_eqn_inv = p_is_on_curve ? FF::zero() : p_is_on_curve_eqn.invert();
+
+        bool q_is_on_curve = event.q.on_curve();
+        FF q_is_on_curve_eqn = compute_curve_eqn_diff(event.q);
+        FF q_is_on_curve_eqn_inv = q_is_on_curve ? FF::zero() : q_is_on_curve_eqn.invert();
+
+        bool error = dst_out_of_range_err || !p_is_on_curve || !q_is_on_curve;
 
         trace.set(row,
                   { {
                       { C::ecc_add_mem_sel, 1 },
                       { C::ecc_add_mem_execution_clk, event.execution_clk },
                       { C::ecc_add_mem_space_id, event.space_id },
+                      // Error handling - dst out of range
                       { C::ecc_add_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
                       { C::ecc_add_mem_sel_dst_out_of_range_err, dst_out_of_range_err ? 1 : 0 },
-                      { C::ecc_add_mem_sel_point_not_on_curve_err, points_not_on_curve_err ? 1 : 0 },
+                      // Error handling - p is not on curve
+                      { C::ecc_add_mem_sel_p_not_on_curve_err, !p_is_on_curve ? 1 : 0 },
+                      { C::ecc_add_mem_p_is_on_curve_eqn, p_is_on_curve_eqn },
+                      { C::ecc_add_mem_p_is_on_curve_eqn_inv, p_is_on_curve_eqn_inv },
+                      // Error handling - q is not on curve
+                      { C::ecc_add_mem_sel_q_not_on_curve_err, !q_is_on_curve ? 1 : 0 },
+                      { C::ecc_add_mem_q_is_on_curve_eqn, q_is_on_curve_eqn },
+                      { C::ecc_add_mem_q_is_on_curve_eqn_inv, q_is_on_curve_eqn_inv },
+                      // Consolidated error
                       { C::ecc_add_mem_err, error ? 1 : 0 },
                       // Memory Writes
                       { C::ecc_add_mem_dst_addr_0_, dst_addr },
                       { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
                       { C::ecc_add_mem_dst_addr_2_, dst_addr + 2 },
-                      // Inputs
-                      // Point P
+                      // Input - Point P
                       { C::ecc_add_mem_p_x, event.p.x() },
                       { C::ecc_add_mem_p_y, event.p.y() },
                       { C::ecc_add_mem_p_is_inf, event.p.is_infinity() ? 1 : 0 },
-                      // Point Q
+                      // Input - Point Q
                       { C::ecc_add_mem_q_x, event.q.x() },
                       { C::ecc_add_mem_q_y, event.q.y() },
                       { C::ecc_add_mem_q_is_inf, event.q.is_infinity() ? 1 : 0 },
                       // Output
-                      { C::ecc_add_mem_sel_should_exec, dst_out_of_range_err ? 0 : 1 },
+                      { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
                       { C::ecc_add_mem_res_x, event.result.x() },
                       { C::ecc_add_mem_res_y, event.result.y() },
                       { C::ecc_add_mem_res_is_inf, event.result.is_infinity() },
-                      { C::ecc_add_mem_sel_should_write, !error ? 1 : 0 },
                   } });
 
         row++;
