@@ -345,15 +345,9 @@ template <typename Builder> packed_byte_array<Builder> SHA256<Builder>::hash(con
     typedef field_t<Builder> field_pt;
 
     Builder* ctx = input.get_context();
-    // Create an unconstrained byte input
-    if (ctx) {
-        info(ctx->get_estimated_num_finalized_gates());
-    }
+
     packed_byte_array<Builder> message_schedule(input);
 
-    if (ctx) {
-        info(ctx->get_estimated_num_finalized_gates());
-    }
     const size_t message_bits = message_schedule.size() * 8;
     message_schedule.append(field_t(ctx, 128), 1);
 
