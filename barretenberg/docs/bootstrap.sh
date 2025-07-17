@@ -89,7 +89,7 @@ function release {
 }
 
 function test {
-  denoise "yarn install && yarn test"
+  yarn install && yarn test
 }
 
 case "$cmd" in
