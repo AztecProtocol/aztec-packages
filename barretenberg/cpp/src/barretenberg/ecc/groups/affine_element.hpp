@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstring>
@@ -169,6 +170,8 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         affine_element::serialize_to_buffer(*this, &buffer[0]);
         return buffer;
     }
+
+    static affine_element reconstruct_from_public(const std::span<bb::fr>& limbs);
 
     friend std::ostream& operator<<(std::ostream& os, const affine_element& a)
     {
