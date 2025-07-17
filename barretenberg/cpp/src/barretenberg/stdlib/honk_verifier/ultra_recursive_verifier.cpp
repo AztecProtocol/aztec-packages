@@ -100,8 +100,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
 
-    constrain_log_circuit_size(padding_indicator_array, key->vk_and_hash->vk->circuit_size);
-
     Sumcheck sumcheck(transcript, key->alphas);
 
     // Receive commitments to Libra masking polynomials

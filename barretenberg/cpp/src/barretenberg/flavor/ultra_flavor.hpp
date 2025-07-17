@@ -468,7 +468,7 @@ class UltraFlavor {
       public:
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
+            /* 1. Metadata (log_circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
             /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
 
         bool operator==(const VerificationKey&) const = default;
@@ -479,8 +479,7 @@ class UltraFlavor {
 
         VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = precomputed.metadata.dyadic_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
 
@@ -494,8 +493,7 @@ class UltraFlavor {
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
         // For serialising and deserialising data
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
+        MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,
