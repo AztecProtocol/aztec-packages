@@ -39,11 +39,10 @@ static constexpr size_t IPA_PROOF_LENGTH =  /* comms IPA_L and IPA_R */ 4 * CONS
 *@details This implementation of IPA uses the optimized version that only multiplies half of the elements of each
 *vector in each prover round. The implementation uses:
 *
-*1. An SRS (Structured Reference String) \f$\vec{G}=(G_0,G_1...,G_{d-1})\f$ with \f$G_i ∈ E(\mathbb{F}_p)\f$ and
+*1. An CRS (Common Reference String) \f$\vec{G}=(G_0,G_1...,G_{d-1})\f$ with \f$G_i ∈ E(\mathbb{F}_p)\f$ and
 *\f$\mathbb{F}_r\f$ - the scalar field of the elliptic curve as well as \f$G\f$ which is an independent generator on
-*the same curve.
-*2. A polynomial \f$f(x)=\sum_{i=0}^{d-1}f_ix^i\f$ over field \f$F_r\f$, where the polynomial degree \f$d-1\f$ is such
-*that \f$d=2^k\f$
+*the same curve. (Note: we occasionally might use the language of SRS instead of CRS; this is a mild abuse of language.)
+*2. A polynomial \f$f(x)=\sum_{i=0}^{d-1}f_ix^i\f$ over field \f$\mathbb{F}_r\f$, where \f$d=2^k\f$
 *
 *The opening and verification procedures expect that there already exists a commitment to \f$f(x)\f$ which is the
 *scalar product \f$[f(x)]=\langle\vec{f},\vec{G}\rangle\f$, where \f$\vec{f}=(f_0, f_1,..., f_{d-1})\f$​
