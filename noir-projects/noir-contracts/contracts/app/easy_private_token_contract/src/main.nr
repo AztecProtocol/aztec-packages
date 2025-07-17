@@ -21,7 +21,7 @@ pub contract EasyPrivateToken {
     fn constructor(initial_supply: u64, owner: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(owner).add(initial_supply, owner, context.msg_sender());
+        balances.at(owner).add(initial_supply, owner);
     }
 
     // Mints `amount` of tokens to `owner`.
@@ -29,7 +29,7 @@ pub contract EasyPrivateToken {
     fn mint(amount: u64, owner: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(owner).add(amount, owner, context.msg_sender());
+        balances.at(owner).add(amount, owner);
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -37,8 +37,8 @@ pub contract EasyPrivateToken {
     fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(sender).sub(amount, sender, sender);
-        balances.at(recipient).add(amount, recipient, sender);
+        balances.at(sender).sub(amount, sender);
+        balances.at(recipient).add(amount, recipient);
     }
 
     // Helper function to get the balance of a user.

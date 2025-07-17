@@ -50,14 +50,14 @@ jq -c '.accounts[]' state.json | while read -r account; do
       aztec-wallet -p none \
         send mint_to_private \
         -ca $token_0_address \
-        --args $admin_and_minter $current_user_address $AMOUNT \
+        --args $current_user_address $AMOUNT \
         -f $admin_and_minter \
         $fee_method_override
 
       aztec-wallet -p none \
         send mint_to_private \
         -ca $token_1_address \
-        --args $admin_and_minter $current_user_address $AMOUNT \
+        --args $current_user_address $AMOUNT \
         -f $admin_and_minter \
         $fee_method_override
 
