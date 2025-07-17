@@ -1,14 +1,17 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
+import type { LogFilter } from '@aztec/stdlib/logs';
+import { PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
 import { MockL2BlockSource } from './mock_l2_block_source.js';
 
 /**
- * A mocked implementation of the archiver that implements L2BlockSource and L1ToL2MessageSource.
+ * A mocked implementation of the archiver that implements L2BlockSource, L2LogsSource, and L1ToL2MessageSource.
  */
-export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1ToL2MessageSource {
+export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L2LogsSource, L1ToL2MessageSource {
   private messageSource = new MockL1ToL2MessageSource(0);
 
   public setL1ToL2Messages(blockNumber: number, msgs: Fr[]) {
@@ -21,6 +24,23 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
     return this.messageSource.getL1ToL2MessageIndex(_l1ToL2Message);
+  }
+
+  // L2LogsSource methods
+  getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
+    return Promise.resolve([]);
+  }
+
+  getLogsByTags(_tags: Fr[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return Promise.resolve([]);
+  }
+
+  getPublicLogs(_filter: LogFilter): Promise<any> {
+    return Promise.resolve({ logs: [], maxLogsHit: false });
+  }
+
+  getContractClassLogs(_filter: LogFilter): Promise<any> {
+    return Promise.resolve({ logs: [], maxLogsHit: false });
   }
 }
 

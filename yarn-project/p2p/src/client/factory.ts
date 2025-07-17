@@ -4,10 +4,12 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
-import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ArchiverApi,
+  ClientProtocolCircuitVerifier,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -39,7 +41,7 @@ export const P2P_PEER_STORE_NAME = 'p2p-peers';
 export async function createP2PClient<T extends P2PClientType>(
   clientType: T,
   inputConfig: P2PConfig & DataStoreConfig & ChainConfig,
-  archiver: L2BlockSource & ContractDataSource,
+  archiver: ArchiverApi,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
@@ -127,7 +129,7 @@ export async function createP2PClient<T extends P2PClientType>(
 async function createP2PService<T extends P2PClientType>(
   config: P2PConfig & DataStoreConfig,
   clientType: T,
-  archiver: L2BlockSource & ContractDataSource,
+  archiver: ArchiverApi,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,

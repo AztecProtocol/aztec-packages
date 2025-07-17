@@ -532,7 +532,7 @@ describe('KV TX pool', () => {
     // Initially both txs should be in the pool
     expect(await txPool.getPendingTxCount()).toBe(2);
 
-    txPool.triggerEviction();
+    void txPool.triggerEviction();
 
     // Wait a bit for eviction to process
     await new Promise(resolve => setTimeout(resolve, 100));

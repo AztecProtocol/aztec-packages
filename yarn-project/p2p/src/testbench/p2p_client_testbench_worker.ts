@@ -3,7 +3,7 @@
  *
  * Used when running testbench commands
  */
-import { MockL2BlockSource } from '@aztec/archiver/test';
+import { MockArchiver } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -54,6 +54,7 @@ function mockTxPool(): TxPool {
     hasTxs: () => Promise.resolve([]),
     updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
+    stop: () => Promise.resolve(),
   };
   return Object.assign(new EventEmitter(), pool);
 }
@@ -188,7 +189,7 @@ process.on('message', async msg => {
       const attestationPool = mockAttestationPool();
       const epochCache = mockEpochCache();
       const worldState = mockWorldStateSynchronizer();
-      const l2BlockSource = new MockL2BlockSource();
+      const l2BlockSource = new MockArchiver();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
       const kvStore = await openTmpStore(`test-${clientIndex}`);
