@@ -15,6 +15,10 @@
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 namespace bb {
+
+// A point in Fq is represented with 4 public inputs
+static constexpr size_t FQ_PUBLIC_INPUT_SIZE = 4;
+
 class Bn254FqParams {
     // There is a helper script in ecc/fields/parameter_helper.py that can be used to extract these parameters from the
     // source code
@@ -167,8 +171,7 @@ using fq = field<Bn254FqParams>;
 template <> template <> inline fq fq::reconstruct_from_public(const std::span<bb::fr>& limbs)
 {
     // A point in Fq is represented with 4 public inputs
-    static constexpr size_t FRS_PER_FQ = 4;
-    BB_ASSERT_EQ(limbs.size(), FRS_PER_FQ, "Incorrect number of limbs");
+    BB_ASSERT_EQ(limbs.size(), FQ_PUBLIC_INPUT_SIZE, "Incorrect number of limbs");
 
     const uint256_t limb = static_cast<uint256_t>(limbs[0]) +
                            (static_cast<uint256_t>(limbs[1]) << bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +

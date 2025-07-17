@@ -15,6 +15,10 @@
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 
 namespace bb {
+
+// A point in Fr is represented with 1 public input
+static constexpr size_t FR_PUBLIC_INPUTS_SIZE = 1;
+
 class Bn254FrParams {
     // There is a helper script in ecc/fields/parameter_helper.py that can be used to extract these parameters from the
   public:
@@ -170,9 +174,8 @@ using fr = field<Bn254FrParams>;
 
 template <> template <> inline fr fr::reconstruct_from_public(const std::span<fr>& limbs)
 {
-    // A point in Fr is represented with 1 public input
-    static constexpr size_t FRS_PER_FQ = 1;
-    BB_ASSERT_EQ(limbs.size(), FRS_PER_FQ, "Incorrect number of limbs");
+
+    BB_ASSERT_EQ(limbs.size(), FR_PUBLIC_INPUTS_SIZE, "Incorrect number of limbs");
 
     return fr(limbs[0]);
 }

@@ -45,15 +45,8 @@ class PairingPoints {
      */
     static PairingPoints reconstruct_from_public(const std::span<Fr, PAIRING_POINTS_SIZE>& limbs_in)
     {
-        const size_t FRS_PER_FQ = 4;
-
-        Fq P0_x = Fq::reconstruct_from_public(limbs_in.subspan(0, FRS_PER_FQ));
-        Fq P0_y = Fq::reconstruct_from_public(limbs_in.subspan(FRS_PER_FQ, FRS_PER_FQ));
-        Fq P1_x = Fq::reconstruct_from_public(limbs_in.subspan(2 * FRS_PER_FQ, FRS_PER_FQ));
-        Fq P1_y = Fq::reconstruct_from_public(limbs_in.subspan(3 * FRS_PER_FQ, FRS_PER_FQ));
-
-        Point P0{ P0_x, P0_y };
-        Point P1{ P1_x, P1_y };
+        Point P0 = Point::reconstruct_from_public(limbs_in.subspan(0, 2 * FQ_PUBLIC_INPUT_SIZE));
+        Point P1 = Point::reconstruct_from_public(limbs_in.subspan(2 * FQ_PUBLIC_INPUT_SIZE, 2 * FQ_PUBLIC_INPUT_SIZE));
 
         return PairingPoints{ P0, P1 };
     }

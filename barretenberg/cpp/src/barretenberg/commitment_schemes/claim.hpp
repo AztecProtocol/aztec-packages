@@ -126,7 +126,8 @@ template <typename Curve> class OpeningClaim {
 
         auto challenge = fq::reconstruct_from_public(std::span(challenge_limbs));
         auto evaluation = fq::reconstruct_from_public(std::span(evaluation_limbs));
-        typename Curve::AffineElement commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
+        typename Curve::AffineElement commitment =
+            Curve::AffineElement::reconstruct_from_public({ ipa_claim_limbs[8], ipa_claim_limbs[9] });
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
