@@ -14,7 +14,6 @@ describe('ArtifactHash', () => {
         structs: {},
       },
       storageLayout: {},
-      notes: {},
     };
     const hash = await computeArtifactHash(emptyArtifact);
     expect(hash.toString()).toMatchInlineSnapshot(

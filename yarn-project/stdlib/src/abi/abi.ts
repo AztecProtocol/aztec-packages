@@ -7,7 +7,6 @@ import { inflate } from 'pako';
 import { z } from 'zod';
 
 import { FunctionSelector } from './function_selector.js';
-import { NoteSelector } from './note_selector.js';
 
 /** A basic value. */
 export interface BasicValue<T extends string, V> {
@@ -313,38 +312,6 @@ export type DebugFileMap = Record<
   }
 >;
 
-/** Type representing a field of a note (e.g. `amount` in `TokenNote`). */
-export type NoteField = {
-  /** Name of the field (e.g. `amount`). */
-  name: string;
-  /** Index where the note field starts in the serialized note array. */
-  index: number;
-  /** Whether the field can be unset when creating the note (in the partial notes flow). */
-  nullable: boolean;
-};
-
-export const NoteFieldSchema = z.object({
-  name: z.string(),
-  index: z.number(),
-  nullable: z.boolean(),
-}) satisfies z.ZodType<NoteField>;
-
-/** Type representing a note in use in the contract. */
-export type ContractNote = {
-  /** Note identifier */
-  id: NoteSelector;
-  /** Type of the note (e.g., 'TransparentNote') */
-  typ: string;
-  /** Fields of the note. */
-  fields: NoteField[];
-};
-
-export const ContractNoteSchema = z.object({
-  id: NoteSelector.schema,
-  typ: z.string(),
-  fields: z.array(NoteFieldSchema),
-}) satisfies ZodFor<ContractNote>;
-
 /** Type representing a field layout in the storage of a contract. */
 export type FieldLayout = {
   /** Slot in which the field is stored. */
@@ -371,9 +338,6 @@ export interface ContractArtifact {
   /** Storage layout */
   storageLayout: Record<string, FieldLayout>;
 
-  /** The notes used in the contract. */
-  notes: Record<string, ContractNote>;
-
   /** The map of file ID to the source code and path of the file. */
   fileMap: DebugFileMap;
 }
@@ -398,7 +362,6 @@ export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
     globals: z.record(z.array(AbiValueSchema)),
   }),
   storageLayout: z.record(z.object({ slot: schemas.Fr })),
-  notes: z.record(ContractNoteSchema),
   fileMap: z.record(z.coerce.number(), z.object({ source: z.string(), path: z.string() })),
 });
 
@@ -567,6 +530,5 @@ export function emptyContractArtifact(): ContractArtifact {
     },
     storageLayout: {},
     fileMap: {},
-    notes: {},
   };
 }

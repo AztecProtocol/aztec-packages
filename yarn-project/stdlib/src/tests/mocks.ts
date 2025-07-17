@@ -217,7 +217,6 @@ export const randomContractArtifact = (): ContractArtifact => ({
   },
   fileMap: {},
   storageLayout: {},
-  notes: {},
 });
 
 export const randomContractInstanceWithAddress = async (
