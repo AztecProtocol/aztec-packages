@@ -55,8 +55,9 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
  * @param proof
- * @param merge_verification_data The verification data, containing the commitments to t_j read from the transcript by
- * the PG verifier with which the Merge verifier shares a transcript
+ * @param subtable_commitments The subtable comittments data, containing the commitments to t_j read from the transcript
+ * by the PG verifier with which the Merge verifier shares a transcript
+ * @param merged_table_commitment The commitment to the merged table as read from the proof
  * @return bool Verification result
  */
 bool MergeVerifier::verify_proof(const HonkProof& proof,
