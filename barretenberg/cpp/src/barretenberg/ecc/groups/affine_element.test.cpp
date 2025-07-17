@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
 #include "gmock/gmock.h"
 #include <algorithm>
@@ -288,6 +289,50 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
         auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
         EXPECT_EQ(r1, r2);
     }
+}
+
+TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
+{
+    using Curve = curve::BN254;
+    using AffineElement = Curve::AffineElement;
+
+    AffineElement point = AffineElement::random_element();
+    uint256_t x(point.x);
+    uint256_t y(point.y);
+
+    // Construct public inputs
+    std::vector<bb::fr> public_inputs;
+    size_t index = 0;
+    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
+        auto limb = x.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+        public_inputs.emplace_back(bb::fr(limb));
+        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    }
+    index = 0;
+    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
+        auto limb = y.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+        public_inputs.emplace_back(bb::fr(limb));
+        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    }
+
+    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+
+    EXPECT_EQ(reconstructed, point);
+}
+
+TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
+{
+    using Curve = curve::Grumpkin;
+    using AffineElement = Curve::AffineElement;
+
+    AffineElement point = AffineElement::random_element();
+
+    // Construct public inputs
+    std::vector<bb::fr> public_inputs = { point.x, point.y };
+
+    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+
+    EXPECT_EQ(reconstructed, point);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason
