@@ -501,6 +501,23 @@ void ExecutionTraceBuilder::process(
         trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
             process_gas(ex_event.gas_event, *exec_opcode, trace, row);
+            // todo(ilyas): this is a bad place to do this, but we need the register information to compute dyn gas
+            // factor. process_gas does not have access to it and nor should it.
+            if (*exec_opcode == ExecutionOpCode::TORADIXBE) {
+                uint32_t radix = ex_event.inputs[1].as<uint32_t>();     // Safe since already tag checked
+                uint32_t num_limbs = ex_event.inputs[2].as<uint32_t>(); // Safe since already tag checked
+                uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
+                trace.set(row,
+                          { {
+                              // To Radix BE Dynamic Gas
+                              { C::execution_two_five_six, 256 },
+                              { C::execution_sel_radix_gt_256, radix > 256 ? 1 : 0 },
+                              { C::execution_sel_lookup_num_p_limbs, radix <= 256 ? 1 : 0 },
+                              { C::execution_num_p_limbs, num_p_limbs },
+                              { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
+                              // Don't set dyn gas factor here since already set in process_gas
+                          } });
+            }
         }
 
         /**************************************************************************************************
@@ -1132,6 +1149,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
+        // Gas - ToRadix BE
+        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>()
         // External Call
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()

@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
@@ -812,6 +813,58 @@ void Execution::ecc_add(ContextInterface& context,
         embedded_curve.add(memory, p, q, dst_addr);
     } catch (const EccException& e) {
         throw OpcodeExecutionException("Embedded curve add failed: " + std::string(e.what()));
+    }
+}
+
+void Execution::to_radix_be(ContextInterface& context,
+                            MemoryAddress value_addr,
+                            MemoryAddress radix_addr,
+                            MemoryAddress num_limbs_addr,
+                            MemoryAddress is_output_bits_addr, // Decides if output is U1 or U8
+                            MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::TORADIXBE;
+    auto& memory = context.get_memory();
+
+    MemoryValue value = memory.get(value_addr);                   // Field
+    MemoryValue radix = memory.get(radix_addr);                   // U32
+    MemoryValue num_limbs = memory.get(num_limbs_addr);           // U32
+    MemoryValue is_output_bits = memory.get(is_output_bits_addr); // U1
+
+    // Tag check the inputs
+    set_and_validate_inputs(opcode, { value, radix, num_limbs, is_output_bits });
+
+    // The range check for a valid radix (2 <= radix <= 256) is done in the gadget.
+    // However, in order to compute the dynamic gas value we need to constrain the radix
+    // to be <= 256 since the `get_p_limbs_per_radix` lookup table is only defined for the range [0, 256].
+    // This does mean that the <= 256 check is duplicated - this can be optimised later.
+
+    // The dynamic gas factor is the maximum of the num_limbs requested by the opcode and the number of limbs
+    // the gadget that the field modulus, p, decomposes into given a radix (num_p_limbs).
+    // See to_radix.pil for how these values impact the row count.
+
+    // The lookup table of radix decomposed limbs of the modulus p is defined for radix values [0, 256],
+    // so for any radix value greater than 256 we set num_p_limbs to 32 - with
+    // the understanding the opcode will fail in the gadget (since the radix is invalid).
+    uint32_t radix_value = radix.as<uint32_t>();
+    uint32_t num_p_limbs = greater_than.gt(radix.as<uint32_t>(), 256)
+                               ? 32
+                               : static_cast<uint32_t>(get_p_limbs_per_radix()[radix_value].size());
+
+    // Compute the dynamic gas factor - todo: this needs to trigger circuit interactions
+    uint32_t l2_dyn_gas_factor = std::max(num_limbs.as<uint32_t>(), num_p_limbs);
+    get_gas_tracker().consume_gas({ .l2Gas = l2_dyn_gas_factor, .daGas = 0 });
+
+    try {
+        // Call the gadget to perform the conversion.
+        to_radix.to_be_radix(memory,
+                             value.as_ff(),
+                             radix_value,
+                             num_limbs.as<uint32_t>(),
+                             is_output_bits.as<uint1_t>().value() == 1,
+                             dst_addr);
+    } catch (const ToRadixException& e) {
+        throw OpcodeExecutionException("ToRadixBe gadget failed: " + std::string(e.what()));
     }
 }
 
