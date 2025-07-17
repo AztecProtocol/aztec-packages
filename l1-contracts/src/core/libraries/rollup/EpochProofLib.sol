@@ -68,6 +68,7 @@ library EpochProofLib {
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
+    rollupStore.archives[_args.end] = _args.args.endArchive;
     rollupStore.tips = rollupStore.tips.updateProvenBlockNumber(
       Math.max(rollupStore.tips.getProvenBlockNumber(), _args.end)
     );
@@ -99,23 +100,18 @@ library EpochProofLib {
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
+    require(_args.endArchive != bytes32(0), Errors.Rollup__EndArchiveIsZero());
+
     // TODO(#7373): Public inputs are not fully verified
 
     {
       // We do it this way to provide better error messages than passing along the storage values
       {
         bytes32 expectedPreviousArchive = rollupStore.archives[_start - 1];
+        require(expectedPreviousArchive != bytes32(0), Errors.Rollup__PreviousArchiveIsZero());
         require(
           expectedPreviousArchive == _args.previousArchive,
           Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
-        );
-      }
-
-      {
-        bytes32 expectedEndArchive = rollupStore.archives[_end];
-        require(
-          expectedEndArchive == _args.endArchive,
-          Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
         );
       }
     }

@@ -21,7 +21,6 @@ import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeade
 import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
-  bytes32 archive;
   // Including stateReference here so that the archiver can reconstruct the full block header.
   // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
   // by the last archive and blobs hash.
@@ -32,7 +31,6 @@ struct ProposeArgs {
 }
 
 struct ProposePayload {
-  bytes32 archive;
   StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
@@ -115,7 +113,6 @@ library ProposeLib {
         attestations: _attestations,
         digest: digest(
           ProposePayload({
-            archive: _args.archive,
             stateReference: _args.stateReference,
             oracleInput: _args.oracleInput,
             headerHash: v.headerHash
@@ -146,7 +143,6 @@ library ProposeLib {
     );
 
     rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(blockNumber);
-    rollupStore.archives[blockNumber] = _args.archive;
     STFLib.setTempBlockLog(
       blockNumber,
       TempBlockLog({
@@ -166,7 +162,7 @@ library ProposeLib {
 
     rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
 
-    emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
+    emit IRollupCore.L2BlockProposed(blockNumber, v.headerHash, v.blobHashes);
   }
 
   // @note: not view as sampling validators uses tstore
@@ -175,15 +171,8 @@ library ProposeLib {
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
-
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(
-      tipArchive == _args.header.lastArchiveRoot,
-      Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchiveRoot)
-    );
 
     Slot slot = _args.header.slotNumber;
     Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);

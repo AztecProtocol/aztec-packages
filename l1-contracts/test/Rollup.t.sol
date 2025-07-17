@@ -242,7 +242,6 @@ contract RollupTest is RollupBase {
     vm.blobhashes(blobHashes);
     ProposeArgs memory args = ProposeArgs({
       header: data.header,
-      archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
@@ -328,7 +327,6 @@ contract RollupTest is RollupBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
@@ -356,7 +354,6 @@ contract RollupTest is RollupBase {
     );
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
@@ -467,7 +464,6 @@ contract RollupTest is RollupBase {
       // Assert that balance have NOT been increased by proposing the block
       ProposeArgs memory args = ProposeArgs({
         header: header,
-        archive: data.archive,
         stateReference: EMPTY_STATE_REFERENCE,
         oracleInput: OracleInput(0)
       });
@@ -723,7 +719,6 @@ contract RollupTest is RollupBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
@@ -746,7 +741,6 @@ contract RollupTest is RollupBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
     ProposeArgs memory args = ProposeArgs({
       header: header,
-      archive: archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
@@ -765,19 +759,6 @@ contract RollupTest is RollupBase {
       )
     );
     _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, address(0));
-  }
-
-  function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
-    _proposeBlock("empty_block_1", 1);
-
-    DecoderBase.Data memory data = load("empty_block_1").block;
-    bytes32 wrongArchive = bytes32(uint256(0xdeadbeef));
-
-    BlockLog memory blockLog = rollup.getBlock(0);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
-    );
-    _submitEpochProof(1, 1, blockLog.archive, wrongArchive, data.batchedBlobInputs, address(0));
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {

@@ -212,13 +212,17 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     benchmark(true);
   }
 
+  function getFakeArchive(uint256 _blockNumber) internal pure returns (bytes32) {
+    return keccak256(abi.encode("fake archive", _blockNumber));
+  }
+
   /**
    * @notice Constructs a fake block that is not possible to prove, but passes the L1 checks.
    */
   function getBlock() internal returns (Block memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
-    bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
+    bytes32 archiveRoot = getFakeArchive(rollup.getPendingBlockNumber() + 1);
 
     ProposedHeader memory header = full.block.header;
 
@@ -235,7 +239,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     address c = proposer != address(0) ? proposer : coinbase;
 
     // Updating the header with important information!
-    header.lastArchiveRoot = archiveRoot;
+    header.lastArchiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
     header.slotNumber = slotNumber;
     header.timestamp = ts;
     header.coinbase = c;
@@ -245,7 +249,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
-      archive: archiveRoot,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
@@ -260,7 +263,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
       ProposePayload memory proposePayload = ProposePayload({
-        archive: proposeArgs.archive,
         stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
         headerHash: headerHash
@@ -426,10 +428,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         }
 
         PublicInputArgs memory args = PublicInputArgs({
-          previousArchive: rollup.getBlock(start).archive,
-          endArchive: rollup.getBlock(start + epochSize - 1).archive,
+          previousArchive: rollup.getBlock(start - 1).archive,
+          endArchive: getFakeArchive(start + epochSize - 1),
           proverId: address(0)
         });
+        assertNotEq(args.previousArchive, bytes32(0));
 
         {
           rollup.submitEpochRootProof(
