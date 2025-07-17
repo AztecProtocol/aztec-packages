@@ -100,6 +100,23 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
   return LocalGovernanceConfiguration;
 };
 
+const TestnetGSEConfiguration = {
+  depositAmount: BigInt(100e18),
+  minimumStake: BigInt(50e18),
+};
+
+const LocalGSEConfiguration = {
+  depositAmount: BigInt(100e18),
+  minimumStake: BigInt(50e18),
+};
+
+export const getGSEConfiguration = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGSEConfiguration;
+  }
+  return LocalGSEConfiguration;
+};
+
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
