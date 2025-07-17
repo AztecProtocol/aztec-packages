@@ -6,6 +6,7 @@ ffi = true
 optimizer_runs = 1
 gas_limit = 900000000000000000
 bytecode_hash = "none"
+evm_version = "cancun"
 
 [fuzz]
 runs = 1

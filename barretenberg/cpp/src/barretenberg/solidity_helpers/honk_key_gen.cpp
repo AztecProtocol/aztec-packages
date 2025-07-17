@@ -41,6 +41,13 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
         output_vk_sol_ultra_honk(os, verification_key, vk_class_name, true);
         info("VK contract written to: ", vk_filename);
     }
+    // TODO: make this a switch
+    {
+        auto vk_filename = output_path + "/keys/" + vk_class_name + ".opt.sol";
+        std::ofstream os(vk_filename);
+        output_vk_sol_ultra_honk_opt(os, verification_key, true);
+        info("Opt VK contract written to: ", vk_filename);
+    }
 }
 
 /*

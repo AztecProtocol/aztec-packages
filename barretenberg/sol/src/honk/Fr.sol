@@ -100,6 +100,23 @@ library FrLib {
     function neg(Fr value) internal pure returns (Fr) {
         return Fr.wrap(MODULUS - Fr.unwrap(value));
     }
+
+    // function batchInvert(Fr[] memory terms) internal view returns (Fr[] memory) {
+    //     Fr[] memory temps = new Fr[](terms.length);
+    //     Fr acc = Fr.wrap(1);
+    //     for (uint256 i; i < terms.length; ++i) {
+    //         temps[i] = acc;
+    //         acc = acc * terms[i];
+    //     }
+    //     acc = FrLib.invert(acc);
+    //     Fr tmp;
+    //     for (uint256 i = terms.length - 1; i >= 0; --i) {
+    //         tmp = acc * temps[i];
+    //         acc = acc * terms[i];
+    //         terms[i] = tmp;
+    //     }
+    //     return terms;
+    // }
 }
 
 // Free functions
