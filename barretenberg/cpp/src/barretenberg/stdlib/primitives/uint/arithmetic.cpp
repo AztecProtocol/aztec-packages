@@ -87,7 +87,7 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
 
     const uint256_t lhs = get_value();
     const uint256_t rhs = other.get_value();
-    const uint256_t constant_term = (additive_constant - other.additive_constant);
+    const uint256_t constant_term = CIRCUIT_UINT_MAX_PLUS_ONE + (additive_constant - other.additive_constant);
 
     const uint256_t difference = CIRCUIT_UINT_MAX_PLUS_ONE + lhs - rhs;
     const uint256_t overflow = difference >> width;
@@ -102,7 +102,7 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
         FF::neg_one(),
         FF::neg_one(),
         -FF(CIRCUIT_UINT_MAX_PLUS_ONE),
-        CIRCUIT_UINT_MAX_PLUS_ONE + constant_term,
+        constant_term,
     };
 
     ctx->create_balanced_add_gate(gate);
