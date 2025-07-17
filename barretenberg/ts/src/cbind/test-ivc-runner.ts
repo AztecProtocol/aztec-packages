@@ -1,5 +1,5 @@
 // #!/usr/bin/env node
-import { NativeApi } from './generated/native.js';
+import { NativeApi } from './generated-bkup/native.js';
 import { IvcRunner, IvcInputs } from './ivc-inputs.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -19,11 +19,8 @@ async function testWithRealFile() {
   const bbPath = join(__dirname, '..', '..', '..', 'cpp', 'build-no-avm', 'bin', 'bb');
 
   if (existsSync(bbPath)) {
-    console.log('\nTesting check precomputed VKs with native API...');
-    const api = new NativeApi(bbPath);
-    await api.init();
-
-    const runner = new IvcRunner(api);
+    const api = await NativeApi.new(bbPath);
+    const runner = new IvcRunner(api as any);
     runner.accumulateFromFile(realInputsPath);
     await runner.prove()
 
