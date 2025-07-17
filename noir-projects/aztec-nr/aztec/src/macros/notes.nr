@@ -201,7 +201,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 
     if note_packed_len > MAX_NOTE_PACKED_LEN {
         panic(
-            f"One of the notes has packed len {note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
+            f"{s} packs into {note_packed_len} fields which is larger than the maximum of {MAX_NOTE_PACKED_LEN}",
         );
     }
 
@@ -256,7 +256,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
 
     if note_packed_len > MAX_NOTE_PACKED_LEN {
         panic(
-            f"One of the notes has packed len {note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
+            f"{s} packs into {note_packed_len} fields which is larger than the maximum of {MAX_NOTE_PACKED_LEN}",
         );
     }
 
