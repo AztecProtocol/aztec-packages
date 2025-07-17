@@ -209,15 +209,9 @@ std::pair<uint<Builder, Native>, uint<Builder, Native>> uint<Builder, Native>::d
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     // We want to force the divisor to be non-zero, as this is an error state
-    if (other.is_constant() && other.get_value() == 0) {
-        // TODO: should have an actual error handler!
-        const uint32_t one = ctx->add_variable(FF::one());
-        ctx->assert_equal_constant(one, FF::zero(), "plookup_arithmetic: divide by zero!");
-    } else if (!other.is_constant()) {
-        const bool_t<Builder> is_divisor_zero = field_t<Builder>(other).is_zero();
-        ctx->assert_equal_constant(is_divisor_zero.witness_index, FF::zero(), "plookup_arithmetic: divide by zero!");
-    }
+    field_t<Builder>(other).assert_is_not_zero("uint_arithmetic: divide by zero!");
 
+    // If both are constants, we can compute the quotient and remainder directly
     if (is_constant() && other.is_constant()) {
         const uint<Builder, Native> remainder(ctx, additive_constant % other.additive_constant);
         const uint<Builder, Native> quotient(ctx, additive_constant / other.additive_constant);
