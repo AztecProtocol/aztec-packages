@@ -125,16 +125,13 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     let notes = NOTES.entries();
 
     if notes.len() > 0 {
-        let max_note_packed_len = notes.fold(
-            0,
-            |acc, (_, (_, len, _)): (Type, (TypeDefinition, u32, Field))| {
-                if len > acc {
-                    len
-                } else {
-                    acc
-                }
-            },
-        );
+        let max_note_packed_len = notes.fold(0, |acc, (_, len): (Type, u32)| {
+            if len > acc {
+                len
+            } else {
+                acc
+            }
+        });
 
         if max_note_packed_len > MAX_NOTE_PACKED_LEN {
             panic(
@@ -149,7 +146,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
         let mut if_note_type_id_match_statements_list = &[];
         for i in 0..notes.len() {
-            let (typ, (_, packed_note_length, _)) = notes[i];
+            let (typ, packed_note_length) = notes[i];
 
             let get_note_type_id = get_trait_impl_method(
                 typ,

@@ -3,8 +3,8 @@ use poseidon::poseidon2::Poseidon2Hasher;
 use protocol_types::meta::derive_packable_and_get_packed_len;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
-/// A map from note type to (note_struct_definition, note_packed_len, note_type_id).
-pub comptime mut global NOTES: UHashMap<Type, (TypeDefinition, u32, Field), BuildHasherDefault<Poseidon2Hasher>> =
+/// A map from note type to note_packed_len.
+pub comptime mut global NOTES: UHashMap<Type, u32, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
 pub comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
@@ -196,7 +196,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     let note_hash_impl = generate_note_hash_trait_impl(s);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
 
-    NOTES.insert(s.as_type(), (s, note_packed_len, note_type_id));
+    NOTES.insert(s.as_type(), note_packed_len);
 
     quote {
         $note_properties
@@ -249,7 +249,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     let note_properties = generate_note_properties(s);
     let note_interface_impl = generate_note_interface(s, note_type_id);
 
-    NOTES.insert(s.as_type(), (s, note_packed_len, note_type_id));
+    NOTES.insert(s.as_type(), note_packed_len);
 
     quote {
         $note_properties
