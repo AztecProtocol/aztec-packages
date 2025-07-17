@@ -209,14 +209,17 @@ std::pair<uint<Builder, Native>, uint<Builder, Native>> uint<Builder, Native>::d
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     // We want to force the divisor to be non-zero, as this is an error state
-    field_t<Builder>(other).assert_is_not_zero("uint_arithmetic: divide by zero!");
+    static_cast<field_t<Builder>>(other).assert_is_not_zero("uint_arithmetic: divide by zero!");
 
     // If both are constants, we can compute the quotient and remainder directly
     if (is_constant() && other.is_constant()) {
         const uint<Builder, Native> remainder(ctx, additive_constant % other.additive_constant);
         const uint<Builder, Native> quotient(ctx, additive_constant / other.additive_constant);
         return std::make_pair(quotient, remainder);
-    } else if (witness_index == other.witness_index) {
+    }
+
+    // If the divisor and dividend are the same witness, we can return a quotient of 1 and a remainder of 0.
+    if (witness_index == other.witness_index) {
         const uint<Builder, Native> remainder(context, 0);
         const uint<Builder, Native> quotient(context, 1);
         return std::make_pair(quotient, remainder);
