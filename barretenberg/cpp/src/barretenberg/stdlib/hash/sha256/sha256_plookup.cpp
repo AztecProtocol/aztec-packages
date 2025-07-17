@@ -251,7 +251,7 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
     field_pt overflow = witness_pt(ctx, fr((sum - normalized_sum) >> 32));
 
     field_pt result = a.add_two(b, overflow * field_pt(ctx, -fr((uint64_t)(1ULL << 32ULL))));
-
+    // Has to be a byte?
     overflow.create_range_constraint(3);
     return result;
 }
@@ -344,9 +344,15 @@ template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_
     typedef field_t<Builder> field_pt;
 
     Builder* ctx = input.get_context();
+    // Create an unconstrained byte input
+    if (ctx) {
+        info(ctx->get_estimated_num_finalized_gates());
+    }
+    packed_byte_array<Builder> message_schedule(input);
 
-    auto message_schedule(input);
-
+    if (ctx) {
+        info(ctx->get_estimated_num_finalized_gates());
+    }
     const size_t message_bits = message_schedule.size() * 8;
     message_schedule.append(field_t(ctx, 128), 1);
 
@@ -361,7 +367,7 @@ template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_
 
     message_schedule.append(field_t(ctx, message_bits), 8);
 
-    const auto slices = message_schedule.to_unverified_byte_slices(4);
+    const std::vector<field_pt> slices = message_schedule.to_unverified_byte_slices(4);
 
     constexpr size_t slices_per_block = 16;
 

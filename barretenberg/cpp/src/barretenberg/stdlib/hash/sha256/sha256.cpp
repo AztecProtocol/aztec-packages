@@ -141,46 +141,7 @@ template <typename Builder> byte_array<Builder> sha256_block(const byte_array<Bu
 
 template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_array<Builder>& input)
 {
-    if constexpr (HasPlookup<Builder>) {
-        return sha256_plookup::sha256(input);
-    }
-    typedef field_t<Builder> field_pt;
-    typedef uint32<Builder> uint32;
-
-    Builder* ctx = input.get_context();
-
-    auto message_schedule(input);
-
-    const size_t message_bits = message_schedule.size() * 8;
-    message_schedule.append(field_t(ctx, 128), 1);
-
-    constexpr size_t bytes_per_block = 64;
-    const size_t num_bytes = message_schedule.size() + 8;
-    const size_t num_blocks = num_bytes / bytes_per_block + (num_bytes % bytes_per_block != 0);
-
-    const size_t num_total_bytes = num_blocks * bytes_per_block;
-    for (size_t i = num_bytes; i < num_total_bytes; ++i) {
-        message_schedule.append(field_t(ctx, 0), 1);
-    }
-
-    message_schedule.append(field_t(ctx, message_bits), 8);
-
-    const auto slices = message_schedule.to_unverified_byte_slices(4);
-
-    constexpr size_t slices_per_block = 16;
-
-    std::array<uint32, 8> rolling_hash;
-    prepare_constants<Builder>(rolling_hash);
-    for (size_t i = 0; i < num_blocks; ++i) {
-        std::array<uint32, 16> hash_input;
-        for (size_t j = 0; j < 16; ++j) {
-            hash_input[j] = uint32(slices[i * slices_per_block + j]);
-        }
-        rolling_hash = sha256_block<Builder>(rolling_hash, hash_input);
-    }
-
-    std::vector<field_pt> output(rolling_hash.begin(), rolling_hash.end());
-    return packed_byte_array<Builder>(output, 4);
+    return sha256_plookup::sha256(input);
 }
 
 /**
