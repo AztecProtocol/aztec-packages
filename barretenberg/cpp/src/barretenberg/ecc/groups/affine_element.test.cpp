@@ -296,8 +296,6 @@ TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
     using Curve = curve::BN254;
     using AffineElement = Curve::AffineElement;
 
-    static constexpr size_t NUM_LIMBS = 4;
-
     AffineElement point = AffineElement::random_element();
     uint256_t x(point.x);
     uint256_t y(point.y);
@@ -305,13 +303,13 @@ TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
     // Construct public inputs
     std::vector<bb::fr> public_inputs;
     size_t index = 0;
-    for (size_t idx = 0; idx < NUM_LIMBS; idx++) {
+    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
         auto limb = x.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
         public_inputs.emplace_back(bb::fr(limb));
         index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     }
     index = 0;
-    for (size_t idx = 0; idx < NUM_LIMBS; idx++) {
+    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
         auto limb = y.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
         public_inputs.emplace_back(bb::fr(limb));
         index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;

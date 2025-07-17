@@ -85,12 +85,10 @@ template <>
 inline bb::grumpkin::g1::affine_element bb::grumpkin::g1::affine_element::reconstruct_from_public(
     const std::span<bb::fr>& limbs)
 {
-    // A coordinate of a point on Grumpkin is stored using 1 limb
-    static constexpr size_t FRS_PER_FQ = 1;
-    BB_ASSERT_EQ(limbs.size(), 2 * FRS_PER_FQ, "Incorrect number of limbs");
+    BB_ASSERT_EQ(limbs.size(), 2 * FR_PUBLIC_INPUTS_SIZE, "Incorrect number of limbs");
 
-    auto x_limbs = limbs.subspan(0, FRS_PER_FQ);
-    auto y_limbs = limbs.subspan(FRS_PER_FQ, FRS_PER_FQ);
+    auto x_limbs = limbs.subspan(0, FR_PUBLIC_INPUTS_SIZE);
+    auto y_limbs = limbs.subspan(FR_PUBLIC_INPUTS_SIZE, FR_PUBLIC_INPUTS_SIZE);
 
     affine_element result;
     result.x = Fq::reconstruct_from_public(x_limbs);
