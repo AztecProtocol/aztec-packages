@@ -25,7 +25,7 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  *
  * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
  * the polynomial
- *      p_j(X) = l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa)
+ *      p_j(X) = - l_j(kappa) - kappa^k r_j(kappa) + m_j(kappa)
  * opens to 0 at kappa.
  *
  * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and
@@ -42,7 +42,7 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
  *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
  *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
- *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^k, -1}, and the claimed
+ *                           reconstructing p_j from l_j, r_j, m_j: {-1, -kappa^k, +1}, and the claimed
  *                           evaluation: 0.
  *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
  *                           v_j.
@@ -95,61 +95,67 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    const FF pow_kappa = kappa.pow(shift_size);
+    const FF minus_pow_kappa = -kappa.pow(shift_size);
 
-    // Opening claims to be passed to the Shplonk verifier
-    std::vector<Claims> opening_claims;
-
-    // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
-    commitment_idx = 0;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Claims claim{ { /*index of [l_j]*/ commitment_idx,
-                        /*index of [r_j]*/ commitment_idx + 1,
-                        /*index of [m_j]*/ commitment_idx + 2 },
-                      { FF::one(), pow_kappa, FF::neg_one() },
-                      { kappa, FF::zero() } };
-        opening_claims.emplace_back(claim);
-
-        // Move commitment_idx to the index of [l_{j+1}]
-        commitment_idx += NUM_WIRES;
-    }
+    // Opening claim to be passed to the KZG verifier
+    BatchOpeningClaim<Curve> batch_opening_claim;
 
     // Boolean keeping track of the degree identities
     bool degree_check_verified = true;
 
-    // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{k-1}
-    commitment_idx = 0;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Claims claim;
+    {
+        // Opening claims to be passed to the Shplonk verifier
+        std::vector<Claims> opening_claims;
 
-        // Opening claim for l_j(1/kappa)
-        FF left_table_eval_kappa_inv =
-            transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
-        claim = { { commitment_idx }, { FF::one() }, { kappa_inv, left_table_eval_kappa_inv } };
-        opening_claims.emplace_back(claim);
+        // Add opening claim for p_j(X) = - l_j(X) - kappa^k r_j(X) + m_j(X)
+        commitment_idx = 0;
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            Claims claim{ { /*index of [l_j]*/ commitment_idx,
+                            /*index of [r_j]*/ commitment_idx + 1,
+                            /*index of [m_j]*/ commitment_idx + 2 },
+                          { FF::neg_one(), minus_pow_kappa, FF::one() },
+                          { kappa, FF::zero() } };
+            opening_claims.emplace_back(claim);
 
-        // Move commitment_idx to index of g_j
-        commitment_idx += 3;
+            // Move commitment_idx to the index of [l_{j+1}]
+            commitment_idx += NUM_WIRES;
+        }
 
-        // Opening claim for g_j(kappa)
-        FF left_table_reversed_eval =
-            transcript->template receive_from_prover<FF>("left_table_reversed_eval_" + std::to_string(idx));
-        claim = { { commitment_idx }, { FF::one() }, { kappa, left_table_reversed_eval } };
-        opening_claims.emplace_back(claim);
+        // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{k-1}
+        commitment_idx = 0;
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            Claims claim;
 
-        // Move commitment_idx to index of left_table_{j+1}
-        commitment_idx += 1;
+            // Opening claim for l_j(1/kappa)
+            FF left_table_eval_kappa_inv =
+                transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
+            claim = { { commitment_idx }, { FF::one() }, { kappa_inv, left_table_eval_kappa_inv } };
+            opening_claims.emplace_back(claim);
 
-        // Degree identity
-        degree_check_verified &= (left_table_eval_kappa_inv * kappa.pow(shift_size - 1) == left_table_reversed_eval);
+            // Move commitment_idx to index of g_j
+            commitment_idx += 3;
+
+            // Opening claim for g_j(kappa)
+            FF left_table_reversed_eval =
+                transcript->template receive_from_prover<FF>("left_table_reversed_eval_" + std::to_string(idx));
+            claim = { { commitment_idx }, { FF::one() }, { kappa, left_table_reversed_eval } };
+            opening_claims.emplace_back(claim);
+
+            // Move commitment_idx to index of left_table_{j+1}
+            commitment_idx += 1;
+
+            // Degree identity
+            degree_check_verified &=
+                (left_table_eval_kappa_inv * kappa.pow(shift_size - 1) == left_table_reversed_eval);
+        }
+
+        // Initialize Shplonk verifier
+        ShplonkVerifier_<Curve> verifier(table_commitments, transcript, opening_claims.size());
+        verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
+
+        // Export batched claim
+        batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one());
     }
-
-    // Initialize Shplonk verifier
-    ShplonkVerifier_<Curve> verifier(table_commitments, transcript, opening_claims.size());
-    verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
-
-    // Export batched claim
-    auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one());
 
     // KZG verifier
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);

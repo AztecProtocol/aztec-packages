@@ -32,9 +32,9 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  * where k = shift_size.
  *
  * Condition (1) is equivalent, up to negligible probability, to:
- *      l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa) = 0
+ *     - l_j(kappa) - kappa^k r_j(kappa) + m_j(kappa) = 0
  * so the prover constructs the polynomial
- *      p_j(X) := l_j(X) + kappa^{k-1} r_j(X) - m_j(X)
+ *      p_j(X) := - l_j(X) - kappa^{k-1} r_j(X) + m_j(X)
  * and proves that it opens to 0 at kappa.
  *
  * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{k-1} l_j(1/X)) and provides
@@ -72,8 +72,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
         left_table_reversed[idx] = left_table[idx].reverse();
     }
 
-    const size_t merged_table_size = merged_table[0].size();
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
     // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
     // subtable when sending a merge proof to the rollup.
@@ -96,45 +94,49 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
-    const FF pow_kappa = kappa.pow(shift_size);
+    const FF minus_pow_kappa = -kappa.pow(shift_size);
     const FF kappa_inv = kappa.invert();
 
-    // Opening claims for each polynomial p_j, l_j, g_j
-    //
-    // The opening claims are sent in the following order:
-    // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
-    //      {1/kappa, l_1(1/kappa)}, {kappa, g_1(kappa)},
-    //          {1/kappa, l_2(1/kappa)}, {kappa, g_2(kappa)},
-    //              {1/kappa, l_3(1/kappa)}, {kappa, g_3(kappa)},
-    //                  {1/kappa, l_4(1/kappa)}, {kappa, g_4(kappa)}
-    std::vector<OpeningClaim> opening_claims;
+    // Opening claim to be passed to the KZG prover
+    OpeningClaim shplonk_opening_claim;
 
-    // Set opening claims p_j(\kappa) = l_j(X) + kappa^l r_j(X) - m_j(X)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Polynomial partially_evaluated_difference(merged_table_size);
-        partially_evaluated_difference += left_table[idx];
-        partially_evaluated_difference.add_scaled(right_table[idx], pow_kappa);
-        partially_evaluated_difference -= merged_table[idx];
+    {
+        // Opening claims for each polynomial p_j, l_j, g_j
+        //
+        // The opening claims are sent in the following order:
+        // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
+        //      {1/kappa, l_1(1/kappa)}, {kappa, g_1(kappa)},
+        //          {1/kappa, l_2(1/kappa)}, {kappa, g_2(kappa)},
+        //              {1/kappa, l_3(1/kappa)}, {kappa, g_3(kappa)},
+        //                  {1/kappa, l_4(1/kappa)}, {kappa, g_4(kappa)}
+        std::vector<OpeningClaim> opening_claims;
 
-        opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
+        // Set opening claims p_j(\kappa) = - l_j(X) - kappa^l r_j(X) + m_j(X)
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            auto partially_evaluated_difference = std::move(merged_table[idx]);
+            partially_evaluated_difference -= left_table[idx];
+            partially_evaluated_difference.add_scaled(std::move(right_table[idx]), minus_pow_kappa);
+
+            opening_claims.emplace_back(OpeningClaim{ std::move(partially_evaluated_difference), { kappa, FF(0) } });
+        }
+        // Compute evaluations l_j(1/kappa), g_j(kappa), send to verifier, and set opening claims
+        for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+            FF evaluation;
+
+            // Evaluate l_j(1/kappa)
+            evaluation = left_table[idx].evaluate(kappa_inv);
+            transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
+            opening_claims.emplace_back(OpeningClaim{ std::move(left_table[idx]), { kappa_inv, evaluation } });
+
+            // Evaluate g_j(\kappa)
+            evaluation = left_table_reversed[idx].evaluate(kappa);
+            transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
+            opening_claims.emplace_back(OpeningClaim{ std::move(left_table_reversed[idx]), { kappa, evaluation } });
+        }
+
+        // Shplonk prover
+        shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);
     }
-    // Compute evaluation l_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation;
-
-        // Evaluate l_j(1/kappa)
-        evaluation = left_table[idx].evaluate(kappa_inv);
-        transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ left_table[idx], { kappa_inv, evaluation } });
-
-        // Evaluate g_j(\kappa)
-        evaluation = left_table_reversed[idx].evaluate(kappa);
-        transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ left_table_reversed[idx], { kappa, evaluation } });
-    }
-
-    // Shplonk prover
-    OpeningClaim shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);
 
     // KZG prover
     PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
