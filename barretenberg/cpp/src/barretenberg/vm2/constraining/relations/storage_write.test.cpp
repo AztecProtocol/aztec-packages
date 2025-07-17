@@ -36,13 +36,9 @@ using tracegen::WrittenPublicDataSlotsTreeCheckTraceBuilder;
 
 using simulation::build_public_data_slots_tree;
 using simulation::EventEmitter;
-using simulation::MerkleDB;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
-using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
-using simulation::MockNoteHashTreeCheck;
-using simulation::MockNullifierTreeCheck;
 using simulation::MockPoseidon2;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
@@ -54,8 +50,6 @@ using simulation::WrittenPublicDataSlotsTreeCheckEvent;
 
 using testing::_;
 using testing::NiceMock;
-using testing::Return;
-using testing::ReturnRef;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -104,7 +98,7 @@ TEST(SStoreConstrainingTest, MaxDataWritesReached)
     });
     check_relation<sstore>(trace, sstore::SR_SSTORE_MAX_DATA_WRITES_REACHED);
 
-    trace.set(0, { { { C::execution_max_data_writes_reached, 0 } } });
+    trace.set(C::execution_max_data_writes_reached, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_MAX_DATA_WRITES_REACHED),
                               "SSTORE_MAX_DATA_WRITES_REACHED");
@@ -128,7 +122,7 @@ TEST(SStoreConstrainingTest, ErrorTooManyWrites)
     });
     check_relation<sstore>(trace, sstore::SR_SSTORE_ERROR_TOO_MANY_WRITES);
 
-    trace.set(0, { { { C::execution_dynamic_da_gas_factor, 0 } } });
+    trace.set(C::execution_dynamic_da_gas_factor, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_ERROR_TOO_MANY_WRITES),
                               "SSTORE_ERROR_TOO_MANY_WRITES");
@@ -171,7 +165,7 @@ TEST(SStoreConstrainingTest, Interactions)
         return static_cast<uint256_t>(a) > static_cast<uint256_t>(b);
     });
 
-    EXPECT_CALL(merkle_check, write(_, _, _, _, _))
+    EXPECT_CALL(merkle_check, write)
         .WillRepeatedly([]([[maybe_unused]] FF current_leaf,
                            FF new_leaf,
                            uint64_t leaf_index,

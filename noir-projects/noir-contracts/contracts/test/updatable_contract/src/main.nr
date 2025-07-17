@@ -27,7 +27,6 @@ contract Updatable {
         storage.private_value.initialize(new_value).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            owner,
         ));
         Updatable::at(context.this_address()).set_public_value(initial_value).enqueue(&mut context);
     }
