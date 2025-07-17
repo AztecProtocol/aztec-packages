@@ -80,7 +80,8 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to update this function to look
             // like UltraFlavor's add_hash_to_transcript. Alternatively, the VerificationKey class will go away when we
             // add pairing point aggregation to the solidity verifier.
-            transcript.add_to_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
+            uint64_t circuit_size = 1 << this->log_circuit_size;
+            transcript.add_to_hash_buffer(domain_separator + "vk_log_circuit_size", circuit_size);
             transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
             transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
             return 0;
