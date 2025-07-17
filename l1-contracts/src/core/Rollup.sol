@@ -113,12 +113,12 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ExtRollupLib.validateHeader(
       ValidateHeaderArgs({
         header: _header,
-        attestations: _attestations,
         digest: _digest,
         manaBaseFee: getManaBaseFeeAt(currentTime, true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
-      })
+      }),
+      _attestations
     );
   }
 
@@ -365,6 +365,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       archive: rollupStore.archives[_blockNumber],
       headerHash: tempBlockLog.headerHash,
       blobCommitmentsHash: tempBlockLog.blobCommitmentsHash,
+      attestationsHash: tempBlockLog.attestationsHash,
+      payloadDigest: tempBlockLog.payloadDigest,
       slotNumber: tempBlockLog.slotNumber,
       feeHeader: tempBlockLog.feeHeader
     });

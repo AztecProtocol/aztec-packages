@@ -140,6 +140,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
+  
+  // Track attestations by block number for proof submission
+  mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
   SlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
@@ -231,6 +234,10 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
+        // Store the attestations for the current block number
+        uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
+        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+
         vm.prank(proposer);
         rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
 
@@ -275,6 +282,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
+              attestations: blockAttestations[start + epochSize - 1],
               blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })

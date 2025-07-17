@@ -6,7 +6,9 @@ pragma solidity >=0.8.27;
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {StakingLib} from "./StakingLib.sol";
+import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {
   RewardBooster,
   RewardBoostConfig,
@@ -60,12 +62,29 @@ library ExtRollupLib2 {
     StakingLib.updateStakingQueueConfig(_config);
   }
 
+  function invalidateBadAttestation(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee,
+    uint256 _invalidIndex
+  ) external {
+    InvalidateLib.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+  }
+
+  function invalidateInsufficientAttestations(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee
+  ) external {
+    InvalidateLib.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
+  }
+
   function getCommitteeAt(Epoch _epoch) external returns (address[] memory) {
     return ValidatorSelectionLib.getCommitteeAt(_epoch);
   }
 
-  function getProposerAt(Slot _slot) external returns (address) {
-    return ValidatorSelectionLib.getProposerAt(_slot);
+  function getProposerAt(Slot _slot) external returns (address proposer) {
+    (proposer,) = ValidatorSelectionLib.getProposerAt(_slot);
   }
 
   function getCommitteeCommitmentAt(Epoch _epoch) external returns (bytes32, uint256) {
