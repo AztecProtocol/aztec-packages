@@ -3,9 +3,10 @@ import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 import type { PXEServiceConfig } from '@aztec/pxe/config';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { Argument, Command, Option } from 'commander';
-import { mkdirSync, readFileSync } from 'fs';
+import { mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join, resolve } from 'path';
 
@@ -66,8 +67,7 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
 
 /** CLI wallet main entrypoint */
 async function main() {
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const walletVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const walletVersion = getPackageVersion() ?? '0.0.0';
 
   const db = WalletDB.getInstance();
   const pxeWrapper = new PXEWrapper();
