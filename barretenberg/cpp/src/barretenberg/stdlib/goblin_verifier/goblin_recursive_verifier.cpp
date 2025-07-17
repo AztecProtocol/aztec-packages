@@ -16,10 +16,12 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
-    const GoblinProof& proof, MergeVerifier::MergeVerificationData& merge_verification_data)
+    const GoblinProof& proof,
+    const SubtableCommitments& subtable_commitments,
+    std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment)
 {
     StdlibProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof, merge_verification_data);
+    return verify(stdlib_proof, subtable_commitments, merged_table_commitment);
 }
 
 /**
@@ -30,12 +32,14 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
-    const StdlibProof& proof, MergeVerifier::MergeVerificationData& merge_verification_data)
+    const StdlibProof& proof,
+    const SubtableCommitments& subtable_commitments,
+    std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment)
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, transcript };
     PairingPoints<Builder> merge_pairing_points =
-        merge_verifier.verify_proof(proof.merge_proof, merge_verification_data);
+        merge_verifier.verify_proof(proof.merge_proof, subtable_commitments, merged_table_commitment);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
@@ -54,7 +58,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
 
     // Verify the consistency between the commitments to polynomials representing the op queue received by translator
     // and final merge verifier
-    translator_verifier.verify_consistency_with_final_merge(merge_verification_data.T_commitments);
+    translator_verifier.verify_consistency_with_final_merge(merged_table_commitment);
 
     return { translator_pairing_points, opening_claim, ipa_proof };
 }
