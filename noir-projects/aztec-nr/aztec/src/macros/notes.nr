@@ -3,10 +3,8 @@ use poseidon::poseidon2::Poseidon2Hasher;
 use protocol_types::meta::derive_packable_and_get_packed_len;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
-/// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
-/// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
-/// in `TokenNote`) and a flag indicating whether the field is nullable or not.
-pub comptime mut global NOTES: UHashMap<Type, (TypeDefinition, u32, Field, [(Quoted, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
+/// A map from note type to (note_struct_definition, note_packed_len, note_type_id).
+pub comptime mut global NOTES: UHashMap<Type, (TypeDefinition, u32, Field), BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
 pub comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
@@ -180,47 +178,6 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Registers a note struct `note` with the given `note_packed_len`, `note_type_id`, `fixed_fields` and
-/// `nullable_fields` in the global `NOTES` map.
-comptime fn register_note(
-    note: TypeDefinition,
-    note_packed_len: u32,
-    note_type_id: Field,
-    fixed_fields: [(Quoted, Type)],
-    nullable_fields: [(Quoted, Type)],
-) {
-    let mut fields = &[];
-    for field in fixed_fields {
-        let (name, _) = field;
-        fields = fields.push_back((name, false));
-    }
-    for field in nullable_fields {
-        let (name, _) = field;
-        fields = fields.push_back((name, true));
-    }
-
-    NOTES.insert(note.as_type(), (note, note_packed_len, note_type_id, fields));
-}
-
-/// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
-/// starts in the serialized note. Note that each struct member can occupy multiple fields (as in Field type).
-comptime fn index_note_fields(
-    s: TypeDefinition,
-    nullable_fields: [Quoted],
-) -> ([(Quoted, Type)], [(Quoted, Type)]) {
-    let mut indexed_fixed_fields: [(Quoted, Type)] = &[];
-    let mut indexed_nullable_fields = &[];
-    for field in s.fields_as_written() {
-        let (name, typ, _) = field;
-        if nullable_fields.all(|field| field != name) {
-            indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ));
-        } else {
-            indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ));
-        }
-    }
-    (indexed_fixed_fields, indexed_nullable_fields)
-}
-
 /// Generates the following:
 /// - NoteTypeProperties
 /// - NoteType trait implementation
@@ -233,21 +190,13 @@ comptime fn index_note_fields(
 pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_owner(s);
 
-    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
-
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
     let note_interface_impl = generate_note_interface(s, note_type_id);
     let note_hash_impl = generate_note_hash_trait_impl(s);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
 
-    register_note(
-        s,
-        note_packed_len,
-        note_type_id,
-        indexed_fixed_fields,
-        indexed_nullable_fields,
-    );
+    NOTES.insert(s.as_type(), (s, note_packed_len, note_type_id));
 
     quote {
         $note_properties
@@ -268,7 +217,6 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// Registers the note in the global `NOTES` map with:
 /// - Note type ID
 /// - Packed length
-/// - Field indices and nullability
 ///
 /// # Use Cases
 /// Use this macro when implementing a note that needs custom:
@@ -298,17 +246,10 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
     let note_type_id = get_next_note_type_id();
 
-    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
-    register_note(
-        s,
-        note_packed_len,
-        note_type_id,
-        indexed_fixed_fields,
-        indexed_nullable_fields,
-    );
-
     let note_properties = generate_note_properties(s);
     let note_interface_impl = generate_note_interface(s, note_type_id);
+
+    NOTES.insert(s.as_type(), (s, note_packed_len, note_type_id));
 
     quote {
         $note_properties
