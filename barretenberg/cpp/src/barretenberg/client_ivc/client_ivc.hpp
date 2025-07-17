@@ -79,9 +79,6 @@ class ClientIVC {
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     // Merge commitments
-    using Commitment = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>::Commitment;
-    using SubtableCommitments =
-        stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>::SubtableWitnessCommitments;
     using MergeCommitments = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>::WitnessCommitments;
 
     /**
