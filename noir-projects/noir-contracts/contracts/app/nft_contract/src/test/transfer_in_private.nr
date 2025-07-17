@@ -17,7 +17,7 @@ unconstrained fn transfer_in_private() {
     );
 
     // Recipient should have the note in their private nfts
-    utils::assert_owns_private_nft(env, nft_contract_address, recipient, token_id);
+    utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
 }
 
 #[test]
@@ -32,7 +32,7 @@ unconstrained fn transfer_in_private_to_self() {
     );
 
     // NFT owner should stay the same
-    utils::assert_owns_private_nft(env, nft_contract_address, owner, token_id);
+    utils::assert_owns_private_nft(nft_contract_address, owner, token_id);
 }
 
 #[test]
@@ -48,7 +48,7 @@ unconstrained fn transfer_in_private_to_non_deployed_account() {
         .call(&mut env.private());
 
     // Owner of the private NFT should be the not_deployed account
-    utils::assert_owns_private_nft(env, nft_contract_address, not_deployed.address, token_id);
+    utils::assert_owns_private_nft(nft_contract_address, not_deployed.address, token_id);
 }
 
 #[test]
@@ -68,7 +68,7 @@ unconstrained fn transfer_in_private_on_behalf_of_other() {
     transfer_in_private_call_interface.call(&mut env.private());
 
     // Recipient should be the private NFT owner
-    utils::assert_owns_private_nft(env, nft_contract_address, recipient, token_id);
+    utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
 }
 
 #[test(should_fail_with = "NFT not found when transferring")]

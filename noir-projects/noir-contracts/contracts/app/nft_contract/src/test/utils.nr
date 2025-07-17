@@ -1,7 +1,8 @@
 use crate::NFT;
 use aztec::{
-    oracle::notes::set_sender_for_tags, protocol_types::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
+    oracle::{execution::get_contract_address, notes::set_sender_for_tags},
+    protocol_types::address::AztecAddress,
+    test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
 pub unconstrained fn setup(
@@ -60,10 +61,10 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
         setup_and_mint(with_account_contracts);
 
     // We transfer the public NFT to private.
-    let _ = env.call_private_void(
-        owner,
-        NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id),
+    NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id).call(
+        &mut env.private(),
     );
+    env.mine_block();
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -79,13 +80,15 @@ pub unconstrained fn assert_owns_public_nft(
 }
 
 pub unconstrained fn assert_owns_private_nft(
-    env: &mut TestEnvironment,
     nft_contract_address: AztecAddress,
     owner: AztecAddress,
     token_id: Field,
 ) {
-    let (private_nfts, _) = env.simulate_utility(NFT::at(nft_contract_address)
-        ._experimental_get_private_nfts(owner, 0));
+    let current_contract_address = get_contract_address();
+    txe_oracles::set_contract_address(nft_contract_address);
+
+    // Direct call to unconstrained
+    let (private_nfts, _) = NFT::get_private_nfts(owner, 0);
 
     let mut nft_found = false;
     for obtained_token_id in private_nfts {
@@ -93,6 +96,8 @@ pub unconstrained fn assert_owns_private_nft(
             nft_found = true;
         }
     }
+
+    txe_oracles::set_contract_address(current_contract_address);
 
     assert(nft_found, "NFT not found in private nfts");
 }
