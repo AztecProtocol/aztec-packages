@@ -30,14 +30,14 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
  * @note Only one IVC request can be made at a time for each batch_request.
  */
 struct ClientIvcStart {
-    static constexpr const char* NAME = "ClientIvcStart";
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcStart";
 
     /**
      * @struct Response
      * @brief Empty response indicating successful initialization
      */
     struct Response {
-        static constexpr const char* NAME = "ClientIvcStartResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcStartResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
@@ -54,14 +54,14 @@ struct ClientIvcStart {
  * @brief Load a circuit into the ClientIVC instance for accumulation
  */
 struct ClientIvcLoad {
-    static constexpr const char* NAME = "ClientIvcLoad";
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcLoad";
 
     /**
      * @struct Response
      * @brief Empty response indicating successful circuit loading
      */
     struct Response {
-        static constexpr const char* NAME = "ClientIvcLoadResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcLoadResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
@@ -79,14 +79,14 @@ struct ClientIvcLoad {
  * @brief Accumulate the previously loaded circuit into the IVC proof
  */
 struct ClientIvcAccumulate {
-    static constexpr const char* NAME = "ClientIvcAccumulate";
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcAccumulate";
 
     /**
      * @struct Response
      * @brief Empty response indicating successful circuit accumulation
      */
     struct Response {
-        static constexpr const char* NAME = "ClientIvcAccumulateResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcAccumulateResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
@@ -104,14 +104,14 @@ struct ClientIvcAccumulate {
  * @brief Generate a proof for all accumulated circuits
  */
 struct ClientIvcProve {
-    static constexpr const char* NAME = "ClientIvcProve";
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcProve";
 
     /**
      * @struct Response
      * @brief Contains the generated IVC proof
      */
     struct Response {
-        static constexpr const char* NAME = "ClientIvcProveResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcProveResponse";
 
         /** @brief Complete IVC proof for all accumulated circuits */
         ClientIVC::Proof proof;
@@ -128,14 +128,14 @@ struct ClientIvcProve {
  * @brief Compute standalone verification key for a circuit
  */
 struct ClientIvcComputeStandaloneVk {
-    static constexpr const char* NAME = "ClientIvcComputeStandaloneVk";
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcComputeStandaloneVk";
 
     /**
      * @struct Response
      * @brief Contains the computed verification key in multiple formats
      */
     struct Response {
-        static constexpr const char* NAME = "ClientIvcComputeStandaloneVkResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcComputeStandaloneVkResponse";
 
         /** @brief Serialized verification key in binary format */
         std::vector<uint8_t> bytes;
@@ -156,14 +156,14 @@ struct ClientIvcComputeStandaloneVk {
  * @brief Compute IVC verification key for the complete proof
  */
 struct ClientIvcComputeIvcVk {
-    static constexpr const char* NAME = "ClientIvcComputeIvcVk";
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcComputeIvcVk";
 
     /**
      * @struct Response
      * @brief Contains the computed IVC verification key
      */
     struct Response {
-        static constexpr const char* NAME = "ClientIvcComputeIvcVkResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcComputeIvcVkResponse";
 
         /** @brief Serialized IVC verification key in binary format */
         std::vector<uint8_t> bytes;
@@ -182,14 +182,14 @@ struct ClientIvcComputeIvcVk {
  * @brief Verify that a precomputed verification key matches the circuit
  */
 struct ClientIvcCheckPrecomputedVk {
-    static constexpr const char* NAME = "ClientIvcCheckPrecomputedVk";
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcCheckPrecomputedVk";
 
     /**
      * @struct Response
      * @brief Contains the validation result
      */
     struct Response {
-        static constexpr const char* NAME = "ClientIvcCheckPrecomputedVkResponse";
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcCheckPrecomputedVkResponse";
 
         /** @brief True if the precomputed VK matches the circuit */
         bool valid;

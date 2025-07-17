@@ -979,7 +979,7 @@ export class NativeApi {
 
     // Handle stderr
     this.process.stderr?.on("data", (data) => {
-      console.error("bb stderr:", data.toString());
+      console.error(data.toString());
     });
 
     // Handle stdout responses
@@ -1005,7 +1005,7 @@ export class NativeApi {
     while (this.responseBuffer.length >= 4) {
       // Read 4-byte length prefix (little-endian)
       const length = this.responseBuffer.readUInt32LE(0);
-      
+
       if (this.responseBuffer.length < 4 + length) {
         // Not enough data yet
         break;
@@ -1018,7 +1018,7 @@ export class NativeApi {
       // Decode the response
       try {
         const response = decode(responseData);
-        
+
         // Resolve the oldest pending request (FIFO queue)
         const pending = this.pendingRequests.shift();
         if (pending) {
@@ -1047,7 +1047,7 @@ export class NativeApi {
       resolveFunc = resolve;
       rejectFunc = reject;
     });
-    
+
     // Push to queue with the actual resolve/reject functions
     this.pendingRequests.push({ resolve: resolveFunc, reject: rejectFunc });
 
@@ -1058,7 +1058,7 @@ export class NativeApi {
     // Write length-encoded buffer
     const lengthBuffer = Buffer.allocUnsafe(4);
     lengthBuffer.writeUInt32LE(buffer.length, 0);
-    
+
     this.process.stdin.write(lengthBuffer);
     this.process.stdin.write(buffer);
 

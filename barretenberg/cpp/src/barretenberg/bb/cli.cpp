@@ -692,6 +692,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     // Deserialize the msgpack buffer
                     auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
                     auto obj = unpacked.get();
+                    // Check if obj is tuple of 2, print first element of so
+                    // that we can see the command name
+                    info(obj);
 
                     // Convert to Command (which is a NamedUnion)
                     bb::bbapi::Command command;

@@ -2,6 +2,9 @@ import { Buffer } from 'buffer';
 import { Encoder, decode } from 'msgpackr';
 import { readFileSync, writeFileSync } from 'fs';
 import { gzipSync, gunzipSync } from 'zlib';
+import { CbindApi } from './cbind.async.gen.js';
+import { CbindApiSync } from './cbind.sync.gen.js';
+import { NativeApi } from './native.gen.js';
 
 /**
  * Represents a private execution step as stored in ivc-inputs.msgpack files.
@@ -111,23 +114,14 @@ export class IvcInputs {
   }
 }
 
-/**
- * API interface that matches the subset of methods available
- * across sync, async, and native APIs that work with IVC.
- */
-export interface IvcApi {
-  clientIvcStart(command: { numCircuits: number }): Promise<{}>;
-  clientIvcAccumulate(command: { circuit: { name: string; bytecode: Buffer; verificationKey: Buffer }, witness: Buffer }): Promise<{}>;
-  clientIvcProve(command: {}): Promise<{ proof: Buffer }>;
-  clientIvcCheckPrecomputedVk(command: { circuit: { name: string; bytecode: Buffer; verificationKey: Buffer }, functionName: string }): Promise<{ valid: boolean }>;
-}
+type Api = CbindApi | CbindApiSync | NativeApi ;
 
 /**
  * High-level helper class for working with IVC inputs and any of the generated APIs.
  * This provides a convenient interface for common IVC operations.
  */
-export class IvcRunner<T extends IvcApi> {
-  constructor(private api: T) {}
+export class IvcRunner {
+  constructor(private api: Api) {}
 
   /**
    * Initialize IVC with the given number of circuits
@@ -139,13 +133,15 @@ export class IvcRunner<T extends IvcApi> {
   /**
    * Accumulate a single step from IVC inputs
    */
-  async accumulateStep(step: IvcInputStep): Promise<void> {
-    await this.api.clientIvcAccumulate({
+  queueStep(step: IvcInputStep): void {
+    this.api.clientIvcLoad({
       circuit: {
         name: step.functionName,
         bytecode: step.bytecode,
         verificationKey: step.vk,
-      },
+      }
+    });
+    this.api.clientIvcAccumulate({
       witness: step.witness,
     });
   }
@@ -162,54 +158,15 @@ export class IvcRunner<T extends IvcApi> {
 
     // Then accumulate each step
     for (const step of steps) {
-      await this.accumulateStep(step);
+      this.queueStep(step);
     }
   }
 
   /**
    * Prove the accumulated circuit
    */
-  async prove(): Promise<Buffer> {
+  async prove() {
     const result = await this.api.clientIvcProve({});
     return result.proof;
-  }
-
-  /**
-   * Check precomputed verification keys for all steps in an IVC inputs file
-   */
-  async checkPrecomputedVks(path: string): Promise<boolean> {
-    const inputs = IvcInputs.fromFile(path);
-    const steps = inputs.getSteps();
-
-    for (const step of steps) {
-      if (!step.vk || step.vk.length === 0) {
-        console.error(`Missing verification key for function ${step.functionName}`);
-        return false;
-      }
-
-      const result = await this.api.clientIvcCheckPrecomputedVk({
-        circuit: {
-          name: step.functionName,
-          bytecode: step.bytecode,
-          verificationKey: step.vk,
-        },
-        functionName: step.functionName,
-      });
-
-      if (!result.valid) {
-        console.error(`Invalid precomputed VK for function ${step.functionName}`);
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  /**
-   * Run a complete IVC flow: start, accumulate all steps, and prove
-   */
-  async runComplete(path: string): Promise<Buffer> {
-    await this.accumulateFromFile(path);
-    return await this.prove();
   }
 }
