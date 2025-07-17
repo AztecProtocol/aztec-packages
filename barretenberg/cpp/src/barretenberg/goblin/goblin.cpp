@@ -72,9 +72,11 @@ GoblinProof Goblin::prove()
     return goblin_proof;
 }
 
-Goblin::PairingPoints Goblin::recursively_verify_merge(MegaBuilder& builder,
-                                                       RecursiveMergeVerificationData& merge_verification_data,
-                                                       const std::shared_ptr<RecursiveTranscript>& transcript)
+Goblin::PairingPoints Goblin::recursively_verify_merge(
+    MegaBuilder& builder,
+    const RecursiveMergeSubtableCommitments& subtable_commitments,
+    std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
+    const std::shared_ptr<RecursiveTranscript>& transcript)
 {
     ASSERT(!merge_verification_queue.empty());
     // Recursively verify the next merge proof in the verification queue in a FIFO manner
@@ -82,7 +84,8 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(MegaBuilder& builder,
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
     MergeRecursiveVerifier merge_verifier{ &builder, transcript };
-    PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof, merge_verification_data);
+    PairingPoints pairing_points =
+        merge_verifier.verify_proof(stdlib_merge_proof, subtable_commitments, merged_table_commitment);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
@@ -90,11 +93,12 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(MegaBuilder& builder,
 }
 
 bool Goblin::verify(const GoblinProof& proof,
-                    MergeVerificationData& merge_verification_data,
+                    const MergeSubtableCommitments& subtable_commitments,
+                    std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
                     const std::shared_ptr<Transcript>& transcript)
 {
     MergeVerifier merge_verifier(transcript);
-    bool merge_verified = merge_verifier.verify_proof(proof.merge_proof, merge_verification_data);
+    bool merge_verified = merge_verifier.verify_proof(proof.merge_proof, subtable_commitments, merged_table_commitment);
 
     ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
@@ -110,7 +114,7 @@ bool Goblin::verify(const GoblinProof& proof,
     // Verify the consistency between the commitments to polynomials representing the op queue received by translator
     // and final merge verifier
     bool op_queue_consistency_verified =
-        translator_verifier.verify_consistency_with_final_merge(merge_verification_data.T_commitments);
+        translator_verifier.verify_consistency_with_final_merge(merged_table_commitment);
 
     vinfo("merge verified?: ", merge_verified);
     vinfo("eccvm verified?: ", eccvm_verified);
