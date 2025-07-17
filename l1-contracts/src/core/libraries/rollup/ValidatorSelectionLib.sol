@@ -82,9 +82,38 @@ library ValidatorSelectionLib {
   }
 
   /**
+   * Verifies the proposer for a given slot and epoch for a block proposal.
+   * Checks if the proposer has either signed their attestation or is the sender of the transaction.
+   *
+   * @param _slot - The slot of the block being proposed
+   * @param _attestations - The committee attestations for the block proposal
+   * @param _digest - The digest of the block being proposed
+   */
+  function verifyProposer(Slot _slot, CommitteeAttestations memory _attestations, bytes32 _digest)
+    internal
+  {
+    // If there is no committee for the epoch, or the proposer is who sent the tx, we're good
+    (address proposer, uint256 proposerIndex) = getProposerAt(_slot);
+    if (proposer == address(0) || proposer == msg.sender) {
+      return;
+    }
+
+    // Check if the proposer has signed, if not, fail
+    bool hasProposerSignature = _attestations.isSignature(proposerIndex);
+    if (!hasProposerSignature) {
+      revert Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender);
+    }
+
+    // Check if the signature is correct
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    Signature memory signature = _attestations.getSignature(proposerIndex);
+    SignatureLib.verify(signature, proposer, digest);
+  }
+
+  /**
    * @notice  Propose a pending block from the point-of-view of sequencer selection. Will:
    *          - Setup the epoch if needed (if epoch committee is empty skips the rest)
-   *          - Validate that the proposer is the proposer of the slot
+   *          - Validate that the proposer has signed with its own key
    *          - Validate that the signatures for attestations are indeed from the validatorset
    *          - Validate that the number of valid attestations is sufficient
    *
@@ -101,8 +130,7 @@ library ValidatorSelectionLib {
     Slot _slot,
     Epoch _epochNumber,
     CommitteeAttestations memory _attestations,
-    bytes32 _digest,
-    BlockHeaderValidationFlags memory _flags
+    bytes32 _digest
   ) internal {
     (bytes32 committeeCommitment, uint256 targetCommitteeSize) =
       getCommitteeCommitmentAt(_epochNumber);
@@ -111,10 +139,6 @@ library ValidatorSelectionLib {
     // Note: This generally only happens in test setups; In production, the target committee is non-zero,
     // and one can see in `sampleValidators` that we will revert if the target committee size is not met.
     if (targetCommitteeSize == 0) {
-      return;
-    }
-
-    if (_flags.ignoreSignatures) {
       return;
     }
 
@@ -175,8 +199,7 @@ library ValidatorSelectionLib {
     address proposer = stack.reconstructedCommittee[stack.proposerIndex];
 
     require(
-      stack.proposerVerified || proposer == msg.sender,
-      Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
+      stack.proposerVerified, Errors.ValidatorSelection__InvalidProposer(proposer, address(0))
     );
 
     require(
@@ -192,17 +215,23 @@ library ValidatorSelectionLib {
       );
     }
 
-    setCachedProposer(_slot, proposer);
+    setCachedProposer(_slot, proposer, stack.proposerIndex);
   }
 
-  function setCachedProposer(Slot _slot, address _proposer) internal {
-    PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tstore(_proposer);
+  // Q: Do we still need to cache the proposer?
+  function setCachedProposer(Slot _slot, address _proposer, uint256 _proposerIndex) internal {
+    require(
+      _proposerIndex <= type(uint96).max,
+      Errors.ValidatorSelection__ProposerIndexTooLarge(_proposerIndex)
+    );
+    bytes32 packed = bytes32(uint256(uint160(_proposer))) | (bytes32(_proposerIndex) << 160);
+    PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asBytes32().tstore(packed);
   }
 
-  function getProposerAt(Slot _slot) internal returns (address) {
-    address cachedProposer = getCachedProposer(_slot);
+  function getProposerAt(Slot _slot) internal returns (address, uint256) {
+    (address cachedProposer, uint256 proposerIndex) = getCachedProposer(_slot);
     if (cachedProposer != address(0)) {
-      return cachedProposer;
+      return (cachedProposer, proposerIndex);
     }
 
     // @note this is deliberately "bad" for the simple reason of code reduction.
@@ -214,10 +243,11 @@ library ValidatorSelectionLib {
     uint224 sampleSeed = getSampleSeed(epochNumber);
     address[] memory committee = sampleValidators(epochNumber, sampleSeed);
     if (committee.length == 0) {
-      return address(0);
+      return (address(0), 0);
     }
 
-    return committee[computeProposerIndex(epochNumber, _slot, sampleSeed, committee.length)];
+    uint256 index = computeProposerIndex(epochNumber, _slot, sampleSeed, committee.length);
+    return (committee[index], index);
   }
 
   /**
@@ -321,8 +351,17 @@ library ValidatorSelectionLib {
     }
   }
 
-  function getCachedProposer(Slot _slot) internal view returns (address) {
-    return PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tload();
+  function getCachedProposer(Slot _slot)
+    internal
+    view
+    returns (address proposer, uint256 proposerIndex)
+  {
+    bytes32 packed =
+      PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asBytes32().tload();
+    // Extract address from lower 160 bits
+    proposer = address(uint160(uint256(packed)));
+    // Extract uint96 from upper 96 bits
+    proposerIndex = uint256(packed >> 160);
   }
 
   function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {

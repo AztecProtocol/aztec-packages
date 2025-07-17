@@ -107,6 +107,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
+  using TimeLib for Timestamp;
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
@@ -132,6 +133,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
+  
+  // Track attestations by block number for proof submission
+  mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
   Multicall3 internal multicall = new Multicall3();
 
@@ -367,6 +371,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         address proposer = rollup.getCurrentProposer();
 
         skipBlobCheck(address(rollup));
+        
+        // Store the attestations for the current block number
+        uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
+        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
 
         if (_slashing) {
           Signature memory sig = createSignalSignature(proposer, slashPayload, round);
@@ -432,6 +440,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
+              attestations: blockAttestations[start + epochSize - 1],
               blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })
