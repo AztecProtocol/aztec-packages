@@ -1,12 +1,9 @@
-use crate::{
-    macros::{
-        dispatch::generate_public_dispatch,
-        functions::{stub_registry, utils::check_each_fn_macroified},
-        notes::NOTES,
-        storage::STORAGE_LAYOUT_NAME,
-        utils::{get_trait_impl_method, module_has_storage},
-    },
-    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
+use crate::macros::{
+    dispatch::generate_public_dispatch,
+    functions::{stub_registry, utils::check_each_fn_macroified},
+    notes::NOTES,
+    storage::STORAGE_LAYOUT_NAME,
+    utils::{get_trait_impl_method, module_has_storage},
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
@@ -125,20 +122,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     let notes = NOTES.entries();
 
     if notes.len() > 0 {
-        let max_note_packed_len = notes.fold(0, |acc, (_, len): (Type, u32)| {
-            if len > acc {
-                len
-            } else {
-                acc
-            }
-        });
-
-        if max_note_packed_len > MAX_NOTE_PACKED_LEN {
-            panic(
-                f"One of the notes has packed len {max_note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
-            );
-        }
-
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
         // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and

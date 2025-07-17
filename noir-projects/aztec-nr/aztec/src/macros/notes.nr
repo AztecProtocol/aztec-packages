@@ -1,4 +1,7 @@
-use crate::note::note_getter_options::PropertySelector;
+use crate::{
+    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
+    note::note_getter_options::PropertySelector,
+};
 use poseidon::poseidon2::Poseidon2Hasher;
 use protocol_types::meta::derive_packable_and_get_packed_len;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
@@ -196,6 +199,12 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     let note_hash_impl = generate_note_hash_trait_impl(s);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
 
+    if note_packed_len > MAX_NOTE_PACKED_LEN {
+        panic(
+            f"One of the notes has packed len {note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
+        );
+    }
+
     NOTES.insert(s.as_type(), note_packed_len);
 
     quote {
@@ -244,6 +253,13 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// ```
 pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+
+    if note_packed_len > MAX_NOTE_PACKED_LEN {
+        panic(
+            f"One of the notes has packed len {note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
+        );
+    }
+
     let note_type_id = get_next_note_type_id();
 
     let note_properties = generate_note_properties(s);
