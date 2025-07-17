@@ -114,20 +114,18 @@ template <typename Curve> class OpeningClaim {
     static OpeningClaim<Curve> reconstruct_from_public(const std::span<bb::fr, IPA_CLAIM_SIZE>& ipa_claim_limbs)
         requires(std::is_same_v<Curve, curve::Grumpkin>)
     {
-        constexpr size_t NUM_LIMBS = 4;
-
         std::vector<bb::fr> challenge_limbs;
         std::vector<bb::fr> evaluation_limbs;
 
-        for (size_t k = 0; k < NUM_LIMBS; k++) {
+        for (size_t k = 0; k < FQ_PUBLIC_INPUT_SIZE; k++) {
             challenge_limbs.emplace_back(ipa_claim_limbs[k]);
-            evaluation_limbs.emplace_back(ipa_claim_limbs[NUM_LIMBS + k]);
+            evaluation_limbs.emplace_back(ipa_claim_limbs[FQ_PUBLIC_INPUT_SIZE + k]);
         }
 
         auto challenge = fq::reconstruct_from_public(std::span(challenge_limbs));
         auto evaluation = fq::reconstruct_from_public(std::span(evaluation_limbs));
-        typename Curve::AffineElement commitment =
-            Curve::AffineElement::reconstruct_from_public({ ipa_claim_limbs[8], ipa_claim_limbs[9] });
+        typename Curve::AffineElement commitment = Curve::AffineElement::reconstruct_from_public(
+            std::span(ipa_claim_limbs).subspan(2 * FQ_PUBLIC_INPUT_SIZE, 2 * FR_PUBLIC_INPUTS_SIZE));
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
