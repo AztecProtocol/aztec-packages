@@ -121,11 +121,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let card_note = CardNote::from_card(card, owner);
-            self.set.insert(card_note.note).emit(encode_and_encrypt_note(
-                self.set.context,
-                owner,
-                self.set.context.msg_sender(),
-            ));
+            self.set.insert(card_note.note).emit(encode_and_encrypt_note(self.set.context, owner));
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

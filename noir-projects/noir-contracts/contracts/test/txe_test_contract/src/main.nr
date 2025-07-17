@@ -3,15 +3,13 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract TXETest {
-    use aztec::macros::{functions::{initializer, private, public, utility, view}, storage::storage};
-    use aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::AztecAddress,
-        traits::{FromField, ToField},
+    use aztec::{
+        macros::{functions::{initializer, private, public, utility, view}, storage::storage},
+        protocol_types::{address::AztecAddress, traits::ToField},
+        state_vars::Map,
     };
-    use aztec::state_vars::Map;
     use easy_private_state::EasyPrivateUint;
-    use value_note::{balance_utils, value_note::ValueNote};
+    use value_note::balance_utils;
 
     #[storage]
     struct Storage<Context> {
@@ -22,11 +20,11 @@ pub contract TXETest {
     #[private]
     fn initialize(headstart: u64, owner: AztecAddress) {
         let counters = storage.counters;
-        counters.at(owner).add(headstart, owner, context.msg_sender());
+        counters.at(owner).add(headstart, owner);
     }
 
     #[private]
-    fn increment(owner: AztecAddress, sender: AztecAddress) {
+    fn increment(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing counter for owner {0}",
@@ -37,12 +35,12 @@ pub contract TXETest {
         TXETest::at(context.this_address()).emit_in_public(12345).enqueue(&mut context);
 
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
+        counters.at(owner).add(1, owner);
     }
     // docs:end:increment
 
     #[private]
-    fn increment_twice(owner: AztecAddress, sender: AztecAddress) {
+    fn increment_twice(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing counter twice for owner {0}",
@@ -50,12 +48,12 @@ pub contract TXETest {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
-        counters.at(owner).add(1, owner, sender);
+        counters.at(owner).add(1, owner);
+        counters.at(owner).add(1, owner);
     }
 
     #[private]
-    fn increment_and_decrement(owner: AztecAddress, sender: AztecAddress) {
+    fn increment_and_decrement(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing and decrementing counter for owner {0}",
@@ -63,12 +61,12 @@ pub contract TXETest {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
-        counters.at(owner).sub(1, owner, sender);
+        counters.at(owner).add(1, owner);
+        counters.at(owner).sub(1, owner);
     }
 
     #[private]
-    fn decrement(owner: AztecAddress, sender: AztecAddress) {
+    fn decrement(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Decrementing counter for owner {0}",
@@ -76,7 +74,7 @@ pub contract TXETest {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).sub(1, owner, sender);
+        counters.at(owner).sub(1, owner);
     }
 
     // docs:start:get_counter
@@ -87,11 +85,7 @@ pub contract TXETest {
     }
 
     #[private]
-    fn increment_self_and_other(
-        other_counter: AztecAddress,
-        owner: AztecAddress,
-        sender: AztecAddress,
-    ) {
+    fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing counter for other {0}",
@@ -100,10 +94,10 @@ pub contract TXETest {
         }
 
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
+        counters.at(owner).add(1, owner);
 
         TXETest::at(context.this_address()).emit_in_public(9876).enqueue(&mut context);
-        TXETest::at(other_counter).increment(owner, sender).call(&mut context);
+        TXETest::at(other_counter).increment(owner).call(&mut context);
     }
 
     #[private]
