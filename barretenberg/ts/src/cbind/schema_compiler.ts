@@ -652,6 +652,11 @@ export function createNativeApiCompiler(): SchemaCompiler {
     }
   }
 
+  // Alias for backwards compatibility
+  async close(): Promise<void> {
+    return this.destroy();
+  }
+
 ${methodsStr}
 }`;
       }
