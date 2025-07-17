@@ -52,10 +52,29 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         field_pt b_witness = field_pt::from_witness_index(ctx, ctx->put_constant_variable(b_native));
         return create_logic_constraint(a, b_witness, num_bits, is_xor_gate, get_chunk);
     }
+    if (a.is_constant() && b.is_constant()) {
+        uint256_t a_native(a.get_value());
+        uint256_t b_native(b.get_value());
+
+        // ASSERT that both values are below num_bits
+        uint256_t max_value = (uint256_t(1) << num_bits) - 1;
+        ASSERT(a_native <= max_value);
+        ASSERT(b_native <= max_value);
+
+        uint256_t result;
+        if (is_xor_gate) {
+            result = a_native ^ b_native;
+        } else {
+            result = a_native & b_native;
+        }
+
+        return field_pt(a.get_context(), result);
+    }
     if constexpr (HasPlookup<Builder>) {
         Builder* ctx = a.get_context();
 
         const size_t num_chunks = (num_bits / 32) + ((num_bits % 32 == 0) ? 0 : 1);
+
         auto left((uint256_t)a.get_value());
         auto right((uint256_t)b.get_value());
 
@@ -73,7 +92,6 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
             if (is_xor_gate) {
                 result_chunk = stdlib::plookup_read<Builder>::read_from_2_to_1_table(
                     plookup::MultiTableId::UINT32_XOR, a_chunk, b_chunk);
-
             } else {
                 result_chunk = stdlib::plookup_read<Builder>::read_from_2_to_1_table(
                     plookup::MultiTableId::UINT32_AND, a_chunk, b_chunk);
@@ -95,6 +113,7 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
             left = left >> 32;
             right = right >> 32;
         }
+
         field_pt a_slice = a.slice(static_cast<uint8_t>(num_bits - 1), 0)[1];
         field_pt b_slice = b.slice(static_cast<uint8_t>(num_bits - 1), 0)[1];
         a_slice.assert_equal(a_accumulator, "stdlib logic: failed to reconstruct left operand");
@@ -110,7 +129,9 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         auto accumulator_triple = ctx->create_logic_constraint(
             a_slice.normalize().get_witness_index(), b_slice.normalize().get_witness_index(), num_bits, is_xor_gate);
         auto out_idx = accumulator_triple.out[accumulator_triple.out.size() - 1];
-        return field_t<Builder>::from_witness_index(ctx, out_idx);
+        auto result = field_t<Builder>::from_witness_index(ctx, out_idx);
+
+        return result;
     }
 }
 template class logic<bb::UltraCircuitBuilder>;

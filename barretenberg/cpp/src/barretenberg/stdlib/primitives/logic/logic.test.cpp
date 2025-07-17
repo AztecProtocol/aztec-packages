@@ -146,3 +146,134 @@ TYPED_TEST(LogicTest, DifferentWitnessSameResult)
         EXPECT_EQ(result, false);
     }
 }
+
+// Comprehensive test for all combinations of constants and witnesses
+TYPED_TEST(LogicTest, AllConstantWitnessCombinations)
+{
+    STDLIB_TYPE_ALIASES
+
+    auto test_combination = [](Builder& builder,
+                               uint256_t a_val,
+                               uint256_t b_val,
+                               size_t num_bits,
+                               bool is_xor,
+                               bool a_is_constant,
+                               bool b_is_constant) {
+        // Create inputs based on whether they should be constants or witnesses
+        field_ct a = a_is_constant ? field_ct(&builder, a_val) : witness_ct(&builder, a_val);
+        field_ct b = b_is_constant ? field_ct(&builder, b_val) : witness_ct(&builder, b_val);
+
+        // Calculate expected result
+        uint256_t expected;
+        if (is_xor) {
+            expected = a_val ^ b_val;
+        } else {
+            expected = a_val & b_val;
+        }
+
+        // Apply bit mask to expected result
+        uint256_t mask = (uint256_t(1) << num_bits) - 1;
+        expected = expected & mask;
+
+        // Create logic constraint
+        field_ct result = stdlib::logic<Builder>::create_logic_constraint(a, b, num_bits, is_xor);
+
+        // Verify result
+        EXPECT_EQ(uint256_t(result.get_value()), expected)
+            << "Failed for " << (is_xor ? "XOR" : "AND") << " with a=" << a_val << " b=" << b_val
+            << " bits=" << num_bits << " a_const=" << a_is_constant << " b_const=" << b_is_constant;
+    };
+
+    auto builder = Builder();
+
+    // Test various bit sizes (up to 252 bits for grumpkin field)
+    std::vector<size_t> bit_sizes = { 1UL, 4UL, 8UL, 16UL, 32UL, 64UL, 128UL, 252UL };
+
+    // Test various input combinations (reduced set for faster testing)
+    std::vector<uint256_t> test_values = { 0,
+                                           1,
+                                           2,
+                                           3,
+                                           15,
+                                           16,
+                                           255,
+                                           256,
+                                           65535,
+                                           65536,
+                                           (uint256_t(1) << 32) - 1,
+                                           (uint256_t(1) << 32),
+                                           (uint256_t(1) << 64) - 1,
+                                           (uint256_t(1) << 64),
+                                           (uint256_t(1) << 128) - 1,
+                                           (uint256_t(1) << 128) };
+
+    // Test all combinations: witness-witness, constant-witness, witness-constant, constant-constant
+    std::vector<std::pair<bool, bool>> combinations = {
+        { false, false }, // witness-witness
+        { true, false },  // constant-witness
+        { false, true },  // witness-constant
+        { true, true }    // constant-constant
+    };
+
+    // Test both AND and XOR operations
+    std::vector<bool> operations = { false, true }; // false = AND, true = XOR
+
+    for (size_t num_bits : bit_sizes) {
+        uint256_t max_val = (uint256_t(1) << num_bits) - 1;
+
+        for (uint256_t a_val : test_values) {
+            for (uint256_t b_val : test_values) {
+                // Apply bit mask to inputs
+                uint256_t masked_a = a_val & max_val;
+                uint256_t masked_b = b_val & max_val;
+
+                for (bool is_xor : operations) {
+                    for (auto [a_is_constant, b_is_constant] : combinations) {
+                        test_combination(builder, masked_a, masked_b, num_bits, is_xor, a_is_constant, b_is_constant);
+                    }
+                }
+            }
+        }
+    }
+
+    // Test edge cases with specific values
+    std::vector<std::tuple<uint256_t, uint256_t, size_t>> edge_cases = {
+        { 0, 0, 1 },                                                // Zero values, 1 bit
+        { 1, 1, 1 },                                                // One values, 1 bit
+        { 0, 1, 1 },                                                // Zero and one, 1 bit
+        { 255, 255, 8 },                                            // Max 8-bit values
+        { 65535, 65535, 16 },                                       // Max 16-bit values
+        { (uint256_t(1) << 32) - 1, (uint256_t(1) << 32) - 1, 32 }, // Max 32-bit values
+        { 0, (uint256_t(1) << 64) - 1, 64 },                        // Zero and max 64-bit value
+        { (uint256_t(1) << 64) - 1, 0, 64 },                        // Max 64-bit value and zero
+        { 0, (uint256_t(1) << 252) - 1, 252 },                      // Zero and max 252-bit value
+        { (uint256_t(1) << 252) - 1, 0, 252 },                      // Max 252-bit value and zero
+    };
+
+    for (auto [a_val, b_val, num_bits] : edge_cases) {
+        for (bool is_xor : operations) {
+            for (auto [a_is_constant, b_is_constant] : combinations) {
+                test_combination(builder, a_val, b_val, num_bits, is_xor, a_is_constant, b_is_constant);
+            }
+        }
+    }
+
+    // Test random values for larger bit sizes
+    for (size_t num_bits : { 64UL, 128UL, 252UL }) {
+        uint256_t max_val = (uint256_t(1) << num_bits) - 1;
+
+        for (size_t i = 0; i < 10; ++i) { // Test 10 random combinations
+            uint256_t a_val = engine.get_random_uint256() & max_val;
+            uint256_t b_val = engine.get_random_uint256() & max_val;
+
+            for (bool is_xor : operations) {
+                for (auto [a_is_constant, b_is_constant] : combinations) {
+                    test_combination(builder, a_val, b_val, num_bits, is_xor, a_is_constant, b_is_constant);
+                }
+            }
+        }
+    }
+
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, true);
+}
