@@ -519,7 +519,7 @@ describe('GasUtils', () => {
   }, 20_000);
 
   it('attempts to cancel timed out transactions', async () => {
-    // Disable auto-mining to control block production
+    await cheatCodes.mine(1);
     await cheatCodes.setIntervalMining(0);
     await cheatCodes.setAutomine(false);
 
@@ -557,8 +557,8 @@ describe('GasUtils', () => {
 
     // Verify cancellation tx
     expect(cancelTx).toBeDefined();
-    expect(cancelTx!.nonce).toBe(nonce);
     expect(cancelTx!.to!.toLowerCase()).toBe(l1Client.account.address.toLowerCase());
+    expect(cancelTx!.nonce).toBe(nonce);
     expect(cancelTx!.value).toBe(0n);
     expect(cancelTx!.maxFeePerGas).toBeGreaterThan(initialTx.maxFeePerGas!);
     expect(cancelTx!.maxPriorityFeePerGas).toBeGreaterThan(initialTx.maxPriorityFeePerGas!);
