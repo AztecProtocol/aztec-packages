@@ -1,8 +1,8 @@
 /* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn generate
 import { Buffer } from 'buffer';
-import * as apiTypes from './apiTypes.gen.js';
-export type { CircuitBenchmark, CircuitBenchmarkResponse, CircuitCheck, CircuitCheckResponse, CircuitComputeVk, CircuitComputeVkResponse, CircuitInfo, CircuitInfoResponse, CircuitInput, CircuitInputNoVK, CircuitProve, CircuitProveAndVerify, CircuitProveAndVerifyResponse, CircuitProveResponse, CircuitVerify, CircuitVerifyResponse, CircuitWriteSolidityVerifier, CircuitWriteSolidityVerifierResponse, ClientIvcAccumulate, ClientIvcAccumulateResponse, ClientIvcCheckPrecomputedVk, ClientIvcCheckPrecomputedVkResponse, ClientIvcComputeIvcVk, ClientIvcComputeIvcVkResponse, ClientIvcComputeStandaloneVk, ClientIvcComputeStandaloneVkResponse, ClientIvcLoad, ClientIvcLoadResponse, ClientIvcProve, ClientIvcProveResponse, ClientIvcStart, ClientIvcStartResponse, ECCVMProof, Fr, GoblinProof, Proof, ProofAsFields, ProofAsFieldsResponse, ProofSystemSettings, VkAsFields, VkAsFieldsResponse } from './apiTypes.gen.js';
+import * as apiTypes from './api_types.gen.js';
+export type { CircuitBenchmark, CircuitBenchmarkResponse, CircuitCheck, CircuitCheckResponse, CircuitComputeVk, CircuitComputeVkResponse, CircuitInfo, CircuitInfoResponse, CircuitInput, CircuitInputNoVK, CircuitProve, CircuitProveAndVerify, CircuitProveAndVerifyResponse, CircuitProveResponse, CircuitVerify, CircuitVerifyResponse, CircuitWriteSolidityVerifier, CircuitWriteSolidityVerifierResponse, ClientIvcAccumulate, ClientIvcAccumulateResponse, ClientIvcCheckPrecomputedVk, ClientIvcCheckPrecomputedVkResponse, ClientIvcComputeIvcVk, ClientIvcComputeIvcVkResponse, ClientIvcComputeStandaloneVk, ClientIvcComputeStandaloneVkResponse, ClientIvcLoad, ClientIvcLoadResponse, ClientIvcProve, ClientIvcProveResponse, ClientIvcStart, ClientIvcStartResponse, ECCVMProof, Fr, GoblinProof, Proof, ProofAsFields, ProofAsFieldsResponse, ProofSystemSettings, VkAsFields, VkAsFieldsResponse } from './api_types.gen.js';
 
 import { BarretenbergWasmMainWorker } from "../barretenberg_wasm/barretenberg_wasm_main/index.js";
 

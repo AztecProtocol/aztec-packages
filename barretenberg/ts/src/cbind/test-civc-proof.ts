@@ -130,8 +130,15 @@ async function main() {
     
     // Step 6: Display proof details
     log('yellow', '\nProof details:');
-    console.log(`  - Size: ${proof.length} bytes`);
-    console.log(`  - First 32 bytes (hex): ${proof.subarray(0, 32).toString('hex')}`);
+    // Convert proof to buffer for display/saving
+    const proofBuffer = Buffer.concat([
+      ...proof.megaProof,
+      ...proof.goblinProof.mergeProof,
+      ...proof.goblinProof.eccvmProof.ipaProof,
+      ...proof.goblinProof.translatorProof
+    ]);
+    console.log(`  - Size: ${proofBuffer.length} bytes`);
+    console.log(`  - First 32 bytes (hex): ${proofBuffer.subarray(0, 32).toString('hex')}`);
     
     // Optional: Save proof to file
     const outputDir = join(__dirname, 'civc-proof-output');
@@ -141,7 +148,7 @@ async function main() {
     
     const proofPath = join(outputDir, 'civc-proof.bin');
     const { writeFileSync } = await import('fs');
-    writeFileSync(proofPath, proof);
+    writeFileSync(proofPath, proofBuffer);
     
     log('green', `\n✓ Proof saved to: ${proofPath}`);
     

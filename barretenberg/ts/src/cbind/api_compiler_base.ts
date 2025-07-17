@@ -19,7 +19,7 @@ export abstract class ApiCompilerBase extends MsgpackSchemaCompiler {
   protected generateImports(): string[] {
     const imports = [
       `import { Buffer } from 'buffer';`,
-      `import * as apiTypes from './apiTypes.gen.js';`,
+      `import * as apiTypes from './api_types.gen.js';`,
     ];
 
     // Re-export all the public types for convenience
@@ -33,7 +33,7 @@ export abstract class ApiCompilerBase extends MsgpackSchemaCompiler {
     }
 
     if (reExports.length > 0) {
-      imports.push(`export type { ${reExports.join(', ')} } from './apiTypes.gen.js';`);
+      imports.push(`export type { ${reExports.join(', ')} } from './api_types.gen.js';`);
     }
 
     return imports;

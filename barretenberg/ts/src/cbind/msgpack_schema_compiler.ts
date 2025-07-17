@@ -225,7 +225,7 @@ export class MsgpackSchemaCompiler {
    * @param type - The input schema for which to retrieve the TypeScript type name.
    * @returns The corresponding TypeScript type name as a string.
    */
-  private getTypeName(type: Schema): string {
+  protected getTypeName(type: Schema): string {
     return this.getTypeInfo(type).typeName;
   }
   /**
@@ -233,7 +233,7 @@ export class MsgpackSchemaCompiler {
    * @param type - A schema.
    * @returns The type name.
    */
-  private getTypeInfo(type: Schema): TypeInfo {
+  protected getTypeInfo(type: Schema): TypeInfo {
     if (Array.isArray(type)) {
       if (type[0] === 'array') {
         // fixed-size array case
@@ -419,7 +419,7 @@ export class MsgpackSchemaCompiler {
    * @param schema - The schema for which the Msgpack type name is required.
    * @returns The Msgpack type name corresponding to the input schema.
    */
-  private getMsgpackTypename(schema: Schema): string {
+  protected getMsgpackTypename(schema: Schema): string {
     const { msgpackTypeName, typeName } = this.getTypeInfo(schema);
     return msgpackTypeName || typeName;
   }
@@ -429,7 +429,7 @@ export class MsgpackSchemaCompiler {
    * @param type - The object schema with properties of the interface.
    * @returns the interface body.
    */
-  private generateInterface(name: string, type: ObjectSchema) {
+  protected generateInterface(name: string, type: ObjectSchema) {
     // Raw object, used as return value of fromType() generated functions.
     // Not exported - internal use only
     let result = `interface Msgpack${name} {\n`;
@@ -449,7 +449,7 @@ export class MsgpackSchemaCompiler {
    * @param type - The object schema with properties of the interface.
    * @returns the interface body.
    */
-  private generateNonMsgpackInterface(name: string, type: ObjectSchema) {
+  protected generateNonMsgpackInterface(name: string, type: ObjectSchema) {
     let result = `export interface ${name} {\n`;
     for (const [key, value] of Object.entries(type)) {
       if (key === '__typename') {
@@ -468,7 +468,7 @@ export class MsgpackSchemaCompiler {
    * @param type - The object schema with properties of the interface.
    * @returns The toName method.
    */
-  private generateMsgpackConverter(name: string, type: ObjectSchema): string {
+  protected generateMsgpackConverter(name: string, type: ObjectSchema): string {
     const typename = capitalize(camelCase(type.__typename as string));
 
     // Check if this is an empty object (only has __typename)
@@ -519,7 +519,7 @@ ${objectBodySyntax()}
    * @param type - The object schema with properties of the interface.
    * @returns the fromName method string.
    */
-  private generateClassConverter(name: string, type: ObjectSchema): string {
+  protected generateClassConverter(name: string, type: ObjectSchema): string {
     const typename = capitalize(camelCase(type.__typename as string));
 
     // Check if this is an empty object (only has __typename)

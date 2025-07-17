@@ -1,8 +1,8 @@
 /* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn generate
 import { Buffer } from 'buffer';
-import * as apiTypes from './apiTypes.gen.js';
-export type { CircuitBenchmark, CircuitBenchmarkResponse, CircuitCheck, CircuitCheckResponse, CircuitComputeVk, CircuitComputeVkResponse, CircuitInfo, CircuitInfoResponse, CircuitInput, CircuitInputNoVK, CircuitProve, CircuitProveAndVerify, CircuitProveAndVerifyResponse, CircuitProveResponse, CircuitVerify, CircuitVerifyResponse, CircuitWriteSolidityVerifier, CircuitWriteSolidityVerifierResponse, ClientIvcAccumulate, ClientIvcAccumulateResponse, ClientIvcCheckPrecomputedVk, ClientIvcCheckPrecomputedVkResponse, ClientIvcComputeIvcVk, ClientIvcComputeIvcVkResponse, ClientIvcComputeStandaloneVk, ClientIvcComputeStandaloneVkResponse, ClientIvcLoad, ClientIvcLoadResponse, ClientIvcProve, ClientIvcProveResponse, ClientIvcStart, ClientIvcStartResponse, ECCVMProof, Fr, GoblinProof, Proof, ProofAsFields, ProofAsFieldsResponse, ProofSystemSettings, VkAsFields, VkAsFieldsResponse } from './apiTypes.gen.js';
+import * as apiTypes from './api_types.gen.js';
+export type { CircuitBenchmark, CircuitBenchmarkResponse, CircuitCheck, CircuitCheckResponse, CircuitComputeVk, CircuitComputeVkResponse, CircuitInfo, CircuitInfoResponse, CircuitInput, CircuitInputNoVK, CircuitProve, CircuitProveAndVerify, CircuitProveAndVerifyResponse, CircuitProveResponse, CircuitVerify, CircuitVerifyResponse, CircuitWriteSolidityVerifier, CircuitWriteSolidityVerifierResponse, ClientIvcAccumulate, ClientIvcAccumulateResponse, ClientIvcCheckPrecomputedVk, ClientIvcCheckPrecomputedVkResponse, ClientIvcComputeIvcVk, ClientIvcComputeIvcVkResponse, ClientIvcComputeStandaloneVk, ClientIvcComputeStandaloneVkResponse, ClientIvcLoad, ClientIvcLoadResponse, ClientIvcProve, ClientIvcProveResponse, ClientIvcStart, ClientIvcStartResponse, ECCVMProof, Fr, GoblinProof, Proof, ProofAsFields, ProofAsFieldsResponse, ProofSystemSettings, VkAsFields, VkAsFieldsResponse } from './api_types.gen.js';
 
 import { spawn, ChildProcess } from 'child_process';
 import { encode } from 'msgpackr';
@@ -70,7 +70,7 @@ export class NativeApi {
     while (this.responseBuffer.length >= 4) {
       // Read the length prefix (4 bytes, little-endian)
       const length = this.responseBuffer.readUInt32LE(0);
-      
+
       // Check if we have the complete message
       if (this.responseBuffer.length < 4 + length) {
         break; // Wait for more data
@@ -101,14 +101,14 @@ export class NativeApi {
 
     // Encode the command
     const encoded = encode(command);
-    
+
     // Create length-prefixed buffer
     const lengthBuffer = Buffer.alloc(4);
     lengthBuffer.writeUInt32LE(encoded.length, 0);
-    
+
     // Send to bb process
     const fullBuffer = Buffer.concat([lengthBuffer, encoded]);
-    
+
     // Create promise for response
     const responsePromise = new Promise<[string, any]>((resolve, reject) => {
       this.pendingRequests.push({ resolve, reject });

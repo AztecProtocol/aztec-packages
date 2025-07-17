@@ -177,5 +177,3 @@ function getTypeInfo(type: Schema, context: ProcessingContext): TypeInfo {
     typeName: 'PlaceholderType',
   };
 }
-
-// Additional helper functions would be migrated here...

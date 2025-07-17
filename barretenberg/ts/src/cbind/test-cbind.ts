@@ -1,5 +1,5 @@
 // Simple test to verify cbind integration
-import { CbindApiSync } from './cbind.sync.gen.js';
+import { SyncApi } from './cbind.sync.gen.js';
 import { BarretenbergApiSync } from '../barretenberg_api/index.js';
 import path from 'path';
 import { homedir } from 'os';
@@ -25,7 +25,7 @@ async function testSyncWrapper() {
   await BarretenbergSync.initSingleton(undefined, console.log);
   const api = BarretenbergSync.getSingleton();
   await initSrs(api);
-  const cbindApi = new CbindApiSync(api.wasm);
+  const cbindApi = new SyncApi(api.wasm);
   cbindApi.clientIvcStart({numCircuits: 2});
   // Would need to initialize wasm properly to test actual calls
   console.log('Sync API wrapper created successfully');

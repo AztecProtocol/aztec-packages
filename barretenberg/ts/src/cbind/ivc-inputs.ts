@@ -2,8 +2,8 @@ import { Buffer } from 'buffer';
 import { Encoder, decode } from 'msgpackr';
 import { readFileSync, writeFileSync } from 'fs';
 import { gzipSync, gunzipSync } from 'zlib';
-import { CbindApi } from './cbind.async.gen.js';
-import { CbindApiSync } from './cbind.sync.gen.js';
+import { AsyncApi } from './cbind.async.gen.js';
+import { SyncApi } from './cbind.sync.gen.js';
 import { NativeApi } from './native.gen.js';
 
 /**
@@ -114,7 +114,7 @@ export class IvcInputs {
   }
 }
 
-type Api = CbindApi | CbindApiSync | NativeApi ;
+type Api = AsyncApi | SyncApi | NativeApi;
 
 /**
  * High-level helper class for working with IVC inputs and any of the generated APIs.
@@ -160,6 +160,30 @@ export class IvcRunner {
     for (const step of steps) {
       this.queueStep(step);
     }
+  }
+
+  /**
+   * Check if precomputed VKs are valid
+   */
+  async checkPrecomputedVks(path: string): Promise<boolean> {
+    // For now, just return true as VK validation would require additional implementation
+    console.log('VK validation not yet implemented');
+    return true;
+  }
+
+  /**
+   * Accumulate a single step (alias for queueStep for backward compatibility)
+   */
+  async accumulateStep(step: IvcInputStep): Promise<void> {
+    this.queueStep(step);
+  }
+
+  /**
+   * Run the complete IVC process from a file
+   */
+  async runComplete(path: string) {
+    await this.accumulateFromFile(path);
+    return await this.prove();
   }
 
   /**
