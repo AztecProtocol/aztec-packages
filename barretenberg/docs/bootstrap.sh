@@ -88,6 +88,10 @@ function release {
   fi
 }
 
+function test {
+  denoise "yarn install && yarn test"
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -99,7 +103,7 @@ case "$cmd" in
     echo "$hash"
     ;;
   "test_cmds"|"test")
-    yarn test
+    test
     ;;
   "release-preview")
     release_preview
