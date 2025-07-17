@@ -31,13 +31,12 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
-    class MergeVerificationData {
+    class SubtableWitnessCommitments {
       public:
         std::array<Commitment, NUM_WIRES> t_commitments;
         // std::array<Commitment, NUM_WIRES> T_prev_commitments;
-        std::array<Commitment, NUM_WIRES> T_commitments;
 
-        MergeVerificationData() = default;
+        SubtableWitnessCommitments() = default;
 
         /**
          * @brief Set t_commitments from RefArray
@@ -50,17 +49,13 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
                 t_commitments[idx] = t_commitments_ref[idx];
             }
         }
+    };
 
-        /**
-         * @brief Reset
-         *
-         */
-        void reset()
-        {
-            t_commitments = {};
-            // T_prev_commitments = {};
-            T_commitments = {};
-        }
+    class WitnessCommitments : public SubtableWitnessCommitments {
+      public:
+        std::array<Commitment, NUM_WIRES> T_commitments;
+
+        WitnessCommitments() = default;
     };
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
@@ -68,7 +63,9 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
                                      MergeSettings settings = MergeSettings::PREPEND);
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const stdlib::Proof<CircuitBuilder>& proof, MergeVerificationData& merge_verification_data);
+        const stdlib::Proof<CircuitBuilder>& proof,
+        const SubtableWitnessCommitments& subtable_commitments,
+        std::array<Commitment, NUM_WIRES>& merged_table_commitment);
 };
 
 } // namespace bb::stdlib::recursion::goblin

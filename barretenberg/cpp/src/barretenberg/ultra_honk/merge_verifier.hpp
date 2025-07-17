@@ -36,13 +36,12 @@ class MergeVerifier {
     std::shared_ptr<Transcript> transcript;
     MergeSettings settings;
 
-    class MergeVerificationData {
+    class SubtableWitnessCommitments {
       public:
         std::array<Commitment, NUM_WIRES> t_commitments;
         // std::array<Commitment, NUM_WIRES> T_prev_commitments;
-        std::array<Commitment, NUM_WIRES> T_commitments;
 
-        MergeVerificationData() = default;
+        SubtableWitnessCommitments() = default;
 
         /**
          * @brief Set t_commitments from RefArray
@@ -55,22 +54,20 @@ class MergeVerifier {
                 t_commitments[idx] = t_commitments_ref[idx];
             }
         }
+    };
 
-        /**
-         * @brief Reset
-         *
-         */
-        void reset()
-        {
-            t_commitments = {};
-            // T_prev_commitments = {};
-            T_commitments = {};
-        }
+    class WitnessCommitments : public SubtableWitnessCommitments {
+      public:
+        std::array<Commitment, NUM_WIRES> T_commitments;
+
+        WitnessCommitments() = default;
     };
 
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                            MergeSettings settings = MergeSettings::PREPEND);
-    bool verify_proof(const HonkProof& proof, MergeVerificationData& merge_verification_data);
+    bool verify_proof(const HonkProof& proof,
+                      const SubtableWitnessCommitments& subtable_commitments,
+                      std::array<Commitment, NUM_WIRES>& merged_table_commitment);
 };
 
 } // namespace bb
