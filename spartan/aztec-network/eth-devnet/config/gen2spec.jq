@@ -1,3 +1,5 @@
+# Taken from https://github.com/NethermindEth/core-scripts/tree/main/gen2spec & modified to support v1.32.2
+
 # Taken from https://github.com/ethereum/hive and modified to support more cases for Ethereum / OP / Taiko networks
 
 # Usage: cat genesis.json | jq --from-file gen2spec.jq > chainspec.json
