@@ -109,7 +109,7 @@ contract RollupCore is
 
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
-    uint256 version = uint32(
+    uint32 version = uint32(
       uint256(
         keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))
       )
