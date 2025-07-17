@@ -28,6 +28,7 @@ include "trees/merkle_check.pil";
 include "trees/nullifier_check.pil";
 include "trees/public_data_check.pil";
 include "trees/written_public_data_slots_tree_check.pil";
+include "trees/l1_to_l2_message_tree_check.pil";
 
 include "bytecode/address_derivation.pil";
 include "bytecode/bc_decomposition.pil";
@@ -45,6 +46,7 @@ include "opcodes/sload.pil";
 include "opcodes/sstore.pil";
 include "opcodes/notehash_exists.pil";
 include "opcodes/emit_notehash.pil";
+include "opcodes/l1_to_l2_message_exists.pil";
 
 namespace execution;
 
@@ -381,6 +383,7 @@ pol commit sel_execute_sload;
 pol commit sel_execute_sstore;
 pol commit sel_execute_notehash_exists;
 pol commit sel_execute_emit_notehash;
+pol commit sel_execute_l1_to_l2_message_exists;
 sel_execute_get_env_var * (1 - sel_execute_get_env_var) = 0;
 sel_execute_set * (1 - sel_execute_set) = 0;
 sel_execute_mov * (1 - sel_execute_mov) = 0;
@@ -399,6 +402,7 @@ sel_execute_sload * (1 - sel_execute_sload) = 0;
 sel_execute_sstore * (1 - sel_execute_sstore) = 0;
 sel_execute_notehash_exists * (1 - sel_execute_notehash_exists) = 0;
 sel_execute_emit_notehash * (1 - sel_execute_emit_notehash) = 0;
+sel_execute_l1_to_l2_message_exists * (1 - sel_execute_l1_to_l2_message_exists) = 0;
 
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execute_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
@@ -418,7 +422,8 @@ sel_execute_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG +
 sel_execute_sload * constants.AVM_EXEC_OP_ID_SLOAD +
 sel_execute_sstore * constants.AVM_EXEC_OP_ID_SSTORE +
 sel_execute_notehash_exists * constants.AVM_EXEC_OP_ID_NOTEHASH_EXISTS +
-sel_execute_emit_notehash * constants.AVM_EXEC_OP_ID_EMIT_NOTEHASH
+sel_execute_emit_notehash * constants.AVM_EXEC_OP_ID_EMIT_NOTEHASH +
+sel_execute_l1_to_l2_message_exists * constants.AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS
 // We force the selectors to be 0 if we are not executing an opcode
 // or when we are not in the execution subtrace.
 = sel_should_execute_opcode * sel_execute_execution * subtrace_operation_id;

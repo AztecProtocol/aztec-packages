@@ -115,6 +115,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
     typename S::template DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     typename S::template DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
+    typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
@@ -134,6 +135,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
+    L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
     Alu alu(greater_than, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
@@ -149,7 +151,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                        public_data_tree_check,
                        nullifier_tree_check,
                        note_hash_tree_check,
-                       written_public_data_slots_tree_check);
+                       written_public_data_slots_tree_check,
+                       l1_to_l2_msg_tree_check);
     merkle_db.add_checkpoint_listener(note_hash_tree_check);
     merkle_db.add_checkpoint_listener(nullifier_tree_check);
     merkle_db.add_checkpoint_listener(public_data_tree_check);
@@ -242,6 +245,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         written_public_data_slots_tree_check_emitter.dump_events(),
         contract_instance_retrieval_emitter.dump_events(),
         get_contract_instance_emitter.dump_events(),
+        l1_to_l2_msg_tree_check_emitter.dump_events(),
     };
 }
 

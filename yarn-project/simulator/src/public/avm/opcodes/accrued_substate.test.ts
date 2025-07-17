@@ -251,13 +251,13 @@ describe('Accrued Substate', () => {
       const existsStr = expectFound ? 'DOES exist' : 'does NOT exist';
       const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
 
-      it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
+      it(`Should return ${expectFound} (and be traced) when l1 to l2 message ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(treesDB, new Fr(mockAtLeafIndex), value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
         }
 
-        context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
-        context.machineState.memory.set(leafIndexOffset, new Field(leafIndex));
+        context.machineState.memory.set(value0Offset, new Field(value0)); // msg hash
+        context.machineState.memory.set(leafIndexOffset, new Uint64(leafIndex));
         await new L1ToL2MessageExists(
           /*indirect=*/ 0,
           /*msgHashOffset=*/ value0Offset,

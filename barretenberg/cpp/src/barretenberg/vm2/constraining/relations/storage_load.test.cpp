@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
@@ -35,6 +36,7 @@ using simulation::EventEmitter;
 using simulation::MerkleDB;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
+using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
@@ -101,6 +103,7 @@ TEST(SLoadConstrainingTest, Interactions)
     NiceMock<MockLowLevelMerkleDB> low_level_merkle_db;
     NiceMock<MockNullifierTreeCheck> nullifier_tree_check;
     NiceMock<MockNoteHashTreeCheck> note_hash_tree_check;
+    NiceMock<MockL1ToL2MessageTreeCheck> l1_to_l2_message_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -113,7 +116,8 @@ TEST(SLoadConstrainingTest, Interactions)
                        public_data_tree_check,
                        nullifier_tree_check,
                        note_hash_tree_check,
-                       written_public_data_slots_tree_check);
+                       written_public_data_slots_tree_check,
+                       l1_to_l2_message_tree_check);
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;

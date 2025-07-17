@@ -1,0 +1,57 @@
+include "merkle_check.pil";
+include "../constants_gen.pil";
+include "../poseidon2_hash.pil";
+
+/**
+ * This gadget checks if a message exists in the L1 to L2 message tree.
+ * Read usage:
+ * sel {
+ *     msg_hash,
+ *     leaf_index,
+ *     l1_to_l2_message_tree_root,
+ *     exists
+ * } in l1_to_l2_message_tree_check.sel {
+ *     l1_to_l2_message_tree_check.msg_hash,
+ *     l1_to_l2_message_tree_check.leaf_index,
+ *     l1_to_l2_message_tree_check.root,
+ *     l1_to_l2_message_tree_check.exists
+ * };
+**/
+namespace l1_to_l2_message_tree_check;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs to the gadget
+    pol commit exists;
+
+    pol commit msg_hash;
+    pol commit leaf_index;
+    pol commit root;
+
+    // ====== TREE CHECK ======
+    pol commit leaf_value;
+
+    // exists = leaf_value == msg_hash
+    pol LEAF_VALUE_MSG_HASH_DIFF = leaf_value - msg_hash;
+    pol commit leaf_value_msg_hash_diff_inv;
+    sel * (LEAF_VALUE_MSG_HASH_DIFF * (exists * (1 - leaf_value_msg_hash_diff_inv) + leaf_value_msg_hash_diff_inv) - 1 + exists) = 0;
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit l1_to_l2_message_tree_height;
+    sel * (constants.L1_TO_L2_MSG_TREE_HEIGHT - l1_to_l2_message_tree_height) = 0;
+
+    #[MERKLE_CHECK]
+    sel {
+        leaf_value,
+        leaf_index,
+        l1_to_l2_message_tree_height,
+        root
+    } in merkle_check.start {
+        merkle_check.read_node,
+        merkle_check.index,
+        merkle_check.path_len,
+        merkle_check.read_root
+    };

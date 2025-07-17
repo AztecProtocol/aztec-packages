@@ -111,7 +111,7 @@ describe('state_manager', () => {
     });
 
     it('checkL1ToL2MessageExists works for existing message', async () => {
-      mockL1ToL2MessageExists(treesDB, new Fr(leafIndex), utxo);
+      mockL1ToL2MessageExists(treesDB, leafIndex, utxo);
       const exists = await persistableState.checkL1ToL2MessageExists(utxo, new Fr(leafIndex));
       expect(exists).toEqual(true);
     });
