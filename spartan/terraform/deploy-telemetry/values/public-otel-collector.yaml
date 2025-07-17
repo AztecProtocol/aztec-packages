@@ -57,10 +57,7 @@ config:
 
     filter:
       metrics:
-        metric:
-          - 'false' # placeholder
-          - 'resource.attributes["aztec.node_role"] != "sequencer"'
-          - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e" and resource.attributes["aztec.registry_address"] != "0x95383433ea735eee6e23874a5b1321a541a9f053"'
+        metric: [] # placeholder
         datapoint:
           - 'metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20'
 
@@ -147,7 +144,7 @@ ingress:
     kubernetes.io/ingress.allow-http: "true"
     kubernetes.io/ingress.class: gce
     kubernetes.io/ingress.global-static-ip-name: ""
-    cloud.google.com/health-check-port: "13133"
+    cloud.google.com/healthcheck-port: "13133"
     cloud.google.com/healthcheck-path: "/"
 
     # networking.gke.io/managed-certificates: null
