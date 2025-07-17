@@ -767,19 +767,6 @@ contract RollupTest is RollupBase {
     _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, address(0));
   }
 
-  function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
-    _proposeBlock("empty_block_1", 1);
-
-    DecoderBase.Data memory data = load("empty_block_1").block;
-    bytes32 wrongArchive = bytes32(uint256(0xdeadbeef));
-
-    BlockLog memory blockLog = rollup.getBlock(0);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
-    );
-    _submitEpochProof(1, 1, blockLog.archive, wrongArchive, data.batchedBlobInputs, address(0));
-  }
-
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
     _proposeBlock({_name: "mixed_block_1", _slotNumber: 0});
 

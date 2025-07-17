@@ -92,7 +92,7 @@ struct RollupStore {
 
 interface IRollupCore {
   event L2BlockProposed(
-    uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
+    uint256 indexed blockNumber, bytes32 indexed headerHash, bytes32[] versionedBlobHashes
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event RewardConfigUpdated(RewardConfig rewardConfig);

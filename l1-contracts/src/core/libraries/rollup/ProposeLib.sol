@@ -146,7 +146,6 @@ library ProposeLib {
     );
 
     rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(blockNumber);
-    rollupStore.archives[blockNumber] = _args.archive;
     STFLib.setTempBlockLog(
       blockNumber,
       TempBlockLog({
@@ -166,7 +165,7 @@ library ProposeLib {
 
     rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
 
-    emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
+    emit IRollupCore.L2BlockProposed(blockNumber, v.headerHash, v.blobHashes);
   }
 
   // @note: not view as sampling validators uses tstore
@@ -175,15 +174,8 @@ library ProposeLib {
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    RollupStore storage rollupStore = STFLib.getStorage();
 
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
-
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(
-      tipArchive == _args.header.lastArchiveRoot,
-      Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchiveRoot)
-    );
 
     Slot slot = _args.header.slotNumber;
     Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);

@@ -53,6 +53,8 @@ library Errors {
   error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
+  error Rollup__PreviousArchiveIsZero();
+  error Rollup__EndArchiveIsZero();
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895

@@ -490,8 +490,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");
     }
-
-    assertEq(rollup.archive(), args.archive, "Invalid archive");
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
