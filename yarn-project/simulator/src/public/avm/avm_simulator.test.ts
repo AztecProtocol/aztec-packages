@@ -645,7 +645,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(treesDB, new Fr(mockAtLeafIndex), value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
