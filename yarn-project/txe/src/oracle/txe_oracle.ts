@@ -1387,10 +1387,9 @@ export class TXE implements TypedOracle {
       undefined, // scopes
       /**
        * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
-       * contract would perform, including setting senderForTags. This is not great as it's never cleared.
-       * TODO: Set this properly.
+       * contract would perform, including setting senderForTags.
        */
-      this.senderForTags,
+      from,
     );
 
     context.storeInExecutionCache(args, argsHash);
@@ -1469,12 +1468,11 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
         returnsHash: result.entrypoint.publicInputs.returnsHash,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1521,13 +1519,11 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
   }
 
@@ -1634,11 +1630,10 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         returnsHash: returnValuesHash ?? Fr.ZERO,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1685,13 +1680,11 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
   }
 

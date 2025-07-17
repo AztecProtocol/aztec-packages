@@ -1262,7 +1262,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
     );
 
-    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash])]);
+    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash.hash])]);
   }
 
   async simulateUtilityFunction(
@@ -1293,7 +1293,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
     );
 
-    return toForeignCallResult([toArray([result.returnsHash, result.txHash])]);
+    return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
   }
 
   async getSenderForTags() {
