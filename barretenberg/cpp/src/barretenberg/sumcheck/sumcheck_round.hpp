@@ -392,14 +392,9 @@ template <typename Flavor> class SumcheckProverRound {
      *
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_univariate(
-        [[maybe_unused]] const size_t round_idx,
-        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-        const bb::RelationParameters<FF>& relation_parameters,
-        const bb::GateSeparatorPolynomial<FF>& gate_separators,
-        [[maybe_unused]] const SubrelationSeparators& alphas,
-        [[maybe_unused]] const ZKData& zk_sumcheck_data, // only populated when Flavor HasZK
-        [[maybe_unused]] RowDisablingPolynomial<FF> row_disabling_poly)
+    SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                               const bb::RelationParameters<FF>& relation_parameters,
+                                               const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
         PROFILE_THIS_NAME("compute_univariate");
 

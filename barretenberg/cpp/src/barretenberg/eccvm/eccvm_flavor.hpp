@@ -1055,19 +1055,27 @@ class ECCVMFlavor {
     static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                 [[maybe_unused]] const EdgeType edge_idx)
     {
-        // skip conditions:
-        // Most cases covered: the permutation argument does not change. i.e. the row does not contribute to the
-        // permutation Edge cases where nonzero rows do not contribute to permutation: 1: If `lagrange_last != 0`, the
-        // permutation polynomial identity is updated even if z_perm == z_perm_shift 2: The final MSM row won't add to
-        // the permutation but still has polynomial identitiy contributions.
-        //    This is because the permutation argument uses the SHIFTED msm columns when performing lookups
-        //    i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
+        // skip conditions. TODO: add detailed commentary during audit.
+        // The most important skip condition is that `z_perm == z_perm_shift`. This implies that none of the wire values
+        // for the present input are involved in non-trivial copy constraints. Edge cases where nonzero rows do not
+        // contribute to permutation:
+        //
+        // 1: If `lagrange_last != 0`, the permutation polynomial identity is updated even if
+        // z_perm == z_perm_shift
+        //
+        // 2: The final MSM row won't add to the permutation but still has polynomial identitiy
+        //    contributions. This is because the permutation argument uses the SHIFTED msm columns when performing
+        //    lookups i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
         //    z_perm_shift[last_edge_idx - 1]
-        // We also must add conditions for transcript_mul and transcript_op to handle edge cases.
+        //
+        // 3. The value of `transcript_mul` can be non-zero at the end of a long MSM of points-at-infinity, which will
+        //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
+        //
+        // 4. For similar reasons, we must add that `transcript_op==0`.
 
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
-               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0 &&
+               (polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0) &&
                (polynomials.msm_transition[edge_idx] == 0 && polynomials.msm_transition[edge_idx + 1] == 0) &&
                (polynomials.transcript_mul[edge_idx] == 0 && polynomials.transcript_mul[edge_idx + 1] == 0) &&
                (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
