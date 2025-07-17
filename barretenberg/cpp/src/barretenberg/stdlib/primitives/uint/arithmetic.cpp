@@ -18,6 +18,7 @@ uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
 
     ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
            (context == nullptr && other.context != nullptr));
+
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
@@ -25,6 +26,13 @@ uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
+    if (!is_constant()) {
+        BB_ASSERT_EQ(additive_constant, 0ULL, "uint::operator+ expected additive_constant to be zero");
+    }
+    if (!other.is_constant()) {
+        BB_ASSERT_EQ(other.additive_constant, 0ULL, "uint::operator+ expected other.additive_constant to be zero");
+    }
+
     const uint256_t lhs = get_value();
     const uint256_t rhs = other.get_value();
     const uint256_t constants = (additive_constant + other.additive_constant) & MASK;
@@ -67,6 +75,13 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
+    if (!is_constant()) {
+        BB_ASSERT_EQ(additive_constant, 0ULL, "uint::operator- expected additive_constant to be zero");
+    }
+    if (!other.is_constant()) {
+        BB_ASSERT_EQ(other.additive_constant, 0ULL, "uint::operator- expected other.additive_constant to be zero");
+    }
+
     const uint32_t lhs_idx = is_constant() ? ctx->zero_idx : witness_index;
     const uint32_t rhs_idx = other.is_constant() ? ctx->zero_idx : other.witness_index;
 
@@ -102,6 +117,9 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
 template <typename Builder, typename Native>
 uint<Builder, Native> uint<Builder, Native>::operator*(const uint& other) const
 {
+    ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
+           (context == nullptr && other.context != nullptr));
+
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
@@ -109,6 +127,14 @@ uint<Builder, Native> uint<Builder, Native>::operator*(const uint& other) const
     }
     if (is_constant() && !other.is_constant()) {
         return other * (*this);
+    }
+
+    // N.B. We assume that additive_constant is nonzero ONLY if value is constant
+    if (!is_constant()) {
+        BB_ASSERT_EQ(additive_constant, 0ULL, "uint::operator* expected additive_constant to be zero");
+    }
+    if (!other.is_constant()) {
+        BB_ASSERT_EQ(other.additive_constant, 0ULL, "uint::operator* expected other.additive_constant to be zero");
     }
 
     const uint32_t rhs_idx = other.is_constant() ? ctx->zero_idx : other.witness_index;
