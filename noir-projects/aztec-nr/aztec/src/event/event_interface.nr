@@ -43,7 +43,6 @@ pub global PrivateLogContent: PrivateLogContentConstraintsEnum = PrivateLogConte
 pub fn emit_event_in_private_log<Event>(
     event: Event,
     context: &mut PrivateContext,
-    sender: AztecAddress,
     recipient: AztecAddress,
     constraints: u8,
 )
@@ -58,7 +57,7 @@ where
         constraints == PrivateLogContent.NO_CONSTRAINTS,
         || to_encrypted_private_event_message(event, recipient),
     );
-    let log_content = prefix_with_tag(ciphertext, sender, recipient);
+    let log_content = prefix_with_tag(ciphertext, recipient);
 
     // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery.
     // The nullifier tree is chosen over the note hash tree for this purpose since it provides a simpler mechanism

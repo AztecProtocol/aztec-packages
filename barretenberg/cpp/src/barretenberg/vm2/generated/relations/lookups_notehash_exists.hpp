@@ -11,29 +11,31 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_notehash_exists_note_hash_index_range ///////////////////
+/////////////////// lookup_notehash_exists_note_hash_leaf_index_in_range ///////////////////
 
-struct lookup_notehash_exists_note_hash_index_range_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_NOTEHASH_EXISTS_NOTE_HASH_INDEX_RANGE";
+struct lookup_notehash_exists_note_hash_leaf_index_in_range_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_NOTEHASH_EXISTS_NOTE_HASH_LEAF_INDEX_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "notehash_exists";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_notehash_exists;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_notehash_exists_note_hash_index_range_counts;
-    static constexpr Column INVERSES = Column::lookup_notehash_exists_note_hash_index_range_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_notehash_exists_note_hash_leaf_index_in_range_counts;
+    static constexpr Column INVERSES = Column::lookup_notehash_exists_note_hash_leaf_index_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_note_hash_leaf_index_leaf_count_cmp_diff, ColumnAndShifts::execution_constant_64
+        ColumnAndShifts::execution_note_hash_tree_leaf_count,
+        ColumnAndShifts::execution_register_1_,
+        ColumnAndShifts::execution_note_hash_leaf_in_range
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_notehash_exists_note_hash_index_range_settings =
-    lookup_settings<lookup_notehash_exists_note_hash_index_range_settings_>;
+using lookup_notehash_exists_note_hash_leaf_index_in_range_settings =
+    lookup_settings<lookup_notehash_exists_note_hash_leaf_index_in_range_settings_>;
 template <typename FF_>
-using lookup_notehash_exists_note_hash_index_range_relation =
-    lookup_relation_base<FF_, lookup_notehash_exists_note_hash_index_range_settings>;
+using lookup_notehash_exists_note_hash_leaf_index_in_range_relation =
+    lookup_relation_base<FF_, lookup_notehash_exists_note_hash_leaf_index_in_range_settings>;
 
 /////////////////// lookup_notehash_exists_note_hash_read ///////////////////
 

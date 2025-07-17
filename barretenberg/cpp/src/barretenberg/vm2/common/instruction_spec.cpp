@@ -579,6 +579,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_input(/*contract_address*/ ValueTag::FF) } },
+    { ExecutionOpCode::EMITNOTEHASH,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_EMITNOTEHASH_BASE_L2_GAS,
+                      .base_da = AVM_EMITNOTEHASH_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*unique_note_hash*/ ValueTag::FF) } },
 };
 
 } // namespace bb::avm2
