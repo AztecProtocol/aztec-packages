@@ -29,25 +29,17 @@ pub fn compute_note_log<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
-    sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Note: NoteType + Packable<N>,
 {
-    compute_log(
-        note,
-        storage_slot,
-        recipient,
-        sender,
-        PRIVATE_NOTE_MSG_TYPE_ID,
-    )
+    compute_log(note, storage_slot, recipient, PRIVATE_NOTE_MSG_TYPE_ID)
 }
 
 pub fn compute_partial_note_log<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
-    sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Note: NoteType + Packable<N>,
@@ -56,7 +48,6 @@ where
         note,
         storage_slot,
         recipient,
-        sender,
         PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
     )
 }
@@ -65,7 +56,6 @@ fn compute_log<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
-    sender: AztecAddress,
     msg_type: u64,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
@@ -85,7 +75,7 @@ where
 
     let ciphertext = AES128::encrypt_log(plaintext, recipient);
 
-    let log = prefix_with_tag(ciphertext, sender, recipient);
+    let log = prefix_with_tag(ciphertext, recipient);
 
     log
 }
@@ -95,9 +85,7 @@ where
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
-    // We need this because to compute a tagging secret, we require a sender:
-    sender: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteType + Packable<N>,
 {
@@ -107,7 +95,7 @@ where
         let note_hash_counter = e.note_hash_counter;
         assert_note_exists(*context, note_hash_counter);
 
-        let encrypted_log = compute_note_log(note, storage_slot, recipient, sender);
+        let encrypted_log = compute_note_log(note, storage_slot, recipient);
         // Regardless of the original note size `N, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -123,9 +111,7 @@ where
 pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
-    // We need this because to compute a tagging secret, we require a sender:
-    sender: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteType + Packable<N>,
 {
@@ -137,9 +123,8 @@ where
         assert_note_exists(*context, note_hash_counter);
 
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
-        let encrypted_log = unsafe {
-            remove_constraints(|| compute_note_log(note, storage_slot, recipient, sender))
-        };
+        let encrypted_log =
+            unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
         // Regardless of the original note size `N`, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -160,9 +145,7 @@ where
 pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
-    // We need this because to compute a tagging secret, we require a sender:
-    sender: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
     Note: NoteType + Packable<N>,
 {
@@ -174,9 +157,8 @@ where
         assert_note_exists(*context, note_hash_counter);
 
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
-        let encrypted_log = unsafe {
-            remove_constraints(|| compute_note_log(note, storage_slot, recipient, sender))
-        };
+        let encrypted_log =
+            unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
 
         // Remove the tag from the log
         // TODO: This is a tech debt. We should refactor this file such that the log is by default computed without

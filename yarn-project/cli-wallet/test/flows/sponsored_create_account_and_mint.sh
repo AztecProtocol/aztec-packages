@@ -16,7 +16,7 @@ aztec-wallet create-account -a user $PAYMENT_METHOD
 
 aztec-wallet send set_minter -ca token --args accounts:user true -f test0 $PAYMENT_METHOD
 
-aztec-wallet send mint_to_private -ca token --args accounts:user accounts:user $MINT_AMOUNT -f user $PAYMENT_METHOD
+aztec-wallet send mint_to_private -ca token --args accounts:user $MINT_AMOUNT -f user $PAYMENT_METHOD
 
 RESULT=$(aztec-wallet simulate balance_of_private -ca token --args accounts:user -f user | grep "Simulation result:" | awk '{print $3}')
 

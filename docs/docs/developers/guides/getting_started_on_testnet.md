@@ -130,7 +130,7 @@ aztec-wallet send mint_to_private \
     --from accounts:my-wallet \
     --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc \
     --contract-address token \
-    --args accounts:my-wallet accounts:my-wallet 10
+    --args accounts:my-wallet 10
 ```
 
 You should see confirmation that the tx hash is stored in the database.

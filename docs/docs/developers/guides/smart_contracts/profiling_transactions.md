@@ -32,7 +32,7 @@ aztec-wallet import-test-accounts
 aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a token
 
 # Mint some tokens to the test0 account
-aztec-wallet send mint_to_private -ca token --args accounts:test0 accounts:test0 100 -f test0
+aztec-wallet send mint_to_private -ca token --args accounts:test0 100 -f test0
 ```
 
 Now, the `test0` account can transfer tokens by running:

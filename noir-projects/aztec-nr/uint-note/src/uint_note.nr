@@ -115,14 +115,13 @@ impl UintNote {
     /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to
     /// belong to the same owner.
     ///
-    /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can
-    /// discover the note. `recipient` will typically be the same as `owner`.
+    /// As part of the partial note creation process, a log will be sent to `recipient` so that they can discover the
+    /// note. `recipient` will typically be the same as `owner`.
     pub fn partial(
         owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
         recipient: AztecAddress,
-        sender: AztecAddress,
         completer: AztecAddress,
     ) -> PartialUintNote {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
@@ -148,7 +147,7 @@ impl UintNote {
         };
 
         let encrypted_log =
-            note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
+            note::compute_partial_note_log(private_log_content, storage_slot, recipient);
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();

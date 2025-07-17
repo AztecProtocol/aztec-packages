@@ -26,11 +26,7 @@ contract Updated {
     fn set_private_value() {
         let owner = context.msg_sender();
         let new_note = ValueNote::new(27, owner);
-        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            owner,
-        ));
+        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     #[public]

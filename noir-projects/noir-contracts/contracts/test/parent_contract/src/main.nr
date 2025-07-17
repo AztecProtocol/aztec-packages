@@ -262,6 +262,7 @@ pub contract Parent {
     }
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+    use dep::aztec::oracle::notes::set_sender_for_tags;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::test::helpers::{test_environment::TestEnvironment, txe_oracles};
     use dep::child_contract::Child;
@@ -271,6 +272,12 @@ pub contract Parent {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account(1);
+
+        // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
+        // usually done by account contract's entrypoint.
+        let sender = env.create_account(7097070);
+        set_sender_for_tags(sender);
+
         // Deploy parent contract
         let parent_contract = env.deploy_self("Parent").without_initializer();
         let parent_contract_address = parent_contract.to_address();

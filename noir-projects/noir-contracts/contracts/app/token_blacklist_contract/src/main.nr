@@ -192,11 +192,7 @@ pub contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            to,
-            context.msg_sender(),
-        ));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context, to));
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -207,7 +203,7 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
@@ -226,12 +222,10 @@ pub contract TokenBlacklist {
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
-            from,
         ));
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             to,
-            from,
         ));
     }
 
@@ -241,7 +235,7 @@ pub contract TokenBlacklist {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

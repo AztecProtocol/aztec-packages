@@ -61,6 +61,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
+  private senderForTags?: AztecAddress;
 
   constructor(
     private readonly argsHash: Fr,
@@ -79,8 +80,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
+    senderForTags?: AztecAddress,
   ) {
     super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
+    this.senderForTags = senderForTags;
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -152,6 +155,36 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    */
   public getNestedExecutionResults() {
     return this.nestedExecutionResults;
+  }
+
+  /**
+   * Get the sender for tags.
+   *
+   * This unconstrained value is used as the sender when computing an unconstrained shared secret
+   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
+   * guarantee that the recipient knows about the sender, and hence about the shared secret.
+   *
+   * The value persists through nested calls, meaning all calls down the stack will use the same
+   * 'senderForTags' value (unless it is replaced).
+   */
+  public override getSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.resolve(this.senderForTags);
+  }
+
+  /**
+   * Set the sender for tags.
+   *
+   * This unconstrained value is used as the sender when computing an unconstrained shared secret
+   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
+   * guarantee that the recipient knows about the sender, and hence about the shared secret.
+   *
+   * Account contracts typically set this value before calling other contracts. The value persists
+   * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
+   * value (unless it is replaced by another call to this setter).
+   */
+  public override setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.senderForTags = senderForTags;
+    return Promise.resolve();
   }
 
   /**
@@ -406,6 +439,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       sideEffectCounter,
       this.log,
       this.scopes,
+      this.senderForTags,
     );
 
     const setupTime = simulatorSetupTimer.ms();

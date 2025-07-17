@@ -249,9 +249,8 @@ We will focus only on `mint_to_private`.
 This function has private and public execution components, but it mints tokens privately.
 This function takes:
 
-1. A minter (`from`)
-2. A recipient
-3. An amount of tokens to mint
+1. A recipient
+2. An amount of tokens to mint
 
 This function starts as private to set up the creation of a [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md). The private function calls a public function that checks that the minter is authorized to mint new tokens an increments the public total supply. The recipient of the tokens remains private, but the minter and the amount of tokens minted are public.
 

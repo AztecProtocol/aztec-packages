@@ -266,4 +266,12 @@ export abstract class TypedOracle {
   emitOffchainEffect(_data: Fr[]): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('emitOffchainEffect'));
   }
+
+  getSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('getSenderForTags'));
+  }
+
+  setSenderForTags(_senderForTags: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('setSenderForTags'));
+  }
 }

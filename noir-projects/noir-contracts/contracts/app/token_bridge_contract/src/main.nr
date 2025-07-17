@@ -120,9 +120,7 @@ pub contract TokenBridge {
 
         // At last we mint the tokens
         // docs:start:call_mint_on_token
-        Token::at(config.token).mint_to_private(context.msg_sender(), recipient, amount).call(
-            &mut context,
-        );
+        Token::at(config.token).mint_to_private(recipient, amount).call(&mut context);
         // docs:end:call_mint_on_token
     }
     // docs:end:claim_private

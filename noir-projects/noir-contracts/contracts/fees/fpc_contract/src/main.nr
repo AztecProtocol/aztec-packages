@@ -92,7 +92,7 @@ pub contract FPC {
         );
 
         // Prepare a partial note for the refund for the user.
-        let partial_note = token.prepare_private_balance_increase(user, user).call(&mut context);
+        let partial_note = token.prepare_private_balance_increase(user).call(&mut context);
 
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
         FPC::at(context.this_address())

@@ -153,10 +153,7 @@ describe('e2e_fees dapp_subscription', () => {
     const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
     const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
 
-    const { transactionFee } = await counterContractViaDappEntrypoint.methods
-      .increment(bobAddress, aliceAddress)
-      .send()
-      .wait();
+    const { transactionFee } = await counterContractViaDappEntrypoint.methods.increment(bobAddress).send().wait();
     expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
 
     await expectMapping(
@@ -201,7 +198,7 @@ describe('e2e_fees dapp_subscription', () => {
   function dappIncrement() {
     const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
     const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
-    return counterContractViaDappEntrypoint.methods.increment(bobAddress, aliceAddress);
+    return counterContractViaDappEntrypoint.methods.increment(bobAddress);
   }
 
   const expectBananasPrivateDelta = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>
