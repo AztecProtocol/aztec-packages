@@ -1,5 +1,5 @@
 // Simple test to verify cbind integration
-import { SyncApi } from './cbind.sync.gen.js';
+import { SyncApi } from './generated/sync.js';
 import { BarretenbergApiSync } from '../barretenberg_api/index.js';
 import path from 'path';
 import { homedir } from 'os';

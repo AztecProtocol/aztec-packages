@@ -2,9 +2,9 @@ import { Buffer } from 'buffer';
 import { Encoder, decode } from 'msgpackr';
 import { readFileSync, writeFileSync } from 'fs';
 import { gzipSync, gunzipSync } from 'zlib';
-import { AsyncApi } from './cbind.async.gen.js';
-import { SyncApi } from './cbind.sync.gen.js';
-import { NativeApi } from './native.gen.js';
+import { AsyncApi } from './generated/async.js';
+import { SyncApi } from './generated/sync.js';
+import { NativeApi } from './generated/native.js';
 
 /**
  * Represents a private execution step as stored in ivc-inputs.msgpack files.

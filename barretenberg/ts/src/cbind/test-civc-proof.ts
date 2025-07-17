@@ -8,7 +8,7 @@
  * Usage: npx tsx test-civc-proof.ts [path-to-ivc-inputs.msgpack]
  */
 
-import { NativeApi } from './native.gen.js';
+import { NativeApi } from './generated/native.js';
 import { IvcRunner, IvcInputs } from './ivc-inputs.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

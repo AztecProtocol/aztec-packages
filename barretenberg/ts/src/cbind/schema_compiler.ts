@@ -192,7 +192,7 @@ export class SchemaCompiler {
     if (this.importStrategy.getTypePrefix() === 'apiTypes.') {
       parts.push(
         '// Re-export all types from api_types',
-        'export * from \'./api_types.gen.js\';',
+        'export * from \'./api_types.js\';',
         ''
       );
     }
@@ -492,8 +492,8 @@ export function createSyncApiCompiler(): SchemaCompiler {
     {
       getImports: () => [
         `import { Buffer } from 'buffer';`,
-        `import * as apiTypes from './api_types.gen.js';`,
-        `import { BarretenbergWasmMain } from "../barretenberg_wasm/barretenberg_wasm_main/index.js";`
+        `import * as apiTypes from './api_types.js';`,
+        `import { BarretenbergWasmMain } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
       ],
       getTypePrefix: () => 'apiTypes.',
     },
@@ -533,8 +533,8 @@ export function createAsyncApiCompiler(): SchemaCompiler {
     {
       getImports: () => [
         `import { Buffer } from 'buffer';`,
-        `import * as apiTypes from './api_types.gen.js';`,
-        `import { BarretenbergWasmMainWorker } from "../barretenberg_wasm/barretenberg_wasm_main/index.js";`
+        `import * as apiTypes from './api_types.js';`,
+        `import { BarretenbergWasmMainWorker } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
       ],
       getTypePrefix: () => 'apiTypes.',
     },
@@ -574,7 +574,7 @@ export function createNativeApiCompiler(): SchemaCompiler {
     {
       getImports: () => [
         `import { Buffer } from 'buffer';`,
-        `import * as apiTypes from './api_types.gen.js';`,
+        `import * as apiTypes from './api_types.js';`,
         `import { spawn, ChildProcess } from 'child_process';`,
         `import { Decoder, Encoder } from 'msgpackr';`
       ],

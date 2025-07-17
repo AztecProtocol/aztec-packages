@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { AsyncApi } from './cbind.async.gen.js';
-import { SyncApi } from './cbind.sync.gen.js';
+import { AsyncApi } from './generated/async.js';
+import { SyncApi } from './generated/sync.js';
 import { IvcRunner, IvcInputs } from './ivc-inputs.js';
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fileURLToPath } from 'url';

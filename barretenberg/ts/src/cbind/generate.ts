@@ -26,22 +26,22 @@ interface GeneratorConfig {
 const GENERATORS: GeneratorConfig[] = [
   {
     name: 'Shared types',
-    outputFile: 'api_types.gen.ts',
+    outputFile: 'generated/api_types.ts',
     createCompiler: createSharedTypesCompiler,
   },
   {
     name: 'Sync API',
-    outputFile: 'cbind.sync.gen.ts',
+    outputFile: 'generated/sync.ts',
     createCompiler: createSyncApiCompiler,
   },
   {
     name: 'Async API',
-    outputFile: 'cbind.async.gen.ts',
+    outputFile: 'generated/async.ts',
     createCompiler: createAsyncApiCompiler,
   },
   {
     name: 'Native API',
-    outputFile: 'native.gen.ts',
+    outputFile: 'generated/native.ts',
     createCompiler: createNativeApiCompiler,
   },
 ];

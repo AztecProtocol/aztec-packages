@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { NativeApi } from './native.gen.js';
+import { NativeApi } from './generated/native.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
