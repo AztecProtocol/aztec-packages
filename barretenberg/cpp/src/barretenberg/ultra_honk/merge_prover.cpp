@@ -118,6 +118,10 @@ MergeProver::MergeProof MergeProver::construct_proof()
             partially_evaluated_difference.add_scaled(std::move(right_table[idx]), minus_pow_kappa);
 
             opening_claims.emplace_back(OpeningClaim{ std::move(partially_evaluated_difference), { kappa, FF(0) } });
+
+            // Free memory
+            merged_table[idx] = {};
+            right_table[idx] = {};
         }
         // Compute evaluations l_j(1/kappa), g_j(kappa), send to verifier, and set opening claims
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -132,10 +136,16 @@ MergeProver::MergeProof MergeProver::construct_proof()
             evaluation = left_table_reversed[idx].evaluate(kappa);
             transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
             opening_claims.emplace_back(OpeningClaim{ std::move(left_table_reversed[idx]), { kappa, evaluation } });
+
+            // Free memory
+            left_table[idx] = {};
+            left_table_reversed[idx] = {};
         }
 
         // Shplonk prover
         shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);
+
+        opening_claims.clear();
     }
 
     // KZG prover
