@@ -1033,6 +1033,13 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
+
+            // If both dividend and divisor are constants and divisor is zero, we expect an exception to be thrown.
+            if (divisor_zero && (lhs_constant && rhs_constant)) {
+                EXPECT_THROW_OR_ABORT(c / d, "divide by zero with constant dividend and divisor");
+                return;
+            }
+
             uint_ct e = c / d;
             e = e.normalize();
 
