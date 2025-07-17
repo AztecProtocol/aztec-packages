@@ -8,11 +8,19 @@ import type { ChildProcess } from 'child_process';
 import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
+// import { times } from '@aztec/foundation/collection';
+// import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
+// import { createAztecNodeAdminClient, type AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+// import { makeTracedFetch } from '@aztec/telemetry-client';
+
 const config = setupEnvironment(process.env);
+
+// const CONCURRENCY = 25;
 
 async function deployTestWalletWithRetry(
   pxeUrl: string,
   nodeUrl: string,
+  // nodeAdmin: AztecNodeAdmin,
   ethereumHosts: string[],
   mnemonic: string,
   mintAmount: bigint,
@@ -23,7 +31,7 @@ async function deployTestWalletWithRetry(
     try {
       logger.info(`Deployment attempt ${attempt}/${maxRetries}`);
 
-      const testWallets = await deployTestWalletWithTokens(
+      const deploymentPromise = deployTestWalletWithTokens(
         pxeUrl,
         nodeUrl,
         ethereumHosts,
@@ -31,6 +39,8 @@ async function deployTestWalletWithRetry(
         mintAmount,
         logger,
       );
+      // await nodeAdmin.flushTxs();
+      const testWallets = await deploymentPromise;
 
       logger.info(`Deployment successful on attempt ${attempt}`);
       return testWallets;
@@ -57,20 +67,38 @@ describe('sustained 10 TPS test', () => {
   const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
   const MINT_AMOUNT = 10000n;
   const TEST_DURATION_SECONDS = 60;
-  const TARGET_TPS = 10;
-  const EXPECTED_TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
+  const TARGET_TPS = 10; // 10
+  const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
 
+  // let nodeAdmin: AztecNodeAdmin; // Used for token deployment
   let testWallets: TestWallets;
   let PXE_URL: string;
   let ETHEREUM_HOSTS: string[];
+  // let NODE_ADMIN_URL: string;
   const forwardProcesses: ChildProcess[] = [];
 
-  afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
+  afterAll(async () => {
+    // Give processes time to clean up gracefully
+    forwardProcesses.forEach(p => {
+      if (!p.killed) {
+        p.kill();
+      }
+    });
+
+    // Wait a bit for processes to terminate
+    await new Promise(resolve => setTimeout(resolve, 1000));
   });
 
   beforeAll(async () => {
     if (isK8sConfig(config)) {
+      // const nodeAdminFwd = await startPortForward({
+      //   resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator-0`,
+      //   namespace: config.NAMESPACE,
+      //   containerPort: config.CONTAINER_NODE_ADMIN_PORT,
+      // });
+      // forwardProcesses.push(nodeAdminFwd.process);
+      // NODE_ADMIN_URL = `http://127.0.0.1:${nodeAdminFwd.port}`;
+
       const { process: pxeProcess, port: pxePort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
@@ -102,6 +130,7 @@ describe('sustained 10 TPS test', () => {
       testWallets = await deployTestWalletWithRetry(
         PXE_URL,
         NODE_URL,
+        // nodeAdmin,
         ETHEREUM_HOSTS,
         L1_ACCOUNT_MNEMONIC,
         MINT_AMOUNT,
@@ -110,12 +139,21 @@ describe('sustained 10 TPS test', () => {
       );
       logger.info(`testWallets ready 1`);
     } else {
+      // NODE_ADMIN_URL = config.NODE_ADMIN_URL;
       PXE_URL = config.PXE_URL;
+
       testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
 
+    // const fetch = makeTracedFetch(
+    //   times(10, () => 1),
+    //   false,
+    //   makeUndiciFetch(new Agent({ connections: CONCURRENCY })),
+    // );
+    // nodeAdmin = createAztecNodeAdminClient(NODE_ADMIN_URL, {}, fetch);
+
     logger.info(
-      `Test setup complete. Planning ${EXPECTED_TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
+      `Test setup complete. Planning ${TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
     );
   });
 
@@ -147,20 +185,16 @@ describe('sustained 10 TPS test', () => {
       .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
       .prove();
 
-    const TXS_PER_SECOND = 10;
-    const TOTAL_SECONDS = 30;
-    const TOTAL_TXS = TXS_PER_SECOND * TOTAL_SECONDS;
-
     const allSentTxs: any[] = []; // Store sent transactions separately
 
     let globalIdx = 0;
 
-    for (let sec = 0; sec < TOTAL_SECONDS; sec++) {
+    for (let sec = 0; sec < TEST_DURATION_SECONDS; sec++) {
       const secondStart = Date.now();
 
       const batchTxs: ProvenTx[] = [];
 
-      for (let i = 0; i < TXS_PER_SECOND; i++, globalIdx++) {
+      for (let i = 0; i < TARGET_TPS; i++, globalIdx++) {
         const clonedTxData = Tx.clone(baseTx);
 
         const nullifiers = clonedTxData.data.getNonEmptyNullifiers();
@@ -182,7 +216,7 @@ describe('sustained 10 TPS test', () => {
         const tx = batchTxs[idx];
         const sentTx = tx.send();
         allSentTxs.push(sentTx);
-        logger.info(`sec ${sec + 1}: sent tx ${globalIdx - TXS_PER_SECOND + idx + 1}`);
+        logger.info(`sec ${sec + 1}: sent tx ${globalIdx - TARGET_TPS + idx + 1}`);
       }
 
       // 1 second spacing between batches
@@ -199,8 +233,8 @@ describe('sustained 10 TPS test', () => {
       (async () => {
         try {
           await sentTx.wait({
-            timeout: 600,
-            interval: 1, // Check every 1 second (default)
+            timeout: 120,
+            interval: 1,
             ignoreDroppedReceiptsFor: 2,
           });
           const receipt = await sentTx.getReceipt();
@@ -232,7 +266,6 @@ describe('sustained 10 TPS test', () => {
         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
       });
 
-    // const recipientBalance = await tokenContract.methods.balance_of_public(recipient).simulate();
     const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
 
     logger.info(`recipientBalance after load test: ${recipientBalance}`);
