@@ -70,7 +70,7 @@ const config: Config = {
       "classic",
       {
         docs: {
-          path: "docs",
+          path: "processed-docs",
           sidebarPath: "./sidebars.ts",
           routeBasePath: "docs",
           remarkPlugins: [math],

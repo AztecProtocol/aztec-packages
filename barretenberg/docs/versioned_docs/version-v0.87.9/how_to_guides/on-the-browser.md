@@ -34,25 +34,54 @@ yarn add @aztec/bb.js
 
 ### Using the UltraHonkBackend Class
 
-The `UltraHonkBackend` class provides a high-level interface for proof generation and verification:
+The `UltraHonkBackend` class provides a high-level interface for proof generation and verification. You can import any specific backend (i.e. UltraHonk):
 
 ```typescript
-import { UltraHonkBackend } from '@aztec/bb.js';
-
-// Initialize with ACIR bytecode (base64 encoded)
-const backend = new UltraHonkBackend(
-  bytecode, // i.e. from `nargo compile`
-  { threads: 4 }, // optional backend options
-  { recursive: false } // optional circuit options
-);
-
-// i.e. using the witness data out of `nargo execute`
-const witness = new Uint8Array(readFileSync("./target/program.gz"));
-const proofData = await backend.generateProof(witness);
-
-// Verify the proof
-const isValid = await backend.verifyProof(proofData);
+import { UltraHonkBackend} from '@aztec/bb.js';
 ```
+
+
+Using a precompiled program and a witness from `nargo execute`, you can directly import it and initialize the backend:
+
+```typescript
+// Load circuit bytecode (from Noir compiler output)
+const circuitPath = path.join(__dirname, 'fixtures/main/target/program.json');
+const circuitJson = JSON.parse(readFileSync(circuitPath, 'utf8'));
+const bytecode = circuitJson.bytecode;
+
+// Load witness data
+const witnessPath = path.join(__dirname, 'fixtures/main/target/program.gz');
+const witnessBuffer = readFileSync(witnessPath);
+
+// Initialize backend
+const backend = new UltraHonkBackend(bytecode);
+```
+
+
+And just prove it using the witness:
+
+```typescript
+// Generate proof with Keccak for EVM verification
+const proofData: ProofData = await backend.generateProof(witnessBuffer, {
+  keccak: true
+});
+
+const provingTime = Date.now() - startTime;
+console.log(`Proof generated in ${provingTime}ms`);
+console.log(`Proof size: ${proofData.proof.length} bytes`);
+console.log(`Public inputs: ${proofData.publicInputs.length}`);
+```
+
+
+Verification is similarly simple:
+
+```typescript
+// Verify the proof
+console.log('Verifying proof...');
+const isValid = await backend.verifyProof(proofData, { keccak: true });
+console.log(`Proof verification: ${isValid ? 'SUCCESS' : 'FAILED'}`);
+```
+
 
 ### Working with Different Hash Functions
 
@@ -60,15 +89,18 @@ UltraHonk supports different hash functions for different target verification en
 
 ```typescript
 // Standard UltraHonk (uses Poseidon)
-const proof = await backend.generateProof(witness);
+const proof = await backend.generateProof(witnessBuffer);
+expect(proof.proof).to.have.length.greaterThan(0);
 
 // Keccak variant (for EVM verification)
-const proofKeccak = await backend.generateProof(witness, { keccak: true });
+const proofKeccak = await backend.generateProof(witnessBuffer, { keccak: true });
+expect(proofKeccak.proof).to.have.length.greaterThan(0);
 
 // ZK variants for recursive proofs
-const proofKeccakZK = await backend.generateProof(witness, { keccakZK: true });
-
+const proofKeccakZK = await backend.generateProof(witnessBuffer, { keccakZK: true });
+expect(proofKeccakZK.proof).to.have.length.greaterThan(0);
 ```
+
 
 ### Getting Verification Keys (VK)
 
@@ -80,18 +112,20 @@ const vk = await backend.getVerificationKey();
 const vkKeccak = await backend.getVerificationKey({ keccak: true });
 ```
 
+
 ### Getting Solidity Verifier
+
+The solidity verifier _is_ the VK, but with some logic that allows for non-interactive verification:
 
 ```typescript
 // Needs the keccak hash variant of the VK
 const solidityContract = await backend.getSolidityVerifier(vkKeccak);
 ```
 
+
 ## Using the Low-Level API
 
 For more control, you can use the Barretenberg API directly:
-
-### Basic Cryptographic Operations
 
 ```typescript
 const api = await Barretenberg.new({ threads: 1 });
@@ -101,12 +135,13 @@ const input = Buffer.from('hello world!');
 const hash = await api.blake2s(input);
 
 // Pedersen commitment
-const left = Buffer.from('left input');
-const right = Buffer.from('right input');
-const commitment = await api.pedersenCommit(left, right);
+const left = Fr.random();
+const right = Fr.random();
+const commitment = await api.pedersenCommit([left, right], 0);
 
 await api.destroy();
 ```
+
 
 ## Browser Environment Considerations
 
@@ -135,6 +170,8 @@ To enable multithreading in browsers using some frameworks (ex. Next.js), you ma
 
 ### Thread Configuration
 
+You can define specific thread counts in case you need the cores for other things in your app:
+
 ```typescript
 // Auto-detect optimal thread count (default)
 const api = await Barretenberg.new();
@@ -150,6 +187,8 @@ const api = await Barretenberg.new({ threads: 1 });
 
 ### Memory Management
 
+It can be useful to manage memory manually, specially if targeting specific memory-constrained environments (ex. Safari):
+
 ```typescript
 // Configure initial and maximum memory
 const api = await Barretenberg.new({
@@ -159,116 +198,4 @@ const api = await Barretenberg.new({
     maximum: 512 * 1024 * 1024   // 512MB
   }
 });
-```
-
-### Resource Cleanup
-
-Always clean up resources to prevent memory leaks:
-
-```typescript
-const backend = new UltraHonkBackend(bytecode);
-
-try {
-  const proof = await backend.generateProof(witness);
-  return proof;
-} finally {
-  // Essential for preventing memory leaks
-  await backend.destroy();
-}
-```
-
-## Error Handling
-
-```typescript
-import { UltraHonkBackend } from '@aztec/bb.js';
-
-async function generateProofSafely(bytecode: string, witness: Uint8Array) {
-  let backend: UltraHonkBackend | null = null;
-
-  try {
-    backend = new UltraHonkBackend(bytecode, { threads: 4 });
-    const proof = await backend.generateProof(witness);
-    return { success: true, proof };
-  } catch (error) {
-    console.error('Proof generation failed:', error);
-    return { success: false, error: error.message };
-  } finally {
-    if (backend) {
-      await backend.destroy();
-    }
-  }
-}
-```
-
-## Complete Example
-
-Here's a complete example that demonstrates the full proving workflow:
-
-```typescript
-import { UltraHonkBackend, ProofData } from '@aztec/bb.js';
-import { readFileSync } from 'fs';
-import { gunzipSync } from 'zlib';
-
-async function proveAndVerify() {
-  // Load circuit bytecode (from Noir compiler output)
-  const circuitJson = JSON.parse(readFileSync('./target/program.json', 'utf8'));
-  const bytecode = circuitJson.bytecode;
-
-  // Load witness data
-  const witnessBuffer = readFileSync('./target/witness.gz');
-  const witness = gunzipSync(witnessBuffer);
-
-  // Initialize backend
-  const backend = new UltraHonkBackend(
-    bytecode,
-    { threads: 4 }, // Use 4 threads for proving
-    { recursive: false }
-  );
-
-  try {
-    console.log('Generating proof...');
-    const startTime = Date.now();
-
-    // Generate proof with Keccak for EVM verification
-    const proofData: ProofData = await backend.generateProof(witness, {
-      keccak: true
-    });
-
-    const provingTime = Date.now() - startTime;
-    console.log(`Proof generated in ${provingTime}ms`);
-    console.log(`Proof size: ${proofData.proof.length} bytes`);
-    console.log(`Public inputs: ${proofData.publicInputs.length}`);
-
-    // Verify the proof
-    console.log('Verifying proof...');
-    const isValid = await backend.verifyProof(proofData, { keccak: true });
-    console.log(`Proof verification: ${isValid ? 'SUCCESS' : 'FAILED'}`);
-
-    // Get Solidity verifier contract
-    const vk = await backend.getVerificationKey({ keccak: true });
-    const contract = await backend.getSolidityVerifier(vk);
-
-    console.log('Solidity verifier contract generated');
-
-    return {
-      proof: proofData,
-      isValid,
-      contract,
-      provingTime
-    };
-
-  } finally {
-    // Always clean up
-    await backend.destroy();
-  }
-}
-
-// Run the example
-proveAndVerify()
-  .then(result => {
-    console.log('Success!', result);
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
 ```

@@ -1,41 +1,102 @@
-# Website
+# Barretenberg Documentation
 
 This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
 
-### Installation
+## Installation
 
-```
-$ yarn
+```bash
+yarn
 ```
 
-### Local Development
+## Local Development
 
-```
-$ yarn start
+```bash
+yarn start
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
 
-### Build
+## Build
 
-```
-$ yarn build
+```bash
+yarn build
 ```
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
-### Deployment
+## Code Inclusion System
 
-Using SSH:
+The documentation uses a code inclusion system that allows you to include code snippets from separate example files, ensuring that all examples are testable and up-to-date.
 
+### How It Works
+
+1. **Mark code sections** in your example files with special comments:
+   ```javascript
+   // docs:start:example-name
+   export function myExample() {
+     // Code here will be included in docs
+   }
+   // docs:end:example-name
+   ```
+
+2. **Include in documentation** using the `#include_code` directive:
+   ```markdown
+   #include_code example-name path/to/file.js javascript
+   ```
+
+3. **Highlighting directives** can be used within the code:
+   - `// highlight-next-line:example-name` - Highlights the next line
+   - `// highlight-start:example-name` and `// highlight-end:example-name` - Highlights a block
+   - `// this-will-error:example-name` - Marks code that will error
+
+### Processing Code Inclusions
+
+To process all `#include_code` directives in the documentation:
+
+```bash
+node scripts/preprocess.js
 ```
-$ USE_SSH=true yarn deploy
-```
 
-Not using SSH:
+This will scan all markdown files in the `docs/` directory and replace `#include_code` directives with the actual code from the referenced files.
 
-```
-$ GIT_USER=<Your GitHub username> yarn deploy
-```
+### Example Usage
 
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+1. Create an example file (e.g., `examples/js/proving-example.js`):
+   ```javascript
+   import { UltraHonkBackend } from '@aztec/bb.js';
+
+   // docs:start:basic-proving
+   export async function basicProving(bytecode, witness) {
+     const backend = new UltraHonkBackend(bytecode);
+
+     try {
+       // highlight-next-line:basic-proving
+       const proof = await backend.generateProof(witness);
+       return proof;
+     } finally {
+       await backend.destroy();
+     }
+   }
+   // docs:end:basic-proving
+   ```
+
+2. Include in your markdown file:
+   ```markdown
+   ## Basic Proving
+
+   Here's how to generate a proof:
+
+   #include_code basic-proving examples/js/proving-example.js javascript
+   ```
+
+3. Run the preprocessor to update the documentation:
+   ```bash
+   node scripts/preprocess.js
+   ```
+
+### Benefits
+
+- **Testable Examples**: All code examples can be in separate files that can be tested
+- **Up-to-Date Documentation**: Code changes are automatically reflected in docs
+- **Syntax Highlighting**: Proper syntax highlighting for included code
+- **Error Prevention**: Reduces copy-paste errors in documentation

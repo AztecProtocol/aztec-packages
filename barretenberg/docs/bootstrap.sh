@@ -99,6 +99,7 @@ case "$cmd" in
     echo "$hash"
     ;;
   "test_cmds"|"test")
+    yarn test
     ;;
   "release-preview")
     release_preview
