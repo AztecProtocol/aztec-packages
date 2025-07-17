@@ -79,3 +79,27 @@ class Grumpkin {
     static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 3;
 };
 } // namespace bb::curve
+
+// Specialize the reconstruct from public method
+template <>
+inline bb::grumpkin::g1::affine_element bb::grumpkin::g1::affine_element::reconstruct_from_public(
+    const std::span<bb::fr>& limbs)
+{
+    // A coordinate of a point on Grumpkin is stored using 1 limb
+    static constexpr size_t FRS_PER_FQ = 1;
+    BB_ASSERT_EQ(limbs.size(), 2 * FRS_PER_FQ, "Incorrect number of limbs");
+
+    auto x_limbs = limbs.subspan(0, FRS_PER_FQ);
+    auto y_limbs = limbs.subspan(FRS_PER_FQ, FRS_PER_FQ);
+
+    affine_element result;
+    result.x = Fq::reconstruct_from_public(x_limbs);
+    result.y = Fq::reconstruct_from_public(y_limbs);
+
+    if (result.x == Fq::zero() && result.y == Fq::zero()) {
+        result.self_set_infinity();
+    }
+
+    ASSERT(result.on_curve());
+    return result;
+}

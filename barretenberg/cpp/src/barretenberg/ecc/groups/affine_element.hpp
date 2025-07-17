@@ -172,28 +172,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         return buffer;
     }
 
-    static affine_element reconstruct_from_public(const std::span<bb::fr>& limbs)
-        requires(std::is_same_v<Fq, bb::fq> || std::is_same_v<Fq, bb::fr>)
-    {
-        // A coordinate of a point on BN254 is stored using 4 limbs
-        // A coordinate of a point on Grumpkin is stored using 1 limb
-        static constexpr size_t FRS_PER_FQ = std::is_same_v<Fq, bb::fq> ? 4 : 1;
-        BB_ASSERT_EQ(limbs.size(), 2 * FRS_PER_FQ, "Incorrect number of limbs");
-
-        auto x_limbs = limbs.subspan(0, FRS_PER_FQ);
-        auto y_limbs = limbs.subspan(FRS_PER_FQ, FRS_PER_FQ);
-
-        affine_element result;
-        result.x = Fq::reconstruct_from_public(x_limbs);
-        result.y = Fq::reconstruct_from_public(y_limbs);
-
-        if (result.x == Fq::zero() && result.y == Fq::zero()) {
-            result.self_set_infinity();
-        }
-
-        ASSERT(result.on_curve());
-        return result;
-    }
+    static affine_element reconstruct_from_public(const std::span<bb::fr>& limbs);
 
     friend std::ostream& operator<<(std::ostream& os, const affine_element& a)
     {

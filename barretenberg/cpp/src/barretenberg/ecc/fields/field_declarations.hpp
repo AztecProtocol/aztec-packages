@@ -11,7 +11,6 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <array>
 #include <cstdint>
 #include <iostream>

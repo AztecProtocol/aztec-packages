@@ -11,6 +11,7 @@
 
 #include "../../fields/field.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 namespace bb {
