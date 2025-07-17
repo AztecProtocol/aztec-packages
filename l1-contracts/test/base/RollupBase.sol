@@ -11,6 +11,7 @@ import {
   PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -100,6 +101,7 @@ contract RollupBase is DecoderBase {
         end: endBlockNumber,
         args: args,
         fees: fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.block.batchedBlobInputs,
         proof: ""
       })
