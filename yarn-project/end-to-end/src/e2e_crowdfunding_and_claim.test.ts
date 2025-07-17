@@ -257,9 +257,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     let note: any;
     const arbitraryStorageSlot = 69;
     {
-      const [arbitraryValue, sender] = [5n, owner];
+      const arbitraryValue = 5n;
       const receipt = await testContract.methods
-        .call_create_note(arbitraryValue, owner, sender, arbitraryStorageSlot)
+        .call_create_note(arbitraryValue, owner, arbitraryStorageSlot)
         .send()
         .wait();
       const notes = await pxe.getNotes({ txHash: receipt.txHash, contractAddress: testContract.address });

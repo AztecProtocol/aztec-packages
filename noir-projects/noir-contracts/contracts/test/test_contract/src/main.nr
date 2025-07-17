@@ -131,12 +131,7 @@ pub contract Test {
 
     // docs:start:create_note
     #[private]
-    fn call_create_note(
-        value: Field,
-        owner: AztecAddress,
-        sender: AztecAddress,
-        storage_slot: Field,
-    ) {
+    fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
         let note = ValueNote::new(value, owner);
         create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
