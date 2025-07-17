@@ -5,7 +5,7 @@
   "scripts": {
     "docs": "yarn preprocess && docusaurus start --host ${HOST:-localhost}",
     "dev": "HOST=0.0.0.0 ENV=dev yarn run docs",
-    "build": "yarn clear && ./scripts/build_docs.sh && docusaurus build",
+    "build": "yarn clear && yarn preprocess && ./scripts/build_docs.sh && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "./scripts/clean.sh",
