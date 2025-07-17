@@ -51,6 +51,13 @@ enum class EnvironmentVariable {
     MAX = DAGASLEFT,
 };
 
+enum class ContractInstanceMember {
+    DEPLOYER = 0,
+    CLASS_ID = 1,
+    INIT_HASH = 2,
+    MAX = INIT_HASH,
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////

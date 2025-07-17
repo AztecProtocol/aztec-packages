@@ -18,11 +18,14 @@
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
@@ -179,6 +182,12 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_execute_sload;
     case ExecutionOpCode::SSTORE:
         return C::execution_sel_execute_sstore;
+    case ExecutionOpCode::NOTEHASHEXISTS:
+        return C::execution_sel_execute_notehash_exists;
+    case ExecutionOpCode::EMITNOTEHASH:
+        return C::execution_sel_execute_emit_notehash;
+    case ExecutionOpCode::L1TOL2MSGEXISTS:
+        return C::execution_sel_execute_l1_to_l2_message_exists;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -319,59 +328,89 @@ void ExecutionTraceBuilder::process(
          *  Setup.
          **************************************************************************************************/
 
-        trace.set(row,
-                  { {
-                      { C::execution_sel, 1 },
-                      // Selectors that indicate "dispatch" from tx trace
-                      // Note: Enqueued Call End is determined during the opcode execution temporality group
-                      { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },
-                      // Context
-                      { C::execution_context_id, ex_event.after_context_event.id },
-                      { C::execution_parent_id, ex_event.after_context_event.parent_id },
-                      { C::execution_pc, ex_event.before_context_event.pc },
-                      { C::execution_is_static, ex_event.after_context_event.is_static },
-                      { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
-                      { C::execution_contract_address, ex_event.after_context_event.contract_addr },
-                      { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
-                      { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
-                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_addr },
-                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size },
-                      { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
-                      { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
-                      { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
-                      { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
-                      { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
-                      { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
-                      { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
-                      { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
-                      { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
-                      { C::execution_next_context_id, ex_event.next_context_id },
-                      // Context - gas.
-                      { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
-                      { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
-                      // Context - tree states
-                      { C::execution_prev_written_public_data_slots_tree_root,
-                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.root },
-                      { C::execution_prev_written_public_data_slots_tree_size,
-                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
-                      { C::execution_written_public_data_slots_tree_root,
-                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
-                      { C::execution_written_public_data_slots_tree_size,
-                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
-                      { C::execution_prev_public_data_tree_root,
-                        ex_event.before_context_event.tree_states.publicDataTree.tree.root },
-                      { C::execution_prev_public_data_tree_size,
-                        ex_event.before_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
-                      { C::execution_public_data_tree_root,
-                        ex_event.after_context_event.tree_states.publicDataTree.tree.root },
-                      { C::execution_public_data_tree_size,
-                        ex_event.after_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
-                      // Other.
-                      { C::execution_bytecode_id, ex_event.bytecode_id },
-                      // Helpers for identifying parent context
-                      { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                      { C::execution_is_parent_id_inv, cached_parent_id_inv },
-                  } });
+        trace.set(
+            row,
+            { {
+                { C::execution_sel, 1 },
+                // Selectors that indicate "dispatch" from tx trace
+                // Note: Enqueued Call End is determined during the opcode execution temporality group
+                { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },
+                // Context
+                { C::execution_context_id, ex_event.after_context_event.id },
+                { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                { C::execution_pc, ex_event.before_context_event.pc },
+                { C::execution_is_static, ex_event.after_context_event.is_static },
+                { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
+                { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
+                { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
+                { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_addr },
+                { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size },
+                { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
+                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
+                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
+                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
+                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
+                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
+                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
+                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
+                { C::execution_next_context_id, ex_event.next_context_id },
+                // Context - gas.
+                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
+                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                // Context - tree states
+                // Context - tree states - Written public data slots tree
+                { C::execution_prev_written_public_data_slots_tree_root,
+                  ex_event.before_context_event.written_public_data_slots_tree_snapshot.root },
+                { C::execution_prev_written_public_data_slots_tree_size,
+                  ex_event.before_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                { C::execution_written_public_data_slots_tree_root,
+                  ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
+                { C::execution_written_public_data_slots_tree_size,
+                  ex_event.after_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                { C::execution_prev_public_data_tree_root,
+                  ex_event.before_context_event.tree_states.publicDataTree.tree.root },
+                { C::execution_prev_public_data_tree_size,
+                  ex_event.before_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                // Context - tree states - Nullifier tree
+                { C::execution_prev_nullifier_tree_root,
+                  ex_event.before_context_event.tree_states.nullifierTree.tree.root },
+                { C::execution_prev_nullifier_tree_size,
+                  ex_event.before_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
+                { C::execution_nullifier_tree_root, ex_event.after_context_event.tree_states.nullifierTree.tree.root },
+                { C::execution_nullifier_tree_size,
+                  ex_event.after_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
+                // Context - tree states - Public data tree
+                { C::execution_public_data_tree_root,
+                  ex_event.after_context_event.tree_states.publicDataTree.tree.root },
+                { C::execution_public_data_tree_size,
+                  ex_event.after_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                // Context - tree states - Note hash tree
+                { C::execution_prev_note_hash_tree_root,
+                  ex_event.before_context_event.tree_states.noteHashTree.tree.root },
+                { C::execution_prev_note_hash_tree_size,
+                  ex_event.before_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
+                { C::execution_prev_num_note_hashes_emitted,
+                  ex_event.before_context_event.tree_states.noteHashTree.counter },
+                { C::execution_note_hash_tree_root, ex_event.after_context_event.tree_states.noteHashTree.tree.root },
+                { C::execution_note_hash_tree_size,
+                  ex_event.after_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
+                { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
+                // Context - tree states - L1 to L2 message tree
+                { C::execution_prev_l1_l2_tree_root,
+                  ex_event.before_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                { C::execution_prev_l1_l2_tree_size,
+                  ex_event.before_context_event.tree_states.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
+                { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                { C::execution_l1_l2_tree_size,
+                  ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
+                // Other.
+                { C::execution_bytecode_id, ex_event.bytecode_id },
+                // Helpers for identifying parent context
+                { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
+                { C::execution_is_parent_id_inv, cached_parent_id_inv },
+            } });
 
         // Internal stack
         trace.set(row,
@@ -550,6 +589,36 @@ void ExecutionTraceBuilder::process(
                               { C::execution_remaining_data_writes_inv,
                                 remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
                               { C::execution_sel_write_public_data, !opcode_execution_failed },
+                          } });
+            } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
+                uint64_t leaf_index = registers[1].as<uint64_t>();
+                uint64_t note_hash_tree_leaf_count = NOTE_HASH_TREE_LEAF_COUNT;
+                bool note_hash_leaf_in_range = leaf_index < note_hash_tree_leaf_count;
+
+                trace.set(row,
+                          { {
+                              { C::execution_note_hash_leaf_in_range, note_hash_leaf_in_range },
+                              { C::execution_note_hash_tree_leaf_count, FF(note_hash_tree_leaf_count) },
+                          } });
+            } else if (exec_opcode == ExecutionOpCode::EMITNOTEHASH) {
+                uint32_t remaining_note_hashes =
+                    MAX_NOTE_HASHES_PER_TX - ex_event.before_context_event.tree_states.noteHashTree.counter;
+
+                trace.set(row,
+                          { {
+                              { C::execution_remaining_note_hashes_inv,
+                                remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+                              { C::execution_sel_write_note_hash, remaining_note_hashes != 0 },
+                          } });
+            } else if (exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
+                uint64_t leaf_index = registers[1].as<uint64_t>();
+                uint64_t l1_to_l2_msg_tree_leaf_count = L1_TO_L2_MSG_TREE_LEAF_COUNT;
+                bool l1_to_l2_msg_leaf_in_range = leaf_index < l1_to_l2_msg_tree_leaf_count;
+
+                trace.set(row,
+                          { {
+                              { C::execution_l1_to_l2_msg_leaf_in_range, l1_to_l2_msg_leaf_in_range },
+                              { C::execution_l1_to_l2_msg_tree_leaf_count, FF(l1_to_l2_msg_tree_leaf_count) },
                           } });
             }
         }
@@ -1042,10 +1111,20 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
-        // Sload
+        // Sload opcode
         .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
-        // Sstore
+        // Sstore opcode
         .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
-        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>();
+        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
+        // NoteHashExists
+        .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
+        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        // GetContractInstance opcode
+        .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>()
+        // EmitNoteHash
+        .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
+        // L1ToL2MsgExists
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen
