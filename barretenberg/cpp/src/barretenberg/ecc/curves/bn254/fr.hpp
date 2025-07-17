@@ -168,6 +168,15 @@ class Bn254FrParams {
 
 using fr = field<Bn254FrParams>;
 
+template <> template <> inline fr fr::reconstruct_from_public(const std::span<fr>& limbs)
+{
+    // A point in Fr is represented with 1 public input
+    static constexpr size_t FRS_PER_FQ = 1;
+    BB_ASSERT_EQ(limbs.size(), FRS_PER_FQ, "Incorrect number of limbs");
+
+    return fr(limbs[0]);
+}
+
 } // namespace bb
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

@@ -374,10 +374,7 @@ template <class Params_> struct alignas(32) field {
 
     static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
 
-    template <class V>
-    static field reconstruct_from_public(const std::span<field<V>>& limbs)
-        requires((std::is_same_v<Params, Bn254FqParams> || std::is_same_v<Params, Bn254FrParams>) &&
-                 (std::is_same_v<V, Bn254FrParams>));
+    template <class V> static field reconstruct_from_public(const std::span<field<V>>& limbs);
 
     [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
 
