@@ -70,7 +70,7 @@
     "@types/koa-static": "^4.0.2",
     "@types/lodash.every": "^4.6.7",
     "@types/node": "^22.15.17",
-    "@viem/anvil": "^0.0.9",
+    "@viem/anvil": "^0.0.10",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "fs-extra": "^11.2.0",
