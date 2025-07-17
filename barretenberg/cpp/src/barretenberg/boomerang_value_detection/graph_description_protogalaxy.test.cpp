@@ -20,7 +20,7 @@ namespace bb::stdlib::recursion::honk {
 class BoomerangProtogalaxyRecursiveTests : public testing::Test {
   public:
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
-    using RecursiveFlavor = MegaRecursiveFlavor_<UltraCircuitBuilder>;
+    using RecursiveFlavor = MegaRecursiveFlavor_<MegaCircuitBuilder>;
     using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerProver = UltraProver_<InnerFlavor>;
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
@@ -179,7 +179,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         /*         recursive_decider_vk_1->verification_key->pub_inputs_offset.fix_witness();
                 recursive_decider_vk_1->verification_key->num_public_inputs.fix_witness();
         */
-        auto graph = cdg::StaticAnalyzer(folding_circuit, false);
+        auto graph = cdg::MegaStaticAnalyzer(folding_circuit, false);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         if (variables_in_one_gate.size() > 0) {
@@ -245,11 +245,11 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
-        pairing_points.P0.x.fix_witness();
-        pairing_points.P0.y.fix_witness();
-        pairing_points.P1.x.fix_witness();
-        pairing_points.P1.y.fix_witness();
-        auto graph = cdg::StaticAnalyzer(decider_circuit, false);
+        /*         pairing_points.P0.x.fix_witness();
+                pairing_points.P0.y.fix_witness();
+                pairing_points.P1.x.fix_witness();
+                pairing_points.P1.y.fix_witness(); */
+        auto graph = cdg::MegaStaticAnalyzer(decider_circuit, false);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         if (variables_in_one_gate.size() > 0) {

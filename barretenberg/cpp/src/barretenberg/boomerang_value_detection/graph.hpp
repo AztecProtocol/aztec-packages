@@ -82,10 +82,13 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
         }
         return real_variable_indices;
     };
-    uint32_t to_real(const uint32_t& variable_index) { return circuit_builder.real_variable_index[variable_index]; }
+    uint32_t to_real(const uint32_t& variable_index) const
+    {
+        return circuit_builder.real_variable_index[variable_index];
+    }
     size_t find_block_index(const auto& block);
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
-    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
+    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
 
 <<<<<<< HEAD
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(
