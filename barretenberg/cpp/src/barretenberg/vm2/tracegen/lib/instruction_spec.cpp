@@ -88,6 +88,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Misc
     { ExecutionOpCode::GETCONTRACTINSTANCE,
       { .subtrace_selector = SubtraceSel::GETCONTRACTINSTANCE, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::EMITNOTEHASH,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_EMIT_NOTEHASH } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
