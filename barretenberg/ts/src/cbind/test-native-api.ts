@@ -11,13 +11,12 @@ async function main() {
 
   console.log('Using bb binary at:', bbPath);
 
-  // Create NativeApi instance
-  const api = new NativeApi(bbPath);
-
+  let api: NativeApi | undefined;
+  
   try {
     // Initialize the bb process
     console.log('Initializing bb process...');
-    await api.init();
+    api = await NativeApi.new(bbPath);
     console.log('✓ bb process initialized');
 
     // Call clientIvcStart with 2 circuits
@@ -37,9 +36,11 @@ async function main() {
     console.error('Error:', error);
   } finally {
     // Clean up
-    console.log('\nClosing bb process...');
-    await api.close();
-    console.log('✓ bb process closed');
+    if (api) {
+      console.log('\nClosing bb process...');
+      await api.close();
+      console.log('✓ bb process closed');
+    }
   }
 }
 

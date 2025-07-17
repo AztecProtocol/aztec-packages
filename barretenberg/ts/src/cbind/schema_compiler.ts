@@ -34,15 +34,11 @@ export interface FunctionMetadata {
   responseType: string;
 }
 
-// Strategy interfaces
-export interface ImportStrategy {
-  getImports(): string[];
-  getTypePrefix(): string;
-}
-
-export interface MethodGeneratorStrategy {
-  generateMethod(metadata: FunctionMetadata): string;
-  getWrapperClass(methods: FunctionMetadata[]): string;
+// Compiler configuration
+export interface CompilerConfig {
+  mode: 'types' | 'sync' | 'async' | 'native';
+  imports?: string[];
+  wasmImport?: string;
 }
 
 // Helper functions
@@ -64,12 +60,9 @@ function pascalCase(s: string): string {
 export class SchemaCompiler {
   private typeCache = new Map<string, TypeInfo>();
   private functionMetadata: FunctionMetadata[] = [];
-  private usedTypes = new Set<string>();
+  private referencedTypes = new Set<string>();
   
-  constructor(
-    private importStrategy: ImportStrategy,
-    private methodGenerator?: MethodGeneratorStrategy,
-  ) {}
+  constructor(private config: CompilerConfig) {}
 
   /**
    * Process API schema and extract function metadata
@@ -123,67 +116,26 @@ export class SchemaCompiler {
       '',
     ];
 
-    // Add type declarations and conversion functions
-    const sortedTypes = Array.from(this.typeCache.values())
-      .filter(t => t.declaration)
-      .sort((a, b) => a.typeName.localeCompare(b.typeName));
-    
-    // For non-api_types files, generate imports
-    const needsApiTypesImport = this.importStrategy.getTypePrefix() === 'apiTypes.';
-    
-    if (needsApiTypesImport) {
-      // Add base imports first
-      parts.push(...this.importStrategy.getImports());
-      
-      // Collect all types and functions we need to import
-      const typesToImport = new Set<string>();
-      const functionsToImport = new Set<string>();
-      
-      // Add types and functions used in method signatures
-      for (const metadata of this.functionMetadata) {
-        typesToImport.add(metadata.commandType);
-        typesToImport.add(metadata.responseType);
-        functionsToImport.add(`from${metadata.commandType}`);
-        functionsToImport.add(`to${metadata.responseType}`);
-      }
-      
-      // Add any other tracked types
-      for (const type of this.usedTypes) {
-        typesToImport.add(type);
-      }
-      
-      // For API compilers, we don't define any types locally, so don't remove any
-      
-      // Generate the combined import statement
-      if (typesToImport.size > 0 || functionsToImport.size > 0) {
-        // Sort all imports together alphabetically
-        const allImports = [
-          ...Array.from(typesToImport),
-          ...Array.from(functionsToImport)
-        ].sort();
-        
-        parts.push(`import { ${allImports.join(', ')} } from './api_types.js';`);
-      }
-    } else {
-      // For api_types.ts, just add the base imports
-      parts.push(...this.importStrategy.getImports());
-    }
-    
+    // Generate imports
+    parts.push(...this.generateImports());
     parts.push('');
 
-    // For API compilers, we don't generate declarations - only imports
-    const isApiCompiler = needsApiTypesImport;
-    
-    // Group declarations
-    const typeAliases = isApiCompiler ? [] : sortedTypes.filter(t => 
-      t.declaration?.startsWith('export type') && !t.declaration?.includes('interface')
-    );
-    const publicInterfaces = isApiCompiler ? [] : sortedTypes.filter(t => 
-      t.declaration?.includes('export interface')
-    );
-    const privateInterfaces = isApiCompiler ? [] : sortedTypes.filter(t => 
-      t.declaration?.includes('interface Msgpack')
-    );
+    // Generate type declarations only for 'types' mode
+    if (this.config.mode === 'types') {
+      const sortedTypes = Array.from(this.typeCache.values())
+        .filter(t => t.declaration)
+        .sort((a, b) => a.typeName.localeCompare(b.typeName));
+      
+      // Group declarations
+      const typeAliases = sortedTypes.filter(t => 
+        t.declaration?.startsWith('export type') && !t.declaration?.includes('interface')
+      );
+      const publicInterfaces = sortedTypes.filter(t => 
+        t.declaration?.includes('export interface')
+      );
+      const privateInterfaces = sortedTypes.filter(t => 
+        t.declaration?.includes('interface Msgpack')
+      );
 
     // Add type aliases if needed
     if (typeAliases.length > 0) {
@@ -225,24 +177,24 @@ export class SchemaCompiler {
       }
     }
 
-    // Add conversion functions (only for api_types.ts)
-    const conversions = isApiCompiler ? [] : sortedTypes.filter(t => t.toMethod || t.fromMethod);
-    if (conversions.length > 0) {
-      parts.push('// Conversion functions (exported)');
-      for (const type of conversions) {
-        if (type.toMethod) {
-          parts.push('export ' + type.toMethod, '');
-        }
-        if (type.fromMethod) {
-          parts.push('export ' + type.fromMethod, '');
+      // Add conversion functions (only for api_types.ts)
+      const conversions = sortedTypes.filter(t => t.toMethod || t.fromMethod);
+      if (conversions.length > 0) {
+        parts.push('// Conversion functions (exported)');
+        for (const type of conversions) {
+          if (type.toMethod) {
+            parts.push('export ' + type.toMethod, '');
+          }
+          if (type.fromMethod) {
+            parts.push('export ' + type.fromMethod, '');
+          }
         }
       }
     }
 
-
-    // Add API class if we have a method generator
-    if (this.methodGenerator && this.functionMetadata.length > 0) {
-      parts.push(this.methodGenerator.getWrapperClass(this.functionMetadata));
+    // Add API class for non-types modes
+    if (this.config.mode !== 'types' && this.functionMetadata.length > 0) {
+      parts.push(this.generateApiClass());
     }
 
     return parts.join('\n') + '\n';
@@ -262,6 +214,9 @@ export class SchemaCompiler {
   }
 
   private trackTypeUsage(typeName: string): void {
+    // Only track for API modes
+    if (this.config.mode === 'types') return;
+    
     // Extract base types from complex types
     const baseTypes = this.extractBaseTypes(typeName);
     
@@ -271,13 +226,7 @@ export class SchemaCompiler {
         continue;
       }
       
-      // Skip types that are defined in the current file
-      if (this.typeCache.has(type) || this.typeCache.has(`empty_${type}`)) {
-        continue;
-      }
-      
-      // Add to used types
-      this.usedTypes.add(type);
+      this.referencedTypes.add(type);
     }
   }
 
@@ -568,8 +517,6 @@ ${conversions}
   }
 
   private generateConverter(typeInfo: TypeInfo, value: string, direction: 'to' | 'from'): string {
-    const prefix = this.importStrategy.getTypePrefix();
-    
     // Handle arrays/tuples
     if (typeInfo.typeName.includes('[]') || typeInfo.typeName.includes('Tuple<')) {
       const elementType = typeInfo.typeName.match(/^(.+)\[\]$/) || typeInfo.typeName.match(/^Tuple<(.+),/);
@@ -582,155 +529,108 @@ ${conversions}
     
     // Handle custom types
     if (typeInfo.declaration) {
-      return `${prefix}${direction}${typeInfo.typeName}(${value})`;
+      return `${direction}${typeInfo.typeName}(${value})`;
     }
     
     return value;
   }
-}
 
-// Factory methods for creating configured compilers
-export function createSharedTypesCompiler(): SchemaCompiler {
-  return new SchemaCompiler(
-    {
-      getImports: () => [`import { Buffer } from 'buffer';`],
-      getTypePrefix: () => '',
-    },
-    undefined // No method generation for shared types
-  );
-}
-
-export function createSyncApiCompiler(): SchemaCompiler {
-  return new SchemaCompiler(
-    {
-      getImports: () => [
-        `import { Buffer } from 'buffer';`,
-        `import { BarretenbergWasmMain } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
-      ],
-      getTypePrefix: () => 'apiTypes.',
-    },
-    {
-      generateMethod: (metadata: FunctionMetadata) => `  ${metadata.name}(command: ${metadata.commandType}): ${metadata.responseType} {
-    const msgpackCommand = from${metadata.commandType}(command);
-    const [variantName, result] = this.wasm.msgpackCall('bbapi', ["${capitalize(metadata.name)}", msgpackCommand]);
-    if (variantName !== '${metadata.responseType}') {
-      throw new Error(\`Expected variant name '${metadata.responseType}' but got '\${variantName}'\`);
+  private generateImports(): string[] {
+    const imports: string[] = [];
+    
+    // Base imports
+    if (this.config.imports) {
+      imports.push(...this.config.imports);
     }
-    return to${metadata.responseType}(result);
-  }`,
-      getWrapperClass: (methods: FunctionMetadata[]) => {
-        const methodsStr = methods.map(m => 
-          `  ${m.name}(command: ${m.commandType}): ${m.responseType} {
-    const msgpackCommand = from${m.commandType}(command);
-    const [variantName, result] = this.wasm.msgpackCall('bbapi', ["${capitalize(m.name)}", msgpackCommand]);
-    if (variantName !== '${m.responseType}') {
-      throw new Error(\`Expected variant name '${m.responseType}' but got '\${variantName}'\`);
-    }
-    return to${m.responseType}(result);
-  }`
-        ).join('\n\n');
-        
-        return `export class SyncApi {
-  constructor(protected wasm: BarretenbergWasmMain) {}
-
-${methodsStr}
-}`;
+    
+    // For API modes, import from api_types
+    if (this.config.mode !== 'types') {
+      const neededImports = new Set<string>();
+      
+      // Add types and conversion functions from function metadata
+      for (const metadata of this.functionMetadata) {
+        neededImports.add(metadata.commandType);
+        neededImports.add(metadata.responseType);
+        neededImports.add(`from${metadata.commandType}`);
+        neededImports.add(`to${metadata.responseType}`);
+      }
+      
+      // Add referenced types
+      for (const type of this.referencedTypes) {
+        neededImports.add(type);
+      }
+      
+      if (neededImports.size > 0) {
+        const sortedImports = Array.from(neededImports).sort();
+        imports.push(`import { ${sortedImports.join(', ')} } from './api_types.js';`);
       }
     }
-  );
-}
+    
+    return imports;
+  }
 
-export function createAsyncApiCompiler(): SchemaCompiler {
-  return new SchemaCompiler(
-    {
-      getImports: () => [
-        `import { Buffer } from 'buffer';`,
-        `import { BarretenbergWasmMainWorker } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
-      ],
-      getTypePrefix: () => 'apiTypes.',
-    },
-    {
-      generateMethod: (metadata: FunctionMetadata) => `  async ${metadata.name}(command: ${metadata.commandType}): Promise<${metadata.responseType}> {
-    const msgpackCommand = from${metadata.commandType}(command);
-    const [variantName, result] = await this.wasm.msgpackCall('bbapi', ["${capitalize(metadata.name)}", msgpackCommand]);
-    if (variantName !== '${metadata.responseType}') {
-      throw new Error(\`Expected variant name '${metadata.responseType}' but got '\${variantName}'\`);
+  private generateApiClass(): string {
+    const className = this.getApiClassName();
+    const methods = this.functionMetadata.map(m => this.generateApiMethod(m)).join('\n\n');
+    
+    if (this.config.mode === 'native') {
+      return this.generateNativeApiClass(methods);
     }
-    return to${metadata.responseType}(result);
-  }`,
-      getWrapperClass: (methods: FunctionMetadata[]) => {
-        const methodsStr = methods.map(m => 
-          `  async ${m.name}(command: ${m.commandType}): Promise<${m.responseType}> {
-    const msgpackCommand = from${m.commandType}(command);
-    const [variantName, result] = await this.wasm.msgpackCall('bbapi', ["${capitalize(m.name)}", msgpackCommand]);
-    if (variantName !== '${m.responseType}') {
-      throw new Error(\`Expected variant name '${m.responseType}' but got '\${variantName}'\`);
-    }
-    return to${m.responseType}(result);
-  }`
-        ).join('\n\n');
-        
-        return `export class AsyncApi {
-  constructor(protected wasm: BarretenbergWasmMainWorker) {}
+    
+    return `export class ${className} {
+  constructor(protected wasm: ${this.getWasmType()}) {}
 
-${methodsStr}
+${methods}
 }`;
-      }
-    }
-  );
-}
+  }
 
-export function createNativeApiCompiler(): SchemaCompiler {
-  return new SchemaCompiler(
-    {
-      getImports: () => [
-        `import { spawn, ChildProcess } from 'child_process';`,
-        `import { Decoder, Encoder } from 'msgpackr';`
-      ],
-      getTypePrefix: () => 'apiTypes.',
-    },
-    {
-      generateMethod: (metadata: FunctionMetadata) => `  async ${metadata.name}(command: ${metadata.commandType}): Promise<${metadata.responseType}> {
-    const msgpackCommand = from${metadata.commandType}(command);
-    const [variantName, result] = await this.sendCommand(["${capitalize(metadata.name)}", msgpackCommand]);
-    if (variantName !== '${metadata.responseType}') {
-      throw new Error(\`Expected variant name '${metadata.responseType}' but got '\${variantName}'\`);
+  private getApiClassName(): string {
+    switch (this.config.mode) {
+      case 'sync': return 'SyncApi';
+      case 'async': return 'AsyncApi';
+      case 'native': return 'NativeApi';
+      default: throw new Error(`Invalid mode: ${this.config.mode}`);
     }
-    return to${metadata.responseType}(result);
-  }`,
-      getWrapperClass: (methods: FunctionMetadata[]) => {
-        // For native, we need to handle the case with/without method bodies
-        const needsFullMethods = methods.some(m => 
-          m.name.includes('ComputeStandaloneVk') || 
-          m.name.includes('CheckPrecomputedVk')
-        );
-        
-        const methodsStr = methods.map(m => {
-          if (needsFullMethods) {
-            return `  async ${m.name}(command: ${m.commandType}): Promise<${m.responseType}> {
-    const msgpackCommand = from${m.commandType}(command);
-    const [variantName, result] = await this.sendCommand(["${capitalize(m.name)}", msgpackCommand]);
-    if (variantName !== '${m.responseType}') {
-      throw new Error(\`Expected variant name '${m.responseType}' but got '\${variantName}'\`);
+  }
+
+  private getWasmType(): string {
+    switch (this.config.mode) {
+      case 'sync': return 'BarretenbergWasmMain';
+      case 'async': return 'BarretenbergWasmMainWorker';
+      default: return '';
     }
-    return to${m.responseType}(result);
+  }
+
+  private generateApiMethod(metadata: FunctionMetadata): string {
+    const { name, commandType, responseType } = metadata;
+    const isAsync = this.config.mode !== 'sync';
+    const asyncPrefix = isAsync ? 'async ' : '';
+    const asyncSuffix = isAsync ? 'await ' : '';
+    const returnType = isAsync ? `Promise<${responseType}>` : responseType;
+    
+    if (this.config.mode === 'native') {
+      return `  async ${name}(command: ${commandType}): Promise<${responseType}> {
+    const msgpackCommand = from${commandType}(command);
+    const [variantName, result] = await this.sendCommand(["${capitalize(name)}", msgpackCommand]);
+    if (variantName !== '${responseType}') {
+      throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
+    }
+    return to${responseType}(result);
   }`;
-          } else {
-            // For shorter method declarations that fit on fewer lines
-            return `  async ${m.name}(
-    command: ${m.commandType},
-  ): Promise<${m.responseType}> {
-    const msgpackCommand = from${m.commandType}(command);
-    const [variantName, result] = await this.sendCommand(['${capitalize(m.name)}', msgpackCommand]);
-    if (variantName !== '${m.responseType}') {
-      throw new Error(\`Expected variant name '${m.responseType}' but got '\${variantName}'\`);
     }
-    return to${m.responseType}(result);
+    
+    return `  ${asyncPrefix}${name}(command: ${commandType}): ${returnType} {
+    const msgpackCommand = from${commandType}(command);
+    const [variantName, result] = ${asyncSuffix}this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]);
+    if (variantName !== '${responseType}') {
+      throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
+    }
+    return to${responseType}(result);
   }`;
-          }
-        }).join('\n\n');
-        
-        return `interface NativeApiRequest {
+  }
+
+  private generateNativeApiClass(methods: string): string {
+    return `interface NativeApiRequest {
   resolve: (value: any) => void;
   reject: (error: any) => void;
 }
@@ -796,9 +696,45 @@ export class NativeApi {
     }
   }
 
-${methodsStr}
+${methods}
 }`;
-      }
-    }
-  );
+  }
+}
+
+// Factory methods for creating configured compilers
+export function createSharedTypesCompiler(): SchemaCompiler {
+  return new SchemaCompiler({
+    mode: 'types',
+    imports: [`import { Buffer } from 'buffer';`],
+  });
+}
+
+export function createSyncApiCompiler(): SchemaCompiler {
+  return new SchemaCompiler({
+    mode: 'sync',
+    imports: [
+      `import { Buffer } from 'buffer';`,
+      `import { BarretenbergWasmMain } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
+    ],
+  });
+}
+
+export function createAsyncApiCompiler(): SchemaCompiler {
+  return new SchemaCompiler({
+    mode: 'async',
+    imports: [
+      `import { Buffer } from 'buffer';`,
+      `import { BarretenbergWasmMainWorker } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
+    ],
+  });
+}
+
+export function createNativeApiCompiler(): SchemaCompiler {
+  return new SchemaCompiler({
+    mode: 'native',
+    imports: [
+      `import { spawn, ChildProcess } from 'child_process';`,
+      `import { Decoder, Encoder } from 'msgpackr';`
+    ],
+  });
 }

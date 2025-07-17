@@ -83,8 +83,7 @@ async function main() {
     
     // Step 2: Initialize the Native API
     log('green', '\nStep 2: Initializing Native API...');
-    const api = new NativeApi(bbPath);
-    await api.init();
+    const api = await NativeApi.new(bbPath);
     log('green', '✓ Native API initialized');
     
     // Step 3: Create IvcRunner

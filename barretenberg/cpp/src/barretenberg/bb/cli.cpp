@@ -654,7 +654,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
         if (msgpack_schema_command->parsed()) {
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
             return 0;
-        } else if (msgpack_run_command->parsed()) {
+        }
+        if (msgpack_run_command->parsed()) {
             // Process msgpack API commands from stdin or file
             std::istream* input_stream = &std::cin;
             std::ifstream file_stream;
@@ -722,7 +723,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         }
         // TUBE
-        else if (prove_tube_command->parsed()) {
+        if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
             prove_tube(prove_tube_output_path, vk_path);
         } else if (verify_tube_command->parsed()) {
