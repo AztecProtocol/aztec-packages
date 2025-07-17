@@ -6,18 +6,19 @@
 
 namespace bb::avm2::simulation {
 
+// This function assumes that the points p and q are on the curve.
+// You should only use this function internally if you can guarantee this.
+// Otherwise it is called via the opcode ECADD, see the overloaded function Ecc::add (which performs the curve check)
 EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q)
 {
-    if (!p.on_curve() || !q.on_curve()) {
-        add_events.emit({ .p = p, .q = q, .result = EmbeddedCurvePoint(0, 0, false) });
-        throw EccException("One of the points is not on the curve");
-    }
-
+    assert(p.on_curve() && q.on_curve() && "Both points must be on the curve for addition");
     EmbeddedCurvePoint result = p + q;
     add_events.emit({ .p = p, .q = q, .result = result });
     return result;
 }
 
+// This function assumes that the point is on the curve. As this should only be used internally,
+// it is a catastrophic failure if the point is not on the curve.
 EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& scalar)
 {
     // This is catastrophic  - The scalar mul circuit requires the point to be on the curve.
@@ -65,7 +66,11 @@ void Ecc::add(MemoryInterface& memory,
             throw std::runtime_error("dst address out of range");
         }
 
-        EmbeddedCurvePoint result = add(p, q); // This can throw if the points are not on the curve.
+        if (!p.on_curve() || !q.on_curve()) {
+            throw std::runtime_error("One of the points is not on the curve");
+        }
+
+        EmbeddedCurvePoint result = add(p, q);
         memory.set(dst_address, MemoryValue::from<FF>(result.x()));
         memory.set(dst_address + 1, MemoryValue::from<FF>(result.y()));
         memory.set(dst_address + 2, MemoryValue::from<uint1_t>(result.is_infinity() ? 1 : 0));

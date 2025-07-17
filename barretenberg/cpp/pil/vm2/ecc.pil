@@ -1,15 +1,11 @@
-/* This subtrace supports point addition over the Grumpkin curve.
- * Given two points, P & Q, this trace computes R = P + Q.
- * The only assumption here are that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity is considered on the curve).
- * Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17,
- * Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
- * This makes its points natively representable in our VM.
- * ERROR HANDLING:
- * A single error needs to be handled as part of this trace
- * (1) POINT_NOT_ON_CURVE: If either of the inputs embedded curve points do not
- *     satisfy the grumpkin curve equation.
- */
+// This subtrace supports point addition over the Grumpkin curve.
+// Given two points, P & Q, this trace computes R = P + Q.
+// The only assumption here are that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity is considered on the curve).
+// Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17,
+// Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
+// This makes its points natively representable in our VM.
 namespace ecc;
+
     // Infinity is represented as 0,0,true in the standard form
     pol INFINITY_X = 0;
     pol INFINITY_Y = 0;
@@ -20,51 +16,13 @@ namespace ecc;
     #[skippable_if]
     sel = 0;
 
-    ////////////////////////////////////////////////
-    // Error Handling - Check Point is on curve
-    ////////////////////////////////////////////////
-    pol commit sel_p_on_curve_err;
-    sel_p_on_curve_err * (1 - sel_p_on_curve_err) = 0;
-
-    pol commit sel_q_on_curve_err;
-    sel_q_on_curve_err * (1 - sel_q_on_curve_err) = 0;
-
-    pol commit err;
-    err = 1 - (1 - sel_p_on_curve_err) * (1 - sel_q_on_curve_err);
-
-    // Y^2 = X^3 − 17
-    pol P_X3 = p_x * p_x * p_x;
-    pol P_Y2 = p_y * p_y;
-    pol commit p_is_on_curve_eqn;
-    #[P_CURVE_EQN]
-    p_is_on_curve_eqn = sel * (P_Y2 - (P_X3 - 17)) * (1 - p_is_inf); // Infinity considered on curve
-    // If p_is_on_curve_eqn != 0,  sel_p_on_curve_err = 1
-    pol commit p_on_curve_eqn_inv;
-    #[P_ON_CURVE_CHECK]
-    sel * (p_is_on_curve_eqn * ((1 - sel_p_on_curve_err) * (1 - p_on_curve_eqn_inv) + p_on_curve_eqn_inv) - sel_p_on_curve_err) = 0;
-
-    pol Q_X3 = q_x * q_x * q_x;
-    pol Q_Y2 = q_y * q_y;
-    pol commit q_is_on_curve_eqn;
-    #[Q_CURVE_EQN]
-    q_is_on_curve_eqn = sel * (Q_Y2 - (Q_X3 - 17)) * (1 - q_is_inf); // Infinity considered on curve
-    // If q_is_on_curve_eqn != 0,  sel_q_on_curve_err = 1
-    pol commit q_on_curve_eqn_inv;
-    #[Q_ON_CURVE_CHECK]
-    sel * (q_is_on_curve_eqn * ((1 - sel_q_on_curve_err) * (1 - q_on_curve_eqn_inv) + q_on_curve_eqn_inv) - sel_q_on_curve_err) = 0;
-
-    ////////////////////////////////////////////////
-    // Execute ECC Add operation
-    ////////////////////////////////////////////////
-    pol commit sel_should_exec;
-    sel_should_exec * (1 - sel_should_exec) = 0;
-    // If we should execute, we are either doubling, adding or handling the edge case
-    sel_should_exec = (double_op + add_op + INFINITY_PRED) * (1 - err) * sel;
-
     pol commit double_op;
     double_op * (1 - double_op) = 0;
     pol commit add_op;
     add_op * (1 - add_op) = 0;
+
+    // When the sel is on, we are either doubling, adding or handling the edge case
+    sel = double_op + add_op + INFINITY_PRED;
 
     // Point P in affine form
     pol commit p_x;
@@ -91,7 +49,7 @@ namespace ecc;
     pol X_DIFF = q_x - p_x;
     pol commit inv_x_diff;
     // x_match == 1 IFF X_DIFF = 0
-    sel_should_exec * (X_DIFF * (x_match * (1 - inv_x_diff) + inv_x_diff) - 1 + x_match) = 0;
+    sel * (X_DIFF * (x_match * (1 - inv_x_diff) + inv_x_diff) - 1 + x_match) = 0;
 
     // Check y coordinates, i.e. p_y == q_y
     pol commit y_match;
@@ -99,7 +57,7 @@ namespace ecc;
     pol Y_DIFF = q_y - p_y;
     pol commit inv_y_diff;
     // y_match == 1 IFF Y_DIFF = 0,
-    sel_should_exec * (Y_DIFF * (y_match * (1 - inv_y_diff) + inv_y_diff) - 1 + y_match) = 0;
+    sel * (Y_DIFF * (y_match * (1 - inv_y_diff) + inv_y_diff) - 1 + y_match) = 0;
 
     // If x and y match, we must double
     #[DOUBLE_PRED]
@@ -113,7 +71,7 @@ namespace ecc;
     // Used to reduce the degree of the relations
     pol commit result_infinity;
     #[INFINITY_RESULT]
-    sel_should_exec * (result_infinity - (INFINITY_PRED * BOTH_NON_INF + BOTH_INF)) = 0;
+    sel * (result_infinity - (INFINITY_PRED * BOTH_NON_INF + BOTH_INF)) = 0;
 
     // The lambda calculation for doubling involves division by (2 * p_y);
     pol commit inv_2_p_y;
@@ -122,7 +80,7 @@ namespace ecc;
     // We commit to the lambda column to minimise the degree of subsequent relations
     pol commit lambda;
     #[COMPUTED_LAMBDA]
-    sel_should_exec * (lambda - (double_op * (3 * p_x * p_x) * inv_2_p_y + add_op * Y_DIFF * inv_x_diff)) = 0;
+    sel * (lambda - (double_op * (3 * p_x * p_x) * inv_2_p_y + add_op * Y_DIFF * inv_x_diff)) = 0;
     pol COMPUTED_R_X = lambda * lambda - p_x - q_x;
     pol COMPUTED_R_Y = lambda * (p_x - r_x) - p_y;
 
@@ -133,12 +91,12 @@ namespace ecc;
     pol EITHER_INF = p_is_inf + q_is_inf - 2 * BOTH_INF;
     // We commit this intermediate result for the sole purpose of not increasing the degree of the relations beyond 6.
     pol commit use_computed_result;
-    use_computed_result = sel_should_exec * (1 - p_is_inf) * (1 - q_is_inf) * (1 - INFINITY_PRED);
+    use_computed_result = sel * (1 - p_is_inf) * (1 - q_is_inf) * (1 - INFINITY_PRED);
 
     #[OUTPUT_X_COORD]
-    sel_should_exec * (r_x - (EITHER_INF * (p_is_inf * q_x + q_is_inf * p_x)) - result_infinity * INFINITY_X - use_computed_result * COMPUTED_R_X) = 0;
+    sel * (r_x - (EITHER_INF * (p_is_inf * q_x + q_is_inf * p_x)) - result_infinity * INFINITY_X - use_computed_result * COMPUTED_R_X) = 0;
     #[OUTPUT_Y_COORD]
-    sel_should_exec * (r_y - (EITHER_INF * (p_is_inf * q_y + q_is_inf * p_y)) - result_infinity * INFINITY_Y - use_computed_result * COMPUTED_R_Y) = 0;
+    sel * (r_y - (EITHER_INF * (p_is_inf * q_y + q_is_inf * p_y)) - result_infinity * INFINITY_Y - use_computed_result * COMPUTED_R_Y) = 0;
     #[OUTPUT_INF_FLAG]
-    sel_should_exec * (r_is_inf - result_infinity) = 0;
+    sel * (r_is_inf - result_infinity) = 0;
 

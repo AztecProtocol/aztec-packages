@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/ecc.hpp"
 
-#include "gtest/gtest.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -10,7 +9,6 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 
 using ::testing::AllOf;
@@ -57,32 +55,6 @@ TEST(AvmSimulationEccTest, Add)
     EXPECT_EQ(events[0].p, p);
     EXPECT_EQ(events[0].q, q);
     EXPECT_EQ(events[0].result, result);
-}
-
-TEST(AvmSimulationEccTest, AddNotOnCurve)
-{
-    EventEmitter<EccAddEvent> ecc_event_emitter;
-    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-
-    StrictMock<MockExecutionIdManager> execution_id_manager;
-    StrictMock<MockGreaterThan> gt;
-    StrictMock<MockToRadix> to_radix;
-
-    Ecc ecc(
-        execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
-
-    // Point P is not on the curve
-    FF p_x("0x0000000000063d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
-    FF p_y("0x00000000000c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-    EmbeddedCurvePoint p(p_x, p_y, false);
-
-    // Point Q is on the curve
-    FF q_x("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
-    FF q_y("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3");
-    EmbeddedCurvePoint q(q_x, q_y, false);
-
-    EXPECT_THROW(ecc.add(p, q), std::runtime_error);
 }
 
 TEST(AvmSimulationEccTest, ScalarMul)
@@ -197,6 +169,37 @@ TEST(AvmSimulationEccTest, AddWithMemory)
                                   memory.get(dst_address + 1).as_ff(),
                                   static_cast<bool>(memory.get(dst_address + 2).as_ff()) };
     EXPECT_EQ(result, expected_result);
+}
+
+TEST(AvmSimulationEccTest, AddNotOnCurve)
+{
+    EventEmitter<EccAddEvent> ecc_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockToRadix> to_radix;
+    MemoryStore memory;
+
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
+    EXPECT_CALL(gt, gt(0x1000 + 2, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
+
+    Ecc ecc(
+        execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
+
+    // Point P is not on the curve
+    FF p_x("0x0000000000063d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
+    FF p_y("0x00000000000c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    EmbeddedCurvePoint p(p_x, p_y, false);
+
+    // Point Q is on the curve
+    FF q_x("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
+    FF q_y("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3");
+    EmbeddedCurvePoint q(q_x, q_y, false);
+
+    uint32_t dst_address = 0x1000;
+    EXPECT_THROW(ecc.add(memory, p, q, dst_address), EccException);
 }
 
 } // namespace
