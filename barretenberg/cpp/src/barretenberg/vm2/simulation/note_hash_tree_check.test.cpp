@@ -38,7 +38,7 @@ TEST(AvmSimulationNoteHashTree, Exists)
     };
 
     FF note_hash = 42;
-    index_t leaf_index = 30;
+    uint64_t leaf_index = 30;
 
     EXPECT_CALL(merkle_check, assert_membership(note_hash, leaf_index, _, snapshot.root)).WillRepeatedly(Return());
 
