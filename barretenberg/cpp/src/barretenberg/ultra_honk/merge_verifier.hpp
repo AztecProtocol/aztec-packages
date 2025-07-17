@@ -36,6 +36,10 @@ class MergeVerifier {
     std::shared_ptr<Transcript> transcript;
     MergeSettings settings;
 
+    /**
+     * @brief Commitments to the subtable t_j on which the Merge verifier operates
+     *
+     */
     class SubtableWitnessCommitments {
       public:
         std::array<Commitment, NUM_WIRES> t_commitments;
@@ -56,6 +60,10 @@ class MergeVerifier {
         }
     };
 
+    /**
+     * @brief Commitments used by the Merge verifier during the protocol
+     *
+     */
     class WitnessCommitments : public SubtableWitnessCommitments {
       public:
         std::array<Commitment, NUM_WIRES> T_commitments;

@@ -74,7 +74,7 @@ GoblinProof Goblin::prove()
 
 Goblin::PairingPoints Goblin::recursively_verify_merge(
     MegaBuilder& builder,
-    const RecursiveMergeSubtableCommitments& subtable_commitments,
+    const RecursiveSubtableCommitments& subtable_commitments,
     std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
     const std::shared_ptr<RecursiveTranscript>& transcript)
 {
@@ -93,7 +93,7 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(
 }
 
 bool Goblin::verify(const GoblinProof& proof,
-                    const MergeSubtableCommitments& subtable_commitments,
+                    const SubtableCommitments& subtable_commitments,
                     std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
                     const std::shared_ptr<Transcript>& transcript)
 {

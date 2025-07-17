@@ -31,6 +31,10 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
+    /**
+     * @brief Commitments to the subtable t_j on which the Merge verifier operates
+     *
+     */
     class SubtableWitnessCommitments {
       public:
         std::array<Commitment, NUM_WIRES> t_commitments;
@@ -51,6 +55,10 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
         }
     };
 
+    /**
+     * @brief Commitments used by the Merge verifier during the protocol
+     *
+     */
     class WitnessCommitments : public SubtableWitnessCommitments {
       public:
         std::array<Commitment, NUM_WIRES> T_commitments;

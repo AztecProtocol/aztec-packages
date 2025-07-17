@@ -38,8 +38,8 @@ class Goblin {
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
-    using MergeSubtableCommitments = MergeVerifier::SubtableWitnessCommitments;
-    using RecursiveMergeSubtableCommitments = MergeRecursiveVerifier::SubtableWitnessCommitments;
+    using SubtableCommitments = MergeVerifier::SubtableWitnessCommitments;
+    using RecursiveSubtableCommitments = MergeRecursiveVerifier::SubtableWitnessCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<MegaBuilder>>;
 
@@ -102,7 +102,7 @@ class Goblin {
      */
     PairingPoints recursively_verify_merge(
         MegaBuilder& builder,
-        const RecursiveMergeSubtableCommitments& subtable_commitments,
+        const RecursiveSubtableCommitments& subtable_commitments,
         std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
         const std::shared_ptr<RecursiveTranscript>& transcript);
 
@@ -119,7 +119,7 @@ class Goblin {
      * @return false
      */
     static bool verify(const GoblinProof& proof,
-                       const MergeSubtableCommitments& subtable_commitments,
+                       const SubtableCommitments& subtable_commitments,
                        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
                        const std::shared_ptr<Transcript>& transcript);
 };
