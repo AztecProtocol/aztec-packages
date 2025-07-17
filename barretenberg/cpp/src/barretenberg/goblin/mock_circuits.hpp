@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -162,10 +161,8 @@ class GoblinMockCircuits {
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17
-        const size_t NUM_MERKLE_CHECKS = 19;
-        const size_t NUM_ECDSA_VERIFICATIONS = 1;
-        const size_t NUM_SHA_HASHES = 1;
-        stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
+        const size_t NUM_ECDSA_VERIFICATIONS = 2;
+        const size_t NUM_SHA_HASHES = 10;
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         generate_sha256_test_circuit<MegaBuilder>(builder, NUM_SHA_HASHES);
     }
