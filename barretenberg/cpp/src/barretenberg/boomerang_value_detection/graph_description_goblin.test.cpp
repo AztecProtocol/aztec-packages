@@ -24,7 +24,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
 
     using Commitment = MergeVerifier::Commitment;
     using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
-    using RecursiveMergeVerificationData = GoblinRecursiveVerifier::MergeVerifier::MergeVerificationData;
+    using MergeCommitments = GoblinRecursiveVerifier::MergeVerifier::WitnessCommitments;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -82,15 +82,16 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
     Builder builder;
 
-    // MergeVerificationData
-    RecursiveMergeVerificationData recursive_merge_verification_data;
+    // Merge commitments
+    MergeCommitments recursive_merge_commitments;
     for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-        recursive_merge_verification_data.t_commitments[idx] =
+        recursive_merge_commitments.t_commitments[idx] =
             RecursiveCommitment::from_witness(&builder, t_commitments[idx]);
     }
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_verification_data);
+    GoblinRecursiveVerifierOutput output =
+        verifier.verify(proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
     output.points_accumulator.set_public();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
