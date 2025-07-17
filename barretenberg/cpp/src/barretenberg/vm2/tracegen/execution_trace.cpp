@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
@@ -185,6 +186,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_execute_notehash_exists;
     case ExecutionOpCode::EMITNOTEHASH:
         return C::execution_sel_execute_emit_notehash;
+    case ExecutionOpCode::L1TOL2MSGEXISTS:
+        return C::execution_sel_execute_l1_to_l2_message_exists;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -394,6 +397,14 @@ void ExecutionTraceBuilder::process(
                 { C::execution_note_hash_tree_size,
                   ex_event.after_context_event.tree_states.noteHashTree.tree.nextAvailableLeafIndex },
                 { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
+                // Context - tree states - L1 to L2 message tree
+                { C::execution_prev_l1_l2_tree_root,
+                  ex_event.before_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                { C::execution_prev_l1_l2_tree_size,
+                  ex_event.before_context_event.tree_states.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
+                { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                { C::execution_l1_l2_tree_size,
+                  ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
                 // Other.
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Helpers for identifying parent context
@@ -598,6 +609,16 @@ void ExecutionTraceBuilder::process(
                               { C::execution_remaining_note_hashes_inv,
                                 remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
                               { C::execution_sel_write_note_hash, remaining_note_hashes != 0 },
+                          } });
+            } else if (exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
+                uint64_t leaf_index = registers[1].as<uint64_t>();
+                uint64_t l1_to_l2_msg_tree_leaf_count = L1_TO_L2_MSG_TREE_LEAF_COUNT;
+                bool l1_to_l2_msg_leaf_in_range = leaf_index < l1_to_l2_msg_tree_leaf_count;
+
+                trace.set(row,
+                          { {
+                              { C::execution_l1_to_l2_msg_leaf_in_range, l1_to_l2_msg_leaf_in_range },
+                              { C::execution_l1_to_l2_msg_tree_leaf_count, FF(l1_to_l2_msg_tree_leaf_count) },
                           } });
             }
         }
@@ -1101,6 +1122,9 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // GetContractInstance opcode
         .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>()
         // EmitNoteHash
-        .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>();
+        .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
+        // L1ToL2MsgExists
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

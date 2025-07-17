@@ -16,6 +16,7 @@
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
@@ -45,6 +46,7 @@ using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
 using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
+using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
@@ -96,6 +98,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
+    NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -107,7 +110,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
                        public_data_tree_check,
                        mock_nullifier_tree_check,
                        mock_note_hash_tree_check,
-                       mock_written_public_data_slots_tree_check);
+                       mock_written_public_data_slots_tree_check,
+                       mock_l1_to_l2_message_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(
@@ -178,6 +182,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
+    NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -189,7 +194,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
                        public_data_tree_check,
                        mock_nullifier_tree_check,
                        mock_note_hash_tree_check,
-                       mock_written_public_data_slots_tree_check);
+                       mock_written_public_data_slots_tree_check,
+                       mock_l1_to_l2_message_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     GlobalVariables globals{ .timestamp = current_timestamp };

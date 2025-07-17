@@ -80,6 +80,7 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MOCK_METHOD(void, note_hash_write, (const AztecAddress& contract_address, const FF& note_hash), (override));
     MOCK_METHOD(void, siloed_note_hash_write, (const FF& note_hash), (override));
     MOCK_METHOD(void, unique_note_hash_write, (const FF& note_hash), (override));
+    MOCK_METHOD(bool, l1_to_l2_msg_exists, (index_t leaf_index, const FF& msg_hash), (const, override));
 
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));

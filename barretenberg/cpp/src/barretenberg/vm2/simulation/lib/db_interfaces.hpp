@@ -90,6 +90,7 @@ class HighLevelMerkleDBInterface {
     virtual void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) = 0;
     virtual void siloed_note_hash_write(const FF& note_hash) = 0;
     virtual void unique_note_hash_write(const FF& note_hash) = 0;
+    virtual bool l1_to_l2_msg_exists(index_t leaf_index, const FF& msg_hash) const = 0;
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
