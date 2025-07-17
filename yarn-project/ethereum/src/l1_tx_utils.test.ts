@@ -12,7 +12,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from './client.js';
-import { L1TxUtils, ReadOnlyL1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import { type L1TxRequest, L1TxUtils, ReadOnlyL1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { EthCheatCodes } from './test/eth_cheat_codes.js';
 import { startAnvil } from './test/start_anvil.js';
@@ -42,7 +42,7 @@ describe('GasUtils', () => {
 
   beforeAll(async () => {
     dateProvider = new TestDateProvider();
-    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1, log: true });
     anvil = anvilInstance;
     cheatCodes = new EthCheatCodes([rpcUrl]);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
@@ -76,6 +76,7 @@ describe('GasUtils', () => {
     await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
     await cheatCodes.evmMine();
   });
+
   afterAll(async () => {
     // disabling interval mining as it seems to cause issues with stopping anvil
     await cheatCodes.setIntervalMining(0); // Disable interval mining
@@ -497,23 +498,25 @@ describe('GasUtils', () => {
       expect(message).toBe('Test_Error(33)');
     }
   });
-  it('stops trying after timeout', async () => {
+
+  it('stops trying after timeout once block is mined', async () => {
     await cheatCodes.setAutomine(false);
     await cheatCodes.setIntervalMining(0);
+    gasUtils.config.txPropagationMaxQueryAttempts = 0;
 
-    const now = dateProvider.now();
-    await expect(
-      gasUtils.sendAndMonitorTransaction(
-        {
-          to: '0x1234567890123456789012345678901234567890',
-          data: '0x',
-          value: 0n,
-        },
-        { txTimeoutAt: new Date(now + 1000) },
-      ),
-    ).rejects.toThrow(/timed out/);
+    const now = dateProvider.nowInSeconds() * 1000;
+    const txTimeoutAt = new Date(now + 1000);
+    const txRequest: L1TxRequest = { to: '0x1234567890123456789012345678901234567890', data: '0x', value: 0n };
+    const tx = await gasUtils.sendTransaction(txRequest);
+    const monitorPromise = gasUtils.monitorTransaction(txRequest, tx.txHash, tx, { txTimeoutAt });
+
+    await sleep(1000);
+    await cheatCodes.dropTransaction(tx.txHash);
+    await cheatCodes.setNextBlockTimestamp(txTimeoutAt);
+    await cheatCodes.mine();
+    await expect(monitorPromise).rejects.toThrow(/timed out/);
     expect(dateProvider.now() - now).toBeGreaterThanOrEqual(990);
-  }, 60_000);
+  }, 20_000);
 
   it('attempts to cancel timed out transactions', async () => {
     // Disable auto-mining to control block production

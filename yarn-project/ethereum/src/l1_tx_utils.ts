@@ -575,8 +575,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
       const account = this.client.account;
-      let gasLimit: bigint;
 
+      let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
         gasLimit = LARGE_GAS_LIMIT;
       } else if (gasConfig.gasLimit) {
@@ -584,8 +584,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       } else {
         gasLimit = await this.estimateGas(account, request, gasConfig);
       }
-
-      this.logger?.debug('Gas limit', { gasLimit });
+      this.logger?.debug(`Gas limit for request is ${gasLimit}`, { gasLimit, ...request });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
@@ -683,14 +682,26 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const initialTxTime = lastAttemptSent;
 
     let txTimedOut = false;
+    let latestBlockTimestamp: bigint | undefined;
+
+    // We check against the latestBlockTimestamp as opposed to the current time to avoid a race condition where
+    // the tx is mined in a block with the same timestamp as txTimeoutAt, but our execution node has not yet processed it,
+    // or the loop here has not yet checked the tx before that timeout.
     const isTimedOut = () =>
-      (gasConfig.txTimeoutAt && this.dateProvider.now() > gasConfig.txTimeoutAt.getTime()) ||
+      (gasConfig.txTimeoutAt &&
+        latestBlockTimestamp !== undefined &&
+        Number(latestBlockTimestamp) * 1000 >= gasConfig.txTimeoutAt.getTime()) ||
       (gasConfig.txTimeoutMs !== undefined && this.dateProvider.now() - initialTxTime > gasConfig.txTimeoutMs) ||
       this.interrupted ||
       false;
 
     while (!txTimedOut) {
       try {
+        ({ timestamp: latestBlockTimestamp } = await this.client.getBlock({
+          blockTag: 'latest',
+          includeTransactions: false,
+        }));
+
         const currentNonce = await this.client.getTransactionCount({ address: account.address });
         if (currentNonce > nonce) {
           for (const hash of txHashes) {
@@ -711,6 +722,16 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             }
           }
         }
+
+        this.logger?.trace(`Tx timeout check for ${currentTxHash}: ${isTimedOut()}`, {
+          latestBlockTimestamp: Number(latestBlockTimestamp) * 1000,
+          lastAttemptSent,
+          initialTxTime,
+          now: this.dateProvider.now(),
+          txTimeoutAt: gasConfig.txTimeoutAt?.getTime(),
+          txTimeoutMs: gasConfig.txTimeoutMs,
+          txStallTime: gasConfig.stallTimeMs,
+        });
 
         // Retry a few times, in case the tx is not yet propagated.
         const tx = await retry<GetTransactionReturnType>(
