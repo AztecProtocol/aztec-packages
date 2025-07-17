@@ -10,6 +10,7 @@ import {
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import pickBy from 'lodash.pickby';
@@ -215,6 +216,7 @@ export class ReadOnlyL1TxUtils {
   constructor(
     public client: ViemClient,
     protected logger: Logger = createLogger('ReadOnlyL1TxUtils'),
+    public readonly dateProvider: DateProvider,
     config?: Partial<L1TxUtilsConfig>,
     protected debugMaxGasLimit: boolean = false,
   ) {
@@ -539,10 +541,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   constructor(
     public override client: ExtendedViemWalletClient,
     protected override logger: Logger = createLogger('L1TxUtils'),
+    dateProvider: DateProvider = new DateProvider(),
     config?: Partial<L1TxUtilsConfig>,
     debugMaxGasLimit: boolean = false,
   ) {
-    super(client, logger, config, debugMaxGasLimit);
+    super(client, logger, dateProvider, config, debugMaxGasLimit);
     if (!isExtendedClient(this.client)) {
       throw new Error('L1TxUtils has to be instantiated with a wallet client.');
     }
@@ -586,7 +589,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
-      if (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) {
+      if (gasConfig.txTimeoutAt && this.dateProvider.now() > gasConfig.txTimeoutAt.getTime()) {
         throw new Error('Transaction timed out before sending');
       }
 
@@ -671,7 +674,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const txHashes = new Set<Hex>([initialTxHash]);
     let currentTxHash = initialTxHash;
     let attempts = 0;
-    let lastAttemptSent = Date.now();
+    let lastAttemptSent = this.dateProvider.now();
     let lastGasPrice: GasPrice = {
       maxFeePerGas: tx.maxFeePerGas!,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas!,
@@ -681,8 +684,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     let txTimedOut = false;
     const isTimedOut = () =>
-      (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) ||
-      (gasConfig.txTimeoutMs !== undefined && Date.now() - initialTxTime > gasConfig.txTimeoutMs) ||
+      (gasConfig.txTimeoutAt && this.dateProvider.now() > gasConfig.txTimeoutAt.getTime()) ||
+      (gasConfig.txTimeoutMs !== undefined && this.dateProvider.now() - initialTxTime > gasConfig.txTimeoutMs) ||
       this.interrupted ||
       false;
 
@@ -717,7 +720,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           this.logger,
           true,
         );
-        const timePassed = Date.now() - lastAttemptSent;
+        const timePassed = this.dateProvider.now() - lastAttemptSent;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
           this.logger?.debug(`L1 transaction ${currentTxHash} pending. Time passed: ${timePassed}ms.`);
@@ -779,7 +782,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           currentTxHash = newHash;
 
           txHashes.add(currentTxHash);
-          lastAttemptSent = Date.now();
+          lastAttemptSent = this.dateProvider.now();
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
@@ -802,12 +805,19 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           metaMessages: viemError.metaMessages,
         });
       });
-
-      this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
-        txHash: currentTxHash,
-        ...tx,
-      });
     }
+
+    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+      txHash: currentTxHash,
+      txTimeoutAt: gasConfig.txTimeoutAt,
+      txTimeoutMs: gasConfig.txTimeoutMs,
+      txInitialTime: initialTxTime,
+      now: this.dateProvider.now(),
+      attempts,
+      isInterrupted: this.interrupted,
+      ...tx,
+    });
+
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 

@@ -3,6 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
@@ -35,9 +36,12 @@ describe('GasUtils', () => {
   let l1Client: ExtendedViemWalletClient;
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
+  let dateProvider: TestDateProvider;
+
   const initialBaseFee = WEI_CONST; // 1 gwei
 
   beforeAll(async () => {
+    dateProvider = new TestDateProvider();
     const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
     anvil = anvilInstance;
     cheatCodes = new EthCheatCodes([rpcUrl]);
@@ -58,7 +62,7 @@ describe('GasUtils', () => {
     });
     await cheatCodes.evmMine();
 
-    gasUtils = new L1TxUtilsWithBlobs(l1Client, logger, {
+    gasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       maxAttempts: 3,
@@ -185,7 +189,7 @@ describe('GasUtils', () => {
     await cheatCodes.evmMine();
 
     // First deploy without any buffer
-    const baselineGasUtils = new L1TxUtilsWithBlobs(l1Client, logger, {
+    const baselineGasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
       gasLimitBufferPercentage: 0,
       maxGwei: 500n,
       maxAttempts: 5,
@@ -204,7 +208,7 @@ describe('GasUtils', () => {
     });
 
     // Now deploy with 20% buffer
-    const bufferedGasUtils = new L1TxUtilsWithBlobs(l1Client, logger, {
+    const bufferedGasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       maxAttempts: 3,
@@ -271,7 +275,7 @@ describe('GasUtils', () => {
   });
 
   it('respects minimum gas price bump for replacements', async () => {
-    const gasUtils = new L1TxUtilsWithBlobs(l1Client, logger, {
+    const gasUtils = new L1TxUtilsWithBlobs(l1Client, logger, dateProvider, {
       ...defaultL1TxUtilsConfig,
       priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
     });
@@ -497,7 +501,7 @@ describe('GasUtils', () => {
     await cheatCodes.setAutomine(false);
     await cheatCodes.setIntervalMining(0);
 
-    const now = Date.now();
+    const now = dateProvider.now();
     await expect(
       gasUtils.sendAndMonitorTransaction(
         {
@@ -508,7 +512,7 @@ describe('GasUtils', () => {
         { txTimeoutAt: new Date(now + 1000) },
       ),
     ).rejects.toThrow(/timed out/);
-    expect(Date.now() - now).toBeGreaterThanOrEqual(990);
+    expect(dateProvider.now() - now).toBeGreaterThanOrEqual(990);
   }, 60_000);
 
   it('attempts to cancel timed out transactions', async () => {
@@ -742,8 +746,10 @@ describe('GasUtils', () => {
 describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
   let publicClient: ViemClient;
   let walletClient: ExtendedViemWalletClient;
+  let dateProvider: TestDateProvider;
 
   beforeAll(async () => {
+    dateProvider = new TestDateProvider();
     const { rpcUrl } = await startAnvil({ l1BlockTime: 1 });
 
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
@@ -759,7 +765,7 @@ describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
   });
 
   it('ReadOnlyL1TxUtils can be instantiated with public client but not wallet methods', () => {
-    const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger);
+    const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger, dateProvider);
     expect(readOnlyUtils).toBeDefined();
     expect(readOnlyUtils.client).toBe(publicClient);
 
@@ -772,7 +778,7 @@ describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
   });
 
   it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
-    const l1TxUtils = new L1TxUtils(walletClient, logger);
+    const l1TxUtils = new L1TxUtils(walletClient, logger, dateProvider);
     expect(l1TxUtils).toBeDefined();
     expect(l1TxUtils.client).toBe(walletClient);
 
@@ -785,7 +791,7 @@ describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
   });
 
   it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
-    const l1TxUtils = new L1TxUtils(walletClient, logger);
+    const l1TxUtils = new L1TxUtils(walletClient, logger, dateProvider);
 
     // Verify all read-only methods are available
     expect(l1TxUtils.getBlock).toBeDefined();
@@ -799,7 +805,7 @@ describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
 
   it('L1TxUtils cannot be instantiated with public client', () => {
     expect(() => {
-      new L1TxUtils(publicClient as any, logger);
+      new L1TxUtils(publicClient as any, logger, dateProvider);
     }).toThrow();
   });
 });
