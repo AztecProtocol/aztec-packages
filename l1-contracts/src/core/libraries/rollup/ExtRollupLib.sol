@@ -4,24 +4,45 @@
 pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
+import {InvalidateLib} from "./InvalidateLib.sol";
+import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 import {
-  ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs
+  ProposeLib,
+  ProposeArgs,
+  CommitteeAttestations,
+  ValidateHeaderArgs,
+  ValidatorSelectionLib
 } from "./ProposeLib.sol";
 
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
 library ExtRollupLib {
   using TimeLib for Timestamp;
+  using TimeLib for Slot;
+  using SignatureLib for CommitteeAttestations;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofLib.submitEpochRootProof(_args);
   }
 
-  function validateHeader(ValidateHeaderArgs calldata _args) external {
+  function validateHeader(
+    ValidateHeaderArgs calldata _args,
+    CommitteeAttestations calldata _attestations
+  ) external {
     ProposeLib.validateHeader(_args);
+    if (_attestations.isEmpty()) {
+      return; // No attestations to validate
+    }
+
+    Slot slot = _args.header.slotNumber;
+    Epoch epoch = slot.epochFromSlot();
+    ValidatorSelectionLib.verify(slot, epoch, _attestations, _args.digest);
+    ValidatorSelectionLib.verifyProposer(slot, _attestations, _args.digest);
   }
 
   function propose(

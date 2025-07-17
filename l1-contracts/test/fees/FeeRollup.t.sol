@@ -392,6 +392,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
+              attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
               blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })

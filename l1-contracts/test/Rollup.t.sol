@@ -37,7 +37,7 @@ import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SignatureLib, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -643,6 +643,7 @@ contract RollupTest is RollupBase {
         end: 2,
         args: args,
         fees: fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: data.batchedBlobInputs,
         proof: proof
       })
@@ -861,6 +862,7 @@ contract RollupTest is RollupBase {
         end: _end,
         args: args,
         fees: fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: _blobInputs,
         proof: ""
       })
