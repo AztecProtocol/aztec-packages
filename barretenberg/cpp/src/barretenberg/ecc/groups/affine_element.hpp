@@ -11,7 +11,6 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <cstring>
 #include <type_traits>
 #include <vector>
