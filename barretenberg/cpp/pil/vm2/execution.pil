@@ -75,6 +75,10 @@ enqueued_call_start' = (precomputed.first_row + enqueued_call_end) * sel';
 #[ENQUEUED_CALL_END]
 enqueued_call_end = sel_exit_call * (1 - has_parent_ctx);
 
+// First row after *CALL, or first row of enqueued call
+// This is the only row where bytecode retrieval is active.
+pol commit sel_first_row_in_context;
+sel_first_row_in_context' = sel_enter_call + enqueued_call_start';
 
 /**************************************************************************************************
  *  Setup (some general constraints)
@@ -93,12 +97,15 @@ last = sel * (1 - sel');
 pol commit bytecode_id;
 pol commit sel_bytecode_retrieval_failure;
 
+// TODO(dbanks12): since this lookup is no longer active for all rows,
+// we likely need to constrain that bytecode_id does not change during a context,
+// or we need to otherwise consider the implications of this.
 #[BYTECODE_RETRIEVAL_RESULT]
-sel {
+sel_first_row_in_context {
     bytecode_id,
     contract_address,
-    nullifier_tree_root, // from context.pil
-    public_data_tree_root, // from context.pil
+    prev_nullifier_tree_root, // from context.pil
+    prev_public_data_tree_root, // from context.pil
     sel_bytecode_retrieval_failure
 } in bc_retrieval.sel {
     bc_retrieval.bytecode_id,
@@ -331,6 +338,8 @@ pol commit dyn_gas_id;
 // selector can be used to gate the execution of the opcode/dispatching logic (which comes after gas, etc).
 pol commit sel_execute_alu;
 pol commit sel_execute_bitwise;
+pol commit sel_execute_cast;
+pol commit sel_execute_set;
 pol commit sel_execute_to_radix;
 pol commit sel_execute_poseidon2_perm;
 pol commit sel_execute_ecc_add;
@@ -340,6 +349,8 @@ pol commit sel_execute_keccakf1600;
 pol commit sel_execute_get_contract_instance;
 sel_execute_alu * (1 - sel_execute_alu) = 0;
 sel_execute_bitwise * (1 - sel_execute_bitwise) = 0;
+sel_execute_cast * (1 - sel_execute_cast) = 0;
+sel_execute_set * (1 - sel_execute_set) = 0;
 sel_execute_to_radix * (1 - sel_execute_to_radix) = 0;
 sel_execute_poseidon2_perm * (1 - sel_execute_poseidon2_perm) = 0;
 sel_execute_ecc_add * (1 - sel_execute_ecc_add) = 0;
@@ -351,6 +362,8 @@ sel_execute_get_contract_instance * (1 - sel_execute_get_contract_instance) = 0;
 #[SUBTRACE_ID_DECOMPOSITION]
 sel_execute_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
 sel_execute_alu * constants.AVM_SUBTRACE_ID_ALU +
+sel_execute_cast * constants.AVM_SUBTRACE_ID_CAST +
+sel_execute_set * constants.AVM_SUBTRACE_ID_SET +
 sel_execute_bitwise * constants.AVM_SUBTRACE_ID_BITWISE +
 sel_execute_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
 sel_execute_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
@@ -366,7 +379,6 @@ sel_execute_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANC
 // and whether there was any error before the actual execution step. Therefore, the
 // selector can be used to gate the execution of the opcode logic (which comes after gas, etc).
 pol commit sel_execute_get_env_var;
-pol commit sel_execute_set;
 pol commit sel_execute_mov;
 pol commit sel_execute_jump;
 pol commit sel_execute_jumpi;
@@ -385,7 +397,6 @@ pol commit sel_execute_notehash_exists;
 pol commit sel_execute_emit_notehash;
 pol commit sel_execute_l1_to_l2_message_exists;
 sel_execute_get_env_var * (1 - sel_execute_get_env_var) = 0;
-sel_execute_set * (1 - sel_execute_set) = 0;
 sel_execute_mov * (1 - sel_execute_mov) = 0;
 sel_execute_jump * (1 - sel_execute_jump) = 0;
 sel_execute_jumpi * (1 - sel_execute_jumpi) = 0;
@@ -406,7 +417,6 @@ sel_execute_l1_to_l2_message_exists * (1 - sel_execute_l1_to_l2_message_exists) 
 
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execute_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
-sel_execute_set * constants.AVM_EXEC_OP_ID_SET +
 sel_execute_mov * constants.AVM_EXEC_OP_ID_MOV +
 sel_execute_jump * constants.AVM_EXEC_OP_ID_JUMP +
 sel_execute_jumpi * constants.AVM_EXEC_OP_ID_JUMPI +

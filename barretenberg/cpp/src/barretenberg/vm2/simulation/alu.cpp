@@ -76,4 +76,38 @@ MemoryValue Alu::op_not(const MemoryValue& a)
     }
 }
 
+MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
+{
+    const MemoryValue c = MemoryValue::from_tag_truncating(dst_tag, a);
+
+    // Circuit leakage: range check for `mid` value defined by a = ic + mid * 2^dst_tag_bits + hi_128 * 2^128 and
+    // mid is (128 - dst_tag_bits) bits.
+    bool is_trivial = dst_tag == ValueTag::FF || static_cast<uint256_t>(a) <= get_tag_max_value(dst_tag);
+    if (!is_trivial) {
+
+        uint128_t a_lo = 0;
+        if (static_cast<uint256_t>(a) >= (static_cast<uint256_t>(1) << 128)) {
+            // Canonical decomposition
+            U256Decomposition decomposition = field_gt.canon_dec(a);
+            a_lo = decomposition.lo;
+        } else {
+            a_lo = static_cast<uint128_t>(a);
+        }
+
+        // cpp standard on bitwise shifts:
+        // "If the value of rhs is negative or is not less than the number of bits in lhs, the behavior is undefined."
+        // For this reason, we handle the case where dst_tag is U128 separately as shifting of 128 bits is undefined.
+        const uint128_t mid = dst_tag == MemoryTag::U128 ? 0 : a_lo >> get_tag_bits(dst_tag);
+        range_check.assert_range(mid, 128 - get_tag_bits(dst_tag));
+    }
+
+    // We put dst_tag in b to have correct deduplication and also to encode it in the event.
+    // Note however that in alu subtrace, dst_tag will be set in ia_tag.
+    events.emit({ .operation = AluOperation::TRUNCATE,
+                  .a = MemoryValue::from_tag(MemoryTag::FF, a),
+                  .b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag)),
+                  .c = c });
+    return c;
+}
+
 } // namespace bb::avm2::simulation

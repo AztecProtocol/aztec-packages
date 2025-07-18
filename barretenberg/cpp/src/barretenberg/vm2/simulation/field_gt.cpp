@@ -16,38 +16,41 @@ LimbsComparisonWitness limb_gt_witness(const U256Decomposition& a, const U256Dec
     return { x_lo, x_hi, borrow };
 }
 
+LimbsComparisonWitness canonical_decomposition(const U256Decomposition& x_limbs, RangeCheckInterface& range_check)
+{
+    static auto p_limbs = decompose(FF::modulus);
+
+    range_check.assert_range(x_limbs.lo, 128);
+    range_check.assert_range(x_limbs.hi, 128);
+
+    auto p_sub_x_witness = limb_gt_witness(p_limbs, x_limbs, false);
+    range_check.assert_range(p_sub_x_witness.lo, 128);
+    range_check.assert_range(p_sub_x_witness.hi, 128);
+
+    return p_sub_x_witness;
+}
+
 } // namespace
 
 bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
 {
-    static auto p_limbs = decompose(FF::modulus);
+    const uint256_t a_integer(a);
+    const uint256_t b_integer(b);
+    const auto a_limbs = decompose(a_integer);
+    const auto b_limbs = decompose(b_integer);
 
-    uint256_t a_integer(a);
-    uint256_t b_integer(b);
+    const auto p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
+    const auto p_sub_b_witness = canonical_decomposition(b_limbs, range_check);
 
-    bool result = a_integer > b_integer;
+    const bool result = a_integer > b_integer;
 
-    auto a_limbs = decompose(a_integer);
-    range_check.assert_range(a_limbs.lo, 128);
-    range_check.assert_range(a_limbs.hi, 128);
-
-    auto p_sub_a_witness = limb_gt_witness(p_limbs, a_limbs, false);
-    range_check.assert_range(p_sub_a_witness.lo, 128);
-    range_check.assert_range(p_sub_a_witness.hi, 128);
-
-    auto b_limbs = decompose(b_integer);
-    range_check.assert_range(b_limbs.lo, 128);
-    range_check.assert_range(b_limbs.hi, 128);
-
-    auto p_sub_b_witness = limb_gt_witness(p_limbs, b_limbs, false);
-    range_check.assert_range(p_sub_b_witness.lo, 128);
-    range_check.assert_range(p_sub_b_witness.hi, 128);
-
-    auto res_witness = result ? limb_gt_witness(a_limbs, b_limbs, false) : limb_gt_witness(b_limbs, a_limbs, true);
+    const auto res_witness =
+        result ? limb_gt_witness(a_limbs, b_limbs, false) : limb_gt_witness(b_limbs, a_limbs, true);
     range_check.assert_range(res_witness.lo, 128);
     range_check.assert_range(res_witness.hi, 128);
 
     events.emit({
+        .operation = FieldGreaterOperation::GREATER_THAN,
         .a = a,
         .b = b,
         .a_limbs = a_limbs,
@@ -55,9 +58,24 @@ bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
         .b_limbs = b_limbs,
         .p_sub_b_witness = p_sub_b_witness,
         .res_witness = res_witness,
-        .result = result,
+        .gt_result = result,
     });
     return result;
+}
+
+U256Decomposition FieldGreaterThan::canon_dec(const FF& a)
+{
+    const auto a_limbs = decompose(static_cast<uint256_t>(a));
+    const auto p_sub_a_witness = canonical_decomposition(a_limbs, range_check);
+
+    events.emit({
+        .operation = FieldGreaterOperation::CANONICAL_DECOMPOSITION,
+        .a = a,
+        .a_limbs = a_limbs,
+        .p_sub_a_witness = p_sub_a_witness,
+    });
+
+    return a_limbs;
 }
 
 } // namespace bb::avm2::simulation

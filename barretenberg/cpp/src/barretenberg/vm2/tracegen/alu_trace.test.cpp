@@ -8,7 +8,14 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
+#include "barretenberg/vm2/simulation/events/alu_event.hpp"
+#include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
@@ -20,8 +27,18 @@
 namespace bb::avm2::tracegen {
 namespace {
 
+using simulation::Alu;
 using simulation::AluError;
+using simulation::AluEvent;
 using simulation::AluOperation;
+using simulation::EventEmitter;
+using simulation::FieldGreaterThan;
+using simulation::FieldGreaterThanEvent;
+using simulation::MockFieldGreaterThan;
+using simulation::MockGreaterThan;
+using simulation::MockRangeCheck;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
 using testing::ElementsAre;
 using testing::StrictMock;
 
@@ -733,9 +750,11 @@ TestTraceContainer process_not_trace(const MemoryValue& a)
     TestTraceContainer trace;
     AluTraceBuilder builder;
 
-    simulation::EventEmitter<simulation::AluEvent> alu_event_emitter;
-    StrictMock<simulation::MockGreaterThan> gt;
-    simulation::Alu alu(gt, alu_event_emitter);
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     try {
         alu.op_not(a);
@@ -795,5 +814,246 @@ TEST(AluTraceGenTest, TraceGenerationNotOpFF)
                                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
                                   ROW_FIELD_EQ(alu_sel_is_ff, 1))));
 }
+
+// TRUNCATE operation (SET/CAST opcodes)
+
+TestTraceContainer process_truncate_trace(const MemoryValue& a, const MemoryTag& dst_tag)
+{
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    EventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    EventEmitter<AluEvent> alu_event_emitter;
+
+    StrictMock<MockGreaterThan> gt; // gt should never be called in truncation
+    RangeCheck range_check(range_check_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_emitter);
+
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    alu.truncate(a, dst_tag);
+
+    builder.process(alu_event_emitter.dump_events(), trace);
+    return trace;
+}
+
+struct TruncateTrivialTestParams {
+    MemoryValue a;
+    MemoryTag dst_tag;
+    FF expected_result;
+};
+
+const std::vector<TruncateTrivialTestParams> TRUNCATE_TRIVIAL_TEST_PARAMS = {
+    {
+        .a = MemoryValue::from<FF>(1),
+        .dst_tag = MemoryTag::U1,
+        .expected_result = 1,
+    },
+    {
+        .a = MemoryValue::from<FF>(7),
+        .dst_tag = MemoryTag::U8,
+        .expected_result = 7,
+    },
+    {
+        .a = MemoryValue::from<uint32_t>(123456789),
+        .dst_tag = MemoryTag::U32,
+        .expected_result = 123456789,
+    },
+    {
+        .a = MemoryValue::from<uint128_t>(1234567890123456789ULL),
+        .dst_tag = MemoryTag::U64,
+        .expected_result = 1234567890123456789ULL,
+    },
+    {
+        .a = MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 982739482),
+        .dst_tag = MemoryTag::U128,
+        .expected_result = (uint128_t(1) << 127) + 982739482,
+    },
+    {
+        .a = MemoryValue::from<FF>(FF::modulus - 1),
+        .dst_tag = MemoryTag::FF,
+        .expected_result = FF::modulus - 1,
+    },
+};
+
+class TruncateTest : public ::testing::TestWithParam<TruncateTrivialTestParams> {};
+
+TEST_P(TruncateTest, Trivial)
+{
+    auto params = GetParam();
+    auto trace = process_truncate_trace(params.a, params.dst_tag);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_truncate, 1),
+                                  ROW_FIELD_EQ(alu_sel_trunc_trivial, 1),
+                                  ROW_FIELD_EQ(alu_sel_trunc_lt_128, 0),
+                                  ROW_FIELD_EQ(alu_sel_trunc_gte_128, 0),
+                                  ROW_FIELD_EQ(alu_sel_trunc_non_trivial, 0),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE),
+                                  ROW_FIELD_EQ(alu_ia, params.a.as_ff()),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_ic, params.expected_result),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_lo_128, 0),
+                                  ROW_FIELD_EQ(alu_hi_128, 0),
+                                  ROW_FIELD_EQ(alu_mid, 0),
+                                  ROW_FIELD_EQ(alu_mid_bits, 0))));
+}
+
+INSTANTIATE_TEST_SUITE_P(AluTraceGenTest, TruncateTest, ::testing::ValuesIn(TRUNCATE_TRIVIAL_TEST_PARAMS));
+
+struct TruncateNonTrivialTestParams {
+    MemoryValue a;
+    MemoryTag dst_tag;
+    FF expected_result;
+    FF expected_lo_128;
+    FF expected_hi_128;
+    FF expected_mid;
+};
+
+const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARAMS = {
+    {
+        .a = MemoryValue::from<uint128_t>((uint128_t(98263) << 64) + 123456789987654321ULL),
+        .dst_tag = MemoryTag::U64,
+        .expected_result = 123456789987654321ULL,
+        .expected_lo_128 = (uint128_t(98263) << 64) + 123456789987654321ULL,
+        .expected_hi_128 = 0,
+        .expected_mid = 98263,
+    },
+    {
+        .a = MemoryValue::from<uint64_t>((uint64_t(98263) << 32) + 1234567ULL),
+        .dst_tag = MemoryTag::U32,
+        .expected_result = 1234567,
+        .expected_lo_128 = (98263ULL << 32) + 1234567ULL,
+        .expected_hi_128 = 0,
+        .expected_mid = 98263,
+    },
+    {
+        .a = MemoryValue::from<uint64_t>((uint64_t(98263) << 32) + 1234ULL),
+        .dst_tag = MemoryTag::U16,
+        .expected_result = 1234,
+        .expected_lo_128 = (98263ULL << 32) + 1234ULL,
+        .expected_hi_128 = 0,
+        .expected_mid = 98263ULL << 16,
+    },
+    {
+        .a = MemoryValue::from<FF>(263),
+        .dst_tag = MemoryTag::U8,
+        .expected_result = 7,
+        .expected_lo_128 = 263,
+        .expected_hi_128 = 0,
+        .expected_mid = 1,
+    },
+    {
+        .a = MemoryValue::from<uint64_t>(999),
+        .dst_tag = MemoryTag::U1,
+        .expected_result = 1,
+        .expected_lo_128 = 999,
+        .expected_hi_128 = 0,
+        .expected_mid = 499,
+    }
+};
+
+class TruncateLessThan128Test : public ::testing::TestWithParam<TruncateNonTrivialTestParams> {};
+
+TEST_P(TruncateLessThan128Test, Basic)
+{
+    auto params = GetParam();
+    auto trace = process_truncate_trace(params.a, params.dst_tag);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_truncate, 1),
+                                  ROW_FIELD_EQ(alu_sel_trunc_trivial, 0),
+                                  ROW_FIELD_EQ(alu_sel_trunc_lt_128, 1),
+                                  ROW_FIELD_EQ(alu_sel_trunc_gte_128, 0),
+                                  ROW_FIELD_EQ(alu_sel_trunc_non_trivial, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE),
+                                  ROW_FIELD_EQ(alu_ia, params.a.as_ff()),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_ic, params.expected_result),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_lo_128, params.expected_lo_128),
+                                  ROW_FIELD_EQ(alu_hi_128, params.expected_hi_128),
+                                  ROW_FIELD_EQ(alu_mid, params.expected_mid),
+                                  ROW_FIELD_EQ(alu_mid_bits, 128 - get_tag_bits(params.dst_tag)))));
+}
+
+INSTANTIATE_TEST_SUITE_P(AluTraceGenTest,
+                         TruncateLessThan128Test,
+                         ::testing::ValuesIn(TRUNCATE_LESS_THAN_128_TEST_PARAMS));
+
+const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_PARAMS = {
+    {
+        .a = MemoryValue::from<FF>((uint256_t(98263) << 128) + (uint256_t(1111) << 64) + 123456789987654321ULL),
+        .dst_tag = MemoryTag::U64,
+        .expected_result = 123456789987654321ULL,
+        .expected_lo_128 = (uint256_t(1111) << 64) + 123456789987654321ULL,
+        .expected_hi_128 = 98263,
+        .expected_mid = 1111,
+    },
+    {
+        .a = MemoryValue::from<FF>((uint256_t(98263) << 128) + (uint256_t(1111) << 64) + 123456789),
+        .dst_tag = MemoryTag::U32,
+        .expected_result = 123456789,
+        .expected_lo_128 = (uint256_t(1111) << 64) + 123456789,
+        .expected_hi_128 = 98263,
+        .expected_mid = 1111ULL << 32,
+    },
+    {
+        .a = MemoryValue::from<FF>((uint256_t(98263) << 128) + (uint256_t(1111) << 64) + 1234),
+        .dst_tag = MemoryTag::U16,
+        .expected_result = 1234,
+        .expected_lo_128 = (uint256_t(1111) << 64) + 1234,
+        .expected_hi_128 = 98263,
+        .expected_mid = 1111ULL << 48,
+    },
+    {
+        .a = MemoryValue::from<FF>((uint256_t(98263) << 150) + (uint256_t(123456789987654321ULL) << 8) + 234),
+        .dst_tag = MemoryTag::U8,
+        .expected_result = 234,
+        .expected_lo_128 = (uint256_t(123456789987654321ULL) << 8) + 234,
+        .expected_hi_128 = 98263ULL << 22,
+        .expected_mid = 123456789987654321ULL,
+    }
+};
+
+class TruncateGreaterThan128Test : public ::testing::TestWithParam<TruncateNonTrivialTestParams> {};
+
+TEST_P(TruncateGreaterThan128Test, Basic)
+{
+    auto params = GetParam();
+    auto trace = process_truncate_trace(params.a, params.dst_tag);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_truncate, 1),
+                                  ROW_FIELD_EQ(alu_sel_trunc_trivial, 0),
+                                  ROW_FIELD_EQ(alu_sel_trunc_lt_128, 0),
+                                  ROW_FIELD_EQ(alu_sel_trunc_gte_128, 1),
+                                  ROW_FIELD_EQ(alu_sel_trunc_non_trivial, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE),
+                                  ROW_FIELD_EQ(alu_ia, params.a.as_ff()),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_ic, params.expected_result),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(params.dst_tag)),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_lo_128, params.expected_lo_128),
+                                  ROW_FIELD_EQ(alu_hi_128, params.expected_hi_128),
+                                  ROW_FIELD_EQ(alu_mid, params.expected_mid),
+                                  ROW_FIELD_EQ(alu_mid_bits, 128 - get_tag_bits(params.dst_tag)))));
+}
+
+INSTANTIATE_TEST_SUITE_P(AluTraceGenTest,
+                         TruncateGreaterThan128Test,
+                         ::testing::ValuesIn(TRUNCATE_GREATER_THAN_128_TEST_PARAMS));
+
 } // namespace
 } // namespace bb::avm2::tracegen

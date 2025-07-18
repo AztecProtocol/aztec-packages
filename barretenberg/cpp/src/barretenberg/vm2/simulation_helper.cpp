@@ -136,7 +136,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
-    Alu alu(greater_than, alu_emitter);
+    Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);

@@ -6,6 +6,11 @@
 
 namespace bb::avm2::simulation {
 
+enum class FieldGreaterOperation : uint8_t {
+    GREATER_THAN,
+    CANONICAL_DECOMPOSITION,
+};
+
 struct LimbsComparisonWitness {
     uint128_t lo;
     uint128_t hi;
@@ -14,15 +19,17 @@ struct LimbsComparisonWitness {
     bool operator==(const LimbsComparisonWitness& other) const = default;
 };
 
+// We default initialize fields which are not involved into a canonical decomposition operation.
 struct FieldGreaterThanEvent {
+    FieldGreaterOperation operation;
     FF a;
-    FF b;
-    U256Decomposition a_limbs;
+    FF b = FF::zero();
+    U256Decomposition a_limbs = { 0, 0 };
     LimbsComparisonWitness p_sub_a_witness;
-    U256Decomposition b_limbs;
-    LimbsComparisonWitness p_sub_b_witness;
-    LimbsComparisonWitness res_witness;
-    bool result;
+    U256Decomposition b_limbs = { 0, 0 };
+    LimbsComparisonWitness p_sub_b_witness = { 0, 0, false };
+    LimbsComparisonWitness res_witness = { 0, 0, false };
+    bool gt_result = false; // Not relevant for operation == FieldGreaterOperation::CANONICAL_DECOMPOSITIONs
 
     bool operator==(const FieldGreaterThanEvent& other) const = default;
 };

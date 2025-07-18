@@ -13,6 +13,8 @@ namespace bb::avm2::tracegen {
 
 enum class SubtraceSel : uint8_t {
     ALU,
+    CAST,
+    SET,
     BITWISE,
     TORADIXBE,
     POSEIDON2PERM,

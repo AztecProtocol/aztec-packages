@@ -34,21 +34,16 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-constexpr std::array<WireOpCode, 26> WIRE_OPCODES = {
-    WireOpCode::GETENVVAR_16, WireOpCode::SET_8,           WireOpCode::SET_16,    WireOpCode::SET_32,
-    WireOpCode::SET_64,       WireOpCode::SET_128,         WireOpCode::SET_FF,    WireOpCode::MOV_8,
-    WireOpCode::MOV_16,       WireOpCode::JUMP_32,         WireOpCode::JUMPI_32,  WireOpCode::CALL,
-    WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN,  WireOpCode::RETURN,    WireOpCode::SUCCESSCOPY,
-    WireOpCode::STATICCALL,   WireOpCode::REVERT_8,        WireOpCode::REVERT_16, WireOpCode::RETURNDATASIZE,
-    WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,           WireOpCode::SSTORE,    WireOpCode::NOTEHASHEXISTS,
-    WireOpCode::EMITNOTEHASH, WireOpCode::L1TOL2MSGEXISTS,
+constexpr std::array<WireOpCode, 20> WIRE_OPCODES = {
+    WireOpCode::GETENVVAR_16, WireOpCode::MOV_8,          WireOpCode::MOV_16,       WireOpCode::JUMP_32,
+    WireOpCode::JUMPI_32,     WireOpCode::CALL,           WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN,
+    WireOpCode::RETURN,       WireOpCode::SUCCESSCOPY,    WireOpCode::STATICCALL,   WireOpCode::REVERT_8,
+    WireOpCode::REVERT_16,    WireOpCode::RETURNDATASIZE, WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,
+    WireOpCode::SSTORE,       WireOpCode::NOTEHASHEXISTS, WireOpCode::EMITNOTEHASH, WireOpCode::L1TOL2MSGEXISTS,
 };
 
-constexpr std::array<uint32_t, 26> OPERATION_IDS = {
-    AVM_EXEC_OP_ID_GETENVVAR,     AVM_EXEC_OP_ID_SET,
-    AVM_EXEC_OP_ID_SET,           AVM_EXEC_OP_ID_SET,
-    AVM_EXEC_OP_ID_SET,           AVM_EXEC_OP_ID_SET,
-    AVM_EXEC_OP_ID_SET,           AVM_EXEC_OP_ID_MOV,
+constexpr std::array<uint32_t, 20> OPERATION_IDS = {
+    AVM_EXEC_OP_ID_GETENVVAR,     AVM_EXEC_OP_ID_MOV,
     AVM_EXEC_OP_ID_MOV,           AVM_EXEC_OP_ID_JUMP,
     AVM_EXEC_OP_ID_JUMPI,         AVM_EXEC_OP_ID_CALL,
     AVM_EXEC_OP_ID_INTERNALCALL,  AVM_EXEC_OP_ID_INTERNALRETURN,
@@ -60,11 +55,8 @@ constexpr std::array<uint32_t, 26> OPERATION_IDS = {
     AVM_EXEC_OP_ID_EMIT_NOTEHASH, AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS,
 };
 
-constexpr std::array<C, 26> SELECTOR_COLUMNS = {
-    C::execution_sel_execute_get_env_var,   C::execution_sel_execute_set,
-    C::execution_sel_execute_set,           C::execution_sel_execute_set,
-    C::execution_sel_execute_set,           C::execution_sel_execute_set,
-    C::execution_sel_execute_set,           C::execution_sel_execute_mov,
+constexpr std::array<C, 20> SELECTOR_COLUMNS = {
+    C::execution_sel_execute_get_env_var,   C::execution_sel_execute_mov,
     C::execution_sel_execute_mov,           C::execution_sel_execute_jump,
     C::execution_sel_execute_jumpi,         C::execution_sel_execute_call,
     C::execution_sel_execute_internal_call, C::execution_sel_execute_internal_return,

@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
@@ -81,7 +82,29 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_tag_ff_diff_inv, is_ff ? 0 : tag_diff.invert() },
         };
     }
+    case simulation::AluOperation::TRUNCATE: {
+        const uint256_t value = static_cast<uint256_t>(event.a.as_ff());
+        const MemoryTag dst_tag = static_cast<MemoryTag>(static_cast<uint8_t>(event.b.as_ff()));
+        bool is_trivial = dst_tag == ValueTag::FF || value <= get_tag_max_value(dst_tag);
+        bool is_lt_128 = !is_trivial && value < (static_cast<uint256_t>(1) << 128);
+        bool is_gte_128 = !is_trivial && !is_lt_128;
+        const uint256_t lo_128 = is_trivial ? 0 : value & ((static_cast<uint256_t>(1) << 128) - 1);
+        const uint8_t dst_bits = get_tag_bits(dst_tag);
+        const uint256_t mid = is_trivial ? 0 : lo_128 >> dst_bits;
 
+        return {
+            { Column::alu_sel_op_truncate, 1 },
+            { Column::alu_sel_trunc_trivial, is_trivial },
+            { Column::alu_sel_trunc_lt_128, is_lt_128 },
+            { Column::alu_sel_trunc_gte_128, is_gte_128 },
+            { Column::alu_sel_trunc_non_trivial, !is_trivial },
+            { Column::alu_lo_128, lo_128 },
+            { Column::alu_hi_128, is_gte_128 ? value >> 128 : 0 },
+            { Column::alu_mid, mid },
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
+            { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
+        };
+    }
     default:
         throw std::runtime_error("Unknown ALU operation");
         break;
@@ -98,19 +121,24 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 
     uint32_t row = 0;
     for (const auto& event : events) {
-        // Tag checking:
-        FF a_tag = static_cast<uint8_t>(event.a.get_tag());
-        FF b_tag = static_cast<uint8_t>(event.b.get_tag());
-        FF c_tag = static_cast<uint8_t>(event.c.get_tag());
+        // For TRUNCATE, the destination tag is passed through b in the event, but will be
+        // set to ia_tag in the ALU subtrace. (See alu.pil for more details.).
+        const uint8_t a_tag_u8 = event.operation == simulation::AluOperation::TRUNCATE
+                                     ? static_cast<uint8_t>(event.b.as_ff())
+                                     : static_cast<uint8_t>(event.a.get_tag());
+        const FF a_tag = static_cast<FF>(a_tag_u8);
+        const FF b_tag = static_cast<FF>(static_cast<uint8_t>(event.b.get_tag()));
+        const FF c_tag = static_cast<FF>(static_cast<uint8_t>(event.c.get_tag()));
         bool tag_check_failed = event.error.has_value() && event.error == AluError::TAG_ERROR;
         FF alu_ab_tags_diff_inv = 0;
+
         if (tag_check_failed) {
             // Tag error for NOT means that the tag of a is FF.
             if (event.operation != simulation::AluOperation::NOT) {
                 // We shouldn't have emitted an event with a tag error when one doesn't exist, currently (ADD, LT) the
                 // definition of a tag error is when there is a disallowed diff between tags:
                 assert((a_tag - b_tag) != 0 && "ALU Event emitted with tag error, but none exists");
-                alu_ab_tags_diff_inv = static_cast<FF>(a_tag - b_tag).invert();
+                alu_ab_tags_diff_inv = (a_tag - b_tag).invert();
             }
         }
 
@@ -123,11 +151,11 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_ia, event.a },
                       { C::alu_ib, event.b },
                       { C::alu_ic, event.c },
-                      { C::alu_ia_tag, a_tag },
+                      { C::alu_ia_tag, a_tag_u8 },
                       { C::alu_ib_tag, b_tag },
                       { C::alu_ic_tag, c_tag },
-                      { C::alu_max_bits, get_tag_bits(event.a.get_tag()) },
-                      { C::alu_max_value, get_tag_max_value(event.a.get_tag()) },
+                      { C::alu_max_bits, get_tag_bits(static_cast<MemoryTag>(a_tag_u8)) },
+                      { C::alu_max_value, get_tag_max_value(static_cast<MemoryTag>(a_tag_u8)) },
                       { C::alu_sel_tag_err, tag_check_failed ? 1 : 0 },
                       { C::alu_ab_tags_diff_inv, alu_ab_tags_diff_inv },
                   } });
@@ -138,9 +166,9 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 
 const InteractionDefinition AluTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>();
-
+        .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
 } // namespace bb::avm2::tracegen
