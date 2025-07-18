@@ -22,6 +22,7 @@ contract Test15050 is StakingBase {
   }
 
   function test_15050() external {
+    vm.prank(stakingAsset.owner());
     stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 

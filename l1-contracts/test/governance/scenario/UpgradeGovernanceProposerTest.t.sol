@@ -33,7 +33,7 @@ import {TimeCheater} from "../../staking/TimeCheater.sol";
 contract UpgradeGovernanceProposerTest is TestBase {
   using ProposalLib for Proposal;
 
-  IMintableERC20 internal token;
+  TestERC20 internal token;
   Registry internal registry;
   Governance internal governance;
   GovernanceProposer internal governanceProposer;
@@ -103,6 +103,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
 
     assertEq(originalPayload, address(payload));
 
+    vm.prank(token.owner());
     token.mint(EMPEROR, 10000 ether);
 
     vm.startPrank(EMPEROR);

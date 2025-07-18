@@ -63,6 +63,7 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
     });
 
     stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
+    vm.prank(stakingAsset.owner());
     stakingAsset.addMinter(address(stakingAssetHandler));
   }
 
