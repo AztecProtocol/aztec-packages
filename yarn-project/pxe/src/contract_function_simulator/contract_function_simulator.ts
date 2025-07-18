@@ -78,7 +78,10 @@ export class ContractFunctionSimulator {
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
-   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
+   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
+   * or a specific account.
+   * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
+   * the `getSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns The result of the execution.
    */
@@ -87,6 +90,7 @@ export class ContractFunctionSimulator {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    senderForTags?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
@@ -130,10 +134,11 @@ export class ContractFunctionSimulator {
       noteCache,
       this.executionDataProvider,
       this.simulator,
-      /*totalPublicArgsCount=*/ 0,
+      0, // totalPublicArgsCount
       startSideEffectCounter,
-      undefined,
+      undefined, // log
       scopes,
+      senderForTags,
     );
 
     const setupTime = simulatorSetupTimer.ms();
@@ -376,7 +381,7 @@ export async function generateSimulatedProvingResult(
   const sortByCounter = <T>(a: OrderedSideEffect<T>, b: OrderedSideEffect<T>) => a.counter - b.counter;
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
-  let sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+  const sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
 
   // If the tx generated no nullifiers, the nonce generator (txRequest hash)
   // is injected as the first nullifier as per protocol rules.
@@ -411,8 +416,8 @@ export async function generateSimulatedProvingResult(
     // add it as the first non-revertible nullifier (we can't have dupes!)
     // This is because public processor will use that first non-revertible nullifier
     // as the nonce generator for the note hashes in the revertible part of the tx.
-    sortedNullifiers = sortedNullifiers.slice(1);
-    nonRevertibleData.nullifiers[0] = nonceGenerator;
+    const [firstNullifier] = sortedNullifiers.splice(0, 1);
+    nonRevertibleData.nullifiers[0] = firstNullifier;
 
     const revertibleData = new PrivateToPublicAccumulatedData(
       padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),

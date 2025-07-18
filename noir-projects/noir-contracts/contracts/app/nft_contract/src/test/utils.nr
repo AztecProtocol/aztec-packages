@@ -1,6 +1,10 @@
 use crate::NFT;
 use dep::aztec::{
-    oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
+    oracle::{
+        execution::{get_block_number, get_contract_address},
+        notes::set_sender_for_tags,
+        storage::storage_read,
+    },
     protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
@@ -17,6 +21,12 @@ pub unconstrained fn setup(
     } else {
         let owner = env.create_account(1);
         let recipient = env.create_account(2);
+
+        // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
+        // usually done by account contract's entrypoint.
+        let sender = env.create_account(7097070);
+        set_sender_for_tags(sender);
+
         (owner, recipient)
     };
 

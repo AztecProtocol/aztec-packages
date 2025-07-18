@@ -24,7 +24,6 @@ import {
   type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
-  type NoteSelector,
   encodeArguments,
   getFunctionArtifact,
   getFunctionArtifactByName,
@@ -186,7 +185,10 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    return acirSimulator.run(txRequest, contractAddress, selector, msgSender);
+    // We don't care about the `senderForTags` in this test. We just need it to be populated in order for the private
+    // log emission to not revert.
+    const senderForTags = await AztecAddress.random();
+    return acirSimulator.run(txRequest, contractAddress, selector, msgSender, senderForTags);
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -344,10 +346,7 @@ describe('Private Execution test suite', () => {
 
   describe('no constructor', () => {
     it('emits a field array as an encrypted log', async () => {
-      // NB: this test does NOT cover correct enc/dec of values, just whether
-      // the contexts correctly populate non-note encrypted logs
-      const sender = recipient; // Needed for tagging.
-      const args = [times(5, () => Fr.random()), owner, sender, false];
+      const args = [times(5, () => Fr.random()), owner, false];
       const result = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'emit_array_as_encrypted_log',
@@ -361,13 +360,11 @@ describe('Private Execution test suite', () => {
   });
 
   describe('stateful test contract', () => {
-    const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
-
     let contractAddress: AztecAddress;
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = async (amount: bigint, ownerAddress: AztecAddress, storageSlot: Fr, noteTypeId: NoteSelector) => {
+    const buildNote = async (amount: bigint, ownerAddress: AztecAddress, storageSlot: Fr) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -384,7 +381,6 @@ describe('Private Execution test suite', () => {
       return {
         contractAddress,
         storageSlot,
-        noteTypeId,
         noteNonce,
         note,
         noteHash,
@@ -416,7 +412,6 @@ describe('Private Execution test suite', () => {
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(await deriveStorageSlotInMap(new Fr(1n), owner));
-      expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = result.publicInputs.noteHashes;
       expect(noteHashes.claimedLength).toBe(1);
@@ -436,7 +431,6 @@ describe('Private Execution test suite', () => {
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(await deriveStorageSlotInMap(new Fr(1n), owner));
-      expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
       const noteHashes = result.publicInputs.noteHashes;
       expect(noteHashes.claimedLength).toBe(1);
@@ -456,8 +450,8 @@ describe('Private Execution test suite', () => {
       );
 
       const notes = await Promise.all([
-        buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
-        buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
+        buildNote(60n, ownerCompleteAddress.address, storageSlot),
+        buildNote(80n, ownerCompleteAddress.address, storageSlot),
       ]);
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
@@ -488,7 +482,6 @@ describe('Private Execution test suite', () => {
       expect(result.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
-      expect(recipientNote.noteTypeId).toEqual(valueNoteTypeId);
 
       const noteHashes = result.publicInputs.noteHashes;
       expect(noteHashes.claimedLength).toBe(2);
@@ -509,7 +502,7 @@ describe('Private Execution test suite', () => {
 
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
 
-      const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)]);
+      const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot)]);
       executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
@@ -964,8 +957,6 @@ describe('Private Execution test suite', () => {
   });
 
   describe('pending note hashes contract', () => {
-    const valueNoteTypeId = PendingNoteHashesContractArtifact.notes['ValueNote'].id;
-
     beforeEach(async () => {
       await mockContractInstance(PendingNoteHashesContractArtifact, defaultContractAddress);
     });
@@ -1066,7 +1057,6 @@ describe('Private Execution test suite', () => {
       expect(execInsert.newNotes).toHaveLength(1);
       const noteAndSlot = execInsert.newNotes[0];
       expect(noteAndSlot.storageSlot).toEqual(storageSlot);
-      expect(noteAndSlot.noteTypeId).toEqual(valueNoteTypeId);
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 

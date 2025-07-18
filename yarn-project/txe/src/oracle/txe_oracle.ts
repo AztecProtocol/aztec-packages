@@ -169,6 +169,9 @@ export class TXE implements TypedOracle {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
+  // Used by setSenderForTags and getSenderForTags oracles.
+  private senderForTags?: AztecAddress;
+
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
@@ -1237,8 +1240,11 @@ export class TXE implements TypedOracle {
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = await siloNullifier(targetAddress, innerNullifier!);
     const db = this.baseFork;
-    const index = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    return index !== undefined;
+
+    const treeIndex = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
+    const transientIndex = this.siloedNullifiersFromPublic.find(n => n.equals(nullifier));
+
+    return treeIndex !== undefined || transientIndex !== undefined;
   }
 
   async avmOpcodeEmitNullifier(nullifier: Fr) {
@@ -1317,6 +1323,15 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  getSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.resolve(this.senderForTags);
+  }
+
+  setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.senderForTags = senderForTags;
+    return Promise.resolve();
+  }
+
   async privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
@@ -1368,6 +1383,14 @@ export class TXE implements TypedOracle {
       this.simulator,
       0,
       1,
+      undefined, // log
+      undefined, // scopes
+      /**
+       * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
+       * contract would perform, including setting senderForTags. This is not great as it's never cleared.
+       * TODO: Set this properly.
+       */
+      this.senderForTags,
     );
 
     context.storeInExecutionCache(args, argsHash);

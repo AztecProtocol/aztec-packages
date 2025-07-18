@@ -43,32 +43,10 @@ class PairingPoints {
      * @brief Reconstruct the pairing points from limbs stored on the public inputs.
      *
      */
-    static PairingPoints reconstruct_from_public(const std::span<const Fr, PAIRING_POINTS_SIZE>& limbs_in)
+    static PairingPoints reconstruct_from_public(const std::span<Fr, PAIRING_POINTS_SIZE>& limbs_in)
     {
-        const size_t FRS_PER_FQ = 4;
-        const auto recover_fq_from_limbs = [](std::array<Fr, FRS_PER_FQ> limbs) {
-            const uint256_t limb = uint256_t(limbs[0]) +
-                                   (uint256_t(limbs[1]) << stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                                   (uint256_t(limbs[2]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                                   (uint256_t(limbs[3]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
-            return Fq(limb);
-        };
-
-        const auto extract_limbs = [&](size_t start_idx) {
-            std::array<Fr, FRS_PER_FQ> result;
-            for (size_t i = 0; i < FRS_PER_FQ; ++i) {
-                result[i] = limbs_in[start_idx + i];
-            }
-            return result;
-        };
-
-        Fq P0_x = recover_fq_from_limbs(extract_limbs(0));
-        Fq P0_y = recover_fq_from_limbs(extract_limbs(1 * FRS_PER_FQ));
-        Fq P1_x = recover_fq_from_limbs(extract_limbs(2 * FRS_PER_FQ));
-        Fq P1_y = recover_fq_from_limbs(extract_limbs(3 * FRS_PER_FQ));
-
-        Point P0{ P0_x, P0_y };
-        Point P1{ P1_x, P1_y };
+        Point P0 = Point::reconstruct_from_public(limbs_in.subspan(0, 2 * FQ_PUBLIC_INPUT_SIZE));
+        Point P1 = Point::reconstruct_from_public(limbs_in.subspan(2 * FQ_PUBLIC_INPUT_SIZE, 2 * FQ_PUBLIC_INPUT_SIZE));
 
         return PairingPoints{ P0, P1 };
     }

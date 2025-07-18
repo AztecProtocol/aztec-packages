@@ -112,7 +112,7 @@ describe('e2e_p2p_add_rollup', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const roundSize = await governanceProposer.read.M();
+    const roundSize = await governanceProposer.read.ROUND_SIZE();
 
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
@@ -138,26 +138,6 @@ describe('e2e_p2p_add_rollup', () => {
       ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
     );
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
-
-    // Hand over the registry to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: registry.address,
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
-
-    // Hand over the GSE to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gseAddress!.toString()),
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
 
     // Now that we have passed on the registry, we can deploy the new rollup.
     const initialTestAccounts = await getInitialTestAccounts();
@@ -233,8 +213,8 @@ describe('e2e_p2p_add_rollup', () => {
     await sleep(4000);
 
     t.logger.info('Start progressing time to cast votes');
-    const quorumSize = await governanceProposer.read.N();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
+    const quorumSize = await governanceProposer.read.QUORUM_SIZE();
+    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     const bridging = async (
       node: AztecNodeService,

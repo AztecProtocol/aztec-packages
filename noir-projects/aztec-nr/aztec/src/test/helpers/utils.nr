@@ -12,10 +12,6 @@ use protocol_types::{
 };
 use std::meta::derive;
 
-// The following 2 lines have been added here because derivation of Serialize and Deserialize does not handle imports
-use protocol_types::public_keys::{IvpkM, NpkM, OvpkM, TpkM};
-use std::embedded_curve_ops::EmbeddedCurvePoint;
-
 pub struct Deployer<let N: u32, let M: u32> {
     pub path: str<N>,
     pub name: str<M>,
@@ -105,7 +101,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     ) -> ContractInstance
     where
         C: CallInterface<P>,
-        T: Deserialize<_>,
+        T: Deserialize,
     {
         let instance = txe_oracles::deploy(
             self.path,

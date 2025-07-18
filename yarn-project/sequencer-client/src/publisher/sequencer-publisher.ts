@@ -427,6 +427,7 @@ export class SequencerPublisher {
 
     const request = await base.createVoteRequestWithSignature(
       payload.toString(),
+      round,
       this.config.l1ChainId,
       signerAddress.toString(),
       signer,

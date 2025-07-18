@@ -8,6 +8,8 @@ use protocol_types::{
     traits::Packable,
 };
 
+mod test;
+
 /// Stores an immutable value in public state which can be read from public, private and unconstrained execution
 /// contexts.
 ///
@@ -126,6 +128,7 @@ impl<T> PublicImmutable<T, UtilityContext> {
     where
         T: Packable<T_PACKED_LEN> + Eq,
     {
+        // TODO(#15703): this fn should fail if the variable is not initialized
         WithHash::utility_public_storage_read(self.context, self.storage_slot)
     }
 }
@@ -135,6 +138,7 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     where
         T: Packable<T_PACKED_LEN> + Eq,
     {
+        // TODO(#15703): this fn should fail if the variable is not initialized
         WithHash::historical_public_storage_read(
             self.context.get_block_header(),
             self.context.this_address(),

@@ -19,9 +19,9 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
+import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -152,8 +152,8 @@ export function extractPrivateCircuitPublicInputs(
  * @param contractAddress - The address of the contract to read the class id for.
  * @param instance - The instance of the contract.
  * @param executionDataProvider - The execution data provider.
- * @param blockNumber - The block number at which to load the SharedMutable storing the class id.
- * @param timestamp - The timestamp at which to obtain the class id from the SharedMutable.
+ * @param blockNumber - The block number at which to load the DelayedPublicMutable storing the class id.
+ * @param timestamp - The timestamp at which to obtain the class id from the DelayedPublicMutable.
  * @returns The current class id.
  */
 export async function readCurrentClassId(
@@ -163,11 +163,11 @@ export async function readCurrentClassId(
   blockNumber: number,
   timestamp: UInt64,
 ) {
-  const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
-  const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
+  const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
+  const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot =>
     executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot),
   );
-  let currentClassId = sharedMutableValues.svc.getCurrentAt(timestamp)[0];
+  let currentClassId = delayedPublicMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }

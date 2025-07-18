@@ -34,8 +34,8 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Extract the public inputs containing the IPA claim and reconstruct
         const uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - IPA_CLAIM_SIZE;
-        std::span<const FF, IPA_CLAIM_SIZE> ipa_claim_limbs{ verification_key->public_inputs.data() + start_idx,
-                                                             IPA_CLAIM_SIZE };
+        std::span<FF, IPA_CLAIM_SIZE> ipa_claim_limbs{ verification_key->public_inputs.data() + start_idx,
+                                                       IPA_CLAIM_SIZE };
 
         auto ipa_claim = OpeningClaim<curve::Grumpkin>::reconstruct_from_public(ipa_claim_limbs);
 

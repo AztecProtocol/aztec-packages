@@ -20,7 +20,7 @@ describe('token', () => {
 
     const initialBalance = 69;
     token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TokenSymbol', 18).send().deployed();
-    await token.methods.mint_to_private(owner.getAddress(), owner.getAddress(), initialBalance).send().wait();
+    await token.methods.mint_to_private(owner.getAddress(), initialBalance).send().wait();
   }, 120_000);
   // docs:end:setup
 
