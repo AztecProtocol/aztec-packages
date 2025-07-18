@@ -196,8 +196,9 @@ export class PeerManager implements PeerManagerInterface {
     this.logger.debug(`Processing ${peersToDisconnect.length} scheduled disconnects`);
     try {
       await Promise.all(peersToDisconnect.map(peerIdStr => this.disconnectPeer(peerIdFromString(peerIdStr))));
+      this.logger.verbose(`Disconnected ${peersToDisconnect.length} peers`, { peersToDisconnect });
     } catch (error) {
-      this.logger.error(`Error when disconnecting from peers: ${inspect(error)}`);
+      this.logger.error('Error when disconnecting from peers', error);
     }
   }
 
@@ -607,7 +608,7 @@ export class PeerManager implements PeerManagerInterface {
 
       this.logger.debug(`Successfully disconnected peer ${peerIdStr}`);
     } catch (error) {
-      this.logger.debug(`Failed to disconnect peer ${peerIdStr}`, { error });
+      this.logger.warn(`Failed to disconnect peer ${peerIdStr}`, { error });
     }
   }
 
