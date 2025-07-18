@@ -23,18 +23,18 @@ import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
 contract StakingAssetHandlerScript is Test {
-  address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
+  address internal constant ME = address(0xBb2DCf57bB62B9f2C8011dF94D58d4ab9964edb6);
 
-  string internal constant SCOPE = "testnet.aztec.network";
-  string internal constant SUBSCOPE = "personhood";
+  string internal constant DOMAIN = "localhost";
+  string internal constant SCOPE = "personhood"; // this is the scope set in the JS SDK
 
   bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0);
 
   ZKPassportVerifier internal constant zkPassportVerifier =
-    ZKPassportVerifier(0xEE9F10f38319eAE2730dBa28fB09081dB806c5E5);
+    ZKPassportVerifier(0x62e33cC35e29130e135341586e8Cf9C2BAbFB3eE);
 
-  TestERC20 public constant stakingAsset = TestERC20(0x5C30c66847866A184ccb5197cBE31Fce7A92eB26);
-  IRegistry public constant registry = IRegistry(0x4d2cC1d5fb6BE65240e0bFC8154243e69c0Fb19E);
+  TestERC20 public constant stakingAsset = TestERC20(0x19355a3Baf6313eF818f6bA8f708C3776C41F883);
+  IRegistry public constant registry = IRegistry(0xe0Ae427123986029DAA4a34b5Cf4F35125881457);
 
   function setUp() public {}
 
@@ -55,15 +55,15 @@ contract StakingAssetHandlerScript is Test {
       depositMerkleRoot: DEPOSIT_MERKLE_ROOT,
       zkPassportVerifier: zkPassportVerifier,
       unhinged: isUnhinged,
+      domain: DOMAIN,
       scope: SCOPE,
-      subscope: SUBSCOPE,
-      skipBindCheck: false, // DO NOT: skip bind check
-      skipMerkleCheck: false // DO NOT: skip merkle check
+      skipBindCheck: true, // DO NOT: skip bind check
+      skipMerkleCheck: true // DO NOT: skip merkle check
     });
 
     vm.startBroadcast(ME);
     StakingAssetHandler stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
-    stakingAsset.addMinter(address(stakingAssetHandler));
+    // stakingAsset.addMinter(address(stakingAssetHandler));
     vm.stopBroadcast();
 
     emit log_named_address("StakingAssetHandler deployed", address(stakingAssetHandler));
