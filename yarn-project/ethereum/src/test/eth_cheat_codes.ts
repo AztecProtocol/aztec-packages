@@ -206,9 +206,11 @@ export class EthCheatCodes {
    * Set the next block timestamp
    * @param timestamp - The timestamp to set the next block to
    */
-  public async setNextBlockTimestamp(timestamp: number): Promise<void> {
+  public async setNextBlockTimestamp(timestamp: number | Date): Promise<void> {
     try {
-      await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
+      await this.rpcCall('evm_setNextBlockTimestamp', [
+        timestamp instanceof Date ? Math.floor(timestamp.getTime() / 1000) : timestamp,
+      ]);
     } catch (err: any) {
       throw new Error(`Error setting next block timestamp: ${err.message}`);
     }

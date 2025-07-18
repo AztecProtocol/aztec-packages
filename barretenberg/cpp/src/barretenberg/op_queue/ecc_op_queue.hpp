@@ -153,7 +153,11 @@ class ECCOpQueue {
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing() { append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity }); }
+    void empty_row_for_testing()
+    {
+        append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
+        accumulator.self_set_infinity();
+    }
 
     Point get_accumulator() { return accumulator; }
 

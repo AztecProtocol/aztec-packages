@@ -137,7 +137,7 @@ template <class Params_> struct alignas(32) field {
     constexpr explicit operator bool() const
     {
         field out = from_montgomery_form();
-        ASSERT(out.data[0] == 0 || out.data[0] == 1);
+        ASSERT_IN_CONSTEXPR(out.data[0] == 0 || out.data[0] == 1);
         return static_cast<bool>(out.data[0]);
     }
 
@@ -280,9 +280,9 @@ template <class Params_> struct alignas(32) field {
         return result;
     }
 
-    static constexpr field coset_generator(const size_t idx)
+    template <size_t idx> static constexpr field coset_generator()
     {
-        ASSERT(idx < 7);
+        static_assert(idx < 7);
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[idx],

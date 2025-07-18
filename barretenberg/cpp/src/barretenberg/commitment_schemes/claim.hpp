@@ -111,7 +111,7 @@ template <typename Curve> class OpeningClaim {
      * @note Implemented for native curve::Grumpkin for use with IPA.
      *
      */
-    static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, IPA_CLAIM_SIZE>& ipa_claim_limbs)
+    static OpeningClaim<Curve> reconstruct_from_public(const std::span<bb::fr, IPA_CLAIM_SIZE>& ipa_claim_limbs)
         requires(std::is_same_v<Curve, curve::Grumpkin>)
     {
         size_t index = 0;
