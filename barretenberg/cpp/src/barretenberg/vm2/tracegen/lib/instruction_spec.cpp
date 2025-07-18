@@ -31,6 +31,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
       { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHL } },
     { ExecutionOpCode::SHR,
       { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHR } },
+    { ExecutionOpCode::CAST,
+      { .subtrace_selector = SubtraceSel::CAST, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_TRUNCATE } },
     // Bitwise - note the bitwise subtrace operation id need to match the op id values in the bitwise precomputed table
     { ExecutionOpCode::AND,
       { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_AND_OP_ID } },
@@ -51,7 +53,7 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::GETENVVAR,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_GETENVVAR } },
     { ExecutionOpCode::SET,
-      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SET } },
+      { .subtrace_selector = SubtraceSel::SET, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_TRUNCATE } },
     { ExecutionOpCode::MOV,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_MOV } },
     { ExecutionOpCode::JUMP,
@@ -100,6 +102,10 @@ FF get_subtrace_id(SubtraceSel subtrace_sel)
     switch (subtrace_sel) {
     case SubtraceSel::ALU:
         return AVM_SUBTRACE_ID_ALU;
+    case SubtraceSel::CAST:
+        return AVM_SUBTRACE_ID_CAST;
+    case SubtraceSel::SET:
+        return AVM_SUBTRACE_ID_SET;
     case SubtraceSel::BITWISE:
         return AVM_SUBTRACE_ID_BITWISE;
     case SubtraceSel::TORADIXBE:
@@ -130,6 +136,10 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
     switch (subtrace_sel) {
     case SubtraceSel::ALU:
         return C::execution_sel_execute_alu;
+    case SubtraceSel::CAST:
+        return C::execution_sel_execute_cast;
+    case SubtraceSel::SET:
+        return C::execution_sel_execute_set;
     case SubtraceSel::BITWISE:
         return C::execution_sel_execute_bitwise;
     case SubtraceSel::TORADIXBE:

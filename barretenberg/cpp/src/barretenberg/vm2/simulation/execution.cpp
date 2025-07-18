@@ -134,6 +134,19 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     }
 }
 
+void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
+{
+    constexpr auto opcode = ExecutionOpCode::CAST;
+    auto& memory = context.get_memory();
+    auto val = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { val });
+
+    get_gas_tracker().consume_gas();
+    MemoryValue truncated = alu.truncate(val.as_ff(), static_cast<MemoryTag>(dst_tag));
+    memory.set(dst_addr, truncated);
+    set_output(opcode, truncated);
+}
+
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -190,14 +203,14 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value)
 {
     get_gas_tracker().consume_gas();
 
     constexpr auto opcode = ExecutionOpCode::SET;
-    TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
-    context.get_memory().set(dst_addr, tagged_value);
-    set_output(opcode, tagged_value);
+    MemoryValue truncated = alu.truncate(value, static_cast<MemoryTag>(tag));
+    context.get_memory().set(dst_addr, truncated);
+    set_output(opcode, truncated);
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
@@ -827,6 +840,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::NOT:
         call_with_operands(&Execution::op_not, context, resolved_operands);
         break;
+    case ExecutionOpCode::CAST:
+        call_with_operands(&Execution::cast, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
@@ -870,7 +886,13 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     case ExecutionOpCode::DEBUGLOG:
-        call_with_operands(&Execution::debug_log, context, resolved_operands);
+        debug_log(context,
+                  resolved_operands.at(0).as<MemoryAddress>(),
+                  resolved_operands.at(1).as<MemoryAddress>(),
+                  resolved_operands.at(2).as<MemoryAddress>(),
+                  resolved_operands.at(3).as<uint16_t>(),
+                  debug_logging);
+        break;
     case ExecutionOpCode::AND:
         call_with_operands(&Execution::and_op, context, resolved_operands);
         break;
