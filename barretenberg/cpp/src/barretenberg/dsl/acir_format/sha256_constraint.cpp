@@ -7,7 +7,6 @@
 #include "sha256_constraint.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
-#include "barretenberg/stdlib/hash/sha256/sha256_plookup.hpp"
 #include "round.hpp"
 
 namespace acir_format {
@@ -35,7 +34,7 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     }
 
     // Compute sha256 compression
-    auto output_bytes = bb::stdlib::sha256_plookup::sha256_block<Builder>(hash_inputs, inputs);
+    auto output_bytes = bb::stdlib::SHA256<Builder>::sha256_block(hash_inputs, inputs);
 
     for (size_t i = 0; i < 8; ++i) {
         auto normalised_output = output_bytes[i].normalize();

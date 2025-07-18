@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
-#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include <array>
 
