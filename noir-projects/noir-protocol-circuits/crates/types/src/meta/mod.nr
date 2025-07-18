@@ -480,6 +480,35 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
+    let generics = s.generics();
+
+    // We check that each generic's second tuple field (maybe_numeric_generic) is Some,
+    // which indicates it's a numeric generic parameter (like N in Foo<N>).
+    // Non-numeric generics (like T in Foo<T>) would have None in this field.
+    // derive_serialize requires all generics to be numeric.
+    generics.for_each(|(_, maybe_numeric_generic)| {
+        assert(
+            maybe_numeric_generic.is_some(),
+            "All generic parameters must be numeric when deriving Serialize",
+        );
+    });
+
+    // Constructs the "<let N: u32, let M: u8>" string that is injected after the "impl" keyword in e.g.
+    // "impl<let N: u32, let M: u8> Serialize for Foo<N, M>".
+    // Returns an empty quote if the struct has no generics.
+    let generics_declarations = if generics.len() > 0 {
+        let generics_declarations_items = generics
+            .map(|(name, typ)| {
+                let integer_type = typ.unwrap();
+                quote {let $name: $integer_type}
+            })
+            .join(quote {,});
+        quote {<$generics_declarations_items>}
+    } else {
+        // The struct doesn't have any generics defined, so we just return an empty quote.
+        quote {}
+    };
+
     // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
     let right_hand_side_of_definition_of_n = params
         .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
@@ -507,7 +536,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         .join(quote {});
 
     quote {
-        impl $crate::traits::Serialize for $typ {
+        impl $generics_declarations $crate::traits::Serialize for $typ {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
