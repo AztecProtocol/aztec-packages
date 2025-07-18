@@ -12,12 +12,15 @@ struct AppendOnlyTreeSnapshot {
   uint32 nextAvailableLeafIndex;
 }
 
+// Why have these 3 in particular been bundled? Why do they differ from L1->L2 and archive trees?
 struct PartialStateReference {
   AppendOnlyTreeSnapshot noteHashTree;
   AppendOnlyTreeSnapshot nullifierTree;
   AppendOnlyTreeSnapshot publicDataTree;
 }
 
+// Explain why the l1ToL2MessageTree snapshot is kept separate.
+// I'd rename it from "Reference" to something about "Snapshots".
 struct StateReference {
   AppendOnlyTreeSnapshot l1ToL2MessageTree;
   // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
@@ -35,6 +38,16 @@ struct ContentCommitment {
   bytes32 outHash;
 }
 
+// Why does this differ from the content of a "BlockHeader" that we insert into the archive tree (in the Block Root Rollup) and make available to private functions (historical_header)?
+// For reference: this is what we put in the archive tree:
+// pub struct BlockHeader {
+//     pub last_archive: AppendOnlyTreeSnapshot,
+//     pub content_commitment: ContentCommitment,
+//     pub state: StateReference,
+//     pub global_variables: GlobalVariables,
+//     pub total_fees: Field,
+//     pub total_mana_used: Field,
+// }
 struct ProposedHeader {
   bytes32 lastArchiveRoot;
   ContentCommitment contentCommitment;

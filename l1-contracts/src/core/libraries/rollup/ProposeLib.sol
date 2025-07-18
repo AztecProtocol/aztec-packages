@@ -20,7 +20,9 @@ import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
+// Proposal (it is a proposal; it is not a propose)
 struct ProposeArgs {
+  // Rename to new_archive_tree_root, if that's what it represents.
   bytes32 archive;
   // Including stateReference here so that the archiver can reconstruct the full block header.
   // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
@@ -31,6 +33,7 @@ struct ProposeArgs {
   ProposedHeader header;
 }
 
+// Proposal (it is a proposal; it is not a propose)
 struct ProposePayload {
   bytes32 archive;
   StateReference stateReference;
@@ -38,6 +41,8 @@ struct ProposePayload {
   bytes32 headerHash;
 }
 
+// Rename: `InterimProposalValues` (it is a proposal; it is not a propose).
+// Why is it called "Interim". Interim between what and what? Why does it differ from structs that also contain these values?
 struct InterimProposeValues {
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
@@ -57,10 +62,10 @@ struct InterimProposeValues {
 struct ValidateHeaderArgs {
   ProposedHeader header;
   CommitteeAttestations attestations;
-  bytes32 digest;
+  bytes32 digest; // give it a more descriptive name.
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
-  BlockHeaderValidationFlags flags;
+  BlockHeaderValidationFlags flags; // Seems like these are only for tests? (Because surely we don't want to skip important checks in production). Put my mind at ease: Explain how you're going to prevent a malicious proposal that skips these checks, once we're in production?
 }
 
 library ProposeLib {
@@ -72,7 +77,8 @@ library ProposeLib {
 
   /**
    * @notice  Publishes the body and propose the block
-   * @dev     `eth_log_handlers` rely on this function
+   * // What is a "the body"? Be more precise.
+   * @dev     `eth_log_handlers` rely on this function <-- Explain what these are. Explain why they rely on it.
    *
    * @param _args - The arguments to propose the block
    * @param _attestations - Signatures (or empty) from the validators
@@ -88,11 +94,16 @@ library ProposeLib {
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
+    // What does "prune" mean?
+    // Oh, it looks like this will roll back to the proven block number, and discard the pending chain, if the proof submission deadline has passed.
+    // Rename this if my understanding is correct, because "prune" is not descriptive enough.
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
     FeeLib.updateL1GasFeeOracle();
 
+    // No. `v` is a bad name.
+    // Is this an optimisation to avoid stack too deep? If so, say so.
     InterimProposeValues memory v;
 
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly similar to blobCommitmentsHash,
@@ -127,8 +138,9 @@ library ProposeLib {
       })
     );
 
+    // Re gas consumption: As part of `propose()`, I've seen `rollupStore` get accessed multiple times.
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 blockNumber = rollupStore.tips.getPendingBlockNumber() + 1;
+    uint256 blockNumber = rollupStore.tips.getPendingBlockNumber() + 1; // There are lots of notions of "block number" in the context of what this function is doing. Needs adjective. The block number of this proposal? Of the next proposal? Of L1?
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
     bool isFirstBlockOfEpoch =
@@ -157,7 +169,7 @@ library ProposeLib {
       })
     );
 
-    // @note  The block number here will always be >=1 as the genesis block is at 0
+    // @note  The block number here will always be >=1 as the genesis block is at 0 <-- explain why this comment is relevant. Why is >=1 important here?
     v.inHash = rollupStore.config.inbox.consume(blockNumber);
     require(
       header.contentCommitment.inHash == v.inHash,

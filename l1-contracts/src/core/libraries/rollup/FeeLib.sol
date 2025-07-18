@@ -29,6 +29,9 @@ import {Slot, Timestamp, TimeLib} from "./../TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {STFLib} from "./STFLib.sol";
 
+
+// All of these constants need comments to justify their values.
+
 // The lowest number of fee asset per eth is 10 with a precision of 1e9.
 uint256 constant MINIMUM_FEE_ASSET_PER_ETH = 10e9;
 uint256 constant MAX_FEE_ASSET_PRICE_MODIFIER = 1e6;
@@ -39,6 +42,11 @@ uint256 constant L1_GAS_PER_EPOCH_VERIFIED = 1000000;
 
 uint256 constant MINIMUM_CONGESTION_MULTIPLIER = 1e9;
 
+// Dumb this comment down further: assume I know less.
+// What is "the fakeExponential 'case'"?
+// Why are you seeking a 1.125 multiplier?
+// Help me understand the leap from 0.117 to 1.125.
+// What is "TARGET of the numerator"?
 // The magic values are used to have the fakeExponential case where
 // (numerator / denominator) is close to 0.117, as that leads to ~1.125 multiplier
 // per increase by TARGET of the numerator;
@@ -48,6 +56,7 @@ uint256 constant MAGIC_CONGESTION_VALUE_MULTIPLIER = 854700854;
 uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
 uint256 constant BLOBS_PER_BLOCK = 3;
 
+// Describe. Where does this oracle input come from? If it's just for feeAssetPriceModifier, then give the struct an adjective, rather than generic "OracleInput"
 struct OracleInput {
   int256 feeAssetPriceModifier;
 }
@@ -65,6 +74,7 @@ struct FeeStore {
   mapping(uint256 blockNumber => CompressedFeeHeader feeHeader) feeHeaders;
 }
 
+// I've not kept up with fees. We need explanations of everything in this file. The entire fee model. Why is all of this happening?
 library FeeLib {
   using Math for uint256;
   using SafeCast for int256;
@@ -84,10 +94,10 @@ library FeeLib {
   using FeeConfigLib for FeeConfig;
   using FeeConfigLib for CompressedFeeConfig;
 
-  Slot internal constant LIFETIME = Slot.wrap(5);
-  Slot internal constant LAG = Slot.wrap(2);
+  Slot internal constant LIFETIME = Slot.wrap(5); // Lifetime of what? Why is it 5?
+  Slot internal constant LAG = Slot.wrap(2); // Needs adjective. What is it that is lagging? Why is it 2?
 
-  bytes32 private constant FEE_STORE_POSITION = keccak256("aztec.fee.storage");
+  bytes32 private constant FEE_STORE_POSITION = keccak256("aztec.fee.storage"); // Why is it at this position? Why are we specifying a custom position at all? Explain.
 
   function initialize(uint256 _manaTarget, EthValue _provingCostPerMana) internal {
     FeeStore storage feeStore = getStorage();
@@ -124,17 +134,20 @@ library FeeLib {
     feeStore.config = config.compress();
   }
 
+  // Bad name. It's not the oracle that you're updating (as an oracle is a source of data). It's surely some value that comes from an oracle that you're wanting to update.
   function updateL1GasFeeOracle() internal {
     Slot slot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
-    // The slot where we find a new queued value acceptable
+    // The slot where we find a new queued value acceptable. <-- I don't know what this means.
     FeeStore storage feeStore = getStorage();
 
+    // Why does this calculation mean it is "acceptable"? What is it that you're finding to be "acceptable"?
     Slot acceptableSlot = feeStore.l1GasOracleValues.slotOfChange.decompress() + (LIFETIME - LAG);
 
     if (slot < acceptableSlot) {
       return;
     }
 
+    // Explain
     feeStore.l1GasOracleValues.pre = feeStore.l1GasOracleValues.post;
     feeStore.l1GasOracleValues.post =
       L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress();

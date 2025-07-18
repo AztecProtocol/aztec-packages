@@ -9,6 +9,7 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
  * @author Aztec Labs
  * @notice Library for managing frontier trees.
  */
+// Need to define & explain what a frontier is, and what a forest is.
 library FrontierLib {
   struct Forest {
     mapping(uint256 index => bytes32 zero) zeros;

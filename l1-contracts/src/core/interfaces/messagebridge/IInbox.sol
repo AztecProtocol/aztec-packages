@@ -18,6 +18,7 @@ interface IInbox {
     // as it can more easily figure out if it can just skip looking for events for a time period.
     uint64 totalMessagesInserted;
     // Number of a tree which is currently being filled
+    // Is there a 1:1 relationship between these L1->L2 trees and block numbers?
     uint64 inProgress;
   }
 
