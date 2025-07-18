@@ -120,6 +120,8 @@ contract MinimalFeeModel {
       TempBlockLog({
         headerHash: bytes32(0),
         blobCommitmentsHash: bytes32(0),
+        attestationsHash: bytes32(0),
+        payloadDigest: bytes32(0),
         slotNumber: Slot.wrap(0),
         feeHeader: FeeLib.computeFeeHeader(
           blockNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0

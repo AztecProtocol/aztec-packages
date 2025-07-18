@@ -243,6 +243,23 @@ contract RollupCore is
     ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);
   }
 
+  function invalidateBadAttestation(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee,
+    uint256 _invalidIndex
+  ) external {
+    ExtRollupLib2.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+  }
+
+  function invalidateInsufficientAttestations(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee
+  ) external {
+    ExtRollupLib2.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
+  }
+
   function setupEpoch() public override(IValidatorSelectionCore) {
     ExtRollupLib2.setupEpoch();
   }
