@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { randomInt } from '@aztec/foundation/crypto';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -699,7 +700,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       txHash: txHashString,
     });
 
-    if (this.config.dropTransactions && Math.random() < this.config.dropTransactionsProbability) {
+    if (this.config.dropTransactions && randomInt(1000) < this.config.dropTransactionsProbability * 1000) {
       this.logger.debug(`Intentionally dropping tx ${txHashString} (probability rule)`);
       return;
     }
