@@ -402,7 +402,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
     points_accumulator.aggregate(decider_pairing_points);
 
-    stdlib::recursion::honk::HidingKernelIO hiding_output{ merge_commitments.T_commitments, points_accumulator };
+    stdlib::recursion::honk::HidingKernelIO<ClientCircuit> hiding_output{ merge_commitments.T_commitments,
+                                                                          points_accumulator };
     hiding_output.set_public();
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
@@ -456,7 +457,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     vinfo("Mega verified: ", mega_verified);
 
     // Extract public inputs
-    bb::stdlib::recursion::honk::HidingKernelIO::Native hiding_output;
+    bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>::Native hiding_output;
     hiding_output.reconstruct_from_public(verifier.verification_key->public_inputs);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit

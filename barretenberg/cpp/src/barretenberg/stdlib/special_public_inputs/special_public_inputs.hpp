@@ -133,9 +133,8 @@ using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
  * will be verified with an UltraVerifier, which expects the last public input to always be the pairing inputs.
  *
  */
-class HidingKernelIO {
+template <class Builder> class HidingKernelIO {
   public:
-    using Builder = MegaCircuitBuilder; // hiding kernel is always Mega
     using Flavor = MegaFlavor;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;

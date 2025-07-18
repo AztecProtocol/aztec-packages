@@ -72,16 +72,17 @@ TEST_F(SpecialPublicInputsTests, Basic)
 // Demonstrates the basic functionality of the HidingKernelIO class for propagating public inputs between circuits
 TEST_F(SpecialPublicInputsTests, HidingKernel)
 {
-    using Builder = HidingKernelIO::Builder;
-    using Curve = HidingKernelIO::Curve;
-    using G1 = HidingKernelIO::G1;
-    using FF = HidingKernelIO::FF;
-    using PairingInputs = HidingKernelIO::PairingInputs;
+    using Builder = MegaCircuitBuilder;
+    using HidingKernelIO_ = HidingKernelIO<Builder>;
+    using Curve = HidingKernelIO_::Curve;
+    using G1 = HidingKernelIO_::G1;
+    using FF = HidingKernelIO_::FF;
+    using PairingInputs = HidingKernelIO_::PairingInputs;
 
     using G1Native = typename Curve::GroupNative::affine_element;
     using FFNative = typename Curve::ScalarFieldNative;
 
-    static constexpr size_t NUM_WIRES = HidingKernelIO::Flavor::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = HidingKernelIO_::Flavor::NUM_WIRES;
 
     std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
     for (auto& commitment : ecc_op_tables_val) {
@@ -96,7 +97,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
     { // The first circuit propagates the kernel output via its public inputs
         Builder builder;
 
-        HidingKernelIO hiding_output;
+        HidingKernelIO_ hiding_output;
 
         // Set the output values
         std::array<G1, NUM_WIRES> ecc_op_tables;
@@ -127,7 +128,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
             stdlib_public_inputs.push_back(FF::from_witness(&builder, val));
         }
 
-        HidingKernelIO hiding_input;
+        HidingKernelIO_ hiding_input;
         hiding_input.reconstruct_from_public(stdlib_public_inputs);
 
         // Ensure the reconstructed data matches the original values
@@ -141,7 +142,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
     { // Test native reconstruction
         Builder builder;
 
-        HidingKernelIO::Native hiding_input;
+        HidingKernelIO_::Native hiding_input;
         hiding_input.reconstruct_from_public(public_inputs);
 
         // Ensure the reconstructed data matches the original values
