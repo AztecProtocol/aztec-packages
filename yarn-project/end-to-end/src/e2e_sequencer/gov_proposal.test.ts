@@ -95,12 +95,12 @@ describe('e2e_gov_proposal', () => {
         );
       }
 
-      const votes = await governanceProposer.getProposalVotes(
+      const signals = await governanceProposer.getPayloadSignals(
         deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round + 1n,
         newGovernanceProposerAddress.toString(),
       );
-      expect(votes).toEqual(roundDuration);
+      expect(signals).toEqual(roundDuration);
     },
     1000 * 60 * 5,
   );
