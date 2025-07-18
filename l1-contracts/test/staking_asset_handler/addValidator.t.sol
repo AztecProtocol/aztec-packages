@@ -182,7 +182,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.prank(_caller);
     stakingAssetHandler.addValidator(_attester, validMerkleProof, _proof);
 
-    uint256 uniqueIdentifierLocation = _proof.publicInputs.length - 16 - 1;
+    uint256 uniqueIdentifierLocation = _proof.publicInputs.length - 1;
     vm.expectRevert(
       abi.encodeWithSelector(
         IStakingAssetHandler.SybilDetected.selector, _proof.publicInputs[uniqueIdentifierLocation]
