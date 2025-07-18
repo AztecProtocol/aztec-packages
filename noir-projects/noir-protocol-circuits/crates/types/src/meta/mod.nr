@@ -41,7 +41,7 @@ pub comptime fn get_packable_len(typ: Type) -> u32 {
     let pack_method_return_type_as_array = pack_method_return_type.as_array().unwrap();
     // 4. Getting the length and representing it as a constant.
     let packed_len_as_constant = pack_method_return_type_as_array.1.as_constant().expect(
-        f"Could not represent packed length as a constant",
+        f"Could not represent packed length as a constant when getting packable len for {typ}",
     );
 
     packed_len_as_constant
