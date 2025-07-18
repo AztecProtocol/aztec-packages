@@ -22,6 +22,9 @@ struct Signature {
 // A committee attestation can be made up of a signature and an address.
 // Committee members that have attested will produce a signature, and if they have not attested, the signature will be empty and
 // an address provided.
+// The reason we include the addresses of committee members who haven't attested, is because we
+// need _all_ addresses of the entire committee at the time of proposal, in order to
+// reconcile against the previously-stored committeeCommitment. (Storing a single committeeCommitment is a necessary gas optimisation)
 struct CommitteeAttestation {
   address addr;
   Signature signature;

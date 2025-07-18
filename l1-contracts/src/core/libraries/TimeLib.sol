@@ -49,6 +49,7 @@ library TimeLib {
     return Slot.wrap(Epoch.unwrap(_a) * getStorage().epochDuration);
   }
 
+  // Does this return the timestamp as at the start or the end of the epoch? Please specify. Consider renaming to make that clear, because I don't want to read these low-level conversions; I just want to read the function names and know.
   function toTimestamp(Epoch _a) internal view returns (Timestamp) {
     return toTimestamp(toSlots(_a));
   }

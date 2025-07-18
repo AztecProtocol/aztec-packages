@@ -7,10 +7,10 @@ import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct ValidatorSelectionStorage {
-  // A mapping to snapshots of the validator set
+  // A mapping to snapshots of the validator set <-- explain this better. What is a snapshot? What is a committeeCommitment a commitment to? A commitment to just an address, or to some other data? Is it a hash? What hashing scheme? WHere is it computed?
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
   // Checkpointed map of epoch -> sample seed
-  Checkpoints.Trace224 seeds;
+  Checkpoints.Trace224 seeds; // recommend calling something more descriptive than seeds. epoch_randomness_seeds?
   uint256 targetCommitteeSize;
 }
 

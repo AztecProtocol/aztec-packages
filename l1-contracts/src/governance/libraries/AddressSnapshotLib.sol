@@ -3,6 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
+// Uh oh, in the "building in chunks" spec, "Checkpoint" has become a nice term for when the proposal and L1<>L2 message-passing take place.
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 /**
@@ -11,6 +13,7 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
  * @param checkpoints Mapping of index to array of address snapshots
  * @param attestorToIndex Mapping of attestor address to its current index in the set
  */
+ // These will be the addresses of validators who have registered and deposited stake? Please make the context clear.
 struct SnapshottedAddressSet {
   // This size must also be snapshotted
   Checkpoints.Trace224 size;
@@ -19,9 +22,10 @@ struct SnapshottedAddressSet {
   mapping(address addr => Index index) addressToIndex;
 }
 
+// Index of what? More descriptive name plz.
 struct Index {
-  bool exists;
-  uint224 index;
+  bool exists; // what exists?
+  uint224 index; // presumably this choice of "224" is to enable this struct to be packed into a single word?
 }
 
 // AddressSnapshotLib
@@ -45,7 +49,7 @@ library AddressSnapshotLib {
    */
   function add(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
     // Prevent against double insertion
-    if (_self.addressToIndex[_address].exists) {
+    if (_self.addressToIndex[_address].exists) { // might be able to save on unpacking costs if you don't have an `Index` struct, and instead get rid of the `exists` bool and just store the index as a u256. If you start indexing from `1`, then you can use `0` to mean "it does not exist". You can rename it from "index" to `num_addresses` if you prefer a name that more-intuitively begins counting from `1` and not `0`.
       return false;
     }
 

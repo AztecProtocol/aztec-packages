@@ -60,8 +60,28 @@ library ValidatorSelectionLib {
    * @notice  Performs a setup of an epoch if needed. The setup will
    *          - Sample the validator set for the epoch
    *          - Set the seed for the epoch after the next
+   *
+   * Let's get artistic:
+   *
+   * epoch |       N - 2       |       N - 1       |         N         |
+   * block |   |   |...|   |   |   |   |...|   |   |   |   |...|   |   |
+   *         |                                     ^
+   *         |                                     |
+   *         v                                     |
+   * Samples a random seed that gets used to sample a committee that will
+   * take effect from here.
+   *
+   * For the first two epochs, the seed is `type(uint224).max`:
+   * epoch |         1         |         2         |        3          |
+   * seed  |max->              |max->              |seed from block 1  |
+   * block |   |   |...|   |   |   |   |...|   |   |   |   |...|   |   |
    */
+   // I would rename `_epochNumber` to `currentEpoch`, because that is the intended epoch during which this will _always_ be called.
   function setupEpoch(Epoch _epochNumber) internal {
+    // It looks like this function only needs to do something in the first block of every epoch.
+    // We can probably save some SLOAD gas by determining (on the very first line of this function)
+    // whether this is the first block of the epoch (based on the epoch number), and then exiting
+    // early if it is not.
     ValidatorSelectionStorage storage store = getStorage();
 
     //################ Seeds ################
@@ -73,10 +93,12 @@ library ValidatorSelectionLib {
     setSampleSeedForNextEpoch(_epochNumber);
 
     //################ Committee ################
-    // If the committee is not set for this epoch, we need to sample it
+    // If the committee is not set for this epoch, we need to sample it.
     bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == bytes32(0)) {
       address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
+      // We store a keccak hash of the committee members' addresses, which we will
+      // look-up when verifying attestations from this committee.
       store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(committee);
     }
   }
@@ -104,6 +126,7 @@ library ValidatorSelectionLib {
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
   ) internal {
+    // At what stage does this committeeCommitment get stored in the first place?
     (bytes32 committeeCommitment, uint256 targetCommitteeSize) =
       getCommitteeCommitmentAt(_epochNumber);
 
@@ -129,10 +152,11 @@ library ValidatorSelectionLib {
       proposerVerified: false
     });
 
-    bytes32 digest = _digest.toEthSignedMessageHash();
+    bytes32 digest = _digest.toEthSignedMessageHash(); // can we instead just pass the signed message hash directly into the contract? Or is the unhashed digest used and checked elsewhere?
 
     bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
     uint256 dataPtr;
+    // All assembly should always be commented much more heavily. Please do so :)
     assembly {
       dataPtr := add(signaturesOrAddresses, 0x20) // Skip length, cache pointer
     }
@@ -209,6 +233,7 @@ library ValidatorSelectionLib {
     //       it does not need to actually return the full committee and then draw from it
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
+    // Sounds like this is worth revisiting, to reduce gas.
     Epoch epochNumber = _slot.epochFromSlot();
 
     uint224 sampleSeed = getSampleSeed(epochNumber);
@@ -224,16 +249,19 @@ library ValidatorSelectionLib {
    * @notice  Samples a validator set for a specific epoch
    *
    * @dev     Only used internally, should never be called for anything but the "next" epoch
-   *          Allowing us to always use `lastSeed`.
+   *          Allowing us to always use `lastSeed`. // This is confusing, because the epoch number that is passed into this function is the _current_ epoch; it is definitely not the "next" epoch. This function is called during the first block proposal of an epoch. "next" is wrong, I think.
    *
-   * @return The validators for the given epoch
+   * @return The addresses of the sampled committee members for the given epoch
    */
+   // Technically, we're sampling a _committee_ from the larger set of validators. I would rename to make that clearer.
   function sampleValidators(Epoch _epoch, uint224 _seed) internal returns (address[] memory) {
-    ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = epochToSampleTime(_epoch);
+    ValidatorSelectionStorage storage store = getStorage(); // Is repeatedly accessing this storage cheaper than just passing the slot pointer around between functions? I suspect the latter would be cheaper?
+    uint32 ts = epochToSampleTime(_epoch); // `ts` is not an acceptable name. It is not clear what this function is returning to me, even if I read that function.
+    // Let's pick "attester" or "validator" and stick with it. Or if they're different concepts, explain why, but then also explain why they're the same concept in this line...
     uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
-    uint256 targetCommitteeSize = store.targetCommitteeSize;
+    uint256 targetCommitteeSize = store.targetCommitteeSize; // "The target committee size is determined by... and set within..."
 
+    // So the rollup just gets bricked if there are insufficient validators? How to we ensure sufficient validators? Some comments explaining, please.
     require(
       validatorSetSize >= targetCommitteeSize,
       Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
@@ -243,10 +271,14 @@ library ValidatorSelectionLib {
       return new address[](0);
     }
 
-    // Sample the larger committee
-    uint256[] memory indices =
+    // Sample the larger committee [larger why? larger than what?]
+    // We should be sampling the committee from a timestamp from _before_ the seed was known. Otherwise it feels possible for someone to quickly register an address (or many addresses) and manipulate this sampling. It is not clear to me that we are currently doing this. If this is what we are doing, please comment to explain.
+    uint256[] memory indices = // rename: sampledCommitteeMemberIndices or something.
       SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
 
+    // Why did we sample indices, and not validator addresses directly?
+    // Having established the indexes of the new committee members, in the larger list of validators,
+    // we get and return their addresses.
     return StakingLib.getAttestersFromIndicesAtTime(Timestamp.wrap(ts), indices);
   }
 
@@ -287,11 +319,13 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice  Sets the sample seed for the epoch after the next
+   * @notice  Sets the sample seed for the epoch after the next [Then please don't call this function "...NextEpoch, because it's not for the next epoch; it's for the epoch _after_ next. `ForEpochPlus2` or `ForCurrentEpochPlus2` or something.]
    *
    * @param _epoch - The epoch to set the sample seed for
    */
   function setSampleSeedForNextEpoch(Epoch _epoch) internal {
+    // Q: presumably we fix the validator set for epoch now + 2 _before_ now. The validator set must be fixed before the seed is selected, otherwise a malicious validator might be able to derive a 'choice' address. Please can we add a comment to say that validators are fixed, and link to where that logic lives?
+    // Please explain why we do this 2 epochs in advance - be very thorough with the explanation for why. Why not +1? Why not +3?
     setSampleSeedForEpoch(_epoch + Epoch.wrap(2));
   }
 
@@ -304,7 +338,7 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     uint32 epoch = Epoch.unwrap(_epoch).toUint32();
 
-    // Check if the latest checkpoint is for the next epoch
+    // Check if the latest checkpoint is for the next epoch ["next" is confusing in the comments of this function. We're already calling this in the context of `_epoch` being `now + 2`, so is `next` correct? That would imply `now + 3`... It's not "the next epoch", it's just "the `_epoch`"]
     // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed into the store
     (, uint32 mostRecentSeedEpoch,) = store.seeds.latestCheckpoint();
 
@@ -325,9 +359,11 @@ library ValidatorSelectionLib {
     return PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tload();
   }
 
+  // Bad name. Is this returning the timestamp as at the very start of the epoch? If so, name it so.
   function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {
+    // This wording of this comment needs to be improved, because I can't follow it. It looks like it could be expanded to several paragraphs of important information.
     // We do -1, as the snapshots practically happen at the end of the block, e.g.,
-    // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
+    // a tx manipulating the set in at [Epoch? L2 Block? L1 Bock? Time?] $t$ would be visible already at lookup $t$ if after that
     // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
     // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
     // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
@@ -351,6 +387,8 @@ library ValidatorSelectionLib {
     return store.seeds.upperLookup(Epoch.unwrap(_epoch).toUint32());
   }
 
+  // Gets the base storage slot of a ValidatorSelectionStorage struct, which serves as a pointer
+  // to the struct. We're not actually loading a big dynamic array or anything.
   function getStorage() internal pure returns (ValidatorSelectionStorage storage storageStruct) {
     bytes32 position = VALIDATOR_SELECTION_STORAGE_POSITION;
     assembly {
@@ -369,7 +407,7 @@ library ValidatorSelectionLib {
    * @return The computed seed
    */
   function computeNextSeed(Epoch _epoch) private view returns (uint224) {
-    // Allow for unsafe (lossy) downcast as we do not care if we loose bits
+    // Allow for unsafe (lossy) downcast as we do not care if we lose bits [why do we not care, and why is it unsafe? Explain]
     return uint224(uint256(keccak256(abi.encode(_epoch, block.prevrandao))));
   }
 
@@ -389,8 +427,8 @@ library ValidatorSelectionLib {
    *
    * @param _epoch - The epoch to compute the proposer index for
    * @param _slot - The slot to compute the proposer index for
-   * @param _seed - The seed to use for the computation
-   * @param _size - The size of the committee
+   * @param _seed - The seed to use for the computation. Note: this must be the correct seed for the given epoch.
+   * @param _size - The size of the committee - I'd call it committeeSize
    *
    * @return The index of the proposer
    */
@@ -399,6 +437,7 @@ library ValidatorSelectionLib {
     pure
     returns (uint256)
   {
+    // Technically, `_epoch` isn't needed here, since every `_slot` is unique.
     return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
 }
