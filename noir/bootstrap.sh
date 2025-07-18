@@ -224,6 +224,7 @@ function bump_noir_repo_ref {
   git fetch --depth 1 origin $branch || true
   git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
   scripts/sync.sh write-noir-repo-ref $ref
+  git add noir-repo-ref
 
   # Update the Cargo.lock file in the transpiler to match the new ref.
   cargo check --manifest-path="../avm-transpiler/Cargo.toml"

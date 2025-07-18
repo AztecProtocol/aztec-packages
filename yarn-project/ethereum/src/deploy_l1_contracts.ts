@@ -2,6 +2,7 @@ import { getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -402,16 +403,7 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
-  const { txHash: setGovernanceTxHash } = await deployer.sendTransaction({
-    to: registryAddress.toString(),
-    data: encodeFunctionData({
-      abi: l1Artifacts.registry.contractAbi,
-      functionName: 'updateGovernance',
-      args: [governanceAddress.toString()],
-    }),
-  });
-
-  txHashes.push(setGovernanceTxHash);
+  // Registry ownership will be transferred to governance later, after rollup is added
 
   let feeAssetHandlerAddress: EthAddress | undefined = undefined;
   let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
@@ -579,7 +571,14 @@ export const deployRollupForUpgrade = async (
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
-  const deployer = new L1Deployer(extendedClient, args.salt, args.acceleratedTestDeployments, logger, txUtilsConfig);
+  const deployer = new L1Deployer(
+    extendedClient,
+    args.salt,
+    undefined,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
@@ -1018,7 +1017,15 @@ export const deployL1Contracts = async (
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  const deployer = new L1Deployer(l1Client, args.salt, args.acceleratedTestDeployments, logger, txUtilsConfig);
+  const dateProvider = new DateProvider();
+  const deployer = new L1Deployer(
+    l1Client,
+    args.salt,
+    dateProvider,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const {
     feeAssetAddress,
@@ -1027,6 +1034,7 @@ export const deployL1Contracts = async (
     stakingAssetHandlerAddress,
     registryAddress,
     gseAddress,
+    governanceAddress,
     rewardDistributorAddress,
     zkPassportVerifierAddress,
   } = await deploySharedContracts(l1Client, deployer, args, logger);
@@ -1047,12 +1055,23 @@ export const deployL1Contracts = async (
   logger.verbose('Waiting for rollup and slash factory to be deployed');
   await deployer.waitForDeployments();
 
+  // Now that the rollup has been deployed and added to the registry, transfer ownership to governance
+  await handoverToGovernance(
+    l1Client,
+    deployer,
+    registryAddress,
+    gseAddress,
+    governanceAddress,
+    logger,
+    args.acceleratedTestDeployments,
+  );
+
+  logger.info(`Handing over to governance complete`);
+
   logger.verbose(`All transactions for L1 deployment have been mined`);
   const l1Contracts = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
-
-  logger.info(`Handing over to governance`);
 
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
@@ -1098,12 +1117,19 @@ export class L1Deployer {
   constructor(
     public readonly client: ExtendedViemWalletClient,
     maybeSalt: number | undefined,
+    dateProvider: DateProvider = new DateProvider(),
     private acceleratedTestDeployments: boolean = false,
     private logger: Logger = createLogger('L1Deployer'),
     private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
-    this.l1TxUtils = new L1TxUtils(this.client, this.logger, this.txUtilsConfig, this.acceleratedTestDeployments);
+    this.l1TxUtils = new L1TxUtils(
+      this.client,
+      this.logger,
+      dateProvider,
+      this.txUtilsConfig,
+      this.acceleratedTestDeployments,
+    );
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
@@ -1173,7 +1199,7 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = new L1TxUtils(extendedClient, logger, config, acceleratedTestDeployments);
+    l1TxUtils = new L1TxUtils(extendedClient, logger, undefined, config, acceleratedTestDeployments);
   }
 
   if (libraries) {
