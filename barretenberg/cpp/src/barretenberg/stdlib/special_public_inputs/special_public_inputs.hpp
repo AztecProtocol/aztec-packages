@@ -119,6 +119,29 @@ template <typename Builder> class DefaultIO {
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
+
+    class Native {
+      public:
+        using PairingPoints = bb::PairingPoints;
+        using FF = Curve::ScalarFieldNative;
+
+        PairingPoints pairing_inputs;
+
+        /**
+         * @brief Reconstructs the IO components from a public inputs array.
+         *
+         * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+         */
+        void reconstruct_from_public(const std::vector<FF>& public_inputs)
+        {
+            // Assumes that the app-io public inputs are at the end of the public_inputs vector
+            uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+
+            const std::span<const FF, PAIRING_POINTS_SIZE> pairing_point_limbs(public_inputs.data() + index,
+                                                                               PAIRING_POINTS_SIZE);
+            pairing_inputs = PairingPoints::reconstruct_from_public(pairing_point_limbs);
+        }
+    };
 };
 
 /**
@@ -244,7 +267,6 @@ class RollupIO {
      * @brief Reconstructs the IO components from a public inputs array.
      *
      * @param public_inputs Public inputs array containing the serialized kernel public inputs.
-     * @param start_idx Index at which the kernel public inputs are to be extracted.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
@@ -267,6 +289,35 @@ class RollupIO {
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
+
+    class Native {
+      public:
+        using FF = Curve::ScalarFieldNative;
+        using PairingPoints = bb::PairingPoints;
+        using IpaClaim = OpeningClaim<bb::curve::Grumpkin>;
+
+        PairingPoints pairing_inputs;
+        IpaClaim ipa_claim;
+
+        /**
+         * @brief Reconstructs the IO components from a public inputs array.
+         *
+         * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+         */
+        void reconstruct_from_public(const std::vector<FF>& public_inputs)
+        {
+            // Assumes that the app-io public inputs are at the end of the public_inputs vector
+            uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+
+            const std::span<const FF, PAIRING_POINTS_SIZE> pairing_inputs_limbs(public_inputs.data() + index,
+                                                                                PAIRING_POINTS_SIZE);
+            index += PairingInputs::PUBLIC_INPUTS_SIZE;
+            const std::span<const FF, IPA_CLAIM_SIZE> ipa_claim_limbs(public_inputs.data() + index, IPA_CLAIM_SIZE);
+
+            pairing_inputs = PairingPoints::reconstruct_from_public(pairing_inputs_limbs);
+            ipa_claim = IpaClaim::reconstruct_from_public(ipa_claim_limbs);
+        }
+    };
 };
 
 } // namespace bb::stdlib::recursion::honk
