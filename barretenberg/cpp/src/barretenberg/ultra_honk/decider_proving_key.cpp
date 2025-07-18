@@ -320,6 +320,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // Convert duplicated final gate in the main block to a 'dummy' gate by turning off all selectors. This
             // ensures it can be read into by the previous gate but does not itself try to read into the next gate.
             for (auto& selector : block.get_gate_selectors()) {
+                BB_ASSERT_EQ(selector.empty(), false);
                 selector.back() = 0;
             }
         }
