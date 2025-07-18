@@ -85,8 +85,9 @@ class Execution : public ExecutionInterface {
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
+    void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag);
     void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
-    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
+    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
@@ -116,7 +117,7 @@ class Execution : public ExecutionInterface {
                    MemoryAddress fields_offset,
                    MemoryAddress fields_size_offset,
                    uint16_t message_size,
-                   bool is_debug_logging_enabled = debug_logging);
+                   bool is_debug_logging_enabled);
     void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
