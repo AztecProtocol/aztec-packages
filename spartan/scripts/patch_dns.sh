@@ -14,6 +14,14 @@ case "$DNS_TOGGLE" in
   true)
     echo "Patching CoreDNS namespace resolution …"
 
+    # Ensure we are only applying to the kind context
+    if kubectl config get-contexts kind-kind >/dev/null 2>&1; then
+      kubectl config use-context kind-kind
+    else
+      echo "Error: kind-kind context not found. Is the kind cluster running?" >&2
+      exit 1
+    fi
+
     # Grab the existing ConfigMap and rewrite the forward block with jq
     CORE_FIXED="$(kubectl -n kube-system get cm coredns -o json | \
       jq -c --arg upstream "$PUBLIC_DNS" '
@@ -35,7 +43,6 @@ case "$DNS_TOGGLE" in
 
   *)
     echo "KIND_FIX_DNS must be \"true\" or \"false\" (got '$KIND_FIX_DNS')" >&2
-    kind delete cluster || true
     exit 1
     ;;
 esac
