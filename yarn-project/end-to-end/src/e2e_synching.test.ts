@@ -57,7 +57,7 @@ import {
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -378,6 +378,7 @@ describe('e2e_synching', () => {
       pxe,
       blobSink,
       initialFundedAccounts,
+      dateProvider,
     } = await setup(0, {
       salt: SALT,
       l1StartTime: START_TIME,
@@ -395,7 +396,7 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, config);
+    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, dateProvider!, config);
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
     const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
@@ -407,7 +408,6 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const dateProvider = new TestDateProvider();
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
       {
@@ -428,7 +428,7 @@ describe('e2e_synching', () => {
         governanceProposerContract,
         slashingProposerContract,
         epochCache,
-        dateProvider,
+        dateProvider: dateProvider!,
       },
     );
 
