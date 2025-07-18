@@ -3,7 +3,7 @@ use crate::{
     note::note_getter_options::PropertySelector,
 };
 use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::{derive_packable_and_get_packed_len, get_packable_len};
+use protocol_types::meta::{derive_packable, get_packable_len};
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
 /// A map from note type to note_packed_len.
@@ -25,21 +25,18 @@ comptime fn get_next_note_type_id() -> Field {
     note_type_id
 }
 
-/// Generates a quote that implements `Packable` for a given struct `s`.
-/// If the note struct already implements `Packable`, we return an empty quote.
-comptime fn derive_packable_if_not_implemented_and_get_len(s: TypeDefinition) -> (Quoted, u32) {
-    // We try to get the packed length of the note struct. If it does not implement `Packable`, we get Option::none()
+/// Generates a quote that implements `Packable` for a given struct `s`. If the struct already implements `Packable`,
+/// we return an empty quote.
+comptime fn derive_packable_if_not_implemented(s: TypeDefinition) -> Quoted {
+    // We try to get the packed length of the note struct.
     let packable_constraint =
         quote { crate::protocol_types::traits::Packable }.as_trait_constraint();
-    let implements_packable = s.as_type().implements(packable_constraint);
 
-    if implements_packable {
-        // Return empty quote since implementation exists and the packed length.
-        (quote {}, get_packable_len(s.as_type()))
+    if s.as_type().implements(packable_constraint) {
+        // Return empty quote since implementation exists
+        quote {}
     } else {
-        // We didn't manage to get the packed length which means the note struct doesn't implement `Packable`
-        // so we derive it and return it along with the packed length.
-        derive_packable_and_get_packed_len(s)
+        derive_packable(s)
     }
 }
 
@@ -193,7 +190,10 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     let note_type_id = get_next_note_type_id();
     let note_interface_impl = generate_note_interface(s, note_type_id);
     let note_hash_impl = generate_note_hash_trait_impl(s);
-    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+    let packable_impl_or_empty_quote = derive_packable_if_not_implemented(s);
+
+    // TODO(benesjan): figure out how to get real value here
+    let note_packed_len = 10;
 
     if note_packed_len > MAX_NOTE_PACKED_LEN {
         panic(
@@ -207,7 +207,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
         $note_properties
         $note_interface_impl
         $note_hash_impl
-        $packable_impl
+        $packable_impl_or_empty_quote
     }
 }
 
@@ -248,7 +248,11 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// }
 /// ```
 pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
-    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+    let packable_impl_or_empty_quote = derive_packable_if_not_implemented(s);
+
+    // TODO(benesjan): figure out how to get real value here
+    // let note_packed_len = get_packable_len(s.as_type());
+    let note_packed_len = 10;
 
     if note_packed_len > MAX_NOTE_PACKED_LEN {
         panic(
@@ -266,7 +270,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     quote {
         $note_properties
         $note_interface_impl
-        $packable_impl
+        $packable_impl_or_empty_quote
     }
 }
 
