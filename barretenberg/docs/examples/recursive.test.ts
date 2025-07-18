@@ -125,7 +125,7 @@ describe('Recursive Aggregation Example', () => {
   });
 
   // TODO: Skipping because recursive proving is actually not working!
-  it.skip('should generate recursive proof', async function() {
+  it('should generate recursive proof', async function() {
     this.timeout(180000);
 
     // Generate witness and proof for main circuit
