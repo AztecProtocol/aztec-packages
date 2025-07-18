@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -125,9 +126,88 @@ template <typename Builder> class DefaultIO {
 using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
 
 /**
- * @brief The data that is propagated on the public inputs of a hiding kernel circuit
+ * @brief Manages the data that is propagated on the public inputs of of a hiding kernel circuit
+ *
+ * @note It is important that the inputs are (ecc_op_table, pairing_inputs). This is because the output of ClientIVC
+ * will be verified with an UltraVerifier, which expects the last public input to always be the pairing inputs.
+ *
  */
-using HidingKernelIO = DefaultIO<MegaCircuitBuilder>; // hiding kernel IO is always Mega
+class HidingKernelIO {
+  public:
+    using Builder = MegaCircuitBuilder;   // hiding kernel is always Mega
+    using Curve = stdlib::bn254<Builder>; // curve is always bn254
+    using G1 = Curve::Group;
+    using FF = Curve::ScalarField;
+    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+
+    using PublicPoint = stdlib::PublicInputComponent<G1>;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+
+    G1 ecc_op_table;              // commitment to merged table obtain from final Merge verification
+    PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
+
+    // Total size of the IO public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE;
+
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     *
+     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
+    {
+        // Assumes that the app-io public inputs are at the end of the public_inputs vector
+        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += G1::PUBLIC_INPUTS_SIZE;
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+    }
+
+    /**
+     * @brief Set each IO component to be a public input of the underlying circuit.
+     *
+     */
+    void set_public()
+    {
+        ecc_op_table.set_public();
+        pairing_inputs.set_public();
+
+        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
+        Builder* builder = pairing_inputs.P0.get_context();
+        builder->finalize_public_inputs();
+    }
+
+    class Native {
+      public:
+        using FF = Curve::ScalarFieldNative;
+        using PairingPoints = bb::PairingPoints;
+        using G1 = Curve::AffineElementNative;
+
+        static constexpr size_t G1_PUBLIC_INPUTS_SIZE = Curve::Group::PUBLIC_INPUTS_SIZE;
+        G1 ecc_op_table;
+        PairingPoints pairing_inputs;
+
+        /**
+         * @brief Reconstructs the IO components from a public inputs array.
+         *
+         * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+         */
+        void reconstruct_from_public(const std::vector<FF>& public_inputs)
+        {
+            // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
+            uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+
+            const std::span<const FF, G1_PUBLIC_INPUTS_SIZE> ecc_op_table_limbs(public_inputs.data() + index,
+                                                                                G1_PUBLIC_INPUTS_SIZE);
+            index += G1_PUBLIC_INPUTS_SIZE;
+            const std::span<const FF, PAIRING_POINTS_SIZE> pairing_inputs_limbs(public_inputs.data() + index,
+                                                                                PAIRING_POINTS_SIZE);
+
+            ecc_op_table = G1::reconstruct_from_public(ecc_op_table_limbs);
+            pairing_inputs = PairingPoints::reconstruct_from_public(pairing_inputs_limbs);
+        }
+    };
+};
 
 /**
  * @brief The data that is propagated on the public inputs of a rollup circuit
