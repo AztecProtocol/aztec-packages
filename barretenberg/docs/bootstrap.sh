@@ -89,9 +89,10 @@ function release {
 }
 
 function test_docs {
-  yarn install
-  yarn
-  yarn test
+  echo_header "test docs"
+
+  denoise "yarn install"
+  denoise "yarn test"
 }
 
 case "$cmd" in
