@@ -88,7 +88,11 @@ function release {
   fi
 }
 
-function test_docs {
+function test_cmds {
+  echo "$hash barretenberg/docs/bootstrap.sh test"
+}
+
+function test {
   echo_header "test docs"
 
   denoise "yarn install"
@@ -105,8 +109,11 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "test_cmds"|"test")
-    test_docs
+  "test_cmds")
+    test_cmds
+    ;;
+  "test")
+    test
     ;;
   "release-preview")
     release_preview
