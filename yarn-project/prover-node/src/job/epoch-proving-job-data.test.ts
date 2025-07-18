@@ -1,6 +1,6 @@
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Tx } from '@aztec/stdlib/tx';
 
 import {
@@ -22,6 +22,7 @@ describe('EpochProvingJobData', () => {
         3: [Fr.random()],
       },
       previousBlockHeader: await L2Block.random(0).then(b => b.header),
+      attestations: times(3, CommitteeAttestation.random),
     };
 
     const serialized = serializeEpochProvingJobData(jobData);

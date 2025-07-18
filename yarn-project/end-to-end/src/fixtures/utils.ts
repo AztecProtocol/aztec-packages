@@ -33,14 +33,15 @@ import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
+  FeeAssetArtifact,
   NULL_KEY,
   type Operator,
+  RewardDistributorArtifact,
   createExtendedL1Client,
   deployL1Contracts,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
@@ -483,7 +484,7 @@ export async function setup(
 
       const rewardDistributor = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-        abi: l1Artifacts.rewardDistributor.contractAbi,
+        abi: RewardDistributorArtifact.contractAbi,
         client: deployL1ContractsValues.l1Client,
       });
 
@@ -492,7 +493,7 @@ export async function setup(
 
       const feeJuice = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-        abi: l1Artifacts.feeAsset.contractAbi,
+        abi: FeeAssetArtifact.contractAbi,
         client: deployL1ContractsValues.l1Client,
       });
 
