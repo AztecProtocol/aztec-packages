@@ -188,7 +188,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder circuit3{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit3);
-        prove_and_verify_merge(op_queue);
+        prove_and_verify_merge(op_queue, MergeSettings::APPEND);
     }
 };
 

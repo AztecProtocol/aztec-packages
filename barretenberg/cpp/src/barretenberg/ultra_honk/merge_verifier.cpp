@@ -97,6 +97,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof,
         commitment_idx += NUM_WIRES;
     }
 
+    // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
     const FF pow_kappa = kappa.pow(shift_size);

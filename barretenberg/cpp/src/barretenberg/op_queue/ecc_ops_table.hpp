@@ -15,7 +15,7 @@
 namespace bb {
 
 /**
- * @brief The MergeSettings define whether an incoming subtable will be added at the beginning (PREPEND) or at the end
+ * @brief The MergeSettings define whether an current subtable will be added at the beginning (PREPEND) or at the end
  * (APPEND) of the EccOpQueue.
  */
 enum MergeSettings { PREPEND, APPEND };
@@ -100,20 +100,16 @@ struct ECCVMOperation {
 template <typename OpFormat> class EccOpsTable {
     using Subtable = std::vector<OpFormat>;
     std::vector<Subtable> table;
-    Subtable incoming_subtable; // used to store the incoming subtable before it is added to the table
+    Subtable current_subtable; // used to store the current subtable before it is added to the table
   public:
     size_t size() const
     {
+        ASSERT(current_subtable.empty(), "Current subtable should be merged before computing the size.");
         size_t total = 0;
         for (const auto& subtable : table) {
             total += subtable.size();
         }
 
-        // Check whether incoming subtable has yet to be merged and factor in its number of ops
-        if (!incoming_subtable.empty()) {
-
-            total += incoming_subtable.size();
-        }
         return total;
     }
 
@@ -124,24 +120,21 @@ template <typename OpFormat> class EccOpsTable {
     void push(const OpFormat& op)
     {
         // Get the reference of the subtable to update
-        // auto& subtable_to_update = settings == MergeSettings::PREPEND ? table.front() : table.back();
-        // subtable_to_update.push_back(op);
 
-        incoming_subtable.push_back(op);
+        current_subtable.push_back(op);
     }
 
     void create_new_subtable(size_t size_hint = 0)
     {
-        // table.insert(it, std::move(new_subtable));
-        ASSERT(incoming_subtable.empty(),
-               "Cannot create a new subtable while there is an incoming subtable that has not been merged yet.");
-        incoming_subtable.reserve(size_hint);
+        ASSERT(current_subtable.empty(),
+               "Cannot create a new subtable while there is an current subtable that has not been merged yet.");
+        current_subtable.reserve(size_hint);
     }
 
     // const version of operator[]
     const OpFormat& operator[](size_t index) const
     {
-        ASSERT(incoming_subtable.empty(), "Incoming subtable should be merged before indexing.");
+        ASSERT(current_subtable.empty(), "current subtable should be merged before indexing.");
         BB_ASSERT_LT(index, size());
         // simple linear search to find the correct subtable
         for (const auto& subtable : table) {
@@ -156,8 +149,8 @@ template <typename OpFormat> class EccOpsTable {
     // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator
     std::vector<OpFormat> get_reconstructed() const
     {
-        ASSERT(incoming_subtable.empty(),
-               "Incoming subtable should be merged before reconstructing the full table of operations.");
+        ASSERT(current_subtable.empty(),
+               "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<OpFormat> reconstructed_table;
         reconstructed_table.reserve(size());
@@ -171,15 +164,15 @@ template <typename OpFormat> class EccOpsTable {
 
     void merge(MergeSettings settings = MergeSettings::PREPEND)
     {
-        if (incoming_subtable.empty()) {
+        if (current_subtable.empty()) {
             return; // nothing to merge
         }
 
-        // Get the iterator at which location we should insert the incoming subtable
+        // Get the iterator at which location we should insert the current subtable
         auto it = settings == MergeSettings::PREPEND ? table.begin() : table.end();
-        table.insert(it, std::move(incoming_subtable));
-        incoming_subtable.clear(); // clear the incoming subtable after merging
-        ASSERT(incoming_subtable.empty(), "Incoming subtable should be empty after merging. Check the merge logic.");
+        table.insert(it, std::move(current_subtable));
+        current_subtable.clear(); // clear the current subtable after merging
+        ASSERT(current_subtable.empty(), "current subtable should be empty after merging. Check the merge logic.");
     }
 };
 
