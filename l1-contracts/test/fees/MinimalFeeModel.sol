@@ -16,7 +16,9 @@ import {
   L1FeeData,
   ManaBaseFeeComponents,
   L1GasOracleValues,
-  CompressedFeeHeader
+  CompressedFeeHeader,
+  CompressedL1FeeData,
+  FeeStructsLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
@@ -42,6 +44,7 @@ contract MinimalFeeModel {
   using FeeHeaderLib for CompressedFeeHeader;
   using CompressedTimeMath for CompressedSlot;
   using CompressedTimeMath for Slot;
+  using FeeStructsLib for CompressedL1FeeData;
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -72,8 +75,8 @@ contract MinimalFeeModel {
   function getL1GasOracleValues() public view returns (L1GasOracleValuesModel memory) {
     L1GasOracleValues memory values = FeeLib.getStorage().l1GasOracleValues;
     return L1GasOracleValuesModel({
-      pre: L1FeesModel({base_fee: values.pre.baseFee, blob_fee: values.pre.blobFee}),
-      post: L1FeesModel({base_fee: values.post.baseFee, blob_fee: values.post.blobFee}),
+      pre: L1FeesModel({base_fee: values.pre.getBaseFee(), blob_fee: values.pre.getBlobFee()}),
+      post: L1FeesModel({base_fee: values.post.getBaseFee(), blob_fee: values.post.getBlobFee()}),
       slot_of_change: Slot.unwrap(values.slotOfChange.decompress())
     });
   }
