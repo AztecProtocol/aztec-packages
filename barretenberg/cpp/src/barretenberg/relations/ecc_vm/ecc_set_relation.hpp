@@ -26,8 +26,10 @@ template <typename FF_> class ECCVMSetRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
-        // non-trivial copy constraints.
-        return (in.z_perm - in.z_perm_shift).is_zero();
+        // non-trivial copy constraints. The value of `transcript_mul` can be non-zero at the end of a long MSM of
+        // points-at-infinity, which will cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
+        // Therefore, we add this as a skip condition.
+        return (in.z_perm - in.z_perm_shift).is_zero() && in.transcript_mul.is_zero() && in.lagrange_last.is_zero();
     }
 
     template <typename Accumulator> static Accumulator convert_to_wnaf(const auto& s0, const auto& s1)
