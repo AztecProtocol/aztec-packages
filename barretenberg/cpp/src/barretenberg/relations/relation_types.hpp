@@ -133,6 +133,23 @@ concept isSkippable = requires(const AllEntities& input) {
 };
 
 /**
+ * @brief Check if the flavor has a static skip method to determine if accumulation of all relations can be skipped for
+ * a given row
+ *
+ * @details The skip function should return true if relation can be skipped and false if it can't
+ * @tparam Flavor The flavor type
+ * @tparam ProverPolynomialsOrPartiallyEvaluatedMultivariates The type containing polynomials with witness and selector
+ * values
+ */
+template <typename Flavor, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+concept isRowSkippable =
+    requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& input, const EdgeType edge_idx) {
+        {
+            Flavor::skip_entire_row(input, edge_idx)
+        } -> std::same_as<bool>;
+    };
+
+/**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
  * contribution of a given relation to the corresponding accumulator.
  *

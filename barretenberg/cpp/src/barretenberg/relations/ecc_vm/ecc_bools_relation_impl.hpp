@@ -39,7 +39,7 @@ void ECCVMBoolsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulat
     auto q_mul = View(in.transcript_mul);
     auto q_eq = View(in.transcript_eq);
     auto transcript_msm_transition = View(in.transcript_msm_transition);
-    auto is_accumulator_empty = View(in.transcript_accumulator_empty);
+    auto is_accumulator_not_empty = View(in.transcript_accumulator_not_empty);
     auto q_reset_accumulator = View(in.transcript_reset_accumulator);
     auto transcript_Pinfinity = View(in.transcript_base_infinity);
     auto transcript_msm_infinity = View(in.transcript_msm_infinity);
@@ -57,7 +57,7 @@ void ECCVMBoolsRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulat
     std::get<2>(accumulator) += q_mul * (q_mul - 1) * scaling_factor;
     std::get<3>(accumulator) += q_reset_accumulator * (q_reset_accumulator - 1) * scaling_factor;
     std::get<4>(accumulator) += transcript_msm_transition * (transcript_msm_transition - 1) * scaling_factor;
-    std::get<5>(accumulator) += is_accumulator_empty * (is_accumulator_empty - 1) * scaling_factor;
+    std::get<5>(accumulator) += is_accumulator_not_empty * (is_accumulator_not_empty - 1) * scaling_factor;
     std::get<6>(accumulator) += z1_zero * (z1_zero - 1) * scaling_factor;
     std::get<7>(accumulator) += z2_zero * (z2_zero - 1) * scaling_factor;
     std::get<8>(accumulator) += transcript_add_x_equal * (transcript_add_x_equal - 1) * scaling_factor;
