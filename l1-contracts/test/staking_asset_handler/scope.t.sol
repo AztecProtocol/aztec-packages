@@ -68,7 +68,7 @@ contract ScopeTest is StakingAssetHandlerBase {
 
     address attester = address(1);
 
-    vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
+    vm.expectRevert(IStakingAssetHandler.InvalidDomain.selector);
     vm.prank(attester);
     stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
   }
@@ -81,7 +81,7 @@ contract ScopeTest is StakingAssetHandlerBase {
 
     address attester = address(1);
 
-    vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
+    vm.expectRevert(IStakingAssetHandler.InvalidDomain.selector);
     vm.prank(attester);
     stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
   }
