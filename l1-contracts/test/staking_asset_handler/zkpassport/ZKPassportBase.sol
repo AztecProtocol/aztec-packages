@@ -52,8 +52,8 @@ contract ZKPassportBase is Test {
     zkPassportVerifier.addCertificateRegistryRoot(CERTIFICATE_REGISTRY_ROOT);
 
     // ( When the proof was made )
-    // Set the timestamp to 2025-06-05 15:34:45 UTC
-    vm.warp(1749137685);
+    // Set the timestamp to 2025-07-16 20:26:48 UTC
+    vm.warp(1752697608);
     realProof = makeValidProof();
     fakeProof = makeFakeProof();
 
