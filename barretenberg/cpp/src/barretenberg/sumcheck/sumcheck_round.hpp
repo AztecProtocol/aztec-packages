@@ -278,6 +278,171 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
+
+     * @brief Helper struct that describes a block of non-zero unskippable rows
+     *
+     */
+    struct BlockOfContiguousRows {
+        size_t starting_edge_idx;
+        size_t size;
+    };
+
+    /**
+     * @brief Helper struct that will, given a vector of BlockOfContiguousRows, return the edge indices that correspond
+     * to the nonzero rows
+     *
+     */
+    struct RowIterator {
+        std::shared_ptr<std::vector<BlockOfContiguousRows>> blocks;
+        size_t current_block_index = 0;
+        size_t current_block_count = 0;
+        RowIterator(const std::vector<BlockOfContiguousRows>& _blocks, size_t starting_index = 0)
+            : blocks(std::make_shared<std::vector<BlockOfContiguousRows>>(_blocks))
+        {
+            size_t count = 0;
+            for (size_t i = 0; i < blocks->size(); ++i) {
+                const BlockOfContiguousRows block = blocks.get()->at(i);
+                if (count + (block.size / 2) > starting_index) {
+                    current_block_index = i;
+                    current_block_count = (starting_index - count) * 2;
+                    break;
+                }
+                count += (block.size / 2);
+            }
+        }
+
+        size_t get_next_edge()
+        {
+            BlockOfContiguousRows block = blocks.get()->at(current_block_index);
+            auto edge = block.starting_edge_idx + current_block_count;
+            if (current_block_count + 2 >= block.size) {
+                current_block_index += 1;
+                current_block_count = 0;
+            } else {
+                current_block_count += 2;
+            }
+            return edge;
+        }
+    };
+
+    /**
+     * @brief Compute the number of unskippable rows we must iterate over
+     * @details Some circuits have a circuit size much larger than the number of used rows (ECCVM, Translator).
+     *          For relevant flavors, we have a `skip_entire_row` method that can be used to check whether to skip.
+     *          This method iterates over the execution trace & computes blocks of contiguous unskippable rows.
+     * @note We assume that the number of blocks returned by this fn is small. i.e. the circuit does not have a large
+     * number of interleaved empty rows. If the circuit *does* have a lot of interleaved empty/non-empty rows, this
+     * function will be quite slow as the returned vector will be large.
+     *
+     * @tparam ProverPolynomialsOrPartiallyEvaluatedMultivariates
+     * @param polynomials
+     * @return std::vector<BlockOfContiguousRows>
+     */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    std::vector<BlockOfContiguousRows> compute_contiguous_round_size(
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials)
+    {
+        const size_t min_iterations_per_thread = 1 << 10; // min number of iterations for which we'll spin up a unique
+        const size_t num_threads = bb::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
+        const size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
+
+        std::vector<BlockOfContiguousRows> result;
+        constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
+
+        if constexpr (can_skip_rows) {
+            std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(num_threads);
+            parallel_for(num_threads, [&](size_t thread_idx) {
+                size_t current_block_size = 0;
+                size_t start = thread_idx * iterations_per_thread;
+                size_t end = (thread_idx + 1) * iterations_per_thread;
+                std::vector<BlockOfContiguousRows> thread_blocks;
+                for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
+                    if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
+                        current_block_size += 2;
+                    } else {
+                        if (current_block_size > 0) {
+
+                            thread_blocks.push_back(BlockOfContiguousRows{
+                                .starting_edge_idx = edge_idx - current_block_size, .size = current_block_size });
+                            current_block_size = 0;
+                        }
+                    }
+                }
+                if (current_block_size > 0) {
+                    thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = end - current_block_size,
+                                                                   .size = current_block_size });
+                }
+                all_thread_blocks[thread_idx] = thread_blocks;
+            });
+
+            for (const auto& thread_blocks : all_thread_blocks) {
+                for (const auto block : thread_blocks) {
+                    result.push_back(block);
+                }
+            }
+        } else {
+            result.push_back(BlockOfContiguousRows{ .starting_edge_idx = 0, .size = round_size });
+        }
+        return result;
+    }
+
+    /**
+     * @brief ZK-version of `compute_univariate` that runs Sumcheck with disabled rows and masking of Round Univariates.
+     * The masking is ensured by adding random Libra univariates to the Sumcheck round univariates.
+     *
+     */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                               const bb::RelationParameters<FF>& relation_parameters,
+                                               const bb::GateSeparatorPolynomial<FF>& gate_separators)
+    {
+        PROFILE_THIS_NAME("compute_univariate");
+
+        std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
+        // Compute how many nonzero rows we have
+        size_t num_valid_rows = 0;
+        for (const BlockOfContiguousRows block : round_manifest) {
+            num_valid_rows += block.size;
+        }
+        size_t num_valid_iterations = num_valid_rows / 2;
+
+        // Determine number of threads for multithreading.
+        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
+        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
+        // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t num_threads = bb::calculate_num_threads(num_valid_iterations, min_iterations_per_thread);
+        size_t iterations_per_thread = num_valid_iterations / num_threads; // actual iterations per thread
+        size_t iterations_for_last_thread = num_valid_iterations - (iterations_per_thread * (num_threads - 1));
+        // Construct univariate accumulator containers; one per thread
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
+
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t start = thread_idx * iterations_per_thread;
+            const size_t end = (thread_idx == num_threads - 1) ? start + iterations_for_last_thread
+                                                               : (thread_idx + 1) * iterations_per_thread;
+
+            RowIterator edge_iterator(round_manifest, start);
+            // Initialize the thread accumulator to 0
+            Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
+            // Construct extended univariates containers; one per thread
+            ExtendedEdges extended_edges;
+            for (size_t i = start; i < end; ++i) {
+                size_t edge_idx = edge_iterator.get_next_edge();
+                extend_edges(extended_edges, polynomials, edge_idx);
+                // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
+                // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
+                // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
+                // \beta_{d-1}^{\ell_{d-1}}\f$.
+                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                extended_edges,
+                                                relation_parameters,
+                                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+            }
+        });
+    }
+    /**
      * @brief In the de-facto mode of of operation for ZK, we add a randomising contribution via the Libra technique to
      * hide the actual round univariate and also ensure the total contribution is amended to take into account
      * that relation execution is disabled on the last rows of the trace.
@@ -351,10 +516,10 @@ template <typename Flavor> class SumcheckProverRound {
      * @details This method receives as input the univariate accumulators computed by \ref
      * accumulate_relation_univariates "accumulate relation univariates" after passing through the entire hypercube and
      * applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads. The
-     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale univariates",
-     * extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using \ref
-     * extend_and_batch_univariates "extend and batch univariates method" to return a vector \f$(\tilde{S}^i(0), \ldots,
-     * \tilde{S}^i(D))\f$.
+     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale
+     * univariates", extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using \ref
+     * extend_and_batch_univariates "extend and batch univariates method" to return a vector \f$(\tilde{S}^i(0),
+     * \ldots, \tilde{S}^i(D))\f$.
      *
      * @param challenge Challenge \f$\alpha\f$.
      * @param gate_separators Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.
@@ -456,21 +621,23 @@ template <typename Flavor> class SumcheckProverRound {
      *
      * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ deined in \ref
      *SumcheckProverContributionsofPow "this section". It is done  as follows:
-     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube \f$\{0,1\}\times
-     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend edges".
+     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube
+     *\f$\{0,1\}\times
+     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend
+     *edges".
      *   - Inner loop: iterate through the sub-relations, feeding each relation the "the group of edges", i.e. the
      * evaluations \f$ P_1(u_0,\ldots, u_{i-1}, k, \vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$. Each
      *                 relation Flavor is endowed with \p accumulate method that computes its contribution to \f$
      * T^i(X_{i}) \f$
-     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors, produces
-     *required evaluations of \f$ \tilde S^i \f$.
+     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors,
+     *produces required evaluations of \f$ \tilde S^i \f$.
      * @param univariate_accumulators The container for per-thread-per-relation univariate contributions output by \ref
      *accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
      * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right)
      *\f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1 - i} \f$.
      * @param scaling_factor In Round \f$ i \f$, for \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$ takes
-     *an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at index \f$
-     *2^{i+1}
+     *an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at index
+     *\f$ 2^{i+1}
      *(\ell_{i+1} 2^{i+1} +\ldots + \ell_{d-1} 2^{d-1})\f$.
      * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
      * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
@@ -553,8 +720,8 @@ template <typename Flavor> class SumcheckVerifierRound {
     /**
      * @brief Check that the round target sum is correct
      * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
-     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
-     * \f$
+     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
+     * \tilde{S}^i(1) \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
