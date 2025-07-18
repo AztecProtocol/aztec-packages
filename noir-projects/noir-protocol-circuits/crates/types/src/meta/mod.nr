@@ -580,12 +580,12 @@ pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted
     let unpacking_of_struct_members = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
             quote {
-                let mut member_fields = [0; <$param_type as Packable>::N];
-                for i in 0..<$param_type as Packable>::N {
+                let mut member_fields = [0; <$param_type as $crate::traits::Packable>::N];
+                for i in 0..<$param_type as $crate::traits::Packable>::N {
                     member_fields[i] = packed[i + offset];
                 }
-                let $param_name = <$param_type as Packable>::unpack(member_fields);
-                offset += <$param_type as Packable>::N;
+                let $param_name = <$param_type as $crate::traits::Packable>::unpack(member_fields);
+                offset += <$param_type as $crate::traits::Packable>::N;
             }
         })
         .join(quote {});
