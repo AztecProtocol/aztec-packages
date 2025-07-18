@@ -504,6 +504,93 @@ TEST_F(ExecutionSimulationTest, NoteHashExistsOutOfRange)
     execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr);
 }
 
+TEST_F(ExecutionSimulationTest, EmitNoteHash)
+{
+    MemoryAddress note_hash_addr = 10;
+
+    auto note_hash = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+    TreeStates tree_state = {};
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(merkle_db, note_hash_write(address, note_hash.as<FF>()));
+
+    execution.emit_note_hash(context, note_hash_addr);
+}
+
+TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
+{
+    MemoryAddress note_hash_addr = 10;
+
+    auto note_hash = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+    TreeStates tree_state = {};
+    tree_state.noteHashTree.counter = MAX_NOTE_HASHES_PER_TX;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr),
+                              "EMITNOTEHASH: Maximum number of note hashes reached");
+}
+
+TEST_F(ExecutionSimulationTest, L1ToL2MessageExists)
+{
+    MemoryAddress msg_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto msg_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(true));
+
+    EXPECT_CALL(merkle_db, l1_to_l2_msg_exists(leaf_index.as<uint64_t>(), msg_hash.as<FF>())).WillOnce(Return(true));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+
+    execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, L1ToL2MessageExistsOutOfRange)
+{
+    MemoryAddress msg_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto msg_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(L1_TO_L2_MSG_TREE_LEAF_COUNT + 1);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(false));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
+
+    execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation
