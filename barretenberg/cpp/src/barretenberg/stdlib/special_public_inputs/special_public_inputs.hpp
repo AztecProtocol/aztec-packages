@@ -150,7 +150,8 @@ class HidingKernelIO {
     PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
 
     // Total size of the IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE =
+        PairingInputs::PUBLIC_INPUTS_SIZE + Flavor::NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -165,7 +166,6 @@ class HidingKernelIO {
             commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
-        index += G1::PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
@@ -213,7 +213,6 @@ class HidingKernelIO {
                 index += G1_PUBLIC_INPUTS_SIZE;
             }
 
-            index += G1_PUBLIC_INPUTS_SIZE;
             const std::span<const FF, PAIRING_POINTS_SIZE> pairing_inputs_limbs(public_inputs.data() + index,
                                                                                 PAIRING_POINTS_SIZE);
 

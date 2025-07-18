@@ -69,4 +69,88 @@ TEST_F(SpecialPublicInputsTests, Basic)
     }
 }
 
+// Demonstrates the basic functionality of the HidingKernelIO class for propagating public inputs between circuits
+TEST_F(SpecialPublicInputsTests, HidingKernel)
+{
+    using Builder = HidingKernelIO::Builder;
+    using Curve = HidingKernelIO::Curve;
+    using G1 = HidingKernelIO::G1;
+    using FF = HidingKernelIO::FF;
+    using PairingInputs = HidingKernelIO::PairingInputs;
+
+    using G1Native = typename Curve::GroupNative::affine_element;
+    using FFNative = typename Curve::ScalarFieldNative;
+
+    static constexpr size_t NUM_WIRES = HidingKernelIO::Flavor::NUM_WIRES;
+
+    std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
+    for (auto& commitment : ecc_op_tables_val) {
+        commitment = G1Native::random_element();
+    }
+    G1Native P0_val = G1Native::random_element();
+    G1Native P1_val = G1Native::random_element();
+
+    // Store the public inputs of the first circuit to be used by the second
+    std::vector<FFNative> public_inputs;
+
+    { // The first circuit propagates the kernel output via its public inputs
+        Builder builder;
+
+        HidingKernelIO hiding_output;
+
+        // Set the output values
+        std::array<G1, NUM_WIRES> ecc_op_tables;
+        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+            ecc_op_tables[idx] = G1::from_witness(&builder, ecc_op_tables_val[idx]);
+        }
+        PairingInputs pairing_inputs{ G1::from_witness(&builder, P0_val), G1::from_witness(&builder, P1_val) };
+
+        hiding_output.ecc_op_tables = ecc_op_tables;
+        hiding_output.pairing_inputs = pairing_inputs;
+
+        // Propagate the kernel output via the public inputs
+        hiding_output.set_public();
+
+        // Store the public inputs from this circuit for use in the second circuit
+        for (const auto& idx : builder.public_inputs()) {
+            public_inputs.push_back(builder.get_variable(idx));
+        }
+    }
+
+    { // The second circuit reconstructs the kernel inputs from the public inputs
+        Builder builder;
+
+        // Construct the stdlib public inputs (e.g. as a recursive verifier would do upon receiving them in the proof)
+        std::vector<FF> stdlib_public_inputs;
+        stdlib_public_inputs.reserve(public_inputs.size());
+        for (const auto& val : public_inputs) {
+            stdlib_public_inputs.push_back(FF::from_witness(&builder, val));
+        }
+
+        HidingKernelIO hiding_input;
+        hiding_input.reconstruct_from_public(stdlib_public_inputs);
+
+        // Ensure the reconstructed data matches the original values
+        for (auto [reconstructed_commitment, commitment] : zip_view(hiding_input.ecc_op_tables, ecc_op_tables_val)) {
+            EXPECT_EQ(reconstructed_commitment.get_value(), commitment);
+        }
+        EXPECT_EQ(hiding_input.pairing_inputs.P0.get_value(), P0_val);
+        EXPECT_EQ(hiding_input.pairing_inputs.P1.get_value(), P1_val);
+    }
+
+    { // Test native reconstruction
+        Builder builder;
+
+        HidingKernelIO::Native hiding_input;
+        hiding_input.reconstruct_from_public(public_inputs);
+
+        // Ensure the reconstructed data matches the original values
+        for (auto [reconstructed_commitment, commitment] : zip_view(hiding_input.ecc_op_tables, ecc_op_tables_val)) {
+            EXPECT_EQ(reconstructed_commitment, commitment);
+        }
+        EXPECT_EQ(hiding_input.pairing_inputs.P0, P0_val);
+        EXPECT_EQ(hiding_input.pairing_inputs.P1, P1_val);
+    }
+}
+
 } // namespace bb::stdlib::recursion::honk
