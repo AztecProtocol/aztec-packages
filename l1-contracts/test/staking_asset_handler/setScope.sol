@@ -18,15 +18,15 @@ contract SetScopeTest is StakingAssetHandlerBase {
     vm.assume(_caller != address(this));
     vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, _caller));
     vm.prank(_caller);
-    stakingAssetHandler.setDomain(scope);
+    stakingAssetHandler.setScope(scope);
   }
 
   function test_WhenCallerOfSetScopeIsOwner() external {
     // it sets the scope
-    // it emits a {ScopeSet} event
+    // it emits a {ScopeUpdated} event
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ScopeUpdated(scope);
-    stakingAssetHandler.setDomain(scope);
+    stakingAssetHandler.setScope(scope);
   }
 }
