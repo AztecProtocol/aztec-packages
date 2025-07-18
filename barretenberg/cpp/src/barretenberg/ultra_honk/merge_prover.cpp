@@ -56,9 +56,8 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
-    info("settings ", settings);
 
-    // Merge the operations accumulated in the incoming subtable (for which a merge proof is being constructed) prior to
+    // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
     op_queue->merge(settings);
 

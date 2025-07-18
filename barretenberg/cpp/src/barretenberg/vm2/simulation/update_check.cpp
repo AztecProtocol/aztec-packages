@@ -23,13 +23,13 @@ FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf
 void UpdateCheck::check_current_class_id(const AztecAddress& address, const ContractInstance& instance)
 {
     // Compute the public data tree slots
-    FF shared_mutable_slot = poseidon2.hash({ UPDATED_CLASS_IDS_SLOT, address });
-    FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
-    // Read the hash from the tree. We do a trick with shared mutables (updates are shared mutables) where we store in
-    // one public data tree slot the hash of the whole structure. This is nice because in circuits you can receive the
-    // preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain the hash read
-    // but then read in unconstrained mode the preimage. The PIL for this gadget constrains the hash.
-    FF hash = merkle_db.storage_read(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_hash_slot);
+    FF delayed_public_mutable_slot = poseidon2.hash({ UPDATED_CLASS_IDS_SLOT, address });
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
+    // Read the hash from the tree. We do a trick with delayed public mutables (updates are delayed public mutables)
+    // where we store in one public data tree slot the hash of the whole structure. This is nice because in circuits you
+    // can receive the preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain
+    // the hash read but then read in unconstrained mode the preimage. The PIL for this gadget constrains the hash.
+    FF hash = merkle_db.storage_read(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot);
 
     uint256_t update_preimage_metadata = 0;
     FF update_preimage_pre_class_id = 0;
@@ -38,7 +38,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     uint64_t current_timestamp = globals.timestamp;
 
     if (hash == 0) {
-        // If the shared mutable has never been written, then the contract was never updated. We short circuit early.
+        // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
+        // early.
         if (instance.original_class_id != instance.current_class_id) {
             throw std::runtime_error("Current class id does not match expected class id");
         }
@@ -49,8 +50,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         std::vector<FF> update_preimage(3);
 
         for (size_t i = 0; i < update_preimage.size(); ++i) {
-            FF leaf_slot =
-                unconstrained_compute_leaf_slot(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_slot + i);
+            FF leaf_slot = unconstrained_compute_leaf_slot(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                                                           delayed_public_mutable_slot + i);
             update_preimage[i] = unconstrained_read(unconstrained_merkle_db, leaf_slot);
         }
 
@@ -72,7 +73,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         uint64_t timestamp_of_change =
             static_cast<uint64_t>(static_cast<uint32_t>(update_preimage_metadata & 0xffffffff));
         range_check.assert_range(update_metadata_hi,
-                                 UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE);
+                                 UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE);
         range_check.assert_range(timestamp_of_change, TIMESTAMP_OF_CHANGE_BIT_SIZE);
 
         // pre and post can be zero, if they have never been touched. In that case we need to use the original class id.
@@ -103,7 +104,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         .update_preimage_metadata = update_preimage_metadata,
         .update_preimage_pre_class_id = update_preimage_pre_class_id,
         .update_preimage_post_class_id = update_preimage_post_class_id,
-        .shared_mutable_slot = shared_mutable_slot,
+        .delayed_public_mutable_slot = delayed_public_mutable_slot,
     });
 }
 

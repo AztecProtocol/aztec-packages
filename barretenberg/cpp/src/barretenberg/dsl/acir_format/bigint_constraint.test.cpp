@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
 #include <cstdint>
@@ -65,7 +66,7 @@ generate_big_int_op_constraint_with_modulus(
         value = witness_values[lhs_id] / witness_values[rhs_id];
         break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected BigIntOperationType.");
         break;
     }
 
@@ -148,7 +149,7 @@ std::tuple<BigIntOperation, BigIntToLeBytes> generate_big_int_op_constraint_with
         value = witness_values[lhs_id] / witness_values[rhs_id];
         break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected BigIntOperationType.");
         break;
     }
 

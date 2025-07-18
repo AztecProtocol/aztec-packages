@@ -59,7 +59,7 @@ class Execution : public ExecutionInterface {
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
               KeccakF1600Interface& keccakf1600,
-              RangeCheckInterface& range_check,
+              GreaterThanInterface& greater_than,
               GetContractInstanceInterface& get_contract_instance_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
@@ -70,7 +70,7 @@ class Execution : public ExecutionInterface {
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
-        , range_check(range_check)
+        , greater_than(greater_than)
         , get_contract_instance_component(get_contract_instance_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
@@ -130,6 +130,11 @@ class Execution : public ExecutionInterface {
                                MemoryAddress address_offset,
                                MemoryAddress dst_offset,
                                uint8_t member_enum);
+    void emit_note_hash(ContextInterface& context, MemoryAddress note_hash_addr);
+    void l1_to_l2_message_exists(ContextInterface& context,
+                                 MemoryAddress msg_hash_addr,
+                                 MemoryAddress leaf_index_addr,
+                                 MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -166,7 +171,7 @@ class Execution : public ExecutionInterface {
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
-    RangeCheckInterface& range_check;
+    GreaterThanInterface& greater_than;
     GetContractInstanceInterface& get_contract_instance_component;
     HighLevelMerkleDBInterface& merkle_db;
 
