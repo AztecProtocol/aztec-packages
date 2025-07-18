@@ -16,6 +16,7 @@
  */
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/api_client_ivc.hpp"
+#include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
@@ -656,71 +657,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         }
         if (msgpack_run_command->parsed()) {
-            // Process msgpack API commands from stdin or file
-            std::istream* input_stream = &std::cin;
-            std::ifstream file_stream;
-
-            if (!msgpack_input_file.empty()) {
-                file_stream.open(msgpack_input_file, std::ios::binary);
-                if (!file_stream.is_open()) {
-                    std::cerr << "Error: Could not open input file: " << msgpack_input_file << std::endl;
-                    return 1;
-                }
-                input_stream = &file_stream;
-            }
-
-            // Process length-encoded msgpack buffers
-            while (!input_stream->eof()) {
-                // Read 4-byte length prefix in little-endian format
-                uint32_t length = 0;
-                input_stream->read(reinterpret_cast<char*>(&length), sizeof(length));
-
-                if (input_stream->gcount() != sizeof(length)) {
-                    // End of stream or incomplete length
-                    break;
-                }
-
-                // Read the msgpack buffer
-                std::vector<uint8_t> buffer(length);
-                input_stream->read(reinterpret_cast<char*>(buffer.data()), length);
-
-                if (input_stream->gcount() != static_cast<std::streamsize>(length)) {
-                    std::cerr << "Error: Incomplete msgpack buffer read" << std::endl;
-                    return 1;
-                }
-
-                try {
-                    // Deserialize the msgpack buffer
-                    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-                    auto obj = unpacked.get();
-                    // Check if obj is tuple of 2, print first element of so
-                    // that we can see the command name
-                    info(obj);
-
-                    // Convert to Command (which is a NamedUnion)
-                    bb::bbapi::Command command;
-                    obj.convert(command);
-
-                    // Execute the command
-                    auto response = bbapi::bbapi(std::move(command));
-
-                    // Serialize the response
-                    msgpack::sbuffer response_buffer;
-                    msgpack::pack(response_buffer, response);
-
-                    // Write length-encoded response to stdout
-                    uint32_t response_length = static_cast<uint32_t>(response_buffer.size());
-                    std::cout.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
-                    std::cout.write(response_buffer.data(), static_cast<std::streamsize>(response_buffer.size()));
-                    std::cout.flush();
-
-                } catch (const std::exception& e) {
-                    std::cerr << "Error processing msgpack command: " << e.what() << std::endl;
-                    return 1;
-                }
-            }
-
-            return 0;
+            return execute_msgpack_run(msgpack_input_file);
         }
         // TUBE
         if (prove_tube_command->parsed()) {

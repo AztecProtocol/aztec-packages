@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { gzipSync, gunzipSync } from 'zlib';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
-import { NativeApi } from './generated/native.js';
+import { NativeApi } from './generated-bkup/nativebk.js';
 
 /**
  * Represents a private execution step as stored in ivc-inputs.msgpack files.
@@ -127,7 +127,8 @@ export class IvcRunner {
    * Initialize IVC with the given number of circuits
    */
   async start(numCircuits: number): Promise<void> {
-    await this.api.clientIvcStart({ numCircuits });
+    const result = await this.api.clientIvcStart({ numCircuits });
+    console.log(result);
   }
 
   /**

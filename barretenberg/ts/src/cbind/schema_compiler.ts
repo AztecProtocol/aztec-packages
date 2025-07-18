@@ -636,14 +636,14 @@ ${methods}
 }
 
 export class NativeApi {
-  private decoder = new Decoder({ largeBigIntToString: false });
-  private encoder = new Encoder();
+  private decoder = new Decoder({ useRecords: false });
+  private encoder = new Encoder({ useRecords: false });
   private requestCallbacks: NativeApiRequest[] = [];
 
   private constructor(private proc: ChildProcess) {}
 
   static async new(bbPath = 'bb', errorLogger = console.error): Promise<NativeApi> {
-    const proc = spawn(bbPath, ['api'], {
+    const proc = spawn(bbPath, ['msgpack', 'run'], {
       stdio: ['pipe', 'pipe', 'inherit'],
     });
 
@@ -686,6 +686,13 @@ export class NativeApi {
     return new Promise((resolve, reject) => {
       this.requestCallbacks.push({ resolve, reject });
       const encoded = this.encoder.encode(command);
+      
+      // Write length prefix (4 bytes, little-endian)
+      const lengthBuffer = Buffer.allocUnsafe(4);
+      lengthBuffer.writeUInt32LE(encoded.length, 0);
+      
+      // Write length prefix followed by the encoded data
+      this.proc.stdin!.write(lengthBuffer);
       this.proc.stdin!.write(encoded);
     });
   }

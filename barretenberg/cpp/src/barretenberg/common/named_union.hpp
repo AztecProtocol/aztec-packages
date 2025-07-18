@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#define MSGPACK_NO_BOOST
+#include "msgpack/object_fwd.hpp"
 #include <concepts>
 #include <optional>
 #include <stdexcept>
