@@ -9,7 +9,7 @@ import { AztecContext } from '../../aztecEnv';
 import { progressIndicator, select } from '../../styles/common';
 import { INFO_TEXT } from '../../constants';
 import { InfoText } from './InfoText';
-import { prepareForFeePayment } from '../../utils/sponsoredFPC';
+import { prepareForFeePayment } from '../../wallet/embedded/sponsoredFPC';
 
 const FeePaymentMethods = ['sponsored_fpc', 'private_fpc', 'public_fpc', 'fee_juice', 'bridged_fee_juice'] as const;
 type FeePaymentMethodType = (typeof FeePaymentMethods)[number];
@@ -19,7 +19,7 @@ interface FeePaymentSelectorProps {
 }
 
 export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorProps) {
-  const { pxe, network, wallet } = useContext(AztecContext);
+  const { network, wallet } = useContext(AztecContext);
 
   const [isMethodChanging, setIsMethodChanging] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<FeePaymentMethodType | undefined>(
@@ -36,7 +36,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
     switch (method) {
       case 'sponsored_fpc': {
         const feePaymentMethod = await prepareForFeePayment(
-          pxe,
+          wallet,
           network.sponsoredFPC?.address,
           network.sponsoredFPC?.version,
         );

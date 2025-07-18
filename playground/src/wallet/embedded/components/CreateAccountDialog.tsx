@@ -7,22 +7,19 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useContext, useState } from 'react';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { AztecContext } from '../../../aztecEnv';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import type { AccountType } from '../../../utils/storage';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
 import FormGroup from '@mui/material/FormGroup';
-import { progressIndicator, dialogBody, form } from '../../../styles/common';
-import { InfoText } from '../../common/InfoText';
-import { INFO_TEXT } from '../../../constants';
 import { Box, DialogContent } from '@mui/material';
 import { DialogActions } from '@mui/material';
+import type { AccountType } from '../wallet_db';
+import { INFO_TEXT } from '../../../constants';
+import { InfoText } from '../../../components/common/InfoText';
 
 export function CreateAccountDialog({
   open,
@@ -39,13 +36,10 @@ export function CreateAccountDialog({
   const [alias, setAlias] = useState('');
   const [type, setType] = useState<AccountType>('ecdsasecp256r1');
   const [secretKey] = useState(Fr.random());
-  const [publiclyDeploy, setPubliclyDeploy] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState(null);
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
-
-  const { pxe, walletDB } = useContext(AztecContext);
 
   const createAccount = async () => {
     setIsRegistering(true);
@@ -83,11 +77,8 @@ export function CreateAccountDialog({
         signingKey,
       });
 
-      let deployMethod: DeployMethod;
-      let opts: DeployOptions;
-      if (publiclyDeploy) {
-        deployMethod = await accountManager.getDeployMethod();
-        opts = {
+      const deployMethod = await accountManager.getDeployMethod();
+      const opts = {
           contractAddressSalt: salt,
           fee: {
             paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
@@ -96,7 +87,6 @@ export function CreateAccountDialog({
           skipClassPublication: true,
           skipInstancePublication: true,
         };
-      }
       onClose(accountWallet, publiclyDeploy, deployMethod, opts);
     } catch (e) {
       setError(e.message);
@@ -143,17 +133,7 @@ export function CreateAccountDialog({
             />
             <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
-          {/* Always deploy for now */}
-          {/* <FormControl>
-            <FormControlLabel
-              value={publiclyDeploy}
-              control={
-                <Checkbox checked={publiclyDeploy} onChange={event => setPubliclyDeploy(event.target.checked)} />
-              }
-              label="Deploy"
-            />
-          </FormControl> */}
-          {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
+          <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />
         </FormGroup>
 
         <Box sx={{ flexGrow: 1 }}></Box>
@@ -169,10 +149,10 @@ export function CreateAccountDialog({
               </div>
             ) : (
               <Button
-                disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
+                disabled={alias === '' || !feePaymentMethod || isRegistering}
                 onClick={createAccount}
               >
-                {publiclyDeploy ? 'Create and deploy' : 'Create'}
+                Create and initialize
               </Button>
             )
           ) : (

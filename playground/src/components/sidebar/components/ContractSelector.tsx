@@ -34,8 +34,7 @@ export function ContractSelector() {
   const {
     currentContractAddress,
     wallet,
-    walletDB,
-    isPXEInitialized,
+    appDB,
     pendingTxUpdateCounter,
     setCurrentContractArtifact,
     setCurrentContractAddress,
@@ -46,7 +45,7 @@ export function ContractSelector() {
   useEffect(() => {
     const refreshContracts = async () => {
       setIsContractsLoading(true);
-      const aliasedContracts = await walletDB.listAliases('contracts');
+      const aliasedContracts = await appDB.listAliases('contracts');
       const contracts = parseAliasedBuffersAsString(aliasedContracts);
       // Temporarily filter out undeployed contracts
       const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
@@ -54,10 +53,10 @@ export function ContractSelector() {
       setIsContractsLoading(false);
     };
 
-    if (walletDB && wallet) {
+    if (appDB && wallet) {
       refreshContracts();
     }
-  }, [currentContractAddress, walletDB, wallet, pendingTxUpdateCounter]);
+  }, [currentContractAddress, appDB, wallet, pendingTxUpdateCounter]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
@@ -100,7 +99,7 @@ export function ContractSelector() {
         setCurrentContractAddress(undefined);
         setShowContractInterface(true);
       } else {
-        const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contractValue}`);
+        const artifactAsString = await appDB.retrieveAlias(`artifacts:${contractValue}`);
         const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
         setCurrentContractAddress(AztecAddress.fromString(contractValue));
         setCurrentContractArtifact(contractArtifact);
@@ -152,7 +151,7 @@ export function ContractSelector() {
           }}
           disabled={isContractsLoading}
         >
-          {(!isPXEInitialized || !wallet) && (
+          {(!wallet) && (
             <div css={navbarSelectLabel}>
               <Typography variant="body2" color="warning.main">
                 Note: Connect to a network and account to deploy and interact with contracts

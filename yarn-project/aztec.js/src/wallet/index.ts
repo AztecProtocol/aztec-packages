@@ -8,6 +8,9 @@ export * from './wallet.js';
 export * from './account_wallet.js';
 export * from './account_wallet_with_private_key.js';
 export * from './signerless_wallet.js';
+export * from './sdk/common/types.js';
+export * from './sdk/discovery/index.js';
+export * from './sdk/connector/index.js';
 
 /**
  * Gets a wallet for an already registered account.

@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import { useContext, useEffect, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import FormControl from '@mui/material/FormControl';
-import { FeePaymentSelector } from '../../common/FeePaymentSelector';
+import { FeePaymentSelector } from '../../../components/common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';

@@ -379,9 +379,9 @@ export function Landing() {
         severity: 'success',
       });
 
-      const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
+      const { prepareForFeePayment } = await import('../../../wallet/embedded/sponsoredFPC');
       const feePaymentMethod = await prepareForFeePayment(
-        pxe,
+        wallet,
         network.sponsoredFPC?.address,
         network.sponsoredFPC?.version,
       );

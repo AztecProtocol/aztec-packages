@@ -1,11 +1,11 @@
 import {
-  type PXE,
   getContractInstanceFromInstantiationParams,
   SponsoredFeePaymentMethod,
   AztecAddress,
   Fr,
   loadContractArtifact,
   type ContractArtifact,
+  type Wallet,
 } from '@aztec/aztec.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 
@@ -20,7 +20,7 @@ export async function getSponsoredFPCArtifact(version?: string): Promise<Contrac
 }
 
 export async function prepareForFeePayment(
-  pxe: PXE,
+  wallet: Wallet,
   sponsoredFPCAddress?: AztecAddress,
   sponsoredFPCVersion?: string,
 ): Promise<SponsoredFeePaymentMethod> {
@@ -37,7 +37,7 @@ export async function prepareForFeePayment(
       );
     }
 
-    await pxe.registerContract({
+    await wallet.registerContract({
       instance: instance,
       artifact: contractArtifact,
     });

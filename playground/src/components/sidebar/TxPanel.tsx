@@ -142,9 +142,9 @@ const popoverCss = css({
 export function TxPanel() {
   const {
     currentTx,
-    walletDB,
     logs,
-    pxe,
+    node,
+    appDB,
     setPendingTxUpdateCounter,
     pendingTxUpdateCounter,
   } = useContext(AztecContext);
@@ -158,11 +158,11 @@ export function TxPanel() {
 
   useEffect(() => {
     const refreshTransactions = async () => {
-      const txsPerContract = await walletDB.retrieveAllTx();
+      const txsPerContract = await appDB.retrieveAllTx();
       const txHashes = txsPerContract.map(txHash => TxHash.fromString(convertFromUTF8BufferAsString(txHash)));
       const txs: UserTx[] = await Promise.all(
         txHashes.map(async txHash => {
-          const txData = await walletDB.retrieveTxData(txHash);
+          const txData = await appDB.retrieveTxData(txHash);
           return {
             txHash: txData.txHash,
             status: convertFromUTF8BufferAsString(txData.status),
@@ -175,12 +175,12 @@ export function TxPanel() {
       setTransactions(txs);
     };
 
-    if (walletDB) {
+    if (appDB) {
       refreshTransactions();
     } else {
       setTransactions([]);
     }
-  }, [currentTx, walletDB, pendingTxUpdateCounter]);
+  }, [currentTx, appDB, pendingTxUpdateCounter]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -193,7 +193,7 @@ export function TxPanel() {
   // Update pending transactions status
   useEffect(() => {
     const refreshPendingTx = async () => {
-      if (!pxe || !walletDB) {
+      if (!node || !appDB) {
         return;
       }
 
@@ -204,15 +204,15 @@ export function TxPanel() {
       ));
 
       for (const tx of pendingTxs) {
-        const txReceipt = await queryTxReceipt(tx, pxe);
+        const txReceipt = await queryTxReceipt(tx, node);
         if (txReceipt && txReceipt.status !== 'pending') {
-          await walletDB.updateTxStatus(tx.txHash, txReceipt.status);
+          await appDB.updateTxStatus(tx.txHash, txReceipt.status);
           setPendingTxUpdateCounter(pendingTxUpdateCounter + 1);
         }
       }
     };
 
-    if (walletDB && pxe) {
+    if (appDB && node) {
       refreshPendingTx();
     }
 
@@ -220,7 +220,7 @@ export function TxPanel() {
     return () => clearInterval(interval);
 
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [transactions, walletDB, pxe]);
+  }, [transactions, appDB, node]);
 
   useEffect(() => {
     if (currentTx?.status === 'success') {

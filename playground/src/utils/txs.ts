@@ -11,8 +11,8 @@ export type UserTx = {
 };
 
 
-export async function queryTxReceipt(tx: UserTx, pxe: PXE) {
+export async function queryTxReceipt(tx: UserTx, node: AztecNode) {
   const txHash = await tx.txHash;
-  const txReceipt = await pxe.getTxReceipt(txHash);
+  const txReceipt = await node.getTxReceipt(txHash);
   return txReceipt;
 }

@@ -4,12 +4,10 @@ import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
-import { createStore } from '@aztec/kv-store/indexeddb';
 import { AddNetworksDialog } from './AddNetworkDialog';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { AztecContext, AztecEnv, WebLogger } from '../../../aztecEnv';
-import { NetworkDB, WalletDB } from '../../../utils/storage';
+import { AztecContext, AztecEnv } from '../../../aztecEnv';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { navbarButtonStyle, navbarSelect } from '../../../styles/common';
 import { NETWORKS } from '../../../utils/networks';
@@ -18,51 +16,48 @@ import NetworkIcon from '@mui/icons-material/Public';
 import { DialogTitle, Dialog, DialogContent, IconButton } from '@mui/material';
 import { trackButtonClick } from '../../../utils/matomo';
 import CloseIcon from '@mui/icons-material/Close';
+import { AppDB } from '../../../app_db';
 
 export function NetworkSelector() {
   const {
     setConnecting,
-    setPXE,
     setNetwork,
-    setPXEInitialized,
-    setWalletDB,
     setAztecNode,
-    setLogs,
     setWallet,
     setCurrentContractAddress,
     setCurrentContractArtifact,
     setShowContractInterface,
-    setTotalLogCount,
     network,
     connecting,
+    appDB,
   } = useContext(AztecContext);
 
   const [networks, setNetworks] = useState(NETWORKS);
-  const [isNetworkStoreInitialized, setIsNetworkStoreInitialized] = useState(false);
+  const [isAppStoreInitialized, setIsAppStoreInitialized] = useState(false);
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [isOpen, setOpen] = useState(false);
   const [showNetworkDownNotification, setShowNetworkDownNotification] = useState(false);
   const notifications = useNotifications();
 
   useEffect(() => {
-    const initNetworkStore = async () => {
-      await AztecEnv.initNetworkStore();
-      setIsNetworkStoreInitialized(true);
+    const initAppStore = async () => {
+      await AztecEnv.initAppStore();
+      setIsAppStoreInitialized(true);
     };
-    initNetworkStore();
+    initAppStore();
   }, []);
 
   // Connect to the first network automatically
   useEffect(() => {
-    if (isNetworkStoreInitialized && !network) {
+    if (isAppStoreInitialized && !network) {
       handleNetworkChange(NETWORKS[0].nodeURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNetworkStoreInitialized]);
+  }, [isAppStoreInitialized]);
 
   useEffect(() => {
     const refreshNetworks = async () => {
-      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedBuffers = await appDB.listNetworks();
       const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
       const networks = [
         ...NETWORKS,
@@ -76,16 +71,15 @@ export function NetworkSelector() {
       ];
       setNetworks(networks);
     };
-    if (isNetworkStoreInitialized) {
+    if (isAppStoreInitialized) {
       refreshNetworks();
     }
-  }, [isNetworkStoreInitialized]);
+  }, [isAppStoreInitialized]);
 
   const handleNetworkChange = async (nodeURL: string) => {
     let network = null;
     try {
       setConnecting(true);
-      setPXEInitialized(false);
       network = networks.find(network => network.nodeURL === nodeURL);
       const node = await AztecEnv.connectToNode(network.nodeURL);
       setAztecNode(node);
@@ -94,19 +88,6 @@ export function NetworkSelector() {
       setCurrentContractAddress(null);
       setCurrentContractArtifact(null);
       setShowContractInterface(false);
-      const pxe = await AztecEnv.initPXE(node, setLogs, setTotalLogCount);
-      const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
-      const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
-      const walletDBStore = await createStore(
-        `wallet-${rollupAddress}`,
-        { dataDirectory: 'wallet', dataStoreMapSizeKB: 2e10 },
-        walletLogger,
-      );
-      const walletDB = WalletDB.getInstance();
-      walletDB.init(walletDBStore, walletLogger.info);
-      setPXE(pxe);
-      setWalletDB(walletDB);
-      setPXEInitialized(true);
       setConnecting(false);
     } catch (error) {
       console.error(error);
@@ -127,8 +108,8 @@ export function NetworkSelector() {
 
   const handleNetworkAdded = async (network?: string, alias?: string) => {
     if (network && alias) {
-      await NetworkDB.getInstance().storeNetwork(alias, network);
-      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      await appDB.storeNetwork(alias, network);
+      const aliasedBuffers = await appDB.listNetworks();
       const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
       const networks = [
         ...NETWORKS,

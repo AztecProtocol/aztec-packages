@@ -1,13 +1,13 @@
-import { AztecAddress, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type Wallet } from '@aztec/aztec.js';
 
 export async function filterDeployedAliasedContracts(
   aliasedContracts: { key: string; value: string }[],
-  walletOrPxe: PXE | Wallet,
+  wallet: Wallet,
 ) {
   const deployed = (
     await Promise.all(
       aliasedContracts.map(async alias => {
-        const { isContractPublished } = await walletOrPxe.getContractMetadata(
+        const { isContractPublished } = await wallet.getContractMetadata(
           AztecAddress.fromString(alias.value),
         );
         return { ...alias, deployed: isContractPublished };

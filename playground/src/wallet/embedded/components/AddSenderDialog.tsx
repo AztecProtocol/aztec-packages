@@ -5,9 +5,9 @@ import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { AztecAddress } from '@aztec/aztec.js';
 import { Box, DialogActions, DialogContent, DialogContentText, FormGroup } from '@mui/material';
-import { dialogBody, form } from '../../../styles/common';
-import { InfoText } from '../../common/InfoText';
-import { INFO_TEXT } from '../../../constants';
+import { dialogBody, form } from '../../styles/common';
+import { InfoText } from '../../components/common/InfoText';
+import { INFO_TEXT } from '../../constants';
 import Typography from '@mui/material/Typography';
 import Label from '@mui/material/FormLabel';
 export function AddSendersDialog({

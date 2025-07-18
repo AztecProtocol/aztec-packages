@@ -94,13 +94,11 @@ const contentLayout = css({
 });
 
 export default function Home() {
-  const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [showContractInterface, setShowContractInterface] = useState(false);
   const [node, setAztecNode] = useState(null);
   const [isPXEInitialized, setPXEInitialized] = useState(false);
   const [walletAlias, setWalletAlias] = useState('');
-  const [walletDB, setWalletDB] = useState(null);
   const [currentContractArtifact, setCurrentContractArtifact] = useState(null);
   const [currentTx, setCurrentTx] = useState(null);
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
@@ -114,13 +112,10 @@ export default function Home() {
   const [isNetworkCongested, setIsNetworkCongested] = useState(false);
 
   const AztecContextInitialValue = {
-    pxe,
     connecting,
     network,
     wallet,
-    isPXEInitialized,
     walletAlias,
-    walletDB,
     currentContractArtifact,
     currentTx,
     node,
@@ -140,10 +135,7 @@ export default function Home() {
     setLogs,
     setAztecNode,
     setCurrentTx,
-    setWalletDB,
-    setPXEInitialized,
     setWallet,
-    setPXE,
     setShowContractInterface,
     setDefaultContractCreationParams,
     setWalletAlias,

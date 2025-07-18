@@ -31,7 +31,7 @@ interface FunctionParameterProps {
 }
 
 export function FunctionParameter({ parameter, required, onParameterChange, defaultValue }: FunctionParameterProps) {
-  const { walletDB } = useContext(AztecContext);
+  const { appDB, wallet } = useContext(AztecContext);
 
   const [manualInput, setManualInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -70,13 +70,13 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
   const handleOpen = () => {
     const setAliases = async () => {
       setLoading(true);
-      const accountAliases = await walletDB.listAliases('accounts');
-      const contractAliases = await walletDB.listAliases('contracts');
-      const senderAliases = await walletDB.listAliases('senders');
+      const accountAliases = [];
+      const contractAliases = await appDB.listAliases('contracts');
+      const senderAliases = []; //await walletDB.listAliases('senders');
       setAliasedAddresses(parseAliasedBuffersAsString([...accountAliases, ...contractAliases, ...senderAliases]));
       setLoading(false);
     };
-    if (walletDB) {
+    if (appDB && wallet) {
       setAliases();
     }
   };

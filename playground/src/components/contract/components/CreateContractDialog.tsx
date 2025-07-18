@@ -58,7 +58,7 @@ export function CreateContractDialog({
   const [alias, setAlias] = useState(defaultContractCreationParams['alias'] as string);
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
-  const { wallet, walletDB, pxe, node } = useContext(AztecContext);
+  const { wallet, node, appDB } = useContext(AztecContext);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   const [registerExisting, setRegisterExisting] = useState(false);
@@ -108,8 +108,8 @@ export function CreateContractDialog({
         deployer: wallet.getAddress(),
         salt,
       });
-      await pxe.registerContract({ instance: contract, artifact: contractArtifact });
-      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+      await wallet.registerContract({ instance: contract, artifact: contractArtifact });
+      await appDB.storeContract(contract.address, contractArtifact, undefined, alias);
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
       if (publiclyDeploy) {
@@ -143,7 +143,7 @@ export function CreateContractDialog({
       if (!contract) {
         throw new Error('Contract with this address was not found in node');
       }
-      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+      await appDB.storeContract(contract.address, contractArtifact, undefined, alias);
       onClose(contract);
     } catch (e) {
       setError(e.message);

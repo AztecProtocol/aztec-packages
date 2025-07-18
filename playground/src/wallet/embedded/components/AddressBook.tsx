@@ -9,7 +9,7 @@ import { Typography } from '@mui/material';
 export function AddressBook() {
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
 
-  const { wallet, walletDB, isPXEInitialized } = useContext(AztecContext);
+  const { wallet } = useContext(AztecContext);
 
   const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
     if (sender && alias) {
