@@ -4,24 +4,20 @@ use crate::note::note_interface::NoteType;
 use dep::protocol_types::traits::{Packable, ToField};
 use std::option::Option;
 
-// TODO: Ideally we would not have the N numeric generic here and instead we set it to <T as Packable>::N. For that we
-// would need to set "where T: Packable" on the struct and have the "where" clause on the struct. Having the "where"
-// clause on the struct is not supposed to be supported until Noir 1.0. Relevant discussion on slack:
-// https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1752589887955379
 // docs:start:NoteViewerOptions
-pub struct NoteViewerOptions<Note, let N: u32> {
-    pub selects: BoundedVec<Option<Select>, N>,
-    pub sorts: BoundedVec<Option<Sort>, N>,
+pub struct NoteViewerOptions<Note, let M: u32> {
+    pub selects: BoundedVec<Option<Select>, M>,
+    pub sorts: BoundedVec<Option<Sort>, M>,
     pub limit: u32,
     pub offset: u32,
     pub status: u8,
 }
 // docs:end:NoteViewerOptions
 
-impl<Note, let N: u32> NoteViewerOptions<Note, N> {
-    pub fn new() -> NoteViewerOptions<Note, N>
+impl<Note, let M: u32> NoteViewerOptions<Note, M> {
+    pub fn new() -> NoteViewerOptions<Note, M>
     where
-        Note: NoteType + Packable,
+        Note: NoteType + Packable<N = M>,
     {
         NoteViewerOptions {
             selects: BoundedVec::new(),
