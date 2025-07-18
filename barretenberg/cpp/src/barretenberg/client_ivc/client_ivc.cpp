@@ -375,10 +375,10 @@ ClientIVC::PairingPoints ClientIVC::complete_hiding_circuit_logic(
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
 
+    info("hash a1: ", circuit.hash_circuit());
     // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
-    auto num_public_inputs =
-        honk_vk ? static_cast<size_t>(honk_vk->num_public_inputs) : 32; // WORKTODO: what is this 32??
-    num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE;                  // exclude fixed kernel_io public inputs
+    auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs); // WORKTODO: what is this 32??
+    num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE;                        // exclude fixed kernel_io public inputs
     for (size_t i = 0; i < num_public_inputs; i++) {
         stdlib_proof[i].set_public();
     }
@@ -404,13 +404,13 @@ ClientIVC::PairingPoints ClientIVC::complete_hiding_circuit_logic(
     kernel_input.app_return_data.assert_equal(tail_kernel_decider_vk->witness_commitments.secondary_calldata);
 
     info("hash d: ", circuit.hash_circuit());
-    // Perform recursive verification of the last merge proof
-    PairingPoints points_accumulator = goblin.recursively_verify_merge(
-        circuit, tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     MergeCommitments merge_commitments;
     merge_commitments.set_t_commitments(tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires());
+    // Perform recursive verification of the last merge proof
+    PairingPoints points_accumulator = goblin.recursively_verify_merge(
+        circuit, merge_commitments, merge_commitments.T_commitments, pg_merge_transcript);
 
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 

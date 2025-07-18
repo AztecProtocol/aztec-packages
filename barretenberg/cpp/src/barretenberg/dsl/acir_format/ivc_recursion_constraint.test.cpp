@@ -491,6 +491,18 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
         kernel_vk = construct_kernel_vk_from_acir_program(program, TraceSettings());
     }
 
+    auto labels = kernel_vk->get_labels();
+    size_t i = 0;
+    for (auto [vk_entry, expected_vk_entry] :
+         zip_view(kernel_vk->get_labels(), expected_hiding_kernel_vk->get_labels())) {
+        if (vk_entry != expected_vk_entry) {
+            info("label: ", labels[i]);
+            info("expected_label: ", expected_vk_entry);
+            info("mock vk", vk_entry);
+        }
+        i++;
+    }
+
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_hiding_kernel_vk.get());
 }
