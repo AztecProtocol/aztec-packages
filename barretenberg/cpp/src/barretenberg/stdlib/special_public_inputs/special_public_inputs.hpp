@@ -177,7 +177,6 @@ class RollupIO {
      * @brief Reconstructs the IO components from a public inputs array.
      *
      * @param public_inputs Public inputs array containing the serialized kernel public inputs.
-     * @param start_idx Index at which the kernel public inputs are to be extracted.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
@@ -214,7 +213,6 @@ class RollupIO {
          * @brief Reconstructs the IO components from a public inputs array.
          *
          * @param public_inputs Public inputs array containing the serialized kernel public inputs.
-         * @param start_idx Index at which the kernel public inputs are to be extracted.
          */
         void reconstruct_from_public(const std::vector<FF>& public_inputs)
         {
@@ -224,8 +222,7 @@ class RollupIO {
             const std::span<const FF, PAIRING_POINTS_SIZE> pairing_inputs_limbs(public_inputs.data() + index,
                                                                                 PAIRING_POINTS_SIZE);
             index += PairingInputs::PUBLIC_INPUTS_SIZE;
-            const std::span<const FF, IpaClaim::PUBLIC_INPUTS_SIZE> ipa_claim_limbs(public_inputs.data() + index,
-                                                                                    IpaClaim::PUBLIC_INPUTS_SIZE);
+            const std::span<const FF, IPA_CLAIM_SIZE> ipa_claim_limbs(public_inputs.data() + index, IPA_CLAIM_SIZE);
 
             pairing_inputs = PairingPoints::reconstruct_from_public(pairing_inputs_limbs);
             ipa_claim = IpaClaim::reconstruct_from_public(ipa_claim_limbs);
