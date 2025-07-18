@@ -862,7 +862,7 @@ contract RollupTest is RollupBase {
         end: _end,
         args: args,
         fees: fees,
-        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}), // TODO(palla): Add unit tests with non-empty attestations
         blobInputs: _blobInputs,
         proof: ""
       })
