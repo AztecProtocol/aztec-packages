@@ -59,6 +59,7 @@ export class PeerManager implements PeerManagerInterface {
   private preferredPeers: Set<string> = new Set();
   private authenticatedPeerIdToValidatorAddress: Map<string, EthAddress> = new Map();
   private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
+  private peersToBeDisconnected: Set<string> = new Set();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -153,9 +154,10 @@ export class PeerManager implements PeerManagerInterface {
   public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
-    await this.updateAuthenticatedPeers();
-
     this.cleanupExpiredTimeouts();
+
+    await this.updateAuthenticatedPeers();
+    await this.processScheduledDisconnects();
 
     this.discover();
   }
@@ -174,6 +176,29 @@ export class PeerManager implements PeerManagerInterface {
       if (now >= timedOutPeer.timeoutUntilMs) {
         this.timedOutPeers.delete(peerId);
       }
+    }
+  }
+
+  /**
+   * Processes scheduled disconnects during heartbeat.
+   *
+   * This batch processes all peers that have been marked for disconnect.
+   * preventing immediate disconnects that could cause libp2p state corruption.
+   */
+  private async processScheduledDisconnects() {
+    if (this.peersToBeDisconnected.size === 0) {
+      return;
+    }
+
+    const peersToDisconnect = Array.from(this.peersToBeDisconnected);
+    this.peersToBeDisconnected.clear();
+
+    this.logger.debug(`Processing ${peersToDisconnect.length} scheduled disconnects`);
+    try {
+      await Promise.all(peersToDisconnect.map(peerIdStr => this.disconnectPeer(peerIdFromString(peerIdStr))));
+      this.logger.verbose(`Disconnected ${peersToDisconnect.length} peers`, { peersToDisconnect });
+    } catch (error) {
+      this.logger.error('Error when disconnecting from peers', error);
     }
   }
 
@@ -314,7 +339,7 @@ export class PeerManager implements PeerManagerInterface {
 
     this.metrics.recordGoodbyeReceived(reason);
 
-    void this.disconnectPeer(peerId);
+    this.markPeerForDisconnect(peerId);
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
@@ -558,15 +583,32 @@ export class PeerManager implements PeerManagerInterface {
     } catch (error) {
       this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}: ${error}`);
     } finally {
-      await this.disconnectPeer(peer);
+      this.markPeerForDisconnect(peer);
     }
   }
 
+  /*
+   * Marks peer to be disconnected on the next heartbeat
+   * */
+  private markPeerForDisconnect(peer: PeerId) {
+    const peerIdStr = peer.toString();
+    this.logger.debug(`Scheduling peer ${peerIdStr} for disconnection`);
+    this.peersToBeDisconnected.add(peerIdStr);
+  }
+
+  /**
+   * Performs the actual disconnection of a peer.
+   * This is called during heartbeat processing to avoid immediate disconnections.
+   */
   private async disconnectPeer(peer: PeerId) {
+    const peerIdStr = peer.toString();
+
     try {
       await this.libP2PNode.hangUp(peer);
+
+      this.logger.debug(`Successfully disconnected peer ${peerIdStr}`);
     } catch (error) {
-      this.logger.debug(`Failed to disconnect peer ${peer.toString()}`, { error: inspect(error) });
+      this.logger.warn(`Failed to disconnect peer ${peerIdStr}`, { error });
     }
   }
 
@@ -578,6 +620,12 @@ export class PeerManager implements PeerManagerInterface {
     // Check that the peer has not already been banned
     const peerId = await enr.peerId();
     const peerIdString = peerId.toString();
+
+    // Don't attempt to connect to peers scheduled for disconnection
+    if (this.peersToBeDisconnected.has(peerIdString)) {
+      this.logger.trace(`Skipping peer scheduled for disconnection ${peerId}`);
+      return;
+    }
 
     // Check if peer is temporarily timed out
     const timedOutPeer = this.timedOutPeers.get(peerIdString);
@@ -727,7 +775,7 @@ export class PeerManager implements PeerManagerInterface {
           peerId,
           status: ReqRespStatus[status],
         });
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -736,7 +784,7 @@ export class PeerManager implements PeerManagerInterface {
       const peerStatusMessage = StatusMessage.fromBuffer(data);
       if (!ourStatus.validate(peerStatusMessage)) {
         this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
       this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
@@ -745,7 +793,7 @@ export class PeerManager implements PeerManagerInterface {
       this.logger.warn(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
         peerId,
       });
-      await this.disconnectPeer(peerId);
+      this.markPeerForDisconnect(peerId);
     }
   }
 
@@ -770,7 +818,7 @@ export class PeerManager implements PeerManagerInterface {
           peerId,
           status: ReqRespStatus[status],
         });
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -782,7 +830,7 @@ export class PeerManager implements PeerManagerInterface {
       const peerStatusMessage = peerAuthResponse.status;
       if (!ourStatus.validate(peerStatusMessage)) {
         this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -798,7 +846,7 @@ export class PeerManager implements PeerManagerInterface {
             address: sender.toString(),
           },
         );
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -824,7 +872,7 @@ export class PeerManager implements PeerManagerInterface {
       this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
       });
-      await this.disconnectPeer(peerId);
+      this.markPeerForDisconnect(peerId);
     }
   }
 

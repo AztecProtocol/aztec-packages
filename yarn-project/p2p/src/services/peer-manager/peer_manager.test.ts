@@ -16,6 +16,7 @@ import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
 import type { Libp2p, PeerId } from '@libp2p/interface';
+import { peerIdFromString } from '@libp2p/peer-id';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -324,11 +325,13 @@ describe('PeerManager', () => {
 
       // Trigger heartbeat which should call pruneUnhealthyPeers
       await peerManager.heartbeat();
+      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      await peerManager.heartbeat();
 
       await sleep(100);
 
       // Verify that hangUp and a goodbye was sent for both unhealthy peers
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(bannedPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(bannedPeerId.toString()));
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         bannedPeerId,
         ReqRespSubProtocol.GOODBYE,
@@ -336,7 +339,7 @@ describe('PeerManager', () => {
         1000,
       );
 
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(disconnectPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(disconnectPeerId.toString()));
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         disconnectPeerId,
         ReqRespSubProtocol.GOODBYE,
@@ -345,7 +348,7 @@ describe('PeerManager', () => {
       );
 
       // Verify that hangUp was not called for the healthy peer
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(healthyPeerId);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(healthyPeerId.toString()));
 
       // Verify hangUp was called exactly twice (once for each unhealthy peer)
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(2);
@@ -378,11 +381,13 @@ describe('PeerManager', () => {
 
       // Trigger heartbeat which should remove low scoring peers to satisfy max peer limit
       await peerManager.heartbeat();
+      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      await peerManager.heartbeat();
 
       await sleep(100);
 
       // Verify that hangUp and a goodbye was sent for low scoring peers to satisfy max peer limit
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(lowScoringPeerId1);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(lowScoringPeerId1.toString()));
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         lowScoringPeerId1,
         ReqRespSubProtocol.GOODBYE,
@@ -390,7 +395,7 @@ describe('PeerManager', () => {
         1000,
       );
 
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(lowScoringPeerId2);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(lowScoringPeerId2.toString()));
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         lowScoringPeerId2,
         ReqRespSubProtocol.GOODBYE,
@@ -399,9 +404,9 @@ describe('PeerManager', () => {
       );
 
       // Verify that hangUp was not called for connected peers
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId1);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId2);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId3);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(peerId1.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(peerId2.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(peerId3.toString()));
 
       // Verify hangUp was called exactly twice (once for each purged peer to satisfy max peer limit)
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(2);
@@ -497,10 +502,12 @@ describe('PeerManager', () => {
       await peerManager.heartbeat();
 
       await sleep(100);
+      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      await peerManager.heartbeat();
 
       // Verify that hangUp was called only for the untrusted peer, not the trusted peer
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(untrustedPeerId);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(untrustedPeerId.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(trustedPeerId.toString()));
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
     });
 
@@ -525,10 +532,12 @@ describe('PeerManager', () => {
       await peerManager.heartbeat();
 
       await sleep(100);
+      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      await peerManager.heartbeat();
 
       // Verify that hangUp was called only for the regular peer, not the trusted peer
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(regularPeerId.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(trustedPeerId.toString()));
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
     });
 
@@ -688,17 +697,19 @@ describe('PeerManager', () => {
 
       // Wait for async operations to complete
       await sleep(100);
+      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      await peerManager.heartbeat();
 
       // Verify that hangUp was called for the lowest scoring regular peers
       // Since we have 2 trusted peers and maxPeerCount is 3, we can only keep 1 regular peer
       // So regularPeerId2 and regularPeerId3 should be disconnected
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId2);
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId3);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(regularPeerId2.toString()));
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(regularPeerId3.toString()));
 
       // Verify that hangUp was not called for the trusted peers and the highest scoring regular peer
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId1);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId2);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(regularPeerId1);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(trustedPeerId1.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(trustedPeerId2.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(regularPeerId1.toString()));
 
       // Verify that goodbye messages were sent to the disconnected peers
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
@@ -733,9 +744,11 @@ describe('PeerManager', () => {
       await peerManager.heartbeat();
 
       await sleep(100);
+      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      await peerManager.heartbeat();
 
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(privatePeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(regularPeerId.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(privatePeerId.toString()));
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
     });
 
@@ -841,9 +854,11 @@ describe('PeerManager', () => {
       await peerManager.heartbeat();
 
       await sleep(100);
+      // We need second heartbeat to actually disconnect  - the first one just marks peers to disconnect
+      await peerManager.heartbeat();
 
-      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId);
-      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(preferredPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(peerIdFromString(regularPeerId.toString()));
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerIdFromString(preferredPeerId.toString()));
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
     });
 
