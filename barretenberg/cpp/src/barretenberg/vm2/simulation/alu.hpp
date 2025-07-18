@@ -1,15 +1,9 @@
 #pragma once
 
-#include <cstdint>
-#include <memory>
-
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/range_check.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -25,11 +19,8 @@ class AluInterface {
 
 class Alu : public AluInterface {
   public:
-    Alu(RangeCheckInterface& range_check,
-        FieldGreaterThanInterface& field_gt,
-        EventEmitterInterface<AluEvent>& event_emitter)
-        : range_check(range_check)
-        , field_gt(field_gt)
+    Alu(GreaterThanInterface& greater_than, EventEmitterInterface<AluEvent>& event_emitter)
+        : greater_than(greater_than)
         , events(event_emitter)
     {}
 
@@ -40,8 +31,7 @@ class Alu : public AluInterface {
     MemoryValue op_not(const MemoryValue& a) override;
 
   private:
-    RangeCheckInterface& range_check;
-    FieldGreaterThanInterface& field_gt;
+    GreaterThanInterface& greater_than;
     EventEmitterInterface<AluEvent>& events;
 };
 

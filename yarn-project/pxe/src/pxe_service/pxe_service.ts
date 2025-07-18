@@ -367,6 +367,9 @@ export class PXEService implements PXE {
         contractAddress,
         functionSelector,
         msgSender,
+        // The sender for tags is set by contracts, typically by an account
+        // contract entrypoint
+        undefined, // senderForTags
         scopes,
       );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);

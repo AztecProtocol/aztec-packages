@@ -1290,4 +1290,33 @@ export class TXEService {
 
     return toForeignCallResult([toArray([result.returnsHash, result.txHash])]);
   }
+
+  async getSenderForTags() {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const sender = await this.typedOracle.getSenderForTags();
+    // Return a Noir Option struct with `some` and `value` fields
+    if (sender === undefined) {
+      // No sender found, return Option with some=0 and value=0
+      return toForeignCallResult([toSingle(0), toSingle(0)]);
+    } else {
+      // Sender found, return Option with some=1 and value=sender address
+      return toForeignCallResult([toSingle(1), toSingle(sender)]);
+    }
+  }
+
+  async setSenderForTags(senderForTags: ForeignCallSingle) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    await this.typedOracle.setSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
+    return toForeignCallResult([]);
+  }
 }

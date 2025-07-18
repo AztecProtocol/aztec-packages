@@ -9,7 +9,8 @@ namespace bb::avm2 {
 
 namespace {
 
-// This structure is code-generated (but manually set) by the test: DecompositionSelectors.CodeGen
+// This structure is code-generated (but manually set) by the test:
+// DecompositionSelectors.CodeGen (op_decomposition.test.cpp)
 const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = {
     { WireOpCode::ADD_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 } },
     { WireOpCode::ADD_16, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
@@ -568,6 +569,29 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .dyn_da = AVM_SSTORE_DYN_DA_GAS },
         .dyn_gas_id = AVM_DYN_GAS_ID_SSTORE,
         .register_info = RegisterInfo().add_inputs({ /*src*/ ValueTag::FF, /*slot*/ ValueTag::FF }) } },
+    { ExecutionOpCode::NOTEHASHEXISTS,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_NOTEHASHEXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*unique_note_hash*/ ValueTag::FF, /*leaf_index*/ ValueTag::U64 })
+                             .add_output(/*exists*/) } },
+    { ExecutionOpCode::GETCONTRACTINSTANCE,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*contract_address*/ ValueTag::FF) } },
+    { ExecutionOpCode::EMITNOTEHASH,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_EMITNOTEHASH_BASE_L2_GAS,
+                      .base_da = AVM_EMITNOTEHASH_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*note_hash*/ ValueTag::FF) } },
+    { ExecutionOpCode::L1TOL2MSGEXISTS,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_L1TOL2MSGEXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*msg_hash*/ ValueTag::FF, /*leaf_index*/ ValueTag::U64 })
+                             .add_output(/*exists*/) } },
 };
 
 } // namespace bb::avm2

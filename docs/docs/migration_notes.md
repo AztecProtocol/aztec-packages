@@ -9,6 +9,60 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec.nr]
+
+### Tagging sender now managed via oracle functions
+
+Now, instead of manually needing to pass a tagging sender as an argument to log emission functions (e.g. `encode_and_encrypt_note`, `encode_and_encrypt_note_unconstrained`, `emit_event_in_private_log`, ...) we automatically load the sender via the `get_sender_for_tags()` oracle.
+This value is expected to be populated by account contracts that should call `set_sender_for_tags()` in their entry point functions.
+
+The changes you need to do in your contracts are quite straightforward.
+You simply need to drop the `sender` arg from the callsites of the log emission functions.
+E.g. note emission:
+
+```diff
+storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+    &mut context,
+    from,
+-    tagging_sender,
+));
+```
+
+E.g. private event emission:
+
+```diff
+emit_event_in_private_log(
+    Transfer { from, to, amount },
+    &mut context,
+-    tagging_sender,
+    to,
+    PrivateLogContent.NO_CONSTRAINTS,
+);
+```
+
+This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
+Drop the `from` argument when calling these.
+
+Example n TypeScript test:
+
+```diff
+- await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
++ await token.methods.mint_to_private(alice, mintAmount).send().wait();
+```
+
+Example when
+
+```diff
+let token_out_partial_note = Token::at(token_out).prepare_private_balance_increase(
+    sender,
+-    tagging_sender
+).call(&mut context);
+```
+
+### SharedMutable -> DelayedPublicMutable
+
+The `SharedMutable` state variable has been renamed to `DelayedPublicMutable`. It is a public mutable with a delay before state changes take effect. It can be read in private during the delay period. The name "shared" confuses developers who actually wish to work with so-called "shared private state". Also, we're working on a `DelayedPrivateMutable` which will have similar properties, except writes will be scheduled from private instead. With this new state variable in mind, the new name works nicely.
+
 ## [TXE]
 
 ### API overhaul
@@ -25,8 +79,21 @@ As part of a broader effort to make TXE easier to use and reason about, large pa
 
 ## [Aztec.js]
 
+### Cheatcodes
+
 Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
 While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
+
+### Note exports dropped from artifact
+
+Notes are no longer exported in the contract artifact.
+Exporting notes was technical debt from when we needed to interpret notes in TypeScript.
+
+The following code will no longer work since `notes` is no longer available on the artifact:
+
+```rust
+const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
+```
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
