@@ -4,6 +4,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <gtest/gtest.h>
 #include <utility>
@@ -859,6 +860,56 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(builder.err() == "slice: hi value too large.");
     }
 
+    static void test_split_at()
+    {
+        Builder builder = Builder();
+
+        // Test different bit sizes
+        std::vector<size_t> test_bit_sizes = { 8, 16, 32, 100, 252 };
+
+        // Lambda to check split_at functionality
+        auto check_split_at = [&](const field_ct& a, size_t start, size_t num_bits) {
+            const uint256_t a_native = a.get_value();
+            auto split_data = a.split_at(start, num_bits);
+            EXPECT_EQ(split_data.first.get_value(), a_native & ((uint256_t(1) << start) - 1));
+            EXPECT_EQ(split_data.second.get_value(), (a_native >> start) & ((uint256_t(1) << num_bits) - 1));
+
+            if (a.is_constant()) {
+                EXPECT_TRUE(split_data.first.is_constant());
+                EXPECT_TRUE(split_data.second.is_constant());
+            }
+
+            if (start == 0) {
+                EXPECT_TRUE(split_data.first.is_constant());
+                EXPECT_TRUE(split_data.first.get_value() == 0);
+                EXPECT_EQ(split_data.second.get_value(), a.get_value());
+            }
+        };
+
+        for (size_t num_bits : test_bit_sizes) {
+            uint256_t a_native = engine.get_random_uint256() & ((uint256_t(1) << num_bits) - 1);
+
+            // check split_at for a constant
+            field_ct a_constant(a_native);
+            check_split_at(a_constant, 0, num_bits);
+            check_split_at(a_constant, num_bits / 4, num_bits);
+            check_split_at(a_constant, num_bits / 3, num_bits);
+            check_split_at(a_constant, num_bits / 2, num_bits);
+            check_split_at(a_constant, num_bits - 1, num_bits);
+
+            // check split_at for a witness
+            field_ct a_witness(witness_ct(&builder, a_native));
+            check_split_at(a_witness, 0, num_bits);
+            check_split_at(a_witness, num_bits / 4, num_bits);
+            check_split_at(a_witness, num_bits / 3, num_bits);
+            check_split_at(a_witness, num_bits / 2, num_bits);
+            check_split_at(a_witness, num_bits - 1, num_bits);
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_three_bit_table()
     {
         Builder builder = Builder();
@@ -1362,6 +1413,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
             EXPECT_EQ(element.get_origin_tag(), submitted_value_origin_tag);
         }
 
+        // Split preserves tags
+        const size_t num_bits = uint256_t(a.get_value()).get_msb() + 1;
+        auto split_data = a.split_at(num_bits / 2, num_bits);
+        EXPECT_EQ(split_data.first.get_origin_tag(), submitted_value_origin_tag);
+        EXPECT_EQ(split_data.second.get_origin_tag(), submitted_value_origin_tag);
+
         // Decomposition preserves tags
 
         auto decomposed_bits = a.decompose_into_bits();
@@ -1554,6 +1611,10 @@ TYPED_TEST(stdlib_field, test_slice_equal_msb_lsb)
 TYPED_TEST(stdlib_field, test_slice_random)
 {
     TestFixture::test_slice_random();
+}
+TYPED_TEST(stdlib_field, test_split_at)
+{
+    TestFixture::test_split_at();
 }
 TYPED_TEST(stdlib_field, test_three_bit_table)
 {
