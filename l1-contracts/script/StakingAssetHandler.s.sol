@@ -23,18 +23,18 @@ import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
 contract StakingAssetHandlerScript is Test {
-  address internal constant ME = address(0xBb2DCf57bB62B9f2C8011dF94D58d4ab9964edb6);
+  address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
-  string internal constant DOMAIN = "localhost";
-  string internal constant SCOPE = "personhood"; // this is the scope set in the JS SDK
+  string internal constant DOMAIN = "testnet.aztec.network";
+  string internal constant SCOPE = "personhood";
 
   bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0);
 
   ZKPassportVerifier internal constant zkPassportVerifier =
     ZKPassportVerifier(0x62e33cC35e29130e135341586e8Cf9C2BAbFB3eE);
 
-  TestERC20 public constant stakingAsset = TestERC20(0x19355a3Baf6313eF818f6bA8f708C3776C41F883);
-  IRegistry public constant registry = IRegistry(0xe0Ae427123986029DAA4a34b5Cf4F35125881457);
+  TestERC20 public constant stakingAsset = TestERC20(0xaD370B27bedC078BF4b52fee5ab025973f6A2e63);
+  IRegistry public constant registry = IRegistry(0x95383433Ea735eeE6E23874A5B1321a541A9f053);
 
   function setUp() public {}
 
@@ -57,13 +57,13 @@ contract StakingAssetHandlerScript is Test {
       unhinged: isUnhinged,
       domain: DOMAIN,
       scope: SCOPE,
-      skipBindCheck: true, // DO NOT: skip bind check
-      skipMerkleCheck: true // DO NOT: skip merkle check
+      skipBindCheck: false, // DO NOT: skip bind check
+      skipMerkleCheck: false // DO NOT: skip merkle check
     });
 
     vm.startBroadcast(ME);
     StakingAssetHandler stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
-    // stakingAsset.addMinter(address(stakingAssetHandler));
+    stakingAsset.addMinter(address(stakingAssetHandler));
     vm.stopBroadcast();
 
     emit log_named_address("StakingAssetHandler deployed", address(stakingAssetHandler));
