@@ -36,7 +36,55 @@ and stale dependencies removed from `Nargo.toml`
 -authwit = { path = "../../../../aztec-nr/authwit" }
 ```
 
-> > > > > > > next
+## [Protocol] L2-to-L1 message hashing changed
+
+L2-to-L1 messages now only hash the first 20 bytes of the recipient address instead of the full address. This change affects how messages are processed between L2 and L1.
+
+[PR #14810](https://github.com/AztecProtocol/aztec-packages/pull/14810)
+
+## [Protocol] Fee per gas changed to uint128
+
+The fee per gas value has been changed from a smaller integer type to uint128 across the protocol. This affects gas calculations and fee handling throughout the system.
+
+[PR #14796](https://github.com/AztecProtocol/aztec-packages/pull/14796)
+
+## [Protocol] Verification key (VK) hash generation modified
+
+The way verification key hashes are generated has been changed. This may affect contracts that rely on specific VK hash values for verification purposes.
+
+[PR #15182](https://github.com/AztecProtocol/aztec-packages/pull/15182)
+
+## [Protocol] Note hash tree check modified
+
+The note hash tree verification process has been updated. Contracts that perform custom note hash tree operations may need to be reviewed.
+
+[PR #15150](https://github.com/AztecProtocol/aztec-packages/pull/15150)
+
+## [Staking] Epoch proof submission and committee changes
+
+Several staking-related changes have been made:
+
+- Modified epoch proof submission window
+- Updated minimum committee size requirements
+- Changed staking entry queue mechanism
+- Modified reward boosting approach
+
+Applications that interact with the staking system should review these changes.
+
+[PR #14986](https://github.com/AztecProtocol/aztec-packages/pull/14986), [PR #14833](https://github.com/AztecProtocol/aztec-packages/pull/14833)
+
+## [Noir] Casting and indexing restrictions
+
+Noir language compatibility has been updated with stricter type checking:
+
+- Disallowed casting numeric types to bool
+- Restricted indexing arrays with non-u32 values
+- Modified mutable reference handling
+- Updated error handling for certain type operations
+
+Review your Noir contracts for any code that may violate these new restrictions.
+
+[PR #8703](https://github.com/noir-lang/noir/pull/8703), [PR #8804](https://github.com/noir-lang/noir/pull/8804), [PR #8790](https://github.com/noir-lang/noir/pull/8790), [PR #8756](https://github.com/noir-lang/noir/pull/8756)
 
 ## 0.87.0
 
