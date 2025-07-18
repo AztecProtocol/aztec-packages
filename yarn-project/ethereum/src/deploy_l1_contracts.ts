@@ -2,6 +2,7 @@ import { getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -570,7 +571,14 @@ export const deployRollupForUpgrade = async (
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
-  const deployer = new L1Deployer(extendedClient, args.salt, args.acceleratedTestDeployments, logger, txUtilsConfig);
+  const deployer = new L1Deployer(
+    extendedClient,
+    args.salt,
+    undefined,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
 
@@ -1009,7 +1017,15 @@ export const deployL1Contracts = async (
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  const deployer = new L1Deployer(l1Client, args.salt, args.acceleratedTestDeployments, logger, txUtilsConfig);
+  const dateProvider = new DateProvider();
+  const deployer = new L1Deployer(
+    l1Client,
+    args.salt,
+    dateProvider,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const {
     feeAssetAddress,
@@ -1101,12 +1117,19 @@ export class L1Deployer {
   constructor(
     public readonly client: ExtendedViemWalletClient,
     maybeSalt: number | undefined,
+    dateProvider: DateProvider = new DateProvider(),
     private acceleratedTestDeployments: boolean = false,
     private logger: Logger = createLogger('L1Deployer'),
     private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
-    this.l1TxUtils = new L1TxUtils(this.client, this.logger, this.txUtilsConfig, this.acceleratedTestDeployments);
+    this.l1TxUtils = new L1TxUtils(
+      this.client,
+      this.logger,
+      dateProvider,
+      this.txUtilsConfig,
+      this.acceleratedTestDeployments,
+    );
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
@@ -1176,7 +1199,7 @@ export async function deployL1Contract(
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
-    l1TxUtils = new L1TxUtils(extendedClient, logger, config, acceleratedTestDeployments);
+    l1TxUtils = new L1TxUtils(extendedClient, logger, undefined, config, acceleratedTestDeployments);
   }
 
   if (libraries) {

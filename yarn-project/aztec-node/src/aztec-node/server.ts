@@ -19,6 +19,7 @@ import {
   createEthereumChain,
   createExtendedL1Client,
   getPublicClient,
+  isExtendedClient,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray } from '@aztec/foundation/collection';
@@ -322,36 +323,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     log.verbose(`All Aztec Node subsystems synced`);
 
-    let sequencer: SequencerClient | undefined;
-    let slasherClient: SlasherClient;
-
     const { slasherPrivateKey, l1RpcUrls } = config;
-    if (slasherPrivateKey?.getValue() && slasherPrivateKey.getValue() !== NULL_KEY) {
-      // we can still run a slasher client if a private key is provided
-      const l1Client = createExtendedL1Client(config.l1RpcUrls, slasherPrivateKey.getValue(), ethereumChain.chainInfo);
-      const l1TxUtils = new L1TxUtils(l1Client, log, config);
-      slasherClient = await SlasherClient.new(
-        config,
-        config.l1Contracts,
-        l1TxUtils,
-        l1TxUtils.client,
-        watchers,
-        dateProvider,
-      );
-      slasherClient.start();
-    } else {
-      slasherClient = await SlasherClient.new(
-        config,
-        config.l1Contracts,
-        undefined,
-        getPublicClient(config),
-        watchers,
-        dateProvider,
-      );
-      slasherClient.start();
-    }
+    const slasherL1Client =
+      slasherPrivateKey?.getValue() && slasherPrivateKey.getValue() !== NULL_KEY
+        ? createExtendedL1Client(l1RpcUrls, slasherPrivateKey.getValue(), ethereumChain.chainInfo)
+        : getPublicClient(config);
+    const slasherL1TxUtils = isExtendedClient(slasherL1Client)
+      ? new L1TxUtils(slasherL1Client, log, dateProvider, config)
+      : undefined;
+
+    const slasherClient = await SlasherClient.new(
+      config,
+      config.l1Contracts,
+      slasherL1TxUtils,
+      slasherL1Client,
+      watchers,
+      dateProvider,
+    );
+    slasherClient.start();
 
     // Validator enabled, create/start relevant service
+    let sequencer: SequencerClient | undefined;
     if (!config.disableValidator) {
       // This shouldn't happen, validators need a publisher private key.
       const { publisherPrivateKey } = config;
@@ -360,7 +352,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
 
       const l1Client = createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo);
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, config);
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,
