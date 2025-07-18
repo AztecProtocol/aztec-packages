@@ -317,9 +317,6 @@ library EpochProofLib {
     Slot slot = blockLog.slotNumber;
     Epoch epoch = STFLib.getEpochForBlock(_endBlockNumber);
 
-    // Only verify attestations if they are not empty (for testing compatibility)
-    if (!_attestations.isEmpty()) {
-      ValidatorSelectionLib.verify(slot, epoch, _attestations, blockLog.payloadDigest);
-    }
+    ValidatorSelectionLib.verify(slot, epoch, _attestations, blockLog.payloadDigest);
   }
 }
