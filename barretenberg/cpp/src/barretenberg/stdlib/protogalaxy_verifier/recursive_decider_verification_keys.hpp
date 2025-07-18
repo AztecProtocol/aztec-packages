@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
@@ -33,7 +34,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
                                       const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs)
         : builder(builder)
     {
-        ASSERT(vk_and_hashs.size() == NUM - 1);
+        BB_ASSERT_EQ(vk_and_hashs.size(), NUM - 1);
 
         _data[0] = accumulator;
 

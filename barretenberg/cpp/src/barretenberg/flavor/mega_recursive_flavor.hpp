@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -157,8 +158,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             }
 
             if (num_frs_read != elements.size()) {
-                info("Warning: Invalid buffer length in VerificationKey constuctor from fields!");
-                ASSERT(false);
+                throw_or_abort("Invalid buffer length in VerificationKey constuctor from fields!");
             }
         }
 

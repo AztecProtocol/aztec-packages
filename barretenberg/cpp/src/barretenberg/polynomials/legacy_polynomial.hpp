@@ -5,7 +5,9 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 // for PolynomialSpan
@@ -95,8 +97,7 @@ template <typename Fr> class LegacyPolynomial {
     bool is_zero()
     {
         if (is_empty()) {
-            ASSERT(false);
-            info("Checking is_zero on an empty Polynomial!");
+            throw_or_abort("Checking is_zero on an empty Polynomial!");
         }
         for (size_t i = 0; i < size(); i++) {
             if (coefficients_[i] != 0) {
@@ -116,14 +117,14 @@ template <typename Fr> class LegacyPolynomial {
     // For compatibility with Polynomial (which needs a special mutable accessor)
     Fr const& at(const size_t i) const
     {
-        ASSERT(i < capacity());
+        BB_ASSERT_LT(i, capacity());
         return coefficients_[i];
     }
 
     // For compatibility with Polynomial (which needs a special mutable accessor)
     Fr& at(const size_t i)
     {
-        ASSERT(i < capacity());
+        BB_ASSERT_LT(i, capacity());
         return coefficients_[i];
     }
 

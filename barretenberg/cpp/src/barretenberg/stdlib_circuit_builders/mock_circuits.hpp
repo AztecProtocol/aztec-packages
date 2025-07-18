@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb {
@@ -141,7 +142,7 @@ class MockCircuits {
     {
         const size_t target_dyadic_size = 1 << target_log2_dyadic_size;
         const size_t num_preamble_gates = builder.num_gates;
-        ASSERT(target_dyadic_size >= num_preamble_gates);
+        BB_ASSERT_GTE(target_dyadic_size, num_preamble_gates);
 
         // For good measure, include a gate with some public inputs
         if (include_public_inputs && target_dyadic_size > num_preamble_gates) {
@@ -157,7 +158,7 @@ class MockCircuits {
         static constexpr size_t OFFSET_HACK = 10;
 
         // to prevent underflow of the loop upper limit; target size >= 16 should suffice
-        ASSERT(target_dyadic_size > OFFSET_HACK + num_preamble_gates);
+        BB_ASSERT_GT(target_dyadic_size, OFFSET_HACK + num_preamble_gates);
         size_t num_gates_to_add = target_dyadic_size - OFFSET_HACK - 1 - num_preamble_gates;
 
         // Add arbitrary arithmetic gates to obtain a total of num_gates-many gates

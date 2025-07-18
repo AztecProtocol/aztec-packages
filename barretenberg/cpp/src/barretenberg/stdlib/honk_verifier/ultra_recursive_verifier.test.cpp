@@ -258,19 +258,18 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
                 OuterVerifier verifier(verification_key, ipa_verification_key);
-                ASSERT(verifier.verify_proof(proof, proving_key->ipa_proof));
+                ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
             } else {
                 OuterVerifier verifier(verification_key);
-                ASSERT(verifier.verify_proof(proof));
+                ASSERT_TRUE(verifier.verify_proof(proof));
             }
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
             uint32_t NUM_GATES_EXPECTED = 870522;
-            BB_ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()),
-                         NUM_GATES_EXPECTED,
-                         "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
-                         "are sure this is expected.");
+            ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
+                << "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
+                   "are sure this is expected.";
         }
     }
 
