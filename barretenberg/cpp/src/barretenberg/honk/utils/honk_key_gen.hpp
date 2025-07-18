@@ -83,7 +83,7 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_g1(key->q_arith, "qArith");
     print_g1(key->q_delta_range, "qDeltaRange");
     print_g1(key->q_elliptic, "qElliptic");
-    print_g1(key->q_aux, "qAux");
+    print_g1(key->q_memory, "qAux");
     print_g1(key->q_lookup, "qLookup");
     print_g1(key->q_poseidon2_external, "qPoseidon2External");
     print_g1(key->q_poseidon2_internal, "qPoseidon2Internal");

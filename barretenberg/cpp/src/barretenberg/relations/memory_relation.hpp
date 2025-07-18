@@ -15,7 +15,7 @@ template <typename FF_> class MemoryRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
-        6, // auxiliary sub-relation;
+        6, // memory sub-relation;
         6, // ROM consistency sub-relation 1
         6, // ROM consistency sub-relation 2
         6, // RAM consistency sub-relation 1
@@ -24,7 +24,7 @@ template <typename FF_> class MemoryRelationImpl {
     };
 
     static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
-        1, // auxiliary sub-relation
+        1, // memory sub-relation
         1, // ROM consistency sub-relation 1
         1, // ROM consistency sub-relation 2
         1, // RAM consistency sub-relation 1
@@ -36,7 +36,7 @@ template <typename FF_> class MemoryRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_aux.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_memory.is_zero(); }
 
     /**
      * @brief RAM/ROM memory relation
@@ -45,9 +45,9 @@ template <typename FF_> class MemoryRelationImpl {
      *  * RAM timestamp difference consistency check
      *  * RAM/ROM index difference consistency check
      *
-     * Multiple selectors are used to 'switch' aux gates on/off according to the following pattern:
+     * Multiple selectors are used to 'switch' memory gates on/off according to the following pattern:
      *
-     * | gate type                    | q_aux | q_1 | q_2 | q_4 | q_m | q_c | q_arith |
+     * | gate type                    | q_mem | q_1 | q_2 | q_4 | q_m | q_c | q_arith |
      * | ---------------------------- | ----- | --- | --- | --- | --- | --- | ------  |
      * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 1   | --- | 0       |
      * | RAM timestamp check          | 1     | 1   | 0   | 1   | 0   | --- | 0       |
@@ -56,7 +56,7 @@ template <typename FF_> class MemoryRelationImpl {
      *
      * WORKNOTE: Proposed updated selector pattern (i.e. replace q_arith with q_3):
      *
-     * | gate type                    | q_aux | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
+     * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
      * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
      * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
      * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
@@ -110,7 +110,7 @@ template <typename FF_> class MemoryRelationImpl {
         auto q_c_m = CoefficientAccumulator(in.q_c);
         auto q_arith_m = CoefficientAccumulator(in.q_arith);
 
-        auto q_aux_m = CoefficientAccumulator(in.q_aux);
+        auto q_memory_m = CoefficientAccumulator(in.q_memory);
 
         /**
          * MEMORY
@@ -192,16 +192,16 @@ template <typename FF_> class MemoryRelationImpl {
         auto adjacent_values_match_if_adjacent_indices_match =
             Accumulator(index_delta_is_zero_m * record_delta_m); // deg 2
 
-        auto q_aux_by_scaling_m = q_aux_m * scaling_factor; // deg 1
-        auto q_aux_by_scaling = Accumulator(q_aux_by_scaling_m);
+        auto q_memory_by_scaling_m = q_memory_m * scaling_factor; // deg 1
+        auto q_memory_by_scaling = Accumulator(q_memory_by_scaling_m);
         auto q_one_by_two_m = q_1_m * q_2_m; // deg 2
         auto q_one_by_two = Accumulator(q_one_by_two_m);
-        auto q_one_by_two_by_aux_by_scaling = q_one_by_two * q_aux_by_scaling; // deg 3
+        auto q_one_by_two_by_memory_by_scaling = q_one_by_two * q_memory_by_scaling; // deg 3
 
         std::get<1>(accumulators) +=
-            adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_aux_by_scaling;            // deg 5
-        std::get<2>(accumulators) += index_is_monotonically_increasing * q_one_by_two_by_aux_by_scaling; // deg 5
-        auto ROM_consistency_check_identity = memory_record_check * q_one_by_two;                        // deg 3 or 4
+            adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_memory_by_scaling;            // deg 5
+        std::get<2>(accumulators) += index_is_monotonically_increasing * q_one_by_two_by_memory_by_scaling; // deg 5
+        auto ROM_consistency_check_identity = memory_record_check * q_one_by_two; // deg 3 or 4
 
         /**
          * RAM Consistency Check
@@ -245,15 +245,15 @@ template <typename FF_> class MemoryRelationImpl {
         // deg 2 or 4
         auto next_gate_access_type_is_boolean = neg_next_gate_access_type.sqr() + neg_next_gate_access_type;
 
-        auto q_arith_by_aux_and_scaling = Accumulator(q_arith_m * q_aux_by_scaling_m);
+        auto q_arith_by_memory_and_scaling = Accumulator(q_arith_m * q_memory_by_scaling_m);
         // Putting it all together...
         std::get<3>(accumulators) +=
             adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
-            q_arith_by_aux_and_scaling;                                                              // deg 5 or 6
-        std::get<4>(accumulators) += index_is_monotonically_increasing * q_arith_by_aux_and_scaling; // deg 4
-        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_arith_by_aux_and_scaling;  // deg 4 or 6
+            q_arith_by_memory_and_scaling;                                                              // deg 5 or 6
+        std::get<4>(accumulators) += index_is_monotonically_increasing * q_arith_by_memory_and_scaling; // deg 4
+        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_arith_by_memory_and_scaling;  // deg 4 or 6
 
-        auto RAM_consistency_check_identity = access_check * q_arith_by_aux_and_scaling; // deg 3 or 5
+        auto RAM_consistency_check_identity = access_check * q_arith_by_memory_and_scaling; // deg 3 or 5
 
         /**
          * RAM Timestamp Consistency Check
@@ -278,10 +278,9 @@ template <typename FF_> class MemoryRelationImpl {
         memory_identity += memory_record_check * Accumulator(q_m_m * q_1_m); // deg 4 ( = deg 4 + (deg 3 or deg 4))
 
         // (deg 4) + (deg 4) + (deg 3)
-        auto auxiliary_identity = memory_identity;
-        auxiliary_identity *= q_aux_by_scaling;               // deg 5
-        auxiliary_identity += RAM_consistency_check_identity; // deg 5 ( = deg 5 + (deg 3 or deg 5))
-        std::get<0>(accumulators) += auxiliary_identity;      // deg 5
+        memory_identity *= q_memory_by_scaling;            // deg 5
+        memory_identity += RAM_consistency_check_identity; // deg 5 ( = deg 5 + (deg 3 or deg 5))
+        std::get<0>(accumulators) += memory_identity;      // deg 5
     };
 };
 

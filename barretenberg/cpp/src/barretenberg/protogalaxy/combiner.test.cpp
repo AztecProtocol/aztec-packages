@@ -180,7 +180,8 @@ TEST(Protogalaxy, CombinerOn2Keys)
         std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
         std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
         std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
-        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_memory.coeffs().begin(), polys.q_memory.coeffs().end(), 0);
+        std::fill(polys.q_nnf.coeffs().begin(), polys.q_nnf.coeffs().end(), 0);
         std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
         std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
         std::fill(polys.q_poseidon2_external.coeffs().begin(), polys.q_poseidon2_external.coeffs().end(), 0);
@@ -319,7 +320,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
         std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
         std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
         std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
-        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_memory.coeffs().begin(), polys.q_memory.coeffs().end(), 0);
+        std::fill(polys.q_nnf.coeffs().begin(), polys.q_nnf.coeffs().end(), 0);
         std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
         std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
         std::fill(polys.w_4.coeffs().begin(), polys.w_4.coeffs().end(), 0);

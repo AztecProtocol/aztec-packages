@@ -13,7 +13,6 @@
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/memory_relation.hpp"
@@ -59,38 +58,39 @@ struct InputElements {
     FF& q_arith = std::get<6>(_data);
     FF& q_delta_range = std::get<7>(_data);
     FF& q_elliptic = std::get<8>(_data);
-    FF& q_aux = std::get<9>(_data);
-    FF& q_lookup = std::get<10>(_data);
-    FF& q_poseidon2_external = std::get<11>(_data);
-    FF& q_poseidon2_internal = std::get<12>(_data);
-    FF& sigma_1 = std::get<13>(_data);
-    FF& sigma_2 = std::get<14>(_data);
-    FF& sigma_3 = std::get<15>(_data);
-    FF& sigma_4 = std::get<16>(_data);
-    FF& id_1 = std::get<17>(_data);
-    FF& id_2 = std::get<18>(_data);
-    FF& id_3 = std::get<19>(_data);
-    FF& id_4 = std::get<20>(_data);
-    FF& table_1 = std::get<21>(_data);
-    FF& table_2 = std::get<22>(_data);
-    FF& table_3 = std::get<23>(_data);
-    FF& table_4 = std::get<24>(_data);
-    FF& lagrange_first = std::get<25>(_data);
-    FF& lagrange_last = std::get<26>(_data);
-    FF& w_l = std::get<27>(_data);
-    FF& w_r = std::get<28>(_data);
-    FF& w_o = std::get<29>(_data);
-    FF& w_4 = std::get<30>(_data);
-    FF& sorted_accum = std::get<31>(_data);
-    FF& z_perm = std::get<32>(_data);
-    FF& z_lookup = std::get<33>(_data);
-    FF& w_l_shift = std::get<34>(_data);
-    FF& w_r_shift = std::get<35>(_data);
-    FF& w_o_shift = std::get<36>(_data);
-    FF& w_4_shift = std::get<37>(_data);
-    FF& sorted_accum_shift = std::get<38>(_data);
-    FF& z_perm_shift = std::get<39>(_data);
-    FF& z_lookup_shift = std::get<40>(_data);
+    FF& q_memory = std::get<9>(_data);
+    FF& q_nnf = std::get<10>(_data);
+    FF& q_lookup_type = std::get<11>(_data);
+    FF& q_poseidon2_external = std::get<12>(_data);
+    FF& q_poseidon2_internal = std::get<13>(_data);
+    FF& sigma_1 = std::get<14>(_data);
+    FF& sigma_2 = std::get<15>(_data);
+    FF& sigma_3 = std::get<16>(_data);
+    FF& sigma_4 = std::get<17>(_data);
+    FF& id_1 = std::get<18>(_data);
+    FF& id_2 = std::get<19>(_data);
+    FF& id_3 = std::get<20>(_data);
+    FF& id_4 = std::get<21>(_data);
+    FF& table_1 = std::get<22>(_data);
+    FF& table_2 = std::get<23>(_data);
+    FF& table_3 = std::get<24>(_data);
+    FF& table_4 = std::get<25>(_data);
+    FF& lagrange_first = std::get<26>(_data);
+    FF& lagrange_last = std::get<27>(_data);
+    FF& w_l = std::get<28>(_data);
+    FF& w_r = std::get<29>(_data);
+    FF& w_o = std::get<30>(_data);
+    FF& w_4 = std::get<31>(_data);
+    FF& sorted_accum = std::get<32>(_data);
+    FF& z_perm = std::get<33>(_data);
+    FF& z_lookup = std::get<34>(_data);
+    FF& w_l_shift = std::get<35>(_data);
+    FF& w_r_shift = std::get<36>(_data);
+    FF& w_o_shift = std::get<37>(_data);
+    FF& w_4_shift = std::get<38>(_data);
+    FF& sorted_accum_shift = std::get<39>(_data);
+    FF& z_perm_shift = std::get<40>(_data);
+    FF& z_lookup_shift = std::get<41>(_data);
 };
 
 class UltraRelationConsistency : public testing::Test {
@@ -303,171 +303,6 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
     run_test(/*random_inputs=*/true);
 };
 
-TEST_F(UltraRelationConsistency, AuxiliaryRelation)
-{
-    const auto run_test = [](bool random_inputs) {
-        using Relation = AuxiliaryRelation<FF>;
-        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
-        const auto& w_1 = input_elements.w_l;
-        const auto& w_2 = input_elements.w_r;
-        const auto& w_3 = input_elements.w_o;
-        const auto& w_4 = input_elements.w_4;
-        const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& w_2_shift = input_elements.w_r_shift;
-        const auto& w_3_shift = input_elements.w_o_shift;
-        const auto& w_4_shift = input_elements.w_4_shift;
-
-        const auto& q_1 = input_elements.q_l;
-        const auto& q_2 = input_elements.q_r;
-        const auto& q_3 = input_elements.q_o;
-        const auto& q_4 = input_elements.q_4;
-        const auto& q_m = input_elements.q_m;
-        const auto& q_c = input_elements.q_c;
-        const auto& q_arith = input_elements.q_arith;
-        const auto& q_aux = input_elements.q_aux;
-
-        constexpr FF LIMB_SIZE(uint256_t(1) << 68);
-        constexpr FF SUBLIMB_SHIFT(uint256_t(1) << 14);
-        constexpr FF SUBLIMB_SHIFT_2(SUBLIMB_SHIFT * SUBLIMB_SHIFT);
-        constexpr FF SUBLIMB_SHIFT_3(SUBLIMB_SHIFT_2 * SUBLIMB_SHIFT);
-        constexpr FF SUBLIMB_SHIFT_4(SUBLIMB_SHIFT_3 * SUBLIMB_SHIFT);
-
-        const auto parameters = RelationParameters<FF>::get_random();
-        const auto& eta = parameters.eta;
-        const auto& eta_two = parameters.eta_two;
-        const auto& eta_three = parameters.eta_three;
-
-        SumcheckArrayOfValuesOverSubrelations expected_values;
-        /**
-         * Non native field arithmetic gate 2
-         *
-         *             _                                                                               _
-         *            /   _                   _                               _       14                \
-         * q_2 . q_4 |   (w_1 . w_2) + (w_1 . w_2) + (w_1 . w_4 + w_2 . w_3 - w_3) . 2    - w_3 - w_4   |
-         *            \_                                                                               _/
-         *
-         **/
-        auto limb_subproduct = w_1 * w_2_shift + w_1_shift * w_2;
-        auto non_native_field_gate_2 = (w_1 * w_4 + w_2 * w_3 - w_3_shift);
-        non_native_field_gate_2 *= LIMB_SIZE;
-        non_native_field_gate_2 -= w_4_shift;
-        non_native_field_gate_2 += limb_subproduct;
-
-        limb_subproduct *= LIMB_SIZE;
-        limb_subproduct += (w_1_shift * w_2_shift);
-        auto non_native_field_gate_1 = limb_subproduct;
-        non_native_field_gate_1 -= (w_3 + w_4);
-
-        auto non_native_field_gate_3 = limb_subproduct;
-        non_native_field_gate_3 += w_4;
-        non_native_field_gate_3 -= (w_3_shift + w_4_shift);
-
-        auto non_native_field_identity = q_2 * q_3 * non_native_field_gate_1;
-        non_native_field_identity += q_2 * q_4 * non_native_field_gate_2;
-        non_native_field_identity += q_2 * q_m * non_native_field_gate_3;
-
-        auto limb_accumulator_1 = w_1 + w_2 * SUBLIMB_SHIFT + w_3 * SUBLIMB_SHIFT_2 + w_1_shift * SUBLIMB_SHIFT_3 +
-                                  w_2_shift * SUBLIMB_SHIFT_4 - w_4;
-
-        auto limb_accumulator_2 = w_3 + w_4 * SUBLIMB_SHIFT + w_1_shift * SUBLIMB_SHIFT_2 +
-                                  w_2_shift * SUBLIMB_SHIFT_3 + w_3_shift * SUBLIMB_SHIFT_4 - w_4_shift;
-
-        auto limb_accumulator_identity = q_3 * q_4 * limb_accumulator_1;
-        limb_accumulator_identity += q_3 * q_m * limb_accumulator_2;
-
-        /**
-         * MEMORY
-         **/
-
-        /**
-         * Memory Record Check
-         */
-        auto memory_record_check = w_3 * eta_three;
-        memory_record_check += w_2 * eta_two;
-        memory_record_check += w_1 * eta;
-        memory_record_check += q_c;
-        auto partial_record_check = memory_record_check; // used in RAM consistency check
-        memory_record_check = memory_record_check - w_4;
-
-        /**
-         * ROM Consistency Check
-         */
-        auto index_delta = w_1_shift - w_1;
-        auto record_delta = w_4_shift - w_4;
-
-        auto index_is_monotonically_increasing = index_delta * index_delta - index_delta;
-
-        // auto adjacent_values_match_if_adjacent_indices_match = (FF(1) - index_delta) * record_delta;
-        auto adjacent_values_match_if_adjacent_indices_match = (index_delta * FF(-1) + FF(1)) * record_delta;
-
-        expected_values[1] = adjacent_values_match_if_adjacent_indices_match * (q_1 * q_2);
-        expected_values[2] = index_is_monotonically_increasing * (q_1 * q_2);
-        auto ROM_consistency_check_identity = memory_record_check * (q_1 * q_2);
-
-        /**
-         * RAM Consistency Check
-         */
-        auto access_type = (w_4 - partial_record_check);             // will be 0 or 1 for honest Prover
-        auto access_check = access_type * access_type - access_type; // check value is 0 or 1
-
-        auto next_gate_access_type = w_3_shift * eta_three;
-        next_gate_access_type += w_2_shift * eta_two;
-        next_gate_access_type += w_1_shift * eta;
-        next_gate_access_type = w_4_shift - next_gate_access_type;
-
-        auto value_delta = w_3_shift - w_3;
-        auto adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
-            (index_delta * FF(-1) + FF(1)) * value_delta * (next_gate_access_type * FF(-1) + FF(1));
-
-        // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
-        // next gate would make the identity fail). We need to validate that its 'access type' bool is correct. Can't do
-        // with an arithmetic gate because of the `eta` factors. We need to check that the *next* gate's access type is
-        // correct, to cover this edge case
-        auto next_gate_access_type_is_boolean = next_gate_access_type * next_gate_access_type - next_gate_access_type;
-
-        // Putting it all together...
-        expected_values[3] =
-            adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation * (q_arith);
-        expected_values[4] = index_is_monotonically_increasing * (q_arith);
-        expected_values[5] = next_gate_access_type_is_boolean * (q_arith);
-        auto RAM_consistency_check_identity = access_check * (q_arith);
-
-        /**
-         * RAM/ROM access check gate
-         */
-        memory_record_check *= (q_1 * q_m);
-
-        /**
-         * RAM Timestamp Consistency Check
-         */
-        auto timestamp_delta = w_2_shift - w_2;
-        auto RAM_timestamp_check_identity = (index_delta * FF(-1) + FF(1)) * timestamp_delta - w_3;
-        RAM_timestamp_check_identity *= (q_1 * q_4);
-
-        /**
-         * The complete RAM/ROM memory identity
-         */
-        auto memory_identity = ROM_consistency_check_identity;
-        memory_identity += RAM_timestamp_check_identity;
-        memory_identity += memory_record_check;
-        memory_identity += RAM_consistency_check_identity;
-
-        expected_values[0] = memory_identity + non_native_field_identity + limb_accumulator_identity;
-        expected_values[0] *= q_aux;
-        expected_values[1] *= q_aux;
-        expected_values[2] *= q_aux;
-        expected_values[3] *= q_aux;
-        expected_values[4] *= q_aux;
-        expected_values[5] *= q_aux;
-
-        validate_relation_execution<Relation>(expected_values, input_elements, parameters);
-    };
-    run_test(/*random_inputs=*/false);
-    run_test(/*random_inputs=*/true);
-};
-
 TEST_F(UltraRelationConsistency, NonNativeFieldRelation)
 {
     const auto run_test = [](bool random_inputs) {
@@ -488,7 +323,7 @@ TEST_F(UltraRelationConsistency, NonNativeFieldRelation)
         const auto& q_3 = input_elements.q_o;
         const auto& q_4 = input_elements.q_4;
         const auto& q_m = input_elements.q_m;
-        const auto& q_aux = input_elements.q_aux;
+        const auto& q_nnf = input_elements.q_nnf;
 
         constexpr FF LIMB_SIZE(uint256_t(1) << 68);
         constexpr FF SUBLIMB_SHIFT(uint256_t(1) << 14);
@@ -531,7 +366,7 @@ TEST_F(UltraRelationConsistency, NonNativeFieldRelation)
         auto limb_accumulator_identity = limb_accumulator_1 + limb_accumulator_2;
 
         expected_values[0] = non_native_field_identity + limb_accumulator_identity;
-        expected_values[0] *= q_aux;
+        expected_values[0] *= q_nnf;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
@@ -563,7 +398,7 @@ TEST_F(UltraRelationConsistency, MemoryRelation)
         const auto& q_m = input_elements.q_m;
         const auto& q_c = input_elements.q_c;
         const auto& q_arith = input_elements.q_arith;
-        const auto& q_aux = input_elements.q_aux;
+        const auto& q_memory = input_elements.q_memory;
 
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& eta = parameters.eta;
@@ -646,12 +481,12 @@ TEST_F(UltraRelationConsistency, MemoryRelation)
         memory_identity += RAM_consistency_check_identity;
 
         expected_values[0] = memory_identity;
-        expected_values[0] *= q_aux;
-        expected_values[1] *= q_aux;
-        expected_values[2] *= q_aux;
-        expected_values[3] *= q_aux;
-        expected_values[4] *= q_aux;
-        expected_values[5] *= q_aux;
+        expected_values[0] *= q_memory;
+        expected_values[1] *= q_memory;
+        expected_values[2] *= q_memory;
+        expected_values[3] *= q_memory;
+        expected_values[4] *= q_memory;
+        expected_values[5] *= q_memory;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };

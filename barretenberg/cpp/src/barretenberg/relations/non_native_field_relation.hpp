@@ -26,7 +26,7 @@ template <typename FF_> class NonNativeFieldRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_aux.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_nnf.is_zero(); }
 
     /**
      * @brief Non-native field arithmetic relation
@@ -36,7 +36,7 @@ template <typename FF_> class NonNativeFieldRelationImpl {
      *
      * Multiple selectors are used to 'switch' nnf gates on/off according to the following pattern:
      *
-     * | gate type                    | q_aux | q_2 | q_3 | q_4 | q_m |
+     * | gate type                    | q_nnf | q_2 | q_3 | q_4 | q_m |
      * | ---------------------------- | ----- | --- | --- | --- | --- |
      * | Bigfield Limb Accumulation 1 | 1     | 0   | 1   | 1   | 0   |
      * | Bigfield Limb Accumulation 2 | 1     | 0   | 1   | 0   | 1   |
@@ -76,7 +76,7 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         auto q_4_m = CoefficientAccumulator(in.q_4);
         auto q_m_m = CoefficientAccumulator(in.q_m);
 
-        auto q_aux_m = CoefficientAccumulator(in.q_aux);
+        auto q_nnf_m = CoefficientAccumulator(in.q_nnf);
         const FF LIMB_SIZE(uint256_t(1) << 68);
         const FF SUBLIMB_SHIFT(uint256_t(1) << 14);
 
@@ -144,12 +144,12 @@ template <typename FF_> class NonNativeFieldRelationImpl {
         Accumulator limb_accumulator_identity(limb_accumulator_identity_m);
         limb_accumulator_identity *= q_3_m; //  deg 3
 
-        auto q_aux_by_scaling_m = q_aux_m * scaling_factor; // deg 1
-        auto q_aux_by_scaling = Accumulator(q_aux_by_scaling_m);
+        auto q_nnf_by_scaling_m = q_nnf_m * scaling_factor; // deg 1
+        auto q_nnf_by_scaling = Accumulator(q_nnf_by_scaling_m);
 
-        auto auxiliary_identity = non_native_field_identity + limb_accumulator_identity;
-        auxiliary_identity *= q_aux_by_scaling;          // deg
-        std::get<0>(accumulators) += auxiliary_identity; // deg
+        auto nnf_identity = non_native_field_identity + limb_accumulator_identity;
+        nnf_identity *= q_nnf_by_scaling;          // deg
+        std::get<0>(accumulators) += nnf_identity; // deg
     };
 };
 
