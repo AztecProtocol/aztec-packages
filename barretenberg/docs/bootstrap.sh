@@ -88,8 +88,10 @@ function release {
   fi
 }
 
-function test {
-  yarn install && yarn test
+function test_docs {
+  yarn install
+  yarn
+  yarn test
 }
 
 case "$cmd" in
@@ -103,7 +105,7 @@ case "$cmd" in
     echo "$hash"
     ;;
   "test_cmds"|"test")
-    test
+    test_docs
     ;;
   "release-preview")
     release_preview
