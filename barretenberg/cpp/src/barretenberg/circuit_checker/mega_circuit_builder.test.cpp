@@ -148,6 +148,8 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
     builder.queue_ecc_mul_accum(P2, z);
     builder.queue_ecc_eq();
 
+    builder.op_queue->merge();
+
     // Check that the ultra ops recorded in the EccOpQueue match the ops recorded in the wires
     auto ultra_ops = builder.op_queue->construct_current_ultra_ops_subtable_columns();
     for (size_t i = 1; i < 4; ++i) {

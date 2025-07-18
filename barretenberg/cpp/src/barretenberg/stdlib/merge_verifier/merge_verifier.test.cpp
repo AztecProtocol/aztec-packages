@@ -72,12 +72,16 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     }
 
     static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                       const MergeSettings settings = MergeSettings::PREPEND,
                                        const TamperProofMode tampering_mode = TamperProofMode::None,
                                        const bool expected = true)
     {
         RecursiveBuilder outer_circuit;
 
-        MergeProver merge_prover{ op_queue };
+        MergeProver merge_prover{ op_queue, settings };
+        // Construct Merge proof
+        auto merge_proof = merge_prover.construct_proof();
+        tamper_with_proof(merge_proof, tampering_mode);
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
@@ -93,14 +97,11 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         RefArray<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec(
             t_commitments_rec_val);
 
-        // Construct Merge proof
-        auto merge_proof = merge_prover.construct_proof();
-        tamper_with_proof(merge_proof, tampering_mode);
-
         // Create a recursive merge verification circuit for the merge proof
         RecursiveMergeVerifier verifier{ &outer_circuit };
+        verifier.settings = settings;
         verifier.transcript->enable_manifest();
-        verifier.settings = op_queue->get_current_settings();
+
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
         auto pairing_points = verifier.verify_proof(stdlib_merge_proof, t_commitments_rec);
 
@@ -110,8 +111,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         // Check 1: Perform native merge verification then perform the pairing on the outputs of the recursive merge
         // verifier and check that the result agrees.
         MergeVerifier native_verifier;
+        native_verifier.settings = settings;
+
         native_verifier.transcript->enable_manifest();
-        native_verifier.settings = op_queue->get_current_settings();
         bool verified_native = native_verifier.verify_proof(merge_proof, t_commitments);
         VerifierCommitmentKey pcs_verification_key;
         bool verified_recursive =
@@ -137,7 +139,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue, TamperProofMode::Shift, false);
+        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::Shift, false);
     }
 
     /**
@@ -149,7 +151,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue, TamperProofMode::MCommitment, false);
+        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::MCommitment, false);
     }
 
     /**
@@ -161,7 +163,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue, TamperProofMode::LEval, false);
+        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::LEval, false);
     }
 
     /**
@@ -183,7 +185,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         GoblinMockCircuits::construct_simple_circuit(circuit2);
         prove_and_verify_merge(op_queue);
 
-        InnerBuilder circuit3{ op_queue, MergeSettings::APPEND };
+        InnerBuilder circuit3{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit3);
         prove_and_verify_merge(op_queue);
     }

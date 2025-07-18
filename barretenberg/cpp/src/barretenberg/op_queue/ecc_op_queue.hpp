@@ -51,19 +51,23 @@ class ECCOpQueue {
     /**
      * @brief Instantiate an initial ECC op subtable.
      */
-    ECCOpQueue(MergeSettings settings = MergeSettings::PREPEND) { initialize_new_subtable(settings); }
+    ECCOpQueue() { initialize_new_subtable(); }
 
     /**
      * @brief Initialize a new subtable for eccvm and ultra ops with the given merge settings.
      *
      */
-    void initialize_new_subtable(MergeSettings settings = MergeSettings::PREPEND)
+    void initialize_new_subtable()
     {
-        eccvm_ops_table.create_new_subtable(settings);
-        ultra_ops_table.create_new_subtable(settings);
+        eccvm_ops_table.create_new_subtable();
+        ultra_ops_table.create_new_subtable();
     }
 
-    MergeSettings get_current_settings() const { return eccvm_ops_table.settings; }
+    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    {
+        eccvm_ops_table.merge(settings);
+        ultra_ops_table.merge(settings);
+    }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
