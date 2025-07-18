@@ -70,6 +70,14 @@ library STFLib {
         blockLog.blobCommitmentsHash = bytes32(uint256(0x1));
       }
 
+      if (blockLog.attestationsHash == bytes32(0)) {
+        blockLog.attestationsHash = bytes32(uint256(0x1));
+      }
+
+      if (blockLog.payloadDigest == bytes32(0)) {
+        blockLog.payloadDigest = bytes32(uint256(0x1));
+      }
+
       store.tempBlockLogs[i] = blockLog.compress();
     }
   }
