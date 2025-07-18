@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -134,7 +135,8 @@ using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
  */
 class HidingKernelIO {
   public:
-    using Builder = MegaCircuitBuilder;   // hiding kernel is always Mega
+    using Builder = MegaCircuitBuilder; // hiding kernel is always Mega
+    using Flavor = MegaFlavor;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
@@ -143,7 +145,8 @@ class HidingKernelIO {
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    G1 ecc_op_table;              // commitment to merged table obtain from final Merge verification
+    std::array<G1, Flavor::NUM_WIRES>
+        ecc_op_tables;            // commitments to merged tables obtain from final Merge verification
     PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
 
     // Total size of the IO public inputs
@@ -158,7 +161,10 @@ class HidingKernelIO {
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
-        ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+        for (auto& commitment : ecc_op_tables) {
+            commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
         index += G1::PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
@@ -169,7 +175,9 @@ class HidingKernelIO {
      */
     void set_public()
     {
-        ecc_op_table.set_public();
+        for (auto& commitment : ecc_op_tables) {
+            commitment.set_public();
+        }
         pairing_inputs.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
@@ -184,7 +192,8 @@ class HidingKernelIO {
         using G1 = Curve::AffineElementNative;
 
         static constexpr size_t G1_PUBLIC_INPUTS_SIZE = Curve::Group::PUBLIC_INPUTS_SIZE;
-        G1 ecc_op_table;
+
+        std::array<G1, Flavor::NUM_WIRES> ecc_op_tables;
         PairingPoints pairing_inputs;
 
         /**
@@ -197,13 +206,17 @@ class HidingKernelIO {
             // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
             uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
-            const std::span<const FF, G1_PUBLIC_INPUTS_SIZE> ecc_op_table_limbs(public_inputs.data() + index,
-                                                                                G1_PUBLIC_INPUTS_SIZE);
+            for (auto& commitment : ecc_op_tables) {
+                const std::span<const FF, G1_PUBLIC_INPUTS_SIZE> ecc_op_table_limbs(public_inputs.data() + index,
+                                                                                    G1_PUBLIC_INPUTS_SIZE);
+                commitment = G1::reconstruct_from_public(ecc_op_table_limbs);
+                index += G1_PUBLIC_INPUTS_SIZE;
+            }
+
             index += G1_PUBLIC_INPUTS_SIZE;
             const std::span<const FF, PAIRING_POINTS_SIZE> pairing_inputs_limbs(public_inputs.data() + index,
                                                                                 PAIRING_POINTS_SIZE);
 
-            ecc_op_table = G1::reconstruct_from_public(ecc_op_table_limbs);
             pairing_inputs = PairingPoints::reconstruct_from_public(pairing_inputs_limbs);
         }
     };
