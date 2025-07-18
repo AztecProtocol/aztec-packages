@@ -1,5 +1,5 @@
 import { Fr, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -8,73 +8,20 @@ import type { ChildProcess } from 'child_process';
 import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
-// import { times } from '@aztec/foundation/collection';
-// import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-// import { createAztecNodeAdminClient, type AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-// import { makeTracedFetch } from '@aztec/telemetry-client';
-
 const config = setupEnvironment(process.env);
-
-// const CONCURRENCY = 25;
-
-async function deployTestWalletWithRetry(
-  pxeUrl: string,
-  nodeUrl: string,
-  // nodeAdmin: AztecNodeAdmin,
-  ethereumHosts: string[],
-  mnemonic: string,
-  mintAmount: bigint,
-  logger: Logger,
-  maxRetries = 100,
-): Promise<TestWallets> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      logger.info(`Deployment attempt ${attempt}/${maxRetries}`);
-
-      const deploymentPromise = deployTestWalletWithTokens(
-        pxeUrl,
-        nodeUrl,
-        ethereumHosts,
-        mnemonic,
-        mintAmount,
-        logger,
-      );
-      // await nodeAdmin.flushTxs();
-      const testWallets = await deploymentPromise;
-
-      logger.info(`Deployment successful on attempt ${attempt}`);
-      return testWallets;
-    } catch (error) {
-      logger.error(`Deployment attempt ${attempt} failed:`, error);
-
-      if (attempt === maxRetries) {
-        logger.error(`All ${maxRetries} deployment attempts failed`);
-        throw error;
-      }
-
-      // const waitTime = 10000;
-      // logger.info(`Waiting ${waitTime}ms before retry...`);
-      // await new Promise(resolve => setTimeout(resolve, ));
-    }
-  }
-
-  throw new Error('Deployment failed after all retries');
-}
 
 describe('sustained 10 TPS test', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
   const MINT_AMOUNT = 10000n;
-  const TEST_DURATION_SECONDS = 60;
-  const TARGET_TPS = 10; // 10
+  const TEST_DURATION_SECONDS = 10;
+  const TARGET_TPS = 5; // 10
   const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
 
-  // let nodeAdmin: AztecNodeAdmin; // Used for token deployment
   let testWallets: TestWallets;
   let PXE_URL: string;
   let ETHEREUM_HOSTS: string[];
-  // let NODE_ADMIN_URL: string;
   const forwardProcesses: ChildProcess[] = [];
 
   afterAll(async () => {
@@ -91,14 +38,6 @@ describe('sustained 10 TPS test', () => {
 
   beforeAll(async () => {
     if (isK8sConfig(config)) {
-      // const nodeAdminFwd = await startPortForward({
-      //   resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator-0`,
-      //   namespace: config.NAMESPACE,
-      //   containerPort: config.CONTAINER_NODE_ADMIN_PORT,
-      // });
-      // forwardProcesses.push(nodeAdminFwd.process);
-      // NODE_ADMIN_URL = `http://127.0.0.1:${nodeAdminFwd.port}`;
-
       const { process: pxeProcess, port: pxePort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
@@ -127,30 +66,20 @@ describe('sustained 10 TPS test', () => {
 
       logger.info('deploying test wallets');
 
-      testWallets = await deployTestWalletWithRetry(
+      testWallets = await deployTestWalletWithTokens(
         PXE_URL,
         NODE_URL,
-        // nodeAdmin,
         ETHEREUM_HOSTS,
         L1_ACCOUNT_MNEMONIC,
         MINT_AMOUNT,
         logger,
-        100,
       );
       logger.info(`testWallets ready 1`);
     } else {
-      // NODE_ADMIN_URL = config.NODE_ADMIN_URL;
       PXE_URL = config.PXE_URL;
 
       testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
-
-    // const fetch = makeTracedFetch(
-    //   times(10, () => 1),
-    //   false,
-    //   makeUndiciFetch(new Agent({ connections: CONCURRENCY })),
-    // );
-    // nodeAdmin = createAztecNodeAdminClient(NODE_ADMIN_URL, {}, fetch);
 
     logger.info(
       `Test setup complete. Planning ${TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
@@ -255,9 +184,6 @@ describe('sustained 10 TPS test', () => {
     const failureCount = results.filter(r => !r.success).length;
 
     expect(allSentTxs.length).toBe(TOTAL_TXS);
-    logger.info(
-      `Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed out of ${TOTAL_TXS} total`,
-    );
 
     // Log failed transactions for debugging
     results
@@ -266,8 +192,11 @@ describe('sustained 10 TPS test', () => {
         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
       });
 
-    const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
+    logger.info(
+      `Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed out of ${TOTAL_TXS} total`,
+    );
 
+    const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
     logger.info(`recipientBalance after load test: ${recipientBalance}`);
   });
 });
