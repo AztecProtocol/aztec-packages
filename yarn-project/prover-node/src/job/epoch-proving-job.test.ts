@@ -3,7 +3,7 @@ import { fromEntries, times, timesParallel } from '@aztec/foundation/collection'
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, type L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -40,6 +40,7 @@ describe('epoch-proving-job', () => {
   let txs: Tx[];
   let initialHeader: BlockHeader;
   let epochNumber: number;
+  let attestations: CommitteeAttestation[];
 
   // Constants
   const NUM_BLOCKS = 3;
@@ -54,6 +55,7 @@ describe('epoch-proving-job', () => {
       epochNumber: BigInt(epochNumber),
       l1ToL2Messages: fromEntries(blocks.map(b => [b.number, []])),
       previousBlockHeader: initialHeader,
+      attestations,
     };
     return new EpochProvingJob(
       data,
@@ -93,6 +95,8 @@ describe('epoch-proving-job', () => {
     epochNumber = 1;
     initialHeader = BlockHeader.empty();
     blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
+    attestations = times(3, CommitteeAttestation.random);
+
     txs = times(NUM_TXS, i =>
       mock<Tx>({
         getTxHash: () => blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash,
@@ -102,6 +106,7 @@ describe('epoch-proving-job', () => {
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
     l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.header));
+    l2BlockSource.getPublishedBlocks.mockResolvedValue([{ block: blocks.at(-1)!, attestations } as PublishedL2Block]);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
@@ -123,7 +128,7 @@ describe('epoch-proving-job', () => {
     expect(db.close).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
-      expect.objectContaining({ epochNumber, proof, publicInputs }),
+      expect.objectContaining({ epochNumber, proof, publicInputs, attestations: [] }),
     );
   });
 
