@@ -7,153 +7,6 @@ tags: [migration, updating, sandbox]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
-
-## [Aztec.nr]
-
-### Tagging sender now managed via oracle functions
-
-Now, instead of manually needing to pass a tagging sender as an argument to log emission functions (e.g. `encode_and_encrypt_note`, `encode_and_encrypt_note_unconstrained`, `emit_event_in_private_log`, ...) we automatically load the sender via the `get_sender_for_tags()` oracle.
-This value is expected to be populated by account contracts that should call `set_sender_for_tags()` in their entry point functions.
-
-The changes you need to do in your contracts are quite straightforward.
-You simply need to drop the `sender` arg from the callsites of the log emission functions.
-E.g. note emission:
-
-```diff
-storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-    &mut context,
-    from,
--    tagging_sender,
-));
-```
-
-E.g. private event emission:
-
-```diff
-emit_event_in_private_log(
-    Transfer { from, to, amount },
-    &mut context,
--    tagging_sender,
-    to,
-    PrivateLogContent.NO_CONSTRAINTS,
-);
-```
-
-This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
-Drop the `from` argument when calling these.
-
-Example n TypeScript test:
-
-```diff
-- await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
-+ await token.methods.mint_to_private(alice, mintAmount).send().wait();
-```
-
-Example when
-
-```diff
-let token_out_partial_note = Token::at(token_out).prepare_private_balance_increase(
-    sender,
--    tagging_sender
-).call(&mut context);
-```
-
-### SharedMutable -> DelayedPublicMutable
-
-The `SharedMutable` state variable has been renamed to `DelayedPublicMutable`. It is a public mutable with a delay before state changes take effect. It can be read in private during the delay period. The name "shared" confuses developers who actually wish to work with so-called "shared private state". Also, we're working on a `DelayedPrivateMutable` which will have similar properties, except writes will be scheduled from private instead. With this new state variable in mind, the new name works nicely.
-
-## [TXE]
-
-### API overhaul
-
-As part of a broader effort to make TXE easier to use and reason about, large parts of it are being changed or adapted.
-
-- `committed_timestamp` removed: this function did not work correctly
-- `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamps
-- `pending_block_number` was renamed to `next_block_number`. `pending_timestamp` was removed since it was confusing and not useful
-- `committed_block_number` was renamed to `last_block_number`
-- `advance_timestamp_to` and `advance_timestamp_by` were renamed to `set_next_block_timestamp` and `advance_next_block_timestamp_by` respectively
-- `advance_block_to` was renamed to `mine_block_at`, which takes a timestamp instead of a target block number
-- `advance_block_by` was renamed to `mine_block`, which now mines a single block
-
-## [Aztec.js]
-
-### Cheatcodes
-
-Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
-While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
-
-### Note exports dropped from artifact
-
-Notes are no longer exported in the contract artifact.
-Exporting notes was technical debt from when we needed to interpret notes in TypeScript.
-
-The following code will no longer work since `notes` is no longer available on the artifact:
-
-```rust
-const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
-```
-
-## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
-
-### `max_block_number` -> `include_by_timestamp`
-
-The transaction expiration mechanism has been updated to use seconds rather than number of blocks.
-As part of this change, the transaction property `max_block_number` has been renamed to `include_by_timestamp`.
-
-This change significantly impacts the `SharedMutable` state variable in `Aztec.nr`, which now operates on a seconds instead of number of blocks.
-If your contract uses `SharedMutable`, you'll need to:
-
-1. Update the `INITIAL_DELAY` numeric generic to use seconds instead of blocks
-2. Modify any related logic to account for timestamp-based timing
-3. Note that timestamps use `u64` values while block numbers use `u32`
-
-### Removed `prelude`, so your `dep::aztec::prelude::...` imports will need to be amended.
-
-Instead of importing common types from `dep::aztec::prelude...`, you'll now need to import them from their lower-level locations.
-The Noir Language Server vscode extension is now capable of autocompleting imports: just type some of the import and press 'tab' when it pops up with the correct item, and the import will be inserted at the top of the file.
-
-As a quick reference, here are the paths to the types that were previously in the `prelude`.
-So, for example, if you were previously using `dep::aztec::prelude::AztecAddress`, you'll need to replace it with `dep::aztec::protocol_types::address::AztecAddress`.
-Apologies for any pain this brings. The reasoning is that these types were somewhat arbitrary, and it was unclear which types were worthy enough to be included here.
-
-```rust
-use dep::aztec::{
-    context::{PrivateCallInterface, PrivateContext, PublicContext, UtilityContext, ReturnsHash},
-    note::{
-        note_getter_options::NoteGetterOptions,
-        note_interface::{NoteHash, NoteType},
-        note_viewer_options::NoteViewerOptions,
-        retrieved_note::RetrievedNote,
-    },
-    state_vars::{
-        map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
-        private_set::PrivateSet, public_immutable::PublicImmutable, public_mutable::PublicMutable,
-        shared_mutable::SharedMutable,
-    },
-};
-
-use dep::aztec::protocol_types::{
-    abis::function_selector::FunctionSelector,
-    address::{AztecAddress, EthAddress},
-    point::Point,
-    traits::{Deserialize, Serialize},
-};
-```
-
-### `include_by_timestamp` is now mandatory
-
-Each transaction must now include a valid `include_by_timestamp` that satisfies the following conditions:
-
-- It must be greater than the historical block’s timestamp.
-- The duration between the `include_by_timestamp` and the historical block’s timestamp must not exceed the maximum allowed (currently 24 hours).
-- It must be greater than or equal to the timestamp of the block in which the transaction is included.
-
-The protocol circuits compute the `include_by_timestamp` for contract updates during each private function iteration. If a contract does not explicitly specify a value, the default will be the maximum allowed duration. This ensures that `include_by_timestamp` is never left unset.
-
-No client-side changes are required. However, please note that transactions now have a maximum lifespan of 24 hours and will be removed from the transaction pool once expired.
-
 ## 1.1.0
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
@@ -2642,7 +2495,30 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-\[Edit: removed because the prelude no-longer exists\]
+```rust title="prelude" showLineNumbers
+pub use crate::{
+    context::{PrivateContext, PublicContext, ReturnsHash},
+    note::{
+        note_getter_options::NoteGetterOptions,
+        note_interface::{NoteHash, NoteType},
+        note_viewer_options::NoteViewerOptions,
+        retrieved_note::RetrievedNote,
+    },
+    state_vars::{
+        map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
+        private_set::PrivateSet, public_immutable::PublicImmutable, public_mutable::PublicMutable,
+        shared_mutable::SharedMutable, storage::Storable,
+    },
+};
+pub use dep::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    address::{AztecAddress, EthAddress},
+    point::Point,
+    traits::{Deserialize, Serialize},
+};
+```
+
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.1.0/noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22</a></sub></sup>
 
 ### `internal` is now a macro
 
@@ -3279,7 +3155,7 @@ impl Storage {
 The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`.
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v1.1.0", directory="yarn-project/aztec-nr/aztec" }
 ```
 
 ### [Aztec.nr] key type definition in Map
@@ -3369,8 +3245,8 @@ const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/aztec-nr/aztec" }
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="yarn-project/noir-protocol-circuits/crates/types"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v1.1.0", directory="yarn-project/aztec-nr/aztec" }
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v1.1.0", directory="yarn-project/noir-protocol-circuits/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress
