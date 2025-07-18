@@ -461,6 +461,7 @@ void UltraCircuit::handle_range_constraints()
 
 size_t UltraCircuit::handle_memory_relation(size_t cursor)
 {
+    // WORKTODO: all of the hardcoded indices for extracting components in this module seem to be wrong/outdated
     bb::fr q_memory = this->selectors[BlockType::MEMORY][cursor][9];
     if (q_memory == 0) {
         return cursor + 1;

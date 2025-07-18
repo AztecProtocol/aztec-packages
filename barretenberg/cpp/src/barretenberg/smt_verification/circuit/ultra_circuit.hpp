@@ -14,7 +14,7 @@ struct BlockType {
     static const size_t DELTA_RANGE = 3;
     static const size_t ELLIPTIC = 4;
     static const size_t MEMORY = 5;
-    static const size_t NNF = 5;
+    static const size_t NNF = 6;
 };
 
 /**
