@@ -40,8 +40,8 @@ AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key,
 void AvmProver::execute_preamble_round()
 {
     // Fiat-shamir the vk hash
-    FF vkey_hash = vk->add_hash_to_transcript("avm", *transcript);
-    vinfo("AVM vk hash in prover: ", vkey_hash);
+    FF vk_hash = vk->add_hash_to_transcript("avm", *transcript);
+    vinfo("AVM vk hash in prover: ", vk_hash);
 }
 
 /**
@@ -55,7 +55,9 @@ void AvmProver::execute_wire_commitments_round()
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key.commit(wire_polys[idx]));
+        auto comm = commitment_key.commit(wire_polys[idx]);
+        transcript->send_to_verifier(labels[idx], comm);
+        info("comm: ", comm, " with idx: ", idx);
     }
 }
 

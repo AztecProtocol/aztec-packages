@@ -56,8 +56,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
-    FF vkey_hash = key->add_hash_to_transcript("avm", *transcript);
-    vinfo("AVM vk hash in verifier: ", vkey_hash);
+    FF vk_hash = key->add_hash_to_transcript("avm", *transcript);
+    vinfo("AVM vk hash in verifier: ", vk_hash);
 
     VerifierCommitments commitments{ key };
 

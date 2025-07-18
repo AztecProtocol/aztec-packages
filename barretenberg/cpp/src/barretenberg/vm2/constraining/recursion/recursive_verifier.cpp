@@ -92,9 +92,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
     // in-circuit hashing.
     FF vkey_hash = key->add_hash_to_transcript("avm", *transcript);
+    info("AVM vk hash in recursive verifier: ", vkey_hash);
+    info("Expected AVM vk hash in recursive verifier: ", vk_hash);
     vk_hash.assert_equal(vkey_hash);
-    vinfo("AVM vk hash in recursive verifier: ", vkey_hash);
-    vinfo("Expected AVM vk hash in recursive verifier: ", vk_hash);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
