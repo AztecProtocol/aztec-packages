@@ -11,15 +11,11 @@ use dep::protocol_types::{
 ///
 /// The efficient reads are achieved by verifying large values through a single hash check
 /// and then proving inclusion only of the hash in public storage. This reduces the number
-/// of required tree inclusion proofs from `N` to 1.
+/// of required tree inclusion proofs from `M` to 1.
 ///
 /// # Type Parameters
 /// - `T`: The underlying type being wrapped, must implement `Packable<N>`
-/// - `N`: The number of field elements required to pack values of type `T`
-// TODO: Ideally we would not have the N numeric generic here and instead we set it to <T as Packable>::N. For that we
-// would need to set "where T: Packable" on the struct and have the "where" clause on the struct. Having the "where"
-// clause on the struct is not supposed to be supported until Noir 1.0. Relevant discussion on slack:
-// https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1752589887955379
+/// - `M`: The number of field elements required to pack values of type `T`
 pub struct WithHash<T, let M: u32> {
     value: T,
     packed: [Field; M],

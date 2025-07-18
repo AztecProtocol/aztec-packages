@@ -5,7 +5,7 @@ use std::meta::derive;
 global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u32 = 2;
 
-#[derive(Deserialize, Eq)]
+#[derive(Deserialize, Eq, Packable)]
 pub struct PlayerEntry {
     address: AztecAddress,
     deck_strength: u32,
