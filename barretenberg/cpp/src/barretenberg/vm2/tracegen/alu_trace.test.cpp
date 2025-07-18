@@ -10,6 +10,12 @@
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
+#include "barretenberg/vm2/simulation/events/alu_event.hpp"
+#include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
@@ -23,9 +29,17 @@ namespace {
 
 using simulation::Alu;
 using simulation::AluError;
+using simulation::AluEvent;
 using simulation::AluOperation;
+using simulation::EventEmitter;
+using simulation::FieldGreaterThan;
+using simulation::FieldGreaterThanEvent;
+using simulation::MockFieldGreaterThan;
+using simulation::MockGreaterThan;
+using simulation::MockRangeCheck;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
 using testing::ElementsAre;
-using testing::NiceMock;
 using testing::StrictMock;
 
 using R = TestTraceContainer::Row;
@@ -736,11 +750,11 @@ TestTraceContainer process_not_trace(const MemoryValue& a)
     TestTraceContainer trace;
     AluTraceBuilder builder;
 
-    simulation::EventEmitter<simulation::AluEvent> alu_event_emitter;
-    StrictMock<simulation::MockGreaterThan> gt;
-    StrictMock<simulation::MockFieldGreaterThan> field_gt;
-    StrictMock<simulation::MockRangeCheck> range_check;
-    simulation::Alu alu(gt, field_gt, range_check, alu_event_emitter);
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     try {
         alu.op_not(a);
@@ -808,10 +822,14 @@ TestTraceContainer process_truncate_trace(const MemoryValue& a, const MemoryTag&
     TestTraceContainer trace;
     AluTraceBuilder builder;
 
-    simulation::EventEmitter<simulation::AluEvent> alu_event_emitter;
-    NiceMock<simulation::MockGreaterThan> gt;
-    NiceMock<simulation::MockFieldGreaterThan> field_gt;
-    NiceMock<simulation::MockRangeCheck> range_check;
+    EventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    EventEmitter<AluEvent> alu_event_emitter;
+
+    StrictMock<MockGreaterThan> gt; // gt should never be called in truncation
+    RangeCheck range_check(range_check_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_emitter);
+
     Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     alu.truncate(a, dst_tag);
