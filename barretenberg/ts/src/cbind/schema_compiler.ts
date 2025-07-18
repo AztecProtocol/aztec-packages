@@ -611,7 +611,7 @@ ${methods}
     if (this.config.mode === 'native') {
       return `  async ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    const [variantName, result] = await this.sendCommand(["${capitalize(name)}", msgpackCommand]);
+    const [variantName, result] = await this.sendCommand(['${metadata.commandType}', msgpackCommand]);
     if (variantName !== '${responseType}') {
       throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
     }
@@ -635,16 +635,49 @@ ${methods}
   reject: (error: any) => void;
 }
 
+class StreamBuffer {
+  private buffer = Buffer.alloc(0);
+  private expectedLength: number | null = null;
+
+  addData(data: Buffer): Buffer[] {
+    // Use a more efficient approach by growing buffer only when needed
+    const newBuffer = Buffer.allocUnsafe(this.buffer.length + data.length);
+    this.buffer.copy(newBuffer, 0);
+    data.copy(newBuffer, this.buffer.length);
+    this.buffer = newBuffer;
+
+    const messages: Buffer[] = [];
+
+    while (true) {
+      if (this.expectedLength === null) {
+        if (this.buffer.length < 4) break;
+        this.expectedLength = this.buffer.readUInt32LE(0);
+        this.buffer = this.buffer.subarray(4);
+      }
+
+      if (this.buffer.length < this.expectedLength) break;
+
+      // Extract complete message
+      const messageBuffer = this.buffer.subarray(0, this.expectedLength);
+      messages.push(messageBuffer);
+      this.buffer = this.buffer.subarray(this.expectedLength);
+      this.expectedLength = null;
+    }
+
+    return messages;
+  }
+}
+
 export class NativeApi {
   private decoder = new Decoder({ useRecords: false });
   private encoder = new Encoder({ useRecords: false });
-  private requestCallbacks: NativeApiRequest[] = [];
+  private pendingRequests: NativeApiRequest[] = [];
 
   private constructor(private proc: ChildProcess) {}
 
-  static async new(bbPath = 'bb', errorLogger = console.error): Promise<NativeApi> {
+  static async new(bbPath = 'bb', logger = console.log): Promise<NativeApi> {
     const proc = spawn(bbPath, ['msgpack', 'run'], {
-      stdio: ['pipe', 'pipe', 'inherit'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     if (!proc.stdout || !proc.stdin) {
@@ -652,45 +685,50 @@ export class NativeApi {
     }
 
     const api = new NativeApi(proc);
+    const streamBuffer = new StreamBuffer();
 
     proc.stdout.on('data', (data: Buffer) => {
-      try {
-        const decoded = api.decoder.decode(data);
-        if (!Array.isArray(decoded) || decoded.length !== 2) {
-          throw new Error(\`Invalid response format: \${JSON.stringify(decoded)}\`);
+      const messages = streamBuffer.addData(data);
+
+      for (const messageBuffer of messages) {
+        const pendingRequest = api.pendingRequests.shift();
+        if (!pendingRequest) {
+          throw new Error('Received response without a pending request');
         }
-        const [variantName, result] = decoded;
-        const callback = api.requestCallbacks.shift();
-        if (!callback) {
-          throw new Error('No request callback found for response');
-        }
-        callback.resolve([variantName, result]);
-      } catch (error) {
-        const callback = api.requestCallbacks.shift();
-        if (callback) {
-          callback.reject(error);
-        } else {
-          errorLogger('Error processing response:', error);
+
+        try {
+          const decoded = api.decoder.decode(messageBuffer);
+          if (!Array.isArray(decoded) || decoded.length !== 2) {
+            throw new Error(\`Invalid response format: \${JSON.stringify(decoded)}\`);
+          }
+          const [variantName, result] = decoded;
+          pendingRequest.resolve([variantName, result]);
+        } catch (error) {
+          pendingRequest.reject(error);
+          break;
         }
       }
     });
 
-    proc.on('error', err => {
-      errorLogger('bb process error:', err);
+    proc.stderr.on('data', (data: Buffer) => {
+      logger(data.toString());
     });
 
+    proc.on('error', err => {
+      throw new Error(err.message);
+    });
     return api;
   }
 
   private sendCommand(command: any): Promise<any> {
     return new Promise((resolve, reject) => {
-      this.requestCallbacks.push({ resolve, reject });
+      this.pendingRequests.push({ resolve, reject });
       const encoded = this.encoder.encode(command);
-      
+
       // Write length prefix (4 bytes, little-endian)
       const lengthBuffer = Buffer.allocUnsafe(4);
       lengthBuffer.writeUInt32LE(encoded.length, 0);
-      
+
       // Write length prefix followed by the encoded data
       this.proc.stdin!.write(lengthBuffer);
       this.proc.stdin!.write(encoded);
