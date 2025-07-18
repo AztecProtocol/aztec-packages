@@ -117,7 +117,7 @@ void process_ROM_operations(Builder& builder,
         field_ct index = poly_to_field_ct(op.index, builder);
         // For a ROM table, constant read should be optimized out:
         // The rom_table won't work with a constant read because the table may not be initialized
-        ASSERT_RELEASE(op.index.q_l != 0);
+        ASSERT(op.index.q_l != 0);
         // We create a new witness w to avoid issues with non-valid witness assignements:
         // if witness are not assigned, then w will be zero and table[w] will work
         fr w_value = 0;

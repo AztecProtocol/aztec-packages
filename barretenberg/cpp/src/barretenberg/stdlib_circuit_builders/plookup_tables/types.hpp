@@ -325,7 +325,7 @@ struct LookupHashTable {
     Value operator[](const Key& key) const
     {
         auto it = index_map.find(key);
-        ASSERT_RELEASE(it != index_map.end(), "LookupHashTable: Key not found!");
+        ASSERT(it != index_map.end(), "LookupHashTable: Key not found!");
         return it->second;
     }
 

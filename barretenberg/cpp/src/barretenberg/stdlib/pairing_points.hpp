@@ -60,7 +60,7 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
-        ASSERT_RELEASE(other.has_data, "Cannot aggregate null pairing points.");
+        ASSERT(other.has_data, "Cannot aggregate null pairing points.");
 
         // If LHS is empty, simply set it equal to the incoming pairing points
         if (!this->has_data && other.has_data) {
@@ -99,7 +99,7 @@ template <typename Builder_> struct PairingPoints {
      */
     uint32_t set_public()
     {
-        ASSERT_RELEASE(this->has_data, "Calling set_public on empty pairing points.");
+        ASSERT(this->has_data, "Calling set_public on empty pairing points.");
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 

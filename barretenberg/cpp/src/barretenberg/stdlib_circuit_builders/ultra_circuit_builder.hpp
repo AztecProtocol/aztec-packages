@@ -330,7 +330,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         for (auto& block : blocks.get()) {
             size_t nominal_size = block.selectors[0].size();
             for (size_t idx = 1; idx < block.selectors.size(); ++idx) {
-                ASSERT_DEBUG_ONLY(block.selectors[idx].size() == nominal_size);
+                ASSERT_DEBUG(block.selectors[idx].size() == nominal_size);
             }
         }
 
@@ -506,7 +506,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_num_finalized_gates() const override
     {
-        ASSERT_RELEASE(circuit_finalized);
+        ASSERT(circuit_finalized);
         return this->num_gates;
     }
 
@@ -593,7 +593,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_finalized_total_circuit_size() const
     {
-        ASSERT_RELEASE(circuit_finalized);
+        ASSERT(circuit_finalized);
         auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }

@@ -265,9 +265,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
 
         // We shouldn't have both honk recursion constraints and ivc recursion constraints.
-        ASSERT_RELEASE(constraint_system.honk_recursion_constraints.empty() ||
-                           constraint_system.ivc_recursion_constraints.empty(),
-                       "Invalid circuit: both honk and ivc recursion constraints present.");
+        ASSERT(constraint_system.honk_recursion_constraints.empty() ||
+                   constraint_system.ivc_recursion_constraints.empty(),
+               "Invalid circuit: both honk and ivc recursion constraints present.");
         // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
         if (constraint_system.honk_recursion_constraints.empty() &&
             constraint_system.ivc_recursion_constraints.empty()) {
@@ -304,7 +304,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // default one if the circuit is recursive and honk_recursion is true.
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
-            ASSERT_RELEASE(metadata.honk_recursion != 0);
+            ASSERT(metadata.honk_recursion != 0);
             honk_output.points_accumulator.set_public();
         } else if (metadata.honk_recursion != 0) {
             // Make sure the verification key records the public input indices of the
@@ -457,8 +457,8 @@ process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-    ASSERT_RELEASE(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
-                   "Root rollup must accumulate two IPA proofs.");
+    ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
+           "Root rollup must accumulate two IPA proofs.");
     return output;
 }
 

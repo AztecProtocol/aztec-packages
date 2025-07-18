@@ -67,7 +67,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1067): This ASSERT is missing in the constructor but
     // causes schnorr acir test to fail due to a bad input (a public key that has x and y coordinate set to 0).
     // Investigate this to be able to enable the test.
-    // ASSERT_RELEASE(get_value().on_curve());
+    // ASSERT(get_value().on_curve());
 }
 
 /**
@@ -92,7 +92,7 @@ cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
     , _is_standard(true)
     , context(nullptr)
 {
-    ASSERT_RELEASE(get_value().on_curve());
+    ASSERT(get_value().on_curve());
 }
 
 /**
@@ -261,7 +261,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
         // Check that it's not possible to enter the case when
         // The point is already infinity, but `is_infinity` = false
-        ASSERT_RELEASE((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
+        ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
 
         if (is_infinity.get_value()) {
             this->x = 0;
@@ -299,8 +299,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     this->y = field_t::conditional_assign(is_infinity, 0, this->y);
 
     // We won't bump into the case where we end up with non constant coordinates
-    ASSERT_RELEASE(!this->x.is_constant());
-    ASSERT_RELEASE(!this->y.is_constant());
+    ASSERT(!this->x.is_constant());
+    ASSERT(!this->y.is_constant());
     this->_is_constant = false;
 
     // We have to check this to avoid the situation, where we change the infinity
@@ -324,8 +324,8 @@ template <typename Builder> void cycle_group<Builder>::standardize()
     BB_ASSERT_EQ(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant(),
                  this->_is_constant);
     if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
-        ASSERT_RELEASE(this->_is_constant);
-        ASSERT_RELEASE(this->_is_standard);
+        ASSERT(this->_is_constant);
+        ASSERT(this->_is_standard);
     }
 
     if (this->_is_standard) {
@@ -618,7 +618,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
 {
     field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT_RELEASE(x_delta.get_value() != 0);
+        ASSERT(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
     }
@@ -644,7 +644,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 {
     field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT_RELEASE(x_delta.get_value() != 0);
+        ASSERT(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
     }
@@ -1635,7 +1635,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
-        ASSERT_RELEASE(table_id.has_value());
+        ASSERT(table_id.has_value());
         plookup_table_ids.emplace_back(table_id.value()[0]);
         plookup_table_ids.emplace_back(table_id.value()[1]);
         plookup_base_points.emplace_back(base_points[i]);
@@ -1658,7 +1658,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::optional<AffineElement> offset_1 =
             plookup::fixed_base::table::get_generator_offset_for_table_id(plookup_table_ids[i]);
 
-        ASSERT_RELEASE(offset_1.has_value());
+        ASSERT(offset_1.has_value());
         offset_generator_accumulator += offset_1.value();
     }
     /**

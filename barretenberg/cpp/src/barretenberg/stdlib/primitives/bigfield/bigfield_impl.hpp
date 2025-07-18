@@ -47,8 +47,8 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
                                const size_t maximum_bitlength)
 {
     BB_ASSERT_EQ(low_bits_in.is_constant(), high_bits_in.is_constant());
-    ASSERT_RELEASE((can_overflow == true && maximum_bitlength == 0) ||
-                   (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
+    ASSERT((can_overflow == true && maximum_bitlength == 0) ||
+           (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
 
     // Check that the values of two parts are within specified bounds
     BB_ASSERT_LT(uint256_t(low_bits_in.get_value()), uint256_t(1) << (NUM_LIMB_BITS * 2));
@@ -139,8 +139,8 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
                                                                        const bool can_overflow,
                                                                        const size_t maximum_bitlength)
 {
-    ASSERT_RELEASE((can_overflow == true && maximum_bitlength == 0) ||
-                   (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
+    ASSERT((can_overflow == true && maximum_bitlength == 0) ||
+           (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
     std::array<uint256_t, NUM_LIMBS> limbs;
     limbs[0] = value.slice(0, NUM_LIMB_BITS).lo;
     limbs[1] = value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo;
@@ -1343,7 +1343,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
             // Simply return the constant, no need unsafe_multiply_add
             const auto [quotient_1024, remainder_1024] =
                 (sum_of_constant_products + add_right_constant_sum).divmod(modulus);
-            ASSERT_RELEASE(!fix_remainder_to_zero || remainder_1024 == 0);
+            ASSERT(!fix_remainder_to_zero || remainder_1024 == 0);
             auto result = bigfield(ctx, uint256_t(remainder_1024.lo.lo));
             result.set_origin_tag(new_tag);
             return result;
@@ -1370,7 +1370,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     }
 
     // Now that we know that there is at least 1 non-constant multiplication, we can start estimating reductions.
-    ASSERT_RELEASE(ctx != nullptr);
+    ASSERT(ctx != nullptr);
 
     // Compute the constant term we're adding
     const auto [_, constant_part_remainder_1024] = (sum_of_constant_products + add_right_constant_sum).divmod(modulus);
@@ -1495,7 +1495,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
 {
     // Check the basics
     BB_ASSERT_EQ(mul_left.size(), mul_right.size());
-    ASSERT_RELEASE(divisor.get_value() != 0);
+    ASSERT(divisor.get_value() != 0);
 
     OriginTag new_tag = divisor.get_origin_tag();
     for (auto [left_element, right_element] : zip_view(mul_left, mul_right)) {
@@ -1569,7 +1569,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
         return result;
     }
 
-    ASSERT_RELEASE(ctx != NULL);
+    ASSERT(ctx != NULL);
     // Create the result witness
     bigfield result = create_from_u512_as_witness(ctx, result_value.lo);
 
@@ -1726,7 +1726,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     }
 
     // The context should not be null at this point.
-    ASSERT_RELEASE(ctx != NULL);
+    ASSERT(ctx != NULL);
     bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
 
     // We need to manually propagate the origin tag
@@ -1805,8 +1805,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
     bool limb_overflow_test_3 = binary_basis_limbs[3].maximum_value > prohibited_limb_value;
     // max_val < sqrt(2^T * n)
     // Note this is a static assertion, so it is not checked at runtime
-    ASSERT_RELEASE(!(get_maximum_value() > get_prohibited_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
-                     limb_overflow_test_2 || limb_overflow_test_3));
+    ASSERT(!(get_maximum_value() > get_prohibited_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
+             limb_overflow_test_2 || limb_overflow_test_3));
 }
 
 // Underneath performs assert_less_than(modulus)
@@ -1830,7 +1830,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
         return;
     }
 
-    ASSERT_RELEASE(upper_limit != 0);
+    ASSERT(upper_limit != 0);
     // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1
     // from the limit
     uint256_t strict_upper_limit = upper_limit - uint256_t(1);
@@ -2061,7 +2061,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     bigfield quotient = input_quotient;
 
     // Either of the multiplicand must be a witness.
-    ASSERT_RELEASE(!left.is_constant() || !to_mul.is_constant());
+    ASSERT(!left.is_constant() || !to_mul.is_constant());
     Builder* ctx = left.context ? left.context : to_mul.context;
 
     // Compute the maximum value of the product of the two inputs: max(a * b)
@@ -2275,7 +2275,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     }
 
     // We must have at least one left or right multiplicand as witnesses.
-    ASSERT_RELEASE(!is_left_constant || !is_right_constant);
+    ASSERT(!is_left_constant || !is_right_constant);
 
     std::vector<bigfield> remainders(input_remainders);
     std::vector<bigfield> left(input_left);
@@ -2299,7 +2299,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             }
         }
     }
-    ASSERT_RELEASE(ctx != nullptr);
+    ASSERT(ctx != nullptr);
 
     /**
      * Step 1: Compute the maximum potential value of our product limbs
@@ -2385,7 +2385,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // expense of 1 extra gate per constant).
     //
     const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
-        ASSERT_RELEASE(input.is_constant());
+        ASSERT(input.is_constant());
         bigfield output(input);
         output.prime_basis_limb =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));

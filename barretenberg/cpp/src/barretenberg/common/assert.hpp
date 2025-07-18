@@ -22,7 +22,7 @@
 #include <string>
 
 // Basic assert with optional error message
-#define ASSERT_DEBUG_ONLY(expression, ...) ASSERT_RELEASE(expression, __VA_ARGS__)
+#define ASSERT_DEBUG(expression, ...) ASSERT(expression, __VA_ARGS__)
 #endif // NDEBUG
 
 #define ASSERT_IN_CONSTEXPR(expression, ...)                                                                           \
@@ -34,7 +34,7 @@
         }                                                                                                              \
     } while (0)
 
-#define ASSERT_RELEASE(expression, ...)                                                                                \
+#define ASSERT(expression, ...)                                                                                        \
     do {                                                                                                               \
         if (!(expression)) {                                                                                           \
             std::ostringstream oss;                                                                                    \

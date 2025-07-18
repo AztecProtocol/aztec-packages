@@ -75,7 +75,7 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
 
     uint32_t trace_offset() const
     {
-        ASSERT_RELEASE(trace_offset_ != std::numeric_limits<uint32_t>::max());
+        ASSERT(trace_offset_ != std::numeric_limits<uint32_t>::max());
         return trace_offset_;
     }
 

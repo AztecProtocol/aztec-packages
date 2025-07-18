@@ -397,7 +397,7 @@ template <typename Fr> class Polynomial {
      */
     void set_if_valid_index(size_t index, const Fr& value)
     {
-        ASSERT_RELEASE(value.is_zero() || is_valid_set_index(index));
+        ASSERT(value.is_zero() || is_valid_set_index(index));
         if (is_valid_set_index(index)) {
             at(index) = value;
         }
@@ -466,7 +466,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
 {
     constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
     // shift ==> native
-    ASSERT_RELEASE(!shift || is_native);
+    ASSERT(!shift || is_native);
 
     if (coefficients.size() == 0) {
         return Fr_(0);

@@ -192,7 +192,7 @@ template <typename Fr> void LegacyPolynomial<Fr>::zero_memory_beyond(const size_
 
     size_t delta = end - start_position;
     if (delta > 0) {
-        ASSERT_RELEASE(backing_memory_);
+        ASSERT(backing_memory_);
         memset(static_cast<void*>(&coefficients_[start_position]), 0, sizeof(Fr) * delta);
     }
 }
@@ -205,7 +205,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::fft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::fft(coefficients_, domain);
@@ -215,7 +215,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::partial_fft(const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::partial_fft(coefficients_, domain, constant, is_coset);
@@ -225,7 +225,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::coset_fft(coefficients_, domain);
@@ -239,7 +239,7 @@ void LegacyPolynomial<Fr>::coset_fft(const EvaluationDomain<Fr>& domain,
 {
     size_t extended_size = domain.size * domain_extension;
 
-    ASSERT_RELEASE(in_place_operation_viable(extended_size));
+    ASSERT(in_place_operation_viable(extended_size));
     zero_memory_beyond(extended_size);
 
     polynomial_arithmetic::coset_fft(coefficients_, domain, large_domain, domain_extension);
@@ -249,7 +249,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::coset_fft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::coset_fft_with_constant(coefficients_, domain, constant);
@@ -259,7 +259,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::coset_fft_with_generator_shift(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::coset_fft_with_generator_shift(coefficients_, domain, constant);
@@ -269,7 +269,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::ifft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::ifft(coefficients_, domain);
@@ -279,7 +279,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::ifft_with_constant(const EvaluationDomain<Fr>& domain, const Fr& constant)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::ifft_with_constant(coefficients_, domain, constant);
@@ -289,7 +289,7 @@ template <typename Fr>
 void LegacyPolynomial<Fr>::coset_ifft(const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
-    ASSERT_RELEASE(in_place_operation_viable(domain.size));
+    ASSERT(in_place_operation_viable(domain.size));
     zero_memory_beyond(domain.size);
 
     polynomial_arithmetic::coset_ifft(coefficients_, domain);
@@ -322,8 +322,8 @@ Fr LegacyPolynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_dom
 template <typename Fr> LegacyPolynomial<Fr> LegacyPolynomial<Fr>::shifted() const
 {
     BB_ASSERT_GT(size_, 0U);
-    ASSERT_RELEASE(coefficients_[0].is_zero());
-    ASSERT_RELEASE(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
+    ASSERT(coefficients_[0].is_zero());
+    ASSERT(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
     LegacyPolynomial p;
     p.backing_memory_ = backing_memory_;
     p.size_ = size_;
@@ -337,7 +337,7 @@ template <typename Fr> LegacyPolynomial<Fr> LegacyPolynomial<Fr>::shifted() cons
 template <typename Fr> void LegacyPolynomial<Fr>::set_to_right_shifted(std::span<Fr> coeffs_in, size_t shift_size)
 {
     // Ensure we're not trying to shift self
-    ASSERT_RELEASE(coefficients_ != coeffs_in.data());
+    ASSERT(coefficients_ != coeffs_in.data());
 
     auto size_in = coeffs_in.size();
     BB_ASSERT_GT(size_in, 0U);
@@ -346,7 +346,7 @@ template <typename Fr> void LegacyPolynomial<Fr>::set_to_right_shifted(std::span
     BB_ASSERT_LTE(shift_size, size_in);
     for (size_t i = 0; i < shift_size; ++i) {
         size_t idx = size_in - shift_size - 1;
-        ASSERT_RELEASE(coeffs_in[idx].is_zero());
+        ASSERT(coeffs_in[idx].is_zero());
     }
 
     // Set size of self equal to size of input and allocate memory
@@ -366,7 +366,7 @@ template <typename Fr> void LegacyPolynomial<Fr>::set_to_right_shifted(std::span
 template <typename Fr> void LegacyPolynomial<Fr>::add_scaled(std::span<const Fr> other, Fr scaling_factor)
 {
     const size_t other_size = other.size();
-    ASSERT_RELEASE(in_place_operation_viable(other_size));
+    ASSERT(in_place_operation_viable(other_size));
 
     size_t num_threads = calculate_num_threads(other_size);
     size_t range_per_thread = other_size / num_threads;
@@ -383,7 +383,7 @@ template <typename Fr> void LegacyPolynomial<Fr>::add_scaled(std::span<const Fr>
 template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator+=(std::span<const Fr> other)
 {
     const size_t other_size = other.size();
-    ASSERT_RELEASE(in_place_operation_viable(other_size));
+    ASSERT(in_place_operation_viable(other_size));
 
     size_t num_threads = calculate_num_threads(other_size);
     size_t range_per_thread = other_size / num_threads;
@@ -402,7 +402,7 @@ template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator+=(st
 template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator-=(std::span<const Fr> other)
 {
     const size_t other_size = other.size();
-    ASSERT_RELEASE(in_place_operation_viable(other_size));
+    ASSERT(in_place_operation_viable(other_size));
 
     size_t num_threads = calculate_num_threads(other_size);
     size_t range_per_thread = other_size / num_threads;
@@ -420,7 +420,7 @@ template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator-=(st
 
 template <typename Fr> LegacyPolynomial<Fr>& LegacyPolynomial<Fr>::operator*=(const Fr scaling_factor)
 {
-    ASSERT_RELEASE(in_place_operation_viable());
+    ASSERT(in_place_operation_viable());
 
     size_t num_threads = calculate_num_threads(size_);
     size_t range_per_thread = size_ / num_threads;
@@ -484,7 +484,7 @@ LegacyPolynomial<Fr> LegacyPolynomial<Fr>::partial_evaluate_mle(std::span<const 
     const size_t m = evaluation_points.size();
 
     // Assert that the size of the polynomial being evaluated is a power of 2 greater than (1 << m)
-    ASSERT_RELEASE(numeric::is_power_of_two(size_));
+    ASSERT(numeric::is_power_of_two(size_));
     BB_ASSERT_GTE(size_, static_cast<size_t>(1 << m));
     size_t n = numeric::get_msb(size_);
 

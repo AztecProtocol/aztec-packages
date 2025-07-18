@@ -1024,7 +1024,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                     }
                 }
             }
-            ASSERT_RELEASE(found_tag);
+            ASSERT(found_tag);
         }
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);

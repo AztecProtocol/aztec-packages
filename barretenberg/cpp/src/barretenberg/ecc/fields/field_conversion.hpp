@@ -71,7 +71,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
             val.self_set_infinity();
         }
-        ASSERT_RELEASE(val.on_curve());
+        ASSERT(val.on_curve());
         return val;
     } else {
         // Array or Univariate

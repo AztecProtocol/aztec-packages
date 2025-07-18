@@ -55,7 +55,7 @@ static void compare_ultra_blocks_and_verification_keys(
     BB_ASSERT_EQ(verification_keys[0]->num_public_inputs, verification_keys[1]->num_public_inputs);
     BB_ASSERT_EQ(verification_keys[0]->pub_inputs_offset, verification_keys[1]->pub_inputs_offset);
 
-    ASSERT_RELEASE(!broke);
+    ASSERT(!broke);
 }
 
 } // namespace bb

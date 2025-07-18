@@ -177,7 +177,7 @@ template <typename Builder> class DSLBigInts {
     }
     big_bn254_fr bn254_fr(uint32_t bigint_id)
     {
-        ASSERT_RELEASE(this->m_bn254_fr.contains(bigint_id));
+        ASSERT(this->m_bn254_fr.contains(bigint_id));
         return this->m_bn254_fr[bigint_id];
     }
 
@@ -185,7 +185,7 @@ template <typename Builder> class DSLBigInts {
 
     big_bn254_fq bn254_fq(uint32_t bigint_id)
     {
-        ASSERT_RELEASE(this->m_bn254_fq.contains(bigint_id));
+        ASSERT(this->m_bn254_fq.contains(bigint_id));
         return this->m_bn254_fq[bigint_id];
     }
 
@@ -193,7 +193,7 @@ template <typename Builder> class DSLBigInts {
 
     big_secp256r1_fq secp256r1_fq(uint32_t bigint_id)
     {
-        ASSERT_RELEASE(this->m_secp256r1_fq.contains(bigint_id));
+        ASSERT(this->m_secp256r1_fq.contains(bigint_id));
         return this->m_secp256r1_fq[bigint_id];
     }
 
@@ -204,7 +204,7 @@ template <typename Builder> class DSLBigInts {
 
     big_secp256r1_fr secp256r1_fr(uint32_t bigint_id)
     {
-        ASSERT_RELEASE(this->m_secp256r1_fr.contains(bigint_id));
+        ASSERT(this->m_secp256r1_fr.contains(bigint_id));
         return this->m_secp256r1_fr[bigint_id];
     }
 
@@ -215,7 +215,7 @@ template <typename Builder> class DSLBigInts {
 
     big_secp256k1_fq secp256k1_fq(uint32_t bigint_id)
     {
-        ASSERT_RELEASE(this->m_secp256k1_fq.contains(bigint_id));
+        ASSERT(this->m_secp256k1_fq.contains(bigint_id));
         return this->m_secp256k1_fq[bigint_id];
     }
 

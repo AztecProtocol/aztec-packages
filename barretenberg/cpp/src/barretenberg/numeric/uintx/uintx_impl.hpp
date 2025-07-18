@@ -13,7 +13,7 @@ template <class base_uint>
 std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(const uintx& b) const
 
 {
-    ASSERT_RELEASE(b != 0);
+    ASSERT(b != 0);
     if (*this == 0) {
         return { uintx(0), uintx(0) };
     }
@@ -103,7 +103,7 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::unsafe_invmod(cons
  **/
 template <class base_uint> uintx<base_uint> uintx<base_uint>::invmod(const uintx& modulus) const
 {
-    ASSERT_RELEASE((*this) != 0);
+    ASSERT((*this) != 0);
     if (modulus == 0) {
         return 0;
     }

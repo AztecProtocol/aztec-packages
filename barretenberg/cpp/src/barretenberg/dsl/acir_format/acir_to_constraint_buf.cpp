@@ -868,7 +868,7 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
     }
     if (access_type == 1) {
         // We are not allowed to write on the databus
-        ASSERT_RELEASE((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
+        ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
         block.type = BlockType::RAM;
     }
 

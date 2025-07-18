@@ -258,7 +258,7 @@ void update_subtree_membership(field_t<Builder> const& new_root,
  */
 template <typename Builder> field_t<Builder> compute_tree_root(std::vector<field_t<Builder>> const& input)
 {
-    ASSERT_RELEASE(numeric::is_power_of_two(input.size()), "Check if the input vector size is a power of 2.");
+    ASSERT(numeric::is_power_of_two(input.size()), "Check if the input vector size is a power of 2.");
     auto layer = input;
     while (layer.size() > 1) {
         std::vector<field_t<Builder>> next_layer(layer.size() / 2);

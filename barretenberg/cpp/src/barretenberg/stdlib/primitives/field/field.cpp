@@ -76,7 +76,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
     if (is_constant()) {
-        ASSERT_RELEASE(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
+        ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
         result.set_origin_tag(tag);
@@ -122,7 +122,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be added without context
-    ASSERT_RELEASE(ctx || (is_constant() && other.is_constant()));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
     if (witness_index == other.witness_index && !is_constant()) {
         // If summands represent the same circuit variable, i.e. their witness indices coincide, we just need to update
@@ -190,7 +190,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be multiplied without context
-    ASSERT_RELEASE(ctx || (is_constant() && other.is_constant()));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
     if (is_constant() && other.is_constant()) {
         // Both inputs are constant - don't add a gate.
@@ -315,7 +315,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     Builder* ctx = (context) ? context : other.context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be divided without context
-    ASSERT_RELEASE(ctx || (is_constant() && other.is_constant()));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
     bb::fr additive_multiplier = bb::fr::one();
 
@@ -627,7 +627,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     if (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
         return *this;
     }
-    ASSERT_RELEASE(context);
+    ASSERT(context);
 
     // Value of this = this.v * this.mul + this.add; // where this.v = context->variables[this.witness_index]
     // Normalised result = result.v * 1 + 0;         // where result.v = this.v * this.mul + this.add
@@ -815,7 +815,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 template <typename Builder> bb::fr field_t<Builder>::get_value() const
 {
     if (!is_constant()) {
-        ASSERT_RELEASE(context);
+        ASSERT(context);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     }
     BB_ASSERT_EQ(multiplicative_constant, bb::fr::one());
@@ -1089,7 +1089,7 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
                                                     const field_t& d)
 {
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
-        ASSERT_RELEASE((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
+        ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
 

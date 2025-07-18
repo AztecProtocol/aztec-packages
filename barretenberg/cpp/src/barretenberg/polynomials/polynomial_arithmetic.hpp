@@ -315,7 +315,7 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, std::span<con
         }
         // If there are M zero roots, then the first M coefficients of polynomial must be zero
         for (size_t i = 0; i < num_zero_roots; ++i) {
-            ASSERT_RELEASE(polynomial[i].is_zero());
+            ASSERT(polynomial[i].is_zero());
         }
 
         // View over the polynomial factored by all the zeros

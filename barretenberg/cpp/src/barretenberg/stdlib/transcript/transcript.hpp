@@ -21,8 +21,8 @@ template <typename Builder> struct StdlibTranscriptParams {
     static inline Fr hash(const std::vector<Fr>& data)
     {
 
-        ASSERT_RELEASE(!data.empty());
-        ASSERT_RELEASE(data[0].get_context() != nullptr);
+        ASSERT(!data.empty());
+        ASSERT(data[0].get_context() != nullptr);
 
         Builder* builder = data[0].get_context();
         return stdlib::poseidon2<Builder>::hash(*builder, data);
@@ -57,8 +57,8 @@ template <typename Builder> struct StdlibTranscriptParams {
 
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
     {
-        ASSERT_RELEASE(!frs.empty());
-        ASSERT_RELEASE(frs[0].get_context() != nullptr);
+        ASSERT(!frs.empty());
+        ASSERT(frs[0].get_context() != nullptr);
         Builder* builder = frs[0].get_context();
         return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(*builder, frs);
     }

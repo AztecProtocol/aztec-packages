@@ -330,13 +330,13 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
         auto w_4 = block.w_4()[index];
         if (q_3 == FF::one() && q_4 == FF::one()) {
             // bigfield limb accumulation 1
-            ASSERT_RELEASE(q_arith.is_zero());
+            ASSERT(q_arith.is_zero());
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
                                       { w_l, w_r, w_o, w_4, block.w_l()[index + 1], block.w_r()[index + 1] }); // 6
             }
         } else if (q_3 == FF::one() && q_m == FF::one()) {
-            ASSERT_RELEASE(q_arith.is_zero());
+            ASSERT(q_arith.is_zero());
             // bigfield limb accumulation 2
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -348,7 +348,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                                         block.w_4()[index + 1] });
             }
         } else if (q_2 == FF::one() && (q_3 == FF::one() || q_4 == FF::one() || q_m == FF::one())) {
-            ASSERT_RELEASE(q_arith.is_zero());
+            ASSERT(q_arith.is_zero());
             // bigfield product cases
             if (index < block.size() - 1) {
                 std::vector<uint32_t> limb_subproduct_vars = {
@@ -356,14 +356,14 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                 };
                 if (q_3 == FF::one()) {
                     // bigfield product 1
-                    ASSERT_RELEASE(q_4.is_zero() && q_m.is_zero());
+                    ASSERT(q_4.is_zero() && q_m.is_zero());
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(), { w_o, w_4 });
                 }
                 if (q_4 == FF::one()) {
                     // bigfield product 2
-                    ASSERT_RELEASE(q_3.is_zero() && q_m.is_zero());
+                    ASSERT(q_3.is_zero() && q_m.is_zero());
                     std::vector<uint32_t> non_native_field_gate_2 = { w_l, w_4, w_r, w_o, block.w_o()[index + 1] };
                     gate_variables.insert(
                         gate_variables.end(), non_native_field_gate_2.begin(), non_native_field_gate_2.end());
@@ -373,7 +373,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                 }
                 if (q_m == FF::one()) {
                     // bigfield product 3
-                    ASSERT_RELEASE(q_4.is_zero() && q_3.is_zero());
+                    ASSERT(q_4.is_zero() && q_3.is_zero());
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(),
@@ -381,7 +381,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                 }
             }
         } else if (q_1 == FF::one() && q_4 == FF::one()) {
-            ASSERT_RELEASE(q_arith.is_zero());
+            ASSERT(q_arith.is_zero());
             // ram timestamp check
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -392,7 +392,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                                         block.w_o()[index] });
             }
         } else if (q_1 == FF::one() && q_2 == FF::one()) {
-            ASSERT_RELEASE(q_arith.is_zero());
+            ASSERT(q_arith.is_zero());
             // rom constitency check
             if (index < block.size() - 1) {
                 gate_variables.insert(

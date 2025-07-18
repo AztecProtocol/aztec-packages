@@ -328,7 +328,7 @@ void TranslatorCircuitBuilder::assert_well_formed_ultra_op(const UltraOp& ultra_
 {
     // Opcode should be {0,3,4,8}
     size_t op_code = ultra_op.op_code.value();
-    ASSERT_RELEASE(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
+    ASSERT(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
 
     // Check and insert x_lo and y_hi into wire 1
     BB_ASSERT_LTE(uint256_t(ultra_op.x_lo), MAX_LOW_WIDE_LIMB_SIZE);

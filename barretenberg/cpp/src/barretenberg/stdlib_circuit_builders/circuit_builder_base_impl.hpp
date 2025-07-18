@@ -69,7 +69,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index
             break;
         }
     }
-    ASSERT_RELEASE(result != static_cast<uint32_t>(-1));
+    ASSERT(result != static_cast<uint32_t>(-1));
     return result;
 }
 
