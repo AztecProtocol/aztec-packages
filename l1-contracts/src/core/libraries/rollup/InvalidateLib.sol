@@ -5,7 +5,9 @@ pragma solidity >=0.8.27;
 import {
   IRollupCore, RollupStore, BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
-import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {
+  TempBlockLog, CompressedTempBlockLog
+} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -16,6 +18,7 @@ import {
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 
 library InvalidateLib {
   using TimeLib for Timestamp;
@@ -24,6 +27,7 @@ library InvalidateLib {
   using ChainTipsLib for CompressedChainTips;
   using SignatureLib for CommitteeAttestations;
   using MessageHashUtils for bytes32;
+  using CompressedTimeMath for CompressedSlot;
 
   /**
    * @notice Invalidates a block with a bad attestation signature
@@ -45,7 +49,7 @@ library InvalidateLib {
     // Verify that the attestation at invalidIndex is actually invalid
     // Check if there's a signature at the invalid index
     if (_attestations.isSignature(_invalidIndex)) {
-      // Extract and verify the signature
+      // Extract the signature and verify it does NOT match the expected committee member at the given index
       Signature memory signature = _attestations.getSignature(_invalidIndex);
       address recovered = ECDSA.recover(digest, signature.v, signature.r, signature.s);
 
@@ -88,7 +92,7 @@ library InvalidateLib {
     }
 
     // Calculate required threshold (2/3 + 1)
-    uint256 requiredSignatures = (committeeSize << 1) / 3 + 1;
+    uint256 requiredSignatures = (committeeSize << 1) / 3 + 1; // committeeSize * 2 / 3 + 1
 
     // Ensure the number of valid signatures is actually insufficient
     require(
@@ -127,7 +131,7 @@ library InvalidateLib {
     );
 
     // Get the stored block data
-    TempBlockLog memory blockLog = STFLib.getTempBlockLog(_blockNumber);
+    CompressedTempBlockLog storage blockLog = STFLib.getStorageTempBlockLog(_blockNumber);
 
     // Verify that the provided attestations match the stored hash
     bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
@@ -136,7 +140,7 @@ library InvalidateLib {
     );
 
     // Get the epoch for the block's slot to verify committee
-    Epoch epoch = blockLog.slotNumber.epochFromSlot();
+    Epoch epoch = blockLog.slotNumber.decompress().epochFromSlot();
 
     // Get and verify the committee commitment
     (bytes32 committeeCommitment, uint256 committeeSize) =
