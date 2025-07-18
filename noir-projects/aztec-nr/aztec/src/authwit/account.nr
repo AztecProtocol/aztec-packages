@@ -81,7 +81,7 @@ impl AccountActions<&mut PrivateContext> {
             inner_hash,
         );
         let valid_fn = self.is_valid_impl;
-        assert(valid_fn(self.context, message_hash) == true, "Message not authorized by account");
+        assert(valid_fn(self.context, message_hash), "Message not authorized by account");
         IS_VALID_SELECTOR
     }
     // docs:end:verify_private_authwit

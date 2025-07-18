@@ -356,7 +356,7 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
     let assertion_message = f"Function {name} can only be called statically";
     if is_fn_private(f) {
         // Here `context` is of type context::PrivateContext
-        quote { assert(context.inputs.call_context.is_static_call == true, $assertion_message); }
+        quote { assert(context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         // Here `context` is of type context::PublicContext
         quote { assert(context.is_static_call(), $assertion_message); }
