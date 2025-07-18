@@ -198,11 +198,17 @@ sel_op_not * sel_is_ff * (1 - sel_tag_err) = 0;
 // Input of truncation value is sent to ia, destination tag in ia_tag and output is computed as ic.
 // We have one dispatching lookup from execution specific to CAST and another one for SET, as
 // the layout for registers and operands strongly differ from other ALU opcodes.
+// The truncation operates on the FF value of the input and we completely ignore its tag, therefore
+// the tag of the input is in general not equal to ia_tag.
 
 sel_op_truncate * (1 - sel_op_truncate) = 0;
 
 
 // CAST DISPATCHING
+// Serialization layout is: src_addr, dst_addr, dst_tag
+// src_addr --> register[0], dst_addr --> register[1], dst_tag --> rop[2] (immediate and therefore not sent to register)
+// Reminder: mem_tag_reg[0] is ignored and might be different than ia_tag.
+
 // Inputs are:
 // - register[0] (ia: value (as FF) to truncate)
 // - rop[2] (ia_tag: destination tag)
@@ -210,8 +216,8 @@ sel_op_truncate * (1 - sel_op_truncate) = 0;
 
 // Outputs are:
 // - register[1] (ic: truncated value)
-// - mem_tag_reg[1] (ia_tag: destination tag)
-// Note that we enforce the output tag through this dispatching lookup by having ib matching both mem_tag_reg[1] and rop[2].
+// - mem_tag_reg[1] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
+// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[1] and rop[2].
 #[EXEC_DISPATCHING_CAST]
 execution.sel_execute_cast {
     execution.register[0], execution.rop[2], execution.subtrace_operation_id, execution.register[1], execution.mem_tag_reg[1]
@@ -220,6 +226,10 @@ execution.sel_execute_cast {
 };
 
 // SET DISPATCHING
+// Serialization layout is: dst_addr, dst_tag, value (immediate)
+// dst_addr --> register[0], dst_tag --> rop[1], value --> rop[2] (dst_tag and value are
+// immediate and therefore not sent to register)
+
 // Inputs are:
 // - rop[2] (ia: value (as FF) to truncate)
 // - rop[1] (ia_tag: destination tag)
@@ -227,13 +237,13 @@ execution.sel_execute_cast {
 
 // Outputs are:
 // - register[0] (ic: truncated value)
-// - mem_tag_reg[0] (ia_tag: destination tag)
-
+// - mem_tag_reg[0] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
+// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[0] and rop[1].
 #[EXEC_DISPATCHING_SET]
 execution.sel_execute_set {
     execution.rop[2], execution.rop[1], execution.subtrace_operation_id, execution.register[0], execution.mem_tag_reg[0]
 } in sel_op_truncate {
-    ia, ia_tag, op_id, ic, ia_tag
+    ia, ia_tag, op_id, ic, ic_tag
 };
 
 // 3 cases for truncation:
@@ -243,6 +253,13 @@ execution.sel_execute_set {
 pol commit sel_trunc_trivial;
 pol commit sel_trunc_gte_128;
 pol commit sel_trunc_lt_128;
+
+// If ia >= 2^128 and dst_tag != FF, and a malicious sequencer would toggle sel_trunc_trivial, this would
+// fail in the range check pertaining to the memory write. If he would toggle sel_tunc_lt_128, this would
+// fail in the decomposition of ia == lo_128 in #[TRUNC_LO_128_DECOMPOSITION], because the range checks
+// on mid and ic (memory write) ensures a correct 128-bit decomposition of ia.
+// If ia < 2^128 and ia > max_value, and a malicious sequencer would toggle sel_trunc_trivial,
+// then the memory write would fail because ia == ic > max_value.
 
 // Boolean
 sel_trunc_trivial * (1 - sel_trunc_trivial) = 0;
@@ -265,7 +282,7 @@ sel_trunc_trivial * (ia - ic) = 0;
 
 pol commit lo_128; // 128-bit low limb of ia.
 pol commit hi_128; // 128-bit high limb of ia.
-pol commit mid; // lo_128 = ic + mid * 2^ia_tag
+pol commit mid;
 
 #[LARGE_TRUNC_CANONICAL_DEC]
 sel_trunc_gte_128 { ia, lo_128, hi_128 }
@@ -275,6 +292,7 @@ ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo, ff_gt.a_hi };
 #[SMALL_TRUNC_VAL_IS_LO]
 sel_trunc_lt_128 * (lo_128 - ia) = 0;
 
+// lo_128 = ic + mid * 2^ia_tag_bits, where 2^ia_tag_bits is max_value + 1.
 #[TRUNC_LO_128_DECOMPOSITION]
 sel_trunc_non_trivial * (ic + mid * (max_value + 1) - lo_128) = 0;
 

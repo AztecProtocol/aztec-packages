@@ -21,6 +21,7 @@
 namespace bb::avm2::tracegen {
 namespace {
 
+using simulation::Alu;
 using simulation::AluError;
 using simulation::AluOperation;
 using testing::ElementsAre;
@@ -811,7 +812,7 @@ TestTraceContainer process_truncate_trace(const MemoryValue& a, const MemoryTag&
     NiceMock<simulation::MockGreaterThan> gt;
     NiceMock<simulation::MockFieldGreaterThan> field_gt;
     NiceMock<simulation::MockRangeCheck> range_check;
-    simulation::Alu alu(gt, field_gt, range_check, alu_event_emitter);
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     alu.truncate(a, dst_tag);
 

@@ -612,7 +612,7 @@ TEST_F(ExecutionSimulationTest, Cast)
     uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U1);
     MemoryValue value = MemoryValue::from<uint64_t>(7);
 
-    EXPECT_CALL(context, get_memory).Times(2).WillRepeatedly(ReturnRef(memory));
+    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
     EXPECT_CALL(memory, get(src_addr)).WillOnce(ReturnRef(value));
 
     EXPECT_CALL(alu, truncate(value.as_ff(), static_cast<MemoryTag>(dst_tag)))

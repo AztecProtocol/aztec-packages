@@ -143,7 +143,7 @@ void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAd
 
     get_gas_tracker().consume_gas();
     MemoryValue truncated = alu.truncate(val.as_ff(), static_cast<MemoryTag>(dst_tag));
-    context.get_memory().set(dst_addr, truncated);
+    memory.set(dst_addr, truncated);
     set_output(opcode, truncated);
 }
 
@@ -203,7 +203,7 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value)
 {
     get_gas_tracker().consume_gas();
 
@@ -885,14 +885,13 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::RETURNDATASIZE:
         call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
-    // TODO(fcarreiro): find a better way to handle this through call_with_operands?
     case ExecutionOpCode::DEBUGLOG:
         debug_log(context,
                   resolved_operands.at(0).as<MemoryAddress>(),
                   resolved_operands.at(1).as<MemoryAddress>(),
                   resolved_operands.at(2).as<MemoryAddress>(),
                   resolved_operands.at(3).as<uint16_t>(),
-                  false);
+                  debug_logging);
         break;
     case ExecutionOpCode::AND:
         call_with_operands(&Execution::and_op, context, resolved_operands);

@@ -153,7 +153,7 @@ struct lookup_alu_exec_dispatching_set_settings_ {
                                                                                     ColumnAndShifts::alu_ia_tag,
                                                                                     ColumnAndShifts::alu_op_id,
                                                                                     ColumnAndShifts::alu_ic,
-                                                                                    ColumnAndShifts::alu_ia_tag };
+                                                                                    ColumnAndShifts::alu_ic_tag };
 };
 
 using lookup_alu_exec_dispatching_set_settings = lookup_settings<lookup_alu_exec_dispatching_set_settings_>;
