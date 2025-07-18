@@ -195,7 +195,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
     using G1Native = typename Curve::GroupNative::affine_element;
     using FFNative = typename Curve::ScalarFieldNative;
 
-    static constexpr size_t NUM_WIRES = HidingKernelIO_::Flavor::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = HidingKernelIO_::Builder::NUM_WIRES;
 
     std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
     for (auto& commitment : ecc_op_tables_val) {
