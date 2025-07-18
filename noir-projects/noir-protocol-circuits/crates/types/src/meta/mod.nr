@@ -344,20 +344,20 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Generates `Packable` implementation for a given struct and returns the packed length.
-///
-/// Note: We are having this function separate from `derive_packable` because we use this in the note macros to get
-/// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
-/// the note in the global `NOTES` map. There the length is used to generate partial note helper functions.
-pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted, u32) {
+/// Generates `Packable` implementation for a given struct.
+pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
-    // The packed length is the sum of the packed lengths of each field type.
-    let packed_len = params
-        .map(|(_, param_type, _): (Quoted, Type, Quoted)| get_packable_len(param_type))
-        .fold(0, |acc, len| acc + len);
+    // The following will give us <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
+    let right_hand_side_of_definition_of_n = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+            <$param_type as $crate::traits::Packable>::N
+        }
+        })
+        .join(quote {+});
 
     // Generates packing code for each struct member that:
     // 1. Packs the member
@@ -395,10 +395,9 @@ pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted
         .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
         .join(quote {,});
 
-    (
-        quote {
+    quote {
         impl $crate::traits::Packable for $typ {
-            let N: u32 = $packed_len;
+            let N: u32 = $right_hand_side_of_definition_of_n;
 
             fn pack(self) -> [Field; Self::N] {
                 let mut result = [0; Self::N];
@@ -417,14 +416,7 @@ pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted
                 Self { $struct_members }
             }
         }
-    },
-        packed_len,
-    )
-}
-
-pub(crate) comptime fn derive_packable(s: TypeDefinition) -> Quoted {
-    let (packable_impl, _) = derive_packable_and_get_packed_len(s);
-    packable_impl
+    }
 }
 
 #[derive(Packable, Serialize, Deserialize, Eq)]
