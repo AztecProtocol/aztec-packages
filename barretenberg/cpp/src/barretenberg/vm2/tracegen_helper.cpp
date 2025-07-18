@@ -28,6 +28,7 @@
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
+#include "barretenberg/vm2/tracegen/l1_to_l2_message_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -398,6 +399,13 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     AVM_TRACK_TIME("tracegen/get_contract_instance",
                                    get_contract_instance_builder.process(events.get_contract_instance_events, trace));
                     clear_events(events.get_contract_instance_events);
+                },
+                [&]() {
+                    L1ToL2MessageTreeCheckTraceBuilder l1_to_l2_message_tree_check_trace_builder;
+                    AVM_TRACK_TIME("tracegen/l1_to_l2_message_tree_check",
+                                   l1_to_l2_message_tree_check_trace_builder.process(
+                                       events.l1_to_l2_msg_tree_check_events, trace));
+                    clear_events(events.l1_to_l2_msg_tree_check_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -434,7 +442,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs(),
                              GreaterThanTraceBuilder::interactions.get_all_jobs(),
                              ContractInstanceRetrievalTraceBuilder::interactions.get_all_jobs(),
-                             GetContractInstanceTraceBuilder::interactions.get_all_jobs());
+                             GetContractInstanceTraceBuilder::interactions.get_all_jobs(),
+                             L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
