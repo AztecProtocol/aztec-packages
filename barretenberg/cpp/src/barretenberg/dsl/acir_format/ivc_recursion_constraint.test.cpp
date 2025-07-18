@@ -475,6 +475,8 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
                 std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         }
     }
+
+    info("now we do the fake stuff ========================================");
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {

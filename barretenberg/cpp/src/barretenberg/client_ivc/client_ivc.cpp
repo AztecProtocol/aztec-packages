@@ -405,11 +405,11 @@ ClientIVC::PairingPoints ClientIVC::complete_hiding_circuit_logic(
 
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_accumulator };
-    PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
-    points_accumulator.aggregate(decider_pairing_points);
-
     info("hash f: ", circuit.hash_circuit());
-
+    PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
+    info("hash g: ", circuit.hash_circuit());
+    points_accumulator.aggregate(decider_pairing_points);
+    info("hash h: ", circuit.hash_circuit());
     return points_accumulator;
 }
 

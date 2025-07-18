@@ -2421,9 +2421,9 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
     // Hash the selectors, the wires, and the variable index array (which captures information about copy constraints)
     for (auto& block : blocks.get()) {
         std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
-        std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
+        // std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
     }
-    convert_and_insert(circuit.real_variable_index);
+    // convert_and_insert(circuit.real_variable_index);
 
     return from_buffer<uint256_t>(crypto::sha256(to_hash));
 }
