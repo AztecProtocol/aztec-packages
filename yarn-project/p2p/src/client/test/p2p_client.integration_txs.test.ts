@@ -4,13 +4,13 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { PeerErrorSeverity } from '../../../../stdlib/src/p2p/peer_error.js';
 import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
