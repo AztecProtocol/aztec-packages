@@ -637,8 +637,14 @@ StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_cons
             if (connect_variables) {
                 connect_all_variables_in_vector(ultra_circuit_constructor, memory_gate_variables);
             }
+            auto nnf_gate_variables = get_non_native_field_gate_connected_component(
+                ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
+            if (connect_variables) {
+                connect_all_variables_in_vector(ultra_circuit_constructor, nnf_gate_variables);
+            }
             if (arithmetic_gates_variables.empty() && elliptic_gate_variables.empty() &&
-                lookup_gate_variables.empty() && poseidon2_gate_variables.empty() && memory_gate_variables.empty()) {
+                lookup_gate_variables.empty() && poseidon2_gate_variables.empty() && memory_gate_variables.empty() &&
+                nnf_gate_variables.empty()) {
                 // if all vectors are empty it means that current block is delta range, and it needs another
                 // processing method
                 auto delta_range_gate_variables = get_sort_constraint_connected_component(
