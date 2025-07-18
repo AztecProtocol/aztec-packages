@@ -87,7 +87,8 @@ template <typename Op> struct BinaryOperationVisitor {
                 return static_cast<T>(Op{}(a, b));
             }
         } else {
-            throw TagMismatchException();
+            throw TagMismatchException("Cannot perform operation between different types: " +
+                                       std::to_string(tag_for_type<T>()) + " and " + std::to_string(tag_for_type<U>()));
         }
     }
 };
