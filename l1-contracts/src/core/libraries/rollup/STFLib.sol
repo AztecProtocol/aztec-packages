@@ -121,6 +121,15 @@ library STFLib {
     return getStorage().tempBlockLogs[_blockNumber % size].decompress();
   }
 
+  function getStorageTempBlockLog(uint256 _blockNumber)
+    internal
+    view
+    returns (CompressedTempBlockLog storage)
+  {
+    (, uint256 size) = innerIsStale(_blockNumber, true);
+    return getStorage().tempBlockLogs[_blockNumber % size];
+  }
+
   function getHeaderHash(uint256 _blockNumber) internal view returns (bytes32) {
     (, uint256 size) = innerIsStale(_blockNumber, true);
     return getStorage().tempBlockLogs[_blockNumber % size].headerHash;
