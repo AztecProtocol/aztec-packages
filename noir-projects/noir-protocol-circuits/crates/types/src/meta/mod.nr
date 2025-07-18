@@ -436,35 +436,30 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
 /// # Example
 /// For a struct defined as:
 /// ```
-/// struct Point {
-///     x: Field,
-///     y: Field
-/// }
-///
-/// struct Container {
-///     point: Point,
-///     value: u32
+/// struct Log<N> {
+///     fields: [Field; N],
+///     length: u32
 /// }
 /// ```
 ///
 /// This function generates code equivalent to:
 /// ```
-/// impl Serialize for Container {
-///     let N: u32 = <Point as Serialize>::N + <u32 as Serialize>::N;
+/// impl<let N: u32> Serialize for Log<N> {
+///     let N: u32 = <[Field; N] as Serialize>::N + <u32 as Serialize>::N;
 ///
 ///     #[inline_always]
 ///     fn serialize(self) -> [Field; Self::N] {
 ///         let mut result = [0; _];
 ///         let mut offset = 0;
 ///
-///         let serialized_member = Serialize::serialize(self.point);
-///         let serialized_member_len = <Point as Serialize>::N;
+///         let serialized_member = Serialize::serialize(self.fields);
+///         let serialized_member_len = <[Field; N] as Serialize>::N;
 ///         for i in 0..serialized_member_len {
 ///             result[i + offset] = serialized_member[i];
 ///         }
 ///         offset += serialized_member_len;
 ///
-///         let serialized_member = Serialize::serialize(self.value);
+///         let serialized_member = Serialize::serialize(self.length);
 ///         let serialized_member_len = <u32 as Serialize>::N;
 ///         for i in 0..serialized_member_len {
 ///             result[i + offset] = serialized_member[i];
@@ -475,6 +470,10 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
 ///     }
 /// }
 /// ```
+///
+/// TODO(benesjan): does this make sense? Can we just slap there the non-numeric generics?
+/// Note that numeric generic parameters (like `N` in `Log<N>`) are supported.
+/// Non-numeric generic parameters (like `T` in `Container<T>`) are not supported.
 pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
