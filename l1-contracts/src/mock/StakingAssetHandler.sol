@@ -48,6 +48,7 @@ interface IStakingAssetHandler {
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
   error InvalidScope();
+  error InvalidDomain();
   error ProofNotBoundToAddress(address _expected, address _received);
   error ProofNotBoundToChainId(uint256 _expected, uint256 _received);
   error SybilDetected(bytes32 _nullifier);
@@ -289,16 +290,19 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     // If active, nullifiers will end up being zero, but it is user provided input, so we are sanity checking it
     require(_params.devMode == false, InvalidProof());
 
+    require(
+      keccak256(bytes(_params.domain)) == keccak256(bytes(validDomain)),
+      InvalidDomain()
+    );
+    require(
+      keccak256(bytes(_params.scope)) == keccak256(bytes(validScope)),
+      InvalidScope()
+    );
+
     (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
 
     require(verified, InvalidProof());
     require(!nullifiers[nullifier], SybilDetected(nullifier));
-
-    // Note: below is checked from user input with proof in verify proof, however, we check here again to enforce scoping
-    require(
-      zkPassportVerifier.verifyScopes(_params.publicInputs, validDomain, validScope),
-      InvalidScope()
-    );
 
     if (!skipBindCheck) {
       bytes memory data =
