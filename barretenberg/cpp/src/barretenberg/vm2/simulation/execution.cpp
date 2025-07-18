@@ -611,6 +611,53 @@ void Execution::get_contract_instance(ContextInterface& context,
     // No `set_output` here since the dedicated component handles memory writes.
 }
 
+void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_hash_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITNOTEHASH;
+
+    auto& memory = context.get_memory();
+    auto note_hash = memory.get(note_hash_addr);
+    set_and_validate_inputs(opcode, { note_hash });
+
+    get_gas_tracker().consume_gas();
+
+    if (merkle_db.get_tree_state().noteHashTree.counter == MAX_NOTE_HASHES_PER_TX) {
+        throw OpcodeExecutionException("EMITNOTEHASH: Maximum number of note hashes reached");
+    }
+
+    merkle_db.note_hash_write(context.get_address(), note_hash.as<FF>());
+}
+
+void Execution::l1_to_l2_message_exists(ContextInterface& context,
+                                        MemoryAddress msg_hash_addr,
+                                        MemoryAddress leaf_index_addr,
+                                        MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NOTEHASHEXISTS;
+
+    auto& memory = context.get_memory();
+    auto msg_hash = memory.get(msg_hash_addr);
+    auto leaf_index = memory.get(leaf_index_addr);
+    set_and_validate_inputs(opcode, { msg_hash, leaf_index });
+
+    get_gas_tracker().consume_gas();
+
+    uint64_t leaf_index_value = leaf_index.as<uint64_t>();
+
+    bool index_in_range = greater_than.gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index_value);
+
+    MemoryValue value;
+
+    if (index_in_range) {
+        value = MemoryValue::from<uint1_t>(merkle_db.l1_to_l2_msg_exists(leaf_index_value, msg_hash.as<FF>()));
+    } else {
+        value = MemoryValue::from<uint1_t>(0);
+    }
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -844,6 +891,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::GETCONTRACTINSTANCE:
         call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITNOTEHASH:
+        call_with_operands(&Execution::emit_note_hash, context, resolved_operands);
+        break;
+    case ExecutionOpCode::L1TOL2MSGEXISTS:
+        call_with_operands(&Execution::l1_to_l2_message_exists, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

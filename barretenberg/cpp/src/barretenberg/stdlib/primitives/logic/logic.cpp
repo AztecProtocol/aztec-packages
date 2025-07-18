@@ -37,8 +37,8 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
     const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t, size_t)>& get_chunk)
 {
     // ensure the number of bits doesn't exceed field size and is not negatove
-    ASSERT(num_bits < 254);
-    ASSERT(num_bits > 0);
+    BB_ASSERT_LT(num_bits, 254U);
+    BB_ASSERT_GT(num_bits, 0U);
 
     if (a.is_constant() && !b.is_constant()) {
         Builder* ctx = b.get_context();
