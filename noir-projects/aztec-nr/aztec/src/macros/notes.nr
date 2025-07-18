@@ -3,14 +3,14 @@ use crate::{
     note::note_getter_options::PropertySelector,
 };
 use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::{derive_packable, get_packable_len};
+use protocol_types::meta::derive_packable;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
 /// A map from note type to note_packed_len.
 pub comptime mut global NOTES: UHashMap<Type, u32, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
-pub comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
+comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
 
 /// The note type id is set by enumerating the note types.
 comptime fn get_next_note_type_id() -> Field {
