@@ -31,7 +31,7 @@ unconstrained fn access_control() {
 
     // Check it worked
     let is_minter = is_minter_call_interface.view(&mut env.public());
-    assert(is_minter == true);
+    assert(is_minter);
 
     // Revoke minter as admin
     NFT::at(nft_contract_address).set_minter(recipient, false).call(&mut env.public());

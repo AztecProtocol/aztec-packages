@@ -545,6 +545,84 @@ TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
                               "EMITNOTEHASH: Maximum number of note hashes reached");
 }
 
+TEST_F(ExecutionSimulationTest, L1ToL2MessageExists)
+{
+    MemoryAddress msg_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto msg_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(true));
+
+    EXPECT_CALL(merkle_db, l1_to_l2_msg_exists(leaf_index.as<uint64_t>(), msg_hash.as<FF>())).WillOnce(Return(true));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+
+    execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, L1ToL2MessageExistsOutOfRange)
+{
+    MemoryAddress msg_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto msg_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(L1_TO_L2_MSG_TREE_LEAF_COUNT + 1);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(false));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
+
+    execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, Set)
+{
+    MemoryAddress dst_addr = 10;
+    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U8);
+    FF value = 7;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(alu, truncate(value, static_cast<MemoryTag>(dst_tag))).WillOnce(Return(MemoryValue::from<uint8_t>(7)));
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint8_t>(7)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.set(context, dst_addr, dst_tag, value);
+}
+
+TEST_F(ExecutionSimulationTest, Cast)
+{
+    MemoryAddress src_addr = 9;
+    MemoryAddress dst_addr = 10;
+    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U1);
+    MemoryValue value = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
+    EXPECT_CALL(memory, get(src_addr)).WillOnce(ReturnRef(value));
+
+    EXPECT_CALL(alu, truncate(value.as_ff(), static_cast<MemoryTag>(dst_tag)))
+        .WillOnce(Return(MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.cast(context, src_addr, dst_addr, dst_tag);
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation

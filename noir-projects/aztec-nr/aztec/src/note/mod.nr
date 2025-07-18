@@ -8,4 +8,3 @@ pub mod note_viewer_options;
 pub mod retrieved_note;
 pub mod utils;
 pub mod note_emission;
-pub mod note_field;
