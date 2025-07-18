@@ -7,7 +7,6 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
-#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -156,9 +155,9 @@ using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
  * will be verified with an UltraVerifier, which expects the last public input to always be the pairing inputs.
  *
  */
-template <class Builder> class HidingKernelIO {
+template <class Builder_> class HidingKernelIO {
   public:
-    using Flavor = MegaFlavor;
+    using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
@@ -167,13 +166,13 @@ template <class Builder> class HidingKernelIO {
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    std::array<G1, Flavor::NUM_WIRES>
+    std::array<G1, Builder::NUM_WIRES>
         ecc_op_tables;            // commitments to merged tables obtain from final Merge verification
     PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingInputs::PUBLIC_INPUTS_SIZE + Flavor::NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
+        PairingInputs::PUBLIC_INPUTS_SIZE + Builder::NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -215,7 +214,7 @@ template <class Builder> class HidingKernelIO {
 
         static constexpr size_t G1_PUBLIC_INPUTS_SIZE = Curve::Group::PUBLIC_INPUTS_SIZE;
 
-        std::array<G1, Flavor::NUM_WIRES> ecc_op_tables;
+        std::array<G1, Builder::NUM_WIRES> ecc_op_tables;
         PairingPoints pairing_inputs;
 
         /**
