@@ -291,6 +291,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
     };
 
+    const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -316,6 +320,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(check);
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
+    add_update_inputs_flag(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
