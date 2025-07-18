@@ -692,7 +692,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-                return api.check_precomputed_vks(ivc_inputs_path) ? 0 : 1;
+                return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {
