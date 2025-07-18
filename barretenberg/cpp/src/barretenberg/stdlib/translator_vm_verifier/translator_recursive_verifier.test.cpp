@@ -131,7 +131,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
-            ASSERT(verified);
+            ASSERT_TRUE(verified);
         }
     }
 

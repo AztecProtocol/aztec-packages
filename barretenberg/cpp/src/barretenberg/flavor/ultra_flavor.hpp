@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -450,7 +451,7 @@ class UltraFlavor {
             Base::template serialize_to_buffer(kzg_w_comm, proof_data);
 
             // sanity check to make sure we generate the same length of proof as before.
-            ASSERT(proof_data.size() == old_proof_length);
+            BB_ASSERT_EQ(proof_data.size(), old_proof_length);
         }
     };
 

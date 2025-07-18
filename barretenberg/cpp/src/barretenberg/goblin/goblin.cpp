@@ -6,6 +6,7 @@
 
 #include "goblin.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
@@ -53,8 +54,9 @@ GoblinProof Goblin::prove()
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
     prove_merge(transcript); // Use shared transcript for merge proving
-    ASSERT(merge_verification_queue.size() == 1,
-           "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
+    BB_ASSERT_EQ(merge_verification_queue.size(),
+                 1U,
+                 "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
     goblin_proof.merge_proof = merge_verification_queue.back();
 
     {
