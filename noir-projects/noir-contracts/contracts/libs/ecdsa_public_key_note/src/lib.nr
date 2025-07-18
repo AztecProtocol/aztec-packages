@@ -1,9 +1,7 @@
-use dep::aztec::{
-    protocol_types::{address::AztecAddress, traits::Packable},
+use aztec::{
+    protocol_types::{address::AztecAddress, traits::{FromField, Packable, ToField}},
     macros::notes::note
 };
-
-use dep::aztec::protocol_types::traits::{FromField, ToField};
 
 
 // Stores an ECDSA public key composed of two 32-byte elements
