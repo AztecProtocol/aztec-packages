@@ -65,14 +65,9 @@ broker:
   hostNetwork: false
 
   service:
-    httpPort: 8080
     p2p:
       enabled: false
       nodePortEnabled: false
-    admin:
-      enabled: false
-    headless:
-      enabled: false
   rbac:
     create: false
   serviceAccount:
@@ -99,10 +94,6 @@ agent:
     p2p:
       enabled: false
       nodePortEnabled: false
-    admin:
-      enabled: false
-    headless:
-      enabled: false
 
   rbac:
     create: false

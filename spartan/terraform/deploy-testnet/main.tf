@@ -61,7 +61,7 @@ data "google_secret_manager_secret_version" "mnemonic_latest" {
 }
 
 data "google_secret_manager_secret_version" "blockchain_node_api_key_latest" {
-  secret = "${var.RELEASE_PREFIX}-geth-api-key"
+  secret = "alpha-testnet-geth-api-key"
 }
 
 data "google_secret_manager_secret_version" "quicknode_sepolia_rpc" {
