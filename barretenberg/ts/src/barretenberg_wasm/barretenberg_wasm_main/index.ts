@@ -6,6 +6,7 @@ import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/i
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
 import { createDebugLogger } from '../../log/index.js';
+import { Decoder, Encoder } from 'msgpackr';
 
 /**
  * This is the "main thread" implementation of BarretenbergWasm.
@@ -135,6 +136,47 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 
       return this.getMemorySlice(ptr + 4, ptr + 4 + length);
     });
+  }
+
+  private recursiveUint8ArrayToBuffer(data: any): any {
+    if (Array.isArray(data)) {
+      return data.map(item => this.recursiveUint8ArrayToBuffer(item));
+    } else if (data instanceof Uint8Array) {
+      return Buffer.from(data);
+    } else if (data && typeof data === 'object') {
+      const fixed: any = {};
+      for (const key in data) {
+        fixed[key] = this.recursiveUint8ArrayToBuffer(data[key]);
+      }
+      return fixed;
+    } else {
+      return data;
+    }
+  }
+
+  callCbind(cbind: string, input: any[]): any {
+    const outputSizePtr = this.call('bbmalloc', 4);
+    const outputMsgpackPtr = this.call('bbmalloc', 4);
+
+    const inputBuffer = new Encoder({ useRecords: false }).pack(input);
+    const inputPtr = this.call('bbmalloc', inputBuffer.length);
+    this.writeMemory(inputPtr, inputBuffer);
+    this.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
+    
+    const readPtr32 = (ptr32: number) => {
+      const dataView = new DataView(this.getMemorySlice(ptr32, ptr32 + 4).buffer);
+      return dataView.getUint32(0, true);
+    };
+    
+    const encodedResult = this.getMemorySlice(
+      readPtr32(outputMsgpackPtr),
+      readPtr32(outputMsgpackPtr) + readPtr32(outputSizePtr),
+    );
+    const result = this.recursiveUint8ArrayToBuffer(new Decoder({ useRecords: false }).unpack(encodedResult));
+    this.call('bbfree', inputPtr);
+    this.call('bbfree', outputSizePtr);
+    this.call('bbfree', outputMsgpackPtr);
+    return result;
   }
 }
 
