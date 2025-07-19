@@ -64,7 +64,7 @@ describe('Keys', () => {
       const noteOwner = wallet.getAddress();
       const noteStorageSlot = 12;
 
-      await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot).send().wait();
+      await testContract.methods.call_create_note(noteValue, noteOwner, noteStorageSlot, false).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 

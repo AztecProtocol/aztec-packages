@@ -259,7 +259,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     {
       const arbitraryValue = 5n;
       const receipt = await testContract.methods
-        .call_create_note(arbitraryValue, owner, arbitraryStorageSlot)
+        .call_create_note(arbitraryValue, owner, arbitraryStorageSlot, false)
         .send()
         .wait();
       const notes = await pxe.getNotes({ txHash: receipt.txHash, contractAddress: testContract.address });

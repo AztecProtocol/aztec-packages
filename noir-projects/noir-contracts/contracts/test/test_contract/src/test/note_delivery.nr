@@ -3,7 +3,7 @@ use dep::aztec::{
     protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
 };
 
-global VALUE: Field = 5;
+global VALUE: u128 = 5;
 global STORAGE_SLOT: Field = 17;
 global ACTIVE_OR_NULLIFIED: bool = false; // We don't care about nullified note retrieval in discovery tests
 
@@ -21,13 +21,14 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 }
 
 #[test]
-unconstrained fn create_note_and_read_in_private() {
+unconstrained fn create_note_private_only_tx_and_read_in_private() {
     let (env, contract_address, sender, recipient) = setup();
     let test_contract = Test::at(contract_address);
 
+    let make_tx_hybrid = false;
     let _ = env.call_private_void(
         sender,
-        test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT),
+        test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT, make_tx_hybrid),
     );
 
     // The 'from' param is irrelevant in this case
@@ -38,14 +39,124 @@ unconstrained fn create_note_and_read_in_private() {
 }
 
 #[test]
-unconstrained fn create_note_and_read_in_utility() {
+unconstrained fn create_note_private_only_tx_and_read_in_utility() {
+    let (env, contract_address, sender, recipient) = setup();
+    let test_contract = Test::at(contract_address);
+
+    let make_tx_hybrid = false;
+    let _ = env.call_private_void(
+        sender,
+        test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT, make_tx_hybrid),
+    );
+
+    let retrieved = env.simulate_utility(test_contract._experimental_call_view_notes(
+        STORAGE_SLOT,
+        ACTIVE_OR_NULLIFIED,
+    ));
+    assert_eq(retrieved, VALUE);
+}
+
+#[test]
+unconstrained fn create_note_hybrid_tx_and_read_in_private() {
+    let (env, contract_address, sender, recipient) = setup();
+    let test_contract = Test::at(contract_address);
+
+    let make_tx_hybrid = true;
+    let _ = env.call_private_void(
+        sender,
+        test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT, make_tx_hybrid),
+    );
+
+    // The 'from' param is irrelevant in this case
+    let retrieved = env
+        .call_private(recipient, test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED))
+        .return_value;
+    assert_eq(retrieved, VALUE);
+}
+
+#[test]
+unconstrained fn create_note_hybrid_tx_and_read_in_utility() {
+    let (env, contract_address, sender, recipient) = setup();
+    let test_contract = Test::at(contract_address);
+
+    let make_tx_hybrid = true;
+    let _ = env.call_private_void(
+        sender,
+        test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT, make_tx_hybrid),
+    );
+
+    let retrieved = env.simulate_utility(test_contract._experimental_call_view_notes(
+        STORAGE_SLOT,
+        ACTIVE_OR_NULLIFIED,
+    ));
+    assert_eq(retrieved, VALUE);
+}
+
+#[test]
+unconstrained fn create_partial_note_in_one_tx_and_read_in_private() {
     let (env, contract_address, sender, recipient) = setup();
     let test_contract = Test::at(contract_address);
 
     let _ = env.call_private_void(
         sender,
-        test_contract.call_create_note(VALUE, recipient, STORAGE_SLOT),
+        test_contract.call_create_and_complete_partial_note(recipient, STORAGE_SLOT, VALUE),
     );
+
+    // The 'from' param is irrelevant in this case
+    let retrieved = env
+        .call_private(recipient, test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED))
+        .return_value;
+    // fails because the order of fields in value note and uint note is not the same - we're reading the randomness. change test to use uintnote everywhere?
+    assert_eq(retrieved, VALUE);
+}
+
+#[test]
+unconstrained fn create_partial_note_in_one_tx_and_read_in_utility() {
+    let (env, contract_address, sender, recipient) = setup();
+    let test_contract = Test::at(contract_address);
+
+    let _ = env.call_private_void(
+        sender,
+        test_contract.call_create_and_complete_partial_note(recipient, STORAGE_SLOT, VALUE),
+    );
+
+    let retrieved = env.simulate_utility(test_contract._experimental_call_view_notes(
+        STORAGE_SLOT,
+        ACTIVE_OR_NULLIFIED,
+    ));
+    assert_eq(retrieved, VALUE);
+}
+
+#[test]
+unconstrained fn create_partial_note_in_two_txs_and_read_in_private() {
+    let (env, contract_address, sender, recipient) = setup();
+    let test_contract = Test::at(contract_address);
+
+    let partial_note = env
+        .call_private(sender, test_contract.call_create_partial_note(recipient, STORAGE_SLOT))
+        .return_value;
+
+    let _ =
+        env.call_public_void(sender, test_contract.call_complete_partial_note(partial_note, VALUE));
+
+    // The 'from' param is irrelevant in this case
+    let retrieved = env
+        .call_private(recipient, test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED))
+        .return_value;
+    assert_eq(retrieved, VALUE);
+}
+
+#[test]
+unconstrained fn create_partial_note_in_two_txs_and_read_in_utility() {
+    let (env, contract_address, sender, recipient) = setup();
+    let test_contract = Test::at(contract_address);
+
+    let partial_note = env
+        .call_private(sender, test_contract.call_create_partial_note(recipient, STORAGE_SLOT))
+        .return_value;
+
+    let _ =
+        env.call_public_void(sender, test_contract.call_complete_partial_note(partial_note, VALUE));
 
     let retrieved = env.simulate_utility(test_contract._experimental_call_view_notes(
         STORAGE_SLOT,

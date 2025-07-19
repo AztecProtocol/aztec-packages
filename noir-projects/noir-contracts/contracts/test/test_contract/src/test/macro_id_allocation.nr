@@ -1,15 +1,15 @@
 use crate::{Test, test_note::TestNote};
 use address_note::address_note::AddressNote;
 use aztec::note::note_interface::NoteType;
-use value_note::value_note::ValueNote;
+use uint_note::uint_note::UintNote;
 
 #[test]
 unconstrained fn note_type_id_allocation() {
     // The order in which the note types are sorted seems arbitrary and an implementation detail of Noir,
     // but the important thing is that they are sequential and start from 0.
-    assert_eq(AddressNote::get_id(), 0, "AddressNote type id should be 0");
-    assert_eq(ValueNote::get_id(), 1, "ValueNote type id should be 1");
-    assert_eq(TestNote::get_id(), 2, "TestNote type id should be 2");
+    assert_eq(AddressNote::get_id(), 0);
+    assert_eq(UintNote::get_id(), 1);
+    assert_eq(TestNote::get_id(), 2);
 }
 
 #[test]

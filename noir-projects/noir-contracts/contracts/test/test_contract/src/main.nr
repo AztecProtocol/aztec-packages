@@ -54,7 +54,7 @@ pub contract Test {
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
     use address_note::address_note::AddressNote;
-    use value_note::value_note::ValueNote;
+    use uint_note::uint_note::{PartialUintNote, UintNote};
 
     #[event]
     struct ExampleEvent {
@@ -117,10 +117,10 @@ pub contract Test {
     }
 
     #[private]
-    fn set_include_by_timestamp(include_by_timestamp: u64, enqueue_public_call: bool) {
+    fn set_include_by_timestamp(include_by_timestamp: u64, make_tx_hybrid: bool) {
         context.set_include_by_timestamp(include_by_timestamp);
 
-        if enqueue_public_call {
+        if make_tx_hybrid {
             Test::at(context.this_address()).dummy_public_call().enqueue(&mut context)
         }
     }
@@ -129,29 +129,70 @@ pub contract Test {
     #[internal]
     fn dummy_public_call() {}
 
-    // docs:start:create_note
     #[private]
-    fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
-        let note = ValueNote::new(value, owner);
+    fn call_create_note(
+        value: u128,
+        owner: AztecAddress,
+        storage_slot: Field,
+        make_tx_hybrid: bool,
+    ) {
+        // docs:start:create_note
+        let note = UintNote::new(value, owner);
         create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
         ));
+        // docs:end:create_note
 
-        // The following line causes crate::test::note_delivery tests to fail if removed
-        Test::at(context.this_address()).emit_nullifier_public(99).enqueue(&mut context);
+        if make_tx_hybrid {
+            Test::at(context.this_address()).dummy_public_call().enqueue(&mut context);
+        }
     }
-    // docs:end:create_note
 
     #[private]
-    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
+    fn call_create_partial_note(owner: AztecAddress, storage_slot: Field) -> PartialUintNote {
+        UintNote::partial(
+            owner,
+            storage_slot,
+            &mut context,
+            owner,
+            context.this_address(),
+        )
+    }
+
+    #[public]
+    fn call_complete_partial_note(partial_note: PartialUintNote, value: u128) {
+        partial_note.complete(&mut context, context.this_address(), value);
+    }
+
+    #[private]
+    fn call_create_and_complete_partial_note(
+        owner: AztecAddress,
+        storage_slot: Field,
+        value: u128,
+    ) {
+        let partial_note = UintNote::partial(
+            owner,
+            storage_slot,
+            &mut context,
+            owner,
+            context.this_address(),
+        );
+
+        Test::at(context.this_address()).call_complete_partial_note(partial_note, value).enqueue(
+            &mut context,
+        );
+    }
+
+    #[private]
+    fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
         // docs:start:get_note_from_pxe
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
         // docs:end:get_note_from_pxe
 
@@ -159,26 +200,26 @@ pub contract Test {
     }
 
     #[private]
-    fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [Field; 2] {
+    fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [u128; 2] {
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
         [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
     }
 
     #[utility]
-    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
+    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
+        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
         notes.get(0).value
     }
@@ -187,13 +228,13 @@ pub contract Test {
     unconstrained fn call_view_notes_many(
         storage_slot: Field,
         active_or_nullified: bool,
-    ) -> [Field; 2] {
+    ) -> [u128; 2] {
         let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
+        let notes: BoundedVec<UintNote, MAX_NOTES_PER_PAGE> = view_notes(storage_slot, options);
 
         [notes.get(0).value, notes.get(1).value]
     }
@@ -201,7 +242,7 @@ pub contract Test {
     #[private]
     fn call_destroy_note(storage_slot: Field) {
         let options = NoteGetterOptions::new();
-        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
         let retrieved_note = retrieved_notes.get(0);
@@ -217,7 +258,7 @@ pub contract Test {
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
         let header = context.get_block_header();
