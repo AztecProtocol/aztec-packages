@@ -95,6 +95,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
     typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
     typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    typename S::template DefaultEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
@@ -120,10 +121,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     ExecutionIdManager execution_id_manager(1);
     ToRadix to_radix(to_radix_emitter);
-    Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
+
     Poseidon2 poseidon2(
         execution_id_manager, greater_than, poseidon2_hash_emitter, poseidon2_perm_emitter, poseidon2_perm_mem_emitter);
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
@@ -143,6 +144,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
 
+    Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(hints);
@@ -199,6 +201,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         bitwise,
                         data_copy,
                         poseidon2,
+                        ecc,
                         execution_components,
                         context_provider,
                         instruction_info_db,
@@ -229,6 +232,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         sha256_compression_emitter.dump_events(),
         ecc_add_emitter.dump_events(),
         scalar_mul_emitter.dump_events(),
+        ecc_add_memory_emitter.dump_events(),
         poseidon2_hash_emitter.dump_events(),
         poseidon2_perm_emitter.dump_events(),
         poseidon2_perm_mem_emitter.dump_events(),

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -10,6 +11,12 @@
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
@@ -19,6 +26,9 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::Return;
+using ::testing::StrictMock;
+
 using tracegen::EccTraceBuilder;
 using tracegen::TestTraceContainer;
 using tracegen::ToRadixTraceBuilder;
@@ -27,11 +37,18 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using ecc = bb::avm2::ecc<FF>;
 using scalar_mul = bb::avm2::scalar_mul<FF>;
+using mem_aware_ecc = bb::avm2::ecc_mem<FF>;
 using EccSimulator = simulation::Ecc;
 using ToRadixSimulator = simulation::ToRadix;
 
 using simulation::EccAddEvent;
+using simulation::EccAddMemoryEvent;
 using simulation::EventEmitter;
+using simulation::FakeGreaterThan;
+using simulation::MemoryStore;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::MockMemory;
 using simulation::NoopEventEmitter;
 using simulation::ScalarMulEvent;
 using simulation::ToRadixEvent;
@@ -480,10 +497,18 @@ TEST(ScalarMulConstrainingTest, MulByOne)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF(1);
     ecc_simulator.scalar_mul(p, scalar);
@@ -502,10 +527,18 @@ TEST(ScalarMulConstrainingTest, BasicMul)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -524,10 +557,18 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     ecc_simulator.scalar_mul(p, FF("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6"));
     ecc_simulator.scalar_mul(q, FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09"));
@@ -546,10 +587,18 @@ TEST(ScalarMulConstrainingTest, MulInteractions)
 {
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -574,10 +623,18 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
 {
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     EmbeddedCurvePoint result = ecc_simulator.scalar_mul(EmbeddedCurvePoint::infinity(), FF(10));
     ASSERT(result.is_infinity());
@@ -600,10 +657,18 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -625,10 +690,18 @@ TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -650,10 +723,18 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -674,10 +755,18 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -697,10 +786,18 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -721,10 +818,18 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -746,10 +851,18 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -771,10 +884,18 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
-    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -792,5 +913,184 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
                               "INPUT_CONSISTENCY_INF");
 }
 
+///////////////////////////
+// Memory Aware Ecc Add
+///////////////////////////
+
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryEmptyRow)
+{
+    check_relation<mem_aware_ecc>(testing::empty_trace());
+}
+
+TEST(EccAddMemoryConstrainingTest, EccAddMemory)
+{
+
+    TestTraceContainer trace;
+    EccTraceBuilder builder;
+
+    MemoryStore memory;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
+    FakeGreaterThan gt;
+
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    ecc_simulator.add(memory, p, q, 5);
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    check_relation<mem_aware_ecc>(trace);
+}
+
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
+{
+
+    EccTraceBuilder builder;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
+    FakeGreaterThan gt;
+
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    MemoryStore memory;
+
+    EmbeddedCurvePoint result = p + q;
+
+    uint32_t dst_address = 0x1000;
+    // Set the execution and gt traces
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            // Execution
+            { C::execution_sel, 1 },
+            { C::execution_sel_execute_ecc_add, 1 },
+            { C::execution_rop_6_, dst_address },
+            { C::execution_register_0_, p.x() },
+            { C::execution_register_1_, p.y() },
+            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
+            { C::execution_register_3_, q.x() },
+            { C::execution_register_4_, q.y() },
+            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            // GT - dst out of range check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_res, 0 },
+            // Memory Writes
+            { C::memory_address, dst_address },
+            { C::memory_value, result.x() },
+            { C::memory_sel, 1 },
+            { C::memory_rw, 1 }, // write
+            { C::memory_tag, static_cast<uint8_t>(MemoryTag::FF) },
+        },
+        {
+            // Memory Writes
+            { C::memory_address, dst_address + 1 },
+            { C::memory_value, result.y() },
+            { C::memory_sel, 1 },
+            { C::memory_rw, 1 }, // write
+            { C::memory_tag, static_cast<uint8_t>(MemoryTag::FF) },
+        },
+        {
+            // Memory Writes
+            { C::memory_address, dst_address + 2 },
+            { C::memory_value, result.is_infinity() },
+            { C::memory_sel, 1 },
+            { C::memory_rw, 1 }, // write
+            { C::memory_tag, static_cast<uint8_t>(MemoryTag::U1) },
+        },
+    });
+
+    ecc_simulator.add(memory, p, q, dst_address);
+
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    check_all_interactions<EccTraceBuilder>(trace);
+    check_relation<mem_aware_ecc>(trace);
+}
+
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
+{
+
+    EccTraceBuilder builder;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
+    FakeGreaterThan gt;
+
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    MemoryStore memory;
+
+    uint32_t dst_address = AVM_HIGHEST_MEM_ADDRESS - 1; // Invalid address, will result in out of range error
+    // Set the execution and gt traces
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            // Execution
+            { C::execution_sel, 1 },
+            { C::execution_sel_execute_ecc_add, 1 },
+            { C::execution_rop_6_, dst_address },
+            { C::execution_register_0_, p.x() },
+            { C::execution_register_1_, p.y() },
+            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
+            { C::execution_register_3_, q.x() },
+            { C::execution_register_4_, q.y() },
+            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_sel_opcode_error, 1 },
+            // GT - dst out of range check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, static_cast<uint64_t>(dst_address) + 2 },
+            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_res, 1 },
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(memory, p, q, dst_address), "EccException.* dst address out of range");
+
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    check_all_interactions<EccTraceBuilder>(trace);
+    check_relation<mem_aware_ecc>(trace);
+}
 } // namespace
 } // namespace bb::avm2::constraining
