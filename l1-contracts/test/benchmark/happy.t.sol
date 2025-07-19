@@ -124,7 +124,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     CommitteeAttestation[] attestations;
   }
 
-  DecoderBase.Full full = load("empty_block_1");
+  DecoderBase.Full full = load("single_tx_block_1");
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
