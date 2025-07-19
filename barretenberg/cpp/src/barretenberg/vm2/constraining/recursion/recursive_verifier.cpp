@@ -18,14 +18,11 @@
 namespace bb::avm2 {
 
 AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
-                                           const std::shared_ptr<NativeVerificationKey>& native_verification_key)
-    : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
-    , builder(builder)
-{}
-
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
-    : key(vkey)
-    , builder(builder)
+                                           const std::shared_ptr<VerificationKey>& vkey,
+                                           const FF& vk_hash)
+    : builder(builder)
+    , key(vkey)
+    , vk_hash(vk_hash)
 {}
 
 // Evaluate the given public input column over the multivariate challenge points
@@ -90,13 +87,16 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     transcript->load_proof(stdlib_proof);
 
+    // Fiat-Shamir the vk hash
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
+    // in-circuit hashing.
+    FF vkey_hash = key->add_hash_to_transcript("avm", *transcript);
+    vk_hash.assert_equal(vkey_hash);
+    vinfo("AVM vk hash in recursive verifier: ", vkey_hash);
+    vinfo("Expected AVM vk hash in recursive verifier: ", vk_hash);
+
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
-
-    const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
-        throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
-    }
 
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
@@ -113,7 +113,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     }
 
     // unconstrained
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
+    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
     const auto padding_indicator_array =
         stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
 

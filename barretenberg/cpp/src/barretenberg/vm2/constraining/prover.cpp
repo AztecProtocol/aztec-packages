@@ -24,8 +24,11 @@ using FF = Flavor::FF;
  *
  * @tparam settings Settings class.
  */
-AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, const PCSCommitmentKey& commitment_key)
+AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key,
+                     std::shared_ptr<Flavor::VerificationKey> vk,
+                     const PCSCommitmentKey& commitment_key)
     : key(std::move(input_key))
+    , vk(std::move(vk))
     , prover_polynomials(*key)
     , commitment_key(commitment_key)
 {}
@@ -36,9 +39,9 @@ AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, const PCSCom
  */
 void AvmProver::execute_preamble_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-
-    transcript->send_to_verifier("circuit_size", circuit_size);
+    // Fiat-shamir the vk hash
+    FF vkey_hash = vk->add_hash_to_transcript("avm", *transcript);
+    vinfo("AVM vk hash in prover: ", vkey_hash);
 }
 
 /**

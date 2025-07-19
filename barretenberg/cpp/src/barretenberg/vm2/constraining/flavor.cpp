@@ -120,4 +120,24 @@ std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
     return elements;
 }
 
+/**
+ * @brief Adds the verification key hash to the transcript and returns the hash.
+ * @details Needed to make sure the Origin Tag system works. See the base class function for
+ * more details.
+ *
+ * @param domain_separator
+ * @param transcript
+ * @returns The hash of the verification key
+ */
+fr AvmFlavor::VerificationKey::add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                                      [[maybe_unused]] Transcript& transcript) const
+{
+    transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", circuit_size);
+    transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", num_public_inputs);
+    for (const Commitment& commitment : get_all()) {
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+    }
+    return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+}
+
 } // namespace bb::avm2
