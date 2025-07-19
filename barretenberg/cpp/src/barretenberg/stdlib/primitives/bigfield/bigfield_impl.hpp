@@ -37,7 +37,7 @@ bigfield<Builder, T>::bigfield(Builder* parent_context, const uint256_t& value)
                           Limb(bb::fr(value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4))) }
     , prime_basis_limb(context, value)
 {
-    ASSERT(value < modulus);
+    BB_ASSERT_LT(value, modulus);
 }
 
 template <typename Builder, typename T>
@@ -46,13 +46,13 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
                                const bool can_overflow,
                                const size_t maximum_bitlength)
 {
-    ASSERT(low_bits_in.is_constant() == high_bits_in.is_constant());
+    BB_ASSERT_EQ(low_bits_in.is_constant(), high_bits_in.is_constant());
     ASSERT((can_overflow == true && maximum_bitlength == 0) ||
            (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
 
     // Check that the values of two parts are within specified bounds
-    ASSERT(uint256_t(low_bits_in.get_value()) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));
-    ASSERT(uint256_t(high_bits_in.get_value()) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));
+    BB_ASSERT_LT(uint256_t(low_bits_in.get_value()), uint256_t(1) << (NUM_LIMB_BITS * 2));
+    BB_ASSERT_LT(uint256_t(high_bits_in.get_value()), uint256_t(1) << (NUM_LIMB_BITS * 2));
 
     context = low_bits_in.context == nullptr ? high_bits_in.context : low_bits_in.context;
     field_t<Builder> limb_0(context);
@@ -80,7 +80,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
 
     // if maximum_bitlength is set, this supercedes can_overflow
     if (maximum_bitlength > 0) {
-        ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
+        BB_ASSERT_GT(maximum_bitlength, 3 * NUM_LIMB_BITS);
         num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
     }
     // We create the high limb values similar to the low limb ones above
@@ -186,7 +186,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
 
     // if maximum_bitlength is set, this supercedes can_overflow
     if (maximum_bitlength > 0) {
-        ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
+        BB_ASSERT_GT(maximum_bitlength, 3 * NUM_LIMB_BITS);
         num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
         uint256_t max_limb_value = (uint256_t(1) << num_last_limb_bits) - 1;
         result.binary_basis_limbs[3].maximum_value = max_limb_value;
@@ -209,7 +209,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
 
 template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byte_array<Builder>& bytes)
 {
-    ASSERT(bytes.size() == 32); // we treat input as a 256-bit big integer
+    BB_ASSERT_EQ(bytes.size(), 32U); // we treat input as a 256-bit big integer
     const auto split_byte_into_nibbles = [](Builder* ctx, const field_t<Builder>& split_byte) {
         const uint64_t byte_val = uint256_t(split_byte.get_value()).data[0];
         const uint64_t lo_nibble_val = byte_val & 15ULL;
@@ -316,8 +316,8 @@ bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Build
                                                              const uint256_t& other_maximum_value) const
 {
     reduction_check();
-    ASSERT((uint512_t(other_maximum_value) + uint512_t(binary_basis_limbs[0].maximum_value)) <=
-           uint512_t(get_maximum_unreduced_limb_value()));
+    BB_ASSERT_LTE(uint512_t(other_maximum_value) + uint512_t(binary_basis_limbs[0].maximum_value),
+                  uint512_t(get_maximum_unreduced_limb_value()));
     // needed cause a constant doesn't have a valid context
     Builder* ctx = context ? context : other.context;
 
@@ -765,7 +765,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator/(const bigfield& other) cons
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::sum(const std::vector<bigfield>& terms)
 {
-    ASSERT(terms.size() > 0);
+    BB_ASSERT_GT(terms.size(), 0U);
 
     if (terms.size() == 1) {
         return terms[0];
@@ -795,7 +795,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
                                                         const bigfield& denominator,
                                                         bool check_for_zero)
 {
-    ASSERT(numerators.size() < MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LT(numerators.size(), MAXIMUM_SUMMAND_COUNT);
     if (numerators.empty()) {
         return bigfield<Builder, T>(denominator.get_context(), uint256_t(0));
     }
@@ -933,7 +933,7 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& to_add) const
 {
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
     reduction_check();
 
     Builder* ctx = context;
@@ -1057,7 +1057,7 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const
 {
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
     Builder* ctx = context ? context : to_mul.context;
     reduction_check();
     to_mul.reduction_check();
@@ -1134,9 +1134,9 @@ void bigfield<Builder, T>::perform_reductions_for_mult_madd(std::vector<bigfield
                                                             std::vector<bigfield>& mul_right,
                                                             const std::vector<bigfield>& to_add)
 {
-    ASSERT(mul_left.size() == mul_right.size());
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
-    ASSERT(mul_left.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_EQ(mul_left.size(), mul_right.size());
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(mul_left.size(), MAXIMUM_SUMMAND_COUNT);
 
     const size_t number_of_products = mul_left.size();
     // Get the maximum values of elements
@@ -1266,9 +1266,9 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
                                                      const std::vector<bigfield>& to_add,
                                                      bool fix_remainder_to_zero)
 {
-    ASSERT(mul_left.size() == mul_right.size());
-    ASSERT(mul_left.size() <= MAXIMUM_SUMMAND_COUNT);
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_EQ(mul_left.size(), mul_right.size());
+    BB_ASSERT_LTE(mul_left.size(), MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
 
     std::vector<bigfield> mutable_mul_left(mul_left);
     std::vector<bigfield> mutable_mul_right(mul_right);
@@ -1396,7 +1396,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
                              uint1024_t(DEFAULT_MAXIMUM_REMAINDER);
 
     // Check that we can actually reduce the products enough, this assert will probably never get triggered
-    ASSERT((worst_case_product_sum + add_right_maximum) < get_maximum_crt_product());
+    BB_ASSERT_LT(worst_case_product_sum + add_right_maximum, get_maximum_crt_product());
 
     // We've collapsed all constants, checked if we can compute the sum of products in the worst case, time to check
     // if we need to reduce something
@@ -1416,7 +1416,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
 
     if (fix_remainder_to_zero) {
         // This is not the only check. Circuit check is coming later :)
-        ASSERT(remainder_1024.lo == uint512_t(0));
+        BB_ASSERT_EQ(remainder_1024.lo, uint512_t(0));
     }
     const uint512_t quotient_value = quotient_1024.lo;
     const uint512_t remainder_value = remainder_1024.lo;
@@ -1456,7 +1456,7 @@ bigfield<Builder, T> bigfield<Builder, T>::dual_madd(const bigfield& left_a,
                                                      const bigfield& right_b,
                                                      const std::vector<bigfield>& to_add)
 {
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
     left_a.reduction_check();
     right_a.reduction_check();
     left_b.reduction_check();
@@ -1494,7 +1494,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
                                                     bool enable_divisor_nz_check)
 {
     // Check the basics
-    ASSERT(mul_left.size() == mul_right.size());
+    BB_ASSERT_EQ(mul_left.size(), mul_right.size());
     ASSERT(divisor.get_value() != 0);
 
     OriginTag new_tag = divisor.get_origin_tag();
@@ -1598,7 +1598,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     if (is_constant() && predicate.is_constant()) {
         auto result = *this;
         if (predicate.get_value()) {
-            ASSERT(get_value() < modulus_u512);
+            BB_ASSERT_LT(get_value(), modulus_u512);
             uint512_t out_val = (modulus_u512 - get_value()) % modulus_u512;
             result = bigfield(ctx, out_val.lo);
         }
@@ -1826,7 +1826,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are NOT allowed via ASSERT
     if (is_constant()) {
-        ASSERT(get_value() < static_cast<uint512_t>(upper_limit));
+        BB_ASSERT_LT(get_value(), static_cast<uint512_t>(upper_limit));
         return;
     }
 
@@ -1891,7 +1891,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
     (void)OriginTag(get_origin_tag(), other.get_origin_tag());
     if (is_constant() && other.is_constant()) {
         std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
-        ASSERT(get_value() == other.get_value()); // We expect constants to be less than the target modulus
+        BB_ASSERT_EQ(get_value(), other.get_value(), "We expect constants to be less than the target modulus");
         return;
     } else if (other.is_constant()) {
         // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This can lead to a situation where
@@ -1901,7 +1901,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
         // because the limb-differences would not be 0 mod r. Therefore, an honest prover needs to make sure that
         // `this` is reduced before calling this method. Also `other` should never be greater than the modulus by
         // design. As a precaution, we assert that the circuit-constant `other` is less than the modulus.
-        ASSERT(other.get_value() < modulus_u512);
+        BB_ASSERT_LT(other.get_value(), modulus_u512);
         field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
         field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
         field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
@@ -2005,14 +2005,14 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
         ++maximum_quotient_bits;
     }
 
-    ASSERT(maximum_quotient_bits <= NUM_LIMB_BITS);
+    BB_ASSERT_LTE(maximum_quotient_bits, NUM_LIMB_BITS);
     uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
     context->decompose_into_default_range(quotient_limb.get_normalized_witness_index(),
                                           static_cast<size_t>(maximum_quotient_bits));
 
-    ASSERT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER <
-           get_maximum_crt_product());
+    BB_ASSERT_LT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER,
+                 get_maximum_crt_product());
     quotient.binary_basis_limbs[0] = Limb(quotient_limb, uint256_t(1) << maximum_quotient_bits);
     quotient.binary_basis_limbs[1] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx), 0);
     quotient.binary_basis_limbs[2] = Limb(field_t<Builder>::from_witness_index(context, context->zero_idx), 0);
@@ -2041,8 +2041,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
                                                         const std::vector<bigfield>& input_remainders)
 {
 
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
-    ASSERT(input_remainders.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(input_remainders.size(), MAXIMUM_SUMMAND_COUNT);
     // Sanity checks
     input_left.sanity_check();
     input_to_mul.sanity_check();
@@ -2248,12 +2248,13 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                                                                  const bigfield& input_quotient,
                                                                  const std::vector<bigfield>& input_remainders)
 {
-    ASSERT(input_left.size() == input_right.size());
-    ASSERT(input_left.size() <= MAXIMUM_SUMMAND_COUNT);
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
-    ASSERT(input_remainders.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_EQ(input_left.size(), input_right.size());
+    BB_ASSERT_LTE(input_left.size(), MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(input_remainders.size(), MAXIMUM_SUMMAND_COUNT);
 
-    ASSERT(input_left.size() == input_right.size() && input_left.size() < 1024);
+    BB_ASSERT_EQ(input_left.size(), input_right.size());
+    BB_ASSERT_LT(input_left.size(), 1024U);
     // Sanity checks
     bool is_left_constant = true;
     for (auto& el : input_left) {
@@ -2545,7 +2546,7 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
                                                       const bigfield& quotient,
                                                       const bigfield& remainder)
 {
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
 
     // Suppose input is:
     // x = (x3 || x2 || x1 || x0)
@@ -2567,7 +2568,7 @@ template <typename Builder, typename T>
 std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_quotient_remainder_values(
     const bigfield& a, const bigfield& b, const std::vector<bigfield>& to_add)
 {
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
 
     uint512_t add_values(0);
     for (const auto& add_element : to_add) {
@@ -2590,8 +2591,8 @@ uint512_t bigfield<Builder, T>::compute_maximum_quotient_value(const std::vector
                                                                const std::vector<uint512_t>& bs,
                                                                const std::vector<uint512_t>& to_add)
 {
-    ASSERT(as.size() == bs.size());
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_EQ(as.size(), bs.size());
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
 
     uint512_t add_values(0);
     for (const auto& add_element : to_add) {
@@ -2614,11 +2615,11 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
                                                                           const std::vector<bigfield>& to_add,
                                                                           const std::vector<uint1024_t>& remainders_max)
 {
-    ASSERT(as_max.size() == bs_max.size());
+    BB_ASSERT_EQ(as_max.size(), bs_max.size());
 
-    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
-    ASSERT(as_max.size() <= MAXIMUM_SUMMAND_COUNT);
-    ASSERT(remainders_max.size() <= MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(as_max.size(), MAXIMUM_SUMMAND_COUNT);
+    BB_ASSERT_LTE(remainders_max.size(), MAXIMUM_SUMMAND_COUNT);
 
     // Check if the product sum can overflow CRT modulus
     if (mul_product_overflows_crt_modulus(as_max, bs_max, to_add)) {

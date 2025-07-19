@@ -1,5 +1,6 @@
 #include "bool.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <gtest/gtest.h>
@@ -121,16 +122,14 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_start == 2);
         EXPECT_TRUE(CircuitChecker::check(builder));
 
-#ifndef NDEBUG
         // Test failure
         bool_ct a_incorrect;
         uint256_t random_value(engine.get_random_uint256());
 
         if (random_value * random_value - random_value != 0) {
-            EXPECT_DEATH(a_incorrect = witness_ct(&builder, random_value),
-                         "((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()))");
+            EXPECT_THROW_OR_ABORT(a_incorrect = witness_ct(&builder, random_value),
+                                  "((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()))");
         };
-#endif
     }
     void test_AND()
     {
@@ -189,9 +188,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                 bool_ct b = create_bool_ct(rhs, &builder);
 
                 if (a.is_constant() && b.is_constant() && !(!a.get_value() || b.get_value())) {
-#ifndef NDEBUG
-                    EXPECT_DEATH(a.must_imply(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
-#endif
+                    EXPECT_THROW_OR_ABORT(a.must_imply(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
                 } else {
                     bool result_is_constant = (!a || b).is_constant();
 
@@ -317,9 +314,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     EXPECT_EQ(CircuitChecker::check(builder), !failed);
                 } else {
                     if (failed) {
-#ifndef NDEBUG
-                        EXPECT_DEATH(a.assert_equal(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
-#endif
+                        EXPECT_THROW_OR_ABORT(a.assert_equal(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
                     }
                 }
             }

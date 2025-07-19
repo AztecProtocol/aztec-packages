@@ -65,7 +65,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             }
         });
         for (size_t i = 0; i < num_points - 1; ++i) {
-            BB_ASSERT_EQ(generators[i].x == generators[i + 1].x, false);
+            ASSERT_EQ(generators[i].x == generators[i + 1].x, false);
         }
     };
 };
@@ -315,7 +315,7 @@ TYPED_TEST(ScalarMultiplicationTest, EvaluatePippengerRound)
         Element previous_round_output;
         previous_round_output.self_set_infinity();
         for (auto x : indices) {
-            BB_ASSERT_LT(x, num_points);
+            ASSERT_LT(x, num_points);
         }
         std::vector<uint64_t> point_schedule(scalars.size());
         typename scalar_multiplication::MSM<Curve>::MSMData msm_data(
@@ -369,7 +369,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMul)
     for (size_t k = 0; k < num_msms; ++k) {
         const size_t num_points = static_cast<size_t>(engine.get_random_uint16()) % 400;
 
-        BB_ASSERT_LT(vector_offset + num_points, TestFixture::num_points);
+        ASSERT_LT(vector_offset + num_points, TestFixture::num_points);
         std::span<ScalarField> batch_scalars(&TestFixture::scalars[vector_offset], num_points);
         std::span<const AffineElement> batch_points(&TestFixture::generators[vector_offset], num_points);
 

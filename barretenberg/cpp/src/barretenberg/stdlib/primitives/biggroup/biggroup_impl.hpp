@@ -8,6 +8,7 @@
 
 #include "../circuit_builders/circuit_builders.hpp"
 #include "../plookup/plookup.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -515,7 +516,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
         x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
     }
 
-    ASSERT(to_add.size() > 0);
+    BB_ASSERT_GT(to_add.size(), 0);
     to_add[0].x.assert_is_not_equal(x_1);
 
     const Fq x_minus_x_1 = x - x_1;
@@ -796,7 +797,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         std::tie(points, scalars) = mask_points(points, scalars);
     }
     const size_t num_points = points.size();
-    ASSERT(scalars.size() == num_points);
+    BB_ASSERT_EQ(scalars.size(), num_points);
 
     batch_lookup_table point_table(points);
     const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
@@ -859,7 +860,7 @@ template <typename C, class Fq, class Fr, class G>
  */
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
 {
-    ASSERT(max_num_bits % 2 == 0);
+    BB_ASSERT_EQ(max_num_bits % 2, 0U);
     /**
      *
      * Let's say we have some curve E defined over a field Fq. The order of E is p, which is prime.

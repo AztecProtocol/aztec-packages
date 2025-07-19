@@ -48,7 +48,7 @@ template <typename Builder, typename T> class bigfield {
         {
             if (input.is_constant()) {
                 maximum_value = uint256_t(input.additive_constant);
-                ASSERT(maximum_value <= max);
+                BB_ASSERT_LTE(maximum_value, max);
             } else {
                 maximum_value = max;
             }
@@ -160,8 +160,9 @@ template <typename Builder, typename T> class bigfield {
                                                 const field_t<Builder>& d,
                                                 const bool can_overflow = false)
     {
-        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
-               c.is_constant() == d.is_constant());
+        BB_ASSERT_EQ(a.is_constant(), b.is_constant());
+        BB_ASSERT_EQ(b.is_constant(), c.is_constant());
+        BB_ASSERT_EQ(c.is_constant(), d.is_constant());
         bigfield result;
         result.context = a.context;
         result.binary_basis_limbs[0] = Limb(field_t(a));
@@ -187,8 +188,9 @@ template <typename Builder, typename T> class bigfield {
                                          const field_t<Builder>& d,
                                          const bool can_overflow = false)
     {
-        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
-               c.is_constant() == d.is_constant());
+        BB_ASSERT_EQ(a.is_constant(), b.is_constant());
+        BB_ASSERT_EQ(b.is_constant(), c.is_constant());
+        BB_ASSERT_EQ(c.is_constant(), d.is_constant());
         bigfield result;
         auto ctx = a.context;
         result.context = a.context;
@@ -232,8 +234,10 @@ template <typename Builder, typename T> class bigfield {
                                                 const field_t<Builder>& prime_limb,
                                                 const bool can_overflow = false)
     {
-        ASSERT(a.is_constant() == b.is_constant() && b.is_constant() == c.is_constant() &&
-               c.is_constant() == d.is_constant() && d.is_constant() == prime_limb.is_constant());
+        BB_ASSERT_EQ(a.is_constant(), b.is_constant());
+        BB_ASSERT_EQ(b.is_constant(), c.is_constant());
+        BB_ASSERT_EQ(c.is_constant(), d.is_constant());
+        BB_ASSERT_EQ(d.is_constant(), prime_limb.is_constant());
         bigfield result;
         result.context = a.context;
         result.binary_basis_limbs[0] = Limb(field_t(a));
@@ -370,7 +374,7 @@ template <typename Builder, typename T> class bigfield {
         // `lo` and `hi` to `byte_array` each containing ((NUM_LIMB_BITS * 2) / 8) bytes.
         // Therefore, it is necessary for (NUM_LIMB_BITS * 2) to be divisible by 8 for correctly
         // converting `lo` and `hi` to `byte_array`s.
-        ASSERT((NUM_LIMB_BITS * 2 / 8) * 8 == NUM_LIMB_BITS * 2);
+        BB_ASSERT_EQ((NUM_LIMB_BITS * 2 / 8) * 8, NUM_LIMB_BITS * 2);
         result.write(byte_array<Builder>(hi, 32 - (NUM_LIMB_BITS / 4)));
         result.write(byte_array<Builder>(lo, (NUM_LIMB_BITS / 4)));
         return result;
@@ -615,8 +619,10 @@ template <typename Builder, typename T> class bigfield {
         bool is_limb_2_constant = binary_basis_limbs[2].element.is_constant();
         bool is_limb_3_constant = binary_basis_limbs[3].element.is_constant();
         bool is_prime_limb_constant = prime_basis_limb.is_constant();
-        ASSERT(is_limb_0_constant == is_limb_1_constant && is_limb_1_constant == is_limb_2_constant &&
-               is_limb_2_constant == is_limb_3_constant && is_limb_3_constant == is_prime_limb_constant);
+        BB_ASSERT_EQ(is_limb_0_constant, is_limb_1_constant);
+        BB_ASSERT_EQ(is_limb_1_constant, is_limb_2_constant);
+        BB_ASSERT_EQ(is_limb_2_constant, is_limb_3_constant);
+        BB_ASSERT_EQ(is_limb_3_constant, is_prime_limb_constant);
         return is_prime_limb_constant;
     }
 
@@ -851,7 +857,7 @@ template <typename Builder, typename T> class bigfield {
 
         // check that the add terms alone cannot overflow the crt modulus. v. unlikely so just forbid circuits that
         // trigger this case
-        ASSERT(add_term + maximum_default_bigint < get_maximum_crt_product());
+        BB_ASSERT_LT(add_term + maximum_default_bigint, get_maximum_crt_product());
         return ((product + add_term) >= get_maximum_crt_product());
     }
 
@@ -869,7 +875,7 @@ template <typename Builder, typename T> class bigfield {
                                                   const std::vector<bigfield>& to_add)
     {
         std::vector<uint1024_t> products;
-        ASSERT(as_max.size() == bs_max.size());
+        BB_ASSERT_EQ(as_max.size(), bs_max.size());
         // Computing individual products
         uint1024_t product_sum = 0;
         uint1024_t add_term = 0;
@@ -883,7 +889,7 @@ template <typename Builder, typename T> class bigfield {
 
         // check that the add terms alone cannot overflow the crt modulus. v. unlikely so just forbid circuits that
         // trigger this case
-        ASSERT(add_term + maximum_default_bigint < get_maximum_crt_product());
+        BB_ASSERT_LT(add_term + maximum_default_bigint, get_maximum_crt_product());
         return ((product_sum + add_term) >= get_maximum_crt_product());
     }
 

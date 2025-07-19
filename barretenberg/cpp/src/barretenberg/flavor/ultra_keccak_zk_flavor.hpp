@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 
 namespace bb {
@@ -180,7 +181,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::template serialize_to_buffer(this->shplonk_q_comm, proof_data);
             Base::template serialize_to_buffer(this->kzg_w_comm, proof_data);
 
-            ASSERT(proof_data.size() == old_proof_length);
+            BB_ASSERT_EQ(proof_data.size(), old_proof_length);
         }
     };
 };

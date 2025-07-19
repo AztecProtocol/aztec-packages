@@ -106,13 +106,11 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs,
-        beta,
-        gamma,
-        decider_vk->vk_and_hash->vk->circuit_size,
-        static_cast<uint32_t>(decider_vk->vk_and_hash->vk->pub_inputs_offset.get_value()));
+    const FF public_input_delta = compute_public_input_delta<Flavor>(public_inputs,
+                                                                     beta,
+                                                                     gamma,
+                                                                     decider_vk->vk_and_hash->vk->log_circuit_size,
+                                                                     decider_vk->vk_and_hash->vk->pub_inputs_offset);
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);

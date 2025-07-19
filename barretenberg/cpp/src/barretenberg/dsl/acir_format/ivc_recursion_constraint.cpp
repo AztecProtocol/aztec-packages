@@ -5,6 +5,8 @@
 // =====================
 
 #include "ivc_recursion_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
@@ -61,14 +63,15 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     // Case: INNER kernel; two PG recursive verifications, kernel and app in that order
     if (constraints.size() == 2) {
-        ASSERT(constraints[0].proof_type == pg_type && constraints[1].proof_type == pg_type);
+        BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
+        BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
         ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
         return ivc;
     }
 
-    ASSERT(false && "WARNING: Invalid set of IVC recursion constraints!");
+    throw_or_abort("Invalid set of IVC recursion constraints!");
     return ivc;
 }
 

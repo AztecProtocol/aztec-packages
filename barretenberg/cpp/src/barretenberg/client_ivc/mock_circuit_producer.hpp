@@ -120,7 +120,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         // Assume only every second circuit is a kernel, unless force_is_kernel == true
         bool is_kernel = (circuit_counter % 2 == 0) || force_is_kernel;
 
-        ClientCircuit circuit{ ivc.goblin.op_queue };
+        ClientCircuit circuit{ ivc.goblin.op_queue, is_kernel };
         if (is_kernel) {
             GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
             mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
@@ -183,9 +183,9 @@ class ClientIVCMockCircuitProducer {
      * only necessary if the structured trace is not in use).
      *
      */
-    static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
+    static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, bool is_kernel = false)
     {
-        ClientCircuit circuit{ ivc.goblin.op_queue };
+        ClientCircuit circuit{ ivc.goblin.op_queue, is_kernel };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
         return circuit;
     }
@@ -193,8 +193,7 @@ class ClientIVCMockCircuitProducer {
   public:
     ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, const size_t num_public_inputs = 0)
     {
-        ClientCircuit circuit{ ivc.goblin.op_queue };
-        circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
+        ClientCircuit circuit = create_mock_circuit(ivc, log2_num_gates, is_kernel); // construct mock base logic
         while (circuit.num_public_inputs() < num_public_inputs) {
             circuit.add_public_variable(13634816); // arbitrary number
         }

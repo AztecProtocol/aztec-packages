@@ -7,6 +7,7 @@
 #pragma once
 #include "../hash.hpp"
 #include "../memory_tree.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "nullifier_leaf.hpp"
 
@@ -102,8 +103,9 @@ template <typename HashingPolicy>
 NullifierMemoryTree<HashingPolicy>::NullifierMemoryTree(size_t depth, size_t initial_size)
     : MemoryTree<HashingPolicy>(depth)
 {
-    ASSERT(depth_ >= 1 && depth <= 32);
-    ASSERT(initial_size > 0);
+    BB_ASSERT_GTE(depth_, 1U);
+    BB_ASSERT_LTE(depth, 32U);
+    BB_ASSERT_GT(initial_size, 0U);
     total_size_ = 1UL << depth_;
     hashes_.resize(total_size_ * 2 - 2);
 

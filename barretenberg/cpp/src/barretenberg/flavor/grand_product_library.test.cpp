@@ -1,4 +1,3 @@
-
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -15,7 +14,7 @@ template <class FF> class GrandProductTests : public testing::Test {
 
     static void populate_span(auto& polynomial_view, const auto& polynomial)
     {
-        ASSERT(polynomial_view.size() <= polynomial.size());
+        ASSERT_LE(polynomial_view.size(), polynomial.size());
         for (size_t idx = 0; idx < polynomial.size(); idx++) {
             polynomial_view[idx] = polynomial[idx];
         }

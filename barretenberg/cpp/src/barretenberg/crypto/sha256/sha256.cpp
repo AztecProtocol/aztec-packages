@@ -5,6 +5,7 @@
 // =====================
 
 #include "./sha256.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/net.hpp"
 #include <array>
 #include <memory.h>
@@ -114,7 +115,7 @@ std::array<uint32_t, 8> sha256_block(const std::array<uint32_t, 8>& h_init, cons
 
 Sha256Hash sha256_block(const std::vector<uint8_t>& input)
 {
-    ASSERT(input.size() == 64);
+    BB_ASSERT_EQ(input.size(), 64U);
     std::array<uint32_t, 8> result;
     prepare_constants(result);
     std::array<uint32_t, 16> hash_input;

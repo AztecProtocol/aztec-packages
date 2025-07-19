@@ -1,4 +1,5 @@
 #include "ultra_circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <unordered_set>

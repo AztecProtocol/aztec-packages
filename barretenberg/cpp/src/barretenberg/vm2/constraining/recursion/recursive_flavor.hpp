@@ -67,8 +67,7 @@ class AvmRecursiveFlavor {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
-            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
+            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
 
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
@@ -88,9 +87,9 @@ class AvmRecursiveFlavor {
             size_t num_frs_FF = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
             size_t num_frs_Comm = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                              builder, elements.subspan(num_frs_read, num_frs_FF))
-                                              .get_value());
+            this->log_circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                                  builder, elements.subspan(num_frs_read, num_frs_FF))
+                                                  .get_value());
             num_frs_read += num_frs_FF;
             this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
                                                    builder, elements.subspan(num_frs_read, num_frs_FF))

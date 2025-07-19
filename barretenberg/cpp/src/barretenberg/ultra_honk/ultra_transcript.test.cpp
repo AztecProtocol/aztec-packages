@@ -68,7 +68,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         } else {
             size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
-            manifest_expected.add_entry(round, "vk_circuit_size", frs_per_uint32);
+            manifest_expected.add_entry(round, "vk_log_circuit_size", frs_per_uint32);
             manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_uint32);
             manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_uint32);
         }
@@ -235,7 +235,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     // Note: a manifest can be printed using manifest.print()
     manifest_expected.print();
     prover_manifest.print();
-    ASSERT(manifest_expected.size() > 0);
+    ASSERT_GT(manifest_expected.size(), 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
             info("Prover manifest discrepency in round ", round);
@@ -243,7 +243,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
             prover_manifest[round].print();
             info("Expected manifest:");
             manifest_expected[round].print();
-            ASSERT(false);
+            FAIL();
         }
     }
 }
@@ -278,7 +278,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
         const size_t num_public_inputs = static_cast<uint32_t>(verification_key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
+        ASSERT_EQ(proof.size(), HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
@@ -294,7 +294,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     auto verifier_manifest = verifier.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
-    ASSERT(prover_manifest.size() > 0);
+    ASSERT_GT(prover_manifest.size(), 0);
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
             << "Prover/Verifier manifest discrepency in round " << round;

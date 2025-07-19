@@ -38,6 +38,10 @@ class GoblinRecursiveVerifier {
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;
 
+    // Merge commitments
+    using SubtableCommitments = MergeVerifier::SubtableWitnessCommitments;
+    using Commitment = MergeVerifier::Commitment;
+
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
         using StdlibEccvmProof = ECCVMVerifier::StdlibProof;
@@ -62,9 +66,13 @@ class GoblinRecursiveVerifier {
         , transcript(transcript){};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
+        const GoblinProof&,
+        const SubtableCommitments& subtable_commitments,
+        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibProof&, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
+        const StdlibProof&,
+        const SubtableCommitments& subtable_commitments,
+        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment);
 
   private:
     Builder* builder;

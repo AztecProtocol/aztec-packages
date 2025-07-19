@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -126,9 +127,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
-            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
+            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
@@ -150,9 +149,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
             size_t num_frs_read = 0;
 
-            this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
-            this->log_circuit_size = numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value()));
+            this->log_circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
 
@@ -161,8 +158,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             }
 
             if (num_frs_read != elements.size()) {
-                info("Warning: Invalid buffer length in VerificationKey constuctor from fields!");
-                ASSERT(false);
+                throw_or_abort("Invalid buffer length in VerificationKey constuctor from fields!");
             }
         }
 

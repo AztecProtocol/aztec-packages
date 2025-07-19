@@ -95,7 +95,7 @@ class table : public FixedBaseParams {
     static std::array<bb::fr, 2> get_basic_fixed_base_table_values(const std::array<uint64_t, 2> key)
     {
         static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
-        static_assert(table_index < get_num_bits_of_multi_table(multitable_index));
+        static_assert(table_index < get_num_bits_of_multi_table<multitable_index>());
         const auto& basic_table = fixed_base_tables()[multitable_index][table_index];
         const auto index = static_cast<size_t>(key[0]);
         return { basic_table[index].x, basic_table[index].y };

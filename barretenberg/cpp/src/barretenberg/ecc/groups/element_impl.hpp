@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
@@ -726,7 +727,7 @@ void element<Fq, Fr, T>::batch_affine_add(const std::span<affine_element<Fq, Fr,
 {
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = first_group.size();
-    ASSERT(second_group.size() == first_group.size());
+    BB_ASSERT_EQ(second_group.size(), first_group.size());
 
     // Space for temporary values
     std::vector<Fq> scratch_space(num_points);

@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
@@ -454,7 +455,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         for (size_t i = 0; i < (num_rounds - midpoint); ++i) {
             negative_lo += uint256_t(15) * (uint256_t(1) << (i * 4));
         }
-        ASSERT((num_rounds - midpoint) * 4 == 136);
+        BB_ASSERT_EQ((num_rounds - midpoint) * 4, 136U);
         // If skew == 1 lo_offset = 0, else = 0xf...f
         field_t<C> lo_offset = (-field_t<C>(bb::fr(negative_lo)))
                                    .madd(wnaf_entries[wnaf_entries.size() - 1], field_t<C>(bb::fr(negative_lo)))
@@ -478,7 +479,7 @@ template <typename C, class Fq, class Fr, class G>
 std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, const size_t max_num_bits)
 {
     // We are not handling the case of odd bit lengths here.
-    ASSERT(max_num_bits % 2 == 0);
+    BB_ASSERT_EQ(max_num_bits % 2, 0U);
 
     C* ctx = scalar.context;
     uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);

@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -42,7 +43,7 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
 {
     std::vector<element> points;
     std::vector<Fr> scalars;
-    ASSERT(_points.size() == _scalars.size());
+    BB_ASSERT_EQ(_points.size(), _scalars.size());
     using NativeFr = typename Fr::native;
     auto running_scalar = NativeFr::one();
     // Get the offset generator G_offset in native and in-circuit form

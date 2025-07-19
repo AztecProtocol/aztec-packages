@@ -5,6 +5,7 @@
 // =====================
 
 #include "protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
@@ -120,12 +121,12 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     std::vector<Commitment> accumulator_commitments;
     std::vector<Commitment> instance_commitments;
     for (const auto& precomputed : keys_to_fold.get_precomputed_commitments()) {
-        ASSERT(precomputed.size() == 2);
+        BB_ASSERT_EQ(precomputed.size(), 2U);
         accumulator_commitments.emplace_back(precomputed[0]);
         instance_commitments.emplace_back(precomputed[1]);
     }
     for (const auto& witness : keys_to_fold.get_witness_commitments()) {
-        ASSERT(witness.size() == 2);
+        BB_ASSERT_EQ(witness.size(), 2U);
         accumulator_commitments.emplace_back(witness[0]);
         instance_commitments.emplace_back(witness[1]);
     }
@@ -185,9 +186,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
-    auto [accumulator_circuit_size, accumulator_log_circuit_size] = keys_to_fold.get_max_circuit_size_and_log_size();
+    FF accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
     accumulator->vk_and_hash->vk->log_circuit_size = accumulator_log_circuit_size;
-    accumulator->vk_and_hash->vk->circuit_size = accumulator_circuit_size;
 
     // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {

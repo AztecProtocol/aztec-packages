@@ -6,6 +6,7 @@
 
 #include "databus.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 
 namespace bb::stdlib {
 
