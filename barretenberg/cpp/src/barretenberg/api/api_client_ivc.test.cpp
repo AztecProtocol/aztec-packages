@@ -251,7 +251,7 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVks)
     create_test_private_execution_steps(input_path);
 
     ClientIVCAPI api;
-    EXPECT_TRUE(api.check_precomputed_vks(input_path));
+    EXPECT_TRUE(api.check_precomputed_vks(ClientIVCAPI::Flags{}, input_path));
 }
 
 // Check a case where precomputed VKs don't match

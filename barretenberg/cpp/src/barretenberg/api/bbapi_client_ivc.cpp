@@ -177,6 +177,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     std::string error_message = "Precomputed vk does not match computed vk for function " + function_name;
     if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
         response.valid = false;
+        response.actual_vk = to_buffer(computed_vk);
     }
     return response;
 }
