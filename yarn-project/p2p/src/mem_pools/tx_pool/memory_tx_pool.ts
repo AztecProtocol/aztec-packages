@@ -196,4 +196,9 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
   markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
     return Promise.resolve();
   }
+
+  stop(): Promise<void> {
+    // InMemoryTxPool doesn't have background processes to stop
+    return Promise.resolve();
+  }
 }

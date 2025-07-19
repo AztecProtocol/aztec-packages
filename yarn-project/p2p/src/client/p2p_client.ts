@@ -344,6 +344,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopped p2p service');
     await this.blockStream?.stop();
     this.log.debug('Stopped block downloader');
+    await this.txPool.stop();
+    this.log.debug('Stopped tx pool');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
     this.log.info('P2P client stopped');

@@ -7,5 +7,9 @@ describe('In-Memory TX pool', () => {
     inMemoryTxPool = new InMemoryTxPool();
   });
 
+  afterEach(async () => {
+    await inMemoryTxPool.stop();
+  });
+
   describeTxPool(() => inMemoryTxPool);
 });

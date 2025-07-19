@@ -1,4 +1,4 @@
-import { MockL2BlockSource } from '@aztec/archiver/test';
+import { MockArchiver } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -90,7 +90,7 @@ export async function makeTestP2PClient(
     ...p2pConfigOverrides,
   } as P2PConfig & DataStoreConfig;
 
-  const l2BlockSource = new MockL2BlockSource();
+  const l2BlockSource = new MockArchiver();
   await l2BlockSource.createBlocks(100);
 
   const proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
