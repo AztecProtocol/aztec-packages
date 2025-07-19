@@ -317,7 +317,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 assert_correctly_siloed_note_hash(
                     out.value(),
                     prev,
-                    index,
+                    self.hints.sorted_kept_note_hash_indexes[index],
                     self.output.claimed_first_nullifier,
                     self.output.is_private_only,
                     self.output.min_revertible_side_effect_counter,
