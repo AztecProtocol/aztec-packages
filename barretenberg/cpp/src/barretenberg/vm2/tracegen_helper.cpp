@@ -300,6 +300,13 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.poseidon2_permutation);
                 },
                 [&]() {
+                    Poseidon2TraceBuilder poseidon2_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/poseidon2_permutation_with_memory",
+                        poseidon2_builder.process_permutation_with_memory(events.poseidon2_permutation_mem, trace));
+                    clear_events(events.poseidon2_permutation_mem);
+                },
+                [&]() {
                     ToRadixTraceBuilder to_radix_builder;
                     AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
                     clear_events(events.to_radix);

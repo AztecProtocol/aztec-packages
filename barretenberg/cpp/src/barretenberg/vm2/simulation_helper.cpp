@@ -97,6 +97,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    typename S::template DefaultEventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
     typename S::template DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
     typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
@@ -118,13 +119,14 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
-    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
     Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
-    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
+    Poseidon2 poseidon2(
+        execution_id_manager, greater_than, poseidon2_hash_emitter, poseidon2_perm_emitter, poseidon2_perm_mem_emitter);
+    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2,
@@ -196,6 +198,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu,
                         bitwise,
                         data_copy,
+                        poseidon2,
                         execution_components,
                         context_provider,
                         instruction_info_db,
@@ -228,6 +231,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         scalar_mul_emitter.dump_events(),
         poseidon2_hash_emitter.dump_events(),
         poseidon2_perm_emitter.dump_events(),
+        poseidon2_perm_mem_emitter.dump_events(),
         keccakf1600_emitter.dump_events(),
         to_radix_emitter.dump_events(),
         field_gt_emitter.dump_events(),

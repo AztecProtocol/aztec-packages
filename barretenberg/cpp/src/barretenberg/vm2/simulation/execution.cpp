@@ -671,6 +671,16 @@ void Execution::l1_to_l2_message_exists(ContextInterface& context,
     set_output(opcode, value);
 }
 
+void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+{
+    get_gas_tracker().consume_gas();
+    try {
+        poseidon2.permutation(context.get_memory(), src_addr, dst_addr);
+    } catch (const Poseidon2Exception& e) {
+        throw OpcodeExecutionException("Poseidon2 permutation failed: " + std::string(e.what()));
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -919,6 +929,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::L1TOL2MSGEXISTS:
         call_with_operands(&Execution::l1_to_l2_message_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::POSEIDON2PERM:
+        call_with_operands(&Execution::poseidon2_permutation, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

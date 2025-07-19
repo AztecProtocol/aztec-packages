@@ -13,6 +13,8 @@
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
@@ -23,6 +25,9 @@
 
 namespace bb::avm2::constraining {
 namespace {
+
+using ::testing::Return;
+using ::testing::StrictMock;
 
 using tracegen::AddressDerivationTraceBuilder;
 using tracegen::EccTraceBuilder;
@@ -36,10 +41,13 @@ using simulation::Ecc;
 using simulation::EccAddEvent;
 using simulation::EventEmitter;
 using simulation::hash_public_keys;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::ScalarMulEvent;
 using simulation::ToRadix;
 using simulation::ToRadixEvent;
@@ -98,11 +106,18 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
     EventEmitter<AddressDerivationEvent> address_derivation_event_emitter;
 
     ToRadix to_radix_simulator(to_radix_event_emitter);
     Ecc ecc_simulator(to_radix_simulator, ecadd_event_emitter, scalar_mul_event_emitter);
-    Poseidon2 poseidon2_simulator(hash_event_emitter, perm_event_emitter);
+
+    StrictMock<MockExecutionIdManager> mock_exec_id_manager;
+    EXPECT_CALL(mock_exec_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+    StrictMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2_simulator(
+        mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
     AddressDerivation address_derivation(poseidon2_simulator, ecc_simulator, address_derivation_event_emitter);
 

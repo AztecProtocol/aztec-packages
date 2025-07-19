@@ -5,7 +5,10 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_poseidon2_mem.hpp"
+#include "barretenberg/vm2/generated/relations/perms_poseidon2_mem.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -428,7 +431,105 @@ void Poseidon2TraceBuilder::process_permutation(
     }
 }
 
+void Poseidon2TraceBuilder::process_permutation_with_memory(
+    const simulation::EventEmitterInterface<simulation::Poseidon2PermutationMemoryEvent>::Container& perm_mem_events,
+    TraceContainer& trace)
+{
+    using C = Column;
+    uint32_t row = 0;
+
+    for (const auto& event : perm_mem_events) {
+        // Addresses cast to uint64_t to capture overflows
+        uint64_t src_addr = static_cast<uint64_t>(event.src_address);
+        uint64_t dst_addr = static_cast<uint64_t>(event.dst_address);
+        // Error Handling, check that the addresses are within the valid range
+        // The max read address is src_addr + 3 since 4 input elements are read
+        // The max write address is dst_addr + 3 since 4 output elements are written
+        bool src_out_of_range_err = src_addr + 3 > AVM_HIGHEST_MEM_ADDRESS;
+        bool dst_out_of_range_err = dst_addr + 3 > AVM_HIGHEST_MEM_ADDRESS;
+        bool should_read_mem = !(src_out_of_range_err || dst_out_of_range_err);
+
+        // Error Handling, check that the input tags are valid
+        bool invalid_tag =
+            std::ranges::any_of(event.input, [](const auto& input) { return input.get_tag() != MemoryTag::FF; });
+        uint32_t target_tag = static_cast<uint32_t>(MemoryTag::FF);
+        uint32_t batched_tag_check = 0;
+        // Performs the batched tag check described in the circuit.
+        // see https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Batching-comparison-of-n-bit-numbers
+        for (uint32_t i = 0; i < event.input.size(); i++) {
+            uint32_t exponent = 3 * i;
+            uint32_t current_tag = static_cast<uint32_t>(event.input[i].get_tag());
+            batched_tag_check += (current_tag - target_tag) * (1 << exponent);
+        }
+        FF batch_tag_inv = invalid_tag ? FF(batched_tag_check).invert() : 0;
+
+        bool err = src_out_of_range_err || dst_out_of_range_err || invalid_tag;
+
+        trace.set(row,
+                  { {
+                      { C::poseidon2_perm_mem_sel, 1 },
+                      { C::poseidon2_perm_mem_execution_clk, event.execution_clk },
+                      { C::poseidon2_perm_mem_space_id, event.space_id },
+                      { C::poseidon2_perm_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+                      // Error Handling
+                      { C::poseidon2_perm_mem_sel_src_out_of_range_err, src_out_of_range_err ? 1 : 0 },
+                      { C::poseidon2_perm_mem_sel_dst_out_of_range_err, dst_out_of_range_err ? 1 : 0 },
+                      { C::poseidon2_perm_mem_sel_invalid_tag_err, invalid_tag ? 1 : 0 },
+                      { C::poseidon2_perm_mem_batch_tag_inv, batch_tag_inv },
+                      { C::poseidon2_perm_mem_err, err ? 1 : 0 },
+                      // Mem Ops
+                      { C::poseidon2_perm_mem_sel_should_read_mem, should_read_mem ? 1 : 0 },
+                      // Read Addresses
+                      { C::poseidon2_perm_mem_read_address_0_, src_addr },
+                      { C::poseidon2_perm_mem_read_address_1_, src_addr + 1 },
+                      { C::poseidon2_perm_mem_read_address_2_, src_addr + 2 },
+                      { C::poseidon2_perm_mem_read_address_3_, src_addr + 3 },
+                      // Write Addresses
+                      { C::poseidon2_perm_mem_write_address_0_, dst_addr },
+                      { C::poseidon2_perm_mem_write_address_1_, dst_addr + 1 },
+                      { C::poseidon2_perm_mem_write_address_2_, dst_addr + 2 },
+                      { C::poseidon2_perm_mem_write_address_3_, dst_addr + 3 },
+                      // Inputs
+                      { C::poseidon2_perm_mem_input_0_, event.input[0].as_ff() },
+                      { C::poseidon2_perm_mem_input_1_, event.input[1].as_ff() },
+                      { C::poseidon2_perm_mem_input_2_, event.input[2].as_ff() },
+                      { C::poseidon2_perm_mem_input_3_, event.input[3].as_ff() },
+                      // Input Tags
+                      { C::poseidon2_perm_mem_input_tag_0_, static_cast<uint8_t>(event.input[0].get_tag()) },
+                      { C::poseidon2_perm_mem_input_tag_1_, static_cast<uint8_t>(event.input[1].get_tag()) },
+                      { C::poseidon2_perm_mem_input_tag_2_, static_cast<uint8_t>(event.input[2].get_tag()) },
+                      { C::poseidon2_perm_mem_input_tag_3_, static_cast<uint8_t>(event.input[3].get_tag()) },
+                      // Outputs
+                      { C::poseidon2_perm_mem_sel_should_exec, !err ? 1 : 0 },
+                      { C::poseidon2_perm_mem_output_0_, event.output[0] },
+                      { C::poseidon2_perm_mem_output_1_, event.output[1] },
+                      { C::poseidon2_perm_mem_output_2_, event.output[2] },
+                      { C::poseidon2_perm_mem_output_3_, event.output[3] },
+                  } });
+        row++;
+    }
+}
+
 const InteractionDefinition Poseidon2TraceBuilder::interactions =
-    InteractionDefinition().add<lookup_poseidon2_hash_poseidon2_perm_settings, InteractionType::LookupSequential>();
+    InteractionDefinition()
+        .add<lookup_poseidon2_hash_poseidon2_perm_settings, InteractionType::LookupSequential>()
+        // These should be permutations (Read to Mem)
+        .add<lookup_poseidon2_mem_pos_read_mem_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_pos_read_mem_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_pos_read_mem_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_pos_read_mem_3_settings, InteractionType::LookupGeneric>()
+        // These should be permutations (Write to Mem)
+        .add<lookup_poseidon2_mem_pos_write_mem_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_pos_write_mem_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_pos_write_mem_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_pos_write_mem_3_settings, InteractionType::LookupGeneric>()
+        // Poseidon2 Memory to Permutation Subtrace
+        .add<lookup_poseidon2_mem_input_output_poseidon2_perm_settings, InteractionType::LookupSequential>()
+        // Lookups to Greater Than Subtrace
+        .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
+        // Dispatch from Execution Trace
+        .add<perm_poseidon2_mem_dispatch_exec_pos2_settings, InteractionType::Permutation>();
+//
 
 } // namespace bb::avm2::tracegen

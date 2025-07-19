@@ -11,11 +11,13 @@
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
@@ -44,8 +46,11 @@ using ::testing::ReturnRef;
 using simulation::compute_contract_address;
 using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
+using simulation::FieldGreaterThan;
+using simulation::FieldGreaterThanEvent;
 using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
+using simulation::MockGreaterThan;
 using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
@@ -56,6 +61,7 @@ using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
@@ -88,7 +94,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
@@ -100,6 +107,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
 
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
@@ -172,7 +181,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
@@ -183,6 +193,9 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
+    NiceMock<MockGreaterThan> mock_gt;
+
+    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
