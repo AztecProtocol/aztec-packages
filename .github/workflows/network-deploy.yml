@@ -133,6 +133,7 @@ jobs:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
       METRICS_NAMESPACE: "metrics"
+      MONITORING_NAMESPACE: "monitoring"
       VALUES_FILE: ${{ inputs.values_file }}
       RESOURCES_FILE: gcloud.yaml
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
@@ -307,3 +308,9 @@ jobs:
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
         run: terraform apply -lock=${{ env.RESPECT_TF_LOCK }} -auto-approve tfplan
+
+      - name: Update Monitoring App
+        if: ${{ inputs.sepolia_deployment == 'true' }}
+        run: |
+          echo "Checking if monitoring app needs to be updated for Sepolia deployment..."
+          ./spartan/metrics/alpha-testnet-monitor/scripts/update-monitoring.sh ${{ env.NAMESPACE }} ${{ env.NAMESPACE }} ${{ env.MONITORING_NAMESPACE }}
