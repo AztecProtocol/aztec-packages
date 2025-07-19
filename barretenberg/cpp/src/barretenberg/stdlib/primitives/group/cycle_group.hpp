@@ -322,18 +322,6 @@ template <typename Builder> class cycle_group {
     }
 
     /**
-     * @brief Creates fixed witnesses from a constant element.
-     **/
-    void convert_constant_to_fixed_witness(Builder* builder)
-    {
-        x.convert_constant_to_fixed_witness(builder);
-        y.convert_constant_to_fixed_witness(builder);
-        _is_infinity.convert_constant_to_fixed_witness(builder);
-        // Origin tags should be unset after fixing the witness
-        unset_free_witness_tag();
-    }
-
-    /**
      * Fix a witness. The value of the witness is constrained with a selector
      **/
     void fix_witness()

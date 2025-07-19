@@ -159,6 +159,10 @@ class ECCVMRecursiveFlavor {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
 
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
         void fix_witness()
         {
             for (Commitment& commitment : this->get_all()) {
