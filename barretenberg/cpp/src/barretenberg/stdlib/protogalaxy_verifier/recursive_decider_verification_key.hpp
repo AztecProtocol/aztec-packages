@@ -36,7 +36,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     std::shared_ptr<VKAndHash> vk_and_hash;
 
     bool is_accumulator = false;
-    std::vector<FF> public_inputs;
+
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
     RelationParameters<FF> relation_parameters;
