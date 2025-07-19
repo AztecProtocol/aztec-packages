@@ -33,6 +33,18 @@ FF compute_lambda(bool double_predicate,
     return 0;
 }
 
+FF compute_curve_eqn_diff(const EmbeddedCurvePoint& p)
+{
+    if (p.is_infinity()) {
+        // We consider the curve equation to be trivially satisfied for the infinity point.
+        return FF::zero();
+    }
+    // The curve equation is y^2 = x^3 - 17
+    const FF y2 = p.y() * p.y();
+    const FF x3 = p.x() * p.x() * p.x();
+    return y2 - (x3 - FF(17));
+}
+
 } // namespace
 
 void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simulation::EccAddEvent>::Container& events,
@@ -171,18 +183,41 @@ void EccTraceBuilder::process_add_with_memory(
     uint32_t row = 0;
     for (const auto& event : events) {
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_address);
+
         // Error handling, check if the destination address is out of range.
         // The max write address is dst_addr + 2, since we write 3 values (x, y, is_inf).
         bool dst_out_of_range_err = dst_addr + 2 > AVM_HIGHEST_MEM_ADDRESS;
+
+        // Error handling, check if the points are on the curve.
+        bool p_is_on_curve = event.p.on_curve();
+        FF p_is_on_curve_eqn = compute_curve_eqn_diff(event.p);
+        FF p_on_curve_eqn_inv = p_is_on_curve ? FF::zero() : p_is_on_curve_eqn.invert();
+
+        bool q_is_on_curve = event.q.on_curve();
+        FF q_is_on_curve_eqn = compute_curve_eqn_diff(event.q);
+        FF q_on_curve_eqn_inv = q_is_on_curve ? FF::zero() : q_is_on_curve_eqn.invert();
+
+        bool error = dst_out_of_range_err || !p_is_on_curve || !q_is_on_curve;
 
         trace.set(row,
                   { {
                       { C::ecc_add_mem_sel, 1 },
                       { C::ecc_add_mem_execution_clk, event.execution_clk },
                       { C::ecc_add_mem_space_id, event.space_id },
+                      // Error handling - dst out of range
                       { C::ecc_add_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
                       { C::ecc_add_mem_sel_dst_out_of_range_err, dst_out_of_range_err ? 1 : 0 },
-                      // Memory Reads
+                      // Error handling - p is not on curve
+                      { C::ecc_add_mem_sel_p_on_curve_err, !p_is_on_curve ? 1 : 0 },
+                      { C::ecc_add_mem_p_is_on_curve_eqn, p_is_on_curve_eqn },
+                      { C::ecc_add_mem_p_on_curve_eqn_inv, p_on_curve_eqn_inv },
+                      // Error handling - q is not on curve
+                      { C::ecc_add_mem_sel_q_on_curve_err, !q_is_on_curve ? 1 : 0 },
+                      { C::ecc_add_mem_q_is_on_curve_eqn, q_is_on_curve_eqn },
+                      { C::ecc_add_mem_q_on_curve_eqn_inv, q_on_curve_eqn_inv },
+
+                      { C::ecc_add_mem_err, error ? 1 : 0 },
+                      // Memory Writes
                       { C::ecc_add_mem_dst_addr_0_, dst_addr },
                       { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
                       { C::ecc_add_mem_dst_addr_2_, dst_addr + 2 },
@@ -196,11 +231,10 @@ void EccTraceBuilder::process_add_with_memory(
                       { C::ecc_add_mem_q_y, event.q.y() },
                       { C::ecc_add_mem_q_is_inf, event.q.is_infinity() ? 1 : 0 },
                       // Output
-                      { C::ecc_add_mem_sel_should_exec, dst_out_of_range_err ? 0 : 1 },
+                      { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
                       { C::ecc_add_mem_res_x, event.result.x() },
                       { C::ecc_add_mem_res_y, event.result.y() },
                       { C::ecc_add_mem_res_is_inf, event.result.is_infinity() },
-
                   } });
 
         row++;
