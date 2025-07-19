@@ -1,8 +1,7 @@
 use crate::NFT;
 use crate::test::utils;
 use aztec::{
-    oracle::random::random,
-    test::helpers::{authwit::add_private_authwit_from_call_interface, txe_oracles},
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
 };
 
 #[test]

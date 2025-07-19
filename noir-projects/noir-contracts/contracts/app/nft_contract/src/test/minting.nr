@@ -1,5 +1,6 @@
 use crate::NFT;
 use crate::test::utils;
+use aztec::protocol_types::storage::map::derive_storage_slot_in_map;
 
 #[test]
 unconstrained fn mint_success() {
@@ -7,36 +8,41 @@ unconstrained fn mint_success() {
     let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
     let token_id = 10000;
-    NFT::at(nft_contract_address).mint(owner, token_id).call(&mut env.public());
-
-    env.mine_block();
+    let _ = env.call_public_void(owner, NFT::at(nft_contract_address).mint(owner, token_id));
 
     utils::assert_owns_public_nft(env, nft_contract_address, owner, token_id);
 }
 
-#[test]
-unconstrained fn mint_failures() {
+#[test(should_fail)] // should_fail_with="NFT minted by non-minter"
+unconstrained fn mint_as_non_minter_fails() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, nft_contract_address, owner, recipient) =
-        utils::setup(/* with_account_contracts */ false);
+    let (env, nft_contract_address, owner, other) = utils::setup(/* with_account_contracts */ false);
 
-    // MINTING AS A NON-MINTER
     let token_id = 10000;
-    env.impersonate(recipient);
-    let mint_call_interface = NFT::at(nft_contract_address).mint(owner, token_id);
-    env.assert_public_call_fails(mint_call_interface);
+    let _ = env.call_public_void(other, NFT::at(nft_contract_address).mint(owner, token_id));
+}
 
-    assert(!utils::get_nft_exists(nft_contract_address, token_id), "NFT minted by non-minter");
+#[test(should_fail)] // should_fail_with="NFT not minted"
+unconstrained fn mint_twice_fails() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
-    // MINTING THE SAME NFT TWICE
-    env.impersonate(owner);
-    mint_call_interface.call(&mut env.public());
-    assert(utils::get_nft_exists(nft_contract_address, token_id), "NFT not minted");
+    let token_id = 10000;
+    let _ = env.call_public_void(owner, NFT::at(nft_contract_address).mint(owner, token_id));
 
-    // Second call should fail
-    env.assert_public_call_fails(mint_call_interface);
+    env.utility_context_at(nft_contract_address, |context| {
+        let nft_exists_slot = NFT::storage_layout().nft_exists.slot;
+        let nft_slot = derive_storage_slot_in_map(nft_exists_slot, token_id);
+        assert(context.storage_read(nft_slot));
+    });
 
-    // MINTING NFT WITH TOKEN ID 0
-    let mint_call_interface = NFT::at(nft_contract_address).mint(owner, 0);
-    env.assert_public_call_fails(mint_call_interface);
+    let _ = env.call_public_void(owner, NFT::at(nft_contract_address).mint(owner, token_id));
+}
+
+#[test(should_fail)]
+unconstrained fn mint_id_0_fails() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
+
+    let _ = env.call_public_void(owner, NFT::at(nft_contract_address).mint(owner, 0));
 }

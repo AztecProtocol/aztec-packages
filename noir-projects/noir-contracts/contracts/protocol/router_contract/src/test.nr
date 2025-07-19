@@ -1,5 +1,8 @@
 use crate::Router;
-use dep::aztec::test::helpers::test_environment::TestEnvironment;
+use dep::aztec::{
+    protocol_types::{address::AztecAddress, traits::Empty},
+    test::helpers::test_environment::TestEnvironment,
+};
 use aztec::utils::comparison::Comparator;
 
 // For both block number and timestamp we only test one success and one failure case, as the rest are more thoroughly
@@ -14,10 +17,13 @@ unconstrained fn check_block_number() {
     let router = Router::at(router_contract_address);
 
     let expected_next_block_number = env.next_block_number();
-    router.check_block_number(Comparator.LT, expected_next_block_number + 1).call(&mut env.private());
+    let _ = env.call_private_void(
+        AztecAddress::empty(),
+        router.check_block_number(Comparator.LT, expected_next_block_number + 1),
+    );
 }
 
-#[test(should_fail_with = "Block number mismatch.")]
+#[test(should_fail)] // should_fail_with = "Block number mismatch."
 unconstrained fn check_block_number_fail() {
     let mut env = TestEnvironment::new();
 
@@ -26,7 +32,10 @@ unconstrained fn check_block_number_fail() {
     let router = Router::at(router_contract_address);
 
     let expected_next_block_number = env.next_block_number();
-    router.check_block_number(Comparator.LT, expected_next_block_number).call(&mut env.private());
+    let _ = env.call_private_void(
+        AztecAddress::empty(),
+        router.check_block_number(Comparator.LT, expected_next_block_number),
+    );
 }
 
 #[test]
@@ -39,10 +48,13 @@ unconstrained fn check_timestamp() {
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
-    router.check_timestamp(Comparator.LT, expected_next_block_timestamp + 1).call(&mut env.private());
+    let _ = env.call_private_void(
+        AztecAddress::empty(),
+        router.check_timestamp(Comparator.LT, expected_next_block_timestamp + 1),
+    );
 }
 
-#[test(should_fail_with = "Timestamp mismatch.")]
+#[test(should_fail)] // should_fail_with = "Timestamp mismatch."
 unconstrained fn check_timestamp_fail() {
     let mut env = TestEnvironment::new();
 
@@ -52,5 +64,8 @@ unconstrained fn check_timestamp_fail() {
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
-    router.check_timestamp(Comparator.LT, expected_next_block_timestamp).call(&mut env.private());
+    let _ = env.call_private_void(
+        AztecAddress::empty(),
+        router.check_timestamp(Comparator.LT, expected_next_block_timestamp),
+    );
 }

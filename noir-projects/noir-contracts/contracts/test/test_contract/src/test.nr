@@ -106,7 +106,9 @@ unconstrained fn test_storage_slot_allocation() {
 
 global CONTRACT_DEPLOYED_AT: u32 = 3;
 
-global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT;
+// The TXE deploy oracle mines a block with the instance publication nullifier, so initialization happens on the
+// following block.
+global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
 
 pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -170,7 +172,7 @@ unconstrained fn proving_contract_deployment_fails() {
 
 // In this test, we fail to prove contract initialization at the block before it was deployed. This checks for inclusion
 // of the initialization nullifier in state.
-#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
 unconstrained fn proving_contract_initialization_fails() {
     let (env, contract_address, _owner) = setup();
 
