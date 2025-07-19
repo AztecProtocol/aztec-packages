@@ -26,7 +26,8 @@
 namespace bb::avm2::constraining {
 namespace {
 
-using ::testing::NiceMock;
+using ::testing::Return;
+using ::testing::StrictMock;
 
 using testing::random_bytes;
 using testing::random_fields;
@@ -86,8 +87,10 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
 
-    NiceMock<MockGreaterThan> mock_gt;
-    NiceMock<MockExecutionIdManager> mock_execution_id_manager;
+    StrictMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
+    EXPECT_CALL(mock_execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
 
     Poseidon2 poseidon2(
         mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);

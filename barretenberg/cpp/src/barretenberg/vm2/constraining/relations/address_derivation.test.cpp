@@ -26,7 +26,8 @@
 namespace bb::avm2::constraining {
 namespace {
 
-using ::testing::NiceMock;
+using ::testing::Return;
+using ::testing::StrictMock;
 
 using tracegen::AddressDerivationTraceBuilder;
 using tracegen::EccTraceBuilder;
@@ -111,8 +112,10 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     ToRadix to_radix_simulator(to_radix_event_emitter);
     Ecc ecc_simulator(to_radix_simulator, ecadd_event_emitter, scalar_mul_event_emitter);
 
-    NiceMock<MockExecutionIdManager> mock_exec_id_manager;
-    NiceMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_exec_id_manager;
+    EXPECT_CALL(mock_exec_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+    StrictMock<MockGreaterThan> mock_gt;
     Poseidon2 poseidon2_simulator(
         mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 

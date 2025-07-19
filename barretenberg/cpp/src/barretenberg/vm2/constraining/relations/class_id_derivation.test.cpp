@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -21,7 +22,7 @@
 namespace bb::avm2::constraining {
 namespace {
 
-using ::testing::NiceMock;
+using ::testing::StrictMock;
 
 using tracegen::BytecodeTraceBuilder;
 using tracegen::ClassIdDerivationTraceBuilder;
@@ -32,6 +33,7 @@ using simulation::ClassIdDerivation;
 using simulation::ClassIdDerivationEvent;
 using simulation::compute_contract_class_id;
 using simulation::EventEmitter;
+using simulation::FakePoseidon2;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
 using simulation::NoopEventEmitter;
@@ -72,21 +74,16 @@ TEST(ClassIdDerivationConstrainingTest, Basic)
     check_relation<class_id_derivation_relation>(trace);
 }
 
-class ClassIdDerivationPoseidonTest : public ::testing::Test {
-  protected:
-    ClassIdDerivationPoseidonTest() = default;
-
+TEST(ClassIdDerivationPoseidonTest, WithHashInteraction)
+{
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
-    NiceMock<MockExecutionIdManager> execution_id_manager;
-    NiceMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> mock_gt;
     Poseidon2 poseidon2 =
         Poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
-};
 
-TEST_F(ClassIdDerivationPoseidonTest, WithHashInteraction)
-{
     EventEmitter<ClassIdDerivationEvent> event_emitter;
     ClassIdDerivation class_id_derivation(poseidon2, event_emitter);
 
@@ -112,8 +109,10 @@ TEST_F(ClassIdDerivationPoseidonTest, WithHashInteraction)
 }
 
 // TODO: This should probably be refined and moved to bc_retrieval test file once that exists
-TEST_F(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
+TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
 {
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<ClassIdDerivationEvent> event_emitter;
     ClassIdDerivation class_id_derivation(poseidon2, event_emitter);
 

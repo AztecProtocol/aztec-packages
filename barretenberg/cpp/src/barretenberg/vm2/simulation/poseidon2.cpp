@@ -59,7 +59,6 @@ std::array<FF, 4> Poseidon2::permutation(const std::array<FF, 4>& input)
 
 void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, MemoryAddress dst_address)
 {
-
     uint32_t execution_clk = execution_id_manager.get_execution_id();
     uint32_t space_id = memory.get_space_id();
 
@@ -122,4 +121,5 @@ void Poseidon2::permutation(MemoryInterface& memory, MemoryAddress src_address, 
         throw Poseidon2Exception("Permutation failed, " + std::string(e.what()));
     }
 }
+
 } // namespace bb::avm2::simulation

@@ -7,33 +7,19 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_poseidon2.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
 
 using testing::ElementsAre;
-using ::testing::NiceMock;
 
-class MerkleCheckSimulationTest : public ::testing::Test {
-  protected:
-    MerkleCheckSimulationTest() = default;
-
-    EventEmitter<Poseidon2HashEvent> hash_emitter;
-    // unused hence NoopEventEmitter
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
-
-    NiceMock<MockExecutionIdManager> mock_execution_id_manager;
-    NiceMock<MockGreaterThan> mock_gt;
-    Poseidon2 poseidon2 =
-        Poseidon2(mock_execution_id_manager, mock_gt, hash_emitter, perm_emitter, perm_mem_event_emitter);
-};
-
-TEST_F(MerkleCheckSimulationTest, AssertMembership)
+TEST(MerkleCheckSimulationTest, AssertMembership)
 {
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -62,15 +48,14 @@ TEST_F(MerkleCheckSimulationTest, AssertMembership)
         .root = root2,
     };
 
-    const size_t expected_merkle_rows = sibling_path.size() + sibling_path2.size();
-
     EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event, expect_event2));
-
-    EXPECT_EQ(hash_emitter.dump_events().size(), expected_merkle_rows);
 }
 
-TEST_F(MerkleCheckSimulationTest, Write)
+TEST(MerkleCheckSimulationTest, Write)
 {
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -94,11 +79,13 @@ TEST_F(MerkleCheckSimulationTest, Write)
 
     EXPECT_EQ(new_root, expected_new_root);
     EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event));
-    EXPECT_EQ(hash_emitter.dump_events().size(), sibling_path.size() * 2);
 }
 
-TEST_F(MerkleCheckSimulationTest, NegativeBadFinalIndex)
+TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
 {
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -113,8 +100,11 @@ TEST_F(MerkleCheckSimulationTest, NegativeBadFinalIndex)
                               "Merkle check's final node index must be 0 or 1");
 }
 
-TEST_F(MerkleCheckSimulationTest, NegativeWrongRoot)
+TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
 {
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -129,8 +119,11 @@ TEST_F(MerkleCheckSimulationTest, NegativeWrongRoot)
                               "Merkle read check failed");
 }
 
-TEST_F(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
+TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
 {
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -145,8 +138,11 @@ TEST_F(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
                               "Merkle read check failed");
 }
 
-TEST_F(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
+TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
 {
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -163,8 +159,11 @@ TEST_F(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
                               "Merkle read check failed");
 }
 
-TEST_F(MerkleCheckSimulationTest, NegativeWrongLeafValue)
+TEST(MerkleCheckSimulationTest, NegativeWrongLeafValue)
 {
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
+
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 

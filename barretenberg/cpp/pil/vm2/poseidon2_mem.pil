@@ -5,7 +5,6 @@ include "execution.pil";
 include "gt.pil";
 
 /**
- *
  * This handles the memory reads/writes when the POSEIDON2PERM opcode is executed
  * by user code. The inputs to the opcode are the src and dst memory addresses.
  * This trace will read inputs from addresses { src, src + 1, src + 2, src + 3 }

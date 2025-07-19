@@ -625,6 +625,18 @@ TEST_F(ExecutionSimulationTest, Cast)
     execution.cast(context, src_addr, dst_addr, dst_tag);
 }
 
+TEST_F(ExecutionSimulationTest, Poseidon2Perm)
+{
+    MemoryAddress src_address = 10;
+    MemoryAddress dst_address = 20;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas);
+    EXPECT_CALL(poseidon2, permutation(_, src_address, dst_address));
+
+    execution.poseidon2_permutation(context, src_address, dst_address);
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation

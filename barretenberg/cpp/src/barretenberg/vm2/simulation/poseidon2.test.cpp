@@ -5,11 +5,8 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gt.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -18,24 +15,25 @@ using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::Field;
-using ::testing::NiceMock;
+using ::testing::StrictMock;
 
 class Poseidon2SimulationTest : public ::testing::Test {
   protected:
-    Poseidon2SimulationTest() = default;
+    Poseidon2SimulationTest()
+    {
+        EXPECT_CALL(execution_id_manager, get_execution_id())
+            .WillRepeatedly(testing::Return(0)); // Default execution ID for testing
+    }
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
 
-    NiceMock<MockFieldGreaterThan> gt_field;
-    NiceMock<MockRangeCheck> range_check;
-    NiceMock<MockExecutionIdManager> mock_execution_id_manager;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
 
-    NoopEventEmitter<GreaterThanEvent> gt_event_emitter;
-    GreaterThan gt = GreaterThan(gt_field, range_check, gt_event_emitter);
+    FakeGreaterThan gt;
     Poseidon2 poseidon2 =
-        Poseidon2(mock_execution_id_manager, gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+        Poseidon2(execution_id_manager, gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 };
 
 TEST_F(Poseidon2SimulationTest, Hash)
