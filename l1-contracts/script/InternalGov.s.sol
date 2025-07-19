@@ -89,7 +89,7 @@ contract GovScript is Test {
     emit log_named_address("# Governance", address(governance));
     Configuration memory config = governance.getConfiguration();
     emit log_named_decimal_uint("\tquorum           ", config.quorum, 18);
-    emit log_named_decimal_uint("\tvote Differential", config.voteDifferential, 18);
+    emit log_named_decimal_uint("\trequiredYeaMargin", config.requiredYeaMargin, 18);
     emit log_named_decimal_uint("\tminimum Votes    ", config.minimumVotes, 18);
     emit log_named_uint("\tvotingDelay      ", Timestamp.unwrap(config.votingDelay));
     emit log_named_uint("\tvotingDuration   ", Timestamp.unwrap(config.votingDuration));
@@ -155,7 +155,7 @@ contract GovScript is Test {
     emit log_named_uint("executableThrough", Timestamp.unwrap(proposal.executableThrough()));
     emit log_named_uint("creation         ", Timestamp.unwrap(proposal.creation));
     emit log_named_decimal_uint("yeaCount         ", proposal.summedBallot.yea, 18);
-    emit log_named_decimal_uint("neaCount         ", proposal.summedBallot.nea, 18);
+    emit log_named_decimal_uint("nayCount         ", proposal.summedBallot.nay, 18);
 
     Timestamp ts = Timestamp.wrap(block.timestamp) < pendingThrough
       ? Timestamp.wrap(block.timestamp)

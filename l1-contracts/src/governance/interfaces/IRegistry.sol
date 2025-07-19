@@ -8,7 +8,7 @@ interface IHaveVersion {
 }
 
 interface IRegistry {
-  event InstanceAdded(address indexed instance, uint256 indexed version);
+  event CanonicalRollupUpdated(address indexed instance, uint256 indexed version);
   event RewardDistributorUpdated(address indexed rewardDistributor);
 
   function addRollup(IHaveVersion _rollup) external;

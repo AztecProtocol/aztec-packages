@@ -50,13 +50,13 @@ contract ProposeWithLockTest is GovernanceBase {
     assertEq(proposal.config.gracePeriod, config.gracePeriod);
     assertEq(proposal.config.minimumVotes, config.minimumVotes);
     assertEq(proposal.config.quorum, config.quorum);
-    assertEq(proposal.config.voteDifferential, config.voteDifferential);
+    assertEq(proposal.config.requiredYeaMargin, config.requiredYeaMargin);
     assertEq(proposal.config.votingDelay, config.votingDelay);
     assertEq(proposal.config.votingDuration, config.votingDuration);
     assertEq(proposal.creation, Timestamp.wrap(block.timestamp));
     assertEq(proposal.proposer, address(governance));
-    assertEq(proposal.summedBallot.nea, 0);
+    assertEq(proposal.summedBallot.nay, 0);
     assertEq(proposal.summedBallot.yea, 0);
-    assertTrue(proposal.state == ProposalState.Pending);
+    assertTrue(proposal.cachedState == ProposalState.Pending);
   }
 }

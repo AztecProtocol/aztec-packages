@@ -35,8 +35,7 @@ library Errors {
   error Governance__ConfigurationLib__LockAmountTooSmall();
   error Governance__ConfigurationLib__QuorumTooSmall();
   error Governance__ConfigurationLib__QuorumTooBig();
-  error Governance__ConfigurationLib__DifferentialTooSmall();
-  error Governance__ConfigurationLib__DifferentialTooBig();
+  error Governance__ConfigurationLib__RequiredYeaMarginTooBig();
   error Governance__ConfigurationLib__TimeTooSmall(string name);
   error Governance__ConfigurationLib__TimeTooBig(string name);
 
