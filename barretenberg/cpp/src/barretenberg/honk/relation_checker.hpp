@@ -97,7 +97,8 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
         Base::check<UltraPermutationRelation<FF>>(polynomials, params, "UltraPermutation");
         Base::check<DeltaRangeConstraintRelation<FF>>(polynomials, params, "DeltaRangeConstraint");
         Base::check<EllipticRelation<FF>>(polynomials, params, "Elliptic");
-        Base::check<AuxiliaryRelation<FF>>(polynomials, params, "Auxiliary");
+        Base::check<MemoryRelation<FF>>(polynomials, params, "Memory");
+        Base::check<NonNativeFieldRelation<FF>>(polynomials, params, "NonNativeField");
         Base::check<Poseidon2ExternalRelation<FF>>(polynomials, params, "Poseidon2External");
         Base::check<Poseidon2InternalRelation<FF>>(polynomials, params, "Poseidon2Internal");
 

@@ -81,10 +81,10 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used
-        // in aux block.
+        // in memory block.
         if (&block == &circuit.blocks.arithmetic) {
-            size_t arith_size = circuit.blocks.aux.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
-                                circuit.blocks.aux.get_fixed_size(is_structured);
+            size_t arith_size = circuit.blocks.memory.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
+                                circuit.blocks.memory.get_fixed_size(is_structured);
             selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset());
         } else {
             selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
@@ -275,7 +275,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // The circuit memory read/write records store the indices at which a RAM/ROM read/write has occurred. If
             // the block containing RAM/ROM gates overflows, the indices of the corresponding gates in the memory
             // records need to be updated to reflect their new position in the overflow block
-            if (&block == &blocks.aux) {
+            if (&block == &blocks.memory) {
                 uint32_t overflow_cur_idx =
                     overflow_block.trace_offset() + static_cast<uint32_t>(overflow_block.size());
                 overflow_cur_idx -= block.trace_offset(); // we'll add block.trace_offset to everything later
@@ -320,6 +320,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // Convert duplicated final gate in the main block to a 'dummy' gate by turning off all selectors. This
             // ensures it can be read into by the previous gate but does not itself try to read into the next gate.
             for (auto& selector : block.get_gate_selectors()) {
+                BB_ASSERT_EQ(selector.empty(), false);
                 selector.back() = 0;
             }
         }
@@ -335,13 +336,13 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 
 /**
  * @brief Copy RAM/ROM record of reads and writes from the circuit to the proving key.
- * @details The memory records in the circuit store indices within the aux block where a read/write is performed. They
- * are stored in the DPK as indices into the full trace by accounting for the offset of the aux block.
+ * @details The memory records in the circuit store indices within the memory block where a read/write is performed.
+ * They are stored in the DPK as indices into the full trace by accounting for the offset of the memory block.
  */
 template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::populate_memory_records(const Circuit& circuit)
 {
-    // Store the read/write records as indices into the full trace by accounting for the offset of the aux block.
-    uint32_t ram_rom_offset = circuit.blocks.aux.trace_offset();
+    // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
+    uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
     memory_read_records.reserve(circuit.memory_read_records.size());
     for (auto& index : circuit.memory_read_records) {
         memory_read_records.emplace_back(index + ram_rom_offset);

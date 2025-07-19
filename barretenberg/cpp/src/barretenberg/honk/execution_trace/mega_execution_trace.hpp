@@ -30,36 +30,34 @@ template <typename T> struct MegaTraceBlockData {
     T arithmetic;
     T delta_range;
     T elliptic;
-    T aux;
+    T memory;
+    T nnf;
     T poseidon2_external;
     T poseidon2_internal;
     T overflow; // block gates of arbitrary type that overflow their designated block
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",      "busread",  "lookup", "pub_inputs",         "arithmetic",
-                 "delta_range", "elliptic", "aux",    "poseidon2_external", "poseidon2_internal",
-                 "overflow" };
+        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",         "delta_range",
+                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal", "overflow" };
     }
 
     auto get()
     {
-        return RefArray{ ecc_op,      busread,  lookup, pub_inputs,         arithmetic,
-                         delta_range, elliptic, aux,    poseidon2_external, poseidon2_internal,
-                         overflow };
+        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
+                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
     }
 
     auto get() const
     {
-        return RefArray{ ecc_op,      busread,  lookup, pub_inputs,         arithmetic,
-                         delta_range, elliptic, aux,    poseidon2_external, poseidon2_internal,
-                         overflow };
+        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
+                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
     }
 
     auto get_gate_blocks() const
     {
         return RefArray{
-            busread, lookup, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal,
+            busread, lookup, arithmetic, delta_range, elliptic, memory, nnf, poseidon2_external, poseidon2_internal,
         };
     }
 
@@ -92,8 +90,8 @@ struct TraceSettings {
     size_t dyadic_size() const { return numeric::round_up_power_2(size()); }
 };
 
-class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
-    using SelectorType = ExecutionTraceBlock<fr, 4, 14>::SelectorType;
+class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 15> {
+    using SelectorType = ExecutionTraceBlock<fr, 4, 15>::SelectorType;
 
   public:
     void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
@@ -124,21 +122,17 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_S
     auto& q_arith() { return this->selectors[8]; };
     auto& q_delta_range() { return this->selectors[9]; };
     auto& q_elliptic() { return this->selectors[10]; };
-    auto& q_aux() { return this->selectors[11]; };
-    auto& q_poseidon2_external() { return this->selectors[12]; };
-    auto& q_poseidon2_internal() { return this->selectors[13]; };
+    auto& q_memory() { return this->selectors[11]; };
+    auto& q_nnf() { return this->selectors[12]; };
+    auto& q_poseidon2_external() { return this->selectors[13]; };
+    auto& q_poseidon2_internal() { return this->selectors[14]; };
 
     RefVector<SelectorType> get_gate_selectors()
     {
         return {
-            q_busread(),
-            q_lookup_type(),
-            q_arith(),
-            q_delta_range(),
-            q_elliptic(),
-            q_aux(),
-            q_poseidon2_external(),
-            q_poseidon2_internal(),
+            q_busread(),     q_lookup_type(),        q_arith(),
+            q_delta_range(), q_elliptic(),           q_memory(),
+            q_nnf(),         q_poseidon2_external(), q_poseidon2_internal(),
         };
     }
 
@@ -213,7 +207,8 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
         info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
         info("elliptic      :\t", this->elliptic.size(), "/", this->elliptic.get_fixed_size());
-        info("auxiliary     :\t", this->aux.size(), "/", this->aux.get_fixed_size());
+        info("memory        :\t", this->memory.size(), "/", this->memory.get_fixed_size());
+        info("nnf           :\t", this->nnf.size(), "/", this->nnf.get_fixed_size());
         info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
         info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
         info("overflow      :\t", this->overflow.size(), "/", this->overflow.get_fixed_size());
@@ -264,7 +259,8 @@ static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
                                                      .arithmetic = 1 << 14,
                                                      .delta_range = 5,
                                                      .elliptic = 2,
-                                                     .aux = 10,
+                                                     .memory = 10,
+                                                     .nnf = 2,
                                                      .poseidon2_external = 2,
                                                      .poseidon2_internal = 2,
                                                      .overflow = 0 };
@@ -280,7 +276,8 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
                                                       .arithmetic = 1 << 15,
                                                       .delta_range = 1 << 14,
                                                       .elliptic = 1 << 14,
-                                                      .aux = 1 << 14,
+                                                      .memory = 1 << 14,
+                                                      .nnf = 1 << 7,
                                                       .poseidon2_external = 1 << 14,
                                                       .poseidon2_internal = 1 << 15,
                                                       .overflow = 0 };
@@ -295,7 +292,8 @@ static constexpr TraceStructure EXAMPLE_18{ .ecc_op = 1 << 10,
                                             .arithmetic = 84000,
                                             .delta_range = 45000,
                                             .elliptic = 9000,
-                                            .aux = 68000,
+                                            .memory = 67000,
+                                            .nnf = 1000,
                                             .poseidon2_external = 2500,
                                             .poseidon2_internal = 14000,
                                             .overflow = 0 };
@@ -310,7 +308,8 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
                                             .arithmetic = 396000,
                                             .delta_range = 180000,
                                             .elliptic = 18000,
-                                            .aux = 272000,
+                                            .memory = 268000,
+                                            .nnf = 4000,
                                             .poseidon2_external = 5000,
                                             .poseidon2_internal = 28000,
                                             .overflow = 0 };
@@ -325,7 +324,8 @@ static constexpr TraceStructure AZTEC_TRACE_STRUCTURE{ .ecc_op = 1 << 10,
                                                        .arithmetic = 56000,
                                                        .delta_range = 18000,
                                                        .elliptic = 6000,
-                                                       .aux = 26000,
+                                                       .memory = 26000,
+                                                       .nnf = 20000,
                                                        .poseidon2_external = 17000,
                                                        .poseidon2_internal = 92000,
                                                        .overflow = 0 };

@@ -36,7 +36,8 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 
                                                                     .arithmetic = 1 << 15,
                                                                     .delta_range = 1 << 14,
                                                                     .elliptic = 1 << 14,
-                                                                    .aux = 1 << 14,
+                                                                    .memory = 1 << 14,
+                                                                    .nnf = 1 << 7,
                                                                     .poseidon2_external = 1 << 14,
                                                                     .poseidon2_internal = 1 << 15,
                                                                     .overflow = 0 };
@@ -86,8 +87,8 @@ class GoblinMockCircuits {
             stdlib::generate_ecdsa_verification_test_circuit(builder, 8);
             stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
-            stdlib::generate_sha256_test_circuit(builder, 8);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
+            stdlib::generate_sha256_test_circuit(builder, 1);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, 1);
             stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
 

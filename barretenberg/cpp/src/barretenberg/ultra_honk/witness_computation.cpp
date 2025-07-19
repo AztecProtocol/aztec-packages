@@ -41,7 +41,7 @@ void WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(typename F
 {
     // The memory record values are computed at the indicated indices as
     // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
-    // (See the Auxiliary relation for details)
+    // (See the Memory relation for details)
     auto wires = polynomials.get_wires();
 
     // Compute read record values

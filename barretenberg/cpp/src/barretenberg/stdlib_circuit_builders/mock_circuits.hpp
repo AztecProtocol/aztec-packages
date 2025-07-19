@@ -95,7 +95,7 @@ class MockCircuits {
     }
 
     /**
-     * @brief Add some simple RAM (aux) gates for testing memory read/write functionality
+     * @brief Add some simple RAM (memory) gates for testing memory read/write functionality
      * @brief Each iteration adds 18 gates (including finalization)
      *
      * @param builder
