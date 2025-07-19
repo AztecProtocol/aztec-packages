@@ -43,7 +43,7 @@ class PairingPoints {
      * @brief Reconstruct the pairing points from limbs stored on the public inputs.
      *
      */
-    static PairingPoints reconstruct_from_public(const std::span<Fr, PAIRING_POINTS_SIZE>& limbs_in)
+    static PairingPoints reconstruct_from_public(const std::span<const Fr, PAIRING_POINTS_SIZE>& limbs_in)
     {
         Point P0 = Point::reconstruct_from_public(limbs_in.subspan(0, 2 * FQ_PUBLIC_INPUT_SIZE));
         Point P1 = Point::reconstruct_from_public(limbs_in.subspan(2 * FQ_PUBLIC_INPUT_SIZE, 2 * FQ_PUBLIC_INPUT_SIZE));

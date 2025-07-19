@@ -43,7 +43,7 @@ inline std::string msgpack_schema_name(bb::g1::affine_element const& /*unused*/)
 
 // Specialize the reconstruct from public method
 template <>
-inline bb::g1::affine_element bb::g1::affine_element::reconstruct_from_public(const std::span<bb::fr>& limbs)
+inline bb::g1::affine_element bb::g1::affine_element::reconstruct_from_public(const std::span<const bb::fr>& limbs)
 {
     BB_ASSERT_EQ(limbs.size(), 2 * FQ_PUBLIC_INPUT_SIZE, "Incorrect number of limbs");
 
