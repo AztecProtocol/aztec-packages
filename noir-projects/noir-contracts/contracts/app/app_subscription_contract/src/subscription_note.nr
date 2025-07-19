@@ -1,9 +1,11 @@
-use dep::aztec::{
-    macros::notes::note, oracle::random::random, protocol_types::address::AztecAddress,
+use aztec::{
+    macros::notes::note,
+    oracle::random::random,
+    protocol_types::{address::AztecAddress, traits::Packable},
 };
 
+#[derive(Eq, Packable)]
 #[note]
-#[derive(Eq)]
 pub struct SubscriptionNote {
     owner: AztecAddress,
     expiry_block_number: u32,

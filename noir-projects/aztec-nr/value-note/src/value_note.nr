@@ -1,8 +1,12 @@
-use aztec::{macros::notes::note, oracle::random::random, protocol_types::address::AztecAddress};
+use aztec::{
+    macros::notes::note,
+    oracle::random::random,
+    protocol_types::{address::AztecAddress, traits::Packable},
+};
 
 // docs:start:value-note-def
+#[derive(Eq, Packable)]
 #[note]
-#[derive(Eq)]
 pub struct ValueNote {
     value: Field,
     owner: AztecAddress,

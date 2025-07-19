@@ -545,14 +545,14 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted.
-    pub unconstrained fn add_note<Note, let N: u32>(
+    pub unconstrained fn add_note<Note>(
         _self: Self,
         note: Note,
         storage_slot: Field,
         contract_address: AztecAddress,
     )
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        Note: NoteType + NoteHash + Packable,
     {
         let original_contract_address = get_contract_address();
         txe_oracles::set_contract_address(contract_address);

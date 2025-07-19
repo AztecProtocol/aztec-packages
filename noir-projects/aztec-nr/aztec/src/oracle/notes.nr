@@ -83,7 +83,7 @@ unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
 unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(getNotes)]
-unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
+unconstrained fn get_notes_oracle<let RETRIEVED_NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
     _storage_slot: Field,
     _num_selects: u8,
     _select_by_indexes: [u8; M],
@@ -103,9 +103,9 @@ unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NO
     // This is always set to NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be able to
     // correctly construct the BoundedVec there.
     _packed_retrieved_note_length: u32,
-) -> BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> {}
+) -> BoundedVec<[Field; RETRIEVED_NOTE_PCKD_LEN], MAX_NOTES> {}
 
-pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
+pub unconstrained fn get_notes<Note, let M: u32, let MAX_NOTES: u32>(
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],
@@ -122,10 +122,10 @@ pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX
     status: u8,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTES]
 where
-    Note: NoteType + Packable<NOTE_PCKD_LEN>,
+    Note: NoteType + Packable,
 {
     // N + 3 because of the contract address, note nonce, and note_hash_counter that are stored out of the packed note.
-    let packed_retrieved_notes: BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> = get_notes_oracle(
+    let packed_retrieved_notes = get_notes_oracle::<(<Note as Packable>::N), M, MAX_NOTES>(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -141,7 +141,7 @@ where
         offset,
         status,
         MAX_NOTES,
-        NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD,
+        <Note as Packable>::N + RETRIEVED_NOTE_OVERHEAD,
     );
 
     let mut notes = BoundedVec::<_, MAX_NOTES>::new();
