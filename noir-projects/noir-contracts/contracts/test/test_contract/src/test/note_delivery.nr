@@ -106,7 +106,6 @@ unconstrained fn create_partial_note_in_one_tx_and_read_in_private() {
     let retrieved = env
         .call_private(recipient, test_contract.call_get_notes(STORAGE_SLOT, ACTIVE_OR_NULLIFIED))
         .return_value;
-    // fails because the order of fields in value note and uint note is not the same - we're reading the randomness. change test to use uintnote everywhere?
     assert_eq(retrieved, VALUE);
 }
 
