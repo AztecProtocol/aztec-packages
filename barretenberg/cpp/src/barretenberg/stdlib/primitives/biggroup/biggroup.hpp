@@ -21,8 +21,9 @@
 namespace bb::stdlib::element_default {
 
 // ( ͡° ͜ʖ ͡°)
-template <class Builder, class Fq, class Fr, class NativeGroup> class element {
+template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
+    using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
