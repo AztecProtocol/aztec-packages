@@ -31,7 +31,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
@@ -82,9 +82,11 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockGasTracker> gas_tracker;
     StrictMock<MockHighLevelMerkleDB> merkle_db;
     StrictMock<MockGreaterThan> greater_than;
+    StrictMock<MockPoseidon2> poseidon2;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
+                                                  poseidon2,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,
@@ -621,6 +623,18 @@ TEST_F(ExecutionSimulationTest, Cast)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.cast(context, src_addr, dst_addr, dst_tag);
+}
+
+TEST_F(ExecutionSimulationTest, Poseidon2Perm)
+{
+    MemoryAddress src_address = 10;
+    MemoryAddress dst_address = 20;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas);
+    EXPECT_CALL(poseidon2, permutation(_, src_address, dst_address));
+
+    execution.poseidon2_permutation(context, src_address, dst_address);
 }
 
 } // namespace
