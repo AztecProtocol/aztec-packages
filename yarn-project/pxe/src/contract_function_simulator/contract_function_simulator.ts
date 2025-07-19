@@ -27,7 +27,7 @@ import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas } from '@aztec/stdlib/gas';
-import { siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -271,7 +271,7 @@ export async function generateSimulatedProvingResult(
   nonceGenerator: Fr,
   contractDataProvider: ContractDataProvider,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-  const uniqueNoteHashes: OrderedSideEffect<Fr>[] = [];
+  const siloedNoteHashes: OrderedSideEffect<Fr>[] = [];
   const nullifiers: OrderedSideEffect<Fr>[] = [];
   const taggedPrivateLogs: OrderedSideEffect<PrivateLog>[] = [];
   const l2ToL1Messages: OrderedSideEffect<ScopedL2ToL1Message>[] = [];
@@ -283,9 +283,6 @@ export async function generateSimulatedProvingResult(
 
   const executions = [privateExecutionResult.entrypoint];
 
-  // See TODO on line 296
-  //let noteHashIndexInTx = 0;
-
   while (executions.length !== 0) {
     const execution = executions.shift()!;
     executions.unshift(...execution!.nestedExecutionResults);
@@ -296,17 +293,10 @@ export async function generateSimulatedProvingResult(
       execution.publicInputs.noteHashes
         .getActiveItems()
         .filter(noteHash => !noteHash.isEmpty())
-        .map(async noteHash => {
-          // TODO: Once we properly implement revertible/non-revertible side effects,
-          // we have to compute the unique note hash for non-revertible notes.
-          // Leaving this as a reference because this is obscure af.
-          //const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
-          const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
-          return new OrderedSideEffect(
-            /*await computeUniqueNoteHash(nonce, siloedNoteHash)*/ siloedNoteHash,
-            noteHash.counter,
-          );
-        }),
+        .map(
+          async noteHash =>
+            new OrderedSideEffect(await siloNoteHash(contractAddress, noteHash.value), noteHash.counter),
+        ),
     );
 
     const nullifiersFromExecution = await Promise.all(
@@ -325,7 +315,7 @@ export async function generateSimulatedProvingResult(
       }),
     );
 
-    uniqueNoteHashes.push(...noteHashesFromExecution);
+    siloedNoteHashes.push(...noteHashesFromExecution);
     taggedPrivateLogs.push(...privateLogsFromExecution);
     nullifiers.push(...nullifiersFromExecution);
     l2ToL1Messages.push(
@@ -391,8 +381,18 @@ export async function generateSimulatedProvingResult(
 
   // Private only
   if (privateExecutionResult.publicFunctionCalldata.length === 0) {
+    // In case the tx only contains private functions, we must make the note hashes unique by using the
+    // nonce generator and their index in the tx.
+    const uniqueNoteHashes = await Promise.all(
+      siloedNoteHashes.sort(sortByCounter).map(async (orderedSideEffect, i) => {
+        const siloedNoteHash = orderedSideEffect.sideEffect;
+        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+        const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+        return uniqueNoteHash;
+      }),
+    );
     const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
-      padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(uniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
         l2ToL1Messages.sort(sortByCounter).map(getEffect),
@@ -420,7 +420,7 @@ export async function generateSimulatedProvingResult(
     nonRevertibleData.nullifiers[0] = firstNullifier;
 
     const revertibleData = new PrivateToPublicAccumulatedData(
-      padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(siloedNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
         l2ToL1Messages.sort(sortByCounter).map(getEffect),
