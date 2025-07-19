@@ -31,12 +31,4 @@ title: Run a Node, Sequencer, or Prover
       Participate in the Aztec protocol as a prover, proving the rollup integrity that is pivotal to the protocol. Runs on hardware fit for data centers.
     </CardBody>
   </Card>
-  <Card shadow='tl' link='./run_nodes/operator_faq'>
-    <CardHeader>
-      <h3>FAQs & Common Issues/Resolutions</h3>
-    </CardHeader>
-    <CardBody>
-      Frequently asked questions and common issues that a node operators may face, and how to resolve them.
-    </CardBody>
-  </Card>
 </div>

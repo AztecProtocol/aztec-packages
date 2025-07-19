@@ -49,14 +49,3 @@ In this section, you can explore how governance works on Aztec, the types of nod
 
   </Card>
 </div>
-
-## FAQs
-
-<div className="card-container">
-  <Card shadow='tl' link='the_aztec_network/guides/run_nodes/operator_faq'>
-    <CardHeader>
-      <h3>FAQs & Common Issues/Resolutions</h3>
-    </CardHeader>
-
-  </Card>
-</div>

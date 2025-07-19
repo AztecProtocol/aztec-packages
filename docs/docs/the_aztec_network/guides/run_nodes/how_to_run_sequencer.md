@@ -42,7 +42,7 @@ The archiver component complements this process by maintaining historical chain 
 
 A computer running Linux or MacOS with the following specifictions:
 
-- CPU: 8-cores
+- CPU: 4-cores
 - RAM: 16 GiB
 - Storage: 1 TB SSD
 
@@ -142,8 +142,6 @@ To use the `aztec start` command, you need to obtain the following:
 
 - An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`. Popular consensus clients include [Lighthouse](https://lighthouse.sigmaprime.io/) or [Prysm](https://prysmaticlabs.com/). Not all RPC providers support consensus endpoints, [Quicknode](https://www.quicknode.com/) and [dRPC](https://drpc.org/) have been known to work for consensus endpoints.
 
-- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional remote server that serves blobs to the client. This is often called a "blob sink" or "blob storage service". You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`. Some providers like [Alchemy](https://www.alchemy.com/) offer blob storage services as part of their infrastructure offerings.
-
 #### Ethereum Keys
 
 You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
@@ -211,60 +209,6 @@ aztec add-l1-validator \
 You may see a warning when trying to register as a validator. To maintain network health there is a daily quota for validators to join the validator set. If you are not able to join, it could mean that today's quota of validators has already been added to the set. If you see this, you can try again later. Read [our blog post](https://aztec.network/blog/what-is-aztec-testnet) for more info.
 
 :::
-
-## Advanced Configuration
-
-### Using Environment Variables
-
-Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`. A reference is provided [here](./cli_reference.md).
-
-For example:
-
-- `--l1-rpc-urls` maps to `ETHEREUM_HOSTS`
-- `--l1-consensus-host-urls` maps to `L1_CONSENSUS_HOSTS_URLS`
-
-You can create a `.env` file with these variables:
-
-```bash
-ETHEREUM_HOSTS=https://example.com
-L1_CONSENSUS_HOST_URLS=https://example.com
-# Add other configuration variables as needed
-```
-
-Then source this file before running your command:
-
-```bash
-source .env
-aztec start --network alpha-testnet --archiver --node --sequencer # other flags...
-```
-
-### Using a Docker Compose
-
-If you would like to run in a docker compose, you can use a configuration like the one below:
-
-```yml
-name: aztec-node
-services:
-  node:
-    network_mode: host # Optional, run with host networking
-    image: aztecprotocol/aztec:latest
-    environment:
-      ETHEREUM_HOSTS: ""
-      L1_CONSENSUS_HOST_URLS: ""
-      DATA_DIRECTORY: /data
-      VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY
-      P2P_IP: $P2P_IP
-      LOG_LEVEL: debug
-    entrypoint: >
-      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet start --node --archiver --sequencer'
-    ports:
-      - 40400:40400/tcp
-      - 40400:40400/udp
-      - 8080:8080
-
-    volumes:
-      - /home/my-node/node:/data # Local directory
-```
 
 ## Troubleshooting
 
