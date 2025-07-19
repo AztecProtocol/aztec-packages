@@ -129,6 +129,10 @@ spec:
               value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.validator.p2p.floodPublish }}"
+            - name: P2P_DROP_TX
+              value: "{{ .Values.validator.p2p.dropTransactions }}"
+            - name: P2P_DROP_TX_CHANCE
+              value: "{{ .Values.validator.p2p.dropTransactionsProbability }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE
