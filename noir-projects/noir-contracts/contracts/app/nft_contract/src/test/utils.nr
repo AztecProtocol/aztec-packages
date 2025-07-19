@@ -1,11 +1,7 @@
 use crate::NFT;
-use dep::aztec::{
-    oracle::{
-        execution::{get_block_number, get_contract_address},
-        notes::set_sender_for_tags,
-        storage::storage_read,
-    },
-    protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
+use aztec::{
+    oracle::{execution::get_contract_address, notes::set_sender_for_tags},
+    protocol_types::address::AztecAddress,
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
@@ -53,8 +49,7 @@ pub unconstrained fn setup_and_mint(
     let (env, nft_contract_address, owner, recipient) = setup(with_account_contracts);
     let minted_token_id = 615;
 
-    NFT::at(nft_contract_address).mint(owner, minted_token_id).call(&mut env.public());
-    env.mine_block();
+    let _ = env.call_public_void(owner, NFT::at(nft_contract_address).mint(owner, minted_token_id));
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -66,25 +61,12 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
         setup_and_mint(with_account_contracts);
 
     // We transfer the public NFT to private.
-    let _ = env.call_private_void(
-        owner,
-        NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id),
+    NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id).call(
+        &mut env.private(),
     );
+    env.mine_block();
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
-}
-
-pub unconstrained fn get_nft_exists(nft_contract_address: AztecAddress, token_id: Field) -> bool {
-    let current_contract_address = get_contract_address();
-    txe_oracles::set_contract_address(nft_contract_address);
-    let block_number = get_block_number();
-
-    let nft_exists_slot = NFT::storage_layout().nft_exists.slot;
-    let nft_slot = derive_storage_slot_in_map(nft_exists_slot, token_id);
-    let exists: bool = storage_read(nft_contract_address, nft_slot, block_number);
-    txe_oracles::set_contract_address(current_contract_address);
-
-    exists
 }
 
 pub unconstrained fn assert_owns_public_nft(
@@ -93,8 +75,7 @@ pub unconstrained fn assert_owns_public_nft(
     owner: AztecAddress,
     token_id: Field,
 ) {
-    let obtained_owner = NFT::at(nft_contract_address).owner_of(token_id).view(&mut env.public());
-
+    let obtained_owner = env.view_public(NFT::at(nft_contract_address).owner_of(token_id));
     assert(owner == obtained_owner, "Incorrect NFT owner");
 }
 
