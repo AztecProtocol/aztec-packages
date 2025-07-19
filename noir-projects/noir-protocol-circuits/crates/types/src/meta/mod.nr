@@ -425,10 +425,89 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     single_token
 }
 
+comptime fn get_generics_declarations(s: TypeDefinition) -> Quoted {
+    let generics = s.generics();
+
+    // We check that each generic's second tuple field (maybe_numeric_generic) is Some,
+    // which indicates it's a numeric generic parameter (like N in Foo<N>).
+    // Non-numeric generics (like T in Foo<T>) would have None in this field.
+    // derive_serialize requires all generics to be numeric.
+    generics.for_each(|(_, maybe_numeric_generic)| {
+        assert(maybe_numeric_generic.is_some(), "All generic parameters must be numeric");
+    });
+
+    // Constructs the "<let N: u32, let M: u8>" string that is injected after the "impl" keyword in e.g.
+    // "impl<let N: u32, let M: u8> Serialize for Foo<N, M>".
+    // Returns an empty quote if the struct has no generics.
+    if generics.len() > 0 {
+        let generics_declarations_items = generics
+            .map(|(name, typ)| {
+                let integer_type = typ.unwrap();
+                quote {let $name: $integer_type}
+            })
+            .join(quote {,});
+        quote {<$generics_declarations_items>}
+    } else {
+        // The struct doesn't have any generics defined, so we just return an empty quote.
+        quote {}
+    }
+}
+
+/// Generates a `Serialize` trait implementation for a struct type.
+///
+/// # Parameters
+/// - `s`: The struct type definition to generate the implementation for
+///
+/// # Returns
+/// A quoted code block containing the trait implementation
+///
+/// # Example
+/// For a struct defined as:
+/// ```
+/// struct Log<N> {
+///     fields: [Field; N],
+///     length: u32
+/// }
+/// ```
+///
+/// This function generates code equivalent to:
+/// ```
+/// impl<let N: u32> Serialize for Log<N> {
+///     let N: u32 = <[Field; N] as Serialize>::N + <u32 as Serialize>::N;
+///
+///     #[inline_always]
+///     fn serialize(self) -> [Field; Self::N] {
+///         let mut result = [0; _];
+///         let mut offset = 0;
+///
+///         let serialized_member = Serialize::serialize(self.fields);
+///         let serialized_member_len = <[Field; N] as Serialize>::N;
+///         for i in 0..serialized_member_len {
+///             result[i + offset] = serialized_member[i];
+///         }
+///         offset += serialized_member_len;
+///
+///         let serialized_member = Serialize::serialize(self.length);
+///         let serialized_member_len = <u32 as Serialize>::N;
+///         for i in 0..serialized_member_len {
+///             result[i + offset] = serialized_member[i];
+///         }
+///         offset += serialized_member_len;
+///
+///         result
+///     }
+/// }
+/// ```
+///
+/// TODO(benesjan): does this make sense? Can we just slap there the non-numeric generics?
+/// Note that numeric generic parameters (like `N` in `Log<N>`) are supported.
+/// Non-numeric generic parameters (like `T` in `Container<T>`) are not supported.
 pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
+
+    let generics_declarations = get_generics_declarations(s);
 
     // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
     let right_hand_side_of_definition_of_n = params
@@ -457,7 +536,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         .join(quote {});
 
     quote {
-        impl $crate::traits::Serialize for $typ {
+        impl $generics_declarations $crate::traits::Serialize for $typ {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
@@ -478,6 +557,8 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
+    let generics_declarations = get_generics_declarations(s);
+
     // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
     let right_hand_side_of_definition_of_n = params
         .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
@@ -487,7 +568,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         })
         .join(quote {+});
 
-    // This generates deserialization code for each struct member that and concatenates them together.
+    // This generates deserialization code for each struct member and concatenates them together.
     let deserialization_of_struct_members = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
             quote {
@@ -495,7 +576,6 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
                 for i in 0..<$param_type as Deserialize>::N {
                     member_fields[i] = serialized[i + offset];
                 }
-                // wut?
                 let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
                 offset += <$param_type as Deserialize>::N;
             }
@@ -509,7 +589,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         .join(quote {,});
 
     quote {
-        impl $crate::traits::Deserialize for $typ {
+        impl $generics_declarations $crate::traits::Deserialize for $typ {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
