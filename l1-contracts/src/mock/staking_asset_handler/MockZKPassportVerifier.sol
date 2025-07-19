@@ -13,8 +13,8 @@ interface IZKPassportVerifier {
   function verifyProof(ProofVerificationParams calldata params) external returns (bool, bytes32);
   function verifyScopes(
     bytes32[] calldata publicInputs,
-    string calldata scope,
-    string calldata subscope
+    string calldata domain,
+    string calldata scope
   ) external returns (bool);
 }
 

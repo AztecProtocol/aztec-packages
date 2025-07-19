@@ -23,8 +23,8 @@ contract ConstructorTest is StakingAssetHandlerBase {
       depositMerkleRoot: 0,
       zkPassportVerifier: zkPassportVerifier,
       unhinged: new address[](0),
+      domain: CORRECT_DOMAIN,
       scope: CORRECT_SCOPE,
-      subscope: CORRECT_SUBSCOPE,
       skipBindCheck: false,
       skipMerkleCheck: false
     });
@@ -42,8 +42,8 @@ contract ConstructorTest is StakingAssetHandlerBase {
     uint256 _depositsPerMint,
     bytes32 _depositMerkleRoot,
     uint256 _unhingedCount,
+    string memory _domain,
     string memory _scope,
-    string memory _subscope,
     bool _skipBindCheck,
     bool _skipMerkleCheck
   ) external {
@@ -95,8 +95,8 @@ contract ConstructorTest is StakingAssetHandlerBase {
       depositMerkleRoot: _depositMerkleRoot,
       zkPassportVerifier: zkPassportVerifier,
       unhinged: unhinged,
+      domain: _domain,
       scope: _scope,
-      subscope: _subscope,
       skipBindCheck: _skipBindCheck,
       skipMerkleCheck: _skipMerkleCheck
     });

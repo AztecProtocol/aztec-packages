@@ -1,0 +1,6 @@
+SetDomain
+├── when caller of setDomain is not owner
+│   └── it reverts
+└── when caller of setDomain is owner
+    ├── it sets the domain
+    └── it emits a {DomainUpdated} event

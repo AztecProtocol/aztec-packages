@@ -11,8 +11,8 @@ export type ViemZkPassportProofParams = {
   committedInputs: `0x${string}`;
   committedInputCounts: bigint[];
   validityPeriodInDays: bigint;
+  domain: string;
   scope: string;
-  subscope: string;
   devMode: boolean;
 };
 
@@ -27,8 +27,8 @@ export class ZkPassportProofParams {
     public committedInputs: Buffer,
     public committedInputCounts: bigint[],
     public validityPeriodInDays: bigint,
+    public domain: string,
     public scope: string,
-    public subscope: string,
   ) {}
 
   toBuffer() {
@@ -44,8 +44,8 @@ export class ZkPassportProofParams {
       this.committedInputCounts.length,
       this.committedInputCounts,
       this.validityPeriodInDays,
+      this.domain,
       this.scope,
-      this.subscope,
     ]);
   }
 
@@ -94,8 +94,8 @@ export class ZkPassportProofParams {
       Buffer.from(withoutHexPrefix(params.committedInputs), 'hex'),
       params.committedInputCounts,
       params.validityPeriodInDays,
+      params.domain,
       params.scope,
-      params.subscope,
     );
   }
 
@@ -108,8 +108,8 @@ export class ZkPassportProofParams {
       committedInputs: `0x${this.committedInputs.toString('hex')}`,
       committedInputCounts: this.committedInputCounts,
       validityPeriodInDays: this.validityPeriodInDays,
+      domain: this.domain,
       scope: this.scope,
-      subscope: this.subscope,
     };
   }
 }
