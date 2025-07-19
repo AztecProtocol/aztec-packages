@@ -36,10 +36,6 @@ BENCHMARK_CAPTURE(construct_proof_ultrahonk,
                   ecdsa_verification,
                   &stdlib::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
-BENCHMARK_CAPTURE(construct_proof_ultrahonk,
-                  merkle_membership,
-                  &stdlib::generate_merkle_membership_test_circuit<UltraCircuitBuilder>)
-    ->Unit(kMillisecond);
 
 BENCHMARK(construct_proof_ultrahonk_power_of_2)
     // 2**15 gates to 2**20 gates
