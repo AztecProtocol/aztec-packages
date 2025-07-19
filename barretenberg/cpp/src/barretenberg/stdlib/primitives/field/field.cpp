@@ -898,7 +898,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
         assert_is_zero("0-bit range_constraint on non-zero field_t.");
     } else {
         if (is_constant()) {
-            ASSERT(uint256_t(get_value()).get_msb() < num_bits);
+            ASSERT(uint256_t(get_value()).get_msb() < num_bits, msg);
         } else {
             context->decompose_into_default_range(
                 get_normalized_witness_index(), num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);

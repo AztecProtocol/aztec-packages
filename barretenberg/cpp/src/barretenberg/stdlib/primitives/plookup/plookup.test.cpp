@@ -1,5 +1,4 @@
 #include "plookup.hpp"
-#include "../byte_array/byte_array.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/bitop/rotate.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"

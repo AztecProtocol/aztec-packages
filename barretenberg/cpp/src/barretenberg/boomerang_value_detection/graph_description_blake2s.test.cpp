@@ -7,7 +7,6 @@
 #include "barretenberg/stdlib/hash/blake2s/blake2s_plookup.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
-#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 
 using namespace bb;
 using namespace cdg;

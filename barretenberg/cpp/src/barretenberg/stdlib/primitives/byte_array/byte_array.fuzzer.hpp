@@ -70,7 +70,7 @@ template <typename Builder> class ByteArrayFuzzBase {
      */
     class Instruction {
       public:
-        enum OPCODE { CONSTANT, REVERSE, SLICE, GET_BIT, SET_BIT, ADD, SET, RANDOMSEED, _LAST };
+        enum OPCODE { CONSTANT, REVERSE, SLICE, ADD, SET, RANDOMSEED, _LAST };
         struct Element {
           public:
             std::array<uint8_t, MAX_ARRAY_SIZE> data;
@@ -135,9 +135,8 @@ template <typename Builder> class ByteArrayFuzzBase {
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
-            uint8_t in1, in2, out, value;
+            uint8_t in1, in2, out;
             uint16_t offset, length;
-            uint32_t bit;
             // Depending on instruction
             switch (instruction_opcode) {
             case OPCODE::CONSTANT:
@@ -165,11 +164,6 @@ template <typename Builder> class ByteArrayFuzzBase {
                 length = static_cast<uint16_t>(rng.next() & 0xffff);
                 return { .id = instruction_opcode,
                          .arguments.sliceArgs = { .in = in1, .out = out, .offset = offset, .length = length } };
-            case OPCODE::GET_BIT:
-                in1 = static_cast<uint8_t>(rng.next() & 0xff);
-                out = static_cast<uint8_t>(rng.next() & 0xff);
-                bit = static_cast<uint32_t>(rng.next() & 0xffffffff);
-                return { .id = instruction_opcode, .arguments.getBitArgs = { .in = in1, .out = out, .bit = bit } };
             case OPCODE::ADD:
                 // For two-input-one-output instructions we just randomly pick each argument and generate an instruction
                 // accordingly
@@ -177,11 +171,6 @@ template <typename Builder> class ByteArrayFuzzBase {
                 in2 = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode, .arguments.threeArgs = { .in1 = in1, .in2 = in2, .out = out } };
-            case OPCODE::SET_BIT:
-                in1 = static_cast<uint8_t>(rng.next() & 0xff);
-                bit = static_cast<uint32_t>(rng.next() & 0xffffffff);
-                value = static_cast<uint8_t>(rng.next() & 0xff);
-                return { .id = instruction_opcode, .arguments.setBitArgs = { .in = in1, .bit = bit, .value = value } };
             case OPCODE::RANDOMSEED:
                 return { .id = instruction_opcode, .arguments.randomseed = rng.next() };
                 break;
@@ -233,16 +222,6 @@ template <typename Builder> class ByteArrayFuzzBase {
                 PUT_RANDOM_TWO_BYTES_IF_LUCKY(instruction.arguments.sliceArgs.offset)
                 PUT_RANDOM_TWO_BYTES_IF_LUCKY(instruction.arguments.sliceArgs.length)
                 break;
-            case OPCODE::GET_BIT:
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.getBitArgs.in)
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.getBitArgs.out)
-                PUT_RANDOM_FOUR_BYTES_IF_LUCKY(instruction.arguments.getBitArgs.bit)
-                break;
-            case OPCODE::SET_BIT:
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.setBitArgs.in)
-                PUT_RANDOM_FOUR_BYTES_IF_LUCKY(instruction.arguments.setBitArgs.bit)
-                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.setBitArgs.value)
-                break;
             case OPCODE::ADD:
                 // Randomly sample each of the arguments with 50% probability
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.in1)
@@ -267,8 +246,6 @@ template <typename Builder> class ByteArrayFuzzBase {
         static constexpr size_t CONSTANT = MAX_ARRAY_SIZE + sizeof(uint16_t);
         static constexpr size_t REVERSE = 2;
         static constexpr size_t SLICE = 6;
-        static constexpr size_t GET_BIT = 6;
-        static constexpr size_t SET_BIT = 6;
         static constexpr size_t ADD = 3;
         static constexpr size_t SET = 2;
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
@@ -313,16 +290,6 @@ template <typename Builder> class ByteArrayFuzzBase {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
                          .arguments.threeArgs = { .in1 = *Data, .in2 = *(Data + 1), .out = *(Data + 2) } };
             }
-            if constexpr (opcode == Instruction::OPCODE::GET_BIT) {
-                return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
-                                    .arguments.getBitArgs = {
-                                        .in = *Data, .out = *(Data + 1), .bit = *((uint32_t*)(Data + 2)) } };
-            }
-            if constexpr (opcode == Instruction::OPCODE::SET_BIT) {
-                return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
-                                    .arguments.setBitArgs = {
-                                        .in = *Data, .bit = *((uint32_t*)(Data + 1)), .value = *(Data + 5) } };
-            }
             if constexpr (opcode == Instruction::OPCODE::RANDOMSEED) {
                 uint32_t randomseed;
                 memcpy(&randomseed, Data, sizeof(uint32_t));
@@ -357,18 +324,6 @@ template <typename Builder> class ByteArrayFuzzBase {
                 *(Data + 2) = instruction.arguments.sliceArgs.out;
                 *((uint16_t*)(Data + 3)) = instruction.arguments.sliceArgs.offset;
                 *((uint16_t*)(Data + 5)) = instruction.arguments.sliceArgs.length;
-            }
-            if constexpr (instruction_opcode == Instruction::OPCODE::GET_BIT) {
-                *Data = instruction.id;
-                *(Data + 1) = instruction.arguments.getBitArgs.in;
-                *(Data + 2) = instruction.arguments.getBitArgs.out;
-                *((uint32_t*)(Data + 3)) = instruction.arguments.getBitArgs.bit;
-            }
-            if constexpr (instruction_opcode == Instruction::OPCODE::SET_BIT) {
-                *Data = instruction.id;
-                *(Data + 1) = instruction.arguments.setBitArgs.in;
-                *((uint32_t*)(Data + 2)) = instruction.arguments.setBitArgs.bit;
-                *(Data + 6) = instruction.arguments.setBitArgs.value;
             }
             if constexpr (instruction_opcode == Instruction::OPCODE::ADD) {
                 *Data = instruction.id;
@@ -486,35 +441,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                         this->byte_array.slice(offset, length));
             }
         }
-        ExecutionHandler get_bit(Builder* builder, const size_t bit) const
-        {
-            if (bit >= this->reference_value.size() * 8) {
-                return ExecutionHandler(this->reference_value, this->byte_array);
-            } else {
-                const bool is_set_ref = this->reference_value[
-                                            /* Byte */ this->reference_value.size() - 1 - (bit / 8)] &
-                                        /* Bit */ (1 << (bit % 8));
-                const bool is_set_ba = this->byte_array.get_bit(bit).get_value();
 
-                return ExecutionHandler(bool_to_vector(is_set_ref), byte_array_t(builder, bool_to_vector(is_set_ba)));
-            }
-        }
-        /* Modifies the buffer at hand, so does not produce a return value */
-        void set_bit(const size_t bit, const bool value)
-        {
-            if (bit < this->reference_value.size() * 8) {
-                if (value) {
-                    this->reference_value[
-                        /* Byte */ this->reference_value.size() - 1 - (bit / 8)] |=
-                        /* Bit */ (1 << (bit % 8));
-                } else {
-                    this->reference_value[
-                        /* Byte */ this->reference_value.size() - 1 - (bit / 8)] &=
-                        /* Bit */ ~(1 << (bit % 8));
-                }
-                this->byte_array.set_bit(bit, value);
-            }
-        }
         ExecutionHandler operator+(const ExecutionHandler& other)
         {
             if (this->reference_value.size() + other.reference_value.size() > (MAX_ARRAY_SIZE * 3)) {
@@ -748,77 +675,6 @@ template <typename Builder> class ByteArrayFuzzBase {
             }
             return 0;
         }
-        /**
-         * @brief Execute the GET_BIT instruction
-         *
-         * @param builder
-         * @param stack
-         * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
-         */
-        static inline size_t execute_GET_BIT(Builder* builder,
-                                             std::vector<ExecutionHandler>& stack,
-                                             Instruction& instruction)
-        {
-            (void)builder;
-            if (stack.size() == 0) {
-                return 1;
-            }
-            size_t first_index = instruction.arguments.getBitArgs.in % stack.size();
-            size_t output_index = instruction.arguments.getBitArgs.out;
-            const uint32_t bit = instruction.arguments.getBitArgs.bit;
-
-#ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = ";
-            if (bit >= stack[first_index].reference_value.size() * 8) {
-                std::cout << rhs << ";" << std::endl;
-            } else {
-                std::cout << "byte_array_t(&builder, bool_to_vector(" << rhs << ".get_bit(" << bit << ")));"
-                          << std::endl;
-            }
-#endif
-
-            ExecutionHandler result;
-            result = stack[first_index].get_bit(builder, bit);
-            // If the output index is larger than the number of elements in stack, append
-            if (output_index >= stack.size()) {
-                stack.push_back(result);
-            } else {
-                stack[output_index] = result;
-            }
-            return 0;
-        };
-        /**
-         * @brief Execute the SET_BIT instruction
-         *
-         * @param builder
-         * @param stack
-         * @param instruction
-         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
-         */
-        static inline size_t execute_SET_BIT(Builder* builder,
-                                             std::vector<ExecutionHandler>& stack,
-                                             Instruction& instruction)
-        {
-            (void)builder;
-            if (stack.size() == 0) {
-                return 1;
-            }
-            size_t first_index = instruction.arguments.setBitArgs.in % stack.size();
-            const uint32_t bit = instruction.arguments.setBitArgs.bit;
-            const bool value = static_cast<bool>(instruction.arguments.setBitArgs.value % 2);
-
-#ifdef FUZZING_SHOW_INFORMATION
-            if (bit < stack[first_index].reference_value.size() * 8) {
-                PREP_SINGLE_ARG(stack, first_index, first_index)
-                std::cout << rhs << ".set_bit(" << bit << ", " << value << ");" << std::endl;
-            }
-#endif
-
-            stack[first_index].set_bit(bit, value);
-            return 0;
-        };
         /**
          * @brief Execute the ADD (append) instruction
          *
