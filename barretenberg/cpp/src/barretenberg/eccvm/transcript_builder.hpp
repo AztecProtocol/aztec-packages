@@ -22,7 +22,9 @@ class ECCVMTranscriptBuilder {
 
     struct TranscriptRow {
 
+        /////////////////////////////////////
         // These fields are populated in the first loop
+        /////////////////////////////////////
         bool transcript_msm_infinity = false;
         bool accumulator_not_empty = false;
         bool q_add = false;
@@ -38,23 +40,28 @@ class ECCVMTranscriptBuilder {
         bool base_infinity = false;
         uint256_t z1 = 0;
         uint256_t z2 = 0;
-        bool z1_zero = false;
-        bool z2_zero = false;
-        uint32_t opcode = 0;
+        bool z1_zero = false; // truth value of (z1 == 0)
+        bool z2_zero = false; // truth value of (z2 == 0)
+        uint32_t opcode = 0;  // opcode value, in {0, .., 15}, given by 8 * q_add + 4 * q_mul + 2 * q_eq + q_reset.
 
+        /////////////////////////////////////
         // These fields are populated after converting Jacobian to affine coordinates
-        FF accumulator_x = 0;
-        FF accumulator_y = 0;
-        FF msm_output_x = 0;
-        FF msm_output_y = 0;
+        /////////////////////////////////////
+        // [A] is the current accumulated point.
+        FF accumulator_x = 0; // [A] = (accumulator_x, accumulator_y)
+        FF accumulator_y = 0; // [A] = (accumulator_x, accumulator_y)
+        FF msm_output_x = 0;  // claimed output of msm = (msm_output_x, msm_output_y)
+        FF msm_output_y = 0;  // claimed output of msm = (msm_output_x, msm_output_y)
         FF transcript_msm_intermediate_x = 0;
         FF transcript_msm_intermediate_y = 0;
-
+        /////////////////////////////////////
         // Computed during the lambda numerator and denominator computation
+        /////////////////////////////////////
         bool transcript_add_x_equal = false;
         bool transcript_add_y_equal = false;
-
+        /////////////////////////////////////
         // Computed after the batch inversion
+        /////////////////////////////////////
         FF base_x_inverse = 0;
         FF base_y_inverse = 0;
         FF transcript_add_lambda = 0;
@@ -83,11 +90,13 @@ class ECCVMTranscriptBuilder {
     {
         return AffineElement(Element(other) - offset_generator());
     }
+
+    // maintains the state of the VM at any given point (i.e., at any given value of pc).
     struct VMState {
         uint32_t pc = 0;
         uint32_t count = 0;
         Element accumulator = CycleGroup::affine_point_at_infinity;
-        Element msm_accumulator = offset_generator();
+        Element msm_accumulator = offset_generator(); // RAJU: add some description of how this offset thing works.
         bool is_accumulator_empty = true;
     };
 

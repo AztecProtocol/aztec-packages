@@ -27,23 +27,30 @@ class ECCVMMSMMBuilder {
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
 
     struct alignas(64) MSMRow {
-        // counter over all half-length scalar muls used to compute the required MSMs
-        uint32_t pc = 0;
-        // the number of points that will be scaled and summed
-        uint32_t msm_size = 0;
-        uint32_t msm_count = 0;
-        uint32_t msm_round = 0;
-        bool msm_transition = false;
+        uint32_t pc = 0;        // counter over all half-length (128 bit) scalar muls used to compute the required MSMs
+        uint32_t msm_size = 0;  // the number of points that will be scaled and summed
+        uint32_t msm_count = 0; // number of multiplications processed so far in current MSM round
+        uint32_t msm_round = 0; // current "round" of MSM, in {0, ..., 31} RAJU: or 32? test.
+        bool msm_transition = false; // is 1 if the next row starts the processing of a different MSM, else 0.
         bool q_add = false;
         bool q_double = false;
         bool q_skew = false;
 
+        // The MSM part of the VM can evaluate up to 4 point additions.
+        // For each row in the VM we represent the possible point addition data via a size-4 array of
+        // AddState objects.
         struct AddState {
-            bool add = false;
-            int slice = 0;
-            AffineElement point{ 0, 0 };
-            FF lambda = 0;
-            FF collision_inverse = 0;
+            bool add = false; // are we adding a point at this location in the VM?
+                              // e.g if the MSM is of size-2 then the 3rd and 4th AddState objects will have this set
+                              // to `false`.  (4th AddState objects will always (?) have this bool set to `false`.)
+            int slice = 0;    // WNAF slice value
+
+            AffineElement point{ 0, 0 }; // point being added into the accumulator
+            FF lambda = 0; // when adding `point` into the accumulator via Affine point addition, the value of `lambda`
+                           // (i.e., the slope of the line). (we need this as a witness in the circuit.)
+            FF collision_inverse = 0; // collision_inverse` is used to validate we are not hitting point addition edge
+                                      // case exceptions, i.e., we want the VM proof to fail if we're doing a point
+                                      // addition where (x1 == x2). to do this, we simply provide an inverse to x1-x2.
         };
         std::array<AddState, 4> add_state{ AddState{ false, 0, { 0, 0 }, 0, 0 },
                                            AddState{ false, 0, { 0, 0 }, 0, 0 },
@@ -59,7 +66,7 @@ class ECCVMMSMMBuilder {
      * For a detailed description of the Straus algorithm and its relation to the ECCVM, please see
      * https://hackmd.io/@aztec-network/rJ5xhuCsn
      *
-     * @param msms A vector of vectors of ScalarMuls.
+     * @param msms A vector of vectors of `ScalarMul`s, a.k.a. a vector of `MSM`s.
      * @param point_table_read_counts Table of read counts to be populated.
      * @param total_number_of_muls A mul op in the OpQueue adds up to two muls, one for each nonzero z_i (i=1,2).
      * @param num_msm_rows
@@ -68,6 +75,7 @@ class ECCVMMSMMBuilder {
     static std::tuple<std::vector<MSMRow>, std::array<std::vector<size_t>, 2>> compute_rows(
         const std::vector<MSM>& msms, const uint32_t total_number_of_muls, const size_t num_msm_rows)
     {
+        // RAJU: THIS COMMENT BLOCK MIGHT BE INACCURATE. Checking now. RAJU.
         // To perform a scalar multiplication of a point P by a scalar x, we precompute a table of points
         //                           -15P, -13P, ..., -3P, -P, P, 3P, ..., 15P
         // When we perform a scalar multiplication, we decompose x into base-16 wNAF digits then look these precomputed
@@ -171,6 +179,7 @@ class ECCVMMSMMBuilder {
                     }
                 }
 
+                // update the log-derivative read count for the lookup associated with WNAF skew
                 if (digit_idx == NUM_WNAF_DIGITS_PER_SCALAR - 1) {
                     for (size_t row_idx = 0; row_idx < num_rows_per_digit; ++row_idx) {
                         const size_t num_points_in_row = (row_idx + 1) * ADDITIONS_PER_ROW > msm_size
@@ -182,7 +191,11 @@ class ECCVMMSMMBuilder {
                             bool add = num_points_in_row > relative_point_idx;
                             const size_t point_idx = offset + relative_point_idx;
                             if (add) {
-                                // pc starts at total_number_of_muls and decreses non-uniformly to 0
+                                // pc starts at total_number_of_muls and decreases non-uniformly to 0
+                                // -15 maps to the 1st point in the lookup table (array element 0)
+                                // -1 maps to the point in the lookup table that corresponds to the negation of the
+                                // original input point (i.e. the point we need to add into the accumulator if wnaf_skew
+                                // is positive)
                                 int slice = msm[point_idx].wnaf_skew ? -1 : -15;
                                 update_read_count((total_number_of_muls - pc) + point_idx, slice);
                             }
@@ -201,7 +214,7 @@ class ECCVMMSMMBuilder {
         // This section sets up the data structures we need to store all intermediate ECC operations in projective form
         const size_t num_point_adds_and_doubles = (num_msm_rows - 2) * 4;
         const size_t num_accumulators = num_msm_rows - 1;
-        // In what fallows, either p1 + p2 = p3, or p1.dbl() = p3
+        // In what follows, either p1 + p2 = p3, or p1.dbl() = p3
         // We create 1 vector to store the entire point trace. We split into multiple containers using std::span
         // (we want 1 vector object to more efficiently batch normalize points)
         static constexpr size_t NUM_POINTS_IN_ADDITION_RELATION = 3;
@@ -219,6 +232,8 @@ class ECCVMMSMMBuilder {
         // we start the accumulator at the offset generator point
         constexpr auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         accumulator_trace[0] = offset_generator;
+        // Zac suggests roughly the following:
+        // accumulator_trace[0] = (msm.size() + ADDITIONS_PER_ROW - 1) / ADDITIONS_PER_ROW;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/973): Reinstate multitreading?
         // populate point trace, and the components of the MSM execution trace that do not relate to affine point
@@ -349,10 +364,15 @@ class ECCVMMSMMBuilder {
         }
 
         // Normalize the points in the point trace
+
+        // operation_trace[operation_idx] == 1, this represents a point doubling
+        // (very bad variable name)
+        //
         parallel_for_range(points_to_normalize.size(), [&](size_t start, size_t end) {
             Element::batch_normalize(&points_to_normalize[start], end - start);
         });
 
+        // operation_trace[operation_idx] == 0, this represents a point addition
         // inverse_trace is used to compute the value of the `collision_inverse` column in the ECCVM.
         std::vector<FF> inverse_trace(num_point_adds_and_doubles);
         parallel_for_range(num_point_adds_and_doubles, [&](size_t start, size_t end) {
@@ -389,6 +409,9 @@ class ECCVMMSMMBuilder {
                     row.accumulator_y = normalized_accumulator.y;
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
                         auto& add_state = row.add_state[point_idx];
+
+                        // if digit_idx <  NUM_WNAF_DIGITS_PER_SCALAR - 1 we have not finished executing our
+                        // double-and-add algorithm
                         const auto& inverse = inverse_trace[trace_index];
                         const auto& p1 = p1_trace[trace_index];
                         const auto& p2 = p2_trace[trace_index];
@@ -408,6 +431,11 @@ class ECCVMMSMMBuilder {
                     row.accumulator_x = acc_x;
                     row.accumulator_y = acc_y;
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
+                        // this row corresponds to performing point additions to handle WNAF skew
+                        // i.e. iterate over all the points in the MSM - if for a given point, `wnaf_skew == 1`,
+                        // subtract the original point from the accumulatorif digit_idx >=  NUM_WNAF_DIGITS_PER_SCALAR -
+                        // 1 we have finished executing our double-and-add algorithm (size_t point_idx = 0; point_idx <
+                        //
                         auto& add_state = row.add_state[point_idx];
                         add_state.collision_inverse = 0;
                         const FF& dx = p1_trace[trace_index].x;
@@ -416,6 +444,8 @@ class ECCVMMSMMBuilder {
                         trace_index++;
                     }
                     accumulator_index++;
+
+                    // SKEW!
                     msm_row_index++;
                 } else {
                     for (size_t row_idx = 0; row_idx < num_rows_per_digit; ++row_idx) {
@@ -444,8 +474,8 @@ class ECCVMMSMMBuilder {
         }
 
         // populate the final row in the MSM execution trace.
-        // we always require 1 extra row at the end of the trace, because the accumulator x/y coordinates for row `i`
-        // are present at row `i+1`
+        // we always require 1 extra row at the end of the trace, because the accumulator x/y coordinates for row
+        // `i` are present at row `i+1`
         Element final_accumulator(accumulator_trace.back());
         MSMRow& final_row = msm_rows.back();
         final_row.pc = static_cast<uint32_t>(pc_values.back());
