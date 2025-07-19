@@ -13,35 +13,35 @@ template <typename Builder, typename Native>
 std::vector<uint32_t> uint<Builder, Native>::constrain_accumulators(Builder* context,
                                                                     const uint32_t witness_index) const
 {
-    const auto res = context->decompose_into_default_range(witness_index, width, bits_per_limb);
+    std::vector<uint32_t> res = context->decompose_into_default_range(witness_index, width, bits_per_limb);
     return res;
 }
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(const witness_t<Builder>& witness)
-    : context(witness.context)
+uint<Builder, Native>::uint(const witness_t<Builder>& other)
+    : context(other.context)
     , witness_status(WitnessStatus::OK)
 {
-    if (witness.witness_index == IS_CONSTANT) {
-        additive_constant = witness.witness;
+    if (other.is_constant()) {
+        additive_constant = other.witness;
         witness_index = IS_CONSTANT;
     } else {
-        accumulators = constrain_accumulators(context, witness.witness_index);
-        witness_index = witness.witness_index;
+        accumulators = constrain_accumulators(context, other.witness_index);
+        witness_index = other.witness_index;
     }
 }
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(const field_t<Builder>& value)
-    : context(value.context)
+uint<Builder, Native>::uint(const field_t<Builder>& other)
+    : context(other.context)
     , additive_constant(0)
     , witness_status(WitnessStatus::OK)
 {
-    if (value.witness_index == IS_CONSTANT) {
-        additive_constant = value.additive_constant;
+    if (other.is_constant()) {
+        additive_constant = other.additive_constant;
         witness_index = IS_CONSTANT;
     } else {
-        field_t<Builder> norm = value.normalize();
+        field_t<Builder> norm = other.normalize();
         accumulators = constrain_accumulators(context, norm.get_witness_index());
         witness_index = norm.get_witness_index();
     }
@@ -52,7 +52,6 @@ uint<Builder, Native>::uint(Builder* builder, const uint256_t& value)
     : context(builder)
     , additive_constant(value)
     , witness_status(WitnessStatus::OK)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {}
 
@@ -61,7 +60,6 @@ uint<Builder, Native>::uint(const uint256_t& value)
     : context(nullptr)
     , additive_constant(value)
     , witness_status(WitnessStatus::OK)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {}
 
@@ -70,20 +68,32 @@ uint<Builder, Native>::uint(const byte_array<Builder>& other)
     : context(other.get_context())
     , additive_constant(0)
     , witness_status(WitnessStatus::WEAK_NORMALIZED)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {
     field_t<Builder> accumulator(context, fr::zero());
     field_t<Builder> scaling_factor(context, fr::one());
-    const auto bytes = other.bytes();
+    const auto& bytes = other.bytes();
+    const size_t num_bytes = bytes.size();
 
-    // TODO JUMP IN STEPS OF TWO
-    for (size_t i = 0; i < bytes.size(); ++i) {
-        accumulator = accumulator + scaling_factor * bytes[bytes.size() - 1 - i];
-        scaling_factor = scaling_factor * fr(256);
+    // Process pairs of bytes from the end of the byte array.
+    for (size_t i = 0; i < (num_bytes / 2); ++i) {
+        const field_t<Builder> even_scaling_factor = scaling_factor;
+        const field_t<Builder> odd_scaling_factor = scaling_factor * fr(256);
+        accumulator = accumulator.add_two(bytes[num_bytes - 1 - (2 * i)] * even_scaling_factor,
+                                          bytes[num_bytes - 1 - (2 * i + 1)] * odd_scaling_factor);
+
+        scaling_factor = scaling_factor * fr(256 * 256); // Scale by (2^8 * 2^8).
     }
+
+    // Process the last byte if the byte array has an odd number of bytes.
+    if (num_bytes % 2 == 1) {
+        const field_t<Builder>& last_byte = bytes[0];
+        accumulator = accumulator + (scaling_factor * last_byte);
+    }
+
+    // Normalize the accumulator and set the witness index or additive constant.
     accumulator = accumulator.normalize();
-    if (accumulator.witness_index == IS_CONSTANT) {
+    if (accumulator.is_constant()) {
         additive_constant = uint256_t(accumulator.additive_constant);
     } else {
         witness_index = accumulator.witness_index;
@@ -100,19 +110,31 @@ uint<Builder, Native>::uint(Builder* parent_context, const std::vector<bool_t<Bu
     : context(parent_context)
     , additive_constant(0)
     , witness_status(WitnessStatus::WEAK_NORMALIZED)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {
     field_t<Builder> accumulator(context, fr::zero());
     field_t<Builder> scaling_factor(context, fr::one());
+    const size_t num_wires = wires.size();
 
-    // TODO JUMP IN STEPS OF TWO
-    for (size_t i = 0; i < wires.size(); ++i) {
-        accumulator = accumulator + scaling_factor * field_t<Builder>(wires[i]);
-        scaling_factor = scaling_factor + scaling_factor;
+    for (size_t i = 0; i < (num_wires / 2); ++i) {
+        const field_t<Builder> even_scaling_factor = scaling_factor;
+        const field_t<Builder> odd_scaling_factor = scaling_factor * fr(2);
+
+        accumulator = accumulator.add_two(field_t<Builder>(wires[2 * i]) * even_scaling_factor,
+                                          field_t<Builder>(wires[2 * i + 1]) * odd_scaling_factor);
+
+        scaling_factor = scaling_factor * fr(4); // Scale by (2^1 * 2^1).
     }
+
+    // Process the last wire if the number of wires is odd.
+    if (num_wires % 2 == 1) {
+        const field_t<Builder>& last_wire = field_t<Builder>(wires[num_wires - 1]);
+        accumulator = accumulator + (scaling_factor * last_wire);
+    }
+
+    // Normalize the accumulator and set the witness index or additive constant.
     accumulator = accumulator.normalize();
-    if (accumulator.witness_index == IS_CONSTANT) {
+    if (accumulator.is_constant()) {
         additive_constant = uint256_t(accumulator.additive_constant);
     } else {
         witness_index = accumulator.witness_index;
@@ -129,7 +151,7 @@ uint<Builder, Native>::uint(const uint& other)
 {}
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(uint&& other)
+uint<Builder, Native>::uint(uint&& other) noexcept
     : context(other.context)
     , additive_constant(other.additive_constant)
     , witness_status(other.witness_status)
@@ -139,6 +161,9 @@ uint<Builder, Native>::uint(uint&& other)
 
 template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder, Native>::operator=(const uint& other)
 {
+    if (this == &other) {
+        return *this;
+    }
     context = other.context;
     additive_constant = other.additive_constant;
     witness_status = other.witness_status;
@@ -147,7 +172,8 @@ template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder
     return *this;
 }
 
-template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder, Native>::operator=(uint&& other)
+template <typename Builder, typename Native>
+uint<Builder, Native>& uint<Builder, Native>::operator=(uint&& other) noexcept
 {
     context = other.context;
     additive_constant = other.additive_constant;
