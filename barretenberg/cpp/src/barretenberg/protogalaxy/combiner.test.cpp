@@ -216,18 +216,18 @@ TEST(Protogalaxy, CombinerOn2Keys)
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             // The expected_result values are computed by running the python script combiner_example_gen.py
-            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 11480UL,
-                                                                          14117208UL,
-                                                                          78456280UL,
-                                                                          230777432UL,
-                                                                          508829400UL,
-                                                                          950360920UL,
-                                                                          1593120728UL,
-                                                                          2474857560UL,
-                                                                          3633320152UL,
-                                                                          5106257240UL,
-                                                                          6931417560UL,
-                                                                          9146549848UL });
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 12104UL,
+                                                                          14414024UL,
+                                                                          79442504UL,
+                                                                          232846280UL,
+                                                                          512374088UL,
+                                                                          955774664UL,
+                                                                          1600796744UL,
+                                                                          2485189064UL,
+                                                                          3646700360UL,
+                                                                          5123079368UL,
+                                                                          6952074824UL,
+                                                                          9171435464UL });
             EXPECT_EQ(result_no_skipping, expected_result);
         } else {
             std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
