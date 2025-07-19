@@ -24,6 +24,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
+    std::vector<FF>& public_inputs = oink_verifier.public_inputs;
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         verification_key->gate_challenges.emplace_back(
@@ -34,8 +35,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Extract the public inputs containing the IPA claim and reconstruct
         const uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - IPA_CLAIM_SIZE;
-        std::span<FF, IPA_CLAIM_SIZE> ipa_claim_limbs{ verification_key->public_inputs.data() + start_idx,
-                                                       IPA_CLAIM_SIZE };
+        std::span<FF, IPA_CLAIM_SIZE> ipa_claim_limbs{ public_inputs.data() + start_idx, IPA_CLAIM_SIZE };
 
         auto ipa_claim = OpeningClaim<curve::Grumpkin>::reconstruct_from_public(ipa_claim_limbs);
 
@@ -63,8 +63,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     if constexpr (HasIPAAccumulator<Flavor>) {
         start_idx -= IPA_CLAIM_SIZE;
     }
-    std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + start_idx,
-                                                             PAIRING_POINTS_SIZE };
+    std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ public_inputs.data() + start_idx, PAIRING_POINTS_SIZE };
     PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
     decider_output.pairing_points.aggregate(nested_pairing_points);
 

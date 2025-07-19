@@ -95,6 +95,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 {
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
+    std::vector<StdlibFF> public_inputs;
 
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG: {
@@ -110,7 +111,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
-        decider_vk = verifier.keys_to_fold[1]; // decider vk for the incoming circuit
+        decider_vk = verifier.keys_to_fold[1];  // decider vk for the incoming circuit
+        public_inputs = verifier.public_inputs; // public inputs extracted from the proof
 
         break;
     }
@@ -120,8 +122,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
-        OinkRecursiveVerifier oink{ &circuit, verifier_accum, accumulation_recursive_transcript };
-        oink.verify_proof(verifier_inputs.proof);
+        OinkRecursiveVerifier verifier{ &circuit, verifier_accum, accumulation_recursive_transcript };
+        verifier.verify_proof(verifier_inputs.proof);
         verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
@@ -129,7 +131,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // Initialize the gate challenges to zero for use in first round of folding
         verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
-        decider_vk = verifier_accum; // decider vk for the incoming circuit
+        decider_vk = verifier_accum;            // decider vk for the incoming circuit
+        public_inputs = verifier.public_inputs; // public inputs extracted from the proof
 
         break;
     }
@@ -147,7 +150,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     if (verifier_inputs.is_kernel) {
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
-        kernel_input.reconstruct_from_public(decider_vk->public_inputs);
+        kernel_input.reconstruct_from_public(public_inputs);
         nested_pairing_points = kernel_input.pairing_inputs;
 
         // Perform databus consistency checks
@@ -159,7 +162,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     } else {
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
-        app_input.reconstruct_from_public(decider_vk->public_inputs);
+        app_input.reconstruct_from_public(public_inputs);
         nested_pairing_points = app_input.pairing_inputs;
 
         // Set the app return data commitment to be propagated via the public inputs
