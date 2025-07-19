@@ -457,6 +457,7 @@ process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
+
     ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
            "Root rollup must accumulate two IPA proofs.");
     return output;
@@ -479,6 +480,8 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     }
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
+    info("ivc->verification_queue.size(): ", ivc->verification_queue.size());
+    info("constraints.ivc_recursion_constraints.size(): ", constraints.ivc_recursion_constraints.size());
     BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),
                  ivc->verification_queue.size(),
                  "WARNING: Mismatch in number of recursive verifications during kernel creation!");
@@ -523,6 +526,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     }
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
+    info("Hash prior to complete_kernel_circuit_logic: ", builder.hash_circuit());
     ivc->complete_kernel_circuit_logic(builder);
 
     // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they

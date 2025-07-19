@@ -75,6 +75,7 @@ class ClientIVC {
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
@@ -131,7 +132,7 @@ class ClientIVC {
         MSGPACK_FIELDS(mega, eccvm, translator);
     };
 
-    enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
+    enum class QUEUE_TYPE { OINK, PG, PG_FINAL }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -168,7 +169,8 @@ class ClientIVC {
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
     ProverFoldOutput fold_output; // prover accumulator and fold proof
-    HonkProof mega_proof;
+    HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
+    HonkProof mega_proof;         // proof of the hiding circuit
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
@@ -229,9 +231,14 @@ class ClientIVC {
 
     bool prove_and_verify();
 
-    HonkProof decider_prove() const;
+    HonkProof decider_prove();
 
     VerificationKey get_vk() const;
+    void hiding_circuit_recursive_verification(ClientCircuit& circuit);
+    ClientIVC::PairingPoints complete_hiding_circuit_logic(
+        const StdlibProof& stdlib_proof,
+        const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
+        ClientCircuit& circuit);
 };
 
 } // namespace bb

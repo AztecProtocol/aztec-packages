@@ -1,0 +1,4622 @@
+[previous_kernel.vk_data]
+leaf_index = ""
+sibling_path = ["", "", "", "", "", ""]
+
+[previous_kernel.vk_data.vk]
+hash = ""
+key = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+
+[previous_kernel_public_inputs]
+claimed_first_nullifier = ""
+include_by_timestamp = ""
+is_private_only = ""
+min_revertible_side_effect_counter = ""
+
+[previous_kernel_public_inputs.constants]
+protocol_contract_tree_root = ""
+vk_tree_root = ""
+
+[previous_kernel_public_inputs.constants.historical_header]
+total_fees = ""
+total_mana_used = ""
+
+[previous_kernel_public_inputs.constants.historical_header.content_commitment]
+blobs_hash = ""
+in_hash = ""
+out_hash = ""
+
+[previous_kernel_public_inputs.constants.historical_header.global_variables]
+block_number = ""
+chain_id = ""
+slot_number = ""
+timestamp = ""
+version = ""
+
+[previous_kernel_public_inputs.constants.historical_header.global_variables.coinbase]
+inner = ""
+
+[previous_kernel_public_inputs.constants.historical_header.global_variables.fee_recipient]
+inner = ""
+
+[previous_kernel_public_inputs.constants.historical_header.global_variables.gas_fees]
+fee_per_da_gas = ""
+fee_per_l2_gas = ""
+
+[previous_kernel_public_inputs.constants.historical_header.last_archive]
+next_available_leaf_index = ""
+root = ""
+
+[previous_kernel_public_inputs.constants.historical_header.state.l1_to_l2_message_tree]
+next_available_leaf_index = ""
+root = ""
+
+[previous_kernel_public_inputs.constants.historical_header.state.partial.note_hash_tree]
+next_available_leaf_index = ""
+root = ""
+
+[previous_kernel_public_inputs.constants.historical_header.state.partial.nullifier_tree]
+next_available_leaf_index = ""
+root = ""
+
+[previous_kernel_public_inputs.constants.historical_header.state.partial.public_data_tree]
+next_available_leaf_index = ""
+root = ""
+
+[previous_kernel_public_inputs.constants.tx_context]
+chain_id = ""
+version = ""
+
+[previous_kernel_public_inputs.constants.tx_context.gas_settings.gas_limits]
+da_gas = ""
+l2_gas = ""
+
+[previous_kernel_public_inputs.constants.tx_context.gas_settings.max_fees_per_gas]
+fee_per_da_gas = ""
+fee_per_l2_gas = ""
+
+[previous_kernel_public_inputs.constants.tx_context.gas_settings.max_priority_fees_per_gas]
+fee_per_da_gas = ""
+fee_per_l2_gas = ""
+
+[previous_kernel_public_inputs.constants.tx_context.gas_settings.teardown_gas_limits]
+da_gas = ""
+l2_gas = ""
+
+[previous_kernel_public_inputs.end.contract_class_logs_hashes]
+length = ""
+
+[[previous_kernel_public_inputs.end.contract_class_logs_hashes.array]]
+
+[previous_kernel_public_inputs.end.contract_class_logs_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.contract_class_logs_hashes.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.contract_class_logs_hashes.array.inner.inner]
+length = ""
+value = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs]
+length = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[[previous_kernel_public_inputs.end.l2_to_l1_msgs.array]]
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner]
+counter = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner]
+content = ""
+
+[previous_kernel_public_inputs.end.l2_to_l1_msgs.array.inner.inner.recipient]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes]
+length = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.note_hashes.array]]
+
+[previous_kernel_public_inputs.end.note_hashes.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.note_hashes.array.note_hash]
+counter = ""
+value = ""
+
+[previous_kernel_public_inputs.end.nullifiers]
+length = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[[previous_kernel_public_inputs.end.nullifiers.array]]
+
+[previous_kernel_public_inputs.end.nullifiers.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.nullifiers.array.nullifier]
+counter = ""
+note_hash = ""
+value = ""
+
+[previous_kernel_public_inputs.end.private_call_stack]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.private_call_stack.array]]
+args_hash = ""
+end_side_effect_counter = ""
+returns_hash = ""
+start_side_effect_counter = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context]
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.function_selector]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_call_stack.array.call_context.msg_sender]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[[previous_kernel_public_inputs.end.private_logs.array]]
+
+[previous_kernel_public_inputs.end.private_logs.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner]
+counter = ""
+note_hash_counter = ""
+
+[previous_kernel_public_inputs.end.private_logs.array.inner.log]
+fields = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+length = ""
+
+[previous_kernel_public_inputs.end.public_call_requests]
+length = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[[previous_kernel_public_inputs.end.public_call_requests.array]]
+counter = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.end.public_call_requests.array.inner.msg_sender]
+inner = ""
+
+[previous_kernel_public_inputs.fee_payer]
+inner = ""
+
+[previous_kernel_public_inputs.public_teardown_call_request]
+calldata_hash = ""
+is_static_call = ""
+
+[previous_kernel_public_inputs.public_teardown_call_request.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.public_teardown_call_request.msg_sender]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests]
+length = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.note_hash_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests]
+length = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array]]
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.nullifier_read_requests.array.read_request]
+counter = ""
+value = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators]
+length = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array]]
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.contract_address]
+inner = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request]
+sk_app_generator = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request]
+sk_app = ""
+
+[previous_kernel_public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array.request.request.pk_m]
+is_infinite = ""
+x = ""
+y = ""
+
+[previous_kernel_public_inputs.validation_requests.split_counter]
+_is_some = ""
+_value = ""
