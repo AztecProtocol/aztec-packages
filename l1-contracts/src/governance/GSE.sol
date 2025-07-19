@@ -98,12 +98,11 @@ contract GSECore is IGSECore, Ownable {
   using DelegationLib for DelegationData;
   using ProposalLib for Proposal;
 
-  uint256 public constant DEPOSIT_AMOUNT = 100e18;
-  uint256 public constant MINIMUM_STAKE = 50e18;
-
   address public constant CANONICAL_MAGIC_ADDRESS =
     address(uint160(uint256(keccak256("canonical"))));
 
+  uint256 public immutable DEPOSIT_AMOUNT;
+  uint256 public immutable MINIMUM_STAKE;
   IERC20 public immutable STAKING_ASSET;
 
   Checkpoints.Trace224 internal canonical;
@@ -116,9 +115,13 @@ contract GSECore is IGSECore, Ownable {
     _;
   }
 
-  constructor(address __owner, IERC20 _stakingAsset) Ownable(__owner) {
+  constructor(address __owner, IERC20 _stakingAsset, uint256 _depositAmount, uint256 _minimumStake)
+    Ownable(__owner)
+  {
     STAKING_ASSET = _stakingAsset;
     instances[CANONICAL_MAGIC_ADDRESS].exists = true;
+    DEPOSIT_AMOUNT = _depositAmount;
+    MINIMUM_STAKE = _minimumStake;
   }
 
   function setGovernance(Governance _governance) external override(IGSECore) onlyOwner {
@@ -428,7 +431,9 @@ contract GSE is IGSE, GSECore {
   using Checkpoints for Checkpoints.Trace224;
   using DelegationLib for DelegationData;
 
-  constructor(address __owner, IERC20 _stakingAsset) GSECore(__owner, _stakingAsset) {}
+  constructor(address __owner, IERC20 _stakingAsset, uint256 _depositAmount, uint256 _minimumStake)
+    GSECore(__owner, _stakingAsset, _depositAmount, _minimumStake)
+  {}
 
   function getConfig(address _instance, address _attester)
     external
