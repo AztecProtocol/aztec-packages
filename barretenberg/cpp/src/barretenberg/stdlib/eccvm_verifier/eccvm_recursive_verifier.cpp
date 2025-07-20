@@ -16,7 +16,7 @@ ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
                                                const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
                                                const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
-    , vk_hash(builder, native_verifier_key->hash())
+    , vk_hash(stdlib::witness_t<Builder>(builder, native_verifier_key->hash()))
     , builder(builder)
     , transcript(transcript)
 {
