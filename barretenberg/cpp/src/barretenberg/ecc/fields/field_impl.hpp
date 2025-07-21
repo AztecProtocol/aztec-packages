@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -501,8 +502,8 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
         return 0;
     }
 
-    constexpr field g = coset_generator(0).pow(Q);
-    constexpr field g_inv = coset_generator(0).pow(modulus - 1 - Q);
+    constexpr field g = coset_generator<0>().pow(Q);
+    constexpr field g_inv = coset_generator<0>().pow(modulus - 1 - Q);
     constexpr size_t root_bits = primitive_root_log_size();
     constexpr size_t table_bits = 6;
     constexpr size_t num_tables = root_bits / table_bits + (root_bits % table_bits != 0 ? 1 : 0);
@@ -590,7 +591,7 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
             }
         }
 
-        ASSERT(count != table_size);
+        ASSERT_IN_CONSTEXPR(count != table_size);
         e_slices[table_index] = count;
     }
 

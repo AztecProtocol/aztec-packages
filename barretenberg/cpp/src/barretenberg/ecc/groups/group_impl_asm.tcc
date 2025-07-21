@@ -71,8 +71,8 @@ inline void group<Fq, Fr, Params>::conditional_negate_affine(const affine_elemen
 
     if constexpr (Params::small_elements) {
 #if defined __AVX__ && defined USE_AVX
-        ASSERT((((uintptr_t)src & 0x1f) == 0));
-        ASSERT((((uintptr_t)dest & 0x1f) == 0));
+        BB_ASSERT_EQ(((uintptr_t)src & 0x1f, 0));
+        BB_ASSERT_EQ(((uintptr_t)dest & 0x1f, 0));
         __asm__ __volatile__("xorq %%r8, %%r8                              \n\t"
                              "movq 32(%0), %%r8                            \n\t"
                              "movq 40(%0), %%r9                            \n\t"

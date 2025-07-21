@@ -874,7 +874,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
 
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
@@ -933,7 +933,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -982,7 +982,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -1185,7 +1185,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -1230,7 +1230,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -1274,7 +1274,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;

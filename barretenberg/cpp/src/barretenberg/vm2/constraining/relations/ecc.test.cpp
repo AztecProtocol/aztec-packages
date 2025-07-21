@@ -580,7 +580,7 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
     EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     EmbeddedCurvePoint result = ecc_simulator.scalar_mul(EmbeddedCurvePoint::infinity(), FF(10));
-    ASSERT(result.is_infinity());
+    ASSERT_TRUE(result.is_infinity());
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },

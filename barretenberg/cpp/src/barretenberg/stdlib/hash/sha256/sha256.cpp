@@ -5,6 +5,7 @@
 // =====================
 
 #include "sha256.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "sha256_plookup.hpp"
 
@@ -120,7 +121,7 @@ template <typename Builder> byte_array<Builder> sha256_block(const byte_array<Bu
 {
     typedef uint32<Builder> uint32;
 
-    ASSERT(input.size() == 64);
+    BB_ASSERT_EQ(input.size(), 64U);
 
     std::array<uint32, 8> hash;
     prepare_constants<Builder>(hash);

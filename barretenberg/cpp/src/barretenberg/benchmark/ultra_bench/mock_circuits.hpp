@@ -1,6 +1,7 @@
 #pragma once
 #include <benchmark/benchmark.h>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
@@ -39,9 +40,9 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     }
 
     size_t est_gate_count = builder.get_estimated_num_finalized_gates();
-    ASSERT(est_gate_count <=
-           (1UL << log2_num_gates) -
-               GATE_COUNT_BUFFER); // Check that the finalized gate count won't exceed the desired gate count.
+    BB_ASSERT_LTE(est_gate_count,
+                  (1UL << log2_num_gates) - GATE_COUNT_BUFFER,
+                  "Check that the finalized gate count won't exceed the desired gate count.");
 }
 
 template <typename Prover>

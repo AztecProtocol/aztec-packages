@@ -96,7 +96,7 @@ template <typename Fr>
 LegacyPolynomial<Fr>::LegacyPolynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations)
     : LegacyPolynomial(interpolation_points.size())
 {
-    ASSERT(size_ > 0);
+    BB_ASSERT_GT(size_, 0U);
 
     polynomial_arithmetic::compute_efficient_interpolation(
         evaluations.data(), coefficients_, interpolation_points.data(), size_);
@@ -188,7 +188,7 @@ template <typename Fr> bool LegacyPolynomial<Fr>::operator==(LegacyPolynomial co
 template <typename Fr> void LegacyPolynomial<Fr>::zero_memory_beyond(const size_t start_position)
 {
     size_t end = capacity();
-    ASSERT(end >= start_position);
+    BB_ASSERT_GTE(end, start_position);
 
     size_t delta = end - start_position;
     if (delta > 0) {
@@ -321,7 +321,7 @@ Fr LegacyPolynomial<Fr>::evaluate_from_fft(const EvaluationDomain<Fr>& large_dom
 
 template <typename Fr> LegacyPolynomial<Fr> LegacyPolynomial<Fr>::shifted() const
 {
-    ASSERT(size_ > 0);
+    BB_ASSERT_GT(size_, 0U);
     ASSERT(coefficients_[0].is_zero());
     ASSERT(coefficients_[size_].is_zero()); // relies on MAXIMUM_COEFFICIENT_SHIFT >= 1
     LegacyPolynomial p;
@@ -340,10 +340,10 @@ template <typename Fr> void LegacyPolynomial<Fr>::set_to_right_shifted(std::span
     ASSERT(coefficients_ != coeffs_in.data());
 
     auto size_in = coeffs_in.size();
-    ASSERT(size_in > 0);
+    BB_ASSERT_GT(size_in, 0U);
 
     // Ensure that the last shift_size-many input coefficients are zero to ensure no information is lost in the shift.
-    ASSERT(shift_size <= size_in);
+    BB_ASSERT_LTE(shift_size, size_in);
     for (size_t i = 0; i < shift_size; ++i) {
         size_t idx = size_in - shift_size - 1;
         ASSERT(coeffs_in[idx].is_zero());
@@ -441,7 +441,7 @@ template <typename Fr> Fr LegacyPolynomial<Fr>::evaluate_mle(std::span<const Fr>
     const size_t m = evaluation_points.size();
 
     // To simplify handling of edge cases, we assume that size_ is always a power of 2
-    ASSERT(size_ == static_cast<size_t>(1 << m));
+    BB_ASSERT_EQ(size_, static_cast<size_t>(1 << m));
 
     // we do m rounds l = 0,...,m-1.
     // in round l, n_l is the size of the buffer containing the polynomial partially evaluated
@@ -456,7 +456,7 @@ template <typename Fr> Fr LegacyPolynomial<Fr>::evaluate_mle(std::span<const Fr>
 
     Fr* prev = coefficients_;
     if (shift) {
-        ASSERT(prev[0] == Fr::zero());
+        BB_ASSERT_EQ(prev[0], Fr::zero());
         prev++;
     }
 
@@ -485,7 +485,7 @@ LegacyPolynomial<Fr> LegacyPolynomial<Fr>::partial_evaluate_mle(std::span<const 
 
     // Assert that the size of the polynomial being evaluated is a power of 2 greater than (1 << m)
     ASSERT(numeric::is_power_of_two(size_));
-    ASSERT(size_ >= static_cast<size_t>(1 << m));
+    BB_ASSERT_GTE(size_, static_cast<size_t>(1 << m));
     size_t n = numeric::get_msb(size_);
 
     // Partial evaluation is done in m rounds l = 0,...,m-1. At the end of round l, the polynomial has been partially

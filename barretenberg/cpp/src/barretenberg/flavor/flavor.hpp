@@ -70,6 +70,7 @@
  */
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
@@ -102,7 +103,7 @@ namespace bb {
 struct ActiveRegionData {
     void add_range(const size_t start, const size_t end)
     {
-        ASSERT(start >= current_end); // ranges should be non-overlapping and increasing
+        BB_ASSERT_GTE(start, current_end, "Ranges should be non-overlapping and increasing.");
         ranges.emplace_back(start, end);
         for (size_t i = start; i < end; ++i) {
             idxs.push_back(i);
@@ -151,7 +152,6 @@ template <typename PrecomputedCommitments, typename Transcript>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
-    uint64_t circuit_size = 0;
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
@@ -161,7 +161,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     NativeVerificationKey_() = default;
     NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
-        this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
@@ -182,7 +181,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<fr> elements;
 
-        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->log_circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
 
@@ -218,7 +217,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     virtual fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
 
@@ -244,7 +243,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    FF circuit_size;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
@@ -254,7 +252,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     StdlibVerificationKey_() = default;
     StdlibVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
-        this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
@@ -275,7 +272,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<FF> elements;
 
-        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->log_circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
 
@@ -312,7 +309,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      */
     virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
         for (const Commitment& commitment : this->get_all()) {

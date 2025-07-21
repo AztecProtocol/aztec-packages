@@ -25,8 +25,8 @@ template <typename Flavor>
 typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::FF> public_inputs,
                                                const typename Flavor::FF& beta,
                                                const typename Flavor::FF& gamma,
-                                               const auto domain_size,
-                                               size_t offset = 0)
+                                               const typename Flavor::FF& log_domain_size,
+                                               const typename Flavor::FF& offset = 0)
 {
     using Field = typename Flavor::FF;
     Field numerator = Field(1);
@@ -57,15 +57,16 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158): Ensure correct construction of public input
     // delta in the face of increases to virtual size caused by execution trace overflow
-    Field numerator_acc = gamma + (beta * Field(domain_size + offset));
-    Field denominator_acc = gamma - beta * Field(1 + offset);
+    Field domain_size = Field(2).pow(log_domain_size);
+    Field numerator_acc = gamma + (beta * (domain_size + offset));
+    Field denominator_acc = gamma - beta * (offset + 1);
 
     for (size_t i = 0; i < public_inputs.size(); i++) {
         numerator *= (numerator_acc + public_inputs[i]);     // γ + xᵢ + β(n+i)
         denominator *= (denominator_acc + public_inputs[i]); // γ + xᵢ - β(1+i)
 
-        // To avoid introducing extra variables in the circuit, we skip numeratoc_acc
-        // and denominator_acc in the final loop iteration, since their values won't be used
+        // To avoid introducing extra variables in the circuit, we skip numerator_acc and denominator_acc in the final
+        // loop iteration, since their values won't be used
         if (i < public_inputs.size() - 1) {
             numerator_acc += beta;
             denominator_acc -= beta;

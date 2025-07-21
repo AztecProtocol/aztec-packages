@@ -77,16 +77,20 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * proof and (2) the associated databus commitment consistency checks.
  * @details The recursive verifier will be either Oink or Protogalaxy depending on the specified proof type. In either
  * case, the verifier accumulator is updated in place via the verification algorithm. Databus commitment consistency
- * checks are performed on the witness commitments and public inputs extracted from the proof by the verifier.
+ * checks are performed on the witness commitments and public inputs extracted from the proof by the verifier. Merge
+ * verification is performed with commitments to the subtable t_j extracted from the PG verifier. The computed
+ * commitment T is propagated to the next step of recursive verification.
  *
  * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
+ * @param merge_commitments Container for the commitments for the Merge recursive verification to be performed
  * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  */
 ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
+    MergeCommitments& merge_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
@@ -131,9 +135,12 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
     }
 
+    // Extract the commitments to the subtable corresponding to the incoming circuit
+    merge_commitments.set_t_commitments(decider_vk->witness_commitments.get_ecc_op_wires());
+
     // Recursively verify the corresponding merge proof
     PairingPoints pairing_points = goblin.recursively_verify_merge(
-        circuit, decider_vk->witness_commitments.get_ecc_op_wires(), accumulation_recursive_transcript);
+        circuit, merge_commitments, merge_commitments.T_commitments, accumulation_recursive_transcript);
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
@@ -174,11 +181,13 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
  */
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
-    circuit.is_kernel = true;
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
+
+    // Merge commitments to be used in the recursive verifications
+    MergeCommitments merge_commitments;
 
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
@@ -190,7 +199,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
         PairingPoints pairing_points = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, verifier_input, accumulation_recursive_transcript);
+            circuit, verifier_input, merge_commitments, accumulation_recursive_transcript);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
         // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
@@ -225,8 +234,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
-    // the circuit VK
     if (circuit.is_kernel) {
         // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
         accumulation_transcript = std::make_shared<Transcript>();
@@ -381,9 +388,13 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     kernel_input.kernel_return_data.assert_equal(tail_kernel_decider_vk->witness_commitments.calldata);
     kernel_input.app_return_data.assert_equal(tail_kernel_decider_vk->witness_commitments.secondary_calldata);
 
+    // Extract the commitments to the subtable corresponding to the incoming circuit
+    MergeCommitments merge_commitments;
+    merge_commitments.set_t_commitments(tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires());
+
     // Perform recursive verification of the last merge proof
     PairingPoints points_accumulator = goblin.recursively_verify_merge(
-        builder, tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
+        builder, merge_commitments, merge_commitments.T_commitments, pg_merge_transcript);
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 
     // Perform recursive decider verification
@@ -440,13 +451,19 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    bool mega_verified = verifer.verify_proof(proof.mega_proof);
+    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
+    bool mega_verified = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
+
+    // Extract the commitments to the subtable corresponding to the incoming circuit
+    MergeVerifier::WitnessCommitments merge_commitments;
+    merge_commitments.set_t_commitments(verifier.verification_key->witness_commitments.get_ecc_op_wires());
+
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, verifer.verification_key->witness_commitments.get_ecc_op_wires(), civc_verifier_transcript);
+        proof.goblin_proof, merge_commitments, merge_commitments.T_commitments, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;
 }

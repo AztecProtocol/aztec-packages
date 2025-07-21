@@ -7,6 +7,7 @@
 #pragma once
 
 #include "./eccvm_builder_types.hpp"
+#include "barretenberg/common/assert.hpp"
 
 namespace bb {
 
@@ -102,7 +103,7 @@ class ECCVMPointTablePrecomputationBuilder {
                     row.pc = entry.pc;
 
                     if (last_row) {
-                        ASSERT(scalar_sum - entry.wnaf_skew == entry.scalar);
+                        ASSERT(scalar_sum - entry.wnaf_skew, entry.scalar);
                     }
 
                     row.precompute_double = entry.precomputed_table[bb::eccvm::POINT_TABLE_SIZE];

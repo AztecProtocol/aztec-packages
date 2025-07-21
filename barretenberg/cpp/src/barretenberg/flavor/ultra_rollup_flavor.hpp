@@ -42,8 +42,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
 
         VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = precomputed.metadata.dyadic_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
 
@@ -57,8 +56,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
         // For serialising and deserialising data
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
+        MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,

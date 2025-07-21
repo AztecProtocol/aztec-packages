@@ -10,6 +10,7 @@
 #include "./msm_builder.hpp"
 #include "./precomputed_tables_builder.hpp"
 #include "./transcript_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -105,7 +106,7 @@ class ECCVMCircuitBuilder {
                 scalar = scalar >> NUM_WNAF_DIGIT_BITS;
             }
 
-            ASSERT(scalar == 0);
+            BB_ASSERT_EQ(scalar, 0U);
 
             output[0] = previous_slice;
 
@@ -151,8 +152,8 @@ class ECCVMCircuitBuilder {
                 const auto& op = eccvm_ops[msm_opqueue_index[i]];
                 auto [msm_index, mul_index] = msm_mul_index[i];
                 if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
-                    ASSERT(result.size() > msm_index);
-                    ASSERT(result[msm_index].size() > mul_index);
+                    BB_ASSERT_GT(result.size(), msm_index);
+                    BB_ASSERT_GT(result[msm_index].size(), mul_index);
                     result[msm_index][mul_index] = (ScalarMul{
                         .pc = 0,
                         .scalar = op.z1,
@@ -164,8 +165,8 @@ class ECCVMCircuitBuilder {
                     mul_index++;
                 }
                 if (op.z2 != 0 && !op.base_point.is_point_at_infinity()) {
-                    ASSERT(result.size() > msm_index);
-                    ASSERT(result[msm_index].size() > mul_index);
+                    BB_ASSERT_GT(result.size(), msm_index);
+                    BB_ASSERT_GT(result[msm_index].size(), mul_index);
                     auto endo_point = AffineElement{ op.base_point.x * FF::cube_root_of_unity(), -op.base_point.y };
                     result[msm_index][mul_index] = (ScalarMul{
                         .pc = 0,
@@ -195,7 +196,7 @@ class ECCVMCircuitBuilder {
             }
         }
 
-        ASSERT(pc == 0);
+        BB_ASSERT_EQ(pc, 0U);
         return result;
     }
 

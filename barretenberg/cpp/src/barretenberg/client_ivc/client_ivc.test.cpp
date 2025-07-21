@@ -1,6 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -299,7 +300,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
@@ -308,7 +309,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.mega_proof = civc_proof_2.mega_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
@@ -317,7 +318,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {

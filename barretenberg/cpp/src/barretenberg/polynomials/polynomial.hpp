@@ -5,8 +5,10 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
@@ -141,8 +143,7 @@ template <typename Fr> class Polynomial {
     bool is_zero() const
     {
         if (is_empty()) {
-            ASSERT(false);
-            info("Checking is_zero on an empty Polynomial!");
+            throw_or_abort("Checking is_zero on an empty Polynomial!");
         }
         for (size_t i = 0; i < size(); i++) {
             if (coefficients_.data()[i] != 0) {
@@ -557,7 +558,13 @@ template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&.
 {
     // Ensure all polys have the same start_index() and end_index() as poly
     // Use fold expression to check all polys exactly match our size
-    ASSERT((poly.start_index() == polys.start_index() && poly.end_index() == polys.end_index()) && ...);
+    // Wrap BB_ASSERT_EQ_RELEASE in a lambda to make it usable in a fold expression
+    auto check_indices = [&](const auto& other) {
+        BB_ASSERT_EQ(poly.start_index(), other.start_index());
+        BB_ASSERT_EQ(poly.end_index(), other.end_index());
+    };
+    // Apply the lambda to each poly in the parameter pack
+    (check_indices(polys), ...);
     return zip_view(poly.indices(), poly.coeffs(), polys.coeffs()...);
 }
 } // namespace bb

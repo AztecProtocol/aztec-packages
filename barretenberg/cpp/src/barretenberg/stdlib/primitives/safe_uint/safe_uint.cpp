@@ -7,6 +7,7 @@
 #include "safe_uint.hpp"
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace bb::stdlib {
@@ -22,7 +23,7 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator*
 {
 
     uint512_t new_max = uint512_t(current_max) * uint512_t(other.current_max);
-    ASSERT(new_max.hi == 0);
+    BB_ASSERT_EQ(new_max.hi, 0U);
     return safe_uint_t((value * other.value), new_max.lo, IS_UNSAFE);
 }
 
@@ -41,7 +42,7 @@ safe_uint_t<Builder> safe_uint_t<Builder>::subtract(const safe_uint_t& other,
                                                     const size_t difference_bit_size,
                                                     std::string const& description) const
 {
-    ASSERT(difference_bit_size <= MAX_BIT_NUM);
+    BB_ASSERT_LTE(difference_bit_size, MAX_BIT_NUM);
     ASSERT(!(this->value.is_constant() && other.value.is_constant()));
 
     field_ct difference_val = this->value - other.value;
@@ -115,9 +116,9 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
     std::string const& description,
     const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t)>& get_quotient) const
 {
-    ASSERT(this->value.is_constant() == false);
-    ASSERT(quotient_bit_size <= MAX_BIT_NUM);
-    ASSERT(remainder_bit_size <= MAX_BIT_NUM);
+    BB_ASSERT_EQ(this->value.is_constant(), false);
+    BB_ASSERT_LTE(quotient_bit_size, MAX_BIT_NUM);
+    BB_ASSERT_LTE(remainder_bit_size, MAX_BIT_NUM);
     uint256_t val = this->value.get_value();
     auto [quotient_val, remainder_val] = get_quotient(val, (uint256_t)other.value.get_value());
     field_ct quotient_field(witness_t(value.context, quotient_val));
@@ -150,7 +151,7 @@ safe_uint_t<Builder> safe_uint_t<Builder>::divide(
  */
 template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator/(const safe_uint_t& other) const
 {
-    ASSERT(this->value.is_constant() == false);
+    BB_ASSERT_EQ(this->value.is_constant(), false);
 
     uint256_t val = this->value.get_value();
     auto [quotient_val, remainder_val] = val.divmod((uint256_t)other.value.get_value());
@@ -213,15 +214,15 @@ template <typename Builder> bool_t<Builder> safe_uint_t<Builder>::operator!=(con
 template <typename Builder>
 std::array<safe_uint_t<Builder>, 3> safe_uint_t<Builder>::slice(const uint8_t msb, const uint8_t lsb) const
 {
-    ASSERT(msb >= lsb);
-    ASSERT(static_cast<size_t>(msb) <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
+    BB_ASSERT_GTE(msb, lsb);
+    BB_ASSERT_LTE(static_cast<size_t>(msb), grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
     const safe_uint_t lhs = *this;
     Builder* ctx = lhs.get_context();
 
     const uint256_t value = uint256_t(get_value());
     // This should be caught by the proof itself, but the circuit creator will have now way of knowing where the issue
     // is
-    ASSERT(value < (static_cast<uint256_t>(1) << grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH));
+    BB_ASSERT_LT(value, (static_cast<uint256_t>(1) << grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH));
     const auto msb_plus_one = uint32_t(msb) + 1;
     const auto hi_mask = ((uint256_t(1) << (256 - uint32_t(msb))) - 1);
     const auto hi = (value >> msb_plus_one) & hi_mask;

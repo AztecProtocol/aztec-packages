@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
@@ -20,7 +21,8 @@ template <typename Builder> struct StdlibTranscriptParams {
     static inline Fr hash(const std::vector<Fr>& data)
     {
 
-        ASSERT(!data.empty() && data[0].get_context() != nullptr);
+        ASSERT(!data.empty());
+        ASSERT(data[0].get_context() != nullptr);
 
         Builder* builder = data[0].get_context();
         return stdlib::poseidon2<Builder>::hash(*builder, data);
@@ -55,7 +57,8 @@ template <typename Builder> struct StdlibTranscriptParams {
 
     template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
     {
-        ASSERT(!frs.empty() && frs[0].get_context() != nullptr);
+        ASSERT(!frs.empty());
+        ASSERT(frs[0].get_context() != nullptr);
         Builder* builder = frs[0].get_context();
         return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(*builder, frs);
     }

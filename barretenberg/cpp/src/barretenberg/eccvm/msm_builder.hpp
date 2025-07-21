@@ -9,6 +9,7 @@
 #include <cstddef>
 
 #include "./eccvm_builder_types.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 
@@ -135,7 +136,7 @@ class ECCVMMSMMBuilder {
             msm_row_counts.push_back(msm_row_counts.back() + num_rows_required);
             pc_values.push_back(pc_values.back() - msm.size());
         }
-        ASSERT(pc_values.back() == 0);
+        BB_ASSERT_EQ(pc_values.back(), 0U);
 
         // compute the MSM rows
 
@@ -383,7 +384,7 @@ class ECCVMMSMMBuilder {
                 for (size_t row_idx = 0; row_idx < num_rows_per_digit; ++row_idx) {
                     auto& row = msm_rows[msm_row_index];
                     const Element& normalized_accumulator = accumulator_trace[accumulator_index];
-                    ASSERT(normalized_accumulator.is_point_at_infinity() == 0);
+                    BB_ASSERT_EQ(normalized_accumulator.is_point_at_infinity(), 0);
                     row.accumulator_x = normalized_accumulator.x;
                     row.accumulator_y = normalized_accumulator.y;
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
@@ -420,7 +421,7 @@ class ECCVMMSMMBuilder {
                     for (size_t row_idx = 0; row_idx < num_rows_per_digit; ++row_idx) {
                         MSMRow& row = msm_rows[msm_row_index];
                         const Element& normalized_accumulator = accumulator_trace[accumulator_index];
-                        ASSERT(normalized_accumulator.is_point_at_infinity() == 0);
+                        BB_ASSERT_EQ(normalized_accumulator.is_point_at_infinity(), 0);
                         const size_t offset = row_idx * ADDITIONS_PER_ROW;
                         row.accumulator_x = normalized_accumulator.x;
                         row.accumulator_y = normalized_accumulator.y;

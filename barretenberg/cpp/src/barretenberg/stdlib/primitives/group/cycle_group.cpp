@@ -5,6 +5,7 @@
 // =====================
 
 #include "../field/field.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -252,7 +253,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  */
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
-    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
+    BB_ASSERT_EQ(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant(),
+                 this->_is_constant);
 
     this->_is_standard = true;
 
@@ -297,7 +299,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     this->y = field_t::conditional_assign(is_infinity, 0, this->y);
 
     // We won't bump into the case where we end up with non constant coordinates
-    ASSERT(!this->x.is_constant() && !this->y.is_constant());
+    ASSERT(!this->x.is_constant());
+    ASSERT(!this->y.is_constant());
     this->_is_constant = false;
 
     // We have to check this to avoid the situation, where we change the infinity
@@ -318,9 +321,11 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
-    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
+    BB_ASSERT_EQ(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant(),
+                 this->_is_constant);
     if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
-        ASSERT(this->_is_constant && this->_is_standard);
+        ASSERT(this->_is_constant);
+        ASSERT(this->_is_standard);
     }
 
     if (this->_is_standard) {
@@ -898,7 +903,7 @@ template <typename Builder>
 typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::from_witness_bitstring(
     Builder* context, const uint256_t& bitstring, const size_t num_bits)
 {
-    ASSERT(bitstring.get_msb() < num_bits);
+    BB_ASSERT_LT(bitstring.get_msb(), num_bits);
     const uint256_t lo_v = bitstring.slice(0, LO_BITS);
     const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
@@ -1020,7 +1025,8 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         }
 
         // sanity check that limb[1] is the limb that contributs both to *this.lo and *this.hi
-        ASSERT((BigScalarField::NUM_LIMB_BITS * 2 > LO_BITS) && (BigScalarField::NUM_LIMB_BITS < LO_BITS));
+        BB_ASSERT_GT(BigScalarField::NUM_LIMB_BITS * 2, LO_BITS);
+        BB_ASSERT_LT(BigScalarField::NUM_LIMB_BITS, LO_BITS);
 
         // limb1 is the tricky one as it contributs to both *this.lo and *this.hi
         // By this point, we know that limb1 fits in the range `1 << BigScalarField::NUM_LIMB_BITS to  (1 <<
@@ -1363,7 +1369,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
                 std::array<uint32_t, 2>{ point_table[i].x.get_witness_index(), point_table[i].y.get_witness_index() });
         }
     } else {
-        ASSERT(table_bits == 1);
+        BB_ASSERT_EQ(table_bits, 1U);
     }
 }
 
@@ -1432,7 +1438,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> offset_generators,
     const bool unconditional_add)
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
 
     Builder* context = nullptr;
     for (auto& scalar : scalars) {
@@ -1562,7 +1568,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
             // if we are doing a batch mul over scalars of different bit-lengths, we may not have a bit slice
             // for a given round and a given scalar
-            ASSERT(scalar_slice.value().get_value() == scalar_slices[j].slices_native[num_rounds - i - 1]);
+            BB_ASSERT_EQ(scalar_slice.value().get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
             if (scalar_slice.has_value()) {
                 const auto& point = points_to_add[point_counter++];
                 if (!unconditional_add) {
@@ -1613,7 +1619,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> /*unused*/)
     requires IsUltraArithmetic<Builder>
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
 
     const size_t num_points = base_points.size();
     using MultiTableId = plookup::MultiTableId;
@@ -1713,7 +1719,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     requires IsNotUltraArithmetic<Builder>
 
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
     static_assert(TABLE_BITS == 1);
 
     Builder* context = nullptr;
@@ -1819,7 +1825,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
                                                      const std::vector<cycle_scalar>& scalars,
                                                      const GeneratorContext context)
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
 
     std::vector<cycle_scalar> variable_base_scalars;
     std::vector<cycle_group> variable_base_points;

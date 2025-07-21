@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -139,7 +140,7 @@ template <typename OpFormat> class EccOpsTable {
     // const version of operator[]
     const OpFormat& operator[](size_t index) const
     {
-        ASSERT(index < size());
+        BB_ASSERT_LT(index, size());
         // simple linear search to find the correct subtable
         for (const auto& subtable : table) {
             if (index < subtable.size()) {

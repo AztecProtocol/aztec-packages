@@ -5,6 +5,7 @@
 // =====================
 
 #include "mega_circuit_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include <unordered_map>
@@ -202,7 +203,7 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 
-    ASSERT(read_idx < bus_vector.size()); // Ensure that the read index is valid
+    BB_ASSERT_LT(read_idx, bus_vector.size()); // Ensure that the read index is valid
 
     // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
     // databus via copy constraints (i.e. we create a unique variable for the result of each read)

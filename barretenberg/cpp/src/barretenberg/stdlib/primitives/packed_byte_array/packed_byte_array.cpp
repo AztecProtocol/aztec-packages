@@ -7,6 +7,7 @@
 #include "packed_byte_array.hpp"
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 
 using namespace bb;
 
@@ -38,7 +39,7 @@ packed_byte_array<Builder>::packed_byte_array(const std::vector<field_pt>& input
     : context(get_context_from_fields(input))
     , num_bytes(bytes_per_input * input.size())
 {
-    ASSERT(bytes_per_input <= BYTES_PER_ELEMENT);
+    BB_ASSERT_LTE(bytes_per_input, BYTES_PER_ELEMENT);
     if (bytes_per_input > BYTES_PER_ELEMENT) {
         context->failure("packed_byte_array: called `packed_byte_array` constructor with `bytes_per_input > 16 bytes");
     }

@@ -121,7 +121,7 @@ TEST(fq, MulShortIntegers)
     uint256_t prod_expected = (uint512_t(a_original) * uint512_t(b_original) % uint512_t(fq::modulus)).lo;
     fq const_expected = prod_expected;
     constexpr fq const_result = a * b;
-    ASSERT(const_result == const_expected);
+    ASSERT_EQ(const_result, const_expected);
 
     fq c;
     fq d;

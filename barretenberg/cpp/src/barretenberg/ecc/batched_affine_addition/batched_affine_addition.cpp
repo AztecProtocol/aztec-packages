@@ -5,6 +5,8 @@
 // =====================
 
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include <algorithm>
 #include <execution>
@@ -59,8 +61,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
     }
 
     if (points.size() != total_count) {
-        info("Number of input points does not match sequence counts!");
-        ASSERT(false);
+        throw_or_abort("Number of input points does not match sequence counts!");
     }
 
     // Determine the optimal number of threads for parallelization
@@ -119,8 +120,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
     }
 
     if (thread_sequence_counts.size() != thread_points.size()) {
-        info("Mismatch in sequence count construction!");
-        ASSERT(false);
+        throw_or_abort("Mismatch in sequence count construction!");
     }
 
     // Construct the addition sequences for each thread
@@ -147,7 +147,7 @@ std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
     }
 
     // Define scratch space for batched inverse computations and eventual storage of denominators
-    ASSERT(add_sequences.scratch_space.size() >= 2 * total_num_pairs);
+    BB_ASSERT_GTE(add_sequences.scratch_space.size(), 2 * total_num_pairs);
     std::span<Fq> denominators = add_sequences.scratch_space.subspan(0, total_num_pairs);
     std::span<Fq> differences = add_sequences.scratch_space.subspan(total_num_pairs, 2 * total_num_pairs);
 
@@ -158,7 +158,7 @@ std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
     for (auto& count : sequence_counts) {
         const auto num_pairs = count >> 1;
         for (size_t j = 0; j < num_pairs; ++j) {
-            ASSERT(pair_idx < total_num_pairs);
+            BB_ASSERT_LT(pair_idx, total_num_pairs);
             const auto& x1 = points[point_idx++].x;
             const auto& x2 = points[point_idx++].x;
 

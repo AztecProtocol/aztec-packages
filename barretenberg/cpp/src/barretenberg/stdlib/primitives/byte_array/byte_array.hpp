@@ -9,6 +9,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../safe_uint/safe_uint.hpp"
+#include "barretenberg/common/assert.hpp"
 namespace bb::stdlib {
 
 template <typename Builder> class byte_array {
@@ -65,13 +66,13 @@ template <typename Builder> class byte_array {
 
     void set_byte(size_t index, const field_t<Builder>& byte_val)
     {
-        ASSERT(index < values.size());
+        BB_ASSERT_LT(index, values.size());
         values[index] = byte_val;
     }
 
     void set_context(Builder* ctx)
     {
-        ASSERT(context == nullptr);
+        BB_ASSERT_EQ(context, nullptr);
         context = ctx;
     }
 

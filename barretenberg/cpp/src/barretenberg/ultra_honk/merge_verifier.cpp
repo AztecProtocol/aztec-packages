@@ -55,11 +55,14 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
  * @param proof
- * @param t_commitments The commitments to t_j read from the transcript by the PG verifier with which the Merge
- * verifier shares a transcript
+ * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
+ * by the PG verifier with which the Merge verifier shares a transcript
+ * @param merged_table_commitment The commitment to the merged table as read from the proof
  * @return bool Verification result
  */
-bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
+bool MergeVerifier::verify_proof(const HonkProof& proof,
+                                 const SubtableWitnessCommitments& subtable_commitments,
+                                 std::array<Commitment, NUM_WIRES>& merged_table_commitment)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -74,8 +77,10 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
         auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
-        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
-        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+        auto left_table =
+            settings == MergeSettings::PREPEND ? subtable_commitments.t_commitments[idx] : T_prev_commitment;
+        auto right_table =
+            settings == MergeSettings::PREPEND ? T_prev_commitment : subtable_commitments.t_commitments[idx];
 
         table_commitments.emplace_back(left_table);
         table_commitments.emplace_back(right_table);
@@ -87,7 +92,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 
     // Store T_commitments of the verifier
     size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
-    for (auto& commitment : T_commitments) {
+    for (auto& commitment : merged_table_commitment) {
         commitment = table_commitments[commitment_idx];
         commitment_idx += NUM_WIRES;
     }

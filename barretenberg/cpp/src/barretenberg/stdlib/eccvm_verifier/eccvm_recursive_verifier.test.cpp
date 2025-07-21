@@ -110,14 +110,13 @@ class ECCVMRecursiveTests : public ::testing::Test {
         auto recursive_manifest = verifier.transcript->get_manifest();
         auto native_manifest = native_verifier.transcript->get_manifest();
 
-        ASSERT(recursive_manifest.size() > 0);
+        ASSERT_GT(recursive_manifest.size(), 0);
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
         // Ensure verification key is the same
-        EXPECT_EQ(static_cast<uint64_t>(verifier.key->circuit_size.get_value()), verification_key->circuit_size);
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()),
                   verification_key->log_circuit_size);
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->num_public_inputs.get_value()),
@@ -135,7 +134,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
-            ASSERT(verified);
+            ASSERT_TRUE(verified);
         }
     }
 

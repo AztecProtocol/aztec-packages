@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
@@ -33,7 +34,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
                                       const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs)
         : builder(builder)
     {
-        ASSERT(vk_and_hashs.size() == NUM - 1);
+        BB_ASSERT_EQ(vk_and_hashs.size(), NUM - 1);
 
         _data[0] = accumulator;
 
@@ -45,24 +46,24 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     }
 
     /**
-     * @brief Get the max circuit size (and corresponding log circuit size) from the set of decider verification keys
+     * @brief Get the max log circuit size from the set of decider verification keys
      *
-     * @return {max circuit size, max log circuit size}
+     * @return max log circuit size
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
      */
-    std::pair<FF, FF> get_max_circuit_size_and_log_size() const
+    FF get_max_log_circuit_size() const
     {
         // Find the key with the largest circuit size and reaturn its circuit size and log circuit size
         auto* max_key = _data[0].get();
-        size_t max_circuit_size =
-            static_cast<size_t>(static_cast<uint32_t>(max_key->vk_and_hash->vk->circuit_size.get_value()));
+        size_t max_log_circuit_size =
+            static_cast<size_t>(static_cast<uint32_t>(max_key->vk_and_hash->vk->log_circuit_size.get_value()));
         for (const auto& key : _data) {
-            if (static_cast<size_t>(static_cast<uint32_t>(key->vk_and_hash->vk->circuit_size.get_value())) >
-                max_circuit_size) {
+            if (static_cast<size_t>(static_cast<uint32_t>(key->vk_and_hash->vk->log_circuit_size.get_value())) >
+                max_log_circuit_size) {
                 max_key = key.get();
             }
         }
-        return { max_key->vk_and_hash->vk->circuit_size, max_key->vk_and_hash->vk->log_circuit_size };
+        return max_key->vk_and_hash->vk->log_circuit_size;
     }
 
     /**

@@ -5,9 +5,11 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include <cstddef>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES

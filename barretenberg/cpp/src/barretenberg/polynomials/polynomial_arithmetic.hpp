@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "evaluation_domain.hpp"
 
 namespace bb::polynomial_arithmetic {
@@ -22,7 +23,7 @@ using lagrange_evaluations = LagrangeEvaluations<fr>;
 template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n);
 template <typename Fr> Fr evaluate(std::span<const Fr> coeffs, const Fr& z, const size_t n)
 {
-    ASSERT(n <= coeffs.size());
+    BB_ASSERT_LTE(n, coeffs.size());
     return evaluate(coeffs.data(), z, n);
 };
 template <typename Fr> Fr evaluate(std::span<const Fr> coeffs, const Fr& z)
@@ -293,7 +294,7 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, std::span<con
         // have to do several passes over the polynomial
 
         const size_t num_roots = roots.size();
-        ASSERT(num_roots < size);
+        BB_ASSERT_LT(num_roots, size);
         const size_t new_size = size - num_roots;
 
         std::vector<Fr> minus_root_inverses;

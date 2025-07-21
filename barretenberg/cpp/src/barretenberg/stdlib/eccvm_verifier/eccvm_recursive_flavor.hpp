@@ -112,10 +112,8 @@ class ECCVMRecursiveFlavor {
             : pcs_verification_key(builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key)
         {
 
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
-            // `log_circuit_size` from MSGPACK and the verification key.
-            this->circuit_size = BF{ 1UL << CONST_ECCVM_LOG_N };
-            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `log_circuit_size` from MSGPACK
+            // and the verification key.
             this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);

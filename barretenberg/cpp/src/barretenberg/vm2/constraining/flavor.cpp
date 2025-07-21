@@ -1,15 +1,16 @@
 #include "flavor.hpp"
+#include "barretenberg/common/assert.hpp"
 
 namespace bb::avm2 {
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
-        ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
+        BB_ASSERT_EQ(flavor_get_label(*this, prover_poly), flavor_get_label(proving_key, key_poly));
         prover_poly = key_poly.share();
     }
     for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
-        ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
+        BB_ASSERT_EQ(flavor_get_label(*this, prover_poly), (flavor_get_label(proving_key, key_poly) + "_shift"));
         prover_poly = key_poly.shifted();
     }
 }
@@ -73,7 +74,7 @@ void AvmFlavor::Transcript::serialize_full_transcript()
     serialize_to_buffer(kzg_w_comm, proof_data);
 
     // sanity check to make sure we generate the same length of proof as before.
-    ASSERT(proof_data.size() == old_proof_length);
+    BB_ASSERT_EQ(proof_data.size(), old_proof_length);
 }
 
 AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(const size_t circuit_size)
@@ -111,7 +112,7 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
  */
 std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
 {
-    std::vector<FF> elements = { FF(circuit_size), FF(num_public_inputs) };
+    std::vector<FF> elements = { FF(log_circuit_size), FF(num_public_inputs) };
 
     for (auto const& comm : get_all()) {
         std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);

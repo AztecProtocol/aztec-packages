@@ -14,6 +14,7 @@
  *
  */
 #include "translator_circuit_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
@@ -192,7 +193,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
 
     uint512_t quotient = quotient_by_modulus / uint512_t(Fq::modulus);
 
-    ASSERT(quotient_by_modulus == (quotient * uint512_t(Fq::modulus)));
+    BB_ASSERT_EQ(quotient_by_modulus, quotient * uint512_t(Fq::modulus));
 
     // Compute quotient and remainder bigfield representation
     auto remainder_limbs = split_fq_into_limbs(remainder);
@@ -217,7 +218,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
             SHIFT_1;
 
     // Low bits have to be zero
-    ASSERT(uint256_t(low_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS) == 0);
+    BB_ASSERT_EQ(uint256_t(low_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS), 0U);
 
     Fr low_wide_relation_limb_divided = low_wide_relation_limb * SHIFT_2_INVERSE;
 
@@ -247,7 +248,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
             SHIFT_1;
 
     // Check that the results lower 136 bits are zero
-    ASSERT(uint256_t(high_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS) == 0);
+    BB_ASSERT_EQ(uint256_t(high_wide_relation_limb).slice(0, 2 * NUM_LIMB_BITS), 0U);
 
     // Get divided version
     auto high_wide_relation_limb_divided = high_wide_relation_limb * SHIFT_2_INVERSE;
@@ -330,16 +331,16 @@ void TranslatorCircuitBuilder::assert_well_formed_ultra_op(const UltraOp& ultra_
     ASSERT(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
 
     // Check and insert x_lo and y_hi into wire 1
-    ASSERT(uint256_t(ultra_op.x_lo) <= MAX_LOW_WIDE_LIMB_SIZE);
-    ASSERT(uint256_t(ultra_op.y_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.x_lo), MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.y_hi), MAX_HIGH_WIDE_LIMB_SIZE);
 
     // Check and insert x_hi and z_1 into wire 2
-    ASSERT(uint256_t(ultra_op.x_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
-    ASSERT(uint256_t(ultra_op.z_1) <= MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.x_hi), MAX_HIGH_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.z_1), MAX_LOW_WIDE_LIMB_SIZE);
 
     // Check and insert y_lo and z_2 into wire 3
-    ASSERT(uint256_t(ultra_op.y_lo) <= MAX_LOW_WIDE_LIMB_SIZE);
-    ASSERT(uint256_t(ultra_op.z_2) <= MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.y_lo), MAX_LOW_WIDE_LIMB_SIZE);
+    BB_ASSERT_LTE(uint256_t(ultra_op.z_2), MAX_LOW_WIDE_LIMB_SIZE);
 }
 
 void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const AccumulationInput& acc_step)
@@ -348,12 +349,12 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
     assert_well_formed_ultra_op(acc_step.ultra_op);
 
     // Check decomposition of values from the Queue into limbs used in bigfield evaluations
-    ASSERT(acc_step.ultra_op.x_lo == (acc_step.P_x_limbs[0] + acc_step.P_x_limbs[1] * SHIFT_1));
-    ASSERT(acc_step.ultra_op.x_hi == (acc_step.P_x_limbs[2] + acc_step.P_x_limbs[3] * SHIFT_1));
-    ASSERT(acc_step.ultra_op.y_lo == (acc_step.P_y_limbs[0] + acc_step.P_y_limbs[1] * SHIFT_1));
-    ASSERT(acc_step.ultra_op.y_hi == (acc_step.P_y_limbs[2] + acc_step.P_y_limbs[3] * SHIFT_1));
-    ASSERT(acc_step.ultra_op.z_1 == (acc_step.z_1_limbs[0] + acc_step.z_1_limbs[1] * SHIFT_1));
-    ASSERT(acc_step.ultra_op.z_2 == (acc_step.z_2_limbs[0] + acc_step.z_2_limbs[1] * SHIFT_1));
+    BB_ASSERT_EQ(acc_step.ultra_op.x_lo, acc_step.P_x_limbs[0] + acc_step.P_x_limbs[1] * SHIFT_1);
+    BB_ASSERT_EQ(acc_step.ultra_op.x_hi, acc_step.P_x_limbs[2] + acc_step.P_x_limbs[3] * SHIFT_1);
+    BB_ASSERT_EQ(acc_step.ultra_op.y_lo, acc_step.P_y_limbs[0] + acc_step.P_y_limbs[1] * SHIFT_1);
+    BB_ASSERT_EQ(acc_step.ultra_op.y_hi, acc_step.P_y_limbs[2] + acc_step.P_y_limbs[3] * SHIFT_1);
+    BB_ASSERT_EQ(acc_step.ultra_op.z_1, acc_step.z_1_limbs[0] + acc_step.z_1_limbs[1] * SHIFT_1);
+    BB_ASSERT_EQ(acc_step.ultra_op.z_2, acc_step.z_2_limbs[0] + acc_step.z_2_limbs[1] * SHIFT_1);
     /**
      * @brief Check correctness of limbs values
      *
@@ -362,9 +363,9 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
                                                                     const uint256_t& MAX_LAST_LIMB =
                                                                         (uint256_t(1) << NUM_LAST_LIMB_BITS)) {
         for (size_t i = 0; i < total_limbs - 1; i++) {
-            ASSERT(uint256_t(limbs[i]) < SHIFT_1);
+            BB_ASSERT_LT(uint256_t(limbs[i]), SHIFT_1);
         }
-        ASSERT(uint256_t(limbs[total_limbs - 1]) < MAX_LAST_LIMB);
+        BB_ASSERT_LT(uint256_t(limbs[total_limbs - 1]), MAX_LAST_LIMB);
     };
 
     const auto MAX_Z_LAST_LIMB = uint256_t(1) << (NUM_Z_BITS - NUM_LIMB_BITS);
@@ -384,7 +385,7 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
             const std::array<std::array<Fr, micro_limb_count>, binary_limb_count>& limbs) {
             for (size_t i = 0; i < binary_limb_count; i++) {
                 for (size_t j = 0; j < micro_limb_count; j++) {
-                    ASSERT(uint256_t(limbs[i][j]) < MICRO_SHIFT);
+                    BB_ASSERT_LT(uint256_t(limbs[i][j]), MICRO_SHIFT);
                 }
             }
         };
@@ -395,8 +396,8 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
     check_micro_limbs_maximum_values(acc_step.current_accumulator_microlimbs);
 
     // Check that relation limbs are in range
-    ASSERT(uint256_t(acc_step.relation_wide_limbs[0]) < MAX_RELATION_WIDE_LIMB_SIZE);
-    ASSERT(uint256_t(acc_step.relation_wide_limbs[1]) < MAX_RELATION_WIDE_LIMB_SIZE);
+    BB_ASSERT_LT(uint256_t(acc_step.relation_wide_limbs[0]), MAX_RELATION_WIDE_LIMB_SIZE);
+    BB_ASSERT_LT(uint256_t(acc_step.relation_wide_limbs[1]), MAX_RELATION_WIDE_LIMB_SIZE);
 }
 
 void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra_op)
@@ -508,7 +509,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     num_gates += 2;
 
     // Check that all the wires are filled equally
-    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { ASSERT(std::get<i>(wires).size() == num_gates); });
+    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
 }
 
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)

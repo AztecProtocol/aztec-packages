@@ -147,7 +147,7 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey& vk2) {
         auto vk1_data = read_file(vk1_path);
         auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
-        ASSERT(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
+        ASSERT_TRUE(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
     };
 
     // Helper lambda to verify proof

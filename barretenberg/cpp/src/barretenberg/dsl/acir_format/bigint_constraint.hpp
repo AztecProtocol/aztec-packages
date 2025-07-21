@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -176,33 +177,24 @@ template <typename Builder> class DSLBigInts {
     }
     big_bn254_fr bn254_fr(uint32_t bigint_id)
     {
-        if (this->m_bn254_fr.contains(bigint_id)) {
-            return this->m_bn254_fr[bigint_id];
-        }
-        ASSERT(false);
-        return { 0 };
+        ASSERT(this->m_bn254_fr.contains(bigint_id));
+        return this->m_bn254_fr[bigint_id];
     }
 
     void set_bn254_fr(const big_bn254_fr& bigint, uint32_t bigint_id) { this->m_bn254_fr[bigint_id] = bigint; }
 
     big_bn254_fq bn254_fq(uint32_t bigint_id)
     {
-        if (this->m_bn254_fq.contains(bigint_id)) {
-            return this->m_bn254_fq[bigint_id];
-        }
-        ASSERT(false);
-        return { 0 };
+        ASSERT(this->m_bn254_fq.contains(bigint_id));
+        return this->m_bn254_fq[bigint_id];
     }
 
     void set_bn254_fq(const big_bn254_fq& bigint, uint32_t bigint_id) { this->m_bn254_fq[bigint_id] = bigint; }
 
     big_secp256r1_fq secp256r1_fq(uint32_t bigint_id)
     {
-        if (this->m_secp256r1_fq.contains(bigint_id)) {
-            return this->m_secp256r1_fq[bigint_id];
-        }
-        ASSERT(false);
-        return { 0 };
+        ASSERT(this->m_secp256r1_fq.contains(bigint_id));
+        return this->m_secp256r1_fq[bigint_id];
     }
 
     void set_secp256r1_fq(const big_secp256r1_fq& bigint, uint32_t bigint_id)
@@ -212,11 +204,8 @@ template <typename Builder> class DSLBigInts {
 
     big_secp256r1_fr secp256r1_fr(uint32_t bigint_id)
     {
-        if (this->m_secp256r1_fr.contains(bigint_id)) {
-            return this->m_secp256r1_fr[bigint_id];
-        }
-        ASSERT(false);
-        return { 0 };
+        ASSERT(this->m_secp256r1_fr.contains(bigint_id));
+        return this->m_secp256r1_fr[bigint_id];
     }
 
     void set_secp256r1_fr(const big_secp256r1_fr& bigint, uint32_t bigint_id)
@@ -226,11 +215,8 @@ template <typename Builder> class DSLBigInts {
 
     big_secp256k1_fq secp256k1_fq(uint32_t bigint_id)
     {
-        if (this->m_secp256k1_fq.contains(bigint_id)) {
-            return this->m_secp256k1_fq[bigint_id];
-        }
-        ASSERT(false);
-        return { 0 };
+        ASSERT(this->m_secp256k1_fq.contains(bigint_id));
+        return this->m_secp256k1_fq[bigint_id];
     }
 
     void set_secp256k1_fq(const big_secp256k1_fq& bigint, uint32_t bigint_id)

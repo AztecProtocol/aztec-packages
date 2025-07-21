@@ -83,7 +83,7 @@ class Grumpkin {
 // Specialize the reconstruct from public method
 template <>
 inline bb::grumpkin::g1::affine_element bb::grumpkin::g1::affine_element::reconstruct_from_public(
-    const std::span<bb::fr>& limbs)
+    const std::span<const bb::fr>& limbs)
 {
     BB_ASSERT_EQ(limbs.size(), 2 * FR_PUBLIC_INPUTS_SIZE, "Incorrect number of limbs");
 
