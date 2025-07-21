@@ -130,7 +130,7 @@ describe('epoch-proving-job', () => {
     expect(db.close).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
-      expect.objectContaining({ epochNumber, proof, publicInputs, attestations: [] }),
+      expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
     );
   });
 
