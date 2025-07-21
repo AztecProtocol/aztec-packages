@@ -191,11 +191,16 @@ export class PeerManager implements PeerManagerInterface {
     }
 
     const peersToDisconnect = Array.from(this.peersToBeDisconnected);
-    this.peersToBeDisconnected.clear();
 
     this.logger.debug(`Processing ${peersToDisconnect.length} scheduled disconnects`);
     try {
-      await Promise.all(peersToDisconnect.map(peerIdStr => this.disconnectPeer(peerIdFromString(peerIdStr))));
+      await Promise.all(
+        peersToDisconnect.map(async peerIdStr => {
+          if (await this.disconnectPeer(peerIdFromString(peerIdStr))) {
+            this.peersToBeDisconnected.delete(peerIdStr);
+          }
+        }),
+      );
       this.logger.verbose(`Disconnected ${peersToDisconnect.length} peers`, { peersToDisconnect });
     } catch (error) {
       this.logger.error('Error when disconnecting from peers', error);
@@ -599,16 +604,20 @@ export class PeerManager implements PeerManagerInterface {
   /**
    * Performs the actual disconnection of a peer.
    * This is called during heartbeat processing to avoid immediate disconnections.
+   *
+   * @returns True if peer was disconnect, otherwise false
    */
-  private async disconnectPeer(peer: PeerId) {
+  private async disconnectPeer(peer: PeerId): Promise<boolean> {
     const peerIdStr = peer.toString();
 
     try {
       await this.libP2PNode.hangUp(peer);
 
       this.logger.debug(`Successfully disconnected peer ${peerIdStr}`);
+      return true;
     } catch (error) {
       this.logger.warn(`Failed to disconnect peer ${peerIdStr}`, { error });
+      return false;
     }
   }
 
