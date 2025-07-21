@@ -104,6 +104,10 @@ impl UintNote {
         self.value
     }
 
+    pub fn get_owner(self) -> AztecAddress {
+        self.owner
+    }
+
     /// Creates a partial note that will hide the owner and storage slot but not the value, since the note will be later
     /// completed in public. This is a powerful technique for scenarios in which the value cannot be known in private
     /// (e.g. because it depends on some public state, such as a DEX).

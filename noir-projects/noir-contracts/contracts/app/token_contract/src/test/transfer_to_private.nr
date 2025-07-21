@@ -1,6 +1,6 @@
 use crate::{test::utils, Token};
-use dep::aztec::oracle::random::random;
-use dep::uint_note::uint_note::PartialUintNote;
+use aztec::{oracle::random::random, protocol_types::traits::FromField};
+use uint_note::uint_note::PartialUintNote;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the TOKEN contract itself.
@@ -82,7 +82,9 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the partial note
-    let partial_uint_note = PartialUintNote { commitment: random() };
+    let commitment = random();
+    // We use `from_field` because the PartialUintNote's commitment field is private. Don't judge. It's just a test.
+    let partial_uint_note = PartialUintNote::from_field(commitment);
 
     // Try finalizing the transfer without preparing it
     let _ = env.call_public(

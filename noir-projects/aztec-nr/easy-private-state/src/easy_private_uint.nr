@@ -1,11 +1,11 @@
 use dep::aztec::{
-    context::PrivateContext,
+    context::{PrivateContext, UtilityContext},
     messages::logs::note::encode_and_encrypt_note,
     note::note_getter_options::NoteGetterOptions,
     protocol_types::address::AztecAddress,
     state_vars::{PrivateSet, storage::HasStorageSlot},
 };
-use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
+use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::ValueNote};
 
 pub struct EasyPrivateUint<Context> {
     context: Context,
@@ -59,5 +59,11 @@ impl EasyPrivateUint<&mut PrivateContext> {
         let result_value = minuend - subtrahend;
         let result_note = ValueNote::new(result_value as Field, owner);
         self.set.insert(result_note).emit(encode_and_encrypt_note(self.context, owner));
+    }
+}
+
+impl EasyPrivateUint<UtilityContext> {
+    pub unconstrained fn value(self) -> Field {
+        balance_utils::get_balance(self.set)
     }
 }
