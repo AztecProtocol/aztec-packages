@@ -198,7 +198,7 @@ contract FlushEntryQueueTest is StakingBase {
   }
 
   function _help_deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     uint256 balance = stakingAsset.balanceOf(address(staking));
 
