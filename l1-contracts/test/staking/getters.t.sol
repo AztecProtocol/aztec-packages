@@ -7,6 +7,7 @@ contract GettersTest is StakingBase {
   function setUp() public override {
     super.setUp();
 
+    vm.prank(stakingAsset.owner());
     stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
