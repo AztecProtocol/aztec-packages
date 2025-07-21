@@ -291,6 +291,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
     };
 
+    const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -316,6 +320,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(check);
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
+    add_update_inputs_flag(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -692,7 +697,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-                return api.check_precomputed_vks(ivc_inputs_path) ? 0 : 1;
+                return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {

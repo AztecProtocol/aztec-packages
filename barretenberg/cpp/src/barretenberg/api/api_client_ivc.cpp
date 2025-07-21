@@ -193,12 +193,13 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
     throw_or_abort("API function contract not implemented");
 }
 
-bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path)
+bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
 {
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    for (const auto& step : raw_steps) {
+    bool check_failed = false;
+    for (auto& step : raw_steps) {
         if (step.vk.empty()) {
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
@@ -210,8 +211,16 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
                             .execute();
 
         if (!response.valid) {
-            return false;
+            if (!flags.update_inputs) {
+                return false;
+            }
+            step.vk = response.actual_vk;
+            check_failed = true;
         }
+    }
+    if (check_failed) {
+        PrivateExecutionStepRaw::compress_and_save(std::move(raw_steps), input_path);
+        return false;
     }
     return true;
 }

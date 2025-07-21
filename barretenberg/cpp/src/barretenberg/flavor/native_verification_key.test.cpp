@@ -83,7 +83,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     EXPECT_EQ(vkey_hash_1, vkey_hash_2);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Solidity verifier does not fiat shamir the full
     // verification key. This will be fixed in a followup PR.
-    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor>) {
+    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, ECCVMFlavor, TranslatorFlavor>) {
         // Third method of hashing: using add_hash_to_transcript.
         typename Flavor::Transcript transcript_2;
         fr vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);

@@ -74,8 +74,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
-    typename Flavor::FF vkey_hash = key->add_hash_to_transcript("", *transcript);
-    vinfo("Translator vk hash in verifier: ", vkey_hash);
+    typename Flavor::FF vk_hash = key->hash();
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("Translator vk hash in verifier: ", vk_hash);
 
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;

@@ -170,6 +170,8 @@ struct ClientIvcCheckPrecomputedVk {
 
         /** @brief True if the precomputed VK matches the circuit */
         bool valid;
+
+        std::vector<uint8_t> actual_vk;
     };
 
     /** @brief Circuit with its precomputed verification key */

@@ -48,6 +48,7 @@ class ECCVMRecursiveVerifier {
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;
+    BF vk_hash;
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;

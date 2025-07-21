@@ -30,7 +30,7 @@ static void construct_proof_megahonk_power_of_2_zk(State& state) noexcept
 // Define benchmarks
 
 // This exists due to an issue where get_row was blowing up in time
-BENCHMARK_CAPTURE(construct_proof_megahonk_zk, sha256, &stdlib::generate_sha256_test_circuit<MegaCircuitBuilder>)
+BENCHMARK_CAPTURE(construct_proof_megahonk_zk, sha256, &generate_sha256_test_circuit<MegaCircuitBuilder>)
     ->Unit(kMillisecond);
 BENCHMARK_CAPTURE(construct_proof_megahonk_zk, keccak, &stdlib::generate_keccak_test_circuit<MegaCircuitBuilder>)
     ->Unit(kMillisecond);

@@ -69,7 +69,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& messag
                                              "signature is non-standard");
 
     stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
+        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
     Fr z(hashed_message);
     z.assert_is_in_field();
@@ -227,7 +227,7 @@ bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder
                                                 const ecdsa_signature<Builder>& sig)
 {
     stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
+        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
     return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
         hashed_message, public_key, sig);
