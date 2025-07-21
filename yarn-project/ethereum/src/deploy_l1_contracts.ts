@@ -73,6 +73,7 @@ import { createExtendedL1Client } from './client.js';
 import {
   type L1ContractsConfig,
   getEntryQueueConfig,
+  getGSEConfiguration,
   getGovernanceConfiguration,
   getRewardBoostConfig,
   getRewardConfig,
@@ -307,9 +308,13 @@ export const deploySharedContracts = async (
   ]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
+  const gseConfiguration = getGSEConfiguration(networkName);
+
   const gseAddress = await deployer.deploy(l1Artifacts.gse, [
     l1Client.account.address.toString(),
     stakingAssetAddress.toString(),
+    gseConfiguration.depositAmount,
+    gseConfiguration.minimumStake,
   ]);
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
