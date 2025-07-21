@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.3](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.2...v1.1.3) (2025-07-21)
+
+
+### Miscellaneous
+
+* **backport-to-master:** chore(docs): add 'ci' command to bootstrap script for building and testing documentation ([#15854](https://github.com/AztecProtocol/aztec-packages/issues/15854)) ([#15858](https://github.com/AztecProtocol/aztec-packages/issues/15858)) ([583e1c7](https://github.com/AztecProtocol/aztec-packages/commit/583e1c7253eb4e0697b3600ac419b4140772af6c))
+* **backport-to-master:** fix: telemetry url ([#15844](https://github.com/AztecProtocol/aztec-packages/issues/15844)) ([#15846](https://github.com/AztecProtocol/aztec-packages/issues/15846)) ([a72d012](https://github.com/AztecProtocol/aztec-packages/commit/a72d01278257ce7816aa91813b48c4552cd12931))
+
 ## [1.1.2](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.1...v1.1.2) (2025-07-21)
 
 
