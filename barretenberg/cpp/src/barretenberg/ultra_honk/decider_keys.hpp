@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
@@ -34,7 +35,7 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_
     DeciderProvingKeys_() = default;
     DeciderProvingKeys_(std::vector<std::shared_ptr<DeciderPK>> data)
     {
-        ASSERT(data.size() == NUM);
+        BB_ASSERT_EQ(data.size(), NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {
             _data[idx] = std::move(data[idx]);
         }
@@ -124,7 +125,7 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerification
     DeciderVerificationKeys_() = default;
     DeciderVerificationKeys_(const std::vector<std::shared_ptr<DeciderVK>>& data)
     {
-        ASSERT(data.size() == NUM);
+        BB_ASSERT_EQ(data.size(), NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {
             _data[idx] = std::move(data[idx]);
         }
