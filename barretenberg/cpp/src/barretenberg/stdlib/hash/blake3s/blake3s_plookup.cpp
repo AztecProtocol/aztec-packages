@@ -6,54 +6,12 @@
 
 #include "blake3s_plookup.hpp"
 #include "../blake2s/blake_util.hpp"
-
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
-namespace bb::stdlib::blake3s_plookup {
+namespace bb::stdlib {
 
 using namespace blake_util;
-
-/*
- * Constants and more.
- */
-#define BLAKE3_VERSION_STRING "0.3.7"
-
-// internal flags
-enum blake3_flags {
-    CHUNK_START = 1 << 0,
-    CHUNK_END = 1 << 1,
-    PARENT = 1 << 2,
-    ROOT = 1 << 3,
-    KEYED_HASH = 1 << 4,
-    DERIVE_KEY_CONTEXT = 1 << 5,
-    DERIVE_KEY_MATERIAL = 1 << 6,
-};
-
-// constants
-enum blake3s_constant {
-    BLAKE3_KEY_LEN = 32,
-    BLAKE3_OUT_LEN = 32,
-    BLAKE3_BLOCK_LEN = 64,
-    BLAKE3_CHUNK_LEN = 1024,
-    BLAKE3_MAX_DEPTH = 54,
-    BLAKE3_STATE_SIZE = 16
-};
-
-constexpr uint32_t IV[8] = { 0x6A09E667UL, 0xBB67AE85UL, 0x3C6EF372UL, 0xA54FF53AUL,
-                             0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL };
-
-template <typename Builder> struct blake3_hasher {
-    std::array<field_t<Builder>, 8> key;
-    std::array<field_t<Builder>, 8> cv;
-    byte_array<Builder> buf;
-    uint8_t buf_len;
-    uint8_t blocks_compressed;
-    uint8_t flags;
-    Builder* context;
-};
 
 /*
  * Core Blake3s functions. These are similar to that of Blake2s except for a few
@@ -61,16 +19,15 @@ template <typename Builder> struct blake3_hasher {
  *
  */
 template <typename Builder>
-void compress_pre(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
-                  const std::array<field_t<Builder>, 8> cv,
-                  const byte_array<Builder>& block,
-                  uint8_t block_len,
-                  uint8_t flags)
+void Blake3s<Builder>::compress_pre(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
+                                    const std::array<field_t<Builder>, 8> cv,
+                                    const byte_array<Builder>& block,
+                                    uint8_t block_len,
+                                    uint8_t flags)
 {
-    typedef field_t<Builder> field_pt;
-    std::array<field_pt, BLAKE3_STATE_SIZE> block_words;
+    std::array<field_ct, BLAKE3_STATE_SIZE> block_words;
     for (size_t i = 0; i < BLAKE3_STATE_SIZE; ++i) {
-        block_words[i] = field_pt(block.slice(i * 4, 4).reverse());
+        block_words[i] = field_ct(block.slice(i * 4, 4).reverse());
     }
 
     state[0] = cv[0];
@@ -81,29 +38,28 @@ void compress_pre(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
     state[5] = cv[5];
     state[6] = cv[6];
     state[7] = cv[7];
-    state[8] = field_pt(block.get_context(), uint256_t(IV[0]));
-    state[9] = field_pt(block.get_context(), uint256_t(IV[1]));
-    state[10] = field_pt(block.get_context(), uint256_t(IV[2]));
-    state[11] = field_pt(block.get_context(), uint256_t(IV[3]));
-    state[12] = field_pt(block.get_context(), 0);
-    state[13] = field_pt(block.get_context(), 0);
-    state[14] = field_pt(block.get_context(), uint256_t(block_len));
-    state[15] = field_pt(block.get_context(), uint256_t(flags));
+    state[8] = field_ct(block.get_context(), uint256_t(IV[0]));
+    state[9] = field_ct(block.get_context(), uint256_t(IV[1]));
+    state[10] = field_ct(block.get_context(), uint256_t(IV[2]));
+    state[11] = field_ct(block.get_context(), uint256_t(IV[3]));
+    state[12] = field_ct(block.get_context(), 0);
+    state[13] = field_ct(block.get_context(), 0);
+    state[14] = field_ct(block.get_context(), uint256_t(block_len));
+    state[15] = field_ct(block.get_context(), uint256_t(flags));
 
     for (size_t idx = 0; idx < 7; idx++) {
-        blake_util::round_fn_lookup<Builder>(state, block_words, idx, true);
+        round_fn_lookup(state, block_words, idx, true);
     }
 }
 
 template <typename Builder>
-void blake3_compress_in_place(std::array<field_t<Builder>, 8> cv,
-                              const byte_array<Builder>& block,
-                              uint8_t block_len,
-                              uint8_t flags)
+void Blake3s<Builder>::blake3_compress_in_place(std::array<field_t<Builder>, 8> cv,
+                                                const byte_array<Builder>& block,
+                                                uint8_t block_len,
+                                                uint8_t flags)
 {
-    typedef field_t<Builder> field_pt;
-    std::array<field_pt, BLAKE3_STATE_SIZE> state;
-    compress_pre<Builder>(state, cv, block, block_len, flags);
+    std::array<field_ct, BLAKE3_STATE_SIZE> state;
+    compress_pre(state, cv, block, block_len, flags);
 
     /**
      * At this point in the algorithm, a malicious prover could tweak the add_normalise function in `blake_util.hpp` to
@@ -119,16 +75,15 @@ void blake3_compress_in_place(std::array<field_t<Builder>, 8> cv,
 }
 
 template <typename Builder>
-void blake3_compress_xof(const std::array<field_t<Builder>, 8> cv,
-                         const byte_array<Builder>& block,
-                         uint8_t block_len,
-                         uint8_t flags,
-                         byte_array<Builder>& out)
+void Blake3s<Builder>::blake3_compress_xof(const std::array<field_t<Builder>, 8> cv,
+                                           const byte_array<Builder>& block,
+                                           uint8_t block_len,
+                                           uint8_t flags,
+                                           byte_array<Builder>& out)
 {
-    typedef field_t<Builder> field_pt;
-    std::array<field_pt, BLAKE3_STATE_SIZE> state;
+    std::array<field_ct, BLAKE3_STATE_SIZE> state;
 
-    compress_pre<Builder>(state, cv, block, block_len, flags);
+    compress_pre(state, cv, block, block_len, flags);
 
     /**
      * The same note as in the above `blake3_compress_in_place()` function. Here too, reading from the lookup table
@@ -145,37 +100,18 @@ void blake3_compress_xof(const std::array<field_t<Builder>, 8> cv,
     }
 }
 
-/*
- * Blake3s helper functions.
- *
- */
-template <typename Builder> uint8_t maybe_start_flag(const blake3_hasher<Builder>* self)
-{
-    if (self->blocks_compressed == 0) {
-        return CHUNK_START;
-    } else {
-        return 0;
-    }
-}
-
-template <typename Builder> struct output_t {
-    std::array<field_t<Builder>, 8> input_cv;
-    byte_array<Builder> block;
-    uint8_t block_len;
-    uint8_t flags;
-};
-
 template <typename Builder>
-output_t<Builder> make_output(const std::array<field_t<Builder>, 8> input_cv,
-                              const byte_array<Builder>& block,
-                              uint8_t block_len,
-                              uint8_t flags)
+Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const std::array<field_t<Builder>, 8> input_cv,
+                                                         const byte_array<Builder>& block,
+                                                         uint8_t block_len,
+                                                         uint8_t flags)
 {
-    output_t<Builder> ret;
+    output_t ret;
     for (size_t i = 0; i < (BLAKE3_OUT_LEN >> 2); ++i) {
         ret.input_cv[i] = input_cv[i];
     }
-    ret.block = byte_array<Builder>(block.get_context(), BLAKE3_BLOCK_LEN);
+
+    ret.block = byte_array_ct(block.get_context(), BLAKE3_BLOCK_LEN);
     for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
         ret.block.set_byte(i, block[i]);
     }
@@ -188,16 +124,15 @@ output_t<Builder> make_output(const std::array<field_t<Builder>, 8> input_cv,
  * Blake3s wrapper functions.
  *
  */
-template <typename Builder> void blake3_hasher_init(blake3_hasher<Builder>* self)
+template <typename Builder> void Blake3s<Builder>::blake3_hasher_init(blake3_hasher* self)
 {
-    typedef field_t<Builder> field_pt;
     for (size_t i = 0; i < (BLAKE3_KEY_LEN >> 2); ++i) {
-        self->key[i] = field_pt(uint256_t(IV[i]));
-        self->cv[i] = field_pt(uint256_t(IV[i]));
+        self->key[i] = field_ct(uint256_t(IV[i]));
+        self->cv[i] = field_ct(uint256_t(IV[i]));
     }
-    self->buf = byte_array<Builder>(self->context, BLAKE3_BLOCK_LEN);
+    self->buf = byte_array_ct(self->context, BLAKE3_BLOCK_LEN);
     for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
-        self->buf.set_byte(i, field_pt(self->context, 0));
+        self->buf.set_byte(i, field_ct(self->context, 0));
     }
     self->buf_len = 0;
     self->blocks_compressed = 0;
@@ -205,7 +140,7 @@ template <typename Builder> void blake3_hasher_init(blake3_hasher<Builder>* self
 }
 
 template <typename Builder>
-void blake3_hasher_update(blake3_hasher<Builder>* self, const byte_array<Builder>& input, size_t input_len)
+void Blake3s<Builder>::blake3_hasher_update(blake3_hasher* self, const byte_array<Builder>& input, size_t input_len)
 {
     if (input_len == 0) {
         return;
@@ -213,10 +148,10 @@ void blake3_hasher_update(blake3_hasher<Builder>* self, const byte_array<Builder
 
     size_t start_counter = 0;
     while (input_len > BLAKE3_BLOCK_LEN) {
-        blake3_compress_in_place<Builder>(self->cv,
-                                          input.slice(start_counter, BLAKE3_BLOCK_LEN),
-                                          BLAKE3_BLOCK_LEN,
-                                          self->flags | maybe_start_flag(self));
+        blake3_compress_in_place(self->cv,
+                                 input.slice(start_counter, BLAKE3_BLOCK_LEN),
+                                 BLAKE3_BLOCK_LEN,
+                                 self->flags | maybe_start_flag(self));
         self->blocks_compressed = static_cast<uint8_t>(self->blocks_compressed + 1);
         start_counter += BLAKE3_BLOCK_LEN;
         input_len -= BLAKE3_BLOCK_LEN;
@@ -234,29 +169,30 @@ void blake3_hasher_update(blake3_hasher<Builder>* self, const byte_array<Builder
     input_len -= take;
 }
 
-template <typename Builder> void blake3_hasher_finalize(const blake3_hasher<Builder>* self, byte_array<Builder>& out)
+template <typename Builder>
+void Blake3s<Builder>::blake3_hasher_finalize(const blake3_hasher* self, byte_array<Builder>& out)
 {
     uint8_t block_flags = self->flags | maybe_start_flag(self) | CHUNK_END;
-    output_t<Builder> output = make_output<Builder>(self->cv, self->buf, self->buf_len, block_flags);
+    output_t output = make_output(self->cv, self->buf, self->buf_len, block_flags);
 
-    byte_array<Builder> wide_buf(out.get_context(), BLAKE3_BLOCK_LEN);
+    byte_array_ct wide_buf(out.get_context(), BLAKE3_BLOCK_LEN);
     blake3_compress_xof(output.input_cv, output.block, output.block_len, output.flags | ROOT, wide_buf);
     for (size_t i = 0; i < BLAKE3_OUT_LEN; i++) {
         out.set_byte(i, wide_buf[i]);
     }
 }
 
-template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input)
+template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byte_array<Builder>& input)
 {
-    blake3_hasher<Builder> hasher = {};
+    blake3_hasher hasher = {};
     hasher.context = input.get_context();
-    blake3_hasher_init<Builder>(&hasher);
-    blake3_hasher_update<Builder>(&hasher, input, input.size());
-    byte_array<Builder> result(input.get_context(), BLAKE3_OUT_LEN);
-    blake3_hasher_finalize<Builder>(&hasher, result);
+    blake3_hasher_init(&hasher);
+    blake3_hasher_update(&hasher, input, input.size());
+    byte_array_ct result(input.get_context(), BLAKE3_OUT_LEN);
+    blake3_hasher_finalize(&hasher, result);
     return result;
 }
 
-template byte_array<bb::UltraCircuitBuilder> blake3s(const byte_array<bb::UltraCircuitBuilder>& input);
-template byte_array<bb::MegaCircuitBuilder> blake3s(const byte_array<bb::MegaCircuitBuilder>& input);
-} // namespace bb::stdlib::blake3s_plookup
+template class Blake3s<UltraCircuitBuilder>;
+template class Blake3s<MegaCircuitBuilder>;
+} // namespace bb::stdlib

@@ -34,7 +34,7 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
         arr.write(element_bytes);
     }
 
-    byte_array_ct output_bytes = bb::stdlib::blake3s_plookup::blake3s<Builder>(arr);
+    byte_array_ct output_bytes = bb::stdlib::Blake3s<Builder>::hash(arr);
 
     // Convert byte array to vector of field_t
     auto bytes = output_bytes.bytes();

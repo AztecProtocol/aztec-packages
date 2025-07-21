@@ -95,7 +95,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         }
         pedersen_hash<InnerBuilder>::hash({ a, b });
         byte_array_ct to_hash(&builder, "nonsense test data");
-        stdlib::blake3s_plookup::blake3s(to_hash);
+        stdlib::Blake3s<InnerBuilder>::hash(to_hash);
 
         fr bigfield_data = fr::random_element(&engine);
         fr bigfield_data_a{ bigfield_data.data[0], bigfield_data.data[1], 0, 0 };
