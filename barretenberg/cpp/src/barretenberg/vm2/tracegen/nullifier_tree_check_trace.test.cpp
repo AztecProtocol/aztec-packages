@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -32,23 +33,26 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using ::testing::NiceMock;
-using ::testing::TestWithParam;
 
 using testing::TestMemoryTree;
 
 using simulation::EventEmitter;
+using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
+using simulation::MockGreaterThan;
 using simulation::MockRangeCheck;
-using simulation::NoopEventEmitter;
 using simulation::NullifierTreeCheck;
 using simulation::NullifierTreeCheckEvent;
 using simulation::NullifierTreeLeafPreimage;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
 using simulation::unconstrained_root_from_path;
 
 using constraining::check_interaction;
@@ -57,6 +61,21 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
+
+class NullifierTreeCheckTracegenTest : public ::testing::Test {
+  protected:
+    NullifierTreeCheckTracegenTest()
+        : execution_id_manager(0){};
+
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    ExecutionIdManager execution_id_manager;
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2 =
+        Poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+};
 
 struct TestParams {
     FF nullifier;
@@ -77,15 +96,12 @@ std::vector<TestParams> positive_read_tests = {
         .nullifier = 42, .exists = false, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(10), 28, 50) }
 };
 
-class NullifierReadInteractionsTests : public TestWithParam<TestParams> {};
+class NullifierReadInteractionsTests : public NullifierTreeCheckTracegenTest,
+                                       public ::testing::WithParamInterface<TestParams> {};
 
 TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
 {
     const auto& param = GetParam();
-
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
@@ -142,12 +158,8 @@ INSTANTIATE_TEST_SUITE_P(NullifierTreeCheckTracegenTest,
                          NullifierReadInteractionsTests,
                          ::testing::ValuesIn(positive_read_tests));
 
-TEST(NullifierTreeCheckTracegenTest, WriteWithInteractions)
+TEST_F(NullifierTreeCheckTracegenTest, WriteWithInteractions)
 {
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
-
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 

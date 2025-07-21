@@ -1,4 +1,5 @@
 #include "./graph.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <algorithm>
 #include <array>
@@ -430,7 +431,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_compon
     bb::UltraCircuitBuilder& ultra_builder, const bb::RomTranscript& rom_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
-    ASSERT(block_index == 5);
+    BB_ASSERT_EQ(block_index, 5U);
 
     // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
     // 1) records contains values that were put in the gate, we can use them to create connections between variables
@@ -491,7 +492,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_compon
     bb::UltraCircuitBuilder& ultra_builder, const bb::RamTranscript& ram_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
-    ASSERT(block_index == 5);
+    BB_ASSERT_EQ(block_index, 5U);
     std::vector<uint32_t> ram_table_variables;
     for (const auto& record : ram_array.records) {
         std::vector<uint32_t> gate_variables;
@@ -1115,12 +1116,12 @@ inline void StaticAnalyzer_<FF>::remove_record_witness_variables(bb::UltraCircui
     auto block_data = ultra_builder.blocks.get();
     size_t blk_idx = find_block_index(ultra_builder, ultra_builder.blocks.aux);
     std::vector<uint32_t> to_remove;
-    ASSERT(blk_idx == 5);
+    BB_ASSERT_EQ(blk_idx, 5U);
     for (const auto& var_idx : variables_in_one_gate) {
         KeyPair key = { var_idx, blk_idx };
         if (auto search = variable_gates.find(key); search != variable_gates.end()) {
             std::vector<size_t> gate_indexes = variable_gates[key];
-            ASSERT(gate_indexes.size() == 1);
+            BB_ASSERT_EQ(gate_indexes.size(), 1U);
             size_t gate_idx = gate_indexes[0];
             auto q_1 = block_data[blk_idx].q_1()[gate_idx];
             auto q_2 = block_data[blk_idx].q_2()[gate_idx];
@@ -1269,7 +1270,7 @@ void StaticAnalyzer_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ul
     const auto& block_data = ultra_builder.blocks.get();
     for (const auto& [key, gates] : variable_gates) {
         if (key.first == real_idx) {
-            ASSERT(gates.size() == 1);
+            BB_ASSERT_EQ(gates.size(), 1U);
             size_t gate_index = gates[0];
             UltraBlock block = block_data[key.second];
             info("---- printing variables in this gate");
