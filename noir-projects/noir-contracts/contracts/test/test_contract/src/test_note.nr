@@ -9,8 +9,8 @@ use dep::aztec::{
 };
 
 /// A note used only for testing purposes.
+#[derive(Eq, Packable)]
 #[custom_note]
-#[derive(Eq)]
 pub struct TestNote {
     value: Field,
 }

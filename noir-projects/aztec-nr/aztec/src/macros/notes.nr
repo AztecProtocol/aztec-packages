@@ -3,14 +3,14 @@ use crate::{
     note::note_getter_options::PropertySelector,
 };
 use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::derive_packable_and_get_packed_len;
+use protocol_types::meta::get_packable_len;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
 /// A map from note type to note_packed_len.
 pub comptime mut global NOTES: UHashMap<Type, u32, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
-pub comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
+comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
 
 /// The note type id is set by enumerating the note types.
 comptime fn get_next_note_type_id() -> Field {
@@ -23,28 +23,6 @@ comptime fn get_next_note_type_id() -> Field {
     let note_type_id = NOTE_TYPE_ID_COUNTER as Field;
     NOTE_TYPE_ID_COUNTER += 1;
     note_type_id
-}
-
-/// Generates a quote that implements `Packable` for a given struct `s`.
-/// If the note struct already implements `Packable`, we return an empty quote.
-comptime fn derive_packable_if_not_implemented_and_get_len(s: TypeDefinition) -> (Quoted, u32) {
-    // We try to get the packed length of the note struct. If it does not implement `Packable`, we get Option::none()
-    let packed_len_typ = std::meta::typ::fresh_type_variable();
-    // We don't care about the result of the implements check. We just want the get the packed length.
-    let _ = s.as_type().implements(
-        quote { crate::protocol_types::traits::Packable<$packed_len_typ> }.as_trait_constraint(),
-    );
-    let maybe_packed_length = packed_len_typ.as_constant();
-
-    if maybe_packed_length.is_some() {
-        // We got some packed length meaning that the note struct implements `Packable`. For this reason we return
-        // an empty quote for the implementation and the packed length.
-        (quote {}, maybe_packed_length.unwrap())
-    } else {
-        // We didn't manage to get the packed length which means the note struct doesn't implement `Packable`
-        // so we derive it and return it along with the packed length.
-        derive_packable_and_get_packed_len(s)
-    }
 }
 
 /// Generates default `NoteType` implementation for a given note struct `s` and returns it as a quote.
@@ -181,37 +159,56 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Generates the following:
-/// - NoteTypeProperties
-/// - NoteType trait implementation
-/// - NoteHash trait implementation
-/// - Packable implementation
+/// Generates the core note functionality for a struct:
 ///
-/// Registers the note in the global `NOTES` map.
+/// - NoteTypeProperties: Defines the structure and properties of note fields
+/// - NoteType trait implementation: Provides the note type ID
+/// - NoteHash trait implementation: Handles note hash and nullifier computation
 ///
-/// For more details on the generated code, see the individual functions.
+/// # Requirements
+///
+/// The note struct must:
+/// - Have an `owner` field
+/// - Implement the `Packable` trait
+/// - Not exceed `MAX_NOTE_PACKED_LEN` when packed
+///
+/// # Registration
+///
+/// Registers the note in the global `NOTES` map to enable note processing functionality.
+///
+/// # Generated Code
+///
+/// For detailed documentation on the generated implementations, see:
+/// - `generate_note_properties()`
+/// - `generate_note_interface()`
+/// - `generate_note_hash_trait_impl()`
 pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_owner(s);
+    assert_has_packable(s);
 
-    let note_properties = generate_note_properties(s);
-    let note_type_id = get_next_note_type_id();
-    let note_interface_impl = generate_note_interface(s, note_type_id);
-    let note_hash_impl = generate_note_hash_trait_impl(s);
-    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+    let note_packed_len = get_packable_len(s.as_type());
 
+    // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
+    // when processing the note.
     if note_packed_len > MAX_NOTE_PACKED_LEN {
         panic(
             f"{s} packs into {note_packed_len} fields which is larger than the maximum of {MAX_NOTE_PACKED_LEN}",
         );
     }
 
+    // We register the note in the global `NOTES` map with the packed length because we need that information
+    // inside the #[aztec] macro to generate note processing functionality.
     NOTES.insert(s.as_type(), note_packed_len);
+
+    let note_properties = generate_note_properties(s);
+    let note_type_id = get_next_note_type_id();
+    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let note_hash_impl = generate_note_hash_trait_impl(s);
 
     quote {
         $note_properties
         $note_interface_impl
         $note_hash_impl
-        $packable_impl
     }
 }
 
@@ -220,7 +217,14 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// # Generated Code
 /// - NoteTypeProperties: Defines the structure and properties of note fields
 /// - NoteType trait implementation: Provides the note type ID
-/// - Packable implementation: Enables serialization/deserialization of the note
+///
+/// # Requirements
+///
+/// The note struct must:
+/// - Implement the `Packable` trait
+/// - Not exceed `MAX_NOTE_PACKED_LEN` when packed
+///
+/// Unlike the `#[note]` macro, there is no requirement for an `owner` field.
 ///
 /// # Registration
 /// Registers the note in the global `NOTES` map with:
@@ -252,26 +256,43 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// }
 /// ```
 pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
-    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+    assert_has_packable(s);
 
+    let note_packed_len = get_packable_len(s.as_type());
+
+    // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
+    // when processing the note.
     if note_packed_len > MAX_NOTE_PACKED_LEN {
         panic(
             f"{s} packs into {note_packed_len} fields which is larger than the maximum of {MAX_NOTE_PACKED_LEN}",
         );
     }
 
-    let note_type_id = get_next_note_type_id();
+    // We register the note in the global `NOTES` map with the packed length because we need that information
+    // inside the #[aztec] macro to generate note processing functionality.
+    NOTES.insert(s.as_type(), note_packed_len);
 
+    let note_type_id = get_next_note_type_id();
     let note_properties = generate_note_properties(s);
     let note_interface_impl = generate_note_interface(s, note_type_id);
-
-    NOTES.insert(s.as_type(), note_packed_len);
 
     quote {
         $note_properties
         $note_interface_impl
-        $packable_impl
     }
+}
+
+/// Asserts that the given note implements the `Packable` trait.
+///
+/// We require that notes have the `Packable` trait implemented because it is used when emitting a note in a log or as
+/// an offchain message.
+comptime fn assert_has_packable(note: TypeDefinition) {
+    let packable_constraint =
+        quote { crate::protocol_types::traits::Packable }.as_trait_constraint();
+    assert(
+        note.as_type().implements(packable_constraint),
+        "Note must implement Packable trait. Either implement it manually or place #[derive(Packable)] on the note struct before #[note] macro invocation.",
+    );
 }
 
 /// Asserts that the note has an 'owner' field.

@@ -11,20 +11,20 @@ use dep::protocol_types::{
 ///
 /// The efficient reads are achieved by verifying large values through a single hash check
 /// and then proving inclusion only of the hash in public storage. This reduces the number
-/// of required tree inclusion proofs from `N` to 1.
+/// of required tree inclusion proofs from `M` to 1.
 ///
 /// # Type Parameters
 /// - `T`: The underlying type being wrapped, must implement `Packable<N>`
-/// - `N`: The number of field elements required to pack values of type `T`
-pub struct WithHash<T, let N: u32> {
+/// - `M`: The number of field elements required to pack values of type `T`
+pub struct WithHash<T, let M: u32> {
     value: T,
-    packed: [Field; N],
+    packed: [Field; M],
     hash: Field,
 }
 
-impl<T, let N: u32> WithHash<T, N>
+impl<T, let M: u32> WithHash<T, M>
 where
-    T: Packable<N> + Eq,
+    T: Packable<N = M> + Eq,
 {
     pub fn new(value: T) -> Self {
         let packed = value.pack();
@@ -68,7 +68,7 @@ where
             },
         );
 
-        let hash = header.public_storage_historical_read(storage_slot + N as Field, address);
+        let hash = header.public_storage_historical_read(storage_slot + M as Field, address);
 
         if hash != 0 {
             assert_eq(hash, hint.get_hash(), "Hint values do not match hash");
@@ -86,26 +86,28 @@ where
     }
 }
 
-impl<T, let N: u32> Packable<N + 1> for WithHash<T, N>
+impl<T, let M: u32> Packable for WithHash<T, M>
 where
-    T: Packable<N>,
+    T: Packable<N = M>,
 {
-    fn pack(self) -> [Field; N + 1] {
-        let mut result: [Field; N + 1] = std::mem::zeroed();
-        for i in 0..N {
+    let N: u32 = M + 1;
+
+    fn pack(self) -> [Field; Self::N] {
+        let mut result: [Field; Self::N] = std::mem::zeroed();
+        for i in 0..M {
             result[i] = self.packed[i];
         }
-        result[N] = self.hash;
+        result[M] = self.hash;
 
         result
     }
 
-    fn unpack(packed: [Field; N + 1]) -> Self {
-        let mut value_packed: [Field; N] = std::mem::zeroed();
-        for i in 0..N {
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        let mut value_packed = [0; M];
+        for i in 0..M {
             value_packed[i] = packed[i];
         }
-        let hash = packed[N];
+        let hash = packed[M];
 
         Self { value: T::unpack(value_packed), packed: value_packed, hash }
     }

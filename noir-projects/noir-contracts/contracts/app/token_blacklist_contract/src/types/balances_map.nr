@@ -41,13 +41,13 @@ impl<Note, Context> BalancesMap<Note, Context> {
 
 impl<Note> BalancesMap<Note, UtilityContext>
 where
-    Note: NoteType + NoteHash + OwnedNote + Packable<N> + Eq,
+    Note: NoteType + NoteHash + OwnedNote + Packable + Eq,
 {
-    pub unconstrained fn balance_of<let N: u32>(self: Self, owner: AztecAddress) -> u128 {
+    pub unconstrained fn balance_of(self: Self, owner: AztecAddress) -> u128 {
         self.balance_of_with_offset(owner, 0)
     }
 
-    pub unconstrained fn balance_of_with_offset<let N: u32>(
+    pub unconstrained fn balance_of_with_offset(
         self: Self,
         owner: AztecAddress,
         offset: u32,
@@ -72,9 +72,9 @@ where
 
 impl<Note> BalancesMap<Note, &mut PrivateContext> {
 
-    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
+    pub fn add(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
         if addend == 0 as u128 {
             OuterNoteEmission::new(Option::none())
@@ -87,13 +87,9 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<let N: u32>(
-        self: Self,
-        owner: AztecAddress,
-        subtrahend: u128,
-    ) -> OuterNoteEmission<Note>
+    pub fn sub(self: Self, owner: AztecAddress, subtrahend: u128) -> OuterNoteEmission<Note>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let notes = self.map.at(owner).pop_notes(options);

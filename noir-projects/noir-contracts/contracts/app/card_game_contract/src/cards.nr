@@ -14,14 +14,14 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{FromField, Hash, Serialize, ToField},
+        traits::{FromField, Hash, Packable, Serialize, ToField},
     },
     state_vars::{PrivateSet, storage::HasStorageSlot},
 };
 use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
 
-#[derive(Serialize)]
+#[derive(Packable, Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,

@@ -36,12 +36,14 @@ impl Deserialize for Point {
 }
 
 // TODO(#11356): use compact representation here.
-impl Packable<POINT_LENGTH> for Point {
-    fn pack(self) -> [Field; POINT_LENGTH] {
+impl Packable for Point {
+    let N: u32 = POINT_LENGTH;
+
+    fn pack(self) -> [Field; Self::N] {
         self.serialize()
     }
 
-    fn unpack(packed: [Field; POINT_LENGTH]) -> Self {
+    fn unpack(packed: [Field; Self::N]) -> Self {
         Self::deserialize(packed)
     }
 }

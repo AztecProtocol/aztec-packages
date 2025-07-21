@@ -12,11 +12,11 @@ pub struct MockStruct {
     pub b: Field,
 }
 
-unconstrained fn assert_equal_after_conversion<T, let N: u32>(
+unconstrained fn assert_equal_after_conversion<T>(
     original: DelayedPublicMutableValues<T, TEST_INITIAL_DELAY>,
 )
 where
-    T: Packable<N> + Eq,
+    T: Packable + Eq,
 {
     let converted = DelayedPublicMutableValues::<T, TEST_INITIAL_DELAY>::unpack(original.pack());
 
