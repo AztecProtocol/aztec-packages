@@ -8,8 +8,8 @@ export const ZK_PASSPORT_VERIFIER_ADDRESS = EthAddress.fromString('0x62e33cC35e2
 /**
  * The default domain of the zk passport site
  */
-export const ZK_PASSPORT_SCOPE = 'testnet.aztec.network';
+export const ZK_PASSPORT_DOMAIN = 'testnet.aztec.network';
 /**
  * The default sub-scope of the zk passport proofs
  */
-export const ZK_PASSPORT_SUB_SCOPE = 'personhood';
+export const ZK_PASSPORT_SCOPE = 'personhood';
