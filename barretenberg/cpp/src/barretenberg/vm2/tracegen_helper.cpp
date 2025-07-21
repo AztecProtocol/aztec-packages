@@ -288,6 +288,12 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.scalar_mul);
                 },
                 [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/ecc_add_memory",
+                                   ecc_builder.process_add_with_memory(events.ecc_add_mem, trace));
+                    clear_events(events.ecc_add_mem);
+                },
+                [&]() {
                     Poseidon2TraceBuilder poseidon2_builder;
                     AVM_TRACK_TIME("tracegen/poseidon2_hash",
                                    poseidon2_builder.process_hash(events.poseidon2_hash, trace));

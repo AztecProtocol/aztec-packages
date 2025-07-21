@@ -10,6 +10,7 @@
 #include "barretenberg/common/log.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
@@ -706,6 +707,42 @@ void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress s
     }
 }
 
+void Execution::ecc_add(ContextInterface& context,
+                        MemoryAddress p_x_addr,
+                        MemoryAddress p_y_addr,
+                        MemoryAddress p_inf_addr,
+                        MemoryAddress q_x_addr,
+                        MemoryAddress q_y_addr,
+                        MemoryAddress q_inf_addr,
+                        MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::ECADD;
+    auto& memory = context.get_memory();
+
+    // Read the points from memory.
+    MemoryValue p_x = memory.get(p_x_addr);
+    MemoryValue p_y = memory.get(p_y_addr);
+    MemoryValue p_inf = memory.get(p_inf_addr);
+
+    MemoryValue q_x = memory.get(q_x_addr);
+    MemoryValue q_y = memory.get(q_y_addr);
+    MemoryValue q_inf = memory.get(q_inf_addr);
+
+    set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
+    get_gas_tracker().consume_gas();
+
+    // Once inputs are tag checked the conversion to EmbeddedCurvePoint is safe, on curve checks are done in the add
+    // method.
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff(), p_inf == MemoryValue::from<uint1_t>(1));
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff(), q_inf == MemoryValue::from<uint1_t>(1));
+
+    try {
+        embedded_curve.add(memory, p, q, dst_addr);
+    } catch (const EccException& e) {
+        throw OpcodeExecutionException("Embedded curve add failed: " + std::string(e.what()));
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -960,6 +997,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::POSEIDON2PERM:
         call_with_operands(&Execution::poseidon2_permutation, context, resolved_operands);
+        break;
+    case ExecutionOpCode::ECADD:
+        call_with_operands(&Execution::ecc_add, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.
