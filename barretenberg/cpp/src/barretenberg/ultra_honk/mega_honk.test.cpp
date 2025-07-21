@@ -78,10 +78,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      */
     bool construct_and_verify_merge_proof(auto& op_queue, MergeSettings settings = MergeSettings::PREPEND)
     {
-        MergeProver merge_prover{ op_queue };
-        merge_prover.settings = settings;
-        MergeVerifier merge_verifier;
-        merge_verifier.settings = settings;
+        MergeProver merge_prover{ op_queue, settings };
+        MergeVerifier merge_verifier{ settings };
         auto merge_proof = merge_prover.construct_proof();
 
         // Construct Merge commitments
@@ -342,12 +340,12 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkOnly)
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
         auto builder = typename Flavor::CircuitBuilder{ op_queue };
-
         GoblinMockCircuits::construct_simple_circuit(builder);
-
         // Construct and verify Honk proof
         bool honk_verified = this->construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
+        // Artificially merge the op queue sincer we're not running the merge protocol in this test
+        builder.op_queue->merge();
     }
 }
 

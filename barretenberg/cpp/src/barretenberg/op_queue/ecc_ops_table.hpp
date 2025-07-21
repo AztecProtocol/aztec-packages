@@ -104,7 +104,8 @@ template <typename OpFormat> class EccOpsTable {
   public:
     size_t size() const
     {
-        ASSERT(current_subtable.empty(), "Current subtable should be merged before computing the size.");
+        ASSERT(current_subtable.empty(),
+               "Current subtable should be merged before computing the size of the full table of ecc ops.");
         size_t total = 0;
         for (const auto& subtable : table) {
             total += subtable.size();
@@ -134,7 +135,8 @@ template <typename OpFormat> class EccOpsTable {
     // const version of operator[]
     const OpFormat& operator[](size_t index) const
     {
-        ASSERT(current_subtable.empty(), "current subtable should be merged before indexing.");
+        ASSERT(current_subtable.empty(),
+               "Current subtable should be merged before attempting to index into the full table.");
         BB_ASSERT_LT(index, size());
         // simple linear search to find the correct subtable
         for (const auto& subtable : table) {
@@ -228,7 +230,6 @@ class UltraEccOpsTable {
     // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
     {
-
         const size_t poly_size = ultra_table_size();
         const size_t subtable_start_idx = 0; // include all subtables
         const size_t subtable_end_idx = table.num_subtables();
