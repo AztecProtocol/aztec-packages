@@ -93,8 +93,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    testERC20.mint(address(this), rollup.getDepositAmount());
-    testERC20.approve(address(rollup), rollup.getDepositAmount());
+    uint256 depositAmount = rollup.getDepositAmount();
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), depositAmount);
+    testERC20.approve(address(rollup), depositAmount);
     rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
@@ -140,8 +142,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    testERC20.mint(address(this), rollup.getDepositAmount());
-    testERC20.approve(address(rollup), rollup.getDepositAmount());
+    uint256 depositAmount = rollup.getDepositAmount();
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), depositAmount);
+    testERC20.approve(address(rollup), depositAmount);
     rollup.deposit(address(0xdead), address(0xdead), true);
     rollup.flushEntryQueue();
 

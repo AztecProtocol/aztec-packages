@@ -4,5 +4,6 @@ pragma solidity >=0.8.27;
 
 interface ICoinIssuer {
   function mint(address _to, uint256 _amount) external;
+  function acceptTokenOwnership() external;
   function mintAvailable() external view returns (uint256);
 }

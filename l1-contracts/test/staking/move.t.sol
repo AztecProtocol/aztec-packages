@@ -63,7 +63,7 @@ contract MoveTest is StakingBase {
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
 
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT * n);
+    mint(address(this), DEPOSIT_AMOUNT * n);
     stakingAsset.approve(address(oldRollup), DEPOSIT_AMOUNT * n);
 
     for (uint256 i = 0; i < n; i++) {

@@ -42,4 +42,9 @@ contract StakingBase is TestBase {
     MINIMUM_STAKE = staking.getMinimumStake();
     SLASHER = staking.getSlasher();
   }
+
+  function mint(address _to, uint256 _amount) internal {
+    vm.prank(stakingAsset.owner());
+    stakingAsset.mint(_to, _amount);
+  }
 }

@@ -119,6 +119,7 @@ contract TokenPortalTest is Test {
 
   function testDepositPrivate() public returns (bytes32) {
     // mint token and approve to the portal
+    vm.prank(testERC20.owner());
     testERC20.mint(address(this), mintAmount);
     testERC20.approve(address(tokenPortal), mintAmount);
 
@@ -148,6 +149,7 @@ contract TokenPortalTest is Test {
 
   function testDepositPublic() public returns (bytes32) {
     // mint token and approve to the portal
+    vm.prank(testERC20.owner());
     testERC20.mint(address(this), mintAmount);
     testERC20.approve(address(tokenPortal), mintAmount);
 
@@ -205,6 +207,7 @@ contract TokenPortalTest is Test {
     returns (bytes32, bytes32[] memory, bytes32)
   {
     // send assets to the portal
+    vm.prank(testERC20.owner());
     testERC20.mint(address(tokenPortal), withdrawAmount);
 
     // Create the message
