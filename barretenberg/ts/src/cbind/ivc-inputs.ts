@@ -133,15 +133,15 @@ export class IvcRunner {
   /**
    * Accumulate a single step from IVC inputs
    */
-  async queueStep(step: IvcInputStep): Promise<void> {
-    await this.api.clientIvcLoad({
+  queueStep(step: IvcInputStep): void {
+    this.api.clientIvcLoad({
       circuit: {
         name: step.functionName,
         bytecode: step.bytecode,
         verificationKey: step.vk,
       }
     });
-    await this.api.clientIvcAccumulate({
+    this.api.clientIvcAccumulate({
       witness: step.witness,
     });
   }
@@ -176,8 +176,8 @@ export class IvcRunner {
   /**
    * Accumulate a single step (alias for queueStep for backward compatibility)
    */
-  async accumulateStep(step: IvcInputStep): Promise<void> {
-    await this.queueStep(step);
+  accumulateStep(step: IvcInputStep): void {
+    this.queueStep(step);
   }
 
   /**
