@@ -6,6 +6,7 @@
 
 #include "acir_format.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -264,8 +265,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
 
         // We shouldn't have both honk recursion constraints and ivc recursion constraints.
-        ASSERT((constraint_system.honk_recursion_constraints.empty() ||
-                constraint_system.ivc_recursion_constraints.empty()) &&
+        ASSERT(constraint_system.honk_recursion_constraints.empty() ||
+                   constraint_system.ivc_recursion_constraints.empty(),
                "Invalid circuit: both honk and ivc recursion constraints present.");
         // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
         if (constraint_system.honk_recursion_constraints.empty() &&
@@ -344,7 +345,7 @@ void handle_IPA_accumulation(Builder& builder,
     OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
     HonkProof final_ipa_proof;
     if (is_root_rollup) {
-        ASSERT(nested_ipa_claims.size() == 2 && "Root rollup must have two nested IPA claims.");
+        BB_ASSERT_EQ(nested_ipa_claims.size(), 2U, "Root rollup must have two nested IPA claims.");
     }
     if (nested_ipa_claims.size() == 2) {
         // If we have two claims, accumulate.
@@ -456,7 +457,7 @@ process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-    ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2) &&
+    ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
            "Root rollup must accumulate two IPA proofs.");
     return output;
 }
@@ -595,8 +596,11 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
 
+    // If the incoming program is a kernel, it will have at least one ivc_recursion_constraint.
+    bool is_kernel = !constraints.ivc_recursion_constraints.empty();
+
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };
+    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum, is_kernel };
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);

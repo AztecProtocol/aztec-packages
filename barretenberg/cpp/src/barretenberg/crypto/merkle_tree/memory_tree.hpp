@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "hash_path.hpp"
 
 namespace bb::crypto::merkle_tree {
@@ -52,7 +53,8 @@ MemoryTree<HashingPolicy>::MemoryTree(size_t depth)
     : depth_(depth)
 {
 
-    ASSERT(depth_ >= 1 && depth <= 20);
+    BB_ASSERT_GTE(depth_, 1U);
+    BB_ASSERT_LTE(depth, 20U);
     total_size_ = 1UL << depth_;
     hashes_.resize(total_size_ * 2 - 2);
 
