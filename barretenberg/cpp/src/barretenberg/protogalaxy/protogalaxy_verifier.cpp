@@ -30,7 +30,7 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     domain_separator = std::to_string(1);
     OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
     oink_verifier.verify();
-    public_inputs = oink_verifier.public_inputs;
+    public_inputs = std::move(oink_verifier.public_inputs);
 }
 
 template <typename FF, size_t NUM>

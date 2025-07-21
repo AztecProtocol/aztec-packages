@@ -32,7 +32,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
 
     DeciderVerificationKeys keys_to_fold;
 
-    std::vector<FF> public_inputs;
+    std::vector<FF> public_inputs; // extracted from the incoming instance
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 

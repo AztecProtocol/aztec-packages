@@ -93,7 +93,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     MergeCommitments& merge_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
-    // Store the witness commitments and public inputs extracted from the proof in the recursive verifier
+    // Witness commitments and public inputs corresponding to the incoming instance
     WitnessCommitments witness_commitments;
     std::vector<StdlibFF> public_inputs;
 
@@ -111,8 +111,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
-        witness_commitments = verifier.keys_to_fold[1]->witness_commitments; // witness commitments extracted from proof
-        public_inputs = verifier.public_inputs;                              // public inputs extracted from proof
+        witness_commitments = std::move(verifier.keys_to_fold[1]->witness_commitments);
+        public_inputs = std::move(verifier.public_inputs);
 
         break;
     }
@@ -131,8 +131,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // Initialize the gate challenges to zero for use in first round of folding
         verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
-        witness_commitments = verifier_accum->witness_commitments; // witness commitments extracted from proof
-        public_inputs = verifier.public_inputs;                    // public inputs extracted from proof
+        witness_commitments = std::move(verifier_accum->witness_commitments);
+        public_inputs = std::move(verifier.public_inputs);
 
         break;
     }
@@ -382,7 +382,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
 
-    // Get public inputs and witness commitments extracted from to the tail kernel proof
+    // Get public inputs and witness commitments extracted from the tail kernel proof
     const std::vector<StdlibFF>& public_inputs = folding_verifier.public_inputs;
     WitnessCommitments& witness_commitments = folding_verifier.keys_to_fold[1]->witness_commitments;
 
