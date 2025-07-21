@@ -210,7 +210,9 @@ contract RollupBuilder is Test {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(address(this), config.testERC20);
+      config.gse = new GSE(
+        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      );
     }
 
     if (address(config.registry) == address(0)) {
@@ -243,7 +245,7 @@ contract RollupBuilder is Test {
         vm.prank(address(config.governance));
         config.governance.openFloodgates();
 
-        assertEq(config.governance.isAllDepositsAllowed(), true);
+        assertEq(config.governance.isAllBeneficiariesAllowed(), true);
       }
     }
 

@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -26,7 +27,7 @@ std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolyn
     auto proving_key = std::make_shared<AvmProver::ProvingKey>(CIRCUIT_SUBGROUP_SIZE, /*num_public_inputs=*/0);
 
     for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
-        ASSERT(flavor_get_label(*proving_key, key_poly) == flavor_get_label(polynomials, prover_poly));
+        BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
         key_poly = std::move(prover_poly);
     }
 
@@ -43,16 +44,13 @@ std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verificat
     using VerificationKey = AvmVerifier::VerificationKey;
     std::vector<fr> vk_as_fields = many_from_buffer<AvmFlavorSettings::FF>(vk_data);
 
-    auto circuit_size = static_cast<uint64_t>(vk_as_fields[0]);
+    auto log_circuit_size = static_cast<uint64_t>(vk_as_fields[0]);
     auto num_public_inputs = static_cast<uint64_t>(vk_as_fields[1]);
     std::span vk_span(vk_as_fields);
 
+    uint64_t circuit_size = 1UL << log_circuit_size;
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ",
-          circuit_size,
-          " (next or eq power: 2^",
-          numeric::get_msb(numeric::round_up_power_2(circuit_size)),
-          ")");
+    vinfo("dyadic circuit size: ", circuit_size);
 
     // WARNING: The number of public inputs in the verification key is always 0!
     // Apparently we use some other mechanism to check the public inputs.

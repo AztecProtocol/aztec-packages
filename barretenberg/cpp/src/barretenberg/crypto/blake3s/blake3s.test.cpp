@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include <array>
 #include <iostream>
@@ -418,5 +419,5 @@ TEST(MiscBlake3s, TestVectors)
 TEST(MiscBlake3s, TooLargeInputTest)
 {
     std::vector<uint8_t> input(1025, 0);
-    EXPECT_DEATH(blake3::blake3s(input), "Assertion failed");
+    EXPECT_THROW_OR_ABORT(blake3::blake3s(input), "Assertion failed");
 }

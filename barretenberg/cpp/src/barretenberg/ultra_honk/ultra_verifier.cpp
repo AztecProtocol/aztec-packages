@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -20,6 +21,8 @@ namespace bb {
 template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
 {
     using FF = typename Flavor::FF;
+    using RollUpIO = bb::RollupIO;
+    using DefaultIO = bb::DefaultIO;
 
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
@@ -28,23 +31,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         verification_key->gate_challenges.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
-    }
-
-    // Reconstruct the nested IPA claim from the public inputs and run the native IPA verifier.
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        // Extract the public inputs containing the IPA claim and reconstruct
-        const uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - IPA_CLAIM_SIZE;
-        std::span<FF, IPA_CLAIM_SIZE> ipa_claim_limbs{ verification_key->public_inputs.data() + start_idx,
-                                                       IPA_CLAIM_SIZE };
-
-        auto ipa_claim = OpeningClaim<curve::Grumpkin>::reconstruct_from_public(ipa_claim_limbs);
-
-        // verify the ipa_proof with this claim
-        ipa_transcript->load_proof(ipa_proof);
-        bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
-        if (!ipa_result) {
-            return false;
-        }
     }
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
@@ -58,15 +44,25 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         return false;
     }
 
-    // Extract nested pairing points from the proof
-    uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - PAIRING_POINTS_SIZE;
+    // Reconstruct the nested IPA claim from the public inputs and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
-        start_idx -= IPA_CLAIM_SIZE;
+        RollUpIO inputs;
+        inputs.reconstruct_from_public(verification_key->public_inputs);
+
+        // verify the ipa_proof with this claim
+        ipa_transcript->load_proof(ipa_proof);
+        bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, inputs.ipa_claim, ipa_transcript);
+        if (!ipa_result) {
+            return false;
+        }
+
+        decider_output.pairing_points.aggregate(inputs.pairing_inputs);
+    } else {
+        DefaultIO inputs;
+        inputs.reconstruct_from_public(verification_key->public_inputs);
+
+        decider_output.pairing_points.aggregate(inputs.pairing_inputs);
     }
-    std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + start_idx,
-                                                             PAIRING_POINTS_SIZE };
-    PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
-    decider_output.pairing_points.aggregate(nested_pairing_points);
 
     return decider_output.check();
 }
