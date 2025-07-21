@@ -14,7 +14,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 ### Notes require you to manually implement or derive Packable
 
 We have decided to drop auto-derivation of `Packable` from the `#[note]` macro because we want to make the macros less magical.
-With this change you will be force to either apply `#[derive(Packable)` on your notes:
+With this change you will be forced to either apply `#[derive(Packable)` on your notes:
 
 ```diff
 +use aztec::protocol_types::traits::Packable;
