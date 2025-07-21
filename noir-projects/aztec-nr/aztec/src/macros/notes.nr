@@ -33,7 +33,7 @@ comptime fn get_next_note_type_id() -> Field {
 ///         ...
 ///     }
 /// }
-comptime fn generate_note_interface(s: TypeDefinition, note_type_id: Field) -> Quoted {
+comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Quoted {
     let name = s.name();
 
     quote {
@@ -181,7 +181,7 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
 ///
 /// For detailed documentation on the generated implementations, see:
 /// - `generate_note_properties()`
-/// - `generate_note_interface()`
+/// - `generate_note_type_impl()`
 /// - `generate_note_hash_trait_impl()`
 pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_owner(s);
@@ -204,12 +204,12 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
-    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let note_type_impl = generate_note_type_impl(s, note_type_id);
     let note_hash_impl = generate_note_hash_trait_impl(s);
 
     quote {
         $note_properties
-        $note_interface_impl
+        $note_type_impl
         $note_hash_impl
     }
 }
@@ -277,11 +277,11 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
 
     let note_type_id = get_next_note_type_id();
     let note_properties = generate_note_properties(s);
-    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let note_type_impl = generate_note_type_impl(s, note_type_id);
 
     quote {
         $note_properties
-        $note_interface_impl
+        $note_type_impl
     }
 }
 
