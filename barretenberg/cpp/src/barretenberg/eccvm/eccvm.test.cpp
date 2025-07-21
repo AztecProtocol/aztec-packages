@@ -82,6 +82,24 @@ ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine 
     return builder;
 }
 
+ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine = nullptr)
+{
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    [[maybe_unused]] G1 a = G1::random_element(engine);
+
+    [[maybe_unused]] Fr x = Fr::random_element(engine);
+    for (auto i = 0; i < 8; i++) {
+        op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    }
+
+    ECCVMCircuitBuilder builder{ op_queue };
+    return builder;
+}
+
 void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_parameters,
                                    std::shared_ptr<PK>& pk,
                                    std::vector<FF>& gate_challenges)

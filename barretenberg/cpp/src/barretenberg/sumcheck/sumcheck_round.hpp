@@ -523,10 +523,10 @@ template <typename Flavor> class SumcheckProverRound {
      * @details This method receives as input the univariate accumulators computed by \ref
      * accumulate_relation_univariates "accumulate relation univariates" after passing through the entire hypercube and
      * applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads. The
-     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale univariates",
-     * extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using \ref
-     * extend_and_batch_univariates "extend and batch univariates method" to return a vector \f$(\tilde{S}^i(0), \ldots,
-     * \tilde{S}^i(D))\f$.
+     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale
+     * univariates", extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using \ref
+     * extend_and_batch_univariates "extend and batch univariates method" to return a vector \f$(\tilde{S}^i(0),
+     * \ldots, \tilde{S}^i(D))\f$.
      *
      * @param challenge Challenge \f$\alpha\f$.
      * @param gate_separators Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.
@@ -628,21 +628,23 @@ template <typename Flavor> class SumcheckProverRound {
      *
      * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ deined in \ref
      *SumcheckProverContributionsofPow "this section". It is done  as follows:
-     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube \f$\{0,1\}\times
-     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend edges".
+     *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube
+     *\f$\{0,1\}\times
+     * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend
+     *edges".
      *   - Inner loop: iterate through the sub-relations, feeding each relation the "the group of edges", i.e. the
      * evaluations \f$ P_1(u_0,\ldots, u_{i-1}, k, \vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$. Each
      *                 relation Flavor is endowed with \p accumulate method that computes its contribution to \f$
      * T^i(X_{i}) \f$
-     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors, produces
-     *required evaluations of \f$ \tilde S^i \f$.
+     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors,
+     *produces required evaluations of \f$ \tilde S^i \f$.
      * @param univariate_accumulators The container for per-thread-per-relation univariate contributions output by \ref
      *accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
      * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right)
      *\f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1 - i} \f$.
      * @param scaling_factor In Round \f$ i \f$, for \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$ takes
-     *an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at index \f$
-     *2^{i+1}
+     *an element of \ref  bb::GateSeparatorPolynomial< FF >::beta_products "vector of powers of challenges" at index
+     *\f$ 2^{i+1}
      *(\ell_{i+1} 2^{i+1} +\ldots + \ell_{d-1} 2^{d-1})\f$.
      * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
      * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
@@ -725,8 +727,8 @@ template <typename Flavor> class SumcheckVerifierRound {
     /**
      * @brief Check that the round target sum is correct
      * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
-     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
-     * \f$
+     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) +
+     * \tilde{S}^i(1) \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
