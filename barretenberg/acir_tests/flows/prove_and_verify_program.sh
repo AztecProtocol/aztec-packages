@@ -4,6 +4,8 @@ set -eu
 
 VFLAG=${VERBOSE:+-v}
 FLAGS="-c $CRS_PATH $VFLAG"
-[ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
+if [ "${RECURSIVE:-}" = "true" ]; then
+  FLAGS="$FLAGS --recursive"
+fi
 
 $BIN prove_and_verify_${SYS}_program $FLAGS -b ./target/program.json
