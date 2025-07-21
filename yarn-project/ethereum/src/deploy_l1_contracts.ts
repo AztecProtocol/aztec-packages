@@ -61,6 +61,7 @@ import {
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
+import { formatViemError } from './utils.js';
 import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
@@ -102,6 +103,10 @@ export interface Libraries {
  * Contract artifacts
  */
 export interface ContractArtifacts {
+  /**
+   * The contract name.
+   */
+  name: string;
   /**
    * The contract abi.
    */
@@ -154,7 +159,7 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
-  logger.info(`Deploying shared contracts. Network configration: ${networkName}`);
+  logger.info(`Deploying shared contracts for network configration: ${networkName}`);
 
   const txHashes: Hex[] = [];
 
@@ -994,21 +999,27 @@ export class L1Deployer {
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
-    const { txHash, address } = await deployL1Contract(
-      this.client,
-      params.contractAbi,
-      params.contractBytecode,
-      args,
-      this.salt,
-      params.libraries,
-      this.logger,
-      this.l1TxUtils,
-      this.acceleratedTestDeployments,
-    );
-    if (txHash) {
-      this.txHashes.push(txHash);
+    this.logger.debug(`Deploying ${params.name} contract`, { args });
+    try {
+      const { txHash, address } = await deployL1Contract(
+        this.client,
+        params.contractAbi,
+        params.contractBytecode,
+        args,
+        this.salt,
+        params.libraries,
+        this.logger,
+        this.l1TxUtils,
+        this.acceleratedTestDeployments,
+      );
+      if (txHash) {
+        this.txHashes.push(txHash);
+      }
+      this.logger.debug(`Deployed ${params.name} at ${address}`, { args });
+      return address;
+    } catch (error) {
+      throw new Error(`Failed to deploy ${params.name}`, { cause: formatViemError(error) });
     }
-    return address;
   }
 
   async waitForDeployments(): Promise<void> {
