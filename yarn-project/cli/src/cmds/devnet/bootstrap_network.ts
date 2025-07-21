@@ -140,10 +140,12 @@ async function deployERC20(l1Client: ExtendedViemWalletClient) {
   const { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } = await import('@aztec/l1-artifacts');
 
   const erc20: ContractArtifacts = {
+    name: 'TestERC20',
     contractAbi: TestERC20Abi,
     contractBytecode: TestERC20Bytecode,
   };
   const portal: ContractArtifacts = {
+    name: 'TokenPortal',
     contractAbi: TokenPortalAbi,
     contractBytecode: TokenPortalBytecode,
   };
