@@ -45,7 +45,6 @@ class DefaultIO {
 class RollupIO {
   public:
     using FF = curve::BN254::ScalarField;
-    using PairingPoints = PairingPoints;
     using IpaClaim = OpeningClaim<bb::curve::Grumpkin>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
