@@ -10,6 +10,9 @@ import {
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
+import {logFr} from "./Debug.sol";
+import {logUint} from "./Debug.sol";
+import {logG} from "./Debug.sol";
 
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
@@ -90,6 +93,11 @@ library TranscriptLib {
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
+
+        logUint("circuitSize", circuitSize);
+        logUint("publicInputsSize", publicInputsSize);
+        logUint("pubInputsOffset", pubInputsOffset);
+
         for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
@@ -112,8 +120,13 @@ library TranscriptLib {
         round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
         round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
 
+        logG("w1", proof.w1);
+
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
+
+        logFr("eta", eta);
+
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
         Fr unused;
         (etaThree, unused) = splitChallenge(previousChallenge);
