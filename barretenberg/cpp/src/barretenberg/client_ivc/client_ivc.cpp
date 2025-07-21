@@ -9,6 +9,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
@@ -457,7 +458,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     vinfo("Mega verified: ", mega_verified);
 
     // Extract public inputs
-    bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>::Native hiding_output;
+    HidingKernelIO hiding_output;
     hiding_output.reconstruct_from_public(verifier.verification_key->public_inputs);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit

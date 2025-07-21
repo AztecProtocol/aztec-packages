@@ -126,7 +126,7 @@ template <typename Builder> class DefaultIO {
 using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
 
 /**
- * @brief Manages the data that is propagated on the public inputs of of a hiding kernel circuit
+ * @brief Manages the data that is propagated on the public inputs of a hiding kernel circuit
  *
  * @note It is important that the inputs are (ecc_op_table, pairing_inputs). This is because the output of ClientIVC
  * will be verified with an UltraVerifier, which expects the last public input to always be the pairing inputs.
@@ -144,7 +144,7 @@ template <class Builder_> class HidingKernelIO {
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
     std::array<G1, Builder::NUM_WIRES>
-        ecc_op_tables;            // commitments to merged tables obtain from final Merge verification
+        ecc_op_tables;            // commitments to merged tables obtained from final Merge verification
     PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
 
     // Total size of the IO public inputs
