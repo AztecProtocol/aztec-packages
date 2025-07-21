@@ -290,14 +290,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     // If active, nullifiers will end up being zero, but it is user provided input, so we are sanity checking it
     require(_params.devMode == false, InvalidProof());
 
-    require(
-      keccak256(bytes(_params.domain)) == keccak256(bytes(validDomain)),
-      InvalidDomain()
-    );
-    require(
-      keccak256(bytes(_params.scope)) == keccak256(bytes(validScope)),
-      InvalidScope()
-    );
+    require(keccak256(bytes(_params.domain)) == keccak256(bytes(validDomain)), InvalidDomain());
+    require(keccak256(bytes(_params.scope)) == keccak256(bytes(validScope)), InvalidScope());
 
     (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
 
@@ -309,7 +303,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
         zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
       // Use the getBoundData function to get the formatted data
       // which includes the user's address, chainId and any custom data
-      (address boundAddress, uint256 chainId, ) = zkPassportVerifier.getBoundData(data);
+      (address boundAddress, uint256 chainId,) = zkPassportVerifier.getBoundData(data);
       // Make sure the bound user address is the same as the _attester
       require(boundAddress == _attester, ProofNotBoundToAddress(boundAddress, _attester));
       // Make sure the chainId is the same as the current chainId
