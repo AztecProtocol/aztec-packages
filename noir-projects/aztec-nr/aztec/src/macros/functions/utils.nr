@@ -11,7 +11,7 @@ use crate::macros::{
         module_has_storage,
     },
 };
-use protocol_types::meta::generate_serialize_to_fields;
+use protocol_types::meta::get_serialize_len;
 use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
@@ -208,11 +208,10 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
-    let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| {
-            generate_serialize_to_fields(name, typ, false).0.len()
-        })
-        .fold(0, |acc: u32, val: u32| acc + val);
+    let args_len = original_params.map(|(_, typ): (Quoted, Type)| get_serialize_len(typ)).fold(
+        0,
+        |acc: u32, val: u32| acc + val,
+    );
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote {
