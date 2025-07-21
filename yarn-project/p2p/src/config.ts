@@ -150,6 +150,12 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** True to disable participating in discovery */
   p2pDiscoveryDisabled?: boolean;
+
+  /** True to simulate discarding transactions. - For testing purposes only*/
+  dropTransactions: boolean;
+
+  /** The probability that a transaction is discarded. - For testing purposes only */
+  dropTransactionsProbability: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -379,6 +385,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_ALLOW_ONLY_VALIDATORS',
     description: 'True to only permit validators to connect.',
     ...booleanConfigHelper(false),
+  },
+  dropTransactions: {
+    env: 'P2P_DROP_TX',
+    description: 'True to simulate discarding transactions. - For testing purposes only',
+    ...booleanConfigHelper(false),
+  },
+  dropTransactionsProbability: {
+    env: 'P2P_DROP_TX_CHANCE',
+    description: 'The probability that a transaction is discarded. - For testing purposes only',
+    ...floatConfigHelper(0),
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
