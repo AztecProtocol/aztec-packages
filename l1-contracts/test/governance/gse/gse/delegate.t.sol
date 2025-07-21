@@ -20,7 +20,7 @@ contract DelegateTest is WithGSE {
   }
 
   modifier givenInstanceIsRegistered(address _instance) {
-    vm.assume(_instance != address(0) && _instance != gse.getCanonicalMagicAddress());
+    vm.assume(_instance != address(0) && _instance != gse.getBonusInstanceAddress());
 
     vm.prank(gse.owner());
     gse.addRollup(_instance);
@@ -55,16 +55,16 @@ contract DelegateTest is WithGSE {
       );
       gse.delegate(_instance, _attester, _delegatee);
 
-      address magic = gse.getCanonicalMagicAddress();
+      address bonus = gse.getBonusInstanceAddress();
 
       vm.prank(_attester);
       vm.expectRevert(
         abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, address(0), _attester)
       );
-      gse.delegate(magic, _attester, _delegatee);
+      gse.delegate(bonus, _attester, _delegatee);
     }
 
-    // Checks on the canonical address
+    // Checks on the bonus address
     {
       vm.prank(_attester2);
       vm.expectRevert(
@@ -72,13 +72,13 @@ contract DelegateTest is WithGSE {
       );
       gse.delegate(_instance, _attester2, _delegatee);
 
-      address magic = gse.getCanonicalMagicAddress();
+      address bonus = gse.getBonusInstanceAddress();
 
       vm.prank(_attester2);
       vm.expectRevert(
         abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, _withdrawer, _attester2)
       );
-      gse.delegate(magic, _attester2, _delegatee);
+      gse.delegate(bonus, _attester2, _delegatee);
     }
   }
 
@@ -87,7 +87,7 @@ contract DelegateTest is WithGSE {
     address _attester,
     address _delegatee,
     address _withdrawer,
-    bool _isCanonical
+    bool _onBonus
   ) external givenInstanceIsRegistered(_instance) {
     // it delegates voting power
 
@@ -95,9 +95,9 @@ contract DelegateTest is WithGSE {
     vm.assume(_attester != address(0));
     vm.assume(_delegatee != address(0));
 
-    cheat_deposit(_instance, _attester, _withdrawer, _isCanonical);
+    cheat_deposit(_instance, _attester, _withdrawer, _onBonus);
 
-    address addr = _isCanonical ? gse.getCanonicalMagicAddress() : _instance;
+    address addr = _onBonus ? gse.getBonusInstanceAddress() : _instance;
 
     vm.prank(_withdrawer);
     gse.delegate(addr, _attester, _delegatee);

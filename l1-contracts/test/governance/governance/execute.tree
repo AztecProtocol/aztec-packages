@@ -8,6 +8,8 @@ ExecuteTest
 │   │   └── it revert
 │   ├── given state is rejected
 │   │   └── it revert
+│   ├── given state is droppable
+│   │   └── it revert
 │   ├── given state is dropped
 │   │   └── it revert
 │   ├── given state is executed

@@ -6,4 +6,4 @@ UpgradeTest
     │   └── it should revert
     └── when rollup not already in set
         ├── it should add the rollup to state
-        └── it should emit a {InstanceAdded} event
+        └── it should emit a {CanonicalRollupUpdated} event

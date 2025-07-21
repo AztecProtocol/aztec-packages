@@ -10,18 +10,18 @@ import {Fakerollup} from "./mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 
-contract VoteTest is GovernanceProposerBase {
+contract SignalTest is GovernanceProposerBase {
   IPayload internal proposal = IPayload(address(0xdeadbeef));
   address internal proposer = address(0x1234567890);
   Fakerollup internal validatorSelection;
 
-  // Skipping this test since the it matches the for now skipped check in `EmpireBase::vote`
+  // Skipping this test since the it matches the for now skipped check in `EmpireBase::signal`
   function skip__test_WhenProposalHoldNoCode() external {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__ProposalHaveNoCode.selector, proposal)
+      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadHaveNoCode.selector, proposal)
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.signal(proposal);
   }
 
   modifier whenProposalHoldCode() {
@@ -41,7 +41,7 @@ contract VoteTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.signal(proposal);
   }
 
   modifier givenCanonicalRollupHoldCode() {
@@ -51,12 +51,12 @@ contract VoteTest is GovernanceProposerBase {
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(validatorSelection)));
 
-    // We jump into the future since slot 0, will behave as if already voted in
+    // We jump into the future since slot 0, will behave as if already signald in
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
     _;
   }
 
-  function test_GivenAVoteAlreadyCastInTheSlot()
+  function test_GivenASignalAlreadyCastInTheSlot()
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
@@ -66,17 +66,17 @@ contract VoteTest is GovernanceProposerBase {
     Slot currentSlot = validatorSelection.getCurrentSlot();
     assertEq(Slot.unwrap(currentSlot), 1);
     vm.prank(proposer);
-    governanceProposer.vote(proposal);
+    governanceProposer.signal(proposal);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.GovernanceProposer__VoteAlreadyCastForSlot.selector, currentSlot
+        Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, currentSlot
       )
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.signal(proposal);
   }
 
-  function test_GivenVoteIsForPriorRound()
+  function test_GivenSignalIsForPriorRound()
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
@@ -85,10 +85,10 @@ contract VoteTest is GovernanceProposerBase {
     // it revert
 
     // This case is not possible unless you are voting with a signature.
-    // See `voteWithSig.t.sol` for the test case.
+    // See `signalWithSig.t.sol` for the test case.
   }
 
-  modifier givenNoVoteAlreadyCastInTheSlot() {
+  modifier givenNoSignalAlreadyCastInTheSlot() {
     _;
   }
 
@@ -96,44 +96,44 @@ contract VoteTest is GovernanceProposerBase {
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
-    givenNoVoteAlreadyCastInTheSlot
+    givenNoSignalAlreadyCastInTheSlot
   {
     // it revert
     vm.assume(_proposer != proposer);
     vm.prank(_proposer);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.GovernanceProposer__OnlyProposerCanVote.selector, _proposer, proposer
+        Errors.GovernanceProposer__OnlyProposerCanSignal.selector, _proposer, proposer
       )
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.signal(proposal);
   }
 
   modifier whenCallerIsProposer() {
     // Lets make sure that there first is a leader
-    uint256 votesOnProposal = 5;
+    uint256 signalsOnProposal = 5;
 
-    for (uint256 i = 0; i < votesOnProposal; i++) {
+    for (uint256 i = 0; i < signalsOnProposal; i++) {
       vm.warp(
         Timestamp.unwrap(
           validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
         )
       );
       vm.prank(proposer);
-      governanceProposer.vote(proposal);
+      governanceProposer.signal(proposal);
     }
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
     RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), round, r.leader),
-      votesOnProposal,
-      "invalid number of votes"
+      governanceProposer.signalCount(address(validatorSelection), round, r.payloadWithMostSignals),
+      signalsOnProposal,
+      "invalid number of signals"
     );
     assertFalse(r.executed);
-    assertEq(address(r.leader), address(proposal));
-    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastVote));
+    assertEq(address(r.payloadWithMostSignals), address(proposal));
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastSignalSlot));
 
     vm.warp(
       Timestamp.unwrap(
@@ -148,19 +148,19 @@ contract VoteTest is GovernanceProposerBase {
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
-    givenNoVoteAlreadyCastInTheSlot
+    givenNoSignalAlreadyCastInTheSlot
     whenCallerIsProposer
   {
-    // it ignore votes from prior instance
+    // it ignore signals from prior instance
     // it increase the yea count
     // it updates the leader to the proposal
-    // it emits {VoteCast} event
+    // it emits {SignalCast} event
     // it returns true
 
     Slot validatorSelectionSlot = validatorSelection.getCurrentSlot();
     uint256 validatorSelectionRound = governanceProposer.computeRound(validatorSelectionSlot);
     uint256 yeaBefore =
-      governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal);
+      governanceProposer.signalCount(address(validatorSelection), validatorSelectionRound, proposal);
 
     Fakerollup freshInstance = new Fakerollup();
     freshInstance.setProposer(proposer);
@@ -174,20 +174,20 @@ contract VoteTest is GovernanceProposerBase {
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IEmpire.VoteCast(proposal, freshRound, proposer);
-    assertTrue(governanceProposer.vote(proposal));
+    emit IEmpire.SignalCast(proposal, freshRound, proposer);
+    assertTrue(governanceProposer.signal(proposal));
 
     // Check the new instance
     {
       RoundAccounting memory r = governanceProposer.getRoundData(address(freshInstance), freshRound);
       assertEq(
-        governanceProposer.yeaCount(address(freshInstance), freshRound, r.leader),
+        governanceProposer.signalCount(address(freshInstance), freshRound, r.payloadWithMostSignals),
         1,
-        "invalid number of votes"
+        "invalid number of signals"
       );
       assertFalse(r.executed);
-      assertEq(address(r.leader), address(proposal));
-      assertEq(Slot.unwrap(freshSlot), Slot.unwrap(r.lastVote), "invalid slot [FRESH]");
+      assertEq(address(r.payloadWithMostSignals), address(proposal));
+      assertEq(Slot.unwrap(freshSlot), Slot.unwrap(r.lastSignalSlot), "invalid slot [FRESH]");
     }
 
     // The old instance
@@ -195,15 +195,17 @@ contract VoteTest is GovernanceProposerBase {
       RoundAccounting memory r =
         governanceProposer.getRoundData(address(validatorSelection), validatorSelectionRound);
       assertEq(
-        governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal),
+        governanceProposer.signalCount(
+          address(validatorSelection), validatorSelectionRound, proposal
+        ),
         yeaBefore,
-        "invalid number of votes"
+        "invalid number of signals"
       );
       assertFalse(r.executed);
-      assertEq(address(r.leader), address(proposal));
+      assertEq(address(r.payloadWithMostSignals), address(proposal));
       assertEq(
         Slot.unwrap(validatorSelectionSlot),
-        Slot.unwrap(r.lastVote) + 1,
+        Slot.unwrap(r.lastSignalSlot) + 1,
         "invalid slot [ValidatorSelection]"
       );
     }
@@ -213,13 +215,13 @@ contract VoteTest is GovernanceProposerBase {
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
-    givenNoVoteAlreadyCastInTheSlot
+    givenNoSignalAlreadyCastInTheSlot
     whenCallerIsProposer
   {
-    // it ignore votes in prior round
+    // it ignore signals in prior round
     // it increase the yea count
     // it updates the leader to the proposal
-    // it emits {VoteCast} event
+    // it emits {SignalCast} event
     // it returns true
   }
 
@@ -231,100 +233,100 @@ contract VoteTest is GovernanceProposerBase {
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
-    givenNoVoteAlreadyCastInTheSlot
+    givenNoSignalAlreadyCastInTheSlot
     whenCallerIsProposer
     givenRoundAndInstanceIsStable
   {
     // it increase the yea count
-    // it emits {VoteCast} event
+    // it emits {SignalCast} event
     // it returns true
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
-    uint256 yeaBefore = governanceProposer.yeaCount(address(validatorSelection), round, proposal);
+    uint256 yeaBefore = governanceProposer.signalCount(address(validatorSelection), round, proposal);
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IEmpire.VoteCast(proposal, round, proposer);
-    assertTrue(governanceProposer.vote(proposal));
+    emit IEmpire.SignalCast(proposal, round, proposer);
+    assertTrue(governanceProposer.signal(proposal));
 
     RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), round, r.leader),
+      governanceProposer.signalCount(address(validatorSelection), round, r.payloadWithMostSignals),
       yeaBefore + 1,
-      "invalid number of votes"
+      "invalid number of signals"
     );
     assertFalse(r.executed);
-    assertEq(address(r.leader), address(proposal));
-    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastVote));
+    assertEq(address(r.payloadWithMostSignals), address(proposal));
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastSignalSlot));
   }
 
-  function test_GivenProposalHaveFeverVotesThanLeader()
+  function test_GivenProposalHaveFeverSignalsThanLeader()
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
-    givenNoVoteAlreadyCastInTheSlot
+    givenNoSignalAlreadyCastInTheSlot
     whenCallerIsProposer
     givenRoundAndInstanceIsStable
   {
     // it increase the yea count
-    // it emits {VoteCast} event
+    // it emits {SignalCast} event
     // it returns true
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
     uint256 leaderYeaBefore =
-      governanceProposer.yeaCount(address(validatorSelection), round, proposal);
+      governanceProposer.signalCount(address(validatorSelection), round, proposal);
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
-    assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
+    emit IEmpire.SignalCast(IPayload(address(validatorSelection)), round, proposer);
+    assertTrue(governanceProposer.signal(IPayload(address(validatorSelection))));
 
     RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), round, r.leader),
+      governanceProposer.signalCount(address(validatorSelection), round, r.payloadWithMostSignals),
       leaderYeaBefore,
-      "invalid number of votes"
+      "invalid number of signals"
     );
     assertEq(
-      governanceProposer.yeaCount(
+      governanceProposer.signalCount(
         address(validatorSelection), round, IPayload(address(validatorSelection))
       ),
       1,
-      "invalid number of votes"
+      "invalid number of signals"
     );
     assertFalse(r.executed);
-    assertEq(address(r.leader), address(proposal));
-    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastVote));
+    assertEq(address(r.payloadWithMostSignals), address(proposal));
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastSignalSlot));
   }
 
-  function test_GivenProposalHaveMoreVotesThanLeader()
+  function test_GivenProposalHaveMoreSignalsThanLeader()
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
-    givenNoVoteAlreadyCastInTheSlot
+    givenNoSignalAlreadyCastInTheSlot
     whenCallerIsProposer
     givenRoundAndInstanceIsStable
   {
     // it increase the yea count
     // it updates the leader to the proposal
-    // it emits {VoteCast} event
+    // it emits {SignalCast} event
     // it returns true
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
     uint256 leaderYeaBefore =
-      governanceProposer.yeaCount(address(validatorSelection), round, proposal);
+      governanceProposer.signalCount(address(validatorSelection), round, proposal);
 
     for (uint256 i = 0; i < leaderYeaBefore + 1; i++) {
       vm.prank(proposer);
       vm.expectEmit(true, true, true, true, address(governanceProposer));
-      emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
-      assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
+      emit IEmpire.SignalCast(IPayload(address(validatorSelection)), round, proposer);
+      assertTrue(governanceProposer.signal(IPayload(address(validatorSelection))));
 
       vm.warp(
         Timestamp.unwrap(
@@ -336,20 +338,20 @@ contract VoteTest is GovernanceProposerBase {
     {
       RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
       assertEq(
-        governanceProposer.yeaCount(
+        governanceProposer.signalCount(
           address(validatorSelection), round, IPayload(address(validatorSelection))
         ),
         leaderYeaBefore + 1,
-        "invalid number of votes"
+        "invalid number of signals"
       );
       assertFalse(r.executed);
-      assertEq(address(r.leader), address(validatorSelection));
+      assertEq(address(r.payloadWithMostSignals), address(validatorSelection));
       assertEq(
-        governanceProposer.yeaCount(address(validatorSelection), round, proposal),
+        governanceProposer.signalCount(address(validatorSelection), round, proposal),
         leaderYeaBefore,
-        "invalid number of votes"
+        "invalid number of signals"
       );
-      assertEq(Slot.unwrap(r.lastVote), Slot.unwrap(currentSlot) + leaderYeaBefore);
+      assertEq(Slot.unwrap(r.lastSignalSlot), Slot.unwrap(currentSlot) + leaderYeaBefore);
     }
   }
 }

@@ -30,7 +30,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
     );
-    governanceProposer.executeProposal(_roundNumber);
+    governanceProposer.submitRoundWinner(_roundNumber);
   }
 
   modifier givenCanonicalInstanceHoldCode() {
@@ -46,9 +46,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   function test_WhenRoundNotInPast() external givenCanonicalInstanceHoldCode {
     // it revert
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyExecuteProposalInPast.selector)
+      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlySubmitRoundWinnerInPast.selector)
     );
-    governanceProposer.executeProposal(0);
+    governanceProposer.submitRoundWinner(0);
   }
 
   modifier whenRoundInPast() {
@@ -78,12 +78,12 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.GovernanceProposer__ProposalTooOld.selector,
+        Errors.GovernanceProposer__RoundTooOld.selector,
         0,
         governanceProposer.computeRound(validatorSelection.getCurrentSlot())
       )
     );
-    governanceProposer.executeProposal(0);
+    governanceProposer.submitRoundWinner(0);
   }
 
   modifier whenRoundInRecentPast() {
@@ -102,7 +102,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       // Need to execute a proposal first here.
       for (uint256 i = 0; i < governanceProposer.QUORUM_SIZE(); i++) {
         vm.prank(proposer);
-        assertTrue(governanceProposer.vote(proposal));
+        assertTrue(governanceProposer.signal(proposal));
         vm.warp(
           Timestamp.unwrap(
             validatorSelection.getTimestampForSlot(
@@ -118,13 +118,13 @@ contract ExecuteProposalTest is GovernanceProposerBase {
           )
         )
       );
-      governanceProposer.executeProposal(1);
+      governanceProposer.submitRoundWinner(1);
     }
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__ProposalAlreadyExecuted.selector, 1)
+      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadAlreadySubmitted.selector, 1)
     );
-    governanceProposer.executeProposal(1);
+    governanceProposer.submitRoundWinner(1);
   }
 
   modifier givenRoundNotExecutedBefore() {
@@ -155,9 +155,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.warp(time);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__ProposalCannotBeAddressZero.selector)
+      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector)
     );
-    governanceProposer.executeProposal(0);
+    governanceProposer.submitRoundWinner(0);
   }
 
   modifier givenLeaderIsNotAddress0() {
@@ -175,7 +175,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // it revert
 
     vm.prank(proposer);
-    governanceProposer.vote(proposal);
+    governanceProposer.signal(proposal);
 
     uint256 votesNeeded = governanceProposer.QUORUM_SIZE();
 
@@ -187,9 +187,11 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       )
     );
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__InsufficientVotes.selector, 1, votesNeeded)
+      abi.encodeWithSelector(
+        Errors.GovernanceProposer__InsufficientSignals.selector, 1, votesNeeded
+      )
     );
-    governanceProposer.executeProposal(1);
+    governanceProposer.submitRoundWinner(1);
   }
 
   modifier givenSufficientYea(uint256 _yeas) {
@@ -197,7 +199,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
     for (uint256 i = 0; i < limit; i++) {
       vm.prank(proposer);
-      assertTrue(governanceProposer.vote(proposal));
+      assertTrue(governanceProposer.signal(proposal));
       vm.warp(
         Timestamp.unwrap(
           validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
@@ -234,13 +236,13 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // The old is still there, just not executable.
     RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), 1);
     assertFalse(r.executed);
-    assertEq(address(r.leader), address(proposal));
+    assertEq(address(r.payloadWithMostSignals), address(proposal));
 
     // As time is perceived differently, round 1 is currently in the future
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlyExecuteProposalInPast.selector)
+      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlySubmitRoundWinnerInPast.selector)
     );
-    governanceProposer.executeProposal(1);
+    governanceProposer.submitRoundWinner(1);
 
     // Jump 2 rounds, since we are currently in round 0
     vm.warp(
@@ -251,9 +253,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       )
     );
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__ProposalCannotBeAddressZero.selector)
+      abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector)
     );
-    governanceProposer.executeProposal(1);
+    governanceProposer.submitRoundWinner(1);
   }
 
   function test_GivenGovernanceCallFails(uint256 _yeas)
@@ -270,7 +272,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.etch(address(governance), address(faulty).code);
 
     vm.expectRevert(abi.encodeWithSelector(FaultyGovernance.Faulty.selector));
-    governanceProposer.executeProposal(1);
+    governanceProposer.submitRoundWinner(1);
   }
 
   function test_GivenGovernanceCallSucceeds(uint256 _yeas)
@@ -283,14 +285,14 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     givenSufficientYea(_yeas)
   {
     // it update executed to true
-    // it emits {ProposalExecuted} event
+    // it emits {PayloadSubmitted} event
     // it return true
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IEmpire.ProposalExecuted(proposal, 1);
-    assertTrue(governanceProposer.executeProposal(1));
+    emit IEmpire.PayloadSubmitted(proposal, 1);
+    assertTrue(governanceProposer.submitRoundWinner(1));
     RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), 1);
     assertTrue(r.executed);
-    assertEq(address(r.leader), address(proposal));
+    assertEq(address(r.payloadWithMostSignals), address(proposal));
     assertEq(governanceProposer.getProposalProposer(0), address(validatorSelection));
   }
 }

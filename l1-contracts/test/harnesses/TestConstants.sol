@@ -52,7 +52,7 @@ library TestConstants {
       executionDelay: Timestamp.wrap(60),
       gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
-      voteDifferential: 0.04e18,
+      requiredYeaMargin: 0.04e18,
       minimumVotes: 400e18
     });
   }

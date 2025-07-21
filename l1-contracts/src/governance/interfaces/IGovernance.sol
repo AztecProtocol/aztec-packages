@@ -13,6 +13,7 @@ enum ProposalState {
   Executable,
   Rejected,
   Executed,
+  Droppable,
   Dropped,
   Expired
 }
@@ -29,18 +30,18 @@ struct Configuration {
   Timestamp executionDelay;
   Timestamp gracePeriod;
   uint256 quorum;
-  uint256 voteDifferential;
+  uint256 requiredYeaMargin;
   uint256 minimumVotes;
 }
 
 struct Ballot {
   uint256 yea;
-  uint256 nea;
+  uint256 nay;
 }
 
 struct Proposal {
   Configuration config;
-  ProposalState state;
+  ProposalState cachedState;
   IPayload payload;
   address proposer;
   Timestamp creation;
@@ -55,7 +56,7 @@ struct Withdrawal {
 }
 
 interface IGovernance {
-  event DepositorAdded(address depositor);
+  event BeneficiaryAdded(address beneficiary);
   event FloodGatesOpened();
 
   event Proposed(uint256 indexed proposalId, address indexed proposal);
@@ -68,7 +69,7 @@ interface IGovernance {
   event WithdrawInitiated(uint256 indexed withdrawalId, address indexed recipient, uint256 amount);
   event WithdrawFinalised(uint256 indexed withdrawalId);
 
-  function addDepositor(address _depositor) external;
+  function addBeneficiary(address _beneficiary) external;
   function openFloodgates() external;
 
   function updateGovernanceProposer(address _governanceProposer) external;
@@ -82,8 +83,8 @@ interface IGovernance {
   function execute(uint256 _proposalId) external returns (bool);
   function dropProposal(uint256 _proposalId) external returns (bool);
 
-  function isAllowedToDeposit(address _caller) external view returns (bool);
-  function isAllDepositsAllowed() external view returns (bool);
+  function isPermittedInGovernance(address _caller) external view returns (bool);
+  function isAllBeneficiariesAllowed() external view returns (bool);
 
   function powerAt(address _owner, Timestamp _ts) external view returns (uint256);
   function totalPowerAt(Timestamp _ts) external view returns (uint256);

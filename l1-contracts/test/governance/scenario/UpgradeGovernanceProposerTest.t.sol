@@ -91,11 +91,11 @@ contract UpgradeGovernanceProposerTest is TestBase {
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
-      governanceProposer.vote(payload);
+      governanceProposer.signal(payload);
       vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
     }
 
-    governanceProposer.executeProposal(0);
+    governanceProposer.submitRoundWinner(0);
     proposal = governance.getProposal(0);
 
     GSEPayload gsePayload = GSEPayload(address(proposal.payload));

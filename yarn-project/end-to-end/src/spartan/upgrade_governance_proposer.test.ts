@@ -97,10 +97,10 @@ describe('spartan_upgrade_governance_proposer', () => {
           nodeInfo.l1ContractAddresses.rollupAddress.toString(),
           round,
         );
-        const leaderVotes = await governanceProposer.getProposalVotes(
+        const leaderVotes = await governanceProposer.getPayloadSignals(
           nodeInfo.l1ContractAddresses.rollupAddress.toString(),
           round,
-          info.leader,
+          info.payloadWithMostSignals,
         );
         return { bn, slot, round, info, leaderVotes };
       };
@@ -165,7 +165,7 @@ describe('spartan_upgrade_governance_proposer', () => {
       debugLogger.info(`Executing proposal ${info.round}`);
 
       const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
-      const { receipt } = await governanceProposer.executeProposal(executableRound, l1TxUtils);
+      const { receipt } = await governanceProposer.submitRoundWinner(executableRound, l1TxUtils);
       expect(receipt).toBeDefined();
       expect(receipt.status).toEqual('success');
       debugLogger.info(`Executed proposal ${info.round}`);

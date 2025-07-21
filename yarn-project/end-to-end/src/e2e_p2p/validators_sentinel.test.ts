@@ -244,9 +244,13 @@ describe('e2e_p2p_validators_sentinel', () => {
           t.logger.verbose(`Current proposer is ${currentProposer}`);
           const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
           const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
-          const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
+          const leaderSignals = await slashingProposer.getPayloadSignals(
+            rollup.address,
+            round,
+            roundInfo.payloadWithMostSignals,
+          );
           t.logger.verbose(`Currently in round ${round}`);
-          t.logger.verbose(`Leader votes: ${leaderVotes}`);
+          t.logger.verbose(`Leader signals: ${leaderSignals}`);
 
           const slashEvents = await rollupRaw.getEvents.Slashed();
           return slashEvents.length >= 1;

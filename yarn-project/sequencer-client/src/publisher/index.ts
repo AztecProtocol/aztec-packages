@@ -1,1 +1,1 @@
-export { SequencerPublisher, VoteType } from './sequencer-publisher.js';
+export { SequencerPublisher, SignalType } from './sequencer-publisher.js';

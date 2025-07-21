@@ -172,7 +172,7 @@ describe('sequencer', () => {
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.validateBlockHeader.mockResolvedValue();
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
-    publisher.enqueueCastVote.mockResolvedValue(true);
+    publisher.enqueueCastSignal.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
       slot: BigInt(newSlotNumber),
       blockNumber: BigInt(newBlockNumber),

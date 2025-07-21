@@ -126,7 +126,7 @@ describe('Governance', () => {
     expect(config.executionDelay).toBeGreaterThan(0n);
     expect(config.gracePeriod).toBeGreaterThan(0n);
     expect(config.quorum).toBeGreaterThan(0n);
-    expect(config.voteDifferential).toBeGreaterThan(0n);
+    expect(config.requiredYeaMargin).toBeGreaterThan(0n);
     expect(config.minimumVotes).toBeGreaterThan(0n);
   });
 });

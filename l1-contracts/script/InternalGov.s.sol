@@ -89,7 +89,7 @@ contract GovScript is Test {
     emit log_named_address("# Governance", address(governance));
     Configuration memory config = governance.getConfiguration();
     emit log_named_decimal_uint("\tquorum           ", config.quorum, 18);
-    emit log_named_decimal_uint("\tvote Differential", config.voteDifferential, 18);
+    emit log_named_decimal_uint("\trequiredYeaMargin", config.requiredYeaMargin, 18);
     emit log_named_decimal_uint("\tminimum Votes    ", config.minimumVotes, 18);
     emit log_named_uint("\tvotingDelay      ", Timestamp.unwrap(config.votingDelay));
     emit log_named_uint("\tvotingDuration   ", Timestamp.unwrap(config.votingDuration));
@@ -124,13 +124,14 @@ contract GovScript is Test {
 
     for (uint256 i = lowerLimit; i <= currentRound; i++) {
       RoundAccounting memory r = governanceProposer.getRoundData(address(rollup), i);
-      uint256 yeaCount = governanceProposer.yeaCount(address(rollup), i, r.leader);
+      uint256 signalCount =
+        governanceProposer.signalCount(address(rollup), i, r.payloadWithMostSignals);
 
       emit log_named_uint("Proposal at round", i);
-      emit log_named_uint("\tyeaCount", yeaCount);
-      emit log_named_address("\tleader", address(r.leader));
+      emit log_named_uint("\tsignalCount", signalCount);
+      emit log_named_address("\tpayloadWithMostSignals", address(r.payloadWithMostSignals));
 
-      if (!r.executed && yeaCount >= n) {
+      if (!r.executed && signalCount >= n) {
         emit log_named_uint("\tGood proposal at round", i);
         found = true;
       }
@@ -155,7 +156,7 @@ contract GovScript is Test {
     emit log_named_uint("executableThrough", Timestamp.unwrap(proposal.executableThrough()));
     emit log_named_uint("creation         ", Timestamp.unwrap(proposal.creation));
     emit log_named_decimal_uint("yeaCount         ", proposal.summedBallot.yea, 18);
-    emit log_named_decimal_uint("neaCount         ", proposal.summedBallot.nea, 18);
+    emit log_named_decimal_uint("nayCount         ", proposal.summedBallot.nay, 18);
 
     Timestamp ts = Timestamp.wrap(block.timestamp) < pendingThrough
       ? Timestamp.wrap(block.timestamp)
@@ -320,7 +321,7 @@ contract GovScript is Test {
     emit log_named_uint("expected id", expectedId);
 
     vm.startBroadcast(ME);
-    governanceProposer.executeProposal(_round);
+    governanceProposer.submitRoundWinner(_round);
     vm.stopBroadcast();
 
     proposal = governance.getProposal(expectedId);

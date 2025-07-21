@@ -62,7 +62,7 @@ contract AddRollupTest is WithGSE {
   ) external whenCallerEqOwner givenRollupNeq0(_rollup) givenRollupNeq0(_rollup2) {
     // it adds rollup to instances
     // it sets rollup exists to true
-    // it pushes rollup to canonical with timestamp
+    // it pushes rollup to latest with timestamp
 
     vm.assume(_rollup != _rollup2);
 
@@ -81,7 +81,7 @@ contract AddRollupTest is WithGSE {
     gse.addRollup(_rollup);
 
     assertEq(gse.isRollupRegistered(_rollup), true);
-    assertEq(gse.getCanonical(), _rollup);
+    assertEq(gse.getLatestRollup(), _rollup);
 
     vm.warp(ts2);
 
@@ -89,13 +89,13 @@ contract AddRollupTest is WithGSE {
     gse.addRollup(_rollup2);
 
     assertEq(gse.isRollupRegistered(_rollup2), true);
-    assertEq(gse.getCanonical(), _rollup2);
+    assertEq(gse.getLatestRollup(), _rollup2);
 
-    emit log_named_address("canonical", address(gse.getCanonical()));
-    emit log_named_address("canonicalAt", address(gse.getCanonicalAt(Timestamp.wrap(ts1))));
-    emit log_named_address("canonicalAt2", address(gse.getCanonicalAt(Timestamp.wrap(ts2))));
+    emit log_named_address("latestRollup", address(gse.getLatestRollup()));
+    emit log_named_address("latestRollupAt", address(gse.getLatestRollupAt(Timestamp.wrap(ts1))));
+    emit log_named_address("latestRollupAt2", address(gse.getLatestRollupAt(Timestamp.wrap(ts2))));
 
-    assertEq(gse.getCanonicalAt(Timestamp.wrap(ts1)), _rollup);
-    assertEq(gse.getCanonicalAt(Timestamp.wrap(ts2)), _rollup2);
+    assertEq(gse.getLatestRollupAt(Timestamp.wrap(ts1)), _rollup);
+    assertEq(gse.getLatestRollupAt(Timestamp.wrap(ts2)), _rollup2);
   }
 }

@@ -18,16 +18,33 @@ contract UpdateGovernanceProposerTest is GovernanceBase {
     governance.updateGovernanceProposer(_governanceProposer);
   }
 
-  function test_WhenCallerIsGovernance(address _governanceProposer) external {
+  modifier whenCallerIsGovernance() {
+    vm.startPrank(address(governance));
+    _;
+    vm.stopPrank();
+  }
+
+  function test_WhenNewGovernanceProposerIsGovernance() external whenCallerIsGovernance {
+    // it revert
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Governance__GovernanceProposerCannotBeSelf.selector)
+    );
+    governance.updateGovernanceProposer(address(governance));
+  }
+
+  function test_WhenNewGovernanceProposerIsNotGovernance(address _governanceProposer)
+    external
+    whenCallerIsGovernance
+  {
     // it updates the governanceProposer
     // it emit the {GovernanceProposerUpdated} event
 
     vm.assume(_governanceProposer != address(governance.governanceProposer()));
+    vm.assume(_governanceProposer != address(governance));
 
     vm.expectEmit(true, true, true, true, address(governance));
     emit IGovernance.GovernanceProposerUpdated(_governanceProposer);
 
-    vm.prank(address(governance));
     governance.updateGovernanceProposer(_governanceProposer);
 
     assertEq(_governanceProposer, governance.governanceProposer());

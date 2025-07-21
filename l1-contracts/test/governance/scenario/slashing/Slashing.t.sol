@@ -60,11 +60,11 @@ contract SlashingTest is TestBase {
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
-      slashingProposer.vote(payload);
+      slashingProposer.signal(payload);
       timeCheater.cheat__progressSlot();
     }
 
-    slashingProposer.executeProposal(round);
+    slashingProposer.submitRoundWinner(round);
   }
 
   function test_Slashing() public {

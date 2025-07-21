@@ -112,16 +112,16 @@ export async function awaitProposalExecution(
 ) {
   await retryUntil(
     async () => {
-      const events = await slashingProposer.getEvents.ProposalExecuted();
+      const events = await slashingProposer.getEvents.PayloadSubmitted();
       if (events.length === 0) {
         return false;
       }
       const event = events[0];
       const roundNumber = event.args.round;
-      const proposal = event.args.proposal;
-      return roundNumber && proposal;
+      const payload = event.args.payload;
+      return roundNumber && payload;
     },
-    'proposal executed',
+    'payload submitted',
     timeoutSeconds,
     1,
   );
