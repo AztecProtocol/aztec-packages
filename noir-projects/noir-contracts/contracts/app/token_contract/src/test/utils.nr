@@ -74,7 +74,7 @@ pub unconstrained fn setup_and_mint_amount_to_private(
     // Mint some tokens
     let _ = env.call_private_void(
         owner,
-        Token::at(token_contract_address).mint_to_private(recipient, mint_amount),
+        Token::at(token_contract_address).mint_to_private(owner, mint_amount),
     );
 
     (env, token_contract_address, owner, recipient, mint_amount)
