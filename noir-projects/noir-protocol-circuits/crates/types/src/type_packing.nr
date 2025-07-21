@@ -144,16 +144,15 @@ impl Packable for i64 {
     }
 }
 
-// Working array implementation with associated constants
-impl<T, let ARRAY_SIZE: u32> Packable for [T; ARRAY_SIZE]
+impl<T, let M: u32> Packable for [T; M]
 where
     T: Packable,
 {
-    let N: u32 = ARRAY_SIZE * <T as Packable>::N;
+    let N: u32 = M * <T as Packable>::N;
 
     fn pack(self) -> [Field; Self::N] {
         let mut result: [Field; Self::N] = std::mem::zeroed();
-        for i in 0..ARRAY_SIZE {
+        for i in 0..M {
             let serialized = self[i].pack();
             for j in 0..<T as Packable>::N {
                 result[i * <T as Packable>::N + j] = serialized[j];
@@ -164,8 +163,8 @@ where
 
     fn unpack(fields: [Field; Self::N]) -> Self {
         let mut reader = crate::utils::reader::Reader::new(fields);
-        let mut result: [T; ARRAY_SIZE] = std::mem::zeroed();
-        reader.read_struct_array::<T, <T as Packable>::N, ARRAY_SIZE>(Packable::unpack, result)
+        let mut result: [T; M] = std::mem::zeroed();
+        reader.read_struct_array::<T, <T as Packable>::N, M>(Packable::unpack, result)
     }
 }
 

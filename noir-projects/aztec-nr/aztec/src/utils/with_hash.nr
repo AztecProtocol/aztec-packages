@@ -27,7 +27,7 @@ where
     T: Packable<N = M> + Eq,
 {
     pub fn new(value: T) -> Self {
-        let packed: [Field; M] = value.pack();
+        let packed = value.pack();
         Self { value, packed, hash: poseidon2_hash(packed) }
     }
 
