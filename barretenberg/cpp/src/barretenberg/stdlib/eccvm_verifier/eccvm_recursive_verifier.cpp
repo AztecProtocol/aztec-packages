@@ -58,6 +58,7 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     transcript->load_proof(proof.pre_ipa_proof);
 
     // Fiat-Shamir the vk hash
+    // We do not need to hash the vk in-circuit because both the vk and vk hash are hardcoded as constants.
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("ECCVM vk hash in recursive verifier: ", vk_hash);
 

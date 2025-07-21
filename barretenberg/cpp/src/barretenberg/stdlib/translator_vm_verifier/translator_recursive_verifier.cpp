@@ -104,6 +104,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
+    // We do not need to hash the vk in-circuit because both the vk and vk hash are hardcoded as constants.
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("Translator vk hash in recursive verifier: ", vk_hash);
 
