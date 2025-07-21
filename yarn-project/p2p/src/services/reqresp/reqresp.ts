@@ -669,7 +669,8 @@ export class ReqResp implements ReqRespInterface {
       return PeerErrorSeverity.LowToleranceError;
     }
 
-    return this.categorizeConnectionErrors(e, peerId, subProtocol);
+    //TODO: (mralj): think if we should penalize peer here based on connection errors
+    return undefined;
   }
 
   /**

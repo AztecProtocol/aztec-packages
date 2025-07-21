@@ -3,13 +3,9 @@ import {
   DEFAULT_GAS_LIMIT,
   DEFAULT_TEARDOWN_GAS_LIMIT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
@@ -89,11 +85,9 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
-  ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
-import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
@@ -1374,7 +1368,7 @@ export class TXE implements TypedOracle {
       /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
       blockHeader,
       /** List of transient auth witnesses to be used during this simulation */
-      [],
+      Array.from(this.authwits.values()),
       /** List of transient auth witnesses to be used during this simulation */
       [],
       HashedValuesCache.create(),
@@ -1387,10 +1381,9 @@ export class TXE implements TypedOracle {
       undefined, // scopes
       /**
        * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
-       * contract would perform, including setting senderForTags. This is not great as it's never cleared.
-       * TODO: Set this properly.
+       * contract would perform, including setting senderForTags.
        */
-      this.senderForTags,
+      from,
     );
 
     context.storeInExecutionCache(args, argsHash);
@@ -1469,12 +1462,11 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
         returnsHash: result.entrypoint.publicInputs.returnsHash,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1521,13 +1513,11 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
   }
 
@@ -1554,18 +1544,8 @@ export class TXE implements TypedOracle {
 
     const blockHeader = await this.pxeOracleInterface.getBlockHeader();
 
-    const uniqueNoteHashes: Fr[] = [];
-    const taggedPrivateLogs: PrivateLog[] = [];
-    const nullifiers: Fr[] = !isStaticCall ? [this.getTxRequestHash()] : [];
-    const l2ToL1Messages: ScopedL2ToL1Message[] = [];
-    const contractClassLogsHashes: ScopedLogHash[] = [];
-
     const calldataHash = await computeCalldataHash(calldata);
-
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
-
-    const publicCallRequest = new PublicCallRequest(from, targetContractAddress, isStaticCall, calldataHash);
-    const publicCallRequests: PublicCallRequest[] = [publicCallRequest];
 
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
@@ -1577,25 +1557,32 @@ export class TXE implements TypedOracle {
     const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
     const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
-    const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
+    // We're simulating a scenario in which private execution immediately enqueues a public call and halts. The private
+    // kernel init would in this case inject a nullifier with the transaction request hash as a non-revertible
+    // side-effect, which the AVM then expects to exist in order to use it as the nonce generator when siloing notes as
+    // unique.
+    const nonRevertibleAccumulatedData = PrivateToPublicAccumulatedData.empty();
+    if (!isStaticCall) {
+      nonRevertibleAccumulatedData.nullifiers[0] = this.getTxRequestHash();
+    }
 
-    const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
-      padArrayEnd(uniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-      padArrayEnd(nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
-      padArrayEnd(l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
-      padArrayEnd(taggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
-      padArrayEnd(contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
-      padArrayEnd(publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
+    // The enqueued public call itself we make be revertible so that the public execution is itself revertible, as tests
+    // may require producing reverts.
+    const revertibleAccumulatedData = PrivateToPublicAccumulatedData.empty();
+    revertibleAccumulatedData.publicCallRequests[0] = new PublicCallRequest(
+      from,
+      targetContractAddress,
+      isStaticCall,
+      calldataHash,
     );
 
     const inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
-      // nonrevertible
-      PrivateToPublicAccumulatedData.empty(),
-      // revertible
-      // We are using revertible (app phase) because only the app-phase returns are exposed.
-      accumulatedDataForPublic,
+      nonRevertibleAccumulatedData,
+      revertibleAccumulatedData,
       PublicCallRequest.empty(),
     );
+
+    const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
 
     const txData = new PrivateKernelTailCircuitPublicInputs(
       constantData,
@@ -1634,11 +1621,10 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         returnsHash: returnValuesHash ?? Fr.ZERO,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1648,7 +1634,7 @@ export class TXE implements TypedOracle {
 
     txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
     txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = taggedPrivateLogs;
+    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
     txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
     txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
 
@@ -1685,13 +1671,11 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
   }
 

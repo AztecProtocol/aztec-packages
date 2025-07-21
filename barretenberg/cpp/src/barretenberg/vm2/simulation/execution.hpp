@@ -52,6 +52,7 @@ class Execution : public ExecutionInterface {
     Execution(AluInterface& alu,
               BitwiseInterface& bitwise,
               DataCopyInterface& data_copy,
+              Poseidon2Interface& poseidon2,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -66,6 +67,7 @@ class Execution : public ExecutionInterface {
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , bitwise(bitwise)
+        , poseidon2(poseidon2)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
@@ -136,6 +138,7 @@ class Execution : public ExecutionInterface {
                                  MemoryAddress msg_hash_addr,
                                  MemoryAddress leaf_index_addr,
                                  MemoryAddress dst_addr);
+    void poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -168,6 +171,7 @@ class Execution : public ExecutionInterface {
 
     AluInterface& alu;
     BitwiseInterface& bitwise;
+    Poseidon2Interface& poseidon2;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
