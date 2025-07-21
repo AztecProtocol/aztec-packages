@@ -226,10 +226,13 @@ contract Governance is IGovernance {
     _;
   }
 
+  /**
+   * @dev the initial _beneficiary is expected to be the GSE.
+   */
   constructor(
     IERC20 _asset,
     address _governanceProposer,
-    address _depositor,
+    address _beneficiary,
     Configuration memory _configuration
   ) {
     ASSET = _asset;
@@ -240,8 +243,8 @@ contract Governance is IGovernance {
 
     // Unnecessary to set, but better clarity.
     depositControl.allBeneficiariesAllowed = false;
-    depositControl.isAllowed[_depositor] = true;
-    emit BeneficiaryAdded(_depositor);
+    depositControl.isAllowed[_beneficiary] = true;
+    emit BeneficiaryAdded(_beneficiary);
   }
 
   /**
@@ -273,6 +276,8 @@ contract Governance is IGovernance {
    *
    * @dev causes all proposals proposed by the previous governance proposer to be `Droppable`.
    *
+   * @dev prevents the governance proposer from being set to the governance contract itself.
+   *
    * @param _governanceProposer The new governance proposer.
    */
   function updateGovernanceProposer(address _governanceProposer)
@@ -280,6 +285,9 @@ contract Governance is IGovernance {
     override(IGovernance)
     onlySelf
   {
+    require(
+      _governanceProposer != address(this), Errors.Governance__GovernanceProposerCannotBeSelf()
+    );
     governanceProposer = _governanceProposer;
     emit GovernanceProposerUpdated(_governanceProposer);
   }

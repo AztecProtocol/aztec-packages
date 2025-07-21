@@ -21,15 +21,11 @@ contract SlashingProposer is IEmpire, EmpireBase {
     SLASHER = _slasher;
   }
 
-  function getExecutor() public view override(EmpireBase, IEmpire) returns (address) {
-    return address(SLASHER);
-  }
-
   function getInstance() public view override(EmpireBase, IEmpire) returns (address) {
     return INSTANCE;
   }
 
-  function _execute(IPayload _proposal) internal override(EmpireBase) returns (bool) {
-    return SLASHER.slash(_proposal);
+  function _handleRoundWinner(IPayload _payload) internal override(EmpireBase) returns (bool) {
+    return SLASHER.slash(_payload);
   }
 }
