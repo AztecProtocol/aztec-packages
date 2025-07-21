@@ -348,10 +348,10 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     // share a transcript
     std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
 
-    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
-    // circuit are well formed to allow correctly representing shiftable polynomials (which are
-    // expected to start with 0).
-    builder.queue_ecc_no_op();
+    // // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
+    // // circuit are well formed to allow correctly representing shiftable polynomials (which are
+    // // expected to start with 0).
+    // builder.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(builder);
 
@@ -443,7 +443,7 @@ ClientIVC::Proof ClientIVC::prove()
     goblin.transcript = transcript;
 
     // Prove ECCVM and Translator
-    return { mega_proof, goblin.prove() };
+    return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
@@ -453,16 +453,19 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Verify the hiding circuit proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
     bool mega_verified = verifier.verify_proof(proof.mega_proof);
-    vinfo("Mega verified: ", mega_verified);
+    info("Mega verified: ", mega_verified);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     MergeVerifier::WitnessCommitments merge_commitments;
     merge_commitments.set_t_commitments(verifier.verification_key->witness_commitments.get_ecc_op_wires());
 
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, merge_commitments, merge_commitments.T_commitments, civc_verifier_transcript);
-    vinfo("Goblin verified: ", goblin_verified);
+    bool goblin_verified = Goblin::verify(proof.goblin_proof,
+                                          merge_commitments,
+                                          merge_commitments.T_commitments,
+                                          civc_verifier_transcript,
+                                          MergeSettings::APPEND);
+    info("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;

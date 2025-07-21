@@ -69,7 +69,8 @@ class Goblin {
      *
      * @param transcript
      */
-    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                     MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
@@ -87,7 +88,7 @@ class Goblin {
      *
      * @return Proof
      */
-    GoblinProof prove();
+    GoblinProof prove(MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Recursively verify the next merge proof in the merge verification queue.
@@ -104,7 +105,8 @@ class Goblin {
         MegaBuilder& builder,
         const RecursiveSubtableCommitments& subtable_commitments,
         std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
-        const std::shared_ptr<RecursiveTranscript>& transcript);
+        const std::shared_ptr<RecursiveTranscript>& transcript,
+        MergeSettings merge_settings = MergeSettings::PREPEND);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
@@ -121,7 +123,8 @@ class Goblin {
     static bool verify(const GoblinProof& proof,
                        const SubtableCommitments& subtable_commitments,
                        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
-                       const std::shared_ptr<Transcript>& transcript);
+                       const std::shared_ptr<Transcript>& transcript,
+                       MergeSettings merge_settings = MergeSettings::PREPEND);
 };
 
 } // namespace bb

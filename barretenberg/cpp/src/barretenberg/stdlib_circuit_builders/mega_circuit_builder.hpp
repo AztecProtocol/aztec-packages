@@ -51,7 +51,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
-                        bool is_kernel = false)
+                        bool is_kernel = false,
+                        bool is_last_kernel = false)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
         , op_queue(std::move(op_queue_in))
         , is_kernel(is_kernel)
@@ -64,6 +65,13 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
 
+        if (is_last_kernel) {
+            // Add a no-op at the beginning of the last to be appended kernel (tail) circuit to ensure the wires
+            // representing the op queue in translator circuit are well formed to allow correctly representing shiftable
+            // polynomials (which are expected to start with 0).
+            queue_ecc_no_op();
+        }
+
         // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
         // neighbouring misconfigured subtable cannot affect the current one.
         if (is_kernel) {
@@ -71,8 +79,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         }
     };
 
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, bool is_kernel = false)
-        : MegaCircuitBuilder_(0, op_queue_in, is_kernel)
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, bool is_kernel = false, bool is_last_kernel = false)
+        : MegaCircuitBuilder_(0, op_queue_in, is_kernel, is_last_kernel)
     {}
 
     /**

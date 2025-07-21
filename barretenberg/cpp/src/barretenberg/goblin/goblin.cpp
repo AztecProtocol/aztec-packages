@@ -21,10 +21,10 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
     , transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, MergeSettings merge_settings)
 {
     PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, merge_settings, commitment_key, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -47,11 +47,11 @@ void Goblin::prove_translator()
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
-GoblinProof Goblin::prove()
+GoblinProof Goblin::prove(MergeSettings merge_settings)
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
-    prove_merge(transcript); // Use shared transcript for merge proving
+    prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
@@ -78,14 +78,15 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(
     MegaBuilder& builder,
     const RecursiveSubtableCommitments& subtable_commitments,
     std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
-    const std::shared_ptr<RecursiveTranscript>& transcript)
+    const std::shared_ptr<RecursiveTranscript>& transcript,
+    MergeSettings merge_settings)
 {
     ASSERT(!merge_verification_queue.empty());
     // Recursively verify the next merge proof in the verification queue in a FIFO manner
     const MergeProof& merge_proof = merge_verification_queue.front();
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
-    MergeRecursiveVerifier merge_verifier{ &builder, MergeSettings::PREPEND, transcript };
+    MergeRecursiveVerifier merge_verifier{ &builder, merge_settings, transcript };
     PairingPoints pairing_points =
         merge_verifier.verify_proof(stdlib_merge_proof, subtable_commitments, merged_table_commitment);
 
@@ -97,9 +98,10 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(
 bool Goblin::verify(const GoblinProof& proof,
                     const SubtableCommitments& subtable_commitments,
                     std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
-                    const std::shared_ptr<Transcript>& transcript)
+                    const std::shared_ptr<Transcript>& transcript,
+                    MergeSettings merge_settings)
 {
-    MergeVerifier merge_verifier(MergeSettings::PREPEND, transcript);
+    MergeVerifier merge_verifier(merge_settings, transcript);
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof, subtable_commitments, merged_table_commitment);
 
     ECCVMVerifier eccvm_verifier(transcript);
@@ -118,11 +120,11 @@ bool Goblin::verify(const GoblinProof& proof,
     bool op_queue_consistency_verified =
         translator_verifier.verify_consistency_with_final_merge(merged_table_commitment);
 
-    vinfo("merge verified?: ", merge_verified);
-    vinfo("eccvm verified?: ", eccvm_verified);
-    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
-    vinfo("translation verified?: ", translation_verified);
-    vinfo("consistency verified?: ", op_queue_consistency_verified);
+    info("merge verified?: ", merge_verified);
+    info("eccvm verified?: ", eccvm_verified);
+    info("accumulator construction_verified?: ", accumulator_construction_verified);
+    info("translation verified?: ", translation_verified);
+    info("consistency verified?: ", op_queue_consistency_verified);
 
     return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
            op_queue_consistency_verified;
