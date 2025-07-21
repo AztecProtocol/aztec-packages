@@ -41,7 +41,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
+import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
@@ -226,7 +226,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:discv5_service`),
     );
 
-    // Seed libp2p's bootstrap discovery with private and trusted peers
+      // Seed libp2p's bootstrap discovery with private and trusted peers
     const bootstrapNodes = [...config.privatePeers, ...config.trustedPeers];
 
     const peerDiscovery = [];
@@ -302,6 +302,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
         maxIncomingPendingConnections: 5,
+      },
+      connectionGater: {
+        denyInboundConnection: (maConn: MultiaddrConnection) => {
+          const allowed = peerManager.isNodeAllowedToConnect(maConn.remoteAddr);
+          if (allowed) {
+            return false;
+          }
+
+          logger.debug(`Connection gater: Denying inbound connection from ${maConn.remoteAddr.toString()}`);
+          return true;
+        },
       },
       services: {
         identify: identify({
