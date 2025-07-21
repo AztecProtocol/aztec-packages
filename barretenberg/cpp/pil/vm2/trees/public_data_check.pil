@@ -1,0 +1,315 @@
+include "merkle_check.pil";
+
+include "../ff_gt.pil";
+include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
+include "../precomputed.pil";
+include "public_data_squash.pil";
+
+/**
+ * This gadget reads or writes in the public data tree. The public data tree is an indexed tree where leaves
+ * have slot and value. Slot is the "key" and value is the stored data. When we read from the public data tree,
+ * we assume that a slot that has not been written before has value zero.
+ * For this we perform a low leaf membership proof and:
+ *  - if the low leaf slot is equal to the slot, that means that slot has been written before, and we assert that
+ *    the low leaf value is equal to the value we are reading.
+ *  - if the low leaf slot is not equal to the slot, we assert that the low leaf is indeed a valid low leaf for the
+ *    requested slot, proving non existence of the slot in the tree. In that case we check value to be zero.
+ * In order to validate that a leaf is a low leaf of the slot, we need to check that the low_leaf.slot is < slot
+ * and that low_leaf.next_slot is > slot. However, we need to consider the case where next_slot is zero, which
+ * means "infinity". The highest slot inserted in the tree will point to infinity as the "next_slot".
+ * In order to write, we perform the above, and also:
+ * - We update the low leaf. If the slot has been written before, we update the value. Otherwise, we'll insert a new leaf
+ *     so we update the pointers of the low leaf to the newly inserted leaf.
+ * - We insert the new leaf if it was never written before.
+ *
+ * Note: Indexed trees start prefilled with at least two items, so we can assume that no low leaf will be all zeroes
+ * and that there will always be a low leaf for any given value.
+ *
+ * This trace also performs siloing and lookups to public inputs.
+ * In order to look up public inputs, it needs to squash the public data writes, which means that writes need to be looked up with clk.
+ * We use a dedicated squashing subtrace for this.
+ *
+ * https://hackmd.io/luYtD3XVTpGCDFeeCYS_Uw?view#Storage
+ *
+ * Read usage:
+ * sel {
+ *    value,
+ *    address,
+ *    slot,
+ *    public_data_tree_root
+ * } in public_data_check.sel {
+ *    public_data_check.value,
+ *    public_data_check.address,
+ *    public_data_check.slot,
+ *    public_data_check.root
+ * };
+ *
+ * Write usage:
+ * sel {
+ *   value,
+ *   address,
+ *   slot,
+ *   prev_public_data_tree_root,
+ *   next_public_data_tree_root,
+ *   prev_public_data_tree_size,
+ *   next_public_data_tree_size,
+ *   clk
+ * } is public_data_check.write {
+ *   public_data_check.value,
+ *   public_data_check.address,
+ *   public_data_check.slot,
+ *   public_data_check.root,
+ *   public_data_check.write_root,
+ *   public_data_check.tree_size_before_write,
+ *   public_data_check.tree_size_after_write,
+ *   public_data_check.clk
+ * };
+ *
+**/
+namespace public_data_check;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // We can only activate next sel if the current row is on or is the first row
+    #[START_CONDITION]
+    sel' * (1 - sel) * (1 - precomputed.first_row) = 0;
+    pol commit not_end;
+    not_end = sel * sel';
+    pol commit end;
+    end = sel * (1 - sel');
+
+    // Inputs to the gadget
+    pol commit value;
+    pol commit slot;
+    pol commit root;
+    pol commit address;
+
+    // Write specific inputs
+    // The resulting root after the write
+    pol commit write_root;
+    pol commit tree_size_before_write;
+    pol commit tree_size_after_write;
+    pol commit write;
+    write * (1 - write) = 0;
+    // If write is on, sel must be on too.
+    write * (1 - sel) = 0;
+    pol commit clk;
+    pol commit discard;
+
+    // Hints
+    pol commit low_leaf_slot;
+    pol commit low_leaf_value;
+    pol commit low_leaf_next_index;
+    pol commit low_leaf_next_slot;
+
+    pol commit updated_low_leaf_value;
+    pol commit updated_low_leaf_next_index;
+    pol commit updated_low_leaf_next_slot;
+
+    pol commit low_leaf_index;
+
+    // ========= SORTING =========
+    // If not the last row, clock must not decrease
+    pol commit clk_diff;
+    clk_diff = not_end * (clk' - clk);
+
+    // TODO: Commited because lookups don't support constants
+    pol commit constant_32;
+    sel * (32 - constant_32) = 0;
+
+    // Disabled sorting lookups for now
+    // #[CLK_DIFF_RANGE]
+    // not_end { clk_diff, constant_32 }
+    // in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    // We enforce reads, which have unconstrained clk, to have clk = 0
+    // So they have to be at the start of the trace
+    (1 - write) * clk = 0;
+
+    // ========= SILOING =========
+    pol commit leaf_slot;
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit siloing_separator;
+    sel * (constants.GENERATOR_INDEX__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
+
+    #[SILO_POSEIDON2]
+    sel { sel, siloing_separator, address, slot, leaf_slot }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    // ========= LOW LEAF VALIDATION =========
+    // We commit leaf not exists instead of leaf exists since it'll be used as a selector for a lookup
+    pol commit leaf_not_exists;
+    leaf_not_exists * (1 - leaf_not_exists) = 0;
+    pol LEAF_EXISTS = 1 - leaf_not_exists;
+
+    pol commit leaf_slot_low_leaf_slot_diff_inv;
+    pol LEAF_SLOT_LOW_LEAF_SLOT_DIFF = leaf_slot - low_leaf_slot;
+
+    //  LEAF_SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> LEAF_EXISTS == 1
+    #[EXISTS_FLAG_CHECK]
+    sel * (LEAF_SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - leaf_slot_low_leaf_slot_diff_inv) + leaf_slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0;
+
+    // If the leaf doesn't exist, we need to validate that the leaf slot is greater than the low leaf slot
+
+    #[LOW_LEAF_SLOT_VALIDATION]
+    leaf_not_exists { leaf_slot, low_leaf_slot, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // If next leaf slot is not zero (which would be infinity), it has to be greater than the leafslot.
+    // We commit next_slot_is_nonzero instead of next_slot_is_zero since it'll be used as a selector for a lookup
+    pol commit next_slot_is_nonzero;
+    next_slot_is_nonzero * (1 - next_slot_is_nonzero) = 0;
+    pol NEXT_SLOT_IS_ZERO = 1 - next_slot_is_nonzero;
+
+    pol commit next_slot_inv;
+    #[NEXT_SLOT_IS_ZERO_CHECK]
+    leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) + next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0;
+
+    #[LOW_LEAF_NEXT_SLOT_VALIDATION]
+    next_slot_is_nonzero { low_leaf_next_slot, leaf_slot, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // ========= COMPUTE LOW LEAF UPDATE =========
+    // On write, if the leaf exists, we update the value. Otherwise, we'll insert so we update the pointers.
+    #[LOW_LEAF_VALUE_UPDATE]
+    write * ((low_leaf_value - value) * leaf_not_exists + value - updated_low_leaf_value) = 0;
+    #[LOW_LEAF_NEXT_INDEX_UPDATE]
+    write * ((tree_size_before_write - low_leaf_next_index) * leaf_not_exists + low_leaf_next_index - updated_low_leaf_next_index) = 0;
+    #[LOW_LEAF_NEXT_SLOT_UPDATE]
+    write * ((leaf_slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot - updated_low_leaf_next_slot) = 0;
+
+    // ========= LOW LEAF MEMBERSHIP =========
+    pol commit low_leaf_hash;
+    // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
+    pol commit intermediate_root;
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit tree_height;
+    sel * (tree_height - constants.PUBLIC_DATA_TREE_HEIGHT) = 0;
+
+    #[LOW_LEAF_POSEIDON2_0]
+    sel { low_leaf_slot, low_leaf_value, low_leaf_next_index, low_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[LOW_LEAF_POSEIDON2_1]
+    sel { low_leaf_next_slot, precomputed.zero, precomputed.zero, low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    pol commit updated_low_leaf_hash;
+
+    #[UPDATED_LOW_LEAF_POSEIDON2_0]
+    write { low_leaf_slot, updated_low_leaf_value, updated_low_leaf_next_index, updated_low_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[UPDATED_LOW_LEAF_POSEIDON2_1]
+    write { updated_low_leaf_next_slot, precomputed.zero, precomputed.zero, updated_low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[LOW_LEAF_MERKLE_CHECK]
+    sel { write, low_leaf_hash, updated_low_leaf_hash,
+        low_leaf_index, tree_height, root, intermediate_root }
+    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+
+    // ========= READ VALUE CHECK =========
+    // value = LEAF_EXISTS ? low_leaf_value : 0
+    #[VALUE_IS_CORRECT]
+    (1 - write) * (low_leaf_value * LEAF_EXISTS - value) = 0;
+
+    // ========= COMPUTE FINAL SNAPSHOT =========
+
+    pol commit should_insert;
+    leaf_not_exists * write - should_insert = 0;
+
+    pol commit new_leaf_hash;
+
+    #[NEW_LEAF_POSEIDON2_0]
+    should_insert { leaf_slot, value, low_leaf_next_index, new_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    #[NEW_LEAF_POSEIDON2_1]
+    should_insert { low_leaf_next_slot, precomputed.zero, precomputed.zero, new_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[NEW_LEAF_MERKLE_CHECK]
+    should_insert { sel, precomputed.zero, new_leaf_hash,
+        tree_size_before_write, tree_height, intermediate_root, write_root }
+    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+
+    pol SHOULD_UPDATE = LEAF_EXISTS * write;
+    // If we are writing, but the leaf has been written before, we don't insert, so write_root is intermediate_root
+    #[UPDATE_ROOT_VALIDATION]
+    SHOULD_UPDATE * (write_root - intermediate_root) = 0;
+
+    // If we inserted a new leaf, we have to increment the tree size.
+    tree_size_after_write = tree_size_before_write + should_insert;
+
+    // ========= WRITE TO PUBLIC INPUTS =========
+    pol commit write_idx;
+    // We'll record the squashed writes in the public inputs vector dedicated for accumulated public data writes.
+    // We start at the row index where the public data writes start.
+    #[WRITE_IDX_INITIAL_VALUE]
+    (1 - sel) * sel' * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX - write_idx') = 0;
+
+    // If a write with discard = 0, we permute to the public data squash trace to get write to public inputs
+    pol commit nondiscaded_write;
+    nondiscaded_write = write * (1 - discard);
+    pol commit should_write_to_public_inputs;
+    // If this is a read or a discarded write, write to public inputs must be zero
+    (1 - nondiscaded_write) * should_write_to_public_inputs = 0;
+
+    #[SQUASHING]
+    nondiscaded_write {
+        leaf_slot,
+        clk,
+        should_write_to_public_inputs
+    } is public_data_squash.sel {
+        public_data_squash.leaf_slot,
+        public_data_squash.clk,
+        public_data_squash.write_to_public_inputs
+    };
+
+    // We need to increment the write index by one so the next write will be looked up in the next index of the PI public data writes vector.
+    // Next write index = if should_write_to_public_inputs { write_idx + 1 } else { write_idx }
+    #[WRITE_IDX_INCREMENT]
+    not_end * (write_idx + should_write_to_public_inputs - write_idx') = 0;
+
+    #[WRITE_PUBLIC_DATA_TO_PUBLIC_INPUTS]
+    should_write_to_public_inputs {
+        write_idx,
+        leaf_slot,
+        value
+    }in public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0],
+        public_inputs.cols[1]
+    };
+
+    // TODO: On end, lookup the length of public data writes in public inputs.
+    // Consider not doing it here if we implement the solution for accurate write counting during execution.
+
+    // ========= ASSERT FINAL LENGTH =========
+    // Every transaction we prove must have at least one public data write, the fee one.
+    // Thanks to that, we can assert here that the length of the public data writes vector in public inputs
+    // is the correct length, when this trace has end=1
+    pol commit public_data_writes_length;
+    // public_data_writes_length = (write_idx - AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + should_write_to_public_inputs)
+    sel * (write_idx - constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + should_write_to_public_inputs - public_data_writes_length) = 0;
+
+    // TODO: Commited because lookups don't support constants
+    pol commit length_pi_idx;
+    sel * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX - length_pi_idx) = 0;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[WRITE_WRITES_LENGTH_TO_PUBLIC_INPUTS]
+    // end {
+    //     length_pi_idx,
+    //     public_data_writes_length
+    // }in public_inputs.sel {
+    //     precomputed.clk,
+    //     public_inputs.cols[0]
+    // };

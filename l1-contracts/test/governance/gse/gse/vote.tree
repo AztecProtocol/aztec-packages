@@ -1,0 +1,7 @@
+VoteTest
+├── given amount greater than available power
+│   └── it reverts
+└── given amount less or equal to available power
+    ├── it uses delegation power for proposal
+    ├── it votes in governance
+    └── it returns true

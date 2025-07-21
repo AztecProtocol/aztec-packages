@@ -1,8 +1,8 @@
 import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
+import { BatchedBlob } from '@aztec/blob-lib';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor } from '@aztec/ethereum/test';
-import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { ChainMonitor, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -32,7 +32,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup();
+    // Bumping the epoch duration to 5 because otherwise it takes a full epoch before the actual test starts,
+    // which means the prover node is attempting to prove before we setup the mocks.
+    test = await EpochsTestContext.setup({ aztecEpochDuration: 5 });
     ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
@@ -59,13 +61,16 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Wait until the last block of epoch 1 is published and then hold off the sequencer.
     // Note that the tx below will block the sequencer until it times out
     // the txPropagationMaxQueryAttempts until #10824 is fixed.
-    await test.waitUntilL2BlockNumber(blockNumberAtEndOfEpoch0 + test.epochDuration);
+    await test.waitUntilL2BlockNumber(
+      blockNumberAtEndOfEpoch0 + test.epochDuration,
+      test.L2_SLOT_DURATION_IN_S * (test.epochDuration + 4),
+    );
     sequencerDelayer.pauseNextTxUntilTimestamp(epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
 
     // Next sequencer to publish a block should trigger a rollback to block 1
     await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
     expect(await rollup.getBlockNumber()).toEqual(1n);
-    expect(await rollup.getSlotNumber()).toEqual(8n);
+    expect(await rollup.getSlotNumber()).toEqual(BigInt(2 * test.epochDuration));
 
     // The prover tx should have been rejected, and mined strictly before the one that triggered the rollback
     const lastProverTxHash = proverDelayer.getSentTxHashes().at(-1);
@@ -92,7 +97,15 @@ describe('e2e_epochs/epochs_proof_fails', () => {
         await sleep(L2_SLOT_DURATION_IN_S * test.epochDuration * 1000);
         logger.warn(`Finalise epoch: returning.`);
         finaliseEpochPromise.resolve();
-        return { publicInputs: RootRollupPublicInputs.random(), proof: Proof.empty() };
+        const ourPublicInputs = RootRollupPublicInputs.random();
+        const ourBatchedBlob = new BatchedBlob(
+          ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+          ourPublicInputs.blobPublicInputs.z,
+          ourPublicInputs.blobPublicInputs.y,
+          ourPublicInputs.blobPublicInputs.c,
+          ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value for Q
+        );
+        return { publicInputs: ourPublicInputs, proof: Proof.empty(), batchedBlobInputs: ourBatchedBlob };
       });
       return prover;
     });

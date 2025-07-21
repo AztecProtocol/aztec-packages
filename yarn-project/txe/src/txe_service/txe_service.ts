@@ -1,17 +1,16 @@
-import { type ContractInstanceWithAddress, Fr, Point, TxHash } from '@aztec/aztec.js';
-import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
-import type { TypedOracle } from '@aztec/simulator/client';
-import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { TypedOracle } from '@aztec/pxe/simulator';
+import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -29,12 +28,19 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
-  toSingleOrArray,
 } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
 
+enum TXEContext {
+  TOP_LEVEL,
+  PRIVATE,
+  PUBLIC,
+  UTILITY,
+}
+
 export class TXEService {
-  public oraclesEnabled = true;
+  context = TXEContext.TOP_LEVEL;
+  contextChecksEnabled = false;
 
   constructor(
     private logger: Logger,
@@ -50,10 +56,70 @@ export class TXEService {
     return service;
   }
 
+  // TXE Context manipulation
+
+  // Temporary workaround - once all tests migrate to calling the new flow, in which this oracle is called at the
+  // beginning of a txe test, we'll make the context check be mandatory
+  enableContextChecks() {
+    this.contextChecksEnabled = true;
+    return toForeignCallResult([]);
+  }
+
+  setTopLevelTXEContext() {
+    if (this.contextChecksEnabled) {
+      if (this.context == TXEContext.TOP_LEVEL) {
+        throw new Error(`Call to setTopLevelTXEContext while in context ${TXEContext[this.context]}`);
+      }
+    }
+
+    this.context = TXEContext.TOP_LEVEL;
+    return toForeignCallResult([]);
+  }
+
+  setPrivateTXEContext() {
+    if (this.contextChecksEnabled) {
+      if (this.context != TXEContext.TOP_LEVEL) {
+        throw new Error(`Call to setPrivateTXEContext while in context ${TXEContext[this.context]}`);
+      }
+    }
+
+    this.context = TXEContext.PRIVATE;
+    return toForeignCallResult([]);
+  }
+
+  setPublicTXEContext() {
+    if (this.contextChecksEnabled) {
+      if (this.context != TXEContext.TOP_LEVEL) {
+        throw new Error(`Call to setPublicTXEContext while in context ${TXEContext[this.context]}`);
+      }
+    }
+
+    this.context = TXEContext.PUBLIC;
+    return toForeignCallResult([]);
+  }
+
+  setUtilityTXEContext() {
+    if (this.contextChecksEnabled) {
+      if (this.context != TXEContext.TOP_LEVEL) {
+        throw new Error(`Call to setUtilityTXEContext while in context ${TXEContext[this.context]}`);
+      }
+    }
+
+    this.context = TXEContext.UTILITY;
+    return toForeignCallResult([]);
+  }
+
   // Cheatcodes
 
-  async getPrivateContextInputs(blockNumber: ForeignCallSingle) {
-    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(fromSingle(blockNumber).toNumber());
+  async getPrivateContextInputs(blockNumberIsSome: ForeignCallSingle, blockNumberValue: ForeignCallSingle) {
+    const blockNumber = fromSingle(blockNumberIsSome).toBool() ? fromSingle(blockNumberValue).toNumber() : null;
+
+    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(blockNumber);
+
+    this.logger.info(
+      `Created private context for block ${inputs.historicalHeader.globalVariables.blockNumber} (requested ${blockNumber})`,
+    );
+
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
@@ -66,6 +132,13 @@ export class TXEService {
       await (this.typedOracle as TXE).commitState();
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
+    return toForeignCallResult([]);
+  }
+
+  advanceTimestampBy(duration: ForeignCallSingle) {
+    const durationBigInt = fromSingle(duration).toBigInt();
+    this.logger.debug(`time traveling ${durationBigInt} seconds`);
+    (this.typedOracle as TXE).advanceTimestampBy(durationBigInt);
     return toForeignCallResult([]);
   }
 
@@ -83,7 +156,7 @@ export class TXEService {
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     // Emit deployment nullifier
     await (this.typedOracle as TXE).noteCache.nullifierCreated(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       instance.address.toField(),
     );
 
@@ -216,7 +289,7 @@ export class TXEService {
   // PXE oracles
 
   getRandomField() {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -226,7 +299,7 @@ export class TXEService {
   }
 
   async getContractAddress() {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -237,19 +310,36 @@ export class TXEService {
   }
 
   async getBlockNumber() {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL && this.context != TXEContext.UTILITY) {
+      throw new Error(`Attempted to call getBlockNumber while in context ${TXEContext[this.context]}`);
     }
 
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
+  // seems to be used to mean the timestamp of the last mined block in txe (but that's not what is done here)
+  async getTimestamp() {
+    if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL && this.context != TXEContext.UTILITY) {
+      throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
+    }
+
+    const timestamp = await this.typedOracle.getTimestamp();
+    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
+  async getLastBlockTimestamp() {
+    if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL) {
+      throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
+    }
+
+    const timestamp = await (this.typedOracle as TXE).getLastBlockTimestamp();
+    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
   storeInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray, hash: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -260,7 +350,7 @@ export class TXEService {
   }
 
   async loadFromExecutionCache(hash: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -301,7 +391,7 @@ export class TXEService {
   }
 
   async getPublicDataWitness(blockNumber: ForeignCallSingle, leafSlot: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -335,7 +425,7 @@ export class TXEService {
     maxNotes: ForeignCallSingle,
     packedRetrievedNoteLength: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -366,15 +456,15 @@ export class TXEService {
     }
 
     // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note].
+    // array is structured as [contract_address, note_nonce, nonzero_note_hash_counter, ...packed_note].
 
-    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
+    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, noteNonce, index, note }) => {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
       const nonzeroNoteHashCounter = noteIsTransient ? true : false;
       // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
       // `aztec/src/note/retrieved_note.nr`
-      return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
+      return [contractAddress, noteNonce, nonzeroNoteHashCounter, ...note.items];
     });
 
     // Now we convert each sub-array to an array of ForeignCallSingles
@@ -399,7 +489,7 @@ export class TXEService {
     noteHash: ForeignCallSingle,
     counter: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -420,7 +510,7 @@ export class TXEService {
     noteHash: ForeignCallSingle,
     counter: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -435,7 +525,7 @@ export class TXEService {
   }
 
   async notifyCreatedNullifier(innerNullifier: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -446,7 +536,7 @@ export class TXEService {
   }
 
   async checkNullifierExists(innerNullifier: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -457,7 +547,7 @@ export class TXEService {
   }
 
   async getContractInstance(address: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -476,7 +566,7 @@ export class TXEService {
   }
 
   async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -488,7 +578,7 @@ export class TXEService {
   }
 
   async getKeyValidationRequest(pkMHash: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -505,7 +595,7 @@ export class TXEService {
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -522,7 +612,7 @@ export class TXEService {
   }
 
   async getNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -537,7 +627,7 @@ export class TXEService {
   }
 
   async getAuthWitness(messageHash: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -557,7 +647,7 @@ export class TXEService {
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -578,7 +668,7 @@ export class TXEService {
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -594,7 +684,7 @@ export class TXEService {
   }
 
   public async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -607,7 +697,7 @@ export class TXEService {
   }
 
   async getChainId() {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -617,7 +707,7 @@ export class TXEService {
   }
 
   async getVersion() {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -627,7 +717,7 @@ export class TXEService {
   }
 
   async getBlockHeader(blockNumber: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -641,7 +731,7 @@ export class TXEService {
   }
 
   async getMembershipWitness(blockNumber: ForeignCallSingle, treeId: ForeignCallSingle, leafValue: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -660,7 +750,7 @@ export class TXEService {
   }
 
   async getLowNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -676,7 +766,7 @@ export class TXEService {
   }
 
   async getIndexedTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -690,7 +780,7 @@ export class TXEService {
   }
 
   async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -700,56 +790,48 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  public async deliverNote(
+  public async validateEnqueuedNotesAndEvents(
     contractAddress: ForeignCallSingle,
-    storageSlot: ForeignCallSingle,
-    nonce: ForeignCallSingle,
-    content: ForeignCallArray,
-    contentLength: ForeignCallSingle,
-    noteHash: ForeignCallSingle,
-    nullifier: ForeignCallSingle,
-    txHash: ForeignCallSingle,
-    recipient: ForeignCallSingle,
+    noteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    eventValidationRequestsArrayBaseSlot: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.typedOracle.deliverNote(
+    await this.typedOracle.validateEnqueuedNotesAndEvents(
       AztecAddress.fromField(fromSingle(contractAddress)),
-      fromSingle(storageSlot),
-      fromSingle(nonce),
-      fromArray(content.slice(0, Number(BigInt(contentLength)))),
-      fromSingle(noteHash),
-      fromSingle(nullifier),
-      new TxHash(fromSingle(txHash)),
-      AztecAddress.fromField(fromSingle(recipient)),
+      fromSingle(noteValidationRequestsArrayBaseSlot),
+      fromSingle(eventValidationRequestsArrayBaseSlot),
     );
 
-    return toForeignCallResult([toSingle(Fr.ONE)]);
+    return toForeignCallResult([]);
   }
 
-  async getLogByTag(tag: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+  public async bulkRetrieveLogs(
+    contractAddress: ForeignCallSingle,
+    logRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
+    logRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
+  ) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // TODO(AD): this was warning that getLogByTag did not return a promise.
-    const log = await Promise.resolve(this.typedOracle.getLogByTag(fromSingle(tag)));
+    await this.typedOracle.bulkRetrieveLogs(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(logRetrievalRequestsArrayBaseSlot),
+      fromSingle(logRetrievalResponsesArrayBaseSlot),
+    );
 
-    if (log == null) {
-      return toForeignCallResult([toSingle(Fr.ZERO), ...LogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray)]);
-    } else {
-      return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
-    }
+    return toForeignCallResult([]);
   }
 
   async storeCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, capsule: ForeignCallArray) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -764,7 +846,7 @@ export class TXEService {
   }
 
   async loadCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -786,7 +868,7 @@ export class TXEService {
   }
 
   async deleteCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -802,7 +884,7 @@ export class TXEService {
     dstSlot: ForeignCallSingle,
     numEntries: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -828,7 +910,7 @@ export class TXEService {
     iv: ForeignCallArray,
     symKey: ForeignCallArray,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -849,7 +931,7 @@ export class TXEService {
     ephPKField1: ForeignCallSingle,
     ephPKField2: ForeignCallSingle,
   ) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
@@ -862,39 +944,25 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async storePrivateEventLog(
-    contractAddress: ForeignCallSingle,
-    recipient: ForeignCallSingle,
-    eventSelector: ForeignCallSingle,
-    logContent: ForeignCallArray,
-    txHash: ForeignCallSingle,
-    logIndexInTx: ForeignCallSingle,
-    txIndexInBlock: ForeignCallSingle,
-  ) {
-    if (!this.oraclesEnabled) {
+  emitOffchainEffect(_data: ForeignCallArray) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.typedOracle.storePrivateEventLog(
-      AztecAddress.fromField(fromSingle(contractAddress)),
-      AztecAddress.fromField(fromSingle(recipient)),
-      EventSelector.fromField(fromSingle(eventSelector)),
-      fromArray(logContent),
-      new TxHash(fromSingle(txHash)),
-      fromSingle(logIndexInTx).toNumber(),
-      fromSingle(txIndexInBlock).toNumber(),
-    );
+    // Offchain effects are currently discarded in the TXE tests.
+    // TODO: Expose this to the tests.
+
     return toForeignCallResult([]);
   }
 
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeEmitUnencryptedLog oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -903,10 +971,8 @@ export class TXEService {
   }
 
   async avmOpcodeStorageRead(slot: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeStorageRead oracle while in context ${TXEContext[this.context]}`);
     }
 
     const value = (await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot))).value;
@@ -914,9 +980,9 @@ export class TXEService {
   }
 
   async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeStorageWrite oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -925,9 +991,9 @@ export class TXEService {
   }
 
   async avmOpcodeGetContractInstanceDeployer(address: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeGetContractInstanceDeployer oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -940,9 +1006,9 @@ export class TXEService {
   }
 
   async avmOpcodeGetContractInstanceClassId(address: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeGetContractInstanceClassId oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -955,9 +1021,9 @@ export class TXEService {
   }
 
   async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeGetContractInstanceInitializationHash oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -970,10 +1036,8 @@ export class TXEService {
   }
 
   avmOpcodeSender() {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeSender oracle while in context ${TXEContext[this.context]}`);
     }
 
     const sender = (this.typedOracle as TXE).getMsgSender();
@@ -981,9 +1045,9 @@ export class TXEService {
   }
 
   async avmOpcodeEmitNullifier(nullifier: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeEmitNullifier oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -992,9 +1056,9 @@ export class TXEService {
   }
 
   async avmOpcodeEmitNoteHash(noteHash: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeEmitNoteHash oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -1003,9 +1067,9 @@ export class TXEService {
   }
 
   async avmOpcodeNullifierExists(innerNullifier: ForeignCallSingle, targetAddress: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeNullifierExists oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -1017,10 +1081,8 @@ export class TXEService {
   }
 
   async avmOpcodeAddress() {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeAddress oracle while in context ${TXEContext[this.context]}`);
     }
 
     const contractAddress = await this.typedOracle.getContractAddress();
@@ -1028,20 +1090,27 @@ export class TXEService {
   }
 
   async avmOpcodeBlockNumber() {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeBlockNumber oracle while in context ${TXEContext[this.context]}`);
     }
 
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
+  async avmOpcodeTimestamp() {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeTimestamp oracle while in context ${TXEContext[this.context]}`);
+    }
+
+    const timestamp = await this.typedOracle.getTimestamp();
+    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
   avmOpcodeIsStaticCall() {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeIsStaticCall oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -1050,10 +1119,8 @@ export class TXEService {
   }
 
   async avmOpcodeChainId() {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeChainId oracle while in context ${TXEContext[this.context]}`);
     }
 
     const chainId = await (this.typedOracle as TXE).getChainId();
@@ -1061,10 +1128,8 @@ export class TXEService {
   }
 
   async avmOpcodeVersion() {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeVersion oracle while in context ${TXEContext[this.context]}`);
     }
 
     const version = await (this.typedOracle as TXE).getVersion();
@@ -1072,9 +1137,9 @@ export class TXEService {
   }
 
   avmOpcodeReturndataSize() {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeReturndataSize oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -1083,9 +1148,9 @@ export class TXEService {
   }
 
   avmOpcodeReturndataCopy(rdOffset: ForeignCallSingle, copySize: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+        `Attempted to call the avmOpcodeReturndataCopy oracle while in context ${TXEContext[this.context]}`,
       );
     }
 
@@ -1104,10 +1169,8 @@ export class TXEService {
     _length: ForeignCallSingle,
     args: ForeignCallArray,
   ) {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the { oracle while in context ${TXEContext[this.context]}`);
     }
 
     const result = await (this.typedOracle as TXE).avmOpcodeCall(
@@ -1140,10 +1203,8 @@ export class TXEService {
     _length: ForeignCallSingle,
     args: ForeignCallArray,
   ) {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the { oracle while in context ${TXEContext[this.context]}`);
     }
 
     const result = await (this.typedOracle as TXE).avmOpcodeCall(
@@ -1170,10 +1231,8 @@ export class TXEService {
   }
 
   avmOpcodeSuccessCopy() {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
+      throw new Error(`Attempted to call the avmOpcodeSuccessCopy oracle while in context ${TXEContext[this.context]}`);
     }
 
     const success = (this.typedOracle as TXE).avmOpcodeSuccessCopy();
@@ -1201,14 +1260,6 @@ export class TXEService {
     return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash])]);
   }
 
-  disableOracles() {
-    this.oraclesEnabled = false;
-  }
-
-  enableOracles() {
-    this.oraclesEnabled = true;
-  }
-
   async simulateUtilityFunction(
     targetContractAddress: ForeignCallSingle,
     functionSelector: ForeignCallSingle,
@@ -1221,5 +1272,51 @@ export class TXEService {
     );
 
     return toForeignCallResult([toSingle(result)]);
+  }
+
+  async publicCallNewFlow(
+    from: ForeignCallSingle,
+    address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    calldata: ForeignCallArray,
+    isStaticCall: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).publicCallNewFlow(
+      addressFromSingle(from),
+      addressFromSingle(address),
+      fromArray(calldata),
+      fromSingle(isStaticCall).toBool(),
+    );
+
+    return toForeignCallResult([toArray([result.returnsHash, result.txHash])]);
+  }
+
+  async getSenderForTags() {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const sender = await this.typedOracle.getSenderForTags();
+    // Return a Noir Option struct with `some` and `value` fields
+    if (sender === undefined) {
+      // No sender found, return Option with some=0 and value=0
+      return toForeignCallResult([toSingle(0), toSingle(0)]);
+    } else {
+      // Sender found, return Option with some=1 and value=sender address
+      return toForeignCallResult([toSingle(1), toSingle(sender)]);
+    }
+  }
+
+  async setSenderForTags(senderForTags: ForeignCallSingle) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    await this.typedOracle.setSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
+    return toForeignCallResult([]);
   }
 }

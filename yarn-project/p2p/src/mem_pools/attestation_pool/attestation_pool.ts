@@ -1,4 +1,4 @@
-import type { BlockAttestation } from '@aztec/stdlib/p2p';
+import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 
 /**
  * An Attestation Pool contains attestations collected by a validator
@@ -8,7 +8,21 @@ import type { BlockAttestation } from '@aztec/stdlib/p2p';
  */
 export interface AttestationPool {
   /**
-   * AddAttestation
+   * Adds new block proposal to the pool
+   */
+  addBlockProposal(blockProposal: BlockProposal): Promise<void>;
+
+  /**
+   * Get block proposal by it's ID
+   *
+   * @param id - The ID of the block proposal to retrieve. The ID is proposal.payload.archive
+   *
+   * @return The block proposal if it exists, otherwise undefined.
+   */
+  getBlockProposal(id: string): Promise<BlockProposal | undefined>;
+
+  /**
+   * AddAttestations
    *
    * @param attestations - Attestations to add into the pool
    */

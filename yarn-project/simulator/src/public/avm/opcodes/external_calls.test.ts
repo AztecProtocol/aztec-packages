@@ -9,7 +9,7 @@ import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.j
 import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
-import { initContext, initPersistableStateManager } from '../fixtures/index.js';
+import { initContext, initPersistableStateManager } from '../fixtures/initializers.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
@@ -81,8 +81,8 @@ describe('External Calls', () => {
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
-      context.machineState.memory.set(0, new Field(l2Gas));
-      context.machineState.memory.set(1, new Field(daGas));
+      context.machineState.memory.set(0, new Uint32(l2Gas));
+      context.machineState.memory.set(1, new Uint32(daGas));
       context.machineState.memory.set(2, new Field(addr));
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
@@ -136,8 +136,8 @@ describe('External Calls', () => {
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
-      context.machineState.memory.set(0, new Field(l2Gas));
-      context.machineState.memory.set(1, new Field(daGas));
+      context.machineState.memory.set(0, new Uint32(l2Gas));
+      context.machineState.memory.set(1, new Uint32(daGas));
       context.machineState.memory.set(2, new Field(addr));
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
@@ -162,8 +162,8 @@ describe('External Calls', () => {
     it('Should cap to available gas if allocated is bigger', async () => {
       const l2GasOffset = 0;
       const daGasOffset = 1;
-      const l2Gas = 1e9;
-      const daGas = 1e9;
+      const l2Gas = 4e9;
+      const daGas = 4e9;
       const addrOffset = 2;
       const addr = new Fr(123456n);
       const argsSize = 0;
@@ -190,8 +190,8 @@ describe('External Calls', () => {
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
-      context.machineState.memory.set(0, new Field(l2Gas));
-      context.machineState.memory.set(1, new Field(daGas));
+      context.machineState.memory.set(0, new Uint32(l2Gas));
+      context.machineState.memory.set(1, new Uint32(daGas));
       context.machineState.memory.set(2, new Field(addr));
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
 
@@ -248,7 +248,7 @@ describe('External Calls', () => {
     it('Should fail if a static call attempts to touch storage', async () => {
       const l2GasOffset = 0;
       const daGasOffset = 1;
-      const gas = [new Field(0n), new Field(0n), new Field(0n)];
+      const gas = [new Uint32(0), new Uint32(0)];
       const addrOffset = 10;
       const addr = new Field(123456n);
       const argsOffset = 20;

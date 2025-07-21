@@ -88,4 +88,4 @@ else
 fi
 
 # Start the Validator Node with the sequencer and archiver
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer --sequencer.validatorPrivateKey="$validator_private_key"
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer --sequencer.validatorPrivateKeys="$validator_private_key"

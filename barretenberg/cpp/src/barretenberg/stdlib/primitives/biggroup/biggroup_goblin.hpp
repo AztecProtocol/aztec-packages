@@ -87,6 +87,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
             out.y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+        out.set_free_witness_tag();
         return out;
     }
 
@@ -97,6 +98,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     {
         this->x.convert_constant_to_fixed_witness(builder);
         this->y.convert_constant_to_fixed_witness(builder);
+        this->unset_free_witness_tag();
     }
 
     void validate_on_curve() const
@@ -116,6 +118,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     static goblin_element point_at_infinity(Builder* ctx)
     {
         Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
+        zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
         goblin_element result(x_fq, y_fq);
@@ -307,13 +310,32 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
-    void set_origin_tag(const OriginTag& tag)
+    void set_origin_tag(const OriginTag& tag) const
     {
         x.set_origin_tag(tag);
         y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
     }
 
+    /**
+     * @brief Set the free witness flag for the goblin element's tags
+     */
+    void set_free_witness_tag()
+    {
+        x.set_free_witness_tag();
+        y.set_free_witness_tag();
+        _is_infinity.set_free_witness_tag();
+    }
+
+    /**
+     * @brief Unset the free witness flag for the goblin element's tags
+     */
+    void unset_free_witness_tag()
+    {
+        x.unset_free_witness_tag();
+        y.unset_free_witness_tag();
+        _is_infinity.unset_free_witness_tag();
+    }
     /**
      * @brief Set the witness indices representing the goblin element to public
      * @details Even though the coordinates of a goblin element are goblin field elements which may be represented using

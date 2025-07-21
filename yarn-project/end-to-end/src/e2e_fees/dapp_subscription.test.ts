@@ -153,10 +153,7 @@ describe('e2e_fees dapp_subscription', () => {
     const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
     const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
 
-    const { transactionFee } = await counterContractViaDappEntrypoint.methods
-      .increment(bobAddress, aliceAddress)
-      .send()
-      .wait();
+    const { transactionFee } = await counterContractViaDappEntrypoint.methods.increment(bobAddress).send().wait();
     expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
 
     await expectMapping(
@@ -180,15 +177,20 @@ describe('e2e_fees dapp_subscription', () => {
   });
 
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     // This authwit is made because the subscription recipient is Bob, so we are approving the contract to send funds
     // to him, on our behalf, as part of the subscription process.
-    const action = bananaCoin.methods.transfer_in_private(aliceAddress, bobAddress, t.SUBSCRIPTION_AMOUNT, nonce);
+    const action = bananaCoin.methods.transfer_in_private(
+      aliceAddress,
+      bobAddress,
+      t.SUBSCRIPTION_AMOUNT,
+      authwitNonce,
+    );
     const witness = await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)
-      .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
+      .methods.subscribe(aliceAddress, authwitNonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
       .send({ authWitnesses: [witness], fee: { paymentMethod } })
       .wait();
   }
@@ -196,7 +198,7 @@ describe('e2e_fees dapp_subscription', () => {
   function dappIncrement() {
     const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
     const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
-    return counterContractViaDappEntrypoint.methods.increment(bobAddress, aliceAddress);
+    return counterContractViaDappEntrypoint.methods.increment(bobAddress);
   }
 
   const expectBananasPrivateDelta = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>

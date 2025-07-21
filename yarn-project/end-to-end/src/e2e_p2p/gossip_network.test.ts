@@ -1,7 +1,9 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, sleep } from '@aztec/aztec.js';
+import { retryUntil, sleep } from '@aztec/aztec.js';
+import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
@@ -10,7 +12,12 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
+import {
+  ATTESTER_PRIVATE_KEYS_START_INDEX,
+  type NodeContext,
+  createNodes,
+  createProverNode,
+} from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
@@ -18,7 +25,7 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 
@@ -39,29 +46,32 @@ const qosAlerts: AlertConfig[] = [
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let proverNode: ProverNode;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_network',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
+      startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+        aztecEpochDuration: 4,
         listenAddress: '127.0.0.1',
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
+    await tryStop(proverNode);
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -91,7 +101,7 @@ describe('e2e_p2p_network', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -99,8 +109,26 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     );
 
+    // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
+    proverNode = await createProverNode(
+      t.ctx.aztecNodeConfig,
+      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
+      t.bootstrapNodeEnr,
+      ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
+      { dateProvider: t.ctx.dateProvider },
+      t.prefilledPublicData,
+      `${DATA_DIR}-prover`,
+      shouldCollectMetrics(),
+    );
+    await proverNode.start();
+
     // wait a bit for peers to discover each other
-    await sleep(4000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
@@ -125,19 +153,29 @@ describe('e2e_p2p_network', () => {
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures
-      .filter(s => !s.isEmpty)
-      .map(sig => new BlockAttestation(new Fr(blockNumber), payload, sig));
-    const signers = attestations.map(att => att.getSender().toString());
+    const attestations = block.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new BlockAttestation(blockNumber, payload, a.signature));
+    const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.map(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddress?.toString(),
+    const validatorAddresses = nodes.flatMap(node =>
+      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
     );
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {
       expect(validatorAddresses).toContain(signer);
     }
+
+    // Ensure prover node did its job and collected txs from p2p
+    await retryUntil(
+      async () => {
+        const provenBlock = await nodes[0].getProvenBlockNumber();
+        return provenBlock > 0;
+      },
+      'proven block',
+      120,
+    );
   });
 });

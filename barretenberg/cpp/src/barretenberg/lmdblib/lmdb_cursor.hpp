@@ -20,6 +20,8 @@ class LMDBCursor {
     ~LMDBCursor();
 
     MDB_cursor* underlying() const;
+    const MDB_dbi& underlying_db() const;
+    MDB_txn* underlying_tx() const;
 
     uint64_t id() const;
 
@@ -29,6 +31,8 @@ class LMDBCursor {
     bool set_at_end() const;
     bool read_next(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const;
     bool read_prev(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const;
+    bool count_until_next(const Key& key, uint64_t& count) const;
+    bool count_until_prev(const Key& key, uint64_t& count) const;
 
   private:
     mutable std::mutex _mtx;

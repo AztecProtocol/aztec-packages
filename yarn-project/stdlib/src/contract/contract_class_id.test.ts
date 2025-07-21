@@ -11,17 +11,11 @@ describe('ContractClass', () => {
         version: 1,
         artifactHash: Fr.fromHexString('0x1234'),
         packedBytecode: Buffer.from('123456789012345678901234567890', 'hex'),
-        privateFunctions: [
-          {
-            selector: FunctionSelector.fromString('0x12345678'),
-            vkHash: Fr.fromHexString('0x1234'),
-          },
-        ],
+        privateFunctions: [{ selector: FunctionSelector.fromString('0x12345678'), vkHash: Fr.fromHexString('0x1234') }],
       };
       const contractClassId = await computeContractClassId(contractClass);
-
       expect(contractClassId.toString()).toMatchInlineSnapshot(
-        `"0x2c3a8b2ad29dd4000cb827e973737bcf57fc072aeaf93ceeef4b4b9eb086cf67"`,
+        `"0x03c206f0f5839a9c98513ad2ad409e47ec0a574a82da6ebffceb8cf2edc592e8"`,
       );
     });
   });

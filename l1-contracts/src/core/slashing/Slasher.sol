@@ -9,8 +9,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 contract Slasher is ISlasher {
   SlashingProposer public immutable PROPOSER;
 
-  event SlashFailed(address target, bytes data, bytes returnData);
-
+  error Slasher__SlashFailed(address target, bytes data, bytes returnData);
   error Slasher__CallerNotProposer(address caller, address proposer); // 0x44c1f74f
 
   constructor(uint256 _n, uint256 _m) {
@@ -25,11 +24,8 @@ contract Slasher is ISlasher {
     IPayload.Action[] memory actions = _payload.getActions();
 
     for (uint256 i = 0; i < actions.length; i++) {
-      // Allow failure of individual calls but emit the failure!
       (bool success, bytes memory returnData) = actions[i].target.call(actions[i].data);
-      if (!success) {
-        emit SlashFailed(actions[i].target, actions[i].data, returnData);
-      }
+      require(success, Slasher__SlashFailed(actions[i].target, actions[i].data, returnData));
     }
 
     return true;

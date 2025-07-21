@@ -16,6 +16,10 @@ std::vector<FF> random_fields(size_t n);
 
 // WARNING: Cryptographically insecure randomness routines for testing purposes only.
 std::vector<uint8_t> random_bytes(size_t n);
+
+std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n);
+std::vector<PublicCallRequestWithCalldata> random_enqueued_calls(size_t n);
+
 simulation::Operand random_operand(simulation::OperandType operand_type);
 
 // This generates a random instruction for a given wire opcode. The output will conform to

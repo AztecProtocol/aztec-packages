@@ -1,44 +1,51 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
+import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
+import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import type { AztecNode, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverNodeConfig, resolveConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import type { TxSource } from './prover-coordination/combined-prover-coordination.js';
-import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode } from './prover-node.js';
+
+export type ProverNodeDeps = {
+  telemetry?: TelemetryClient;
+  log?: Logger;
+  aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
+  archiver?: Archiver;
+  publisher?: ProverNodePublisher;
+  blobSinkClient?: BlobSinkClientInterface;
+  broker?: ProvingJobBroker;
+  l1TxUtils?: L1TxUtils;
+  dateProvider?: DateProvider;
+};
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
   userConfig: ProverNodeConfig & DataStoreConfig,
-  deps: {
-    telemetry?: TelemetryClient;
-    log?: Logger;
-    aztecNodeTxProvider?: TxSource;
-    archiver?: Archiver;
-    publisher?: ProverNodePublisher;
-    blobSinkClient?: BlobSinkClientInterface;
-    broker?: ProvingJobBroker;
-    l1TxUtils?: L1TxUtils;
-  } = {},
+  deps: ProverNodeDeps = {},
   options: {
     prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
 ) {
   const config = resolveConfig(userConfig);
   const telemetry = deps.telemetry ?? getTelemetryClient();
+  const dateProvider = deps.dateProvider ?? new DateProvider();
   const blobSinkClient =
     deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('prover-node:blob-sink:client') });
   const log = deps.log ?? createLogger('prover-node');
@@ -62,7 +69,7 @@ export async function createProverNode(
 
   const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
   const chain = createEthereumChain(rpcUrls, chainId);
-  const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey, chain.chainInfo);
+  const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
 
   const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
 
@@ -71,15 +78,29 @@ export async function createProverNode(
 
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
 
-  // If config.p2pEnabled is true, createProverCoordination will create a p2p client where txs are requested
-  // If config.proverCoordinationNodeUrls is not empty, createProverCoordination will create set of aztec node clients from which txs are requested
-  const proverCoordination = await createProverCoordination(config, {
-    aztecNodeTxProvider: deps.aztecNodeTxProvider,
-    worldStateSynchronizer,
+  const proofVerifier = new QueuedIVCVerifier(
+    config,
+    config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier(),
+  );
+
+  const p2pClient = await createP2PClient(
+    P2PClientType.Prover,
+    config,
     archiver,
+    proofVerifier,
+    worldStateSynchronizer,
     epochCache,
+    getPackageVersion() ?? '',
+    dateProvider,
     telemetry,
-  });
+    {
+      txCollectionNodeSources: deps.aztecNodeTxProvider
+        ? [new NodeRpcTxSource(deps.aztecNodeTxProvider, 'TestNode')]
+        : [],
+    },
+  );
+
+  await p2pClient.start();
 
   const proverNodeConfig = {
     ...pick(
@@ -110,7 +131,7 @@ export async function createProverNode(
     archiver,
     archiver,
     worldStateSynchronizer,
-    proverCoordination,
+    p2pClient,
     epochMonitor,
     proverNodeConfig,
     telemetry,

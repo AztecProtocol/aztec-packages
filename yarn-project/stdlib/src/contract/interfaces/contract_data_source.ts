@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/fields';
 
 import type { FunctionSelector } from '../../abi/index.js';
 import type { AztecAddress } from '../../aztec-address/index.js';
+import type { UInt64 } from '../../types/shared.js';
 import type { ContractClassPublic } from './contract_class.js';
 import type { ContractInstanceWithAddress } from './contract_instance.js';
 
@@ -23,9 +24,11 @@ export interface ContractDataSource {
   /**
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
-   * @param blockNumber - Block number at which to retrieve the contract instance. If not provided, the latest block should be used.
+   * @param timestamp - Timestamp at which to retrieve the contract instance. If not provided, the latest block should
+   * be used.
+   * TODO(#15170): Fix the implementations ignoring the timestamp param and make timestamp required.
    */
-  getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined>;
+  getContract(address: AztecAddress, timestamp?: UInt64): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns the list of all class ids known.
@@ -34,6 +37,7 @@ export interface ContractDataSource {
 
   /** Returns a function's name. It's only available if provided by calling `registerContractFunctionSignatures`. */
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+
   /** Registers a function names. Useful for debugging. */
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
+  registerContractFunctionSignatures(signatures: string[]): Promise<void>;
 }

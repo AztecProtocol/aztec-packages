@@ -5,6 +5,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 
 /**
  * @title NewGovernanceProposerPayload
@@ -15,9 +16,9 @@ contract NewGovernanceProposerPayload is IPayload {
   IRegistry public immutable REGISTRY;
   address public immutable NEW_GOVERNANCE_PROPOSER;
 
-  constructor(IRegistry _registry) {
+  constructor(IRegistry _registry, IGSE _gse) {
     REGISTRY = _registry;
-    NEW_GOVERNANCE_PROPOSER = address(new GovernanceProposer(_registry, 667, 1000));
+    NEW_GOVERNANCE_PROPOSER = address(new GovernanceProposer(_registry, _gse, 667, 1000));
   }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {

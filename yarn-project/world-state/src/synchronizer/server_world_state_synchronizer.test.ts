@@ -1,10 +1,9 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+import { SHA256Trunc, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
-import { SHA256Trunc } from '@aztec/merkle-tree';
 import { L2Block, type L2BlockSource, type L2BlockStream, type PublishedL2Block } from '@aztec/stdlib/block';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -23,7 +22,7 @@ describe('ServerWorldStateSynchronizer', () => {
   let log: Logger;
 
   let l1ToL2Messages: Fr[];
-  let inHash: Buffer;
+  let inHash: Fr;
 
   let blockAndMessagesSource: MockProxy<L2BlockSource & L1ToL2MessageSource>;
   let merkleTreeDb: MockProxy<MerkleTreeAdminDatabase>;
@@ -45,7 +44,7 @@ describe('ServerWorldStateSynchronizer', () => {
     const calculator = await MerkleTreeCalculator.create(L1_TO_L2_MSG_SUBTREE_HEIGHT, Buffer.alloc(32), (lhs, rhs) =>
       Promise.resolve(new SHA256Trunc().hash(lhs, rhs)),
     );
-    inHash = await calculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    inHash = new Fr(await calculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
   });
 
   beforeEach(() => {

@@ -66,8 +66,10 @@ spec:
             # Key generation
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
-            - name: NUMBER_OF_VALIDATORS
+            - name: NUMBER_OF_VALIDATOR_NODES
               value: {{ .Values.validator.replicas | quote }}
+            - name: VALIDATORS_PER_NODE
+              value: {{ .Values.validator.keysPerNode | quote }}
 
             # Deployment
             - name: ACCELERATED_TEST_DEPLOYMENTS
@@ -92,6 +94,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_TARGET_COMMITTEE_SIZE
+              value: "{{ (mul .Values.validator.keysPerNode .Values.validator.replicas) | toString }}"
             - name: AZTEC_PROOF_SUBMISSION_WINDOW
               value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: L1_GAS_PRICE_MAX

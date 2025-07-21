@@ -37,8 +37,6 @@ export const BlobscanBlockResponseSchema = z
           blob: blob.data,
           // eslint-disable-next-line camelcase
           kzg_commitment: blob.commitment,
-          // eslint-disable-next-line camelcase
-          kzg_proof: blob.proof,
         })),
       )
       .map((blob, index) => ({ ...blob, index: index.toString() })),

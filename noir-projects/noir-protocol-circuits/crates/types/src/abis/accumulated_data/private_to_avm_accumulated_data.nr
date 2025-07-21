@@ -1,17 +1,21 @@
-use crate::constants::{
-    MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-    NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS, PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
-};
 use crate::{
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_length, reader::Reader},
+    abis::side_effect::scoped::Scoped,
+    address::{AztecAddress, EthAddress},
+    constants::{
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS, PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
+    },
+    messaging::l2_to_l1_message::L2ToL1Message,
+    traits::{Deserialize, Empty, FromField, Serialize},
+    utils::arrays::array_length,
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PrivateToAvmAccumulatedData {
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
-    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub l2_to_l1_msgs: [Scoped<L2ToL1Message>; MAX_L2_TO_L1_MSGS_PER_TX],
 }
 
 impl Empty for PrivateToAvmAccumulatedData {
@@ -19,55 +23,12 @@ impl Empty for PrivateToAvmAccumulatedData {
         PrivateToAvmAccumulatedData {
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
-            l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+            l2_to_l1_msgs: [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
         }
     }
 }
 
-impl Eq for PrivateToAvmAccumulatedData {
-    fn eq(self, other: Self) -> bool {
-        (self.note_hashes == other.note_hashes)
-            & (self.nullifiers == other.nullifiers)
-            & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-    }
-}
-
-impl Serialize<PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH> for PrivateToAvmAccumulatedData {
-    fn serialize(self) -> [Field; PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH> =
-            BoundedVec::new();
-
-        fields.extend_from_array(self.note_hashes);
-        fields.extend_from_array(self.nullifiers);
-        for i in 0..self.l2_to_l1_msgs.len() {
-            fields.extend_from_array(self.l2_to_l1_msgs[i].serialize());
-        }
-
-        assert_eq(fields.len(), PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH);
-
-        fields.storage()
-    }
-}
-
-impl Deserialize<PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH> for PrivateToAvmAccumulatedData {
-    fn deserialize(
-        fields: [Field; PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH],
-    ) -> PrivateToAvmAccumulatedData {
-        let mut reader = Reader::new(fields);
-
-        let item = PrivateToAvmAccumulatedData {
-            note_hashes: reader.read_array(),
-            nullifiers: reader.read_array(),
-            l2_to_l1_msgs: reader.read_struct_array(
-                ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
-            ),
-        };
-        reader.finish();
-        item
-    }
-}
-
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PrivateToAvmAccumulatedDataArrayLengths {
     pub note_hashes: u32,
     pub nullifiers: u32,
@@ -90,48 +51,36 @@ impl Empty for PrivateToAvmAccumulatedDataArrayLengths {
     }
 }
 
-impl Eq for PrivateToAvmAccumulatedDataArrayLengths {
-    fn eq(self, other: Self) -> bool {
-        (self.note_hashes == other.note_hashes)
-            & (self.nullifiers == other.nullifiers)
-            & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-    }
-}
+#[test]
+fn serialization_of_private_to_avm_accumulated_data() {
+    let mut note_hashes = [0; MAX_NOTE_HASHES_PER_TX];
+    note_hashes[0] = 123;
+    note_hashes[1] = 456;
 
-impl Serialize<NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS> for PrivateToAvmAccumulatedDataArrayLengths {
-    fn serialize(self) -> [Field; NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS] {
-        let mut fields: BoundedVec<Field, NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS> =
-            BoundedVec::new();
+    let mut nullifiers = [0; MAX_NULLIFIERS_PER_TX];
+    nullifiers[0] = 789;
 
-        fields.push(self.note_hashes as Field);
-        fields.push(self.nullifiers as Field);
-        fields.push(self.l2_to_l1_msgs as Field);
+    let mut l2_to_l1_msgs: [Scoped<L2ToL1Message>; 8] = [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX];
+    l2_to_l1_msgs[0] = L2ToL1Message { recipient: EthAddress::from_field(123), content: 456 }.scope(
+        AztecAddress::from_field(789),
+    );
 
-        fields.storage()
-    }
-}
+    let item = PrivateToAvmAccumulatedData { note_hashes, nullifiers, l2_to_l1_msgs };
 
-impl Deserialize<NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS> for PrivateToAvmAccumulatedDataArrayLengths {
-    fn deserialize(
-        fields: [Field; NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS],
-    ) -> PrivateToAvmAccumulatedDataArrayLengths {
-        let mut reader = Reader::new(fields);
-
-        let item = Self {
-            note_hashes: reader.read_u32(),
-            nullifiers: reader.read_u32(),
-            l2_to_l1_msgs: reader.read_u32(),
-        };
-
-        reader.finish();
-        item
-    }
+    // We use the PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH] = item.serialize();
+    let deserialized = PrivateToAvmAccumulatedData::deserialize(serialized);
+    assert_eq(item, deserialized);
 }
 
 #[test]
-fn serialization_of_empty_private_to_public_accumulated_data() {
-    let item = PrivateToAvmAccumulatedData::empty();
-    let serialized = item.serialize();
-    let deserialized = PrivateToAvmAccumulatedData::deserialize(serialized);
+fn serialization_of_private_to_avm_accumulated_data_array_lengths() {
+    let item =
+        PrivateToAvmAccumulatedDataArrayLengths { note_hashes: 2, nullifiers: 1, l2_to_l1_msgs: 1 };
+    // We use the NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS] = item.serialize();
+    let deserialized = PrivateToAvmAccumulatedDataArrayLengths::deserialize(serialized);
     assert_eq(item, deserialized);
 }

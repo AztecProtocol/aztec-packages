@@ -1,3 +1,4 @@
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -55,7 +56,7 @@ class WorkerClientManager {
     return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
-      peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
+      peerIdPrivateKey: new SecretValue(this.peerIdPrivateKeys[clientIndex]),
       listenAddress: '127.0.0.1',
       p2pIp: '127.0.0.1',
       p2pPort: port,

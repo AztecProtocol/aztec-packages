@@ -12,6 +12,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
+import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
 describe('Public Processor app tests: TokenContract', () => {
@@ -33,12 +34,13 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
-    const simulator = new PublicTxSimulator(merkleTrees, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
       globals,
-      merkleTrees,
+      guardedMerkleTrees,
       contractsDB,
       simulator,
       new TestDateProvider(),
@@ -57,7 +59,7 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const mintAmount = 1_000_000n;
     const transferAmount = 10n;
-    const nonce = new Fr(0);
+    const authwitNonce = new Fr(0);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
 
@@ -97,7 +99,7 @@ describe('Public Processor app tests: TokenContract', () => {
             {
               address: token.address,
               fnName: 'transfer_in_public',
-              args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+              args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
             },
           ],
         ),

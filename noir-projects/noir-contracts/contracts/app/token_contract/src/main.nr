@@ -14,34 +14,27 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Token {
     // Libs
-    use std::{meta::derive, ops::{Add, Sub}};
+    use std::ops::{Add, Sub};
 
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        context::{PrivateCallInterface, PrivateContext},
-        event::event_interface::EventInterface,
+        context::{PrivateCallInterface, PrivateContext, PublicContext},
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
-            functions::{initializer, internal, private, public, utility, view},
+            functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::{
-            event::encode_and_encrypt_event_unconstrained,
-            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        },
-        prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
-        protocol_types::traits::Serialize,
+        messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
+        state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
-    use aztec::protocol_types::traits::ToField;
+    use aztec::protocol_types::{address::AztecAddress, traits::ToField};
 
     // docs:start:import_authwit
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-        compute_authwit_nullifier,
-    };
+    use aztec::authwit::auth::compute_authwit_nullifier;
     // docs:end:import_authwit
 
     use crate::types::balance_set::BalanceSet;
@@ -57,7 +50,6 @@ pub contract Token {
     // an overall small circuit regardless.
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
-    #[derive(Serialize)]
     #[event]
     struct Transfer {
         from: AztecAddress,
@@ -206,13 +198,14 @@ pub contract Token {
     // docs:end:mint_to_public
 
     // docs:start:transfer_in_public
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
-    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+    fn transfer_in_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
         let to_balance = storage.public_balances.at(to).read().add(amount);
@@ -221,15 +214,11 @@ pub contract Token {
     // docs:end:transfer_in_public
 
     // docs:start:burn_public
+    // docs:start:authorize_once_public
+    #[authorize_once("from", "authwit_nonce")]
+    // docs:end:authorize_once_public
     #[public]
-    fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
-        // docs:start:assert_current_call_valid_authwit_public
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-        // docs:end:assert_current_call_valid_authwit_public
+    fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
         let new_supply = storage.total_supply.read().sub(amount);
@@ -238,22 +227,47 @@ pub contract Token {
     // docs:end:burn_public
 
     // docs:start:transfer_to_public
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
-    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+    fn transfer_to_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
     // docs:end:transfer_to_public
+
+    /// Transfers tokens from private balance of `from` to public balance of `to` and prepares a partial note for
+    /// receiving change for `from`.
+    ///
+    /// This is an optimization that combines two operations into one to reduce contract calls:
+    /// 1. Transfers `amount` tokens from `from`'s private balance to `to`'s public balance
+    /// 2. Creates a partial note that can later be used to receive change back to `from`'s private balance
+    ///
+    /// This pattern is useful when interacting with contracts that:
+    /// - Receive tokens from a user's private balance
+    /// - Need to wait until public execution to determine how many tokens to return (e.g. AMM, FPC)
+    /// - Will return tokens to the user's private balance
+    ///
+    /// The contract can use the returned partial note to complete the transfer back to private
+    /// once the final amount is known during public execution.
+    #[authorize_once("from", "authwit_nonce")]
+    #[private]
+    fn transfer_to_public_and_prepare_private_balance_increase(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) -> PartialUintNote {
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
+
+        // We prepare the private balance increase (the partial note for the change).
+        _prepare_private_balance_increase(from, &mut context, storage)
+    }
 
     // docs:start:transfer
     #[private]
@@ -276,12 +290,10 @@ pub contract Token {
         storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
-            from,
         ));
         storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             to,
-            from,
         ));
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
@@ -289,11 +301,12 @@ pub contract Token {
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         // docs:start:encrypted_unconstrained
-        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        emit_event_in_private_log(
+            Transfer { from, to, amount },
             &mut context,
             to,
-            from,
-        ));
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
         // docs:end:encrypted_unconstrained
     }
     // docs:end:transfer
@@ -361,40 +374,28 @@ pub contract Token {
     // docs:end:cancel_authwit
 
     // docs:start:transfer_in_private
+    // docs:start:authorize_once
+    #[authorize_once("from", "authwit_nonce")]
+    // docs:end:authorize_once
     #[private]
-    fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
-        // docs:start:assert_current_call_valid_authwit
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-        // docs:end:assert_current_call_valid_authwit
-
+    fn transfer_in_private(
+        from: AztecAddress,
+        to: AztecAddress,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
         // docs:start:increase_private_balance
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
         // docs:end:increase_private_balance
-        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to, from));
+        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to));
     }
     // docs:end:transfer_in_private
 
     // docs:start:burn_private
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
-    fn burn_private(from: AztecAddress, amount: u128, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+    fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
     // docs:end:burn_private
@@ -408,7 +409,7 @@ pub contract Token {
         let token = Token::at(context.this_address());
 
         // We prepare the private balance increase (the partial note).
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
@@ -421,20 +422,20 @@ pub contract Token {
     /// some of the finalization functions (`finalize_transfer_to_private`, `finalize_mint_to_private`) with the
     /// returned partial note.
     #[private]
-    fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> PartialUintNote {
-        // ideally we'd not have `from` here, but we do need a `from` address to produce a tagging secret with `to`.
-        _prepare_private_balance_increase(from, to, &mut context, storage)
+    fn prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
+        _prepare_private_balance_increase(to, &mut context, storage)
     }
     // docs:end:prepare_private_balance_increase
 
     /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
-    /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration.
+    /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration. Note
+    /// that in this case we don't pass `completer` as an argument to this function because in all the callsites we
+    /// want to use the message sender as the completer anyway.
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
     #[contract_library_method]
     fn _prepare_private_balance_increase(
-        from: AztecAddress, // sender of the tag
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -444,22 +445,8 @@ pub contract Token {
             storage.balances.at(to).set.storage_slot,
             context,
             to,
-            from,
+            context.msg_sender(),
         );
-
-        // We can't simply return the partial note because we won't be able to later on verify that it was created
-        // correctly (e.g. that the storage slot corresponds to the owner, and that we're using the balance set and not
-        // a different one) once this information is hidden in the partial note commitment. We also want to verify that
-        // only the caller of this function can complete the partial note.
-        //
-        // We achieve the above by storing a flag in public storage under a slot index equal to its
-        // `validity_commitment`. This commitment contains all the necessary information to verify the completer and
-        // to validate the partial note.
-        let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
-
-        Token::at(context.this_address())
-            ._set_uint_partial_note_validity(validity_commitment)
-            .enqueue(context);
 
         partial_note
     }
@@ -487,6 +474,28 @@ pub contract Token {
         );
     }
     // docs:end:finalize_transfer_to_private
+
+    /// Finalizes a transfer of token `amount` from private balance of `from` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` from `from` account and
+    /// the resulting `partial_note` must be passed as an argument to this function.
+    ///
+    /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
+    /// to find the pending partial note when trying to complete it).
+    #[authorize_once("from", "authwit_nonce")]
+    #[private]
+    fn finalize_transfer_to_private_from_private(
+        from: AztecAddress,
+        partial_note: PartialUintNote,
+        amount: u128,
+        authwit_nonce: Field,
+    ) {
+        // First we subtract the `amount` from the private balance of `from`
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+
+        partial_note.complete_from_private(&mut context, context.msg_sender(), amount);
+    }
 
     // docs:start:finalize_transfer_to_private_unsafe
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
@@ -524,33 +533,19 @@ pub contract Token {
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
         storage.public_balances.at(from_and_completer).write(from_balance);
 
-        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
-        // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
-        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
-        // make the transaction be more expensive. We don't worry about the validity commitment being checked against
-        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
-        // docs of `finalize_transfer_to_private`).
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, from_and_completer, amount);
     }
 
     // docs:start:mint_to_private
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
     /// in the enqueued call).
     #[private]
-    fn mint_to_private(
-        // TODO(benesjan): This allows minter to set arbitrary `from`. That seems undesirable. Will nuke it in a followup PR.
-        from: AztecAddress, // sender of the tag
-        to: AztecAddress,
-        amount: u128,
-    ) {
+    fn mint_to_private(to: AztecAddress, amount: u128) {
         let token = Token::at(context.this_address());
 
         // We prepare the partial note to which we'll "send" the minted amount.
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set
         // the `minter_and_completer` function argument to a message sender, guaranteeing that only a message sender
@@ -621,25 +616,8 @@ pub contract Token {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
 
-        // We verify that the partial note we're completing is valid (i.e. it uses the correct state variable's storage
-        // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
-        // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
-        // expensive.
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
-    }
-
-    #[public]
-    #[internal]
-    fn _set_uint_partial_note_validity(validity_commitment: Field) {
-        // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
-        // the commitment is computed using a generator different from the one used to compute storage slots, so there
-        // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
-        // this is pointless: all we need to verify is that the note is valid.
-        context.storage_write(validity_commitment, true);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, completer, amount);
     }
 
     /// Internal ///

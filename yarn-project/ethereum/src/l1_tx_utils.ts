@@ -2,6 +2,7 @@ import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -9,7 +10,9 @@ import {
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
+import pickBy from 'lodash.pickby';
 import {
   type Abi,
   type Account,
@@ -23,6 +26,7 @@ import {
   MethodNotSupportedRpcError,
   type StateOverride,
   type TransactionReceipt,
+  decodeErrorResult,
   formatGwei,
   getContractError,
   hexToBytes,
@@ -97,6 +101,10 @@ export interface L1TxUtilsConfig {
    * First attempt is done at 1s, second at 2s, third at 3s, etc.
    */
   txPropagationMaxQueryAttempts?: number;
+  /**
+   * Whether to attempt to cancel a tx if it's not mined after txTimeoutMs
+   */
+  cancelTxOnTimeout?: boolean;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -143,17 +151,22 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   stallTimeMs: {
     description: 'How long before considering tx stalled',
     env: 'L1_TX_MONITOR_STALL_TIME_MS',
-    ...numberConfigHelper(45_000),
+    ...numberConfigHelper(24_000), // 24s, 2 ethereum slots
   },
   txTimeoutMs: {
     description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',
     env: 'L1_TX_MONITOR_TX_TIMEOUT_MS',
-    ...numberConfigHelper(300_000), // 5 mins
+    ...numberConfigHelper(120_000), // 2 mins
   },
   txPropagationMaxQueryAttempts: {
     description: 'How many attempts will be done to get a tx after it was sent',
     env: 'L1_TX_PROPAGATION_MAX_QUERY_ATTEMPTS',
     ...numberConfigHelper(3),
+  },
+  cancelTxOnTimeout: {
+    description: "Whether to attempt to cancel a tx if it's not mined after txTimeoutMs",
+    env: 'L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT',
+    ...booleanConfigHelper(true),
   },
 };
 
@@ -451,12 +464,13 @@ export class ReadOnlyL1TxUtils {
     }
   }
 
-  public async simulateGasUsed(
+  public async simulate(
     request: L1TxRequest & { gas?: bigint; from?: Hex },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
+    abi: Abi = RollupAbi,
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
-  ): Promise<bigint> {
+  ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const gasConfig = { ...this.config, ..._gasConfig };
 
     const call: any = {
@@ -465,7 +479,7 @@ export class ReadOnlyL1TxUtils {
       ...(request.from && { from: request.from }),
     };
 
-    return await this._simulate(call, blockOverrides, stateOverrides, gasConfig);
+    return await this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }
 
   protected async _simulate(
@@ -473,10 +487,11 @@ export class ReadOnlyL1TxUtils {
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     gasConfig: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
+    abi: Abi,
   ) {
     try {
       const result = await this.client.simulateBlocks({
-        validation: true,
+        validation: false,
         blocks: [
           {
             blockOverrides,
@@ -486,23 +501,23 @@ export class ReadOnlyL1TxUtils {
         ],
       });
 
-      this.logger?.debug(`L1 gas used in simulation: ${result[0].calls[0].gasUsed}`, {
-        result,
-      });
       if (result[0].calls[0].status === 'failure') {
-        this.logger?.error('L1 transaction Simulation failed', {
-          error: result[0].calls[0].error,
-        });
-        throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
+        this.logger?.error('L1 transaction simulation failed', result[0].calls[0].error);
+        const decodedError = decodeErrorResult({ abi, data: result[0].calls[0].data });
+
+        throw new Error(
+          `L1 transaction simulation failed with error ${decodedError.errorName}(${decodedError.args?.join(',')})`,
+        );
       }
-      return result[0].gasUsed;
+      this.logger?.debug(`L1 transaction simulation succeeded`, { ...result[0].calls[0] });
+      return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
             `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
           );
-          return gasConfig.fallbackGasEstimate;
+          return { gasUsed: gasConfig.fallbackGasEstimate, result: '0x' as `0x${string}` };
         }
         this.logger?.error('Node does not support eth_simulateV1 API');
       }
@@ -512,7 +527,11 @@ export class ReadOnlyL1TxUtils {
 
   public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
     const gasConfig = { ...this.config, ..._gasConfig };
-    return gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+    const bumpedGasLimit = gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+
+    const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
+    this.logger?.debug('Bumping gas limit', { gasLimit, gasConfig: cleanGasConfig, bumpedGasLimit });
+    return bumpedGasLimit;
   }
 }
 
@@ -560,8 +579,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
-        gasLimit = await this.estimateGas(account, request);
+        gasLimit = await this.estimateGas(account, request, gasConfig);
       }
+
+      this.logger?.debug('Gas limit', { gasLimit });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
@@ -587,10 +608,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         });
       }
+      const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
       this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
         gasLimit,
         maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
+        gasConfig: cleanGasConfig,
         ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
       });
 
@@ -735,7 +758,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             },
           );
 
-          currentTxHash = await this.client.sendTransaction({
+          const newHash = await this.client.sendTransaction({
             ...request,
             ...blobInputs,
             nonce,
@@ -743,6 +766,17 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             maxFeePerGas: newGasPrice.maxFeePerGas,
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
           });
+
+          const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
+          this.logger?.verbose(`Sent L1 speed-up tx ${newHash}, replacing ${currentTxHash}`, {
+            gasLimit: params.gasLimit,
+            maxFeePerGas: formatGwei(newGasPrice.maxFeePerGas),
+            maxPriorityFeePerGas: formatGwei(newGasPrice.maxPriorityFeePerGas),
+            gasConfig: cleanGasConfig,
+            ...(newGasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newGasPrice.maxFeePerBlobGas) }),
+          });
+
+          currentTxHash = newHash;
 
           txHashes.add(currentTxHash);
           lastAttemptSent = Date.now();
@@ -760,18 +794,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       txTimedOut = isTimedOut();
     }
 
-    if (!isCancelTx) {
+    if (!isCancelTx && gasConfig.cancelTxOnTimeout) {
       // Fire cancellation without awaiting to avoid blocking the main thread
-      this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
-        .then(cancelTxHash => {
-          this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
-        })
-        .catch(err => {
-          const viemError = formatViemError(err);
-          this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
-            metaMessages: viemError.metaMessages,
-          });
+      this.attemptTxCancellation(currentTxHash, nonce, isBlobTx, lastGasPrice, attempts).catch(err => {
+        const viemError = formatViemError(err);
+        this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
+          metaMessages: viemError.metaMessages,
         });
+      });
 
       this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
         txHash: currentTxHash,
@@ -797,18 +827,18 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return { receipt, gasPrice };
   }
 
-  public override async simulateGasUsed(
+  public override async simulate(
     request: L1TxRequest & { gas?: bigint; from?: Hex },
-    blockOverrides: BlockOverrides<bigint, number> = {},
+    _blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
-    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
-  ): Promise<bigint> {
+    abi: Abi = RollupAbi,
+    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint; ignoreBlockGasLimit?: boolean },
+  ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
+    const blockOverrides = { ..._blockOverrides };
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
-    const nonce = await this.client.getTransactionCount({ address: this.client.account.address });
 
     const call: any = {
-      nonce,
       to: request.to!,
       data: request.data,
       from: request.from ?? this.client.account.address,
@@ -817,7 +847,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       gas: request.gas ?? LARGE_GAS_LIMIT,
     };
 
-    return this._simulate(call, blockOverrides, stateOverrides, gasConfig);
+    if (!request.gas && !gasConfig.ignoreBlockGasLimit) {
+      // LARGE_GAS_LIMIT is set as call.gas, increase block gasLimit
+      blockOverrides.gasLimit = LARGE_GAS_LIMIT * 2n;
+    }
+
+    return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }
 
   /**
@@ -827,7 +862,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+  protected async attemptTxCancellation(
+    currentTxHash: Hex,
+    nonce: number,
+    isBlobTx = false,
+    previousGasPrice?: GasPrice,
+    attempts = 0,
+  ) {
     if (isBlobTx) {
       throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
     }
@@ -846,7 +887,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.debug(`Attempting to cancel transaction with nonce ${nonce}`, {
+    this.logger?.debug(`Attempting to cancel L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
@@ -863,6 +904,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxFeePerGas: cancelGasPrice.maxFeePerGas,
       maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
     });
+
+    this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
+
     const receipt = await this.monitorTransaction(
       request,
       cancelTxHash,

@@ -2,19 +2,18 @@ import { z } from 'zod';
 
 import type { ApiSchemaFor } from '../schemas/index.js';
 
+export const ProverAgentStatusSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('stopped') }),
+  z.object({ status: z.literal('running') }),
+  z.object({ status: z.literal('proving'), jobId: z.string(), proofType: z.number(), startedAtISO: z.string() }),
+]);
+
+export type ProverAgentStatus = z.infer<typeof ProverAgentStatusSchema>;
+
 export interface ProverAgentApi {
-  setMaxConcurrency(maxConcurrency: number): Promise<void>;
-
-  isRunning(): Promise<boolean>;
-
-  getCurrentJobs(): Promise<{ id: string; type: string }[]>;
+  getStatus(): Promise<unknown>;
 }
 
 export const ProverAgentApiSchema: ApiSchemaFor<ProverAgentApi> = {
-  setMaxConcurrency: z.function().args(z.number().min(1).int()).returns(z.void()),
-  isRunning: z.function().args().returns(z.boolean()),
-  getCurrentJobs: z
-    .function()
-    .args()
-    .returns(z.array(z.object({ id: z.string(), type: z.string() }))),
+  getStatus: z.function().args().returns(ProverAgentStatusSchema),
 };

@@ -1,0 +1,9 @@
+[package]
+name = "offchain_effect_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+uint_note = { path = "../../../../aztec-nr/uint-note" }

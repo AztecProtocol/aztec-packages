@@ -1,12 +1,9 @@
-use crate::{
-    macros::{
-        dispatch::generate_public_dispatch,
-        functions::{stub_registry, utils::check_each_fn_macroified},
-        notes::{generate_note_export, NOTES},
-        storage::STORAGE_LAYOUT_NAME,
-        utils::{get_trait_impl_method, module_has_storage},
-    },
-    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
+use crate::macros::{
+    dispatch::generate_public_dispatch,
+    functions::{stub_registry, utils::check_each_fn_macroified},
+    notes::NOTES,
+    storage::STORAGE_LAYOUT_NAME,
+    utils::{get_trait_impl_method, module_has_storage},
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
@@ -19,18 +16,34 @@ pub comptime fn aztec(m: Module) -> Quoted {
     // allowed in contracts.
     check_each_fn_macroified(m);
 
-    let contract_library_method_compute_note_hash_and_nullifier =
-        generate_contract_library_method_compute_note_hash_and_nullifier();
-    let note_exports = generate_note_exports();
+    // We generate `_compute_note_hash_and_nullifier`, `sync_private_state` and `process_message`
+    // functions only if they are not already implemented. If they are implemented we just insert empty
+    // quotes.
+    let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
+        f.name() == quote { _compute_note_hash_and_nullifier }
+    }) {
+        generate_contract_library_method_compute_note_hash_and_nullifier()
+    } else {
+        quote {}
+    };
+    let sync_private_state = if !m.functions().any(|f| f.name() == quote { sync_private_state }) {
+        generate_sync_private_state()
+    } else {
+        quote {}
+    };
+    let process_message = if !m.functions().any(|f| f.name() == quote { process_message }) {
+        generate_process_message()
+    } else {
+        quote {}
+    };
     let public_dispatch = generate_public_dispatch(m);
-    let sync_private_state = generate_sync_private_state();
 
     quote {
-        $note_exports
         $interface
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
         $sync_private_state
+        $process_message
     }
 }
 
@@ -109,23 +122,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     let notes = NOTES.entries();
 
     if notes.len() > 0 {
-        let max_note_packed_len = notes.fold(
-            0,
-            |acc, (_, (_, len, _, _)): (Type, (TypeDefinition, u32, Field, [(Quoted, u32, bool)]))| {
-                if len > acc {
-                    len
-                } else {
-                    acc
-                }
-            },
-        );
-
-        if max_note_packed_len > MAX_NOTE_PACKED_LEN {
-            panic(
-                f"One of the notes has packed len {max_note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
-            );
-        }
-
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
         // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
@@ -133,7 +129,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
         let mut if_note_type_id_match_statements_list = &[];
         for i in 0..notes.len() {
-            let (typ, (_, packed_note_length, _, _)) = notes[i];
+            let (typ, packed_note_length) = notes[i];
 
             let get_note_type_id = get_trait_impl_method(
                 typ,
@@ -183,12 +179,12 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
-                        // nullification note hash by treating the note as a settled note with the provided nonce.
+                        // nullification note hash by treating the note as a settled note with the provided note nonce.
                         let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
                             aztec::note::retrieved_note::RetrievedNote{ 
                                 note, 
                                 contract_address, 
-                                metadata: aztec::note::note_metadata::SettledNoteMetadata::new(nonce).into() 
+                                metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
                             }, 
                             storage_slot,
                         );
@@ -210,7 +206,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
         quote {
             /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash
             /// (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash
-            /// tree with `nonce`.
+            /// tree with `note_nonce`.
             ///
             /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_messages`, 
@@ -223,7 +219,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 storage_slot: Field,
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
-                nonce: Field,
+                note_nonce: Field,
             ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
                 else {
@@ -253,17 +249,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
-comptime fn generate_note_exports() -> Quoted {
-    let notes = NOTES.values();
-    // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
-    // generating partial note helper functions.
-    notes
-        .map(|(s, _, note_type_id, fields): (TypeDefinition, u32, Field, [(Quoted, u32, bool)])| {
-            generate_note_export(s, note_type_id, fields)
-        })
-        .join(quote {})
-}
-
 comptime fn generate_sync_private_state() -> Quoted {
     // We obtain the `utility` function on the next line instead of directly doing
     // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
@@ -276,6 +261,30 @@ comptime fn generate_sync_private_state() -> Quoted {
     quote {
         #[$utility]
         unconstrained fn sync_private_state() {
+        }
+    }
+}
+
+comptime fn generate_process_message() -> Quoted {
+    // We obtain the `utility` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
+    let utility = crate::macros::functions::utility;
+
+    // TODO(#15012): Here we use PRIVATE_LOG_CIPHERTEXT_LEN for message ciphertext length. Fix message vs log naming.
+    quote {
+        #[$utility]
+        unconstrained fn process_message(
+            message_ciphertext: BoundedVec<Field, aztec::protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN>,
+            message_context: aztec::messages::processing::message_context::MessageContext,
+        ) {
+            aztec::messages::discovery::process_message::do_process_message(
+                context.this_address(),
+                _compute_note_hash_and_nullifier,
+                message_ciphertext,
+                message_context,
+            );
         }
     }
 }

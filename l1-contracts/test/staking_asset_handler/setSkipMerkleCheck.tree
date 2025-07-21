@@ -1,0 +1,6 @@
+SetSkipMerkleCheck
+├── when caller of setSkipMerkleCheck is not owner
+│   └── it reverts
+└── when caller of setSkipMerkleCheck is owner
+    ├── it sets the skip merkle check
+    └── it emits a {SkipMerkleCheckUpdated} event

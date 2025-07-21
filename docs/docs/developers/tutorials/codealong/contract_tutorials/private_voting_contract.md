@@ -9,7 +9,7 @@ import Image from '@theme/IdealImage';
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, state management and creatively using nullifiers to prevent people from voting twice!
 
-This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up #include_aztec_version`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 We will build this:
 
@@ -70,22 +70,22 @@ Inside this, paste these imports:
 
 We are using various utils within the Aztec `prelude` library:
 
-- `use dep::aztec::keys::getters::get_public_keys;`  
+- `use dep::aztec::keys::getters::get_public_keys;`
   Imports a helper to retrieve public keys associated with the caller, used for computing a secure nullifier during voting.
 
-- `use dep::aztec::macros::{functions::{initializer, internal, private, public, utility}, storage::storage};`  
+- `use dep::aztec::macros::{functions::{initializer, internal, private, public, utility}, storage::storage};`
   Brings in macros for defining different function types (`initializer`, `internal`, `private`, `public`, `utility`) and for declaring contract storage via `storage`.
 
-- `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`  
+- `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`
   Imports:
+
   - `AztecAddress`: a type for account/contract addresses,
   - `Map`: a key-value storage structure,
   - `PublicMutable`: public state that can be updated,
   - `PublicImmutable`: public state that is read-only after being set once.
 
-- `use dep::aztec::protocol_types::traits::{Hash, ToField};`  
+- `use dep::aztec::protocol_types::traits::{Hash, ToField};`
   Provides the `Hash` and `ToField` traits, used for hashing values and converting them to a Field, used for nullifier creation and other computations.
-
 
 ## Set up storage
 

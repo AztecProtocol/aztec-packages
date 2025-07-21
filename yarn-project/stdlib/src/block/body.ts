@@ -87,9 +87,14 @@ export class Body {
 }`;
   }
 
-  static async random(txsPerBlock = 4, numPublicCallsPerTx = 3, numPublicLogsPerCall = 1) {
+  static async random(
+    txsPerBlock = 4,
+    numPublicCallsPerTx = 3,
+    numPublicLogsPerCall = 1,
+    maxEffects: number | undefined = undefined,
+  ) {
     const txEffects = await timesParallel(txsPerBlock, () =>
-      TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall),
+      TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall, maxEffects),
     );
 
     return new Body(txEffects);

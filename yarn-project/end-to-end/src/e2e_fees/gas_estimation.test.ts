@@ -71,9 +71,7 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    await (t.aztecNode as AztecNodeService)
-      .getSequencer()!
-      .updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    (t.aztecNode as AztecNodeService).getSequencer()!.updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
@@ -130,7 +128,7 @@ describe('e2e_fees gas_estimation', () => {
     const deployMethod = () => BananaCoin.deploy(aliceWallet, aliceAddress, 'TKN', 'TKN', 8);
     const deployOpts = (estimateGas = false) => ({
       fee: { gasSettings, paymentMethod, estimateGas, estimatedGasPadding: 0 },
-      skipClassRegistration: true,
+      skipClassPublication: true,
     });
     const estimatedGas = await deployMethod().estimateGas(deployOpts());
     logGasEstimate(estimatedGas);

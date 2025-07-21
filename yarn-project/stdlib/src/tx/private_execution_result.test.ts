@@ -22,6 +22,7 @@ function emptyCallExecutionResult(): PrivateCallExecutionResult {
     [],
     [],
     [],
+    [],
   );
 }
 
@@ -39,7 +40,7 @@ describe('execution_result', () => {
   describe('serialization', () => {
     it('serializes and deserializes correctly', async () => {
       const instance = await PrivateExecutionResult.random();
-      expect(await jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
+      expect(jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
     });
   });
 
@@ -65,9 +66,9 @@ describe('execution_result', () => {
       childExecution1.noteHashLeafIndexMap.set(78n, 66n);
       const grandchildExecution = emptyCallExecutionResult();
       grandchildExecution.noteHashLeafIndexMap.set(90n, 55n);
-      childExecution1.nestedExecutions = [grandchildExecution];
+      childExecution1.nestedExecutionResults = [grandchildExecution];
 
-      executionResult.entrypoint.nestedExecutions = [childExecution0, childExecution1];
+      executionResult.entrypoint.nestedExecutionResults = [childExecution0, childExecution1];
 
       const res = collectNoteHashLeafIndexMap(executionResult);
       expect(res.size).toBe(5);
@@ -101,9 +102,9 @@ describe('execution_result', () => {
       childExecution1.noteHashNullifierCounterMap.set(78, 66);
       const grandchildExecution = emptyCallExecutionResult();
       grandchildExecution.noteHashNullifierCounterMap.set(90, 55);
-      childExecution1.nestedExecutions = [grandchildExecution];
+      childExecution1.nestedExecutionResults = [grandchildExecution];
 
-      executionResult.entrypoint.nestedExecutions = [childExecution0, childExecution1];
+      executionResult.entrypoint.nestedExecutionResults = [childExecution0, childExecution1];
 
       const res = collectNoteHashNullifierCounterMap(executionResult);
       expect(res.size).toBe(5);
@@ -120,8 +121,8 @@ describe('execution_result', () => {
       const childExecution0 = emptyCallExecutionResult();
       const childExecution1 = emptyCallExecutionResult();
       const grandchildExecution = emptyCallExecutionResult();
-      childExecution1.nestedExecutions = [grandchildExecution];
-      executionResult.entrypoint.nestedExecutions = [childExecution0, childExecution1];
+      childExecution1.nestedExecutionResults = [grandchildExecution];
+      executionResult.entrypoint.nestedExecutionResults = [childExecution0, childExecution1];
     });
 
     it('returns a zero counter', () => {
@@ -136,7 +137,7 @@ describe('execution_result', () => {
     });
 
     it('returns the actual counter in a nested call', () => {
-      executionResult.entrypoint.nestedExecutions[1].publicInputs.minRevertibleSideEffectCounter = new Fr(123);
+      executionResult.entrypoint.nestedExecutionResults[1].publicInputs.minRevertibleSideEffectCounter = new Fr(123);
       const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(123);
     });

@@ -35,10 +35,6 @@ using C = Column;
 using bc_hashing = bb::avm2::bc_hashing<FF>;
 using poseidon2 = bb::avm2::poseidon2_hash<FF>;
 
-using bc_hashing_lookup_relation = bb::avm2::lookup_bc_hashing_poseidon2_hash_relation<FF>;
-using bc_decomp_lookup_relation = bb::avm2::lookup_bc_hashing_get_packed_field_relation<FF>;
-using length_iv_relation = bb::avm2::lookup_bc_hashing_iv_is_len_relation<FF>;
-
 TEST(BytecodeHashingConstrainingTest, EmptyRow)
 {
     check_relation<bc_hashing>(testing::empty_trace());
@@ -94,7 +90,8 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
     bytecode_builder.process_hashing(
         { { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = fields /* 62 bytes */ } }, trace);
 
-    tracegen::LookupIntoDynamicTableSequential<bc_hashing_lookup_relation::Settings>().process(trace);
+    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+    // check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace);
 
     check_relation<bc_hashing>(trace);
 }
@@ -113,8 +110,9 @@ TEST(BytecodeHashingConstrainingTest, BytecodeInteractions)
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
-    tracegen::LookupIntoDynamicTableSequential<bc_decomp_lookup_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<length_iv_relation::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_bc_hashing_get_packed_field_settings,
+                      lookup_bc_hashing_iv_is_len_settings>(trace);
 
     check_relation<bc_hashing>(trace);
 }
@@ -213,9 +211,10 @@ TEST(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
     trace.set(Column::bc_hashing_incremental_hash, 1, 10);
 
     EXPECT_THROW_WITH_MESSAGE(
-        tracegen::LookupIntoDynamicTableSequential<bc_decomp_lookup_relation::Settings>().process(trace),
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_settings>(trace)),
         "Failed.*GET_PACKED_FIELD. Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(tracegen::LookupIntoDynamicTableSequential<length_iv_relation::Settings>().process(trace),
+
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_iv_is_len_settings>(trace)),
                               "Failed.*IV_IS_LEN. Could not find tuple in destination.");
 }
 

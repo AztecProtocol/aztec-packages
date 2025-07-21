@@ -9,26 +9,23 @@ pub contract Crowdfunding {
     // docs:start:all-deps
     use crate::config::Config;
     use dep::aztec::{
-        event::event_interface::EventInterface,
+        event::event_interface::emit_event_in_public_log,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
             storage::storage,
         },
         messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, PrivateSet, PublicImmutable},
-        protocol_types::traits::{Serialize, ToField},
-        unencrypted_logs::unencrypted_event_emission::encode_event,
+        protocol_types::address::AztecAddress,
+        state_vars::{PrivateSet, PublicImmutable},
         utils::comparison::Comparator,
     };
     use dep::uint_note::uint_note::UintNote;
     use router::utils::privately_check_timestamp;
-    use std::meta::derive;
     use token::Token;
     // docs:end:all-deps
 
     // docs:start:withdrawal-processed-event
-    #[derive(Serialize)]
     #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,
@@ -81,11 +78,7 @@ pub contract Crowdfunding {
         // contract by proving that the hash of this note exists in the note hash tree.
         let note = UintNote::new(amount, donor);
 
-        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            donor,
-            donor,
-        ));
+        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(&mut context, donor));
     }
     // docs:end:donate
 
@@ -110,7 +103,7 @@ pub contract Crowdfunding {
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
-        WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
+        emit_event_in_public_log(WithdrawalProcessed { amount, who: to }, &mut context);
     }
     // docs:end:operator-withdrawals
 }

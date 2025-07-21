@@ -124,7 +124,8 @@ export class ProvingJobController {
     const signal = this.abortController.signal;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        return await this.circuitProver.getAvmProof(inputs, signal, this.epochNumber);
+        // TODO(#14234)[Unconditional PIs validation]: Remove argument "undefined".
+        return await this.circuitProver.getAvmProof(inputs, undefined, signal, this.epochNumber);
       }
 
       case ProvingRequestType.PRIVATE_BASE_ROLLUP: {
@@ -141,6 +142,10 @@ export class ProvingJobController {
 
       case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP: {
         return await this.circuitProver.getEmptyBlockRootRollupProof(inputs, signal, this.epochNumber);
+      }
+
+      case ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP: {
+        return await this.circuitProver.getPaddingBlockRootRollupProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {

@@ -460,5 +460,12 @@ bool read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t
 
 bool read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
 bool read_prev_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+
+bool count_until_next(const LMDBCursor& cursor, const Key& key, uint64_t& count);
+bool count_until_prev(const LMDBCursor& cursor, const Key& key, uint64_t& count);
+
+bool count_until_next_dup(const LMDBCursor& cursor, const Key& key, uint64_t& count);
+bool count_until_prev_dup(const LMDBCursor& cursor, const Key& key, uint64_t& count);
+
 } // namespace lmdb_queries
 } // namespace bb::lmdblib

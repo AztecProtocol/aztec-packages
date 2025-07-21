@@ -1,6 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type NodeInfo, type PXE, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
 import {
+  DefaultL1ContractsConfig,
   type L1ContractAddresses,
   RegistryContract,
   RollupContract,
@@ -91,14 +92,15 @@ describe('spartan_upgrade_rollup_version', () => {
           ethereumSlotDuration: 12,
           aztecSlotDuration: 24,
           aztecEpochDuration: 4,
+          aztecProofSubmissionEpochs: 1,
           aztecTargetCommitteeSize: 48,
-          aztecProofSubmissionWindow: 8,
-          minimumStake: BigInt(100e18),
           slashingQuorum: 6,
           slashingRoundSize: 10,
           manaTarget: BigInt(100e6),
           provingCostPerMana: BigInt(100),
           feeJuicePortalInitialBalance: fundingNeeded,
+          realVerifier: false,
+          exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,

@@ -80,15 +80,24 @@ export class Barretenberg extends BarretenbergApi {
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }
 
-  async initSRSClientIVC(): Promise<void> {
+  async initSRSClientIVC(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
-    const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath, this.options.logger);
+    const crs = await Crs.new(srsSize + 1, this.options.crsPath, this.options.logger);
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath, this.options.logger);
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
     await this.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
+  }
+
+  getDefaultSrsSize(): number {
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
+    if (typeof window !== 'undefined' && /iPad|iPhone/.test(navigator.userAgent)) {
+      return 2 ** 18;
+    }
+    return 2 ** 20;
   }
 
   async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {

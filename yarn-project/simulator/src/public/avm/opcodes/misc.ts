@@ -35,14 +35,18 @@ export class DebugLog extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
-    memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
 
     // DebugLog is a no-op except when doing client-initiated simulation with debug logging enabled.
     // Note that we still do address resolution and basic tag-checking (above)
     // To avoid a special-case in the witness generator and circuit.
     if (context.environment.clientInitiatedSimulation && DebugLog.logger.isLevelEnabled('verbose')) {
+      memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
       const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
 
       const rawMessage = memory.getSlice(messageOffset, this.messageSize);
@@ -60,9 +64,5 @@ export class DebugLog extends Instruction {
 
       DebugLog.logger.verbose(formattedStr);
     }
-
-    // Despite having dynamic "size" operands, the gas cost is fixed because
-    // this opcode is a no-op except during client-initiated simulation
-    context.machineState.consumeGas(this.gasCost());
   }
 }

@@ -1,7 +1,8 @@
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
-import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 
@@ -28,10 +29,27 @@ export const DefaultWaitOpts: WaitOpts = {
  * its hash, receipt, and mining status.
  */
 export class SentTx {
+  protected sendTxPromise: Promise<void>;
+  protected sendTxError?: Error;
+  protected txHash?: TxHash;
+
   constructor(
     protected pxeWalletOrNode: Wallet | AztecNode | PXE,
-    protected txHashPromise: Promise<TxHash>,
-  ) {}
+    sendTx: () => Promise<TxHash>,
+  ) {
+    const { promise, resolve } = promiseWithResolvers<void>();
+    this.sendTxPromise = promise;
+    sendTx()
+      .then(txHash => {
+        this.txHash = txHash;
+        resolve();
+      })
+      .catch(err => {
+        this.sendTxError = err;
+        // Calling resolve instead of reject here because we want to throw the error when getTxHash is called.
+        resolve();
+      });
+  }
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -40,8 +58,17 @@ export class SentTx {
    * @returns A promise that resolves to the transaction hash of the SentTx instance.
    * TODO(#7717): Don't throw here.
    */
-  public getTxHash(): Promise<TxHash> {
-    return this.txHashPromise;
+  public async getTxHash(): Promise<TxHash> {
+    // Make sure sendTx has been resolved, which can be triggered when it returns a txHash or when it throws an error.
+    await this.sendTxPromise;
+
+    // If sendTx threw an error, throw it.
+    if (this.sendTxError) {
+      throw this.sendTxError;
+    }
+
+    // sendTx returned a txHash if it's been resolved and no error was set.
+    return Promise.resolve(this.txHash!);
   }
 
   /**

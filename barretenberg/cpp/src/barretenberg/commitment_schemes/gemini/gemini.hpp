@@ -335,7 +335,7 @@ template <typename Curve> class GeminiProver_ {
     static std::vector<Claim> prove(const Fr circuit_size,
                                     PolynomialBatcher& polynomial_batcher,
                                     std::span<Fr> multilinear_challenge,
-                                    const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                                    const CommitmentKey<Curve>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,
                                     bool has_zk = false);
 
@@ -472,7 +472,7 @@ template <typename Curve> class GeminiVerifier_ {
                 OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
         }
         if (has_interleaved) {
-            size_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
+            uint32_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
             Fr r_pow = r.pow(interleaved_group_size);
             fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_pos }, C_P_pos });
             fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_neg }, C_P_neg });

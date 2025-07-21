@@ -90,8 +90,8 @@ TODO: some of these contracts will be baked into genesis. Some of them might nee
 | Name                                    | Value   | Description                                            |
 | --------------------------------------- | ------- | ------------------------------------------------------ |
 | Space reserved for precompile addresses |         |                                                        |
-| `CONTRACT_CLASS_REGISTERER_ADDRESS`     | 0x10000 | See [here](./contract-deployment/classes.md#genesis)   |
-| `CONTRACT_INSTANCE_DEPLOYER_ADDRESS`    | 0x10001 | See [here](./contract-deployment/instances.md#genesis) |
+| `CONTRACT_CLASS_REGISTRY_ADDRESS`       | 0x10000 | See [here](./contract-deployment/classes.md#genesis)   |
+| `CONTRACT_INSTANCE_REGISTRY_ADDRESS`    | 0x10001 | See [here](./contract-deployment/instances.md#genesis) |
 | `FEE_JUICE_ADDRESS`                     | 0x10002 | TODO: consider at what stage this should be deployed.  |
 
 ### Genesis Archive Tree
@@ -106,12 +106,12 @@ The 0th leaf of the archive tree will be hard-coded at genesis to be an empty co
 | ------------------------------------------------------------------------------------ | ----- | ----------------------------------------------------- |
 | The zero predecessor leaf.                                                           | TODO  | Needed to make an indexed merkle tree work.           |
 | The zero predecessor leaf index.                                                     | `0`   | Needed to make an indexed merkle tree work.           |
-| `GENESIS_NULLIFIER_LEAF_INDEX_OF_CLASS_ID_NULLIFIER_OF_CONTRACT_CLASS_REGISTERER`    | `1`   | See [here](./contract-deployment/classes.md#genesis). |
-| `GENESIS_NULLIFIER_LEAF_INDEX_OF_DEPLOYMENT_NULLIFIER_OF_CONTRACT_CLASS_REGISTERER`  | `2`   | See [here](./contract-deployment/classes.md#genesis). |
-| `GENESIS_NULLIFIER_LEAF_INDEX_OF_CLASS_ID_NULLIFIER_OF_CONTRACT_INSTANCE_DEPLOYER`   | `3`   | See [here](./contract-deployment/classes.md#genesis). |
-| `GENESIS_NULLIFIER_LEAF_INDEX_OF_DEPLOYMENT_NULLIFIER_OF_CONTRACT_INSTANCE_DEPLOYER` | `4`   | See [here](./contract-deployment/classes.md#genesis). |
+| `GENESIS_NULLIFIER_LEAF_INDEX_OF_CLASS_ID_NULLIFIER_OF_CONTRACT_CLASS_REGISTRY`      | `1`   | See [here](./contract-deployment/classes.md#genesis). |
+| `GENESIS_NULLIFIER_LEAF_INDEX_OF_INSTANCE_NULLIFIER_OF_CONTRACT_CLASS_REGISTRY`      | `2`   | See [here](./contract-deployment/classes.md#genesis). |
+| `GENESIS_NULLIFIER_LEAF_INDEX_OF_CLASS_ID_NULLIFIER_OF_CONTRACT_INSTANCE_REGISTRY`   | `3`   | See [here](./contract-deployment/classes.md#genesis). |
+| `GENESIS_NULLIFIER_LEAF_INDEX_OF_INSTANCE_NULLIFIER_OF_CONTRACT_INSTANCE_REGISTRY`   | `4`   | See [here](./contract-deployment/classes.md#genesis). |
 | `GENESIS_NULLIFIER_LEAF_INDEX_OF_CLASS_ID_NULLIFIER_OF_FEE_JUICE_CONTRACT`           | `5`   | See [here](./contract-deployment/classes.md#genesis). |
-| `GENESIS_NULLIFIER_LEAF_INDEX_OF_DEPLOYMENT_NULLIFIER_OF_FEE_JUICE_CONTRACT`         | `6`   | See [here](./contract-deployment/classes.md#genesis). |
+| `GENESIS_NULLIFIER_LEAF_INDEX_OF_INSTANCE_NULLIFIER_OF_FEE_JUICE_CONTRACT`           | `6`   | See [here](./contract-deployment/classes.md#genesis). |
 
 :::warning
 TODO: hard-code the actual nullifier values, once the code has been frozen.

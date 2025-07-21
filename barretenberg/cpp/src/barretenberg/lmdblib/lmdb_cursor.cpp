@@ -24,6 +24,16 @@ MDB_cursor* LMDBCursor::underlying() const
     return _cursor;
 }
 
+const MDB_dbi& LMDBCursor::underlying_db() const
+{
+    return _db->underlying();
+}
+
+MDB_txn* LMDBCursor::underlying_tx() const
+{
+    return _tx->underlying();
+}
+
 uint64_t LMDBCursor::id() const
 {
     return _id;
@@ -69,6 +79,24 @@ bool LMDBCursor::read_prev(uint64_t numKeysToRead, KeyDupValuesVector& keyValueP
         return lmdb_queries::read_prev_dup(*this, keyValuePairs, numKeysToRead);
     }
     return lmdb_queries::read_prev(*this, keyValuePairs, numKeysToRead);
+}
+
+bool LMDBCursor::count_until_next(const Key& key, uint64_t& count) const
+{
+    std::lock_guard<std::mutex> lock(_mtx);
+    if (_db->duplicate_keys_permitted()) {
+        return lmdb_queries::count_until_next_dup(*this, key, count);
+    }
+    return lmdb_queries::count_until_next(*this, key, count);
+}
+
+bool LMDBCursor::count_until_prev(const Key& key, uint64_t& count) const
+{
+    std::lock_guard<std::mutex> lock(_mtx);
+    if (_db->duplicate_keys_permitted()) {
+        return lmdb_queries::count_until_prev_dup(*this, key, count);
+    }
+    return lmdb_queries::count_until_prev(*this, key, count);
 }
 
 } // namespace bb::lmdblib

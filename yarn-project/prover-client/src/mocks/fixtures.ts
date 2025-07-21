@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NativeACVMSimulator, type SimulationProvider, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
+import { type CircuitSimulator, NativeACVMSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -64,10 +64,10 @@ export const getEnvironmentConfig = async (logger: Logger) => {
   }
 };
 
-export async function getSimulationProvider(
+export async function getSimulator(
   config: { acvmWorkingDirectory: string | undefined; acvmBinaryPath: string | undefined },
   logger?: Logger,
-): Promise<SimulationProvider> {
+): Promise<CircuitSimulator> {
   if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
     try {
       await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
@@ -107,9 +107,9 @@ export const makeGlobals = (blockNumber: number) => {
   return new GlobalVariables(
     Fr.ZERO,
     Fr.ZERO,
-    new Fr(blockNumber) /** block number */,
+    blockNumber /** block number */,
     new Fr(blockNumber) /** slot number */,
-    new Fr(blockNumber) /** timestamp */,
+    BigInt(blockNumber) /** block number as pseudo-timestamp for testing */,
     EthAddress.ZERO,
     AztecAddress.ZERO,
     GasFees.empty(),

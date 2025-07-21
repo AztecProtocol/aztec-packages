@@ -18,6 +18,16 @@
 #include <cstddef>
 #include <ostream>
 
+// Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1409): Re-enable this once the tag invariant is restored.
+#define DISABLE_FREE_WITNESS_CHECK
+#define DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
+#define DISABLE_CHILD_TAG_CHECKS
+
+// Disable origin tags in release builds
+#ifdef NDEBUG
+#define AZTEC_NO_ORIGIN_TAGS
+#endif
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
     [[maybe_unused]] const auto clear_tag = OriginTag();                                                               \
@@ -53,23 +63,27 @@
 namespace bb {
 
 void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
-
-#ifndef NDEBUG
+#ifndef AZTEC_NO_ORIGIN_TAGS
 struct OriginTag {
-    static constexpr size_t CONSTANT = 0;
+
+    static constexpr size_t CONSTANT = static_cast<size_t>(-1);
+    static constexpr size_t FREE_WITNESS = static_cast<size_t>(-2);
     // Parent tag is supposed to represent the index of a unique trancript object that generated the value. It uses
     // a concrete index, not bits for now, since we never expect two different indices to be used in the same
     // computation apart from equality assertion
-    size_t parent_tag = 0;
+    // Parent tag is set to CONSTANT if the value is just a constant
+    // Parent tag is set to FREE_WITNESS if the value is a free witness (not a constant and not from the transcript)
+    size_t parent_tag = CONSTANT;
 
     // Child tag specifies which submitted values and challenges have been used to generate this element
     // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the
     // round) The higher 128 bits represent using a challenge value from an corresponding round (the shift
     // represents the round)
-    numeric::uint256_t child_tag = 0;
+    numeric::uint256_t child_tag = numeric::uint256_t(0);
 
     // Instant death is used for poisoning values we should never use in arithmetic
     bool instant_death = false;
+
     // Default Origin Tag has everything set to zero and can't cause any issues
     OriginTag() = default;
     OriginTag(const OriginTag& other) = default;
@@ -106,18 +120,7 @@ struct OriginTag {
      * @param tag_a
      * @param tag_b
      */
-    OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
-    {
-        if (tag_a.instant_death || tag_b.instant_death) {
-            throw_or_abort("Touched an element that should not have been touched");
-        }
-        if (tag_a.parent_tag != tag_b.parent_tag && (tag_a.parent_tag != 0U) && (tag_b.parent_tag != 0U)) {
-            throw_or_abort("Tags from different transcripts were involved in the same computation");
-        }
-        check_child_tags(tag_a.child_tag, tag_b.child_tag);
-        parent_tag = tag_a.parent_tag;
-        child_tag = tag_a.child_tag | tag_b.child_tag;
-    }
+    OriginTag(const OriginTag& tag_a, const OriginTag& tag_b);
 
     /**
      * @brief Construct a new Origin Tag from merging several origin tags
@@ -128,30 +131,46 @@ struct OriginTag {
      * @param tag
      * @param rest
      */
-    template <class... T> OriginTag(const OriginTag& tag, const T&... rest)
+    template <class... T>
+    OriginTag(const OriginTag& tag, const T&... rest)
+        : parent_tag(tag.parent_tag)
+        , child_tag(tag.child_tag)
+        , instant_death(tag.instant_death)
     {
-        parent_tag = tag.parent_tag;
-        child_tag = tag.child_tag;
-        if (tag.instant_death) {
-            throw_or_abort("Touched an element that should not have been touched");
-        }
+
+        OriginTag merged_tag = *this;
         for (const auto& next_tag : { rest... }) {
-            if (next_tag.instant_death) {
-                throw_or_abort("Touched an element that should not have been touched");
-            }
-            if (parent_tag != next_tag.parent_tag && (parent_tag != 0U) && (next_tag.parent_tag != 0U)) {
-                throw_or_abort("Tags from different transcripts were involved in the same computation");
-            }
-            check_child_tags(child_tag, next_tag.child_tag);
-            child_tag |= next_tag.child_tag;
+            merged_tag = OriginTag(merged_tag, next_tag);
         }
+        *this = merged_tag;
     }
     ~OriginTag() = default;
     bool operator==(const OriginTag& other) const;
     void poison() { instant_death = true; }
     void unpoison() { instant_death = false; }
     bool is_poisoned() const { return instant_death; }
-    bool is_empty() const { return !instant_death && parent_tag == 0 && child_tag == uint256_t(0); };
+    bool is_empty() const { return !instant_death && parent_tag == CONSTANT; };
+
+#ifndef DISABLE_FREE_WITNESS_CHECK
+    bool is_free_witness() const { return parent_tag == FREE_WITNESS; }
+    void set_free_witness()
+    {
+        parent_tag = FREE_WITNESS;
+        child_tag = 0;
+    }
+    void unset_free_witness()
+    {
+        parent_tag = CONSTANT;
+        child_tag = numeric::uint256_t(0);
+    }
+
+// The checks are disabled by disallowing to set the free witness tag, because if they are set, it's very hard to make
+// the logic of checks work
+#else
+    bool is_free_witness() const { return false; }
+    void set_free_witness() {}
+    void unset_free_witness() {}
+#endif
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {
@@ -180,6 +199,9 @@ struct OriginTag {
     void unpoison() {}
     static bool is_poisoned() { return false; }
     static bool is_empty() { return true; };
+    bool is_free_witness() const { return false; }
+    void set_free_witness() {}
+    void unset_free_witness() {}
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
 {

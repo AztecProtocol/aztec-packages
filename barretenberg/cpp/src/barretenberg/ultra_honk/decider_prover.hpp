@@ -6,12 +6,12 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -30,7 +30,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     using PCS = typename Flavor::PCS;
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
@@ -42,7 +41,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     BB_PROFILE void execute_pcs_rounds();
 
     HonkProof export_proof();
-    HonkProof construct_proof();
+    void construct_proof();
 
     std::shared_ptr<DeciderPK> proving_key;
 
@@ -57,9 +56,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-  private:
-    HonkProof proof;
 };
 
 using UltraDeciderProver = DeciderProver_<UltraFlavor>;

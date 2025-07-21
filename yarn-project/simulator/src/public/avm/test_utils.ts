@@ -27,9 +27,9 @@ export function mockStorageReadWithMap(worldStateDB: PublicTreesDB, mockedStorag
   );
 }
 
-export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: Fr, value?: Fr) {
+export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: bigint, value?: Fr) {
   (worldStateDB as jest.Mocked<PublicTreesDB>).getNoteHash.mockImplementation((index: bigint) => {
-    if (index == _leafIndex.toBigInt()) {
+    if (index == _leafIndex) {
       return Promise.resolve(value);
     } else {
       // This is ok for now since the traceing functions handle it
@@ -44,12 +44,12 @@ export function mockCheckNullifierExists(worldStateDB: PublicTreesDB, exists: bo
 
 export function mockL1ToL2MessageExists(
   worldStateDB: PublicTreesDB,
-  leafIndex: Fr,
+  leafIndex: bigint,
   value: Fr,
   valueAtOtherIndices?: Fr,
 ) {
   (worldStateDB as jest.Mocked<PublicTreesDB>).getL1ToL2LeafValue.mockImplementation((index: bigint) => {
-    if (index == leafIndex.toBigInt()) {
+    if (index == leafIndex) {
       return Promise.resolve(value);
     } else {
       // any indices other than mockAtLeafIndex will return a different value

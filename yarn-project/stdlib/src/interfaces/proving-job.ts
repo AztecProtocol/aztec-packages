@@ -1,5 +1,5 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -21,6 +21,7 @@ import { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
 import { BlockRootOrBlockMergePublicInputs } from '../rollup/block_root_or_block_merge_public_inputs.js';
 import { BlockRootRollupInputs, SingleTxBlockRootRollupInputs } from '../rollup/block_root_rollup.js';
 import { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
+import { PaddingBlockRootRollupInputs } from '../rollup/index.js';
 import { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
@@ -87,6 +88,8 @@ export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): Se
       return 'merge-rollup';
     case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
       return 'empty-block-root-rollup';
+    case ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP:
+      return 'padding-block-root-rollup';
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
       return 'block-root-rollup';
     case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP:
@@ -121,6 +124,10 @@ export const ProvingJobInputs = z.discriminatedUnion('type', [
     inputs: SingleTxBlockRootRollupInputs.schema,
   }),
   z.object({ type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP), inputs: EmptyBlockRootRollupInputs.schema }),
+  z.object({
+    type: z.literal(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP),
+    inputs: PaddingBlockRootRollupInputs.schema,
+  }),
   z.object({ type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP), inputs: BlockMergeRollupInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.ROOT_ROLLUP), inputs: RootRollupInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.TUBE_PROOF), inputs: TubeInputs.schema }),
@@ -138,6 +145,8 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return MergeRollupInputs;
     case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
       return EmptyBlockRootRollupInputs;
+    case ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP:
+      return PaddingBlockRootRollupInputs;
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
       return BlockRootRollupInputs;
     case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP:
@@ -167,6 +176,7 @@ export type ProvingJobInputsMap = {
   [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicBaseRollupInputs;
   [ProvingRequestType.MERGE_ROLLUP]: MergeRollupInputs;
   [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: EmptyBlockRootRollupInputs;
+  [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: PaddingBlockRootRollupInputs;
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: BlockRootRollupInputs;
   [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: SingleTxBlockRootRollupInputs;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: BlockMergeRollupInputs;
@@ -179,7 +189,7 @@ export type ProvingJobInputsMap = {
 export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_VM),
-    result: schemaForRecursiveProofAndVerificationKey(AVM_PROOF_LENGTH_IN_FIELDS),
+    result: schemaForRecursiveProofAndVerificationKey(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
   }),
   z.object({
     type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
@@ -204,6 +214,13 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BlockRootOrBlockMergePublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
       BlockRootOrBlockMergePublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -249,7 +266,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
-  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
+  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
   [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
     BaseOrMergeRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
@@ -263,6 +280,10 @@ export type ProvingJobResultsMap = {
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRootOrBlockMergePublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
     BlockRootOrBlockMergePublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;

@@ -40,11 +40,11 @@ export class Faucet {
   }
 
   public static async create(config: FaucetConfig): Promise<Faucet> {
-    if (!config.l1Mnemonic) {
+    if (!config.l1Mnemonic || !config.l1Mnemonic.getValue()) {
       throw new Error('Missing faucet mnemonic');
     }
 
-    const account = mnemonicToAccount(config.l1Mnemonic, { addressIndex: config.mnemonicAccountIndex });
+    const account = mnemonicToAccount(config.l1Mnemonic.getValue(), { addressIndex: config.mnemonicAddressIndex });
     const faucet = new Faucet(config, account);
 
     for (const asset of config.l1Assets) {

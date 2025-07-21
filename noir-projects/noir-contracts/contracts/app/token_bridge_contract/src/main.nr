@@ -13,7 +13,10 @@ use dep::aztec::macros::aztec;
 pub contract TokenBridge {
     use crate::config::Config;
 
-    use dep::aztec::prelude::{AztecAddress, EthAddress, PublicImmutable};
+    use dep::aztec::{
+        protocol_types::address::{AztecAddress, EthAddress},
+        state_vars::PublicImmutable,
+    };
 
     use dep::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
@@ -78,7 +81,7 @@ pub contract TokenBridge {
         recipient: EthAddress, // ethereum address to withdraw to
         amount: u128,
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
+        authwit_nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
         let config = storage.config.read();
 
@@ -87,7 +90,9 @@ pub contract TokenBridge {
         context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(config.token).burn_public(context.msg_sender(), amount, nonce).call(&mut context);
+        Token::at(config.token).burn_public(context.msg_sender(), amount, authwit_nonce).call(
+            &mut context,
+        );
     }
     // docs:end:exit_to_l1_public
 
@@ -115,9 +120,7 @@ pub contract TokenBridge {
 
         // At last we mint the tokens
         // docs:start:call_mint_on_token
-        Token::at(config.token).mint_to_private(context.msg_sender(), recipient, amount).call(
-            &mut context,
-        );
+        Token::at(config.token).mint_to_private(recipient, amount).call(&mut context);
         // docs:end:call_mint_on_token
     }
     // docs:end:claim_private
@@ -131,7 +134,7 @@ pub contract TokenBridge {
         recipient: EthAddress, // ethereum address to withdraw to
         amount: u128,
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
+        authwit_nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
         // docs:start:assert_token_is_same
         let config = storage.config.read();
@@ -145,7 +148,7 @@ pub contract TokenBridge {
         context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
+        Token::at(token).burn_private(context.msg_sender(), amount, authwit_nonce).call(&mut context);
     }
     // docs:end:exit_to_l1_private
 }

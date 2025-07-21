@@ -1,5 +1,6 @@
 import request from 'supertest';
 
+import { times } from '../../collection/array.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
 import {
   type SafeJsonRpcServer,
@@ -97,7 +98,7 @@ describe('SafeJsonRpcServer', () => {
 
   describe('batch', () => {
     beforeEach(() => {
-      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, { maxBatchSize: 10 });
     });
 
     it('handles multiple requests', async () => {
@@ -117,6 +118,11 @@ describe('SafeJsonRpcServer', () => {
 
     it('rejects empty requests array', async () => {
       const resp = await sendBatch();
+      expect(resp.status).toEqual(400);
+    });
+
+    it('rejects batch exceeding max size', async () => {
+      const resp = await sendBatch(...times(11, i => ({ jsonrpc: '2.0', method: 'getNote', params: [i], id: i })));
       expect(resp.status).toEqual(400);
     });
 

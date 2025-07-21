@@ -21,7 +21,9 @@ autonumber
 Azguard
 AZIP
 AZTC
+aztecexplorer
 aztecjs
+aztecscan
 barebones
 Becuase
 becuse

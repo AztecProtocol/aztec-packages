@@ -13,6 +13,9 @@
       "path": "../epoch-cache"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -38,6 +41,9 @@
     },
     {
       "path": "../archiver"
+    },
+    {
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

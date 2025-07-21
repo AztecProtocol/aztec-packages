@@ -87,8 +87,8 @@ export class UniqueNote extends ExtendedNote {
     storageSlot: Fr,
     /** The hash of the tx the note was created in. */
     txHash: TxHash,
-    /** The nonce of the note. */
-    public nonce: Fr,
+    /** The nonce that was injected into the note hash preimage in order to guarantee uniqueness. */
+    public noteNonce: Fr,
   ) {
     super(note, recipient, contractAddress, storageSlot, txHash);
   }
@@ -101,10 +101,10 @@ export class UniqueNote extends ExtendedNote {
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
         txHash: TxHash.schema,
-        nonce: schemas.Fr,
+        noteNonce: schemas.Fr,
       })
-      .transform(({ note, recipient, contractAddress, storageSlot, txHash, nonce }) => {
-        return new UniqueNote(note, recipient, contractAddress, storageSlot, txHash, nonce);
+      .transform(({ note, recipient, contractAddress, storageSlot, txHash, noteNonce }) => {
+        return new UniqueNote(note, recipient, contractAddress, storageSlot, txHash, noteNonce);
       });
   }
 
@@ -115,7 +115,7 @@ export class UniqueNote extends ExtendedNote {
       this.contractAddress,
       this.storageSlot,
       this.txHash,
-      this.nonce,
+      this.noteNonce,
     ]);
   }
 
@@ -138,9 +138,9 @@ export class UniqueNote extends ExtendedNote {
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
     const txHash = reader.readObject(TxHash);
-    const nonce = reader.readObject(Fr);
+    const noteNonce = reader.readObject(Fr);
 
-    return new this(note, recipient, contractAddress, storageSlot, txHash, nonce);
+    return new this(note, recipient, contractAddress, storageSlot, txHash, noteNonce);
   }
 
   static override fromString(str: string) {

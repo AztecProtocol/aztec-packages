@@ -3,20 +3,20 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../proofs/recursive_proof.js';
-import { VkWitnessData } from '../vks/vk_witness_data.js';
+import { VkData } from '../vks/index.js';
 
 export class PrivateTubeData {
   constructor(
     public publicInputs: PrivateToRollupKernelCircuitPublicInputs,
     public proof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-    public vkData: VkWitnessData,
+    public vkData: VkData,
   ) {}
 
   static empty() {
     return new PrivateTubeData(
       PrivateToRollupKernelCircuitPublicInputs.empty(),
       makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-      VkWitnessData.empty(),
+      VkData.empty(),
     );
   }
 
@@ -25,7 +25,7 @@ export class PrivateTubeData {
     return new PrivateTubeData(
       reader.readObject(PrivateToRollupKernelCircuitPublicInputs),
       RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-      reader.readObject(VkWitnessData),
+      reader.readObject(VkData),
     );
   }
 

@@ -27,7 +27,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     fee: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    if (options.nonce || options.cancellable !== undefined) {
+    if (options.txNonce || options.cancellable !== undefined) {
       throw new Error('TxExecutionOptions are not supported in DappEntrypoint');
     }
     // Initial request with calls, authWitnesses and capsules
@@ -122,7 +122,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
                   },
                 },
               },
-              { name: 'nonce', type: { kind: 'field' } },
+              { name: 'tx_nonce', type: { kind: 'field' } },
             ],
           },
           visibility: 'public',

@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { PeerManager } from '../../peer-manager/peer_manager.js';
+import type { PeerManagerInterface } from '../../peer-manager/interface.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../interface.js';
 import type { ReqResp } from '../reqresp.js';
 
@@ -89,13 +89,15 @@ export class GoodbyeProtocolHandler {
  * @param peerManager - The peer manager.
  * @returns A resolved promise with the goodbye response.
  */
-export function reqGoodbyeHandler(peerManager: PeerManager): ReqRespSubProtocolHandler {
-  return (peerId: PeerId, _msg: Buffer) => {
-    const reason = decodeGoodbyeReason(_msg);
+export function reqGoodbyeHandler(peerManager: PeerManagerInterface): ReqRespSubProtocolHandler {
+  return (peerId: PeerId, msg: Buffer) => {
+    const reason = decodeGoodbyeReason(msg);
 
     peerManager.goodbyeReceived(peerId, reason);
 
-    // Return a buffer of length 1 as an acknowledgement: this is allowed to fail
-    return Promise.resolve(Buffer.from([0x0]));
+    // NOTE: In the current implementation this won't be sent to peer,
+    // as the connection to peer has been already closed by peerManager.goodbyeReceived
+    // We have this just to satisfy interface
+    return Promise.resolve(Buffer.alloc(0));
   };
 }

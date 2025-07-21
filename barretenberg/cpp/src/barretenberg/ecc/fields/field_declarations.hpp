@@ -65,6 +65,10 @@ template <class Params_> struct alignas(32) field {
         self_to_montgomery_form();
     }
 
+    constexpr field(const uint128_t& input) noexcept
+        : field(uint256_t::from_uint128(input))
+    {}
+
     // NOLINTNEXTLINE (unsigned long is platform dependent, which we want in this case)
     constexpr field(const unsigned long input) noexcept
         : data{ input, 0, 0, 0 }
@@ -368,6 +372,8 @@ template <class Params_> struct alignas(32) field {
     static void serialize_to_buffer(const field& value, uint8_t* buffer) { write(buffer, value); }
 
     static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
+
+    template <class V> static field reconstruct_from_public(const std::span<field<V>>& limbs);
 
     [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
 

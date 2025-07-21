@@ -1,6 +1,13 @@
-/* eslint-disable no-console */
 // TODO(#11825) finalise (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
-import { ProvenTx, Tx, readFieldCompressedString } from '@aztec/aztec.js';
+import {
+  type PXE,
+  ProvenTx,
+  SentTx,
+  SponsoredFeePaymentMethod,
+  Tx,
+  readFieldCompressedString,
+  sleep,
+} from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -8,7 +15,13 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
-import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import {
+  type TestWallets,
+  deploySponsoredTestWallets,
+  setupTestWalletsWithTokens,
+  startCompatiblePXE,
+} from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -22,32 +35,17 @@ describe('token transfer test', () => {
   const ROUNDS = 1n;
 
   let testWallets: TestWallets;
-  let PXE_URL: string;
-  let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
+  let pxe: PXE;
+  let cleanup: undefined | (() => Promise<void>);
 
-  afterAll(() => {
+  afterAll(async () => {
+    await cleanup?.();
     forwardProcesses.forEach(p => p.kill());
   });
 
   beforeAll(async () => {
     if (isK8sConfig(config)) {
-      const { process: pxeProcess, port: pxePort } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_PXE_PORT,
-      });
-      forwardProcesses.push(pxeProcess);
-      PXE_URL = `http://127.0.0.1:${pxePort}`;
-
-      const { process: ethProcess, port: ethPort } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_ETHEREUM_PORT,
-      });
-      forwardProcesses.push(ethProcess);
-      ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
-
       const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
         namespace: config.NAMESPACE,
@@ -56,21 +54,10 @@ describe('token transfer test', () => {
       forwardProcesses.push(sequencerProcess);
       const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
 
-      const L1_ACCOUNT_MNEMONIC = config.L1_ACCOUNT_MNEMONIC;
-
-      console.log('deploying test wallets');
-
-      testWallets = await deployTestWalletWithTokens(
-        PXE_URL,
-        NODE_URL,
-        ETHEREUM_HOSTS,
-        L1_ACCOUNT_MNEMONIC,
-        MINT_AMOUNT,
-        logger,
-      );
-      console.log(`testWallets ready 1`);
+      ({ pxe, cleanup } = await startCompatiblePXE(NODE_URL, ['1', 'true'].includes(config.AZTEC_REAL_PROOFS), logger));
+      testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
     } else {
-      PXE_URL = config.PXE_URL;
+      const PXE_URL = config.PXE_URL;
       testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
@@ -110,7 +97,9 @@ describe('token transfer test', () => {
 
     const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
       .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
-      .prove();
+      .prove({
+        fee: { paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()) },
+      });
 
     const txs: ProvenTx[] = [];
     for (let i = 0; i < 20; i++) {
@@ -129,22 +118,39 @@ describe('token transfer test', () => {
         }
       }
 
-      const clonedTx = new ProvenTx(wallet, clonedTxData);
+      const clonedTx = new ProvenTx(wallet, clonedTxData, []);
       txs.push(clonedTx);
     }
+
+    const sentTxs: SentTx[] = [];
+
+    // dump all txs at requested TPS
+    const TPS = 1;
+    logger.info(`Sending ${txs.length} txs at a rate of ${TPS} tx/s`);
+    while (txs.length > 0) {
+      const start = performance.now();
+
+      const chunk = txs.splice(0, TPS);
+      sentTxs.push(...chunk.map(tx => tx.send()));
+      logger.info(`Sent txs: [${await Promise.all(chunk.map(tx => tx.getTxHash()))}]`);
+
+      const end = performance.now();
+      const delta = end - start;
+      if (1000 - delta > 0) {
+        await sleep(1000 - delta);
+      }
+    }
+
     await Promise.all(
-      txs.map(async (tx, i) => {
-        const sentTx = tx.send();
-        console.log(`sent tx: #${i + 1}`);
+      sentTxs.map(async sentTx => {
         await sentTx.wait({ timeout: 600 });
         const receipt = await sentTx.getReceipt();
-        console.log(`tx ${i + 1} included in block: ${receipt.blockNumber}`);
-        return sentTx;
+        logger.info(`tx ${receipt.txHash} included in block: ${receipt.blockNumber}`);
       }),
     );
 
     const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
-    console.log(`recipientBalance: ${recipientBalance}`);
+    logger.info(`recipientBalance: ${recipientBalance}`);
     // expect(recipientBalance).toBe(100n * transferAmount);
 
     // for (const w of testWallets.wallets) {

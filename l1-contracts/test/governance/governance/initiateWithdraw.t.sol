@@ -2,17 +2,18 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
+import {
+  IGovernance, Configuration, Withdrawal
+} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 
 contract InitiateWithdrawTest is GovernanceBase {
-  using ConfigurationLib for DataStructures.Configuration;
+  using ConfigurationLib for Configuration;
 
   uint256 internal constant WITHDRAWAL_COUNT = 8;
-  DataStructures.Configuration internal config;
+  Configuration internal config;
 
   modifier whenCallerHaveInsufficientDeposits() {
     _;
@@ -90,7 +91,7 @@ contract InitiateWithdrawTest is GovernanceBase {
       emit IGovernance.WithdrawInitiated(withdrawalId, recipient, amount);
       governance.initiateWithdraw(recipient, amount);
 
-      DataStructures.Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
+      Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
       assertEq(withdrawal.amount, amount, "invalid amount");
       assertEq(
         withdrawal.unlocksAt,

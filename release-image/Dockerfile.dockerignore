@@ -17,10 +17,12 @@
 !/yarn-project/*/dest/
 !/yarn-project/cli-wallet/wallet-entrypoint.sh
 !/yarn-project/accounts/artifacts/
+!/yarn-project/aztec/public_include_metric_prefixes.json
 !/yarn-project/bb-prover/artifacts/
 !/yarn-project/noir-protocol-circuits-types/artifacts/
 !/yarn-project/protocol-contracts/artifacts/
 !/yarn-project/noir-contracts.js/artifacts/
+!/yarn-project/simulator/artifacts/
 !/yarn-project/native/build/nodejs_module.node
 
 # Needed to generate list of env vars to know what to be able to inject into the container.

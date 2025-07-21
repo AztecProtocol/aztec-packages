@@ -46,7 +46,7 @@ export class BotFactory {
         `Either a node admin client or node admin url must be provided if transaction flushing is requested`,
       );
     }
-    if (config.senderPrivateKey && !dependencies.node) {
+    if (config.senderPrivateKey && config.senderPrivateKey.getValue() && !dependencies.node) {
       throw new Error(
         `Either a node client or node url must be provided for bridging L1 fee juice to deploy an account with private key`,
       );
@@ -97,8 +97,9 @@ export class BotFactory {
    * @returns The sender wallet.
    */
   private async setupAccount() {
-    if (this.config.senderPrivateKey) {
-      return await this.setupAccountWithPrivateKey(this.config.senderPrivateKey);
+    const privateKey = this.config.senderPrivateKey.getValue();
+    if (privateKey) {
+      return await this.setupAccountWithPrivateKey(privateKey);
     } else {
       return await this.setupTestAccount();
     }
@@ -154,7 +155,7 @@ export class BotFactory {
    * Registers the recipient for txs in the pxe.
    */
   private async registerRecipient() {
-    const recipient = await this.pxe.registerAccount(this.config.recipientEncryptionSecret, Fr.ONE);
+    const recipient = await this.pxe.registerAccount(this.config.recipientEncryptionSecret.getValue(), Fr.ONE);
     return recipient.address;
   }
 
@@ -170,15 +171,15 @@ export class BotFactory {
       deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
     } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
       deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress());
-      deployOpts.skipPublicDeployment = true;
-      deployOpts.skipClassRegistration = true;
+      deployOpts.skipInstancePublication = true;
+      deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -243,7 +244,7 @@ export class BotFactory {
         lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
       ]);
 
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     // keep some tokens for swapping
     const amount0Max = MINT_BALANCE / 2;
@@ -257,26 +258,39 @@ export class BotFactory {
       `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${wallet.getAddress()}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
     );
 
+    // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token0.methods.transfer_to_public(wallet.getAddress(), amm.address, amount0Max, nonce),
+      action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount0Max,
+        authwitNonce,
+      ),
     });
     const token1Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token1.methods.transfer_to_public(wallet.getAddress(), amm.address, amount1Max, nonce),
+      action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount1Max,
+        authwitNonce,
+      ),
     });
 
     const mintTx = new BatchCall(wallet, [
-      token0.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
-      token1.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
+      token0.methods.mint_to_private(wallet.getAddress(), MINT_BALANCE),
+      token1.methods.mint_to_private(wallet.getAddress(), MINT_BALANCE),
     ]).send();
 
     this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
-    const addLiquidityTx = amm.methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonce).send({
-      authWitnesses: [token0Authwit, token1Authwit],
-    });
+    const addLiquidityTx = amm.methods
+      .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
+      .send({
+        authWitnesses: [token0Authwit, token1Authwit],
+      });
 
     this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });
@@ -294,7 +308,7 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -328,10 +342,9 @@ export class BotFactory {
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
-      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
-          ? token.methods.mint_to_private(from, sender, MINT_BALANCE)
+          ? token.methods.mint_to_private(sender, MINT_BALANCE)
           : token.methods.mint(MINT_BALANCE, sender),
       );
     }
@@ -356,7 +369,7 @@ export class BotFactory {
     if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
     }
-    const mnemonicOrPrivateKey = this.config.l1PrivateKey || this.config.l1Mnemonic;
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
     if (!mnemonicOrPrivateKey) {
       throw new Error(
         'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
@@ -372,7 +385,7 @@ export class BotFactory {
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 
     const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
-    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, this.config.l1ToL2MessageTimeoutSeconds, 1);
 
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 

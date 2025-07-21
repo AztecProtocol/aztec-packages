@@ -193,6 +193,20 @@ class WorldState {
                            index_t start_index = 0) const;
 
     /**
+     * @brief Finds the sibling paths of leaves in a tree
+     *
+     * @param revision The revision to query
+     * @param tree_id The ID of the tree
+     * @param leaves The leaves to find paths for
+     * @param paths The paths to be retrieved
+     */
+    template <typename T>
+    void find_sibling_paths(const WorldStateRevision& revision,
+                            MerkleTreeId tree_id,
+                            const std::vector<T>& leaves,
+                            std::vector<std::optional<SiblingPathAndIndex>>& paths) const;
+
+    /**
      * @brief Appends a set of leaves to an existing Merkle Tree.
      *
      * @tparam T The type of the leaves.
@@ -258,12 +272,12 @@ class WorldState {
      */
     void rollback();
 
-    uint64_t create_fork(const std::optional<index_t>& blockNumber);
+    uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
 
-    WorldStateStatusSummary set_finalised_blocks(const index_t& toBlockNumber);
-    WorldStateStatusFull unwind_blocks(const index_t& toBlockNumber);
-    WorldStateStatusFull remove_historical_blocks(const index_t& toBlockNumber);
+    WorldStateStatusSummary set_finalised_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusFull unwind_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusFull remove_historical_blocks(const block_number_t& toBlockNumber);
 
     void get_status_summary(WorldStateStatusSummary& status) const;
     WorldStateStatusFull sync_block(const StateReference& block_state_ref,
@@ -276,6 +290,8 @@ class WorldState {
     void checkpoint(const uint64_t& forkId);
     void commit_checkpoint(const uint64_t& forkId);
     void revert_checkpoint(const uint64_t& forkId);
+    void commit_all_checkpoints(const uint64_t& forkId);
+    void revert_all_checkpoints(const uint64_t& forkId);
 
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
@@ -305,6 +321,8 @@ class WorldState {
     void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
 
     void validate_trees_are_equally_synched();
+
+    WorldStateStatusFull attempt_tree_resync();
 
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
                                                 const StateReference& tree_state_ref);
@@ -551,6 +569,51 @@ void WorldState::find_leaf_indices(const WorldStateRevision& rev,
     }
 
     indices = std::move(local.inner.leaf_indices);
+}
+
+template <typename T>
+void WorldState::find_sibling_paths(const WorldStateRevision& rev,
+                                    MerkleTreeId id,
+                                    const std::vector<T>& leaves,
+                                    std::vector<std::optional<SiblingPathAndIndex>>& paths) const
+{
+    using namespace crypto::merkle_tree;
+
+    Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+    TypedResponse<FindLeafPathResponse> local;
+
+    Signal signal;
+    auto callback = [&](TypedResponse<FindLeafPathResponse>& response) {
+        local = std::move(response);
+        signal.signal_level(0);
+    };
+    if constexpr (std::is_same_v<bb::fr, T>) {
+        const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
+        if (rev.blockNumber) {
+            wrapper.tree->find_leaf_sibling_paths(leaves, rev.blockNumber, rev.includeUncommitted, callback);
+        } else {
+            wrapper.tree->find_leaf_sibling_paths(leaves, rev.includeUncommitted, callback);
+        }
+
+    } else {
+        using Store = ContentAddressedCachedTreeStore<T>;
+        using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
+
+        auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
+        if (rev.blockNumber) {
+            wrapper.tree->find_leaf_sibling_paths(leaves, rev.blockNumber, rev.includeUncommitted, callback);
+        } else {
+            wrapper.tree->find_leaf_sibling_paths(leaves, rev.includeUncommitted, callback);
+        }
+    }
+
+    signal.wait_for_level(0);
+
+    if (!local.success || local.inner.leaf_paths.size() != leaves.size()) {
+        throw std::runtime_error(local.message);
+    }
+
+    paths = std::move(local.inner.leaf_paths);
 }
 
 template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)

@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { allSameExcept, initExecutionEnvironment } from './fixtures/index.js';
+import { initExecutionEnvironment } from './fixtures/initializers.js';
+import { allSameExcept } from './fixtures/utils.js';
 
 describe('Execution Environment', () => {
   const newAddress = AztecAddress.fromNumber(123456);

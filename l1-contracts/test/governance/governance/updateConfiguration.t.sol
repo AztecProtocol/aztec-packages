@@ -2,19 +2,18 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Configuration, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract UpdateConfigurationTest is GovernanceBase {
-  using ConfigurationLib for DataStructures.Configuration;
+  using ConfigurationLib for Configuration;
 
-  DataStructures.Configuration internal config;
+  Configuration internal config;
 
   // Doing this as we are using a lib that works on storage
-  DataStructures.Configuration internal fresh;
+  Configuration internal fresh;
 
   function setUp() public override(GovernanceBase) {
     super.setUp();
@@ -253,7 +252,7 @@ contract UpdateConfigurationTest is GovernanceBase {
   modifier whenConfigurationIsValid() {
     // the local `config` will be modified throughout the execution
     // We check that it matches the what is seen on chain afterwards
-    DataStructures.Configuration memory old = governance.getConfiguration();
+    Configuration memory old = governance.getConfiguration();
 
     _;
 

@@ -61,7 +61,12 @@ export abstract class BaseContractInteraction {
   public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
-    return new ProvenTx(this.wallet, txProvingResult.toTx(), txProvingResult.timings);
+    return new ProvenTx(
+      this.wallet,
+      txProvingResult.toTx(),
+      txProvingResult.getOffchainEffects(),
+      txProvingResult.stats,
+    );
   }
 
   // docs:start:send
@@ -76,11 +81,11 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}): SentTx {
     // docs:end:send
-    const promise = (async () => {
+    const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
       return this.wallet.sendTx(txProvingResult.toTx());
-    })();
-    return new SentTx(this.wallet, promise);
+    };
+    return new SentTx(this.wallet, sendTx);
   }
 
   // docs:start:estimateGas
@@ -98,7 +103,6 @@ export abstract class BaseContractInteraction {
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
       true /*simulatePublic*/,
-      undefined /* msgSender */,
       undefined /* skipTxValidation */,
       true /* skipFeeEnforcement */,
     );
@@ -148,7 +152,6 @@ export abstract class BaseContractInteraction {
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
-        undefined /* msgSender */,
         undefined /* skipTxValidation */,
         true /* skipFeeEnforcement */,
       );

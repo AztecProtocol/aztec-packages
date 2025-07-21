@@ -1,3 +1,4 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
@@ -34,6 +35,7 @@ describe('epoch-proving-job', () => {
   // Objects
   let publicInputs: RootRollupPublicInputs;
   let proof: Proof;
+  let batchedBlobInputs: BatchedBlob;
   let blocks: L2Block[];
   let txs: Tx[];
   let initialHeader: BlockHeader;
@@ -81,6 +83,13 @@ describe('epoch-proving-job', () => {
 
     publicInputs = RootRollupPublicInputs.random();
     proof = Proof.empty();
+    batchedBlobInputs = new BatchedBlob(
+      publicInputs.blobPublicInputs.blobCommitmentsHash,
+      publicInputs.blobPublicInputs.z,
+      publicInputs.blobPublicInputs.y,
+      publicInputs.blobPublicInputs.c,
+      publicInputs.blobPublicInputs.c.negate(),
+    );
     epochNumber = 1;
     initialHeader = BlockHeader.empty();
     blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
@@ -97,7 +106,7 @@ describe('epoch-proving-job', () => {
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
     prover.startNewBlock.mockImplementation(() => sleep(200));
-    prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof });
+    prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);

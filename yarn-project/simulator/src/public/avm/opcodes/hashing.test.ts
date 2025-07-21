@@ -3,7 +3,8 @@ import { keccakf1600, sha256Compression } from '@aztec/foundation/crypto';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, Uint32, Uint64 } from '../avm_memory_types.js';
 import { MemorySliceOutOfRangeError } from '../errors.js';
-import { initContext, randomMemoryUint32s } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
+import { randomMemoryUint32s } from '../fixtures/utils.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { KeccakF1600, Poseidon2, Sha256Compression } from './hashing.js';
 

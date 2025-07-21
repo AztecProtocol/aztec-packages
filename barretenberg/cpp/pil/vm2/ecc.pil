@@ -89,12 +89,14 @@ namespace ecc;
     // (2) The result is infinity, result is (INFINITY_X, INFINITY_Y)
     // (3) Neither point is infinity and NOT RESULT_INFINITY, result is (COMPUTED_R_X, COMPUTED_R_Y)
     pol EITHER_INF = p_is_inf + q_is_inf - 2 * BOTH_INF;
-    pol USE_COMPUTED_RESULT = (1 - p_is_inf) * (1 - q_is_inf) * (1 - INFINITY_PRED);
+    // We commit this intermediate result for the sole purpose of not increasing the degree of the relations beyond 6.
+    pol commit use_computed_result;
+    use_computed_result = sel * (1 - p_is_inf) * (1 - q_is_inf) * (1 - INFINITY_PRED);
 
     #[OUTPUT_X_COORD]
-    sel * (r_x - (EITHER_INF * (p_is_inf * q_x + q_is_inf * p_x)) - result_infinity * INFINITY_X - USE_COMPUTED_RESULT * COMPUTED_R_X) = 0;
+    sel * (r_x - (EITHER_INF * (p_is_inf * q_x + q_is_inf * p_x)) - result_infinity * INFINITY_X - use_computed_result * COMPUTED_R_X) = 0;
     #[OUTPUT_Y_COORD]
-    sel * (r_y - (EITHER_INF * (p_is_inf * q_y + q_is_inf * p_y)) - result_infinity * INFINITY_Y - USE_COMPUTED_RESULT * COMPUTED_R_Y) = 0;
+    sel * (r_y - (EITHER_INF * (p_is_inf * q_y + q_is_inf * p_y)) - result_infinity * INFINITY_Y - use_computed_result * COMPUTED_R_Y) = 0;
     #[OUTPUT_INF_FLAG]
     sel * (r_is_inf - result_infinity) = 0;
 

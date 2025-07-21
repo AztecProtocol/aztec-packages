@@ -2718,7 +2718,7 @@ void test_nullifier_tree_unwind(std::string directory,
         }
 
         for (index_t j = 0; j < numBlocks; j++) {
-            index_t historicBlockNumber = j + 1;
+            block_number_t historicBlockNumber = static_cast<block_number_t>(j + 1);
             bool expectedSuccess = historicBlockNumber <= previousValidBlock;
             check_historic_sibling_path(
                 tree, 0, historicBlockNumber, historicPathsZeroIndex[j], false, expectedSuccess);

@@ -1,4 +1,16 @@
-import type { ENR, P2P, P2PConfig, P2PSyncState } from '@aztec/p2p';
+import type {
+  AuthRequest,
+  ENR,
+  P2P,
+  P2PBlockReceivedCallback,
+  P2PConfig,
+  P2PSyncState,
+  PeerId,
+  ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
+  ReqRespSubProtocolValidators,
+  StatusMessage,
+} from '@aztec/p2p';
 import type { L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
@@ -29,7 +41,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 
-  public registerBlockProposalHandler(_handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void {
+  public registerBlockProposalHandler(_handler: P2PBlockReceivedCallback): void {
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
   }
 
@@ -105,8 +117,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getAttestationForSlot"');
   }
 
-  public addAttestation(_attestation: BlockAttestation): Promise<void> {
-    throw new Error('DummyP2P does not implement "addAttestation"');
+  public addAttestations(_attestations: BlockAttestation[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "addAttestations"');
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {
@@ -129,7 +141,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "sync"');
   }
 
-  public requestTxsByHash(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+  public requestTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
     throw new Error('DummyP2P does not implement "requestTxsByHash"');
   }
 
@@ -145,7 +157,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "hasTxsInPool"');
   }
 
-  public addTxs(_txs: Tx[]): Promise<void> {
+  public addTxsToPool(_txs: Tx[]): Promise<number> {
     throw new Error('DummyP2P does not implement "addTxs"');
   }
 
@@ -163,5 +175,16 @@ export class DummyP2P implements P2P {
 
   markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
     throw new Error('DummyP2P does not implement "markTxsAsNonEvictable".');
+  }
+
+  addReqRespSubProtocol(
+    _subProtocol: ReqRespSubProtocol,
+    _handler: ReqRespSubProtocolHandler,
+    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    throw new Error('DummyP2P does not implement "addReqRespSubProtocol".');
+  }
+  handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+    throw new Error('DummyP2P does not implement "handleAuthRequestFromPeer".');
   }
 }

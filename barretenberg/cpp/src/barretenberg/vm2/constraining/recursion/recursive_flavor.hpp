@@ -9,9 +9,9 @@
 
 namespace bb::avm2 {
 
-template <typename BuilderType> class AvmRecursiveFlavor_ {
+class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = MegaCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
@@ -21,6 +21,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
     // Native one is used!
     using VerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey;
@@ -38,7 +39,8 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
@@ -61,7 +63,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     };
 
     class VerificationKey
-        : public VerificationKey_<FF, NativeFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<CircuitBuilder, NativeFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
@@ -101,11 +103,18 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
                 num_frs_read += num_frs_Comm;
             }
         }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
+        std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not implemented yet!");
+        }
     };
 
     using WitnessCommitments = NativeFlavor::WitnessEntities<Commitment>;
     using VerifierCommitments = NativeFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb::avm2

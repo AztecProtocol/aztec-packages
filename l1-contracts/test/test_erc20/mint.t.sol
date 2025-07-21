@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {TestERC20TestBase} from "./base.t.sol";
 

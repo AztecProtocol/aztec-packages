@@ -26,10 +26,10 @@ class ClientIVCAPI : public API {
                                  const std::filesystem::path& output_path,
                                  const std::filesystem::path& vk_path) override;
 
-    // write a vk for verifying a folding stack based on the number of public inputs of the final circuit
-    void write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path);
-
-    // write a vk for a circuit
+    // Two modes:
+    // - write a vk for a standalone circuit
+    // - write the vk of the hiding circuit which requires the last circuit input (e.g. a private-tail in Aztec) to be
+    // passed. This is used just to parameterize the hiding circuit with the last circuit public inputs amount.
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override;
@@ -43,8 +43,6 @@ class ClientIVCAPI : public API {
 void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode);
 
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir);
-
-acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map);
 
 std::vector<uint8_t> decompress(const void* bytes, size_t size);
 

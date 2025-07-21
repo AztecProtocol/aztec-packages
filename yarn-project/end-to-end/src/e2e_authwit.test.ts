@@ -6,7 +6,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { jest } from '@jest/globals';
 
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
-import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
+import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 150_000;
 
@@ -22,7 +22,7 @@ describe('e2e_authwit_tests', () => {
   beforeAll(async () => {
     ({ wallets } = await setup(2));
     // docs:start:public_deploy_accounts
-    await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
+    await ensureAccountContractsPublished(wallets[0], wallets.slice(0, 2));
     // docs:end:public_deploy_accounts
 
     const nodeInfo = await wallets[0].getNodeInfo();
