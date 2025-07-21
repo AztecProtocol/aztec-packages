@@ -54,9 +54,9 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
 
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    pub fn initialize(self, note: Note) -> NoteEmission<Note>
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        Note: NoteType + NoteHash + Packable,
     {
         // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents
         // the value from being initialized again as a nullifier can be included only once.
@@ -68,9 +68,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:initialize
 
     // docs:start:get_note
-    pub fn get_note<let N: u32>(self) -> Note
+    pub fn get_note(self) -> Note
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        Note: NoteType + NoteHash + Packable,
     {
         let storage_slot = self.storage_slot;
         let retrieved_note = get_note(self.context, storage_slot).0;
@@ -96,11 +96,11 @@ where
 
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
-    pub unconstrained fn view_note<let N: u32>(self) -> Note
+    pub unconstrained fn view_note(self) -> Note
     where
-        Note: Packable<N>,
+        Note: Packable,
     {
-        let mut options = NoteViewerOptions::new();
+        let mut options = NoteViewerOptions::<Note, <Note as Packable>::N>::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }
     // docs:end:view_note

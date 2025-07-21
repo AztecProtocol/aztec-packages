@@ -39,12 +39,14 @@ impl Deserialize for MockStruct {
     }
 }
 
-impl Packable<2> for MockStruct {
-    fn pack(self) -> [Field; 2] {
+impl Packable for MockStruct {
+    let N: u32 = 2;
+
+    fn pack(self) -> [Field; Self::N] {
         [self.a, self.b]
     }
 
-    fn unpack(fields: [Field; 2]) -> Self {
+    fn unpack(fields: [Field; Self::N]) -> Self {
         Self { a: fields[0], b: fields[1] }
     }
 }
