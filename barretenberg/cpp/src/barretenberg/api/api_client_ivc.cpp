@@ -195,7 +195,6 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
 
 bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
 {
-    info("JONATHAN: check_precomputed_vks started.");
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
@@ -220,7 +219,6 @@ bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesyst
         }
     }
     if (check_failed) {
-        info("JONATHAN: check failed.");
         PrivateExecutionStepRaw::compress_and_save(std::move(raw_steps), input_path);
         return false;
     }
