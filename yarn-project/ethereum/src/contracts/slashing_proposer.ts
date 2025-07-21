@@ -15,7 +15,7 @@ import {
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
-import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
+import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 
 export class ProposalAlreadyExecutedError extends Error {
   constructor(round: bigint) {
@@ -58,22 +58,22 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
   public async getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
-  ): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }> {
+  ): Promise<{ lastSignalSlot: bigint; payloadWithMostSignals: Hex; executed: boolean }> {
     return await this.proposer.read.getRoundData([rollupAddress, round]);
   }
 
-  public getProposalVotes(rollupAddress: Hex, round: bigint, proposal: Hex): Promise<bigint> {
-    return this.proposer.read.yeaCount([rollupAddress, round, proposal]);
+  public getPayloadSignals(rollupAddress: Hex, round: bigint, payload: Hex): Promise<bigint> {
+    return this.proposer.read.signalCount([rollupAddress, round, payload]);
   }
 
-  public createVoteRequest(payload: Hex): L1TxRequest {
+  public createSignalRequest(payload: Hex): L1TxRequest {
     return {
       to: this.address.toString(),
-      data: encodeVote(payload),
+      data: encodeSignal(payload),
     };
   }
 
-  public async createVoteRequestWithSignature(
+  public async createSignalRequestWithSignature(
     payload: Hex,
     round: bigint,
     chainId: number,
@@ -81,23 +81,23 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     signer: (msg: Hex) => Promise<Hex>,
   ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(signerAddress);
-    const signature = await signVoteWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
+    const signature = await signSignalWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
     return {
       to: this.address.toString(),
-      data: encodeVoteWithSignature(payload, signature),
+      data: encodeSignalWithSignature(payload, signature),
     };
   }
 
-  public listenToExecutableProposals(callback: (args: { proposal: `0x${string}`; round: bigint }) => unknown) {
-    return this.proposer.watchEvent.ProposalExecutable(
+  public listenToSubmittablePayloads(callback: (args: { payload: `0x${string}`; round: bigint }) => unknown) {
+    return this.proposer.watchEvent.PayloadSubmittable(
       {},
       {
         onLogs: logs => {
           for (const payload of logs) {
             const args = payload.args;
-            if (args.proposal && args.round) {
+            if (args.payload && args.round) {
               // why compiler can't figure it out? no one knows
-              callback(args as { proposal: `0x${string}`; round: bigint });
+              callback(args as { payload: `0x${string}`; round: bigint });
             }
           }
         },
@@ -105,15 +105,15 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     );
   }
 
-  public listenToProposalExecuted(callback: (args: { round: bigint; proposal: `0x${string}` }) => unknown) {
-    return this.proposer.watchEvent.ProposalExecuted(
+  public listenToPayloadSubmitted(callback: (args: { round: bigint; payload: `0x${string}` }) => unknown) {
+    return this.proposer.watchEvent.PayloadSubmitted(
       {},
       {
         onLogs: logs => {
           for (const payload of logs) {
             const args = payload.args;
-            if (args.round && args.proposal) {
-              callback(args as { round: bigint; proposal: `0x${string}` });
+            if (args.round && args.payload) {
+              callback(args as { round: bigint; payload: `0x${string}` });
             }
           }
         },
@@ -150,9 +150,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     if (typeof round === 'number') {
       round = BigInt(round);
     }
-    const args: EncodeFunctionDataParameters<typeof SlashingProposerAbi, 'executeProposal'> = {
+    const args: EncodeFunctionDataParameters<typeof SlashingProposerAbi, 'submitRoundWinner'> = {
       abi: SlashingProposerAbi,
-      functionName: 'executeProposal',
+      functionName: 'submitRoundWinner',
       args: [round],
     };
     const data = encodeFunctionData(args);

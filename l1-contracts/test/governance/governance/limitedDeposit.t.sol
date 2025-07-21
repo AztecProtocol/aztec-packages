@@ -46,7 +46,7 @@ contract LimitedDepositTest is TestBase {
     // it reverts
 
     vm.assume(_caller != address(0) && _depositor != address(0));
-    vm.assume(!governance.isAllowedToDeposit(_depositor));
+    vm.assume(!governance.isPermittedInGovernance(_depositor));
 
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__DepositNotAllowed.selector));
@@ -58,7 +58,7 @@ contract LimitedDepositTest is TestBase {
     vm.assume(_caller != address(0) && _depositor != address(0));
 
     vm.prank(address(governance));
-    governance.addDepositor(_depositor);
+    governance.addBeneficiary(_depositor);
 
     token.mint(_caller, 1000);
 

@@ -245,7 +245,7 @@ contract RollupBuilder is Test {
         vm.prank(address(config.governance));
         config.governance.openFloodgates();
 
-        assertEq(config.governance.isAllDepositsAllowed(), true);
+        assertEq(config.governance.isAllBeneficiariesAllowed(), true);
       }
     }
 
