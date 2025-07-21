@@ -190,25 +190,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (Slot, uint256)
   {
-    Slot slot = _ts.slotFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
-
-    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
-
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
-
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-
-    address proposer = ExtRollupLib2.getProposerAt(slot);
-    require(
-      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
-
-    return (slot, pendingBlockNumber + 1);
+    return ExtRollupLib2.canProposeAtTime(_ts, _archive);
   }
 
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
