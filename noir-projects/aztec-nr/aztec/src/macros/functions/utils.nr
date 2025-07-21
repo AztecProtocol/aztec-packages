@@ -6,12 +6,11 @@ use crate::macros::{
     notes::NOTES,
     utils::{
         add_to_hasher, fn_has_authorize_once, fn_has_noinitcheck, get_fn_visibility,
-        is_fn_contract_library_method, is_fn_initializer, is_fn_internal, is_fn_private,
-        is_fn_public, is_fn_test, is_fn_utility, is_fn_view, modify_fn_body, module_has_initializer,
-        module_has_storage,
+        get_serialize_len, is_fn_contract_library_method, is_fn_initializer, is_fn_internal,
+        is_fn_private, is_fn_public, is_fn_test, is_fn_utility, is_fn_view, modify_fn_body,
+        module_has_initializer, module_has_storage,
     },
 };
-use protocol_types::meta::get_serialize_len;
 use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {

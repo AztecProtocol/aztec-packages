@@ -1,9 +1,8 @@
 use crate::{
-    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
+    macros::utils::get_packable_len, messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
     note::note_getter_options::PropertySelector,
 };
 use poseidon::poseidon2::Poseidon2Hasher;
-use protocol_types::meta::get_packable_len;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
 /// A map from note type to note_packed_len.
