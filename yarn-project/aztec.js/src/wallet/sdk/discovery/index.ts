@@ -22,4 +22,8 @@ export class WalletDiscoveryService extends EventTarget {
     }
     return WalletDiscoveryService.instance;
   }
+
+  get wallets(): WalletWithMetadata[] {
+    return this.#wallets;
+  }
 }

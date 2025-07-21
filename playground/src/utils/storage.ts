@@ -8,17 +8,7 @@ export class AliasedDB<T extends readonly string[]> {
   protected aliases!: AztecAsyncMap<string, Buffer>;
   protected userLog!: LogFn;
 
-  private static instance;
-
   protected constructor() {}
-
-  static get Instance() {
-    if (!this.instance) {
-      this.instance = new this();
-    }
-
-    return this.instance;
-  }
 
   tryRetrieveAlias(arg: string) {
     try {

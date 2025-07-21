@@ -35,7 +35,6 @@ export function NavBar() {
     <div css={[container]}>
       <div css={navbarContent}>
         <NetworkSelector />
-        <AccountSelector />
         <ContractSelector />
         <div css={{ flexGrow: 1 }} />
         <AddressBook />

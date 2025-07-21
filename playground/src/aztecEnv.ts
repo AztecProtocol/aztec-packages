@@ -4,6 +4,7 @@ import {
   AccountWalletWithSecretKey,
   type ContractArtifact,
   createAztecNodeClient,
+  WalletDiscoveryService, type WalletWithMetadata
 } from '@aztec/aztec.js';
 
 import { createStore } from '@aztec/kv-store/indexeddb';
@@ -12,6 +13,7 @@ import { type UserTx } from './utils/txs';
 import type { Network } from './utils/networks';
 import type { Log } from './utils/types';
 import { AppDB } from './app_db';
+import { WebLogger } from './utils/web_logger';
 
 
 export const AztecContext = createContext<{
@@ -86,8 +88,12 @@ export class AztecEnv {
         dataDirectory: 'playground',
         dataStoreMapSizeKB: 1e6,
       });
-      await AppDB.Instance.init(appStore);
+      await AppDB.getInstance().init(appStore, WebLogger.getInstance().createLogger('app:idb').verbose);
     }
+  }
+
+  static requestWallets(): WalletWithMetadata[] {
+    return WalletDiscoveryService.getInstance().wallets
   }
 
   static async connectToNode(nodeURL: string): Promise<AztecNode> {

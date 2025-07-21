@@ -1,13 +1,16 @@
 import { css } from '@emotion/react';
 import { ContractComponent } from '../contract/Contract';
-import { NavBar } from '../sidebar/NavBar';
-import { useState } from 'react';
-import { AztecContext } from '../../aztecEnv';
+import { NavBar } from '../navbar/NavBar';
+import { useEffect, useState } from 'react';
+import { AztecContext, AztecEnv } from '../../aztecEnv';
 import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
-import { TxPanel } from '../sidebar/TxPanel';
+import { TxPanel } from '../navbar/TxPanel';
 import { trackButtonClick } from '../../utils/matomo';
+import { AppDB } from '../../app_db';
+import { WalletSelector } from './components/WalletSelector';
+import type { WalletWithMetadata } from '@aztec/aztec.js';
 
 const container = css({
   display: 'flex',
@@ -145,6 +148,21 @@ export default function Home() {
     setPendingTxUpdateCounter,
   };
 
+  const [chooseWalletDialogOpen, setChooseWalletDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      await AztecEnv.initAppStore();
+      setAppDB(AppDB.getInstance());
+      setChooseWalletDialogOpen(true);
+    };
+    init();
+  }, []);
+
+  const onWalletSelected = (selectedWallet?: WalletWithMetadata) => {
+    setWallet(selectedWallet);
+  }
+
   return (
     <div css={container}>
       <div css={headerFrame}>
@@ -177,6 +195,7 @@ export default function Home() {
           <TxPanel />
         </div>
         <LogPanel />
+        <WalletSelector open={chooseWalletDialogOpen} onClose={onWalletSelected} />
       </AztecContext.Provider>
     </div>
   );

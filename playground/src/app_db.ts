@@ -15,6 +15,15 @@ export class AppDB extends AliasedDB<typeof Aliases> {
     #transactionsPerContract!: AztecAsyncMultiMap<string, Buffer>;
     #networks!: AztecAsyncMap<string, Buffer>;
 
+    private static instance: AppDB;
+
+    static getInstance() {
+      if(!this.instance) {
+        this.instance = new AppDB();
+      }
+      return this.instance;
+    }
+
     async storeNetwork(network: string, alias: string) {
       await this.#networks.set(network, Buffer.from(alias));
     }

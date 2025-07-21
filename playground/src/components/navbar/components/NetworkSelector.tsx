@@ -33,27 +33,18 @@ export function NetworkSelector() {
   } = useContext(AztecContext);
 
   const [networks, setNetworks] = useState(NETWORKS);
-  const [isAppStoreInitialized, setIsAppStoreInitialized] = useState(false);
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [isOpen, setOpen] = useState(false);
   const [showNetworkDownNotification, setShowNetworkDownNotification] = useState(false);
   const notifications = useNotifications();
 
-  useEffect(() => {
-    const initAppStore = async () => {
-      await AztecEnv.initAppStore();
-      setIsAppStoreInitialized(true);
-    };
-    initAppStore();
-  }, []);
-
   // Connect to the first network automatically
   useEffect(() => {
-    if (isAppStoreInitialized && !network) {
+    if (appDB && !network) {
       handleNetworkChange(NETWORKS[0].nodeURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAppStoreInitialized]);
+  }, [appDB]);
 
   useEffect(() => {
     const refreshNetworks = async () => {
@@ -71,10 +62,10 @@ export function NetworkSelector() {
       ];
       setNetworks(networks);
     };
-    if (isAppStoreInitialized) {
+    if (appDB) {
       refreshNetworks();
     }
-  }, [isAppStoreInitialized]);
+  }, [appDB]);
 
   const handleNetworkChange = async (nodeURL: string) => {
     let network = null;

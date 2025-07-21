@@ -17,6 +17,14 @@ export class WalletDB extends AliasedDB<typeof Aliases> {
     #accounts!: AztecAsyncMap<string, Buffer>;
     #bridgedFeeJuice!: AztecAsyncMap<string, Buffer>;
 
+    private static instance: WalletDB;
+
+    static getInstance() {
+      if(!this.instance) {
+        this.instance = new WalletDB();
+      }
+      return this.instance;
+    }
 
     init(store: AztecAsyncKVStore, userLog: LogFn) {
       super.init(Aliases, store, userLog);
