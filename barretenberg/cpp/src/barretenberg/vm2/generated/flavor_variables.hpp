@@ -39,6 +39,7 @@
 #include "relations/notehash_exists.hpp"
 #include "relations/nullifier_check.hpp"
 #include "relations/poseidon2_hash.hpp"
+#include "relations/poseidon2_mem.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
@@ -85,6 +86,7 @@
 #include "relations/lookups_notehash_exists.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
+#include "relations/lookups_poseidon2_mem.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_registers.hpp"
@@ -98,16 +100,17 @@
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_keccakf1600.hpp"
+#include "relations/perms_poseidon2_mem.hpp"
 #include "relations/perms_public_data_check.hpp"
 
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2400;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2474;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2773;
+    static constexpr size_t NUM_ALL_ENTITIES = 2849;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -150,6 +153,7 @@ struct AvmFlavorVariables {
         avm2::notehash_exists<FF_>,
         avm2::nullifier_check<FF_>,
         avm2::poseidon2_hash<FF_>,
+        avm2::poseidon2_mem<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
@@ -194,8 +198,12 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_range_4_relation<FF_>,
         lookup_addressing_relative_overflow_range_5_relation<FF_>,
         lookup_addressing_relative_overflow_range_6_relation<FF_>,
+        lookup_alu_exec_dispatching_cast_relation<FF_>,
+        lookup_alu_exec_dispatching_set_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
         lookup_alu_int_gt_relation<FF_>,
+        lookup_alu_large_trunc_canonical_dec_relation<FF_>,
+        lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_register_tag_value_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
@@ -406,6 +414,17 @@ struct AvmFlavorVariables {
         lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
+        lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
+        lookup_poseidon2_mem_check_src_addr_in_range_relation<FF_>,
+        lookup_poseidon2_mem_input_output_poseidon2_perm_relation<FF_>,
+        lookup_poseidon2_mem_pos_read_mem_0_relation<FF_>,
+        lookup_poseidon2_mem_pos_read_mem_1_relation<FF_>,
+        lookup_poseidon2_mem_pos_read_mem_2_relation<FF_>,
+        lookup_poseidon2_mem_pos_read_mem_3_relation<FF_>,
+        lookup_poseidon2_mem_pos_write_mem_0_relation<FF_>,
+        lookup_poseidon2_mem_pos_write_mem_1_relation<FF_>,
+        lookup_poseidon2_mem_pos_write_mem_2_relation<FF_>,
+        lookup_poseidon2_mem_pos_write_mem_3_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
         lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,
         lookup_public_data_check_low_leaf_poseidon2_0_relation<FF_>,
@@ -479,6 +498,7 @@ struct AvmFlavorVariables {
         perm_execution_dispatch_keccakf1600_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,
+        perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
         perm_public_data_check_squashing_relation<FF_>>;
 };
 

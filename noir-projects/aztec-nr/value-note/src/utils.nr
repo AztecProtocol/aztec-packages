@@ -10,11 +10,11 @@ use aztec::{
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
-pub fn create_note_getter_options_for_decreasing_balance<let N: u32>(
+pub fn create_note_getter_options_for_decreasing_balance<let M: u32>(
     amount: Field,
-) -> NoteGetterOptions<ValueNote, N, Field, Field>
+) -> NoteGetterOptions<ValueNote, M, Field, Field>
 where
-    ValueNote: Packable<N>,
+    ValueNote: Packable<N = M>,
 {
     NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(
         ValueNote::properties().value,

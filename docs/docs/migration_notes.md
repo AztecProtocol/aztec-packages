@@ -11,6 +11,42 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## [Aztec.nr]
 
+### Notes require you to manually implement or derive Packable
+
+We have decided to drop auto-derivation of `Packable` from the `#[note]` macro because we want to make the macros less magical.
+With this change you will be forced to either apply `#[derive(Packable)` on your notes:
+
+```diff
++use aztec::protocol_types::traits::Packable;
+
++#[derive(Packable)]
+#[note]
+pub struct UintNote {
+    owner: AztecAddress,
+    randomness: Field,
+    value: u128,
+}
+```
+
+or to implement it manually yourself:
+
+```rust
+impl Packable for UintNote {
+    let N: u32 = 3;
+
+    fn pack(self) -> [Field; Self::N] {
+        [self.owner.to_field(), randomness, value as Field]
+    }
+
+    fn unpack(fields: [Field; Self::N]) -> Self {
+        let owner = AztecAddress::from_field(fields[0]);
+        let randomness = fields[1];
+        let value = fields[2] as u128;
+        UintNote { owner, randomness, value }
+    }
+}
+```
+
 ### Tagging sender now managed via oracle functions
 
 Now, instead of manually needing to pass a tagging sender as an argument to log emission functions (e.g. `encode_and_encrypt_note`, `encode_and_encrypt_note_unconstrained`, `emit_event_in_private_log`, ...) we automatically load the sender via the `get_sender_for_tags()` oracle.
@@ -79,8 +115,21 @@ As part of a broader effort to make TXE easier to use and reason about, large pa
 
 ## [Aztec.js]
 
+### Cheatcodes
+
 Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
 While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
+
+### Note exports dropped from artifact
+
+Notes are no longer exported in the contract artifact.
+Exporting notes was technical debt from when we needed to interpret notes in TypeScript.
+
+The following code will no longer work since `notes` is no longer available on the artifact:
+
+```rust
+const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
+```
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 

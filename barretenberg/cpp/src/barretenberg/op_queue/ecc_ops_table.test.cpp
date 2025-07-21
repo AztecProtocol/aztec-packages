@@ -1,4 +1,5 @@
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <gtest/gtest.h>
@@ -17,7 +18,7 @@ class EccOpsTableTest : public ::testing::Test {
         virtual Op generate_random_op() const = 0;
         std::vector<std::vector<Op>> generate_subtables(size_t num_subtables, std::vector<size_t> ops_per_table)
         {
-            ASSERT(num_subtables == ops_per_table.size());
+            BB_ASSERT_EQ(num_subtables, ops_per_table.size());
             std::vector<std::vector<Op>> subtables;
             subtables.reserve(num_subtables);
             for (size_t i = 0; i < num_subtables; ++i) {

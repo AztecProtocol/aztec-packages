@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -20,8 +21,8 @@ class KernelIO {
   public:
     using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
-    using G1 = typename Curve::Group;
-    using FF = typename Curve::ScalarField;
+    using G1 = Curve::Group;
+    using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
@@ -83,7 +84,7 @@ class KernelIO {
 template <typename Builder> class DefaultIO {
   public:
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
-    using FF = typename Curve::ScalarField;
+    using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
 
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
@@ -153,7 +154,6 @@ class RollupIO {
      * @brief Reconstructs the IO components from a public inputs array.
      *
      * @param public_inputs Public inputs array containing the serialized kernel public inputs.
-     * @param start_idx Index at which the kernel public inputs are to be extracted.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
