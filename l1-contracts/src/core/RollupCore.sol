@@ -216,16 +216,15 @@ contract RollupCore is
   }
 
   function finaliseWithdraw(address _attester) external override(IStakingCore) {
-    StakingLib.finaliseWithdraw(_attester);
+    ExtRollupLib2.finaliseWithdraw(_attester);
   }
 
   function slash(address _attester, uint256 _amount) external override(IStakingCore) returns (bool) {
-    return StakingLib.trySlash(_attester, _amount);
+    return ExtRollupLib2.slash(_attester, _amount);
   }
 
   function prune() external override(IRollupCore) {
-    require(STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp)), Errors.Rollup__NothingToPrune());
-    STFLib.prune();
+    ExtRollupLib.prune();
   }
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args)

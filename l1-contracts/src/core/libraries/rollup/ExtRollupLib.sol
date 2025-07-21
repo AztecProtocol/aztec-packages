@@ -3,6 +3,7 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -78,5 +79,10 @@ library ExtRollupLib {
 
   function getBlobBaseFee() external view returns (uint256) {
     return BlobLib.getBlobBaseFee();
+  }
+
+  function prune() external {
+    require(STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp)), Errors.Rollup__NothingToPrune());
+    STFLib.prune();
   }
 }
