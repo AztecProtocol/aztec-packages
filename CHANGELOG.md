@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.0...v1.1.1) (2025-07-21)
+
+
+### Miscellaneous
+
+* **backport-to-master:** fix: update contract addresses ([#15833](https://github.com/AztecProtocol/aztec-packages/issues/15833)) ([#15835](https://github.com/AztecProtocol/aztec-packages/issues/15835)) ([2b54f9b](https://github.com/AztecProtocol/aztec-packages/commit/2b54f9b604b99bdabd6a129ed56b82b3824d3a5a))
+* update bb-versions.json ([#15822](https://github.com/AztecProtocol/aztec-packages/issues/15822)) ([256791e](https://github.com/AztecProtocol/aztec-packages/commit/256791eb504d4034f4a4c2ee603c90a1f8e1856e))
+
 ## [1.1.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.6...v1.1.0) (2025-07-17)
 
 
