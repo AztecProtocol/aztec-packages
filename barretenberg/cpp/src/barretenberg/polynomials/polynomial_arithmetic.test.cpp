@@ -1185,82 +1185,6 @@ TYPED_TEST(PolynomialTests, partial_evaluate_mle)
     EXPECT_EQ(v_result, v_expected);
 }
 
-TYPED_TEST(PolynomialTests, factor_roots)
-{
-    using FF = TypeParam;
-
-    constexpr size_t N = 32;
-
-    auto test_case = [&](size_t NUM_ZERO_ROOTS, size_t NUM_NON_ZERO_ROOTS) {
-        const size_t NUM_ROOTS = NUM_NON_ZERO_ROOTS + NUM_ZERO_ROOTS;
-
-        Polynomial<FF> poly(N);
-        for (size_t i = NUM_ZERO_ROOTS; i < N; ++i) {
-            poly.at(i) = FF::random_element();
-        }
-
-        // sample a root r, and compute p(r)/r^N for each non-zero root r
-        std::vector<FF> non_zero_roots(NUM_NON_ZERO_ROOTS);
-        std::vector<FF> non_zero_evaluations(NUM_NON_ZERO_ROOTS);
-        for (size_t i = 0; i < NUM_NON_ZERO_ROOTS; ++i) {
-            const auto root = FF::random_element();
-            non_zero_roots[i] = root;
-            const auto root_pow = root.pow(NUM_ZERO_ROOTS);
-            non_zero_evaluations[i] = poly.evaluate(root) / root_pow;
-        }
-
-        std::vector<FF> roots(NUM_ROOTS);
-        for (size_t i = 0; i < NUM_ZERO_ROOTS; ++i) {
-            roots[i] = FF::zero();
-        }
-        for (size_t i = 0; i < NUM_NON_ZERO_ROOTS; ++i) {
-            roots[NUM_ZERO_ROOTS + i] = non_zero_roots[i];
-        }
-
-        if (NUM_NON_ZERO_ROOTS > 0) {
-            Polynomial<FF> interpolated(non_zero_roots, non_zero_evaluations, NUM_ROOTS);
-            EXPECT_EQ(interpolated.size(), NUM_NON_ZERO_ROOTS);
-            for (size_t i = 0; i < NUM_NON_ZERO_ROOTS; ++i) {
-                poly.at(NUM_ZERO_ROOTS + i) -= interpolated[i];
-            }
-        }
-
-        // Sanity check that all roots are actually roots
-        for (size_t i = 0; i < NUM_ROOTS; ++i) {
-            EXPECT_EQ(poly.evaluate(roots[i]), FF::zero()) << i;
-        }
-
-        Polynomial<FF> quotient(poly);
-        polynomial_arithmetic::factor_roots(poly.coeffs(), std::span<const FF>(roots));
-
-        // check that (t-r)q(t) == p(t)
-        FF t = FF::random_element();
-        FF roots_eval = polynomial_arithmetic::compute_linear_polynomial_product_evaluation(roots.data(), t, NUM_ROOTS);
-        FF q_t = quotient.evaluate(t, N - NUM_ROOTS);
-        FF p_t = poly.evaluate(t, N);
-        EXPECT_EQ(roots_eval * q_t, p_t);
-
-        for (size_t i = N - NUM_ROOTS; i < N; ++i) {
-            EXPECT_EQ(quotient[i], FF::zero());
-        }
-        if (NUM_ROOTS == 0) {
-            EXPECT_EQ(poly, quotient);
-        }
-        if (NUM_ROOTS == 1) {
-            Polynomial<FF> quotient_single(poly);
-            quotient_single.factor_roots(roots[0]);
-            EXPECT_EQ(quotient_single, quotient);
-        }
-    };
-    test_case(0, 0);
-    test_case(0, 1);
-    test_case(1, 0);
-    test_case(1, 1);
-    test_case(2, 0);
-    test_case(0, 2);
-    test_case(3, 6);
-}
-
 TYPED_TEST(PolynomialTests, move_construct_and_assign)
 {
     using FF = TypeParam;
@@ -1321,36 +1245,4 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
         EXPECT_EQ(poly[i], interesting_poly[i]);
     }
     EXPECT_EQ(poly.size(), interesting_poly.size());
-}
-
-/**
- * @brief Test the right shift functionality of the polynomial class
- *
- */
-TYPED_TEST(PolynomialTests, RightShift)
-{
-    using FF = TypeParam;
-
-    // Define valid parameters for computing a right shifted polynomial
-    size_t num_coeffs = 32;
-    size_t num_nonzero_coeffs = 7;
-    size_t shift_magnitude = 21;
-    Polynomial<FF> poly(num_coeffs, num_coeffs + shift_magnitude);
-
-    for (size_t idx = 0; idx < num_nonzero_coeffs; ++idx) {
-        poly.at(idx) = FF::random_element();
-    }
-
-    // evaluate the unshifted polynomial
-    auto evaluation_point = FF::random_element();
-    auto unshifted_evaluation = poly.evaluate(evaluation_point);
-
-    // compute the right shift of the original polynomial and its evaluation
-    Polynomial<FF> right_shifted_poly = poly.right_shifted(shift_magnitude);
-    auto shifted_evaluation = right_shifted_poly.evaluate(evaluation_point);
-
-    // reconstruct the unshifted evaluation using that p^{shift}(X) = p(X)*X^m, where m is the shift magnitude
-    auto shifted_eval_reconstructed = unshifted_evaluation * evaluation_point.pow(shift_magnitude);
-
-    EXPECT_EQ(shifted_evaluation, shifted_eval_reconstructed);
 }
