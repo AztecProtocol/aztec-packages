@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "blake2s_plookup.hpp"
+#include "blake2s.hpp"
 #include "blake_util.hpp"
 
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"

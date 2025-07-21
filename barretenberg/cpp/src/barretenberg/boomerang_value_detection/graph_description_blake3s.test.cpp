@@ -1,7 +1,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s_plookup.hpp"
+#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "graph.hpp"
 #include <gtest/gtest.h>
 

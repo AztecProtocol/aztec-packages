@@ -3,7 +3,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib/hash/blake2s/blake2s_plookup.hpp"
+#include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 
 using namespace bb;

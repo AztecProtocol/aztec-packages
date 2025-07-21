@@ -5,7 +5,7 @@
 // =====================
 
 #include "blake3_constraint.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s_plookup.hpp"
+#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "round.hpp"
 

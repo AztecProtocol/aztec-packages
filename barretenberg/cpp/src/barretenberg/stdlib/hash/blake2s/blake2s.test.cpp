@@ -1,6 +1,6 @@
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "blake2s_plookup.hpp"
+#include "blake2s.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

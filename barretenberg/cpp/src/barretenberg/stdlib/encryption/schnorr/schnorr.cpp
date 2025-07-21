@@ -6,7 +6,7 @@
 
 #include "schnorr.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
-#include "barretenberg/stdlib/hash/blake2s/blake2s_plookup.hpp"
+#include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"

@@ -3,7 +3,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s_plookup.hpp"
+#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
