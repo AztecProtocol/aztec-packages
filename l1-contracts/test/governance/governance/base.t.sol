@@ -107,6 +107,7 @@ contract GovernanceBase is TestBase {
     proposalId = proposalIds[_proposalName];
 
     vm.assume(_proposer != proposal.proposer);
+    vm.assume(_proposer != address(governance));
 
     vm.prank(address(governance));
     governance.updateGovernanceProposer(_proposer);
