@@ -466,7 +466,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_compon
     bb::UltraCircuitBuilder& ultra_builder, const bb::RomTranscript& rom_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.memory);
-    ASSERT(block_index == 5U);
+    BB_ASSERT_EQ(block_index, 5U);
 
     // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
     // 1) records contains values that were put in the gate, we can use them to create connections between variables
@@ -527,7 +527,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_compon
     bb::UltraCircuitBuilder& ultra_builder, const bb::RamTranscript& ram_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.memory);
-    ASSERT(block_index == 5U);
+    BB_ASSERT_EQ(block_index, 5U);
     std::vector<uint32_t> ram_table_variables;
     for (const auto& record : ram_array.records) {
         std::vector<uint32_t> gate_variables;

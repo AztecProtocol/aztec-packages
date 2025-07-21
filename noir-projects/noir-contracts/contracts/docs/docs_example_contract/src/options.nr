@@ -12,12 +12,12 @@ use dep::aztec::protocol_types::{
 // Shows how to use NoteGetterOptions and query for notes.
 
 // docs:start:state_vars-NoteGetterOptionsSelectSortOffset
-pub fn create_npk_card_getter_options<let N: u32>(
+pub fn create_npk_card_getter_options<let M: u32>(
     account: AztecAddress,
     offset: u32,
-) -> NoteGetterOptions<CardNote, N, Field, Field>
+) -> NoteGetterOptions<CardNote, M, Field, Field>
 where
-    CardNote: Packable<N>,
+    CardNote: Packable<N = M>,
 {
     let mut options = NoteGetterOptions::new();
     options
@@ -28,13 +28,13 @@ where
 // docs:end:state_vars-NoteGetterOptionsSelectSortOffset
 
 // docs:start:state_vars-NoteGetterOptionsMultiSelects
-pub fn create_exact_card_getter_options<let N: u32>(
+pub fn create_exact_card_getter_options<let M: u32>(
     points: u8,
     secret: Field,
     account: AztecAddress,
-) -> NoteGetterOptions<CardNote, N, Field, Field>
+) -> NoteGetterOptions<CardNote, M, Field, Field>
 where
-    CardNote: Packable<N>,
+    CardNote: Packable<N = M>,
 {
     let mut options = NoteGetterOptions::new();
     options
@@ -62,11 +62,11 @@ pub fn filter_min_points(
 // docs:end:state_vars-OptionFilter
 
 // docs:start:state_vars-NoteGetterOptionsFilter
-pub fn create_cards_with_min_points_getter_options<let N: u32>(
+pub fn create_cards_with_min_points_getter_options<let M: u32>(
     min_points: u8,
-) -> NoteGetterOptions<CardNote, N, Field, u8>
+) -> NoteGetterOptions<CardNote, M, Field, u8>
 where
-    CardNote: Packable<N>,
+    CardNote: Packable<N = M>,
 {
     NoteGetterOptions::with_filter(filter_min_points, min_points).sort(
         CardNote::properties().points,
@@ -76,9 +76,9 @@ where
 // docs:end:state_vars-NoteGetterOptionsFilter
 
 // docs:start:state_vars-NoteGetterOptionsPickOne
-pub fn create_largest_card_getter_options<let N: u32>() -> NoteGetterOptions<CardNote, N, Field, Field>
+pub fn create_largest_card_getter_options<let M: u32>() -> NoteGetterOptions<CardNote, M, Field, Field>
 where
-    CardNote: Packable<N>,
+    CardNote: Packable<N = M>,
 {
     let mut options = NoteGetterOptions::new();
     options.sort(CardNote::properties().points, SortOrder.DESC).set_limit(1)
