@@ -27,7 +27,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
-    std::vector<FF>& public_inputs = oink_verifier.public_inputs;
+    const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         verification_key->gate_challenges.emplace_back(
