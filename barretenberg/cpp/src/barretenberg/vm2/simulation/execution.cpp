@@ -598,6 +598,31 @@ void Execution::note_hash_exists(ContextInterface& context,
     set_output(opcode, value);
 }
 
+void Execution::nullifier_exists(ContextInterface& context,
+                                 MemoryAddress nullifier_offset,
+                                 MemoryAddress address_offset,
+                                 MemoryAddress exists_offset)
+{
+    constexpr auto opcode = ExecutionOpCode::NULLIFIEREXISTS;
+    auto& memory = context.get_memory();
+
+    auto nullifier = memory.get(nullifier_offset);
+    auto address = memory.get(address_offset);
+    set_and_validate_inputs(opcode, { nullifier, address });
+
+    get_gas_tracker().consume_gas();
+
+    // Check nullifier existence via MerkleDB
+    // (this also tag checks address and nullifier as FFs)
+    auto exists = merkle_db.nullifier_exists(nullifier.as_ff(), address.as_ff());
+
+    // Write result to memory
+    // (assigns tag u1 to result)
+    TaggedValue result = TaggedValue::from<uint1_t>(exists ? 1 : 0);
+    memory.set(exists_offset, result);
+    set_output(opcode, result);
+}
+
 void Execution::get_contract_instance(ContextInterface& context,
                                       MemoryAddress address_offset,
                                       MemoryAddress dst_offset,
@@ -920,6 +945,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::NOTEHASHEXISTS:
         call_with_operands(&Execution::note_hash_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        call_with_operands(&Execution::nullifier_exists, context, resolved_operands);
         break;
     case ExecutionOpCode::GETCONTRACTINSTANCE:
         call_with_operands(&Execution::get_contract_instance, context, resolved_operands);

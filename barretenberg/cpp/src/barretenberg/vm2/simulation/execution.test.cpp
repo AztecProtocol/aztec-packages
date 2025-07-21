@@ -593,6 +593,28 @@ TEST_F(ExecutionSimulationTest, L1ToL2MessageExistsOutOfRange)
     execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
 }
 
+TEST_F(ExecutionSimulationTest, NullifierExists)
+{
+    MemoryAddress nullifier_offset = 10;
+    MemoryAddress address_offset = 11;
+    MemoryAddress exists_offset = 12;
+
+    auto nullifier = MemoryValue::from<FF>(42);
+    auto address = MemoryValue::from<FF>(7);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(nullifier_offset)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(memory, get(address_offset)).WillOnce(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, nullifier_exists(nullifier.as<FF>(), address.as<FF>())).WillOnce(Return(true));
+
+    EXPECT_CALL(memory, set(exists_offset, MemoryValue::from<uint1_t>(1)));
+
+    execution.nullifier_exists(context, nullifier_offset, address_offset, exists_offset);
+}
+
 TEST_F(ExecutionSimulationTest, Set)
 {
     MemoryAddress dst_addr = 10;
