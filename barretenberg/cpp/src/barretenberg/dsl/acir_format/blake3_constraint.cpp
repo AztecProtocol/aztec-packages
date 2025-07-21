@@ -5,7 +5,7 @@
 // =====================
 
 #include "blake3_constraint.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
+#include "barretenberg/stdlib/hash/blake3s/blake3s_plookup.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "round.hpp"
 
@@ -34,7 +34,7 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
         arr.write(element_bytes);
     }
 
-    byte_array_ct output_bytes = bb::stdlib::blake3s<Builder>(arr);
+    byte_array_ct output_bytes = bb::stdlib::blake3s_plookup::blake3s<Builder>(arr);
 
     // Convert byte array to vector of field_t
     auto bytes = output_bytes.bytes();

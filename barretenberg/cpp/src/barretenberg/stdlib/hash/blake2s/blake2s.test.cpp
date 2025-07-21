@@ -1,7 +1,6 @@
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "blake2s.hpp"
 #include "blake2s_plookup.hpp"
 #include <gtest/gtest.h>
 
@@ -42,7 +41,7 @@ TEST(stdlib_blake2s, test_single_block_plookup)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_plookup input_arr(&builder, input_v);
-    byte_array_plookup output = blake2s<Builder>(input_arr);
+    byte_array_plookup output = stdlib::blake2s_plookup::blake2s<Builder>(input_arr);
 
     auto expected = crypto::blake2s(input_v);
 
@@ -80,7 +79,7 @@ TEST(stdlib_blake2s, test_double_block_plookup)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_plookup input_arr(&builder, input_v);
-    byte_array_plookup output = blake2s<Builder>(input_arr);
+    byte_array_plookup output = stdlib::blake2s_plookup::blake2s<Builder>(input_arr);
 
     auto expected = crypto::blake2s(input_v);
 
