@@ -25,7 +25,7 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  *
  * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
  * the polynomial
- *      p_j(X) = l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa)
+ *      p_j(X) = - l_j(kappa) - kappa^k r_j(kappa) + m_j(kappa)
  * opens to 0 at kappa.
  *
  * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and
@@ -42,7 +42,7 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
  *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
  *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
- *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^k, -1}, and the claimed
+ *                           reconstructing p_j from l_j, r_j, m_j: {-1, -kappa^k, +1}, and the claimed
  *                           evaluation: 0.
  *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
  *                           v_j.
@@ -95,18 +95,17 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    const FF pow_kappa = kappa.pow(shift_size);
+    const FF minus_pow_kappa = -kappa.pow(shift_size);
 
-    // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
 
-    // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
+    // Add opening claim for p_j(X) = - l_j(X) - kappa^k r_j(X) + m_j(X)
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         Claims claim{ { /*index of [l_j]*/ commitment_idx,
                         /*index of [r_j]*/ commitment_idx + 1,
                         /*index of [m_j]*/ commitment_idx + 2 },
-                      { FF::one(), pow_kappa, FF::neg_one() },
+                      { FF::neg_one(), minus_pow_kappa, FF::one() },
                       { kappa, FF::zero() } };
         opening_claims.emplace_back(claim);
 
