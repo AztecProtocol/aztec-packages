@@ -2,15 +2,16 @@ use dep::types::{
     abis::private_kernel::private_call_data::PrivateCallData,
     address::AztecAddress,
     constants::{
-        DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS,
+        CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, DEFAULT_UPDATE_DELAY, MAX_PROTOCOL_CONTRACTS,
         UPDATED_CLASS_IDS_SLOT,
     },
     contract_class_id::ContractClassId,
+    delayed_public_mutable::{
+        delayed_public_mutable_values::DelayedPublicMutableValues,
+        with_hash::validate_with_hash_hints,
+    },
     hash::private_functions_root_from_siblings,
     merkle_tree::conditionally_assert_check_membership,
-    shared_mutable::{
-        shared_mutable_values::SharedMutableValues, with_hash::validate_with_hash_hints,
-    },
     storage::map::derive_storage_slot_in_map,
     traits::{Empty, Packable, ToField},
 };
@@ -62,23 +63,23 @@ pub fn validate_contract_address(
     // Here, we directly read a storage slot of the contract upgrade registry, in case it
     // contains an updated contract_class_id.
     // ~900 constraints
-    let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> =
-        Packable::unpack(hints.updated_class_id_shared_mutable_values);
+    let delayed_public_mutable_values: DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> =
+        Packable::unpack(hints.updated_class_id_delayed_public_mutable_values);
 
-    // A time horizon for this shared mutable should be set separately when generating/validating kernel output.
+    // A time horizon for this delayed public mutable should be set separately when generating/validating kernel output.
     // This is a confusingly-named function.
     validate_with_hash_hints(
         private_call_data.public_inputs.historical_header,
         derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, contract_address),
-        DEPLOYER_CONTRACT_ADDRESS,
-        shared_mutable_values,
+        CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+        delayed_public_mutable_values,
         hints.updated_class_id_witness,
         hints.updated_class_id_leaf,
     );
 
     // Q: How is the private call's vk validated against this updated_contract_class_id?
     // A: below, we assert that the previously-computed contract_class_id == updated_contract_class_id.
-    let updated_contract_class_id = shared_mutable_values.svc.get_current_at(
+    let updated_contract_class_id = delayed_public_mutable_values.svc.get_current_at(
         private_call_data.public_inputs.historical_header.global_variables.timestamp,
     );
 

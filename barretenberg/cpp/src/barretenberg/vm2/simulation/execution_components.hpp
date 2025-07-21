@@ -22,7 +22,9 @@ class ExecutionComponentsProviderInterface {
   public:
     virtual ~ExecutionComponentsProviderInterface() = default;
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
-    virtual std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context) = 0;
+    virtual std::unique_ptr<GasTrackerInterface> make_gas_tracker(GasEvent& gas_event,
+                                                                  const Instruction& instruction,
+                                                                  ContextInterface& context) = 0;
 };
 
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
@@ -33,7 +35,9 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
     {}
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
-    std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context) override;
+    std::unique_ptr<GasTrackerInterface> make_gas_tracker(GasEvent& gas_event,
+                                                          const Instruction& instruction,
+                                                          ContextInterface& context) override;
 
   private:
     RangeCheckInterface& range_check;

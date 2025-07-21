@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -179,7 +180,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
     // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
-    ASSERT(grand_product_polynomial.start_index() == 1);
+    BB_ASSERT_EQ(grand_product_polynomial.start_index(), 1U);
 
     // For Ultra/Mega, the first row is an inactive zero row thus the grand prod takes value 1 at both i = 0 and i = 1
     if constexpr (IsUltraOrMegaHonk<Flavor>) {

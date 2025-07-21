@@ -12,7 +12,7 @@ unconstrained fn setup() -> TestEnvironment {
     let mut env = TestEnvironment::new();
 
     // Advance 1 block so we can read historic state from private
-    env.advance_block_by(1);
+    env.mine_block();
 
     env
 }

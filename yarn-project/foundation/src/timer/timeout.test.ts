@@ -21,6 +21,8 @@ describe('timeout', () => {
   });
 
   it('rejects if timeout is negative', async () => {
-    await expect(executeTimeout(() => sleep(500), -100, 'Timed out!')).rejects.toThrow('Timed out!');
+    await expect(executeTimeout(() => sleep(500), -100, 'Timed out!')).rejects.toThrow(
+      /The value of .* is out of range/,
+    );
   });
 });

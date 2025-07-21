@@ -38,7 +38,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Recipient should have the note in their private nfts
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);

@@ -1,3 +1,4 @@
+import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat';
 import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
@@ -80,7 +81,10 @@ export function injectCommands(
       '--skip-initialization',
       'Skip initializing the account contract. Useful for publicly deploying an existing account.',
     )
-    .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
+    .option(
+      '--public-deploy',
+      'Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.',
+    )
     .option(
       '-p, --public-key <string>',
       'Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.',
@@ -158,7 +162,10 @@ export function injectCommands(
       '--register-class',
       'Register the contract class (useful for when the contract class has not been deployed yet).',
     )
-    .option('--public-deploy', 'Publicly deploy this account contract (only useful if it contains public functions')
+    .option(
+      '--public-deploy',
+      'Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.',
+    )
     .addOption(createVerboseOption());
 
   addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
@@ -372,7 +379,8 @@ export function injectCommands(
 
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-    const wallet = await account.getWallet();
+    const originalWallet = await account.getWallet();
+    const wallet = await CopyCatAccountWallet.create(client, originalWallet);
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
     const authWitnesses = cleanupAuthWitnesses(authWitness);
     await simulate(

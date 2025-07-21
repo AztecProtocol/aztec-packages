@@ -18,14 +18,13 @@ class ECCVMTranscriptBuilder {
     using FF = grumpkin::fr;
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
-    using VMOperation = typename bb::VMOperation<CycleGroup>;
     using Accumulator = typename std::vector<Element>;
 
     struct TranscriptRow {
 
         // These fields are populated in the first loop
         bool transcript_msm_infinity = false;
-        bool accumulator_empty = false;
+        bool accumulator_not_empty = false;
         bool q_add = false;
         bool q_mul = false;
         bool q_eq = false;
@@ -107,7 +106,7 @@ class ECCVMTranscriptBuilder {
      *
      * @return A vector of TranscriptRows
      */
-    static std::vector<TranscriptRow> compute_rows(const std::vector<VMOperation>& vm_operations,
+    static std::vector<TranscriptRow> compute_rows(const std::vector<ECCVMOperation>& vm_operations,
                                                    const uint32_t total_number_of_muls)
     {
         const size_t num_vm_entries = vm_operations.size();
@@ -146,7 +145,7 @@ class ECCVMTranscriptBuilder {
         // logic is being populated
         for (size_t i = 0; i < num_vm_entries; i++) {
             TranscriptRow& row = transcript_state[i + 1];
-            const VMOperation& entry = vm_operations[i];
+            const ECCVMOperation& entry = vm_operations[i];
             updated_state = state;
 
             const bool is_mul = entry.op_code.mul;
@@ -164,7 +163,7 @@ class ECCVMTranscriptBuilder {
             }
             updated_state.pc = state.pc - num_muls;
 
-            if (entry.op_code.reset) {
+            if (entry.op_code.reset || entry.op_code.value() == 0) {
                 updated_state.is_accumulator_empty = true;
                 updated_state.accumulator = CycleGroup::point_at_infinity;
                 updated_state.msm_accumulator = offset_generator();
@@ -230,7 +229,7 @@ class ECCVMTranscriptBuilder {
             TranscriptRow& row = transcript_state[i + 1];
             const bool msm_transition = row.msm_transition;
 
-            const VMOperation& entry = vm_operations[i];
+            const ECCVMOperation& entry = vm_operations[i];
             const bool is_add = entry.op_code.add;
 
             if (msm_transition || is_add) {
@@ -306,7 +305,7 @@ class ECCVMTranscriptBuilder {
      * @param next_not_msm A boolean indicating if the next operation is not part of an ongoing MSM.
      */
     static void populate_transcript_row(TranscriptRow& row,
-                                        const VMOperation& entry,
+                                        const ECCVMOperation& entry,
                                         const VMState& state,
                                         const uint32_t num_muls,
                                         const bool msm_transition,
@@ -314,7 +313,7 @@ class ECCVMTranscriptBuilder {
     {
         const bool base_point_infinity = entry.base_point.is_point_at_infinity();
 
-        row.accumulator_empty = state.is_accumulator_empty;
+        row.accumulator_not_empty = !state.is_accumulator_empty;
         row.q_add = entry.op_code.add;
         row.q_mul = entry.op_code.mul;
         row.q_eq = entry.op_code.eq;
@@ -349,7 +348,7 @@ class ECCVMTranscriptBuilder {
      * @param updated_state The state of the ECCVM to be updated with the result of the multiplication
      * @param state The current state of the ECCVM
      */
-    static void process_mul(const VMOperation& entry, VMState& updated_state, const VMState& state)
+    static void process_mul(const ECCVMOperation& entry, VMState& updated_state, const VMState& state)
     {
         const auto P = typename CycleGroup::element(entry.base_point);
         const auto R = typename CycleGroup::element(state.msm_accumulator);
@@ -366,7 +365,7 @@ class ECCVMTranscriptBuilder {
      * @param updated_state The state of the ECCVM to be updated with the result of the addition
      * @param state The current state of the ECCVM
      */
-    static void process_add(const VMOperation& entry, VMState& updated_state, const VMState& state)
+    static void process_add(const ECCVMOperation& entry, VMState& updated_state, const VMState& state)
     {
 
         if (state.is_accumulator_empty) {
@@ -462,7 +461,7 @@ class ECCVMTranscriptBuilder {
      * the intermediate accumulator and the point in the current accumulator.
      *
      * In the case of point addition, we compute the difference between the coordinates of the current row in
-     * VMOperations and the point in the accumulator.
+     * ECCVMOperations and the point in the accumulator.
      *
      */
 
@@ -530,7 +529,7 @@ class ECCVMTranscriptBuilder {
      * @param add_lambda_denominator
      */
     static void compute_lambda_numerator_and_denominator(TranscriptRow& row,
-                                                         const VMOperation& entry,
+                                                         const ECCVMOperation& entry,
                                                          const Element& intermediate_accumulator,
                                                          const Element& accumulator,
                                                          FF& add_lambda_numerator,
@@ -578,7 +577,7 @@ class ECCVMTranscriptBuilder {
             updated_state.accumulator.is_point_at_infinity() ? 0 : AffineElement(updated_state.accumulator).x;
         final_row.accumulator_y =
             updated_state.accumulator.is_point_at_infinity() ? 0 : AffineElement(updated_state.accumulator).y;
-        final_row.accumulator_empty = updated_state.is_accumulator_empty;
+        final_row.accumulator_not_empty = !updated_state.is_accumulator_empty;
     }
 };
 } // namespace bb

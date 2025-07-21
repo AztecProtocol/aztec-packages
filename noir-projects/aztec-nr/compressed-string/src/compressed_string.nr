@@ -52,14 +52,18 @@ impl<let N: u32, let M: u32> Eq for CompressedString<N, M> {
     }
 }
 
-impl<let N: u32, let M: u32> Serialize<N> for CompressedString<N, M> {
-    fn serialize(self) -> [Field; N] {
+impl<let N: u32, let M: u32> Serialize for CompressedString<N, M> {
+    let N: u32 = N;
+
+    fn serialize(self) -> [Field; Self::N] {
         self.value
     }
 }
 
-impl<let N: u32, let M: u32> Deserialize<N> for CompressedString<N, M> {
-    fn deserialize(input: [Field; N]) -> Self {
+impl<let N: u32, let M: u32> Deserialize for CompressedString<N, M> {
+    let N: u32 = N;
+
+    fn deserialize(input: [Field; Self::N]) -> Self {
         Self { value: input }
     }
 }

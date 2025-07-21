@@ -12,6 +12,7 @@
  *
  */
 #include "ultra_circuit_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "rom_ram_logic.hpp"
 
@@ -256,7 +257,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
  * @brief Create an addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c * in.c_scaling +
  * in.const_scaling = 0
  *
- * @details Arithmetic selector is set to 1, all other gate selectors are 0. Mutliplication selector is set to 0
+ * @details Arithmetic selector is set to 1, all other gate selectors are 0. Multiplication selector is set to 0
  *
  * @param in A structure with variable indexes and selector values for the gate.
  */
@@ -867,7 +868,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 {
     this->assert_valid_variables({ variable_index });
 
-    ASSERT(num_bits > 0);
+    BB_ASSERT_GT(num_bits, 0U);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
@@ -959,6 +960,8 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
                 0,
             },
             ((i == num_limb_triples - 1) ? false : true));
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1450): this is probably creating an unused
+        // wire/variable in the circuit, in the last iteration of the loop.
         accumulator_idx = this->add_variable(new_accumulator);
         accumulator = new_accumulator;
     }
@@ -1021,7 +1024,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                     }
                 }
             }
-            ASSERT(found_tag == true);
+            ASSERT(found_tag);
         }
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
@@ -1032,7 +1035,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 {
     this->assert_valid_variables(list.variable_indices);
 
-    ASSERT(list.variable_indices.size() > 0);
+    BB_ASSERT_GT(list.variable_indices.size(), 0U);
 
     // replace witness index in variable_indices with the real variable index i.e. if a copy constraint has been
     // applied on a variable after it was range constrained, this makes sure the indices in list point to the updated
@@ -1106,7 +1109,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
 {
     constexpr size_t gate_width = NUM_WIRES;
-    ASSERT(variable_index.size() % gate_width == 0);
+    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
@@ -1198,7 +1201,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
 {
     // Convenient to assume size is at least 8 (gate_width = 4) for separate gates for start and end conditions
     constexpr size_t gate_width = NUM_WIRES;
-    ASSERT(variable_index.size() % gate_width == 0 && variable_index.size() > gate_width);
+    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
+    BB_ASSERT_GT(variable_index.size(), gate_width);
     this->assert_valid_variables(variable_index);
 
     auto& block = blocks.delta_range;
@@ -1255,11 +1259,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         check_selector_length_consistency();
     }
 
-    // dummy gate needed because of sort widget's check of next row
-    // use this gate to check end condition
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
-    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
-    // arithmetic gate to occur out of sequence.
+    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
+    // (and remove dummy gate). This used to be a single gate before trace sorting based on gate types. The dummy gate
+    // has been added to allow the previous gate to access the required wire data via shifts, allowing the arithmetic
+    // gate to occur out of sequence. More details on the linked Github issue.
     create_dummy_gate(block, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     create_add_gate({ variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, 1, 0, 0, -end });
 }
@@ -1582,8 +1585,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
-    ASSERT(lo_limb_bits <= (14 * 5));
-    ASSERT(hi_limb_bits <= (14 * 5));
+    BB_ASSERT_LTE(lo_limb_bits, 14U * 5U);
+    BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
     // Sometimes we try to use limbs that are too large. It's easier to catch this issue here
     const auto get_sublimbs = [&](const uint32_t& limb_idx, const std::array<uint64_t, 5>& sublimb_masks) {
@@ -1657,17 +1660,17 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
 {
-    ASSERT(uint256_t(this->get_variable_reference(limb_idx)) < (uint256_t(1) << num_limb_bits));
+    BB_ASSERT_LT(uint256_t(this->get_variable_reference(limb_idx)), (uint256_t(1) << num_limb_bits));
     constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
     const uint256_t value = this->get_variable(limb_idx);
     const uint256_t low = value & LIMB_MASK;
     const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    ASSERT(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) == value);
+    BB_ASSERT_EQ(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS), value);
 
     const uint32_t low_idx = this->add_variable(low);
     const uint32_t hi_idx = this->add_variable(hi);
 
-    ASSERT(num_limb_bits > DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
+    BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     range_constrain_two_limbs(low_idx, hi_idx, lo_bits, hi_bits);
@@ -1693,7 +1696,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
  **/
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input)
+    const non_native_multiplication_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{
@@ -1865,7 +1868,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     PROFILE_THIS_NAME("populate_public_inputs_block");
 
     // Update the public inputs block
-    for (const auto& idx : this->public_inputs) {
+    for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
         blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
         for (auto& selector : this->blocks.pub_inputs.selectors) {
@@ -1893,7 +1896,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
 
-        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.lo_0));
+        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, input.lo_0);
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
         ++this->num_gates;
 
@@ -1901,11 +1904,11 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
         ++this->num_gates;
 
-        blocks.aux.populate_wires(input.a[2], input.b[2], this->zero_idx, static_cast<uint32_t>(input.hi_0));
+        blocks.aux.populate_wires(input.a[2], input.b[2], this->zero_idx, input.hi_0);
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
         ++this->num_gates;
 
-        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.hi_1));
+        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, input.hi_1);
         apply_aux_selectors(AUX_SELECTORS::NONE);
         ++this->num_gates;
     }
@@ -1921,7 +1924,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input)
+    const non_native_partial_multiplication_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{
@@ -2455,8 +2458,8 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     cir.modulus = buf.str();
 
-    for (uint32_t i = 0; i < this->get_num_public_inputs(); i++) {
-        cir.public_inps.push_back(this->real_variable_index[this->public_inputs[i]]);
+    for (uint32_t i = 0; i < this->num_public_inputs(); i++) {
+        cir.public_inps.push_back(this->real_variable_index[this->public_inputs()[i]]);
     }
 
     for (auto& tup : base::variable_names) {

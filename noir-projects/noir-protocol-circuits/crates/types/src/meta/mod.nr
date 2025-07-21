@@ -24,206 +24,32 @@ comptime fn get_trait_impl_method(
         .as_typed_expr()
 }
 
-/// Generates code that deserializes a struct, primitive type, array or string from a field array.
-///
-/// # Parameters
-/// - `name`: The name of the current field being processed, used to identify fields for replacement.
-/// - `typ`: The type of the struct or field being deserialized (e.g., a custom struct, array, or primitive).
-/// - `field_array_name`: The name of the field array containing serialized field data (e.g., `"values"`).
-/// - `num_already_consumed`: The number of fields already processed in previous recursion calls.
-/// - `should_unpack`: A boolean indicating whether the type should be unpacked (see description of `Packable`
-/// and `Serialize` trait for more information about the difference between packing and serialization).
-///
-/// # Returns
-/// A tuple containing:
-/// - `Quoted`: A code that deserializes a given struct, primitive type, array, or string from the field array.
-/// - `u32`: The total number of fields consumed during deserialization (used for recursion).
-///
-/// # Nested Struct Example
-/// Given the following setup:
-/// ```
-/// struct UintNote {
-///     value: u128,
-///     owner: AztecAddress,
-///     randomness: Field,
-/// }
-///
-/// struct AztecAddress {
-///     inner: Field,
-/// }
-/// ```
-///
-/// If `UintNote` is the input type, the function will generate the following deserialization code:
-/// ```
-/// UintNote {
-///     value: fields[0] as u128,
-///     owner: AztecAddress {
-///         inner: fields[1],
-///     },
-///     randomness: fields[2],
-/// }
-/// ```
-/// # Nested Struct Example with Unpacking
-/// - given the same setup as above and given that u128, AztecAddress and Field implement the `Packable` trait
-///   the result we get is:
-/// ```
-/// UintNote {
-///     value: aztec::protocol_types::traits::Packable::unpack([fields[0]]),
-///     owner: aztec::protocol_types::traits::Packable::unpack([fields[1]]),
-///     randomness: aztec::protocol_types::traits::Packable::unpack([fields[2]]),
-/// }
-/// ```
-///
-/// # Panics
-/// - If the deserialization logic encounters a type it does not support.
-/// - If an incorrect number of fields are consumed when deserializing a string.
-pub comptime fn generate_deserialize_from_fields(
-    name: Quoted,
-    typ: Type,
-    field_array_name: Quoted,
-    num_already_consumed: u32,
-    should_unpack: bool,
-) -> (Quoted, u32) {
-    let mut result = quote {};
-    // Counter for the number of fields consumed
-    let mut consumed_counter: u32 = 0;
+/// Returns the number of fields required to pack a type `typ` that implements the `Packable` trait.
+pub comptime fn get_packable_len(typ: Type) -> u32 {
+    // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
+    // I work around this by:
 
-    // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
-    let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-    let packable_constraint = quote { Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+    // 1. Getting the packable constraint
+    let packable_constraint: TraitConstraint =
+        quote { crate::traits::Packable }.as_trait_constraint();
+    // 2. Getting the trait impl
+    let trait_impl =
+        typ.get_trait_impl(packable_constraint).expect(f"Type {typ} does not implement Packable");
+    // 3. Getting the return type of the pack method
+    let pack_method_return_type = trait_impl.methods()[0].return_type();
+    // 3. Representing the return type as an array - this gives me (Type, Type) where the first type is the type of
+    // elements in the array and the second is the length of the array.
+    let pack_method_return_type_as_array = pack_method_return_type.as_array().unwrap();
+    // 4. Getting the length and representing it as a constant.
+    let packed_len_as_constant = pack_method_return_type_as_array.1.as_constant().expect(
+        f"Could not represent packed length as a constant when getting packable len for {typ}",
+    );
 
-    if (should_unpack & typ.implements(packable_constraint)) {
-        // Unpacking is enabled and the given type implements the `Packable` trait so we call the `unpack()`
-        // method, add the resulting field array to `aux_vars` and each field to `fields`.
-        let packed_len = maybe_packed_len_typ.as_constant().unwrap();
-
-        // We copy the packed fields into a new array and pass that to the unpack function in a quote
-        let mut packed_fields_quotes = &[];
-        for i in 0..packed_len {
-            let index_in_field_array = i + num_already_consumed;
-            packed_fields_quotes =
-                packed_fields_quotes.push_back(quote { $field_array_name[$index_in_field_array] });
-        }
-        let packed_fields = packed_fields_quotes.join(quote {,});
-
-        // Now we call unpack on the type
-        let unpack_method = get_trait_impl_method(typ, quote { Packable<_> }, quote { unpack });
-        result = quote { $unpack_method([ $packed_fields ]) };
-
-        consumed_counter = packed_len;
-    } else if typ.is_bool() {
-        // The field is a primitive so we just reference it in the field array
-        result = quote { $field_array_name[$num_already_consumed] != 0 };
-        consumed_counter = 1;
-    } else if typ.is_field() | typ.as_integer().is_some() {
-        // The field is a primitive so we just reference it in the field array
-        result = quote { $field_array_name[$num_already_consumed] as $typ };
-        consumed_counter = 1;
-    } else if typ.as_data_type().is_some() {
-        // The field is a struct so we iterate over each struct field and recursively call
-        // `generate_deserialize_from_fields`
-        let (nested_def, generics) = typ.as_data_type().unwrap();
-        let nested_name = nested_def.name();
-        let mut deserialized_fields_list = &[];
-
-        // Iterate over each field in the struct
-        for field in nested_def.fields(generics) {
-            let (field_name, field_type, _) = field;
-            // Recursively call `generate_deserialize_from_fields` for each field in the struct
-            let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
-                field_name,
-                field_type,
-                field_array_name,
-                consumed_counter + num_already_consumed,
-                should_unpack,
-            );
-            // We increment the consumed counter by the number of fields consumed in the recursion
-            consumed_counter += num_consumed_in_recursion;
-            // We add the deserialized field to the list of deserialized fields.
-            // E.g. `value: u128 { lo: fields[0], hi: fields[1] }`
-            deserialized_fields_list =
-                deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
-        }
-
-        // We can construct the struct from the deserialized fields
-        let deserialized_fields = deserialized_fields_list.join(quote {,});
-        result = quote {
-                $nested_name {
-                    $deserialized_fields
-                }
-            };
-    } else if typ.as_array().is_some() {
-        // The field is an array so we iterate over each element and recursively call
-        // `generate_deserialize_from_fields`
-        let (element_type, array_len) = typ.as_array().unwrap();
-        let array_len = array_len.as_constant().unwrap();
-        let mut array_fields_list = &[];
-
-        // Iterate over each element in the array
-        for _ in 0..array_len {
-            // Recursively call `generate_deserialize_from_fields` for each element in the array
-            let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
-                name,
-                element_type,
-                field_array_name,
-                consumed_counter + num_already_consumed,
-                should_unpack,
-            );
-            // We increment the consumed counter by the number of fields consumed in the recursion
-            consumed_counter += num_consumed_in_recursion;
-            // We add the deserialized field to the list of deserialized fields.
-            array_fields_list = array_fields_list.push_back(deserialized_field);
-        }
-
-        // We can construct the array from the deserialized fields
-        let array_fields = array_fields_list.join(quote {,});
-        result = quote { [ $array_fields ] };
-    } else if typ.as_str().is_some() {
-        // The field is a string and we expect each byte of the string to be represented as 1 field in the field
-        // array. So we iterate over the string length and deserialize each character as u8 in the recursive call
-        // to `generate_deserialize_from_fields`.
-        let length_type = typ.as_str().unwrap();
-        let str_len = length_type.as_constant().unwrap();
-        let mut byte_list = &[];
-
-        // Iterate over each character in the string
-        for _ in 0..str_len {
-            // Recursively call `generate_deserialize_from_fields` for each character in the string
-            let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
-                name,
-                quote {u8}.as_type(),
-                field_array_name,
-                consumed_counter + num_already_consumed,
-                should_unpack,
-            );
-
-            // We should consume just one field in the recursion so we sanity check that
-            assert_eq(
-                num_consumed_in_recursion,
-                1,
-                "Incorrect number of fields consumed in string deserialization",
-            );
-
-            // We increment the consumed counter by 1 as we have consumed one field
-            consumed_counter += 1;
-
-            // We add the deserialized field to the list of deserialized fields.
-            // E.g. `fields[6] as u8`
-            byte_list = byte_list.push_back(deserialized_field);
-        }
-
-        // We construct the string from the deserialized fields
-        let bytes = byte_list.join(quote {,});
-        result = quote { [ $bytes ].as_str_unchecked() };
-    } else {
-        panic(
-            f"Unsupported type for serialization of argument {name} and type {typ}",
-        )
-    }
-
-    (result, consumed_counter)
+    packed_len_as_constant
 }
 
+// Note: The main usecase of this function is gone (it's no longer used in derive_serialize) so there is most likely
+// a potential to significantly simplify this.
 /// Generates code that serializes a type into an array of fields. Also generates auxiliary variables if necessary
 /// for serialization. If `should_pack` is true, we check if the type implements the `Packable` trait and pack it
 /// if it does.
@@ -312,25 +138,21 @@ pub comptime fn generate_serialize_to_fields(
     let mut aux_vars = &[];
 
     // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
-    let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-    let packable_constraint =
-        quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+    let packable_constraint = quote { crate::traits::Packable}.as_trait_constraint();
 
     if (should_pack & typ.implements(packable_constraint)) {
         // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
         // method, add the resulting field array to `aux_vars` and each field to `fields`.
-        let packed_len = maybe_packed_len_typ.as_constant().unwrap();
+
+        let packed_len = get_packable_len(typ);
 
         // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
         let name_at_one_token = collapse_to_one_token(name);
         let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
 
         // We add the individual fields to the fields array
-        let pack_method = get_trait_impl_method(
-            typ,
-            quote { crate::traits::Packable<$packed_len> },
-            quote { pack },
-        );
+        let pack_method =
+            get_trait_impl_method(typ, quote { crate::traits::Packable }, quote { pack });
         let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
         for i in 0..packed_len {
             fields = fields.push_back(quote { $packed_struct_name[$i] });
@@ -425,24 +247,47 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
 
 pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, false);
-    let aux_vars_for_serialization = if aux_vars.len() > 0 {
-        let joint = aux_vars.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
 
-    let field_serializations = fields.join(quote {,});
-    let serialized_len = fields.len();
-    let serialize_trait: TraitConstraint =
-        quote { Serialize<$serialized_len> }.as_trait_constraint();
+    // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+    let right_hand_side_of_definition_of_n = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+            <$param_type as $crate::traits::Serialize>::N
+        }
+        })
+        .join(quote {+});
+
+    // Generates serialization code for each struct member that:
+    // 1. Serializes the member
+    // 2. Copies serialized fields into result array at correct offset
+    // 3. Updates offset for next member
+    let serialization_of_struct_members = params
+        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+                let serialized_member = $crate::traits::Serialize::serialize(self.$param_name);
+                let serialized_member_len = <$param_type as $crate::traits::Serialize>::N;
+                for i in 0..serialized_member_len {
+                    result[i + offset] = serialized_member[i];
+                }
+                offset += serialized_member_len;
+            }
+        })
+        .join(quote {});
+
     quote {
-        impl $serialize_trait for $typ {
+        impl $crate::traits::Serialize for $typ {
+            let N: u32 = $right_hand_side_of_definition_of_n;
+
             #[inline_always]
-            fn serialize(self) -> [Field; $serialized_len] {
-                $aux_vars_for_serialization
-                [ $field_serializations ]
+            fn serialize(self) -> [Field; Self::N] {
+                let mut result = [0; _];
+                let mut offset = 0;
+
+                $serialization_of_struct_members
+
+                result
             }
         }
     }
@@ -450,63 +295,191 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
 pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, false);
-    let serialized_len = fields.len();
-    let (deserialized, _) =
-        generate_deserialize_from_fields(quote { self }, typ, quote { serialized }, 0, false);
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
+
+    // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
+    let right_hand_side_of_definition_of_n = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+            <$param_type as $crate::traits::Deserialize>::N
+        }
+        })
+        .join(quote {+});
+
+    // This generates deserialization code for each struct member that and concatenates them together.
+    let deserialization_of_struct_members = params
+        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+                let mut member_fields = [0; <$param_type as Deserialize>::N];
+                for i in 0..<$param_type as Deserialize>::N {
+                    member_fields[i] = serialized[i + offset];
+                }
+                let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
+                offset += <$param_type as Deserialize>::N;
+            }
+        })
+        .join(quote {});
+
+    // We join the struct member names with a comma to be used in the `Self { ... }` syntax
+    // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
+    let struct_members = params
+        .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
+        .join(quote {,});
+
     quote {
-        impl Deserialize<$serialized_len> for $typ {
+        impl $crate::traits::Deserialize for $typ {
+            let N: u32 = $right_hand_side_of_definition_of_n;
+
             #[inline_always]
-            fn deserialize(serialized: [Field; $serialized_len]) -> Self {
-                $deserialized
+            fn deserialize(serialized: [Field; Self::N]) -> Self {
+                let mut offset = 0;
+
+                $deserialization_of_struct_members
+
+                Self { $struct_members }
             }
         }
     }
 }
 
-/// Generates `Packable` implementation for a given struct and returns the packed length.
+/// Generates a `Packable` trait implementation for a given struct `s`.
 ///
-/// Note: We are having this function separate from `derive_packable` because we use this in the note macros to get
-/// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
-/// the note in the global `NOTES` map. There the length is used to generate partial note helper functions.
-pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted, u32) {
-    let packing_enabled = true;
-
+/// # Arguments
+/// * `s` - The struct type definition to generate the implementation for
+///
+/// # Returns
+/// A `Quoted` block containing the generated trait implementation
+///
+/// # Requirements
+/// Each struct member type must implement the `Packable` trait (it gets used in the generated code).
+///
+/// # Example
+/// For a struct like:
+/// ```
+/// struct MyStruct {
+///     x: AztecAddress,
+///     y: Field,
+/// }
+/// ```
+///
+/// This generates:
+/// ```
+/// impl Packable for MyStruct {
+///     let N: u32 = 2;
+///
+///     fn pack(self) -> [Field; 2] {
+///         let mut result: [Field; 2] = [0_Field; 2];
+///         let mut offset: u32 = 0_u32;
+///         let packed_member: [Field; 1] = self.x.pack();
+///         let packed_member_len: u32 = <Field as Packable>::N;
+///         for i in 0_u32..packed_member_len {
+///             {
+///                 result[i + offset] = packed_member[i];
+///             }
+///         }
+///         offset = offset + packed_member_len;
+///         let packed_member: [Field; 1] = self.y.pack();
+///         let packed_member_len: u32 = <Field as Packable>::N;
+///         for i in 0_u32..packed_member_len {
+///             {
+///                 result[i + offset] = packed_member[i];
+///             }
+///         }
+///         offset = offset + packed_member_len;
+///         result
+///     }
+///
+///     fn unpack(packed: [Field; 2]) -> Self {
+///         let mut offset: u32 = 0_u32;
+///         let mut member_fields: [Field; 1] = [0_Field; 1];
+///         for i in 0_u32..<AztecAddress as Packable>::N {
+///             member_fields[i] = packed[i + offset];
+///         }
+///         let x: AztecAddress = <AztecAddress as Packable>::unpack(member_fields);
+///         offset = offset + <AztecAddress as Packable>::N;
+///         let mut member_fields: [Field; 1] = [0_Field; 1];
+///         for i in 0_u32..<Field as Packable>::N {
+///             member_fields[i] = packed[i + offset];
+///         }
+///         let y: Field = <Field as Packable>::unpack(member_fields);
+///         offset = offset + <Field as Packable>::N;
+///         Self { x: x, y: y }
+///     }
+/// }
+/// ```
+pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, packing_enabled);
-    let aux_vars_for_packing = if aux_vars.len() > 0 {
-        let joint = aux_vars.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
 
-    let (unpacked, _) =
-        generate_deserialize_from_fields(quote { self }, typ, quote { packed }, 0, packing_enabled);
+    // The following will give us <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
+    let right_hand_side_of_definition_of_n = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+            <$param_type as $crate::traits::Packable>::N
+        }
+        })
+        .join(quote {+});
 
-    let field_packings = fields.join(quote {,});
-    let packed_len = fields.len();
-    let packable_trait: TraitConstraint = quote { Packable<$packed_len> }.as_trait_constraint();
-    (
-        quote {
-        impl $packable_trait for $typ {
-            fn pack(self) -> [Field; $packed_len] {
-                $aux_vars_for_packing
-                [ $field_packings ]
+    // Generates packing code for each struct member that:
+    // 1. Packs the member
+    // 2. Copies packed fields into result array at correct offset
+    // 3. Updates offset for next member
+    let packing_of_struct_members = params
+        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+                let packed_member = $crate::traits::Packable::pack(self.$param_name);
+                let packed_member_len = <$param_type as $crate::traits::Packable>::N;
+                for i in 0..packed_member_len {
+                    result[i + offset] = packed_member[i];
+                }
+                offset += packed_member_len;
+            }
+        })
+        .join(quote {});
+
+    // This generates unpacking code for each struct member and concatenates them together.
+    let unpacking_of_struct_members = params
+        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+                let mut member_fields = [0; <$param_type as $crate::traits::Packable>::N];
+                for i in 0..<$param_type as $crate::traits::Packable>::N {
+                    member_fields[i] = packed[i + offset];
+                }
+                let $param_name = <$param_type as $crate::traits::Packable>::unpack(member_fields);
+                offset += <$param_type as $crate::traits::Packable>::N;
+            }
+        })
+        .join(quote {});
+
+    // We join the struct member names with a comma to be used in the `Self { ... }` syntax
+    let struct_members = params
+        .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
+        .join(quote {,});
+
+    quote {
+        impl $crate::traits::Packable for $typ {
+            let N: u32 = $right_hand_side_of_definition_of_n;
+
+            fn pack(self) -> [Field; Self::N] {
+                let mut result = [0; Self::N];
+                let mut offset = 0;
+
+                $packing_of_struct_members
+
+                result
             }
 
-            fn unpack(packed: [Field; $packed_len]) -> Self {
-                $unpacked
+            fn unpack(packed: [Field; Self::N]) -> Self {
+                let mut offset = 0;
+
+                $unpacking_of_struct_members
+
+                Self { $struct_members }
             }
         }
-    },
-        packed_len,
-    )
-}
-
-pub(crate) comptime fn derive_packable(s: TypeDefinition) -> Quoted {
-    let (packable_impl, _) = derive_packable_and_get_packed_len(s);
-    packable_impl
+    }
 }
 
 #[derive(Packable, Serialize, Deserialize, Eq)]

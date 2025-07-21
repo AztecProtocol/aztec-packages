@@ -19,7 +19,7 @@
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
@@ -36,8 +36,7 @@
 namespace bb::avm2::tracegen {
 namespace {
 
-using ::testing::TestWithParam;
-
+using ::testing::NiceMock;
 using testing::TestMemoryTree;
 
 using simulation::EventEmitter;
@@ -46,10 +45,11 @@ using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
-using simulation::NoopEventEmitter;
+using simulation::MockGreaterThan;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
@@ -76,6 +76,21 @@ using lookup_new_leaf_merkle_check = lookup_public_data_check_new_leaf_merkle_ch
 
 AztecAddress contract_address = 1;
 
+class PublicDataTreeCheckTracegenTest : public ::testing::Test {
+  protected:
+    PublicDataTreeCheckTracegenTest()
+        : execution_id_manager(0){};
+
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    ExecutionIdManager execution_id_manager;
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2 =
+        Poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+};
+
 struct TestParams {
     FF slot;
     FF value;
@@ -101,17 +116,14 @@ std::vector<TestParams> read_positive_tests = {
         .slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 28, FF::neg_one()) }
 };
 
-class PublicDataReadInteractionsTests : public TestWithParam<TestParams> {};
+class PublicDataReadInteractionsTests : public PublicDataTreeCheckTracegenTest,
+                                        public ::testing::WithParamInterface<TestParams> {};
 
 TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
 {
     const auto& param = GetParam();
 
-    ExecutionIdManager execution_id_manager(0);
-
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    auto test_public_inputs = testing::PublicInputsBuilder().build();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
@@ -131,6 +143,8 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+    PublicInputsTraceBuilder public_inputs_builder;
     PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
@@ -153,6 +167,9 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
                                                      .nextAvailableLeafIndex = 128,
                                                  });
 
+    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    public_inputs_builder.process_public_inputs(trace, test_public_inputs);
+    public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
@@ -166,7 +183,7 @@ INSTANTIATE_TEST_SUITE_P(PublicDataTreeCheckTracegenTest,
                          PublicDataReadInteractionsTests,
                          ::testing::ValuesIn(read_positive_tests));
 
-TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
+TEST_F(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
 {
     FF slot = 40;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
@@ -179,12 +196,10 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
         .value = new_value,
     };
 
-    auto test_public_inputs = testing::PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
-    ExecutionIdManager execution_id_manager(0);
-
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    auto test_public_inputs = testing::PublicInputsBuilder()
+                                  .set_accumulated_data(accumulated_data)
+                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 1 })
+                                  .build();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
@@ -253,7 +268,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
     constraining::check_all_interactions<PublicDataTreeTraceBuilder>(trace);
 }
 
-TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
+TEST_F(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
 {
     FF slot = 42;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
@@ -268,13 +283,10 @@ TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
         .value = updated_value,
     };
 
-    auto test_public_inputs = testing::PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
-
-    ExecutionIdManager execution_id_manager(0);
-
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    auto test_public_inputs = testing::PublicInputsBuilder()
+                                  .set_accumulated_data(accumulated_data)
+                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 1 })
+                                  .build();
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);

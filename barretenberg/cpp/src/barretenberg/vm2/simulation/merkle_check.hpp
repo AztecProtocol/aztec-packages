@@ -6,7 +6,6 @@
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -30,7 +29,7 @@ class MerkleCheckInterface {
 
 class MerkleCheck : public MerkleCheckInterface {
   public:
-    MerkleCheck(Poseidon2& poseidon2, EventEmitterInterface<MerkleCheckEvent>& event_emitter)
+    MerkleCheck(Poseidon2Interface& poseidon2, EventEmitterInterface<MerkleCheckEvent>& event_emitter)
         : events(event_emitter)
         , poseidon2(poseidon2)
     {}

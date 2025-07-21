@@ -244,8 +244,7 @@ contract RollupTest is RollupBase {
       header: data.header,
       archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: new bytes32[](0)
+      oracleInput: OracleInput(0)
     });
     bytes32 realBlobHash = this.getBlobHashes(data.blobCommitments)[0];
     vm.expectRevert(
@@ -317,7 +316,6 @@ contract RollupTest is RollupBase {
     DecoderBase.Full memory full = load("mixed_block_1");
     DecoderBase.Data memory data = full.block;
     ProposedHeader memory header = data.header;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     // Tweak the da fee.
     header.gasFees.feePerDaGas = 1;
@@ -332,8 +330,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: txHashes
+      oracleInput: OracleInput(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
@@ -342,7 +339,6 @@ contract RollupTest is RollupBase {
     DecoderBase.Full memory full = load("mixed_block_1");
     DecoderBase.Data memory data = full.block;
     ProposedHeader memory header = data.header;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     // Tweak the base fee.
     header.gasFees.feePerL2Gas = 1;
@@ -362,8 +358,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: txHashes
+      oracleInput: OracleInput(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
@@ -474,8 +469,7 @@ contract RollupTest is RollupBase {
         header: header,
         archive: data.archive,
         stateReference: EMPTY_STATE_REFERENCE,
-        oracleInput: OracleInput(0),
-        txHashes: new bytes32[](0)
+        oracleInput: OracleInput(0)
       });
       rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
@@ -716,7 +710,6 @@ contract RollupTest is RollupBase {
     DecoderBase.Data memory data = load("empty_block_1").block;
     ProposedHeader memory header = data.header;
     bytes32 archive = data.archive;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     Timestamp realTs = header.timestamp;
     Timestamp badTs = realTs + Timestamp.wrap(1);
@@ -732,8 +725,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: txHashes
+      oracleInput: OracleInput(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
   }
@@ -742,7 +734,6 @@ contract RollupTest is RollupBase {
     DecoderBase.Data memory data = load("empty_block_1").block;
     ProposedHeader memory header = data.header;
     bytes32 archive = data.archive;
-    bytes32[] memory txHashes = new bytes32[](0);
 
     Timestamp realTs = header.timestamp;
 
@@ -757,8 +748,7 @@ contract RollupTest is RollupBase {
       header: header,
       archive: archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: txHashes
+      oracleInput: OracleInput(0)
     });
     rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
   }

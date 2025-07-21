@@ -1,4 +1,6 @@
-pub(crate) mod meter_gas_used;
+mod meter_gas_used;
+
+pub(crate) use meter_gas_used::meter_gas_used;
 
 use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::types::{
@@ -16,31 +18,44 @@ use dep::types::{
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
 };
-pub use meter_gas_used::meter_gas_used;
 
 pub struct TailOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl TailOutputComposer {
-    pub unconstrained fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
+    pub unconstrained fn new(
+        previous_kernel: PrivateKernelCircuitPublicInputs,
+        include_by_timestamp_upper_bound: u64,
+    ) -> Self {
         let mut output_composer =
             PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
         // Q: Why are we sorting in the tail, if sorting has already happened in the Reset?
         output_composer.sort_ordered_values();
 
-        TailOutputComposer { output_composer }
+        TailOutputComposer { output_composer, include_by_timestamp_upper_bound }
     }
 
     pub unconstrained fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
         let source = self.output_composer.finish();
-        let mut output = PrivateToRollupKernelCircuitPublicInputs::empty();
-        output.rollup_validation_requests = source.validation_requests.for_rollup;
-        output.end = self.build_private_to_rollup_accumulated_data();
-        output.gas_used = meter_gas_used(output.end);
-        output.constants = source.constants;
-        output.fee_payer = source.fee_payer;
-        output
+
+        let end = self.build_private_to_rollup_accumulated_data();
+
+        let gas_used = meter_gas_used(end);
+
+        let include_by_timestamp = std::cmp::min(
+            source.include_by_timestamp,
+            self.include_by_timestamp_upper_bound,
+        );
+
+        PrivateToRollupKernelCircuitPublicInputs {
+            constants: source.constants,
+            end,
+            gas_used,
+            fee_payer: source.fee_payer,
+            include_by_timestamp,
+        }
     }
 
     unconstrained fn build_private_to_rollup_accumulated_data(

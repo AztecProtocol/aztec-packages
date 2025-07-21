@@ -37,7 +37,6 @@ import {
   PrivateToPublicAccumulatedData,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
-  RollupValidationRequests,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog } from '@aztec/stdlib/logs';
@@ -79,7 +78,10 @@ export class ContractFunctionSimulator {
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
-   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
+   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
+   * or a specific account.
+   * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
+   * the `getSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns The result of the execution.
    */
@@ -88,6 +90,7 @@ export class ContractFunctionSimulator {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    senderForTags?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
@@ -131,10 +134,11 @@ export class ContractFunctionSimulator {
       noteCache,
       this.executionDataProvider,
       this.simulator,
-      /*totalPublicArgsCount=*/ 0,
+      0, // totalPublicArgsCount
       startSideEffectCounter,
-      undefined,
+      undefined, // log
       scopes,
+      senderForTags,
     );
 
     const setupTime = simulatorSetupTimer.ms();
@@ -267,7 +271,7 @@ export async function generateSimulatedProvingResult(
   nonceGenerator: Fr,
   contractDataProvider: ContractDataProvider,
 ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-  const uniqueNoteHashes: OrderedSideEffect<Fr>[] = [];
+  const siloedNoteHashes: OrderedSideEffect<Fr>[] = [];
   const nullifiers: OrderedSideEffect<Fr>[] = [];
   const taggedPrivateLogs: OrderedSideEffect<PrivateLog>[] = [];
   const l2ToL1Messages: OrderedSideEffect<ScopedL2ToL1Message>[] = [];
@@ -277,7 +281,6 @@ export async function generateSimulatedProvingResult(
 
   let publicTeardownCallRequest;
 
-  let noteHashIndexInTx = 0;
   const executions = [privateExecutionResult.entrypoint];
 
   while (executions.length !== 0) {
@@ -287,12 +290,13 @@ export async function generateSimulatedProvingResult(
     const { contractAddress } = execution.publicInputs.callContext;
 
     const noteHashesFromExecution = await Promise.all(
-      execution.publicInputs.noteHashes.getActiveItems().map(async noteHash => {
-        const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
-        const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
-        // We could defer this to the public processor, and pass this in as non-revertible.
-        return new OrderedSideEffect(await computeUniqueNoteHash(nonce, siloedNoteHash), noteHash.counter);
-      }),
+      execution.publicInputs.noteHashes
+        .getActiveItems()
+        .filter(noteHash => !noteHash.isEmpty())
+        .map(
+          async noteHash =>
+            new OrderedSideEffect(await siloNoteHash(contractAddress, noteHash.value), noteHash.counter),
+        ),
     );
 
     const nullifiersFromExecution = await Promise.all(
@@ -311,7 +315,7 @@ export async function generateSimulatedProvingResult(
       }),
     );
 
-    uniqueNoteHashes.push(...noteHashesFromExecution);
+    siloedNoteHashes.push(...noteHashesFromExecution);
     taggedPrivateLogs.push(...privateLogsFromExecution);
     nullifiers.push(...nullifiersFromExecution);
     l2ToL1Messages.push(
@@ -368,14 +372,27 @@ export async function generateSimulatedProvingResult(
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
   const sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+
+  // If the tx generated no nullifiers, the nonce generator (txRequest hash)
+  // is injected as the first nullifier as per protocol rules.
   if (sortedNullifiers.length === 0) {
     sortedNullifiers.push(nonceGenerator);
   }
 
   // Private only
   if (privateExecutionResult.publicFunctionCalldata.length === 0) {
+    // In case the tx only contains private functions, we must make the note hashes unique by using the
+    // nonce generator and their index in the tx.
+    const uniqueNoteHashes = await Promise.all(
+      siloedNoteHashes.sort(sortByCounter).map(async (orderedSideEffect, i) => {
+        const siloedNoteHash = orderedSideEffect.sideEffect;
+        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+        const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+        return uniqueNoteHash;
+      }),
+    );
     const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
-      padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+      padArrayEnd(uniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
         l2ToL1Messages.sort(sortByCounter).map(getEffect),
@@ -392,8 +409,18 @@ export async function generateSimulatedProvingResult(
 
     inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
   } else {
-    const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
-      padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+    const nonRevertibleData = PrivateToPublicAccumulatedData.empty();
+
+    // The nullifier array contains the nonce generator in position 0
+    // Here we remove it from the revertible data and
+    // add it as the first non-revertible nullifier (we can't have dupes!)
+    // This is because public processor will use that first non-revertible nullifier
+    // as the nonce generator for the note hashes in the revertible part of the tx.
+    const [firstNullifier] = sortedNullifiers.splice(0, 1);
+    nonRevertibleData.nullifiers[0] = firstNullifier;
+
+    const revertibleData = new PrivateToPublicAccumulatedData(
+      padArrayEnd(siloedNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
         l2ToL1Messages.sort(sortByCounter).map(getEffect),
@@ -414,19 +441,17 @@ export async function generateSimulatedProvingResult(
     );
 
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
-      // nonrevertible
-      accumulatedDataForPublic,
-      // revertible
-      PrivateToPublicAccumulatedData.empty(),
+      nonRevertibleData,
+      revertibleData,
       publicTeardownCallRequest ?? PublicCallRequest.empty(),
     );
   }
 
   const publicInputs = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    RollupValidationRequests.empty(),
     /*gasUsed=*/ new Gas(0, 0),
     /*feePayer=*/ AztecAddress.zero(),
+    /*includeByTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
   );

@@ -78,11 +78,7 @@ pub contract Crowdfunding {
         // contract by proving that the hash of this note exists in the note hash tree.
         let note = UintNote::new(amount, donor);
 
-        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            donor,
-            donor,
-        ));
+        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(&mut context, donor));
     }
     // docs:end:donate
 

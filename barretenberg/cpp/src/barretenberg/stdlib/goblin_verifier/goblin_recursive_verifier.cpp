@@ -9,19 +9,37 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
+ * @brief Creates a circuit that executes the ECCVM, Translator and Merge verifiers.
  *
- * @param proof
+ * @param proof Native Goblin proof
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
-    const GoblinProof& proof, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
+    const GoblinProof& proof,
+    const SubtableCommitments& subtable_commitments,
+    std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment)
+{
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify(stdlib_proof, subtable_commitments, merged_table_commitment);
+}
+
+/**
+ * @brief Creates a circuit that executes the ECCVM, Translator and Merge verifiers.
+ *
+ * @param proof Stdlib Goblin proof
+ * @param t_commitments The commitments to the subtable for the merge being verified
+ *
+ */
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
+    const StdlibProof& proof,
+    const SubtableCommitments& subtable_commitments,
+    std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment)
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, transcript };
-    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
+    PairingPoints<Builder> merge_pairing_points =
+        merge_verifier.verify_proof(proof.merge_proof, subtable_commitments, merged_table_commitment);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
@@ -40,7 +58,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
 
     // Verify the consistency between the commitments to polynomials representing the op queue received by translator
     // and final merge verifier
-    translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
+    translator_verifier.verify_consistency_with_final_merge(merged_table_commitment);
 
     return { translator_pairing_points, opening_claim, ipa_proof };
 }
