@@ -71,8 +71,8 @@ interface IStakingAssetHandler {
   function addUnhinged(address _address) external;
   function removeUnhinged(address _address) external;
   function setZKPassportVerifier(address _address) external;
-  function setDomain(string memory _scope) external;
-  function setScope(string memory _subscope) external;
+  function setDomain(string memory _domain) external;
+  function setScope(string memory _scope) external;
   function setSkipBindCheck(bool _skipBindCheck) external;
   function setSkipMerkleCheck(bool _skipMerkleCheck) external;
   function setDepositMerkleRoot(bytes32 _root) external;
