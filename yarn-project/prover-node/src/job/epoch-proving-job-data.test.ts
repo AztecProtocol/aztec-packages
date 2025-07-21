@@ -26,6 +26,8 @@ describe('EpochProvingJobData', () => {
     };
 
     const serialized = serializeEpochProvingJobData(jobData);
-    expect(deserializeEpochProvingJobData(serialized)).toEqual(jobData);
+    const deserialized = deserializeEpochProvingJobData(serialized);
+    deserialized.attestations.forEach(a => a.signature.getSize());
+    expect(deserialized).toEqual(jobData);
   });
 });
