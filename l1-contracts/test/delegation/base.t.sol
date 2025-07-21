@@ -45,6 +45,7 @@ contract GSEBase is TestBase {
 
   function help__deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
     uint256 depositAmount = ROLLUP.getDepositAmount();
+    vm.prank(stakingAsset.owner());
     stakingAsset.mint(address(this), depositAmount);
     stakingAsset.approve(address(ROLLUP), depositAmount);
 
