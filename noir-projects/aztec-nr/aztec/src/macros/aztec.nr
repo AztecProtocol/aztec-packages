@@ -138,7 +138,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             );
             let unpack = get_trait_impl_method(
                 typ,
-                quote { crate::protocol_types::traits::Packable<_> },
+                quote { crate::protocol_types::traits::Packable },
                 quote { unpack },
             );
 
@@ -164,7 +164,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 quote {
                     $if_or_else_if note_type_id == $get_note_type_id() {
                         // As an extra safety check we make sure that the packed_note BoundedVec has the expected
-                        // length, since we're about to interpret it's raw storage as a fixed-size array by calling the
+                        // length, since we're about to interpret its raw storage as a fixed-size array by calling the
                         // unpack function on it.
                         let expected_len = $packed_note_length;
                         let actual_len = packed_note.len();
