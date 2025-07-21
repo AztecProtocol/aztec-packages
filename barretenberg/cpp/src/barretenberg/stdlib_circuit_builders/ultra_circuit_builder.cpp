@@ -12,6 +12,7 @@
  *
  */
 #include "ultra_circuit_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "rom_ram_logic.hpp"
 
@@ -867,7 +868,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 {
     this->assert_valid_variables({ variable_index });
 
-    ASSERT(num_bits > 0);
+    BB_ASSERT_GT(num_bits, 0U);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
@@ -1023,7 +1024,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                     }
                 }
             }
-            ASSERT(found_tag == true);
+            ASSERT(found_tag);
         }
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
@@ -1034,7 +1035,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 {
     this->assert_valid_variables(list.variable_indices);
 
-    ASSERT(list.variable_indices.size() > 0);
+    BB_ASSERT_GT(list.variable_indices.size(), 0U);
 
     // replace witness index in variable_indices with the real variable index i.e. if a copy constraint has been
     // applied on a variable after it was range constrained, this makes sure the indices in list point to the updated
@@ -1108,7 +1109,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
 {
     constexpr size_t gate_width = NUM_WIRES;
-    ASSERT(variable_index.size() % gate_width == 0);
+    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
@@ -1200,7 +1201,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
 {
     // Convenient to assume size is at least 8 (gate_width = 4) for separate gates for start and end conditions
     constexpr size_t gate_width = NUM_WIRES;
-    ASSERT(variable_index.size() % gate_width == 0 && variable_index.size() > gate_width);
+    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
+    BB_ASSERT_GT(variable_index.size(), gate_width);
     this->assert_valid_variables(variable_index);
 
     auto& block = blocks.delta_range;
@@ -1583,8 +1585,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
-    ASSERT(lo_limb_bits <= (14 * 5));
-    ASSERT(hi_limb_bits <= (14 * 5));
+    BB_ASSERT_LTE(lo_limb_bits, 14U * 5U);
+    BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
     // Sometimes we try to use limbs that are too large. It's easier to catch this issue here
     const auto get_sublimbs = [&](const uint32_t& limb_idx, const std::array<uint64_t, 5>& sublimb_masks) {
@@ -1658,17 +1660,17 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
 {
-    ASSERT(uint256_t(this->get_variable_reference(limb_idx)) < (uint256_t(1) << num_limb_bits));
+    BB_ASSERT_LT(uint256_t(this->get_variable_reference(limb_idx)), (uint256_t(1) << num_limb_bits));
     constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
     const uint256_t value = this->get_variable(limb_idx);
     const uint256_t low = value & LIMB_MASK;
     const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    ASSERT(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) == value);
+    BB_ASSERT_EQ(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS), value);
 
     const uint32_t low_idx = this->add_variable(low);
     const uint32_t hi_idx = this->add_variable(hi);
 
-    ASSERT(num_limb_bits > DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
+    BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     range_constrain_two_limbs(low_idx, hi_idx, lo_bits, hi_bits);

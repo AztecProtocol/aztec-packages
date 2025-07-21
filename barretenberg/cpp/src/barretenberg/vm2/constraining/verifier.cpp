@@ -30,7 +30,8 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    Polynomial<FF> polynomial(points, key->circuit_size);
+    const size_t circuit_size = 1 << key->log_circuit_size;
+    Polynomial<FF> polynomial(points, circuit_size);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -58,8 +59,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     VerifierCommitments commitments{ key };
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    if (circuit_size != key->circuit_size) {
-        vinfo("Circuit size mismatch: expected", key->circuit_size, " got ", circuit_size);
+    if (circuit_size != (1 << key->log_circuit_size)) {
+        vinfo("Circuit size mismatch: expected", (1 << key->log_circuit_size), " got ", circuit_size);
         return false;
     }
 

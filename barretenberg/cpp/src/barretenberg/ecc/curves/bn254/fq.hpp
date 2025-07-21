@@ -168,7 +168,7 @@ class Bn254FqParams {
 
 using fq = field<Bn254FqParams>;
 
-template <> template <> inline fq fq::reconstruct_from_public(const std::span<bb::fr>& limbs)
+template <> template <> inline fq fq::reconstruct_from_public(const std::span<const bb::fr>& limbs)
 {
     // A point in Fq is represented with 4 public inputs
     BB_ASSERT_EQ(limbs.size(), FQ_PUBLIC_INPUT_SIZE, "Incorrect number of limbs");
