@@ -21,8 +21,8 @@ class KernelIO {
   public:
     using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
-    using G1 = typename Curve::Group;
-    using FF = typename Curve::ScalarField;
+    using G1 = Curve::Group;
+    using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
@@ -84,7 +84,7 @@ class KernelIO {
 template <typename Builder> class DefaultIO {
   public:
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
-    using FF = typename Curve::ScalarField;
+    using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
 
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;

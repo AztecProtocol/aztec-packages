@@ -19,6 +19,8 @@ class DefaultIO {
   public:
     using FF = curve::BN254::ScalarField;
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1478): Can we define this constant as part of
+    // PairingPoints (cascading it down from Fq)?
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
     PairingPoints pairing_inputs;
