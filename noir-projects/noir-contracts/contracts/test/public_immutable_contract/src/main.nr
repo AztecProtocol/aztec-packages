@@ -50,22 +50,25 @@ mod tests {
 
         // set x to 10
         let x = 10;
-        test_contract.initialize_value(x).call(&mut env.public());
+        let _ = env.call_public_void(contract_address, test_contract.initialize_value(x));
 
         // We advance block to commit state and have the nullifier available for reading.
         env.mine_block();
 
         // Read value and verify it matches
-        let read_value = test_contract.read_value().call(&mut env.public());
-        assert(read_value == x);
+        let result = env.call_public(contract_address, test_contract.read_value());
+        assert(result.return_value == x);
     }
 
-    #[test(should_fail_with = "Trying to read from uninitialized PublicImmutable")]
+    #[test(should_fail)] // should_fail_with = "Trying to read from uninitialized PublicImmutable"
     unconstrained fn reading_uninitialized_immutable_fails() {
         let (env, contract_address) = setup();
 
         // Try to read uninitialized value - this should fail
-        let _ = PublicImmutableContract::at(contract_address).read_value().call(&mut env.public());
+        let _ = env.call_public(
+            contract_address,
+            PublicImmutableContract::at(contract_address).read_value(),
+        );
     }
 
     #[test]
@@ -73,9 +76,10 @@ mod tests {
         let (env, contract_address) = setup();
 
         // Try to read uninitialized value - this should return 0 as it is the default public storage value
-        let value = PublicImmutableContract::at(contract_address).read_value_unsafe().call(
-            &mut env.public(),
+        let result = env.call_public(
+            contract_address,
+            PublicImmutableContract::at(contract_address).read_value_unsafe(),
         );
-        assert(value == 0);
+        assert(result.return_value == 0);
     }
 }

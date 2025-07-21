@@ -8,7 +8,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -21,8 +21,8 @@ namespace bb {
 template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
 {
     using FF = typename Flavor::FF;
-    using RollUpIO = bb::stdlib::recursion::honk::RollupIO::Native;
-    using DefaultIO = bb::stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::Native;
+    using RollUpIO = bb::RollupIO;
+    using DefaultIO = bb::DefaultIO;
 
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };

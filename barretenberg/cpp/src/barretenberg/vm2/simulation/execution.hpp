@@ -52,6 +52,7 @@ class Execution : public ExecutionInterface {
     Execution(AluInterface& alu,
               BitwiseInterface& bitwise,
               DataCopyInterface& data_copy,
+              Poseidon2Interface& poseidon2,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -66,6 +67,7 @@ class Execution : public ExecutionInterface {
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , bitwise(bitwise)
+        , poseidon2(poseidon2)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
@@ -85,8 +87,9 @@ class Execution : public ExecutionInterface {
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
+    void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag);
     void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
-    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
+    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
@@ -116,7 +119,7 @@ class Execution : public ExecutionInterface {
                    MemoryAddress fields_offset,
                    MemoryAddress fields_size_offset,
                    uint16_t message_size,
-                   bool is_debug_logging_enabled = debug_logging);
+                   bool is_debug_logging_enabled);
     void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -135,6 +138,7 @@ class Execution : public ExecutionInterface {
                                  MemoryAddress msg_hash_addr,
                                  MemoryAddress leaf_index_addr,
                                  MemoryAddress dst_addr);
+    void poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -167,6 +171,7 @@ class Execution : public ExecutionInterface {
 
     AluInterface& alu;
     BitwiseInterface& bitwise;
+    Poseidon2Interface& poseidon2;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
