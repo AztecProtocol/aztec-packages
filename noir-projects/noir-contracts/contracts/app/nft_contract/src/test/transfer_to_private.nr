@@ -105,7 +105,7 @@ unconstrained fn incorrect_completer_cannot_complete_partial_note() {
         )
         .return_value;
 
-    // Now we try to complete the partial note as another completer. Note that the completer is the owner of the token
+    // Now we try to complete the partial note as another completer. Note that the caller here is the owner of the token
     // we're transferring - this is so that we pass the owner check and fail on the partial note completer check.
     let _ = env.call_public_void(
         owner,
