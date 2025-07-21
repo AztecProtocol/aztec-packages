@@ -20,6 +20,9 @@ import { DialogActions } from '@mui/material';
 import type { AccountType } from '../wallet_db';
 import { INFO_TEXT } from '../../../constants';
 import { InfoText } from '../../../components/common/InfoText';
+import { EmbeddedWalletContext } from '../embedded_wallet';
+import { FeePaymentSelector } from '../../../components/common/FeePaymentSelector';
+import { dialogBody, form, progressIndicator } from '../../../styles/common';
 
 export function CreateAccountDialog({
   open,
@@ -40,6 +43,8 @@ export function CreateAccountDialog({
   const [error, setError] = useState(null);
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
+
+  const { walletDB, pxe } = useContext(EmbeddedWalletContext);
 
   const createAccount = async () => {
     setIsRegistering(true);
@@ -87,7 +92,7 @@ export function CreateAccountDialog({
           skipClassPublication: true,
           skipInstancePublication: true,
         };
-      onClose(accountWallet, publiclyDeploy, deployMethod, opts);
+      onClose(accountWallet, true, deployMethod, opts);
     } catch (e) {
       setError(e.message);
     } finally {

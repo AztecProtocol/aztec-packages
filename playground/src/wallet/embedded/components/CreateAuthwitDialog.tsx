@@ -18,6 +18,7 @@ import { formatFrAsString } from '../../../utils/conversion';
 import { css } from '@emotion/react';
 import { AztecAddressTypeLike } from '../../../utils/types';
 import { Box, DialogActions, DialogContent, DialogContentText } from '@mui/material';
+import { EmbeddedWalletContext } from '../embedded_wallet';
 
 const fixedText = css({
   fontSize: '1rem',
@@ -50,7 +51,8 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
 
-  const { wallet, walletDB } = useContext(AztecContext);
+  const { wallet } = useContext(AztecContext);
+  const { walletDB } = useContext(EmbeddedWalletContext);
 
   const handleClose = () => {
     onClose();

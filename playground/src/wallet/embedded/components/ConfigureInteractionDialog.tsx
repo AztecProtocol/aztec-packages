@@ -16,6 +16,7 @@ import Divider from '@mui/material/Divider';
 import { DialogContent } from '@mui/material';
 import { Box, DialogActions } from '@mui/material';
 import { INFO_TEXT } from '../../../constants';
+import { EmbeddedWalletContext } from '../embedded_wallet';
 
 interface ConfigureInteractionDialogProps {
   name: string;
@@ -31,7 +32,7 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
   const [authWits, setAuthwits] = useState([]);
   const [selectedAuthwits, setSelectedAuthwits] = useState([]);
 
-  const { walletDB } = useContext(AztecContext);
+  const { walletDB } = useContext(EmbeddedWalletContext);
 
   useEffect(() => {
     const refreshAuthwits = async () => {

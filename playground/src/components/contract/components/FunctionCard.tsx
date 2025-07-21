@@ -87,15 +87,14 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
   const [profile, setProfile] = useState(false);
 
-  const { wallet, pxe } = useContext(AztecContext);
+  const { wallet } = useContext(AztecContext);
 
   const simulate = async (fnName: string) => {
     trackButtonClick(`Simulate ${fnName}`, 'Contract Interaction');
     setIsWorking(true);
     let result;
     try {
-      const copyCatWallet = await CopyCatAccountWallet.create(pxe, wallet);
-      const call = contract.withWallet(copyCatWallet).methods[fnName](...parameters);
+      const call = contract.methods[fnName](...parameters);
       result = await call.simulate({ skipFeeEnforcement: true });
       const stringResult = JSON.stringify(result, (key, value) => {
         if (typeof value === 'bigint') {

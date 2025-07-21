@@ -262,13 +262,9 @@ export function Landing() {
     setShowContractInterface,
     setDefaultContractCreationParams,
     setCurrentContractAddress,
-    walletDB,
+    appDB,
     wallet,
-    pxe,
     currentTx,
-    isPXEInitialized,
-    network,
-    setWallet,
   } = useContext(AztecContext);
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
@@ -301,18 +297,6 @@ export function Landing() {
           initializer: 'constructor',
           alias: 'My Voting Contract',
         };
-
-        // Fetch the first account to use as the admin
-        const accountAliases = await walletDB.listAliases('accounts');
-        const parsedAccountAliases = parseAliasedBuffersAsString(accountAliases);
-        const currentAccountAlias = parsedAccountAliases.find(alias => alias.value === wallet?.getAddress().toString());
-
-        if (currentAccountAlias) {
-          defaultContractCreationParams.admin = {
-            id: currentAccountAlias.value,
-            label: `${currentAccountAlias.key} (${formatFrAsString(currentAccountAlias.value)})`,
-          };
-        }
         break;
       }
       case PREDEFINED_CONTRACTS.SIMPLE_TOKEN: {
@@ -329,12 +313,12 @@ export function Landing() {
     }
 
     let deployedContractAddress = null;
-    const aliasedContracts = await walletDB.listAliases('contracts');
+    const aliasedContracts = await appDB.listAliases('contracts');
     if (wallet && aliasedContracts.length > 0) {
       const contracts = parseAliasedBuffersAsString(aliasedContracts);
       const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
       for (const contract of deployedContracts) {
-        const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contract.value}`);
+        const artifactAsString = await appDB.retrieveAlias(`artifacts:${contract.value}`);
         const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
         if (contractArtifact.name === contractArtifactJSON.name) {
           deployedContractAddress = AztecAddress.fromString(contract.value);
@@ -352,65 +336,6 @@ export function Landing() {
       setDefaultContractCreationParams(defaultContractCreationParams);
     }
     setShowContractInterface(true);
-  }
-
-  async function handleCreateAccountButtonClick() {
-    trackButtonClick('Create Account', 'Landing Page');
-    setIsCreatingAccount(true);
-
-    try {
-      const salt = Fr.random();
-      const secretKey = Fr.random();
-      const signingKey = randomBytes(32);
-      const accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
-      const accountWallet = await accountManager.getWallet();
-      await accountManager.register();
-
-      const accountCount = (await walletDB.listAliases('accounts')).length;
-      const accountName = `My Account ${accountCount + 1}`;
-      await walletDB.storeAccount(accountWallet.getAddress(), {
-        type: 'ecdsasecp256r1',
-        secretKey: accountWallet.getSecretKey(),
-        alias: accountName,
-        salt,
-        signingKey,
-      });
-      notifications.show('Account created. Deploying...', {
-        severity: 'success',
-      });
-
-      const { prepareForFeePayment } = await import('../../../wallet/embedded/sponsoredFPC');
-      const feePaymentMethod = await prepareForFeePayment(
-        wallet,
-        network.sponsoredFPC?.address,
-        network.sponsoredFPC?.version,
-      );
-
-      const deployMethod = await accountManager.getDeployMethod();
-      const opts = {
-        contractAddressSalt: salt,
-        fee: {
-          paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
-        },
-        universalDeploy: true,
-        skipClassPublication: true,
-        skipInstancePublication: true,
-      };
-
-      const txReceipt = await sendTx(`Deploy Account`, deployMethod, accountWallet.getAddress(), opts);
-
-      if (txReceipt?.status === TxStatus.SUCCESS) {
-        setWallet(await accountManager.getWallet());
-      } else if (txReceipt?.status === TxStatus.DROPPED) {
-        await walletDB.deleteAccount(accountWallet.getAddress());
-      }
-
-    } catch (e) {
-      console.error(e);
-      setIsCreatingAccount(false);
-    } finally {
-      setIsCreatingAccount(false);
-    }
   }
 
   return (
@@ -453,22 +378,6 @@ export function Landing() {
               passkeys.{' '}
             </div>
           </Box>
-
-          <Tooltip
-            title={!isPXEInitialized ? "Connect to a network to create an account" : ""}
-            placement="top"
-          >
-            <span>
-              <Button
-                variant="contained"
-                css={cardButton}
-                onClick={handleCreateAccountButtonClick}
-                disabled={isCreatingAccount || !isPXEInitialized}
-              >
-                {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
-              </Button>
-            </span>
-          </Tooltip>
         </div>
 
         <div css={featureCard}>

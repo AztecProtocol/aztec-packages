@@ -24,10 +24,12 @@ import { useTransaction } from '../../../hooks/useTransaction';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
+import { EmbeddedWalletContext } from '../embedded_wallet';
 
 
 export function AccountSelector() {
-  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, network, pendingTxUpdateCounter } = useContext(AztecContext);
+  const { setWallet, wallet, network, pendingTxUpdateCounter } = useContext(AztecContext);
+  const { walletDB, pxe } = useContext(EmbeddedWalletContext);
 
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(false);
@@ -206,7 +208,7 @@ export function AccountSelector() {
             return selected ?? 'Select Account';
           }}
         >
-          {!isPXEInitialized && (
+          {!pxe && (
             <div css={navbarSelectLabel}>
               <Typography variant="body2" color="warning.main">
                 Note: Connect to a network first to create and use accounts
@@ -214,14 +216,14 @@ export function AccountSelector() {
             </div>
           )}
 
-          {isPXEInitialized && accounts.map(account => (
+          {pxe && accounts.map(account => (
             <MenuItem key={account.key} value={account.value}>
               {account.key.split(':')[1]}&nbsp;(
               {formatFrAsString(account.value)})
             </MenuItem>
           ))}
 
-          {isPXEInitialized && (
+          {pxe && (
             <MenuItem
               key="create"
               value=""

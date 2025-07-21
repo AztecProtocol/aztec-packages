@@ -5,11 +5,13 @@ import { AztecContext } from '../../../aztecEnv';
 import type { AztecAddress } from '@aztec/aztec.js';
 import { navbarButtonStyle } from '../../../styles/common';
 import { Typography } from '@mui/material';
+import { EmbeddedWalletContext } from '../embedded_wallet';
 
 export function AddressBook() {
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
 
   const { wallet } = useContext(AztecContext);
+  const { walletDB } = useContext(EmbeddedWalletContext);
 
   const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
     if (sender && alias) {
@@ -21,7 +23,7 @@ export function AddressBook() {
 
   return (
     <>
-      {wallet && walletDB && isPXEInitialized && (
+      {wallet && walletDB && (
         <>
           <div css={navbarButtonStyle} style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'flex-start' }}
             role="button"
