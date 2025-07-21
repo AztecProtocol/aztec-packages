@@ -30,11 +30,11 @@ where
 
 // This function is not part of the Packable trait implementation because in the case of the retrieved note, the pack
 // functionality resides in TS (oracle.ts and txe_service.ts).
-pub fn unpack_retrieved_note<NOTE, let N: u32>(
-    packed_retrieved_note: [Field; N + RETRIEVED_NOTE_OVERHEAD],
+pub fn unpack_retrieved_note<NOTE, let M: u32>(
+    packed_retrieved_note: [Field; M + RETRIEVED_NOTE_OVERHEAD],
 ) -> RetrievedNote<NOTE>
 where
-    NOTE: Packable<N>,
+    NOTE: Packable<N = M>,
 {
     let contract_address = AztecAddress::from_field(packed_retrieved_note[0]);
     let note_nonce = packed_retrieved_note[1];
