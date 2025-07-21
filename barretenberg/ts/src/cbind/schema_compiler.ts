@@ -190,6 +190,12 @@ export class SchemaCompiler {
           }
         }
       }
+      
+      // Add BbApiBase interface
+      if (this.functionMetadata.length > 0) {
+        parts.push('', '// Base API interface');
+        parts.push(this.generateBbApiBaseInterface());
+      }
     }
 
     // Add API class for non-types modes
@@ -559,6 +565,9 @@ ${conversions}
       for (const type of this.referencedTypes) {
         neededImports.add(type);
       }
+      
+      // Add BbApiBase interface
+      neededImports.add('BbApiBase');
 
       if (neededImports.size > 0) {
         const sortedImports = Array.from(neededImports).sort();
@@ -569,6 +578,16 @@ ${conversions}
     return imports;
   }
 
+  private generateBbApiBaseInterface(): string {
+    const methods = this.functionMetadata.map(m => 
+      `  ${m.name}(command: ${m.commandType}): Promise<${m.responseType}>;`
+    ).join('\n');
+    
+    return `export interface BbApiBase {
+${methods}
+}`;
+  }
+
   private generateApiClass(): string {
     const className = this.getApiClassName();
     const methods = this.functionMetadata.map(m => this.generateApiMethod(m)).join('\n\n');
@@ -577,7 +596,7 @@ ${conversions}
       return this.generateNativeApiClass(methods);
     }
 
-    return `export class ${className} {
+    return `export class ${className} implements BbApiBase {
   constructor(protected wasm: ${this.getWasmType()}) {}
 
 ${methods}
@@ -668,7 +687,7 @@ class StreamBuffer {
   }
 }
 
-export class NativeApi {
+export class NativeApi implements BbApiBase {
   private decoder = new Decoder({ useRecords: false });
   private encoder = new Encoder({ useRecords: false });
   private pendingRequests: NativeApiRequest[] = [];
