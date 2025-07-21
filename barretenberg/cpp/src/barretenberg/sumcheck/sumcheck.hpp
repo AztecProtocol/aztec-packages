@@ -321,15 +321,20 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the contribution required to hide the round univariates.
-        auto hiding_univariate = round.compute_hiding_univariate(full_polynomials,
+        auto hiding_univariate = round.compute_hiding_univariate(round_idx,
+                                                                 full_polynomials,
                                                                  relation_parameters,
                                                                  gate_separators,
                                                                  alphas,
                                                                  zk_sumcheck_data,
-                                                                 row_disabling_polynomial,
-                                                                 round_idx);
-        auto round_univariate =
-            round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
+                                                                 row_disabling_polynomial);
+        auto round_univariate = round.compute_univariate(round_idx,
+                                                         full_polynomials,
+                                                         relation_parameters,
+                                                         gate_separators,
+                                                         alphas,
+                                                         zk_sumcheck_data,
+                                                         row_disabling_polynomial);
         round_univariate += hiding_univariate;
 
         // Initialize the partially evaluated polynomials which will be used in the following rounds.
@@ -370,15 +375,20 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
             // account for having randomness at the end of the trace and then the contribution from the full
             // relation. Note: we compute the hiding univariate first as the `compute_univariate` method prepares
             // relevant data structures for the next round
-            hiding_univariate = round.compute_hiding_univariate(partially_evaluated_polynomials,
+            hiding_univariate = round.compute_hiding_univariate(round_idx,
+                                                                partially_evaluated_polynomials,
                                                                 relation_parameters,
                                                                 gate_separators,
                                                                 alphas,
                                                                 zk_sumcheck_data,
-                                                                row_disabling_polynomial,
-                                                                round_idx);
-            round_univariate =
-                round.compute_univariate(partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
+                                                                row_disabling_polynomial);
+            round_univariate = round.compute_univariate(round_idx,
+                                                        partially_evaluated_polynomials,
+                                                        relation_parameters,
+                                                        gate_separators,
+                                                        alphas,
+                                                        zk_sumcheck_data,
+                                                        row_disabling_polynomial);
             round_univariate += hiding_univariate;
 
             if constexpr (!IsGrumpkinFlavor<Flavor>) {

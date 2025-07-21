@@ -386,18 +386,18 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-     * @brief ZK-version of `compute_univariate` that runs Sumcheck with disabled rows and masking of Round Univariates.
-     * The masking is ensured by adding random Libra univariates to the Sumcheck round univariates.
+     * @brief Version of `compute_univariate` that is actually called by `sumcheck.prove()`.
      *
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_univariate(const size_t round_idx,
-                                               ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                               const bb::RelationParameters<FF>& relation_parameters,
-                                               const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                               const SubrelationSeparators alphas,
-                                               const ZKData& zk_sumcheck_data, // only populated when Flavor HasZK
-                                               RowDisablingPolynomial<FF> row_disabling_poly)
+    SumcheckRoundUnivariate compute_univariate(
+        [[maybe_unused]] const size_t round_idx,
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+        const SubrelationSeparators alphas,
+        [[maybe_unused]] const ZKData& zk_sumcheck_data, // only populated when Flavor HasZK
+        [[maybe_unused]] RowDisablingPolynomial<FF> row_disabling_poly)
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -449,25 +449,22 @@ template <typename Flavor> class SumcheckProverRound {
         for (auto& accumulators : thread_univariate_accumulators) {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
-        // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
-        // and corrected by subtracting the contribution from the disabled rows
-        const auto contribution_from_disabled_rows = compute_disabled_contribution(
-            polynomials, relation_parameters, gate_separators, alphas, round_idx, row_disabling_poly);
-        const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
+        // these are unmasked; we will mask in sumcheck.
         const auto round_univariate =
             batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
-        // Mask the round univariate
-        return round_univariate + libra_round_univariate - contribution_from_disabled_rows;
+
+        return round_univariate;
     };
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_hiding_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                                      const bb::RelationParameters<FF>& relation_parameters,
-                                                      const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                                      const SubrelationSeparators& alpha,
-                                                      const ZKData& zk_sumcheck_data,
-                                                      const RowDisablingPolynomial<FF> row_disabling_polynomial,
-                                                      const size_t round_idx)
+    SumcheckRoundUnivariate compute_hiding_univariate(
+        const size_t round_idx,
+        const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+        const SubrelationSeparators& alpha,
+        const ZKData& zk_sumcheck_data,
+        const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires Flavor::HasZK
 
     {
@@ -790,7 +787,6 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                                            gate_separators.partial_evaluation_result);
 
         return Utils::scale_and_batch_elements(relation_evaluations, alphas);
-        ;
     }
     /**
      * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in

@@ -1064,7 +1064,7 @@ class ECCVMFlavor {
         //    i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
         //    z_perm_shift[last_edge_idx - 1]
         // We also must add conditions for transcript_mul and transcript_op to handle edge cases.
-
+        return false;
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
                (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
                polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0 &&

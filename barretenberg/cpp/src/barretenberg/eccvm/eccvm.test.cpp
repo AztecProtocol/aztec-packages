@@ -141,7 +141,6 @@ TEST_F(ECCVMTests, ProofLengthCheck)
     EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
 
->>>>>>> 1383fcc98962570852bd4d1a265d9924d214b4ae
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
