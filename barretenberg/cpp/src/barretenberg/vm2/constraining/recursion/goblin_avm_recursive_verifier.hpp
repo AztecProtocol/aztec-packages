@@ -198,7 +198,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Compute the hash and set it public
         const FF mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
-        const size_t mega_hash_public_input_index = mega_builder.public_inputs.size();
+        const size_t mega_hash_public_input_index = mega_builder.num_public_inputs();
         mega_input_hash.set_public(); // Add the hash result to the public inputs
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit

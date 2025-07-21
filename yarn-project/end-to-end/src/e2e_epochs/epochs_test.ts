@@ -9,7 +9,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
@@ -126,6 +126,7 @@ export class EpochsTestContext {
       // but not so much to hang the sequencer and timeout the teardown
       txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+      exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
       ...opts,
     });
 
@@ -188,6 +189,8 @@ export class EpochsTestContext {
         { ...this.context.config, proverId: Fr.fromString(suffix) },
         { dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')) },
         this.context.aztecNode,
+        undefined,
+        { dateProvider: this.context.dateProvider },
       ),
     );
     this.proverNodes.push(proverNode);
@@ -246,8 +249,7 @@ export class EpochsTestContext {
       );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
-      const dateProvider = this.context.dateProvider!;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, dateProvider, this.L1_BLOCK_TIME_IN_S);
+      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S);
       delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
       publisher.l1TxUtils = delayed;
     }

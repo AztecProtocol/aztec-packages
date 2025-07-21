@@ -267,7 +267,7 @@ TEST(GasConstrainingTest, DynGasFactorBitwise)
         {
             { C::execution_sel, 1 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U16) },
-            { C::execution_sel_bitwise, 1 },
+            { C::execution_sel_gas_bitwise, 1 },
             { C::execution_dynamic_l2_gas_factor, get_tag_bytes(ValueTag::U16) },
         },
     });

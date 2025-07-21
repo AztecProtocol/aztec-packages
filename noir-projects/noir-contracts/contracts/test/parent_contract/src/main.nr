@@ -262,8 +262,9 @@ pub contract Parent {
     }
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+    use dep::aztec::oracle::notes::set_sender_for_tags;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
-    use dep::aztec::test::helpers::{cheatcodes, test_environment::TestEnvironment};
+    use dep::aztec::test::helpers::{test_environment::TestEnvironment, txe_oracles};
     use dep::child_contract::Child;
     use dep::value_note::value_note::ValueNote;
     #[test]
@@ -271,13 +272,19 @@ pub contract Parent {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account(1);
+
+        // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
+        // usually done by account contract's entrypoint.
+        let sender = env.create_account(7097070);
+        set_sender_for_tags(sender);
+
         // Deploy parent contract
         let parent_contract = env.deploy_self("Parent").without_initializer();
         let parent_contract_address = parent_contract.to_address();
         // Deploy child contract
         let child_contract = env.deploy("./@child_contract", "Child").without_initializer();
         let child_contract_address = child_contract.to_address();
-        cheatcodes::advance_blocks_by(1);
+        txe_oracles::advance_blocks_by(1);
         // Set value in child through parent
         let value_to_set = 7;
         let result = Parent::at(parent_contract_address)

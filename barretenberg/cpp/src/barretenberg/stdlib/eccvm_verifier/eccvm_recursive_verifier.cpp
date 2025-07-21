@@ -53,6 +53,12 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     transcript->load_proof(proof.pre_ipa_proof);
 
+    // Fiat-Shamir the vk hash
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
+    // in-circuit hashing.
+    typename Flavor::BF vkey_hash = key->add_hash_to_transcript("", *transcript);
+    vinfo("ECCVM vk hash in recursive verifier: ", vkey_hash);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 

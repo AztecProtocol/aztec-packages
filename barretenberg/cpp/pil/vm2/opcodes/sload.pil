@@ -19,13 +19,13 @@ include "../trees/public_data_check.pil";
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
 
     #[skippable_if]
-    sel_sload = 0; // from execution.pil.
+    sel_execute_sload = 0; // from execution.pil.
 
     #[SLOAD_SUCCESS]
-    sel_sload * sel_opcode_error = 0;
+    sel_execute_sload * sel_opcode_error = 0;
 
     #[STORAGE_READ]
-    sel_sload {
+    sel_execute_sload {
         contract_address, // From context
         register[0],
         register[1],
@@ -38,5 +38,5 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     };
 
     #[SLOAD_FF_OUTPUT_TAG]
-    sel_sload * (constants.MEM_TAG_FF - mem_tag_reg[1]) = 0;
+    sel_execute_sload * (constants.MEM_TAG_FF - mem_tag_reg[1]) = 0;
 

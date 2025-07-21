@@ -335,22 +335,3 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
     }
 }
-
-TYPED_TEST(MegaTranscriptTests, ProofLengthTest)
-{
-    using Flavor = TypeParam;
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    auto builder = typename Flavor::CircuitBuilder();
-    TestFixture::generate_test_circuit(builder);
-
-    // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_EQ(proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
-}

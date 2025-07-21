@@ -40,7 +40,7 @@ unconstrained fn test_storage_slot_allocation() {
     //   note_in_public_immutable: PublicImmutable<TestNote, Context>,
     //   struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
     //   struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-    //   struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
+    //   struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
     //   dummy_variable: PrivateImmutable<TestNote, Context>,
     // }
 
@@ -95,8 +95,8 @@ unconstrained fn test_storage_slot_allocation() {
     // Maps always allocate a single slot.
     expected_slot += 1;
 
-    assert_eq(Test::storage_layout().struct_in_shared_mutable.slot, expected_slot);
-    // struct_in_shared_mutable should allocate 12 slots because ExampleStruct occupies 5 slots. SharedMutable stores
+    assert_eq(Test::storage_layout().struct_in_delayed_public_mutable.slot, expected_slot);
+    // struct_in_delayed_public_mutable should allocate 12 slots because ExampleStruct occupies 5 slots. DelayedPublicMutable stores
     // the value two times (10 slots), and it also stores the time values (one slot) and the hash (another slot).
     expected_slot += 12;
 
@@ -106,7 +106,9 @@ unconstrained fn test_storage_slot_allocation() {
 
 global CONTRACT_DEPLOYED_AT: u32 = 3;
 
-global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT;
+// The TXE deploy oracle mines a block with the instance publication nullifier, so initialization happens on the
+// following block.
+global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
 
 pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -115,10 +117,10 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     env.impersonate(owner);
 
     // TODO(#12276): This is here because we are testing historical proofs, and we cannot get a valid block_header at 1 due to a bug in world state.
-    env.advance_block_by(1);
+    env.mine_block();
 
     // We sanity check that we are building block 3, thus block 3 is where the contract will be deployed.
-    assert_eq(env.pending_block_number(), CONTRACT_DEPLOYED_AT);
+    assert_eq(env.next_block_number(), CONTRACT_DEPLOYED_AT);
 
     // Deploy contract and initialize
     let initializer = Test::interface().initialize();
@@ -170,7 +172,7 @@ unconstrained fn proving_contract_deployment_fails() {
 
 // In this test, we fail to prove contract initialization at the block before it was deployed. This checks for inclusion
 // of the initialization nullifier in state.
-#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
 unconstrained fn proving_contract_initialization_fails() {
     let (env, contract_address, _owner) = setup();
 

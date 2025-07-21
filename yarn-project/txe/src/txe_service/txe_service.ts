@@ -111,19 +111,13 @@ export class TXEService {
 
   // Cheatcodes
 
-  async getPrivateContextInputs(
-    blockNumberIsSome: ForeignCallSingle,
-    blockNumberValue: ForeignCallSingle,
-    timestampIsSome: ForeignCallSingle,
-    timestampValue: ForeignCallSingle,
-  ) {
+  async getPrivateContextInputs(blockNumberIsSome: ForeignCallSingle, blockNumberValue: ForeignCallSingle) {
     const blockNumber = fromSingle(blockNumberIsSome).toBool() ? fromSingle(blockNumberValue).toNumber() : null;
-    const timestamp = fromSingle(timestampIsSome).toBool() ? fromSingle(timestampValue).toBigInt() : null;
 
-    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(blockNumber, timestamp);
+    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(blockNumber);
 
     this.logger.info(
-      `Created private context for block ${inputs.historicalHeader.globalVariables.blockNumber} (requested ${blockNumber}) with timestamp ${inputs.historicalHeader.globalVariables.timestamp} (requested ${timestamp})`,
+      `Created private context for block ${inputs.historicalHeader.globalVariables.blockNumber} (requested ${blockNumber})`,
     );
 
     return toForeignCallResult(inputs.toFields().map(toSingle));
@@ -165,6 +159,11 @@ export class TXEService {
       AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       instance.address.toField(),
     );
+
+    // Make sure the deployment nullifier gets included in a tx in a block
+    const blockNumber = await this.typedOracle.getBlockNumber();
+    await (this.typedOracle as TXE).commitState();
+    (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
 
     if (!fromSingle(secret).equals(Fr.ZERO)) {
       await this.addAccount(artifact, instance, secret);
@@ -324,13 +323,22 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
-  // seems to be used to mean the timestamp of the last mined block in txe
+  // seems to be used to mean the timestamp of the last mined block in txe (but that's not what is done here)
   async getTimestamp() {
     if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL && this.context != TXEContext.UTILITY) {
       throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
     }
 
     const timestamp = await this.typedOracle.getTimestamp();
+    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
+  async getLastBlockTimestamp() {
+    if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL) {
+      throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
+    }
+
+    const timestamp = await (this.typedOracle as TXE).getLastBlockTimestamp();
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
@@ -1254,7 +1262,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
     );
 
-    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash])]);
+    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash.hash])]);
   }
 
   async simulateUtilityFunction(
@@ -1285,6 +1293,35 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
     );
 
-    return toForeignCallResult([toArray([result.returnsHash, result.txHash])]);
+    return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
+  }
+
+  async getSenderForTags() {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const sender = await this.typedOracle.getSenderForTags();
+    // Return a Noir Option struct with `some` and `value` fields
+    if (sender === undefined) {
+      // No sender found, return Option with some=0 and value=0
+      return toForeignCallResult([toSingle(0), toSingle(0)]);
+    } else {
+      // Sender found, return Option with some=1 and value=sender address
+      return toForeignCallResult([toSingle(1), toSingle(sender)]);
+    }
+  }
+
+  async setSenderForTags(senderForTags: ForeignCallSingle) {
+    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    await this.typedOracle.setSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
+    return toForeignCallResult([]);
   }
 }

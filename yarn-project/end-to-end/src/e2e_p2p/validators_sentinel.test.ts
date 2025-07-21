@@ -32,11 +32,13 @@ describe('e2e_p2p_validators_sentinel', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
   let slashingAmount: bigint;
+  let additionalNode: AztecNodeService | undefined;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_validators_sentinel',
-      numberOfNodes: NUM_VALIDATORS,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
@@ -82,6 +84,9 @@ describe('e2e_p2p_validators_sentinel', () => {
 
   afterAll(async () => {
     await t.stopNodes(nodes);
+    if (additionalNode !== undefined) {
+      await t.stopNodes([additionalNode]);
+    }
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });

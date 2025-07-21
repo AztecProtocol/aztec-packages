@@ -52,7 +52,6 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
                 { C::written_public_data_slots_tree_check_write, event.write },
                 { C::written_public_data_slots_tree_check_slot, slot },
                 { C::written_public_data_slots_tree_check_root, event.prev_snapshot.root },
-                { C::written_public_data_slots_tree_check_exists, exists },
                 { C::written_public_data_slots_tree_check_write_root, event.next_snapshot.root },
                 { C::written_public_data_slots_tree_check_tree_size_before_write,
                   event.prev_snapshot.nextAvailableLeafIndex },

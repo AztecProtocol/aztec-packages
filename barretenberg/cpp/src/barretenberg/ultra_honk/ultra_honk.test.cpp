@@ -96,7 +96,7 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
  * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
  * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
  */
-TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
+TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
 

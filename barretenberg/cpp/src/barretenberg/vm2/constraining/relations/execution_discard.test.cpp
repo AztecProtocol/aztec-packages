@@ -328,7 +328,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardDyingContextMustError)
           { C::execution_is_dying_context, 1 },
           { C::execution_sel_exit_call, 1 },
           { C::execution_sel_error, 1 },
-          { C::execution_sel_revert, 0 },
+          { C::execution_sel_execute_revert, 0 },
           { C::execution_sel_failure, 1 },
           { C::execution_dying_context_diff_inv, 0 } },
         { { C::execution_sel, 1 }, { C::execution_last, 1 } },
@@ -340,7 +340,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardDyingContextMustError)
     // Negative test: dying context exits without error
     trace.set(C::execution_sel_failure, 1, 0);
     trace.set(C::execution_sel_error, 1, 0);
-    trace.set(C::execution_sel_revert, 1, 0);
+    trace.set(C::execution_sel_execute_revert, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution_discard>(trace, execution_discard::SR_DYING_CONTEXT_MUST_FAIL),
                               "DYING_CONTEXT_MUST_FAIL");
 }
@@ -392,7 +392,7 @@ TEST(ExecutionDiscardConstrainingTest, DiscardComplexScenario)
           { C::execution_is_dying_context, 1 },
           { C::execution_sel_exit_call, 1 },
           { C::execution_sel_error, 1 },
-          { C::execution_sel_revert, 0 },
+          { C::execution_sel_execute_revert, 0 },
           { C::execution_sel_failure, 1 },
           { C::execution_dying_context_diff_inv, 0 },
           { C::execution_has_parent_ctx, 1 },

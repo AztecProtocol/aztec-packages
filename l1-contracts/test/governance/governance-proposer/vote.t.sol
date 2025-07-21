@@ -76,6 +76,18 @@ contract VoteTest is GovernanceProposerBase {
     governanceProposer.vote(proposal);
   }
 
+  function test_GivenVoteIsForPriorRound()
+    external
+    whenProposalHoldCode
+    givenCanonicalRollupHoldCode
+  // solhint-disable-next-line no-empty-blocks
+  {
+    // it revert
+
+    // This case is not possible unless you are voting with a signature.
+    // See `voteWithSig.t.sol` for the test case.
+  }
+
   modifier givenNoVoteAlreadyCastInTheSlot() {
     _;
   }

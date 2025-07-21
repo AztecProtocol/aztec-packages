@@ -15,6 +15,7 @@ enum class AluOperation {
     LT,
     LTE,
     NOT,
+    TRUNCATE,
 };
 
 // TODO(MW): Expand when adding new ops (e.g. when using max_bits for mul, we would cover bits related errors)
@@ -36,8 +37,8 @@ inline std::string to_string(AluError e)
 
 class AluException : public std::runtime_error {
   public:
-    explicit AluException()
-        : std::runtime_error("ALU operation failed")
+    explicit AluException(const std::string& message)
+        : std::runtime_error("ALU Exception: " + message)
     {}
 };
 

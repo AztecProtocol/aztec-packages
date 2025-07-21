@@ -35,9 +35,8 @@ AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(cons
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
-        .virtual_size_ =
-            static_cast<uint32_t>(key->circuit_size.get_value()), // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        .backing_memory_ = std::static_pointer_cast<FF[]>(get_mem_slab(sizeof(FF) * points.size())),
+        .virtual_size_ = static_cast<uint32_t>(key->circuit_size.get_value()),
+        .backing_memory_ = BackingMemory<FF>::allocate(points.size()),
     };
 
     memcpy(

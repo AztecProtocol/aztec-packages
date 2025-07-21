@@ -11,11 +11,14 @@
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
@@ -43,8 +46,12 @@ using ::testing::ReturnRef;
 using simulation::compute_contract_address;
 using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
+using simulation::FieldGreaterThan;
+using simulation::FieldGreaterThanEvent;
 using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
+using simulation::MockGreaterThan;
+using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
@@ -54,6 +61,7 @@ using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
@@ -73,10 +81,11 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
-    FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
-    FF shared_mutable_hash_leaf_slot = poseidon2::hash(
-        { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_hash_slot });
+    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
+    FF delayed_public_mutable_hash_leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+                                                                 CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                                                                 delayed_public_mutable_hash_slot });
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
@@ -85,7 +94,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
@@ -95,7 +105,10 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
+    NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
 
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
@@ -106,10 +119,12 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
                        public_data_tree_check,
                        mock_nullifier_tree_check,
                        mock_note_hash_tree_check,
-                       mock_written_public_data_slots_tree_check);
+                       mock_written_public_data_slots_tree_check,
+                       mock_l1_to_l2_message_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);
+    UpdateCheck update_check(
+        poseidon2, range_check, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
 
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -117,8 +132,9 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillOnce(Return(PublicDataTreeLeafPreimage(PublicDataLeafValue(1, 0), 0, 0)));
-    EXPECT_CALL(mock_low_level_merkle_db,
-                get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, shared_mutable_hash_leaf_slot))
+    EXPECT_CALL(
+        mock_low_level_merkle_db,
+        get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, delayed_public_mutable_hash_leaf_slot))
         .WillOnce(Return(GetLowIndexedLeafResponse(false, leaf_index)));
 
     EXPECT_CALL(mock_field_gt, ff_gt(_, _)).WillRepeatedly(Return(true));
@@ -139,7 +155,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     constraining::check_interaction<UpdateCheckTraceBuilder,
                                     lookup_update_check_update_hash_poseidon2_settings,
-                                    lookup_update_check_shared_mutable_slot_poseidon2_settings,
+                                    lookup_update_check_delayed_public_mutable_slot_poseidon2_settings,
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,
@@ -156,7 +172,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = update_post_class;
     AztecAddress derived_address = compute_contract_address(instance);
-    FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
+    FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
@@ -165,7 +181,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
@@ -175,6 +192,10 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
+    NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
+    NiceMock<MockGreaterThan> mock_gt;
+
+    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -186,10 +207,12 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
                        public_data_tree_check,
                        mock_nullifier_tree_check,
                        mock_note_hash_tree_check,
-                       mock_written_public_data_slots_tree_check);
+                       mock_written_public_data_slots_tree_check,
+                       mock_l1_to_l2_message_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);
+    GlobalVariables globals{ .timestamp = current_timestamp };
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, update_check_event_emitter, globals);
 
     FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + update_timestamp_of_change;
 
@@ -200,7 +223,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     for (size_t i = 0; i < update_leaf_values.size(); ++i) {
         FF leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
                                          CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-                                         shared_mutable_slot + i });
+                                         delayed_public_mutable_slot + i });
         update_leaf_slots.push_back(leaf_slot);
     }
 
@@ -241,7 +264,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     constraining::check_interaction<UpdateCheckTraceBuilder,
                                     lookup_update_check_update_hash_poseidon2_settings,
-                                    lookup_update_check_shared_mutable_slot_poseidon2_settings,
+                                    lookup_update_check_delayed_public_mutable_slot_poseidon2_settings,
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,

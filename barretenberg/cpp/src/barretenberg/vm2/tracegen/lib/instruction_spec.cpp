@@ -31,6 +31,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
       { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHL } },
     { ExecutionOpCode::SHR,
       { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SHR } },
+    { ExecutionOpCode::CAST,
+      { .subtrace_selector = SubtraceSel::CAST, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_TRUNCATE } },
     // Bitwise - note the bitwise subtrace operation id need to match the op id values in the bitwise precomputed table
     { ExecutionOpCode::AND,
       { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_AND_OP_ID } },
@@ -51,7 +53,7 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::GETENVVAR,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_GETENVVAR } },
     { ExecutionOpCode::SET,
-      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SET } },
+      { .subtrace_selector = SubtraceSel::SET, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_TRUNCATE } },
     { ExecutionOpCode::MOV,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_MOV } },
     { ExecutionOpCode::JUMP,
@@ -76,10 +78,24 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_RETURNDATASIZE } },
     { ExecutionOpCode::DEBUGLOG,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_DEBUGLOG } },
-    // KeccakF1600
+    // Hashes
     { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::POSEIDON2PERM, { .subtrace_selector = SubtraceSel::POSEIDON2PERM, .subtrace_operation_id = 0 } },
+    // Tree operations
     { ExecutionOpCode::SLOAD,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SLOAD } },
+    { ExecutionOpCode::SSTORE,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SSTORE } },
+    { ExecutionOpCode::NOTEHASHEXISTS,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NOTEHASH_EXISTS } },
+    // Misc
+    { ExecutionOpCode::GETCONTRACTINSTANCE,
+      { .subtrace_selector = SubtraceSel::GETCONTRACTINSTANCE, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::EMITNOTEHASH,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_EMIT_NOTEHASH } },
+    { ExecutionOpCode::L1TOL2MSGEXISTS,
+      { .subtrace_selector = SubtraceSel::EXECUTION,
+        .subtrace_operation_id = AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
@@ -87,6 +103,10 @@ FF get_subtrace_id(SubtraceSel subtrace_sel)
     switch (subtrace_sel) {
     case SubtraceSel::ALU:
         return AVM_SUBTRACE_ID_ALU;
+    case SubtraceSel::CAST:
+        return AVM_SUBTRACE_ID_CAST;
+    case SubtraceSel::SET:
+        return AVM_SUBTRACE_ID_SET;
     case SubtraceSel::BITWISE:
         return AVM_SUBTRACE_ID_BITWISE;
     case SubtraceSel::TORADIXBE:
@@ -101,6 +121,8 @@ FF get_subtrace_id(SubtraceSel subtrace_sel)
         return AVM_SUBTRACE_ID_EXECUTION;
     case SubtraceSel::KECCAKF1600:
         return AVM_SUBTRACE_ID_KECCAKF1600;
+    case SubtraceSel::GETCONTRACTINSTANCE:
+        return AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
     }
 
     // clangd will complain if we miss a case.
@@ -114,24 +136,55 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
 
     switch (subtrace_sel) {
     case SubtraceSel::ALU:
-        return C::execution_sel_alu;
+        return C::execution_sel_execute_alu;
+    case SubtraceSel::CAST:
+        return C::execution_sel_execute_cast;
+    case SubtraceSel::SET:
+        return C::execution_sel_execute_set;
     case SubtraceSel::BITWISE:
-        return C::execution_sel_bitwise;
+        return C::execution_sel_execute_bitwise;
     case SubtraceSel::TORADIXBE:
-        return C::execution_sel_to_radix;
+        return C::execution_sel_execute_to_radix;
     case SubtraceSel::POSEIDON2PERM:
-        return C::execution_sel_poseidon2_perm;
+        return C::execution_sel_execute_poseidon2_perm;
     case SubtraceSel::ECC:
-        return C::execution_sel_ecc_add;
+        return C::execution_sel_execute_ecc_add;
     case SubtraceSel::DATACOPY:
-        return C::execution_sel_data_copy;
+        return C::execution_sel_execute_data_copy;
     case SubtraceSel::EXECUTION:
-        return C::execution_sel_execution;
+        return C::execution_sel_execute_execution;
     case SubtraceSel::KECCAKF1600:
-        return C::execution_sel_keccakf1600;
+        return C::execution_sel_execute_keccakf1600;
+    case SubtraceSel::GETCONTRACTINSTANCE:
+        return C::execution_sel_execute_get_contract_instance;
     }
 
     // clangd will complain if we miss a case.
+    // This is just to please gcc.
+    __builtin_unreachable();
+}
+
+Column get_dyn_gas_selector(uint32_t dyn_gas_id)
+{
+    using C = Column;
+
+    switch (dyn_gas_id) {
+    case AVM_DYN_GAS_ID_CALLDATACOPY:
+        return C::execution_sel_gas_calldata_copy;
+    case AVM_DYN_GAS_ID_RETURNDATACOPY:
+        return C::execution_sel_gas_returndata_copy;
+    case AVM_DYN_GAS_ID_TORADIX:
+        return C::execution_sel_gas_to_radix;
+    case AVM_DYN_GAS_ID_BITWISE:
+        return C::execution_sel_gas_bitwise;
+    case AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG:
+        return C::execution_sel_gas_emit_unencrypted_log;
+    case AVM_DYN_GAS_ID_SSTORE:
+        return C::execution_sel_gas_sstore;
+    default:
+        assert(false && "Invalid dynamic gas id");
+    }
+
     // This is just to please gcc.
     __builtin_unreachable();
 }

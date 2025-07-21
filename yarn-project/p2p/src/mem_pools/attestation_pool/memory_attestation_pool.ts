@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { BlockAttestation } from '@aztec/stdlib/p2p';
+import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
@@ -9,12 +9,14 @@ export class InMemoryAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
 
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
+  private proposals: Map<string, BlockProposal>;
 
   constructor(
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p:attestation_pool'),
   ) {
     this.attestations = new Map();
+    this.proposals = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
 
@@ -106,9 +108,17 @@ export class InMemoryAttestationPool implements AttestationPool {
   public deleteAttestationsForSlot(slot: bigint): Promise<void> {
     // We count the number of attestations we are removing
     const numberOfAttestations = this.#getNumberOfAttestationsInSlot(slot);
+    const proposalIdsToDelete = this.attestations.get(slot)?.keys();
+    let proposalIdsToDeleteCount = 0;
+    proposalIdsToDelete?.forEach(proposalId => {
+      this.proposals.delete(proposalId);
+      proposalIdsToDeleteCount++;
+    });
 
     this.attestations.delete(slot);
-    this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
+    this.log.verbose(
+      `Removed ${numberOfAttestations} attestations and ${proposalIdsToDeleteCount} proposals for slot ${slot}`,
+    );
 
     return Promise.resolve();
   }
@@ -124,6 +134,8 @@ export class InMemoryAttestationPool implements AttestationPool {
         this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
       }
     }
+
+    this.proposals.delete(proposalId);
     return Promise.resolve();
   }
 
@@ -142,6 +154,20 @@ export class InMemoryAttestationPool implements AttestationPool {
       }
     }
     return Promise.resolve();
+  }
+
+  public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
+    // We initialize slot-proposal mapping if it does not exist
+    // This is important to ensure we can delete this proposal if there were not attestations for it
+    const slotProposalMapping = getSlotOrDefault(this.attestations, blockProposal.slotNumber.toBigInt());
+    slotProposalMapping.set(blockProposal.payload.archive.toString(), new Map<string, BlockAttestation>());
+
+    this.proposals.set(blockProposal.payload.archive.toString(), blockProposal);
+    return Promise.resolve();
+  }
+
+  public getBlockProposal(id: string): Promise<BlockProposal | undefined> {
+    return Promise.resolve(this.proposals.get(id));
   }
 }
 

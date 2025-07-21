@@ -410,7 +410,8 @@ namespace tx;
     };
 
     pol commit fee_payer;
-    pol commit fee_payer_pi_offset;
+    pol commit fee_payer_pi_offset; // TODO: remove when we can use constants in lookups
+    fee_payer_pi_offset = is_collect_fee * constants.AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX;
 
     #[READ_FEE_PAYER_PUBLIC_INPUTS]
     is_collect_fee {
@@ -500,7 +501,8 @@ namespace tx;
     // is_collect_fee { write_pi_offset, fee }
     // in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
-    pol commit end_gas_used_pi_offset;
+    pol commit end_gas_used_pi_offset; // TODO: remove when we can use constants in lookups
+    end_gas_used_pi_offset = is_collect_fee * constants.AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX;
 
     // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_END_GAS_USED_PUBLIC_INPUTS]

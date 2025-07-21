@@ -260,8 +260,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             this->add_variable(value);
         }
 
-        // Add the public_inputs from acir
-        this->public_inputs = public_inputs;
+        // Initialize the builder public_inputs directly from the acir public inputs.
+        this->initialize_public_inputs(public_inputs);
 
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
@@ -593,7 +593,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     size_t get_finalized_total_circuit_size() const
     {
         ASSERT(circuit_finalized);
-        auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
 
@@ -608,7 +608,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_estimated_total_circuit_size() const
     {
-        auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_estimated_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
 
@@ -632,7 +632,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount
-                  << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << "), pubinp = " << this->num_public_inputs() << std::endl;
     }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")

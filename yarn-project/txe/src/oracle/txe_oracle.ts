@@ -131,7 +131,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXEStateMachine } from '../state_machine/index.js';
-import { AZTEC_SLOT_DURATION, GENESIS_TIMESTAMP } from '../txe_constants.js';
+import { GENESIS_TIMESTAMP } from '../txe_constants.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -168,6 +168,9 @@ export class TXE implements TypedOracle {
   public noteCache: ExecutionNoteCache;
 
   private authwits: Map<string, AuthWitness> = new Map();
+
+  // Used by setSenderForTags and getSenderForTags oracles.
+  private senderForTags?: AztecAddress;
 
   private constructor(
     private logger: Logger,
@@ -331,17 +334,12 @@ export class TXE implements TypedOracle {
 
   async getPrivateContextInputs(
     blockNumber: number | null,
-    timestamp: UInt64 | null,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
   ) {
     // If blockNumber or timestamp is null, use the values corresponding to the latest historical block (number of
     // the block being built - 1)
     blockNumber = blockNumber ?? this.blockNumber - 1;
-
-    // TODO: we can't just request a timestamp! we always build contexts off of blocks. if anything we'd need to ensure
-    // a block at a given timestamp exists
-    timestamp = timestamp ?? this.timestamp;
 
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
     const previousBlockState = this.nativeWorldStateService.getSnapshot(blockNumber - 1);
@@ -351,7 +349,7 @@ export class TXE implements TypedOracle {
     inputs.txContext.chainId = new Fr(this.CHAIN_ID);
     inputs.txContext.version = new Fr(this.ROLLUP_VERSION);
     inputs.historicalHeader.globalVariables.blockNumber = blockNumber;
-    inputs.historicalHeader.globalVariables.timestamp = timestamp;
+    inputs.historicalHeader.globalVariables.timestamp = await this.getBlockTimestamp(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
       (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
@@ -431,6 +429,10 @@ export class TXE implements TypedOracle {
 
   getTimestamp() {
     return Promise.resolve(this.timestamp);
+  }
+
+  getLastBlockTimestamp() {
+    return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
   getContractAddress() {
@@ -955,9 +957,10 @@ export class TXE implements TypedOracle {
       throw new Error('Invalid arguments size');
     }
 
+    const historicalBlockNumber = this.blockNumber - 1; // i.e. last
+
     const privateContextInputs = await this.getPrivateContextInputs(
-      this.blockNumber - 1,
-      this.timestamp - AZTEC_SLOT_DURATION,
+      historicalBlockNumber,
       sideEffectCounter,
       isStaticCall,
     );
@@ -1237,8 +1240,11 @@ export class TXE implements TypedOracle {
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = await siloNullifier(targetAddress, innerNullifier!);
     const db = this.baseFork;
-    const index = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    return index !== undefined;
+
+    const treeIndex = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
+    const transientIndex = this.siloedNullifiersFromPublic.find(n => n.equals(nullifier));
+
+    return treeIndex !== undefined || transientIndex !== undefined;
   }
 
   async avmOpcodeEmitNullifier(nullifier: Fr) {
@@ -1317,6 +1323,15 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  getSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.resolve(this.senderForTags);
+  }
+
+  setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.senderForTags = senderForTags;
+    return Promise.resolve();
+  }
+
   async privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
@@ -1359,7 +1374,7 @@ export class TXE implements TypedOracle {
       /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
       blockHeader,
       /** List of transient auth witnesses to be used during this simulation */
-      [],
+      Array.from(this.authwits.values()),
       /** List of transient auth witnesses to be used during this simulation */
       [],
       HashedValuesCache.create(),
@@ -1368,6 +1383,13 @@ export class TXE implements TypedOracle {
       this.simulator,
       0,
       1,
+      undefined, // log
+      undefined, // scopes
+      /**
+       * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
+       * contract would perform, including setting senderForTags.
+       */
+      from,
     );
 
     context.storeInExecutionCache(args, argsHash);
@@ -1446,12 +1468,11 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
         returnsHash: result.entrypoint.publicInputs.returnsHash,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1498,14 +1519,11 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
-    this.advanceTimestampBy(AZTEC_SLOT_DURATION);
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
   }
 
@@ -1612,11 +1630,10 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         returnsHash: returnValuesHash ?? Fr.ZERO,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1663,14 +1680,20 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
-    this.advanceTimestampBy(AZTEC_SLOT_DURATION);
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
+  }
+
+  private async getBlockTimestamp(blockNumber: number) {
+    const blockHeader = await this.stateMachine.archiver.getBlockHeader(blockNumber);
+    if (!blockHeader) {
+      throw new Error(`Requested timestamp for block ${blockNumber}, which does not exist`);
+    }
+
+    return blockHeader.globalVariables.timestamp;
   }
 }
