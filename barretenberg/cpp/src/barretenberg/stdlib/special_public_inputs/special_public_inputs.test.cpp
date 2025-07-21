@@ -221,8 +221,8 @@ TEST_F(SpecialPublicInputsTests, RollUpIO)
         // Ensure the reconstructed data matches the original values
         EXPECT_EQ(rollup_io_input_native.pairing_inputs.P0, P0_val);
         EXPECT_EQ(rollup_io_input_native.pairing_inputs.P1, P1_val);
-        EXPECT_EQ(rollup_io_input_native.ipa_claim.opening_pair.challenge, static_cast<uint512_t>(challenge_val));
-        EXPECT_EQ(rollup_io_input_native.ipa_claim.opening_pair.evaluation, static_cast<uint512_t>(evaluation_val));
+        EXPECT_EQ(rollup_io_input_native.ipa_claim.opening_pair.challenge, challenge_val);
+        EXPECT_EQ(rollup_io_input_native.ipa_claim.opening_pair.evaluation, evaluation_val);
         EXPECT_EQ(rollup_io_input_native.ipa_claim.commitment, commitment_val);
     }
 }
@@ -231,16 +231,22 @@ TEST_F(SpecialPublicInputsTests, RollUpIO)
 TEST_F(SpecialPublicInputsTests, HidingKernel)
 {
     using Builder = MegaCircuitBuilder;
-    using HidingKernelIO_ = HidingKernelIO<Builder>;
-    using Curve = HidingKernelIO_::Curve;
-    using G1 = HidingKernelIO_::G1;
-    using FF = HidingKernelIO_::FF;
-    using PairingInputs = HidingKernelIO_::PairingInputs;
 
-    using G1Native = typename Curve::GroupNative::affine_element;
-    using FFNative = typename Curve::ScalarFieldNative;
+    // IO classes
+    using HidingIO = HidingKernelIO<Builder>;
+    using HidingIONative = bb::HidingKernelIO;
 
-    static constexpr size_t NUM_WIRES = HidingKernelIO_::Builder::NUM_WIRES;
+    // Recursive types
+    using Curve = HidingIO::Curve;
+    using G1 = HidingIO::G1;
+    using FF = HidingIO::FF;
+    using PairingInputs = HidingIO::PairingInputs;
+
+    // Native types
+    using G1Native = Curve::GroupNative::affine_element;
+    using FFNative = Curve::ScalarFieldNative;
+
+    static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
 
     std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
     for (auto& commitment : ecc_op_tables_val) {
@@ -255,7 +261,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
     { // The first circuit propagates the kernel output via its public inputs
         Builder builder;
 
-        HidingKernelIO_ hiding_output;
+        HidingIO hiding_output;
 
         // Set the output values
         std::array<G1, NUM_WIRES> ecc_op_tables;
@@ -269,7 +275,13 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
 
         // Propagate the kernel output via the public inputs
         hiding_output.set_public();
+
+        // Store the public inputs from this circuit for use in the second circuit
+        for (const auto& idx : builder.public_inputs()) {
+            public_inputs.push_back(builder.get_variable(idx));
+        }
     }
+
     {
         // The second circuit reconstructs the kernel inputs from the public inputs
         Builder builder;
@@ -282,7 +294,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
             stdlib_public_inputs.push_back(FF::from_witness(&builder, val));
         }
 
-        HidingKernelIO_ hiding_input;
+        HidingIO hiding_input;
         hiding_input.reconstruct_from_public(stdlib_public_inputs);
 
         // Ensure the reconstructed data matches the original values
@@ -291,6 +303,20 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         }
         EXPECT_EQ(hiding_input.pairing_inputs.P0.get_value(), P0_val);
         EXPECT_EQ(hiding_input.pairing_inputs.P1.get_value(), P1_val);
+    }
+
+    {
+        // Reconstruct the public inputs from native elements
+        HidingIONative hiding_input_native;
+        hiding_input_native.reconstruct_from_public(public_inputs);
+
+        // Ensure the reconstructed data matches the original values
+        for (auto [reconstructed_commitment, commitment] :
+             zip_view(hiding_input_native.ecc_op_tables, ecc_op_tables_val)) {
+            EXPECT_EQ(reconstructed_commitment, commitment);
+        }
+        EXPECT_EQ(hiding_input_native.pairing_inputs.P0, P0_val);
+        EXPECT_EQ(hiding_input_native.pairing_inputs.P1, P1_val);
     }
 }
 
