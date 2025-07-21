@@ -1,11 +1,13 @@
 use crate::{
-    macros::utils::get_packable_len, messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
+    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
     note::note_getter_options::PropertySelector,
 };
 use poseidon::poseidon2::Poseidon2Hasher;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
 
 /// A map from note type to note_packed_len.
+// TODO(benesjan): Instead of storing the packed length in the map, just have something like Set containing the types
+// and then access the length as <Type as Packable>::N in the #[aztec] macro code.
 pub comptime mut global NOTES: UHashMap<Type, u32, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
@@ -185,6 +187,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_owner(s);
     assert_has_packable(s);
 
+    // TODO(benesjan): Replace this with static_assert inserted into the note quote
     let note_packed_len = get_packable_len(s.as_type());
 
     // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
@@ -257,6 +260,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     assert_has_packable(s);
 
+    // TODO(benesjan): Replace this with static_assert inserted into the note quote
     let note_packed_len = get_packable_len(s.as_type());
 
     // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
