@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
@@ -42,19 +43,19 @@ struct BusVector {
 
     const uint32_t& operator[](size_t idx) const
     {
-        ASSERT(idx < size());
+        BB_ASSERT_LT(idx, size());
         return data[idx];
     }
 
     const uint32_t& get_read_count(size_t idx) const
     {
-        ASSERT(idx < read_counts.size());
+        BB_ASSERT_LT(idx, read_counts.size());
         return read_counts[idx];
     }
 
     void increment_read_count(size_t idx)
     {
-        ASSERT(idx < read_counts.size());
+        BB_ASSERT_LT(idx, read_counts.size());
         read_counts[idx]++;
     }
 

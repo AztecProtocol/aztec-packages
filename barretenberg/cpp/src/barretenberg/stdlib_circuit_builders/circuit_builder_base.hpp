@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -118,7 +119,7 @@ template <typename FF_> class CircuitBuilderBase {
      * */
     inline FF get_variable(const uint32_t index) const
     {
-        ASSERT(variables.size() > real_variable_index[index]);
+        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
         return variables[real_variable_index[index]];
     }
 
@@ -135,7 +136,7 @@ template <typename FF_> class CircuitBuilderBase {
      */
     inline void set_variable(const uint32_t index, const FF& value)
     {
-        ASSERT(variables.size() > real_variable_index[index]);
+        BB_ASSERT_GT(variables.size(), real_variable_index[index]);
         variables[real_variable_index[index]] = value;
     }
 
@@ -149,7 +150,7 @@ template <typename FF_> class CircuitBuilderBase {
      * */
     inline const FF& get_variable_reference(const uint32_t index) const
     {
-        ASSERT(variables.size() > index);
+        BB_ASSERT_GT(variables.size(), index);
         return variables[real_variable_index[index]];
     }
 
@@ -246,7 +247,6 @@ template <typename FF_> class CircuitBuilderBase {
     // is equal to IS_CONSTANT; assuming that we will never have
     // uint32::MAX number of variables
     void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
-    bool is_valid_variable(uint32_t variable_index) { return variable_index < variables.size(); };
 
     bool failed() const;
     const std::string& err() const;
