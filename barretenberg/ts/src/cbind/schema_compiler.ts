@@ -61,7 +61,7 @@ export class SchemaCompiler {
   private typeCache = new Map<string, TypeInfo>();
   private functionMetadata: FunctionMetadata[] = [];
   private referencedTypes = new Set<string>();
-  
+
   constructor(private config: CompilerConfig) {}
 
   /**
@@ -84,7 +84,7 @@ export class SchemaCompiler {
     for (let i = 0; i < commands.length; i++) {
       const [commandName] = commands[i];
       const [responseName] = responses[i];
-      
+
       this.functionMetadata.push({
         name: camelCase(commandName),
         commandType: pascalCase(commandName),
@@ -125,15 +125,15 @@ export class SchemaCompiler {
       const sortedTypes = Array.from(this.typeCache.values())
         .filter(t => t.declaration)
         .sort((a, b) => a.typeName.localeCompare(b.typeName));
-      
+
       // Group declarations
-      const typeAliases = sortedTypes.filter(t => 
+      const typeAliases = sortedTypes.filter(t =>
         t.declaration?.startsWith('export type') && !t.declaration?.includes('interface')
       );
-      const publicInterfaces = sortedTypes.filter(t => 
+      const publicInterfaces = sortedTypes.filter(t =>
         t.declaration?.includes('export interface')
       );
-      const privateInterfaces = sortedTypes.filter(t => 
+      const privateInterfaces = sortedTypes.filter(t =>
         t.declaration?.includes('interface Msgpack')
       );
 
@@ -208,7 +208,7 @@ export class SchemaCompiler {
   }
 
   private needsTupleHelper(): boolean {
-    return Array.from(this.typeCache.values()).some(t => 
+    return Array.from(this.typeCache.values()).some(t =>
       t.typeName.includes('Tuple<')
     );
   }
@@ -216,37 +216,37 @@ export class SchemaCompiler {
   private trackTypeUsage(typeName: string): void {
     // Only track for API modes
     if (this.config.mode === 'types') return;
-    
+
     // Extract base types from complex types
     const baseTypes = this.extractBaseTypes(typeName);
-    
+
     for (const type of baseTypes) {
       // Skip built-in types
       if (['string', 'number', 'boolean', 'Buffer'].includes(type)) {
         continue;
       }
-      
+
       this.referencedTypes.add(type);
     }
   }
 
   private extractBaseTypes(typeName: string): string[] {
     const types: string[] = [];
-    
+
     // Handle arrays
     const arrayMatch = typeName.match(/^(.+)\[\]$/);
     if (arrayMatch) {
       types.push(...this.extractBaseTypes(arrayMatch[1]));
       return types;
     }
-    
+
     // Handle Tuple
     const tupleMatch = typeName.match(/^Tuple<(.+),\s*\d+>$/);
     if (tupleMatch) {
       types.push(...this.extractBaseTypes(tupleMatch[1]));
       return types;
     }
-    
+
     // Handle Record
     const recordMatch = typeName.match(/^Record<(.+),\s*(.+)>$/);
     if (recordMatch) {
@@ -254,7 +254,7 @@ export class SchemaCompiler {
       types.push(...this.extractBaseTypes(recordMatch[2]));
       return types;
     }
-    
+
     // Handle union types
     if (typeName.includes(' | ')) {
       const parts = typeName.split(' | ');
@@ -263,7 +263,7 @@ export class SchemaCompiler {
       }
       return types;
     }
-    
+
     // Base case - simple type
     types.push(typeName);
     return types;
@@ -282,7 +282,7 @@ export class SchemaCompiler {
 
   private processArraySchema(schema: any[]): TypeInfo {
     const [type, ...args] = schema;
-    
+
     switch (type) {
       case 'array': {
         const [subtype, size] = args[0];
@@ -292,7 +292,7 @@ export class SchemaCompiler {
           msgpackTypeName: `Tuple<${subtypeInfo.msgpackTypeName || subtypeInfo.typeName}, ${size}>`,
         };
       }
-      
+
       case 'variant': {
         const variants = args[0] as Schema[];
         const variantInfos = variants.map(v => this.processSchema(v));
@@ -303,11 +303,11 @@ export class SchemaCompiler {
           msgpackTypeName: `[number, ${msgpackUnion}]`,
         };
       }
-      
+
       case 'named_union': {
         const namedTypes = args[0] as Array<[string, Schema]>;
         const tupleTypes: string[] = [];
-        
+
         for (const [name, schemaOrName] of namedTypes) {
           let typeInfo: TypeInfo;
           if (typeof schemaOrName === 'string') {
@@ -320,13 +320,13 @@ export class SchemaCompiler {
           this.trackTypeUsage(typeInfo.typeName);
           tupleTypes.push(`["${name}", ${typeInfo.typeName}]`);
         }
-        
+
         return {
           typeName: tupleTypes.join(' | '),
           msgpackTypeName: tupleTypes.join(' | '),
         };
       }
-      
+
       case 'vector': {
         const [subtype] = args[0];
         if (subtype === 'unsigned char') {
@@ -338,12 +338,12 @@ export class SchemaCompiler {
           msgpackTypeName: `${subtypeInfo.msgpackTypeName || subtypeInfo.typeName}[]`,
         };
       }
-      
+
       case 'alias': {
         const [rawTypeName, msgpackName] = args[0];
         const typeName = pascalCase(rawTypeName);
         let targetType: string;
-        
+
         if (msgpackName.startsWith('bin')) {
           targetType = 'Buffer';
         } else if (['int', 'unsigned int', 'unsigned short'].includes(msgpackName)) {
@@ -351,7 +351,7 @@ export class SchemaCompiler {
         } else {
           throw new Error(`Unsupported alias type: ${msgpackName}`);
         }
-        
+
         // Create a proper type alias declaration
         return {
           typeName,
@@ -359,12 +359,12 @@ export class SchemaCompiler {
           declaration: `export type ${typeName} = ${targetType};`,
         };
       }
-      
+
       case 'shared_ptr': {
         const [subtype] = args[0];
         return this.processSchema(subtype);
       }
-      
+
       case 'map': {
         const [keyType, valueType] = args[0];
         const keyInfo = this.processSchema(keyType);
@@ -374,7 +374,7 @@ export class SchemaCompiler {
           msgpackTypeName: `Record<${keyInfo.msgpackTypeName || keyInfo.typeName}, ${valueInfo.msgpackTypeName || valueInfo.typeName}>`,
         };
       }
-      
+
       default:
         throw new Error(`Unsupported array schema type: ${type}`);
     }
@@ -402,11 +402,11 @@ export class SchemaCompiler {
   private processObjectSchema(schema: ObjectSchema): TypeInfo {
     const typeName = pascalCase(schema.__typename as string);
     const msgpackTypeName = 'Msgpack' + typeName;
-    
+
     const declaration = this.generateInterfaces(typeName, schema);
     const toMethod = this.generateToMethod(typeName, schema);
     const fromMethod = this.generateFromMethod(typeName, schema);
-    
+
     return {
       typeName,
       msgpackTypeName,
@@ -421,7 +421,7 @@ export class SchemaCompiler {
     if (this.typeCache.has(key)) {
       return this.typeCache.get(key)!;
     }
-    
+
     const typeInfo: TypeInfo = {
       typeName,
       msgpackTypeName: 'Msgpack' + typeName,
@@ -429,7 +429,7 @@ export class SchemaCompiler {
       toMethod: `function to${typeName}(o: Msgpack${typeName}): ${typeName} {\n  return {};\n}`,
       fromMethod: `function from${typeName}(o: ${typeName}): Msgpack${typeName} {\n  return {};\n}`,
     };
-    
+
     this.typeCache.set(key, typeInfo);
     return typeInfo;
   }
@@ -445,10 +445,10 @@ export class SchemaCompiler {
     for (const [key, value] of Object.entries(schema)) {
       if (key === '__typename') continue;
       const typeInfo = this.processSchema(value);
-      
+
       // Track type usage
       this.trackTypeUsage(typeInfo.typeName);
-      
+
       result += `  ${camelCase(key)}: ${typeInfo.typeName};\n`;
     }
     result += '}';
@@ -468,21 +468,21 @@ export class SchemaCompiler {
 
   private generateToMethod(name: string, schema: ObjectSchema): string {
     const fields = Object.entries(schema).filter(([key]) => key !== '__typename');
-    
+
     if (fields.length === 0) {
       return `function to${name}(o: Msgpack${name}): ${name} {\n  return {};\n}`;
     }
-    
+
     const checks = fields.map(([key]) =>
       `  if (o.${key} === undefined) { throw new Error("Expected ${key} in ${name} deserialization"); }`
     ).join('\n');
-    
+
     const conversions = fields.map(([key, value]) => {
       const typeInfo = this.processSchema(value);
       const converter = this.generateConverter(typeInfo, `o.${key}`, 'to');
       return `    ${camelCase(key)}: ${converter},`;
     }).join('\n');
-    
+
     return `function to${name}(o: Msgpack${name}): ${name} {
 ${checks};
   return {
@@ -493,21 +493,21 @@ ${conversions}
 
   private generateFromMethod(name: string, schema: ObjectSchema): string {
     const fields = Object.entries(schema).filter(([key]) => key !== '__typename');
-    
+
     if (fields.length === 0) {
       return `function from${name}(o: ${name}): Msgpack${name} {\n  return {};\n}`;
     }
-    
+
     const checks = fields.map(([key]) =>
       `  if (o.${camelCase(key)} === undefined) { throw new Error("Expected ${camelCase(key)} in ${name} serialization"); }`
     ).join('\n');
-    
+
     const conversions = fields.map(([key, value]) => {
       const typeInfo = this.processSchema(value);
       const converter = this.generateConverter(typeInfo, `o.${camelCase(key)}`, 'from');
       return `  ${key}: ${converter},`;
     }).join('\n');
-    
+
     return `function from${name}(o: ${name}): Msgpack${name} {
 ${checks};
   return {
@@ -526,27 +526,27 @@ ${conversions}
         return `${value}.${mapFn}((v: any) => v)`; // Simplified for now
       }
     }
-    
+
     // Handle custom types
     if (typeInfo.declaration) {
       return `${direction}${typeInfo.typeName}(${value})`;
     }
-    
+
     return value;
   }
 
   private generateImports(): string[] {
     const imports: string[] = [];
-    
+
     // Base imports
     if (this.config.imports) {
       imports.push(...this.config.imports);
     }
-    
+
     // For API modes, import from api_types
     if (this.config.mode !== 'types') {
       const neededImports = new Set<string>();
-      
+
       // Add types and conversion functions from function metadata
       for (const metadata of this.functionMetadata) {
         neededImports.add(metadata.commandType);
@@ -554,29 +554,29 @@ ${conversions}
         neededImports.add(`from${metadata.commandType}`);
         neededImports.add(`to${metadata.responseType}`);
       }
-      
+
       // Add referenced types
       for (const type of this.referencedTypes) {
         neededImports.add(type);
       }
-      
+
       if (neededImports.size > 0) {
         const sortedImports = Array.from(neededImports).sort();
         imports.push(`import { ${sortedImports.join(', ')} } from './api_types.js';`);
       }
     }
-    
+
     return imports;
   }
 
   private generateApiClass(): string {
     const className = this.getApiClassName();
     const methods = this.functionMetadata.map(m => this.generateApiMethod(m)).join('\n\n');
-    
+
     if (this.config.mode === 'native') {
       return this.generateNativeApiClass(methods);
     }
-    
+
     return `export class ${className} {
   constructor(protected wasm: ${this.getWasmType()}) {}
 
@@ -607,7 +607,7 @@ ${methods}
     const asyncPrefix = isAsync ? 'async ' : '';
     const asyncSuffix = isAsync ? 'await ' : '';
     const returnType = isAsync ? `Promise<${responseType}>` : responseType;
-    
+
     if (this.config.mode === 'native') {
       return `  async ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
@@ -618,7 +618,7 @@ ${methods}
     return to${responseType}(result);
   }`;
     }
-    
+
     return `  ${asyncPrefix}${name}(command: ${commandType}): ${returnType} {
     const msgpackCommand = from${commandType}(command);
     const [variantName, result] = ${asyncSuffix}this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]);
@@ -640,7 +640,7 @@ class StreamBuffer {
   private expectedLength: number | null = null;
 
   addData(data: Buffer): Buffer[] {
-    // Use a more efficient approach by growing buffer only when needed
+    // Create buffer to grow as needed
     const newBuffer = Buffer.allocUnsafe(this.buffer.length + data.length);
     this.buffer.copy(newBuffer, 0);
     data.copy(newBuffer, this.buffer.length);
