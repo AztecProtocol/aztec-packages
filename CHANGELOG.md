@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.1...v1.1.2) (2025-07-21)
+
+
+### Miscellaneous
+
+* docs ([#15838](https://github.com/AztecProtocol/aztec-packages/issues/15838)) ([5fc1898](https://github.com/AztecProtocol/aztec-packages/commit/5fc1898425b79e0472c697cbfbcafad8f0729dcf))
+
 ## [1.1.1](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.0...v1.1.1) (2025-07-21)
 
 
