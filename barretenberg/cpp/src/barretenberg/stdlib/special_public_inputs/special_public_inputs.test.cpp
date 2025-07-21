@@ -1,3 +1,4 @@
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include <gtest/gtest.h>
 
@@ -74,7 +75,7 @@ TEST_F(SpecialPublicInputsTests, DefaultNative)
 {
     using Builder = MegaCircuitBuilder;
     using IO = DefaultIO<Builder>;
-    using IONative = IO::Native;
+    using IONative = bb::DefaultIO;
 
     using Curve = IO::Curve;
     using G1 = Curve::Group;
@@ -122,7 +123,7 @@ TEST_F(SpecialPublicInputsTests, DefaultNative)
 TEST_F(SpecialPublicInputsTests, RollUpIONative)
 {
     using Builder = RollupIO::Builder;
-    using RollUpIONative = RollupIO::Native;
+    using RollUpIONative = bb::RollupIO;
 
     using Curve = RollupIO::Curve;
     using ScalarFieldGrumpkin = Curve::BaseField;
