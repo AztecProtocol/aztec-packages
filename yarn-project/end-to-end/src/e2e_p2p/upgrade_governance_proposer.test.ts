@@ -128,13 +128,13 @@ describe('e2e_p2p_governance_proposer', () => {
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
-      const leaderVotes = await governanceProposer.read.yeaCount([
+      const leaderVotes = await governanceProposer.read.signalCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info.leader,
+        info.payloadWithMostSignals,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.leader} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -157,7 +157,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await sleep(4000);
 
-    t.logger.info('Start progressing time to cast votes');
+    t.logger.info('Start progressing time to cast signals');
     const quorumSize = await governanceProposer.read.QUORUM_SIZE();
     t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
@@ -180,13 +180,13 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await waitL1Block();
 
-    t.logger.info(`Executing proposal ${govData.round}`);
-    const txHash = await governanceProposer.write.executeProposal([govData.round], {
+    t.logger.info(`Submitting winner of round ${govData.round}`);
+    const txHash = await governanceProposer.write.submitRoundWinner([govData.round], {
       account: emperor,
       gas: 1_000_000n,
     });
     await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash });
-    t.logger.info(`Executed proposal ${govData.round}`);
+    t.logger.info(`Submitted winner of round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
 

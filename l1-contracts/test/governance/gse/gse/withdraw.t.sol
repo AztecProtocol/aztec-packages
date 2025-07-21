@@ -7,15 +7,14 @@ import {Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 
 contract WithdrawTest is WithGSE {
   address internal caller;
-  bool internal onCanonical = false;
 
   address internal WITHDRAWER = address(0x1234);
-  address internal MAGIC_ADDRESS;
+  address internal BONUS_ADDRESS;
   uint256 internal amount;
 
   function setUp() public override {
     super.setUp();
-    MAGIC_ADDRESS = gse.CANONICAL_MAGIC_ADDRESS();
+    BONUS_ADDRESS = gse.BONUS_INSTANCE_ADDRESS();
   }
 
   function test_WhenCallerIsNotRegisteredRollup(address _instance) external {
@@ -29,7 +28,7 @@ contract WithdrawTest is WithGSE {
   }
 
   modifier whenCallerIsRegisteredRollup(address _instance) {
-    vm.assume(_instance != address(0) && _instance != MAGIC_ADDRESS);
+    vm.assume(_instance != address(0) && _instance != BONUS_ADDRESS);
     vm.assume(gse.isRollupRegistered(_instance) == false);
 
     vm.prank(gse.owner());
@@ -45,13 +44,13 @@ contract WithdrawTest is WithGSE {
     _;
   }
 
-  function test_GivenCallerIsNotCanonical(address _instance, address _instance2, address _attester)
+  function test_GivenCallerIsNotLatest(address _instance, address _instance2, address _attester)
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterNotFoundInCallerInstance(_instance, _attester)
   {
     // it reverts
-    vm.assume(_instance != _instance2 && _instance2 != address(0) && _instance2 != MAGIC_ADDRESS);
+    vm.assume(_instance != _instance2 && _instance2 != address(0) && _instance2 != BONUS_ADDRESS);
 
     cheat_deposit(_instance, _attester, WITHDRAWER, true);
 
@@ -60,36 +59,36 @@ contract WithdrawTest is WithGSE {
 
     assertEq(gse.isRegistered(_instance, _attester), false);
     assertEq(gse.isRegistered(_instance2, _attester), false);
-    assertEq(gse.isRegistered(MAGIC_ADDRESS, _attester), true);
+    assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), true);
 
-    // While it was added when we were canonical, it moved away, so we cannot get it now.
+    // While it was added when we were latest, it moved away, so we cannot get it now.
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NothingToExit.selector, _attester));
     gse.withdraw(_attester, 0);
   }
 
-  modifier givenCallerIsCanonical() {
+  modifier givenCallerIsLatest() {
     _;
   }
 
-  function test_GivenAttesterNotFoundInCanonical(address _instance, address _attester)
+  function test_GivenAttesterNotFoundInBonus(address _instance, address _attester)
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterNotFoundInCallerInstance(_instance, _attester)
-    givenCallerIsCanonical
+    givenCallerIsLatest
   {
     // it reverts
 
     assertEq(gse.isRegistered(_instance, _attester), false);
-    assertEq(gse.isRegistered(MAGIC_ADDRESS, _attester), false);
+    assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), false);
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NothingToExit.selector, _attester));
     gse.withdraw(_attester, 0);
   }
 
-  modifier givenAttesterFoundInCanonical(address _instance, address _attester) {
+  modifier givenAttesterFoundInBonus(address _instance, address _attester) {
     vm.assume(_attester != address(0));
 
     if (!gse.isRegistered(_instance, _attester)) {
@@ -103,12 +102,12 @@ contract WithdrawTest is WithGSE {
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterNotFoundInCallerInstance(_instance, _attester)
-    givenCallerIsCanonical
-    givenAttesterFoundInCanonical(_instance, _attester)
+    givenCallerIsLatest
+    givenAttesterFoundInBonus(_instance, _attester)
   {
     // it reverts
 
-    uint256 balance = gse.balanceOf(MAGIC_ADDRESS, _attester);
+    uint256 balance = gse.balanceOf(BONUS_ADDRESS, _attester);
     amount = bound(_amount, balance + 1, type(uint256).max);
 
     vm.prank(_instance);
@@ -117,7 +116,7 @@ contract WithdrawTest is WithGSE {
   }
 
   modifier givenBalanceGreaterOrEqualToAmount(address _attester, uint256 _amount) {
-    uint256 balance = gse.balanceOf(MAGIC_ADDRESS, _attester);
+    uint256 balance = gse.balanceOf(BONUS_ADDRESS, _attester);
     amount = bound(_amount, 0, balance);
     _;
   }
@@ -130,22 +129,22 @@ contract WithdrawTest is WithGSE {
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterNotFoundInCallerInstance(_instance, _attester)
-    givenCallerIsCanonical
-    givenAttesterFoundInCanonical(_instance, _attester)
+    givenCallerIsLatest
+    givenAttesterFoundInBonus(_instance, _attester)
     givenBalanceGreaterOrEqualToAmount(_attester, _amount)
   {
-    // it removes attester from canonical instance
+    // it removes attester from bonus instance
     // it deletes attester config
     // it delegates attester to address zero
     // it withdraws full balance
     // it decreases delegation balance by full amount
     // it initiates withdrawal in governance
     // it returns full balance, true, withdrawal id
-    uint256 balance = gse.balanceOf(MAGIC_ADDRESS, _attester);
+    uint256 balance = gse.balanceOf(BONUS_ADDRESS, _attester);
     {
-      assertEq(gse.isRegistered(MAGIC_ADDRESS, _attester), true);
-      assertEq(gse.getDelegatee(MAGIC_ADDRESS, _attester), MAGIC_ADDRESS);
-      assertEq(gse.getConfig(MAGIC_ADDRESS, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), true);
+      assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
+      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
 
       amount = bound(_amount, balance - gse.MINIMUM_STAKE() + 1, balance);
     }
@@ -166,10 +165,10 @@ contract WithdrawTest is WithGSE {
       assertEq(withdrawal.claimed, false);
     }
     {
-      assertEq(gse.isRegistered(MAGIC_ADDRESS, _attester), false);
-      assertEq(gse.getDelegatee(MAGIC_ADDRESS, _attester), address(0));
-      assertEq(gse.getConfig(MAGIC_ADDRESS, _attester).withdrawer, address(0));
-      assertEq(gse.balanceOf(MAGIC_ADDRESS, _attester), 0);
+      assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), false);
+      assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), address(0));
+      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, address(0));
+      assertEq(gse.balanceOf(BONUS_ADDRESS, _attester), 0);
     }
   }
 
@@ -181,8 +180,8 @@ contract WithdrawTest is WithGSE {
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterNotFoundInCallerInstance(_instance, _attester)
-    givenCallerIsCanonical
-    givenAttesterFoundInCanonical(_instance, _attester)
+    givenCallerIsLatest
+    givenAttesterFoundInBonus(_instance, _attester)
     givenBalanceGreaterOrEqualToAmount(_attester, _amount)
   {
     // it withdraws specified amount
@@ -190,11 +189,11 @@ contract WithdrawTest is WithGSE {
     // it initiates withdrawal in governance
     // it returns specified amount, false, withdrawal id
 
-    uint256 balance = gse.balanceOf(MAGIC_ADDRESS, _attester);
+    uint256 balance = gse.balanceOf(BONUS_ADDRESS, _attester);
     {
-      assertEq(gse.isRegistered(MAGIC_ADDRESS, _attester), true);
-      assertEq(gse.getDelegatee(MAGIC_ADDRESS, _attester), MAGIC_ADDRESS);
-      assertEq(gse.getConfig(MAGIC_ADDRESS, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), true);
+      assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
+      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
 
       amount = bound(_amount, 0, balance - gse.MINIMUM_STAKE());
     }
@@ -215,10 +214,10 @@ contract WithdrawTest is WithGSE {
       assertEq(withdrawal.claimed, false);
     }
     {
-      assertEq(gse.isRegistered(MAGIC_ADDRESS, _attester), true);
-      assertEq(gse.getDelegatee(MAGIC_ADDRESS, _attester), MAGIC_ADDRESS);
-      assertEq(gse.getConfig(MAGIC_ADDRESS, _attester).withdrawer, WITHDRAWER);
-      assertEq(gse.balanceOf(MAGIC_ADDRESS, _attester), balance - amount);
+      assertEq(gse.isRegistered(BONUS_ADDRESS, _attester), true);
+      assertEq(gse.getDelegatee(BONUS_ADDRESS, _attester), BONUS_ADDRESS);
+      assertEq(gse.getConfig(BONUS_ADDRESS, _attester).withdrawer, WITHDRAWER);
+      assertEq(gse.balanceOf(BONUS_ADDRESS, _attester), balance - amount);
     }
   }
 

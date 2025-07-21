@@ -12,8 +12,8 @@ contract StaticTest is WithGSE {
     external
   {
     vm.assume(_instances[0] != _instances[1]);
-    vm.assume(_instances[0] != address(0) && _instances[0] != gse.getCanonicalMagicAddress());
-    vm.assume(_instances[1] != address(0) && _instances[1] != gse.getCanonicalMagicAddress());
+    vm.assume(_instances[0] != address(0) && _instances[0] != gse.getBonusInstanceAddress());
+    vm.assume(_instances[1] != address(0) && _instances[1] != gse.getBonusInstanceAddress());
     vm.assume(_attester != _withdrawer);
 
     vm.prank(gse.owner());
@@ -33,7 +33,7 @@ contract StaticTest is WithGSE {
       assertEq(instance, _instances[0], "invalid instance");
     }
 
-    // Add an attester to instance[1], but canonically
+    // Add an attester to instance[1], but on bonus
     {
       cheat_deposit(_instances[1], _attester, _withdrawer, true);
 
@@ -42,7 +42,7 @@ contract StaticTest is WithGSE {
 
       assertEq(actualWithdrawer, _withdrawer, "invalid withdrawer");
       assertTrue(exists, "withdrawer should exist");
-      assertEq(instance, gse.getCanonicalMagicAddress(), "invalid instance");
+      assertEq(instance, gse.getBonusInstanceAddress(), "invalid instance");
     }
 
     // Withdrawer is not an attester, so should not be able to get a withdrawer
@@ -57,7 +57,7 @@ contract StaticTest is WithGSE {
   }
 
   function test_getVotingPower(address _instance, address _attester) external {
-    vm.assume(_instance != address(0) && _instance != gse.getCanonicalMagicAddress());
+    vm.assume(_instance != address(0) && _instance != gse.getBonusInstanceAddress());
     vm.assume(_attester != address(0) && _attester != _instance);
 
     vm.prank(gse.owner());
@@ -72,7 +72,7 @@ contract StaticTest is WithGSE {
   function test_getAttesterFromIndexAtTime(address _instance, address[4] memory _attesters)
     external
   {
-    vm.assume(_instance != address(0) && _instance != gse.getCanonicalMagicAddress());
+    vm.assume(_instance != address(0) && _instance != gse.getBonusInstanceAddress());
     for (uint256 i = 0; i < _attesters.length; i++) {
       for (uint256 j = i + 1; j < _attesters.length; j++) {
         vm.assume(_attesters[i] != _attesters[j]);
@@ -93,7 +93,7 @@ contract StaticTest is WithGSE {
 
     assertEq(gse.getAttesterFromIndexAtTime(_instance, 0, ts), _attesters[0], "invalid attester");
 
-    // As _instance is canonical, it will also get attesters[1]
+    // As _instance is latest, it will also get attesters[1]
     assertEq(gse.getAttesterFromIndexAtTime(_instance, 1, ts), _attesters[1], "invalid attester");
 
     address[] memory attesters = gse.getAttestersAtTime(_instance, ts);
@@ -101,7 +101,7 @@ contract StaticTest is WithGSE {
     assertEq(attesters[0], _attesters[0], "invalid attester");
     assertEq(attesters[1], _attesters[1], "invalid attester");
 
-    // Note the indexes of this can look strange as it first the specific then the canonical
+    // Note the indexes of this can look strange as it first the specific then the bonus
     attesters = gse.getAttestersAtTime(_instance, ts2);
     assertEq(attesters.length, 4, "invalid attesters");
     assertEq(attesters[0], _attesters[0], "invalid attester");
