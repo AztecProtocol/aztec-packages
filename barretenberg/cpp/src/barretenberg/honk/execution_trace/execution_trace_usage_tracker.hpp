@@ -8,6 +8,7 @@
 
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include <iostream>
 
 namespace bb {
 
@@ -122,7 +123,7 @@ struct ExecutionTraceUsageTracker {
         info("Minimum required block sizes for structured trace: ");
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {
-            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
+            std::cerr << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
             idx++;
         }
         info("");
@@ -132,7 +133,7 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of accumulator: ");
         for (auto [label, range] : zip_view(block_labels, active_ranges)) {
-            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+            std::cerr << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
                       << std::endl;
         }
         info("");
@@ -142,7 +143,7 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of previous accumulator: ");
         for (auto [label, range] : zip_view(block_labels, previous_active_ranges)) {
-            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+            std::cerr << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
                       << std::endl;
         }
         info("");
@@ -152,11 +153,11 @@ struct ExecutionTraceUsageTracker {
     {
         info("Thread ranges: ");
         for (const auto& ranges : thread_ranges) {
-            std::cout << "[" << std::endl;
+            std::cerr << "[" << std::endl;
             for (auto range : ranges) {
-                std::cout << "(" << range.first << ", " << range.second << ")" << std::endl;
+                std::cerr << "(" << range.first << ", " << range.second << ")" << std::endl;
             }
-            std::cout << "]" << std::endl;
+            std::cerr << "]" << std::endl;
         }
         info("");
     }

@@ -27,6 +27,13 @@ namespace bb {
  */
 inline int process_msgpack_commands(std::istream& input_stream)
 {
+    // Redirect std::cout to stderr to prevent accidental writes to stdout
+    auto* original_cout_buf = std::cout.rdbuf();
+    std::cout.rdbuf(std::cerr.rdbuf());
+
+    // Create an ostream that writes directly to stdout
+    std::ostream stdout_stream(original_cout_buf);
+
     // Process length-encoded msgpack buffers
     while (!input_stream.eof()) {
         // Read 4-byte length prefix in little-endian format
@@ -44,6 +51,8 @@ inline int process_msgpack_commands(std::istream& input_stream)
 
         if (input_stream.gcount() != static_cast<std::streamsize>(length)) {
             std::cerr << "Error: Incomplete msgpack buffer read" << std::endl;
+            // Restore original cout buffer before returning
+            std::cout.rdbuf(original_cout_buf);
             return 1;
         }
 
@@ -73,18 +82,22 @@ inline int process_msgpack_commands(std::istream& input_stream)
             msgpack::sbuffer response_buffer;
             msgpack::pack(response_buffer, response);
 
-            // Write length-encoded response to stdout
+            // Write length-encoded response directly to stdout
             uint32_t response_length = static_cast<uint32_t>(response_buffer.size());
-            std::cout.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
-            std::cout.write(response_buffer.data(), static_cast<std::streamsize>(response_buffer.size()));
-            std::cout.flush();
+            stdout_stream.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
+            stdout_stream.write(response_buffer.data(), static_cast<std::streamsize>(response_buffer.size()));
+            stdout_stream.flush();
 
         } catch (const std::exception& e) {
             std::cerr << "Error processing msgpack command: " << e.what() << std::endl;
+            // Restore original cout buffer before returning
+            std::cout.rdbuf(original_cout_buf);
             return 1;
         }
     }
 
+    // Restore original cout buffer
+    std::cout.rdbuf(original_cout_buf);
     return 0;
 }
 

@@ -14,6 +14,7 @@ class StreamBuffer {
   private expectedLength: number | null = null;
 
   addData(data: Buffer): Buffer[] {
+    console.log(data.length, data);
     // Use a more efficient approach by growing buffer only when needed
     const newBuffer = Buffer.allocUnsafe(this.buffer.length + data.length);
     this.buffer.copy(newBuffer, 0);
@@ -25,6 +26,7 @@ class StreamBuffer {
     while (true) {
       if (this.expectedLength === null) {
         if (this.buffer.length < 4) break;
+        console.log("READING LENGTH")
         this.expectedLength = this.buffer.readUInt32LE(0);
         this.buffer = this.buffer.subarray(4);
       }
@@ -32,6 +34,7 @@ class StreamBuffer {
       if (this.buffer.length < this.expectedLength) break;
 
       // Extract complete message
+      console.log("EXTRACTING", this.expectedLength, "bytes from buffer");
       const messageBuffer = this.buffer.subarray(0, this.expectedLength);
       messages.push(messageBuffer);
       this.buffer = this.buffer.subarray(this.expectedLength);
@@ -107,9 +110,7 @@ export class NativeApi {
   }
 
   async close(): Promise<void> {
-    if (this.proc && this.proc) {
-      this.proc.kill();
-    }
+    this.proc.kill();
   }
 
   async circuitProve(command: CircuitProve): Promise<CircuitProveResponse> {

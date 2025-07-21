@@ -1,5 +1,5 @@
 // #!/usr/bin/env node
-import { NativeApi } from './generated-bkup/nativebk.js';
+import { NativeApi } from './generated/native.js';
 import { IvcRunner, IvcInputs } from './ivc-inputs.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -17,15 +17,16 @@ async function testWithRealFile() {
   // If we have real data, we could test the actual IVC flow
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const bbPath = join(__dirname, '..', '..', '..', 'cpp', 'build-no-avm', 'bin', 'bb');
+  console.log('Using Barretenberg binary at:', bbPath);
+  const api = await NativeApi.new(bbPath);
+  const runner = new IvcRunner(api as any);
+  console.log("runner created")
+  await runner.accumulateFromFile(realInputsPath);
+  console.log("accum")
+  await runner.prove()
+  console.log("prove")
 
-  if (existsSync(bbPath)) {
-    const api = await NativeApi.new(bbPath);
-    const runner = new IvcRunner(api as any);
-    await runner.accumulateFromFile(realInputsPath);
-    await runner.prove()
-
-    await api.close();
-  }
+  await api.close();
 }
 
 testWithRealFile().catch(console.error);

@@ -127,22 +127,21 @@ export class IvcRunner {
    * Initialize IVC with the given number of circuits
    */
   async start(numCircuits: number): Promise<void> {
-    const result = await this.api.clientIvcStart({ numCircuits });
-    console.log(result);
+    await this.api.clientIvcStart({ numCircuits });
   }
 
   /**
    * Accumulate a single step from IVC inputs
    */
-  queueStep(step: IvcInputStep): void {
-    this.api.clientIvcLoad({
+  async queueStep(step: IvcInputStep): Promise<void> {
+    await this.api.clientIvcLoad({
       circuit: {
         name: step.functionName,
         bytecode: step.bytecode,
         verificationKey: step.vk,
       }
     });
-    this.api.clientIvcAccumulate({
+    await this.api.clientIvcAccumulate({
       witness: step.witness,
     });
   }
@@ -156,10 +155,12 @@ export class IvcRunner {
 
     // First, start IVC with the number of circuits
     await this.start(steps.length);
+    console.log("start")
 
     // Then accumulate each step
     for (const step of steps) {
       this.queueStep(step);
+      console.log(`Queued step for function: ${step.functionName}`);
     }
   }
 
@@ -176,7 +177,7 @@ export class IvcRunner {
    * Accumulate a single step (alias for queueStep for backward compatibility)
    */
   async accumulateStep(step: IvcInputStep): Promise<void> {
-    this.queueStep(step);
+    await this.queueStep(step);
   }
 
   /**

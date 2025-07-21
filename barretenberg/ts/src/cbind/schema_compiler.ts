@@ -711,7 +711,7 @@ export class NativeApi {
     });
 
     proc.stderr.on('data', (data: Buffer) => {
-      logger(data.toString());
+      logger(data.toString().trim());
     });
 
     proc.on('error', err => {
@@ -736,9 +736,7 @@ export class NativeApi {
   }
 
   async close(): Promise<void> {
-    if (this.proc && this.proc) {
-      this.proc.kill();
-    }
+    this.proc.kill();
   }
 
 ${methods}
