@@ -104,6 +104,11 @@ interface IGSE is IGSECore {
  *         - allowing delegatees to vote at governance
  *         - maintaining a set of "bonus" attesters which are always staked on the latest rollup
  *
+ * NB: The "bonus" attesters are thus automatically "moved along" whenever the latest rollup changes.
+ * That is, at the point of the rollup getting added, the bonus stake is immediately available.
+ * This allows the latest rollup to start with a set of attesters, rather than requiring them to exit
+ * the old rollup and deposit in the new one.
+ *
  * NB: The "latest" rollup in this contract does not technically need to be the "canonical" rollup
  * according to the Registry, but in practice, it will be unless the new rollup does not use the GSE.
  * Proposals which add rollups that DO want to use the GSE MUST call addRollup to both the Registry and the GSE.
@@ -162,7 +167,8 @@ contract GSECore is IGSECore, Ownable {
    * - when you add these two buckets together, it is a set.
    *
    * For a rollup that is no longer the latest, the attesters available to it are the attesters that are
-   * associated with the rollup's address.
+   * associated with the rollup's address. In effect, when a rollup goes from being the latest to not being
+   * the latest, it loses all attesters that were associated with the bonus instance.
    *
    * In this way, the "effective" attesters/balance/etc for a rollup (at a point in time) is:
    * - the rollup's bucket and the bonus bucket if the rollup was the latest at that point in time
@@ -374,12 +380,14 @@ contract GSECore is IGSECore, Ownable {
       delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
 
-      // Update the delegatee to address(0) when removing.
-      // This reduces the voting power of the attester's delegatee by the amount withdrawn.
+      // Update the delegatee to address(0) when removing
+      // This reduces the voting power of the attester's delegatee by the amount withdrawn
+      // by moving it to address(0).
       delegation.delegate(withdrawingInstance, _attester, address(0));
     }
 
     // Decrease the balance of the attester in the instance.
+    // Move voting power from the attester's delegatee to address(0) (unless the delegatee is already address(0))
     // Reduce the supply of the instance and the total supply.
     delegation.decreaseBalance(withdrawingInstance, _attester, amountWithdrawn);
 
@@ -410,6 +418,9 @@ contract GSECore is IGSECore, Ownable {
 
   /**
    * @notice Make a proposal to Governance via `Governance.proposeWithLock`
+   *
+   * @dev It is required to expose this on the GSE, since it is assumed that only the GSE can hold
+   * power in Governance (see the comment at the top of Governance.sol).
    *
    * @dev Transfers governance's configured `lockAmount` of STAKING_ASSET from msg.sender to the GSE,
    * and then into Governance.
@@ -553,7 +564,7 @@ contract GSECore is IGSECore, Ownable {
    */
   function _vote(address _voter, uint256 _proposalId, uint256 _amount, bool _support) internal {
     Timestamp ts = _pendingThrough(_proposalId);
-    // Mark the power as spent without our delegation accounting.
+    // Mark the power as spent within our delegation accounting.
     delegation.usePower(_voter, _proposalId, ts, _amount);
     // Vote on the proposal
     getGovernance().vote(_proposalId, _amount, _support);
