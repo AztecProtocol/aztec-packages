@@ -785,6 +785,8 @@ export class TXE implements TypedOracle {
 
     header.globalVariables.blockNumber = blockNumber;
     header.globalVariables.timestamp = await this.getTimestamp();
+    header.globalVariables.version = new Fr(this.ROLLUP_VERSION);
+    header.globalVariables.chainId = new Fr(this.CHAIN_ID);
 
     this.logger.info(`Created block ${blockNumber} with timestamp ${header.globalVariables.timestamp}`);
 
