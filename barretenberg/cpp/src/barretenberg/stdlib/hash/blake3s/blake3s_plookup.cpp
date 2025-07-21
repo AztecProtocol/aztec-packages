@@ -46,8 +46,8 @@ constexpr uint32_t IV[8] = { 0x6A09E667UL, 0xBB67AE85UL, 0x3C6EF372UL, 0xA54FF53
                              0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL };
 
 template <typename Builder> struct blake3_hasher {
-    field_t<Builder> key[8];
-    field_t<Builder> cv[8];
+    std::array<field_t<Builder>, 8> key;
+    std::array<field_t<Builder>, 8> cv;
     byte_array<Builder> buf;
     uint8_t buf_len;
     uint8_t blocks_compressed;
@@ -61,14 +61,14 @@ template <typename Builder> struct blake3_hasher {
  *
  */
 template <typename Builder>
-void compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
-                  const field_t<Builder> cv[8],
+void compress_pre(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
+                  const std::array<field_t<Builder>, 8> cv,
                   const byte_array<Builder>& block,
                   uint8_t block_len,
                   uint8_t flags)
 {
     typedef field_t<Builder> field_pt;
-    field_pt block_words[BLAKE3_STATE_SIZE];
+    std::array<field_pt, BLAKE3_STATE_SIZE> block_words;
     for (size_t i = 0; i < BLAKE3_STATE_SIZE; ++i) {
         block_words[i] = field_pt(block.slice(i * 4, 4).reverse());
     }
@@ -90,23 +90,19 @@ void compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
     state[14] = field_pt(block.get_context(), uint256_t(block_len));
     state[15] = field_pt(block.get_context(), uint256_t(flags));
 
-    blake_util::round_fn_lookup<Builder>(state, &block_words[0], 0, true);
-    blake_util::round_fn_lookup<Builder>(state, &block_words[0], 1, true);
-    blake_util::round_fn_lookup<Builder>(state, &block_words[0], 2, true);
-    blake_util::round_fn_lookup<Builder>(state, &block_words[0], 3, true);
-    blake_util::round_fn_lookup<Builder>(state, &block_words[0], 4, true);
-    blake_util::round_fn_lookup<Builder>(state, &block_words[0], 5, true);
-    blake_util::round_fn_lookup<Builder>(state, &block_words[0], 6, true);
+    for (size_t idx = 0; idx < 7; idx++) {
+        blake_util::round_fn_lookup<Builder>(state, block_words, idx, true);
+    }
 }
 
 template <typename Builder>
-void blake3_compress_in_place(field_t<Builder> cv[8],
+void blake3_compress_in_place(std::array<field_t<Builder>, 8> cv,
                               const byte_array<Builder>& block,
                               uint8_t block_len,
                               uint8_t flags)
 {
     typedef field_t<Builder> field_pt;
-    field_pt state[BLAKE3_STATE_SIZE];
+    std::array<field_pt, BLAKE3_STATE_SIZE> state;
     compress_pre<Builder>(state, cv, block, block_len, flags);
 
     /**
@@ -123,14 +119,14 @@ void blake3_compress_in_place(field_t<Builder> cv[8],
 }
 
 template <typename Builder>
-void blake3_compress_xof(const field_t<Builder> cv[8],
+void blake3_compress_xof(const std::array<field_t<Builder>, 8> cv,
                          const byte_array<Builder>& block,
                          uint8_t block_len,
                          uint8_t flags,
                          byte_array<Builder>& out)
 {
     typedef field_t<Builder> field_pt;
-    field_pt state[BLAKE3_STATE_SIZE];
+    std::array<field_pt, BLAKE3_STATE_SIZE> state;
 
     compress_pre<Builder>(state, cv, block, block_len, flags);
 
@@ -163,14 +159,14 @@ template <typename Builder> uint8_t maybe_start_flag(const blake3_hasher<Builder
 }
 
 template <typename Builder> struct output_t {
-    field_t<Builder> input_cv[8];
+    std::array<field_t<Builder>, 8> input_cv;
     byte_array<Builder> block;
     uint8_t block_len;
     uint8_t flags;
 };
 
 template <typename Builder>
-output_t<Builder> make_output(const field_t<Builder> input_cv[8],
+output_t<Builder> make_output(const std::array<field_t<Builder>, 8> input_cv,
                               const byte_array<Builder>& block,
                               uint8_t block_len,
                               uint8_t flags)
@@ -248,7 +244,6 @@ template <typename Builder> void blake3_hasher_finalize(const blake3_hasher<Buil
     for (size_t i = 0; i < BLAKE3_OUT_LEN; i++) {
         out.set_byte(i, wide_buf[i]);
     }
-    return;
 }
 
 template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input)

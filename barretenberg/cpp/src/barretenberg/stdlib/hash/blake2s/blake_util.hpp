@@ -110,7 +110,7 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  *
  **/
 template <typename Builder>
-void g_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
+void g_lookup(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
               size_t a,
               size_t b,
               size_t c,
@@ -173,8 +173,8 @@ void g_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
  *         - which_blake to choose Blake2 or Blake3 (false -> Blake2)
  */
 template <typename Builder>
-void round_fn_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
-                     field_t<Builder> msg[BLAKE3_STATE_SIZE],
+void round_fn_lookup(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
+                     std::array<field_t<Builder>, BLAKE3_STATE_SIZE> msg,
                      size_t round,
                      const bool which_blake = false)
 {
