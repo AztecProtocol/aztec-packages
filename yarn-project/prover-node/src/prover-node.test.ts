@@ -6,7 +6,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, type L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -49,6 +49,7 @@ describe('prover-node', () => {
 
   // Blocks returned by the archiver
   let blocks: L2Block[];
+  let lastBlock: PublishedL2Block;
   let previousBlockHeader: BlockHeader;
 
   // Address of the publisher
@@ -116,6 +117,7 @@ describe('prover-node', () => {
     // We create 3 fake blocks with 1 tx effect each
     blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
     previousBlockHeader = await L2Block.random(19).then(b => b.header);
+    lastBlock = { block: blocks.at(-1)!, attestations: [CommitteeAttestation.random()] } as PublishedL2Block;
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocks.mockImplementation((from, limit) => {
@@ -130,6 +132,7 @@ describe('prover-node', () => {
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getPublishedBlocks.mockResolvedValue([lastBlock]);
     l2BlockSource.getL2Tips.mockResolvedValue({
       latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
       proven: { number: 0, hash: undefined },
