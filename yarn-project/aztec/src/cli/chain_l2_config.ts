@@ -148,7 +148,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
-  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
 
   // Deployment stuff
