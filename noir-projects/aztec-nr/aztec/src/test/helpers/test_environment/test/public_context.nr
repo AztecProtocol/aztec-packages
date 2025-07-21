@@ -14,7 +14,7 @@ unconstrained fn default_storage_value() {
     let mut env = TestEnvironment::_new();
 
     env.public_context(|context| {
-        assert_eq(context.storage_read::<MockStruct, _>(storage_slot), zeroed());
+        assert_eq(context.storage_read::<MockStruct>(storage_slot), zeroed());
     });
 }
 
