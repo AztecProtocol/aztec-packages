@@ -425,7 +425,7 @@ pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted
 }
 
 /// Returns the number of fields required to serialize a type `typ` that implements the `Serialize` trait.
-pub comptime fn get_serialize_len(typ: Type) -> u32 {
+pub(crate) comptime fn get_serialize_len(typ: Type) -> u32 {
     // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
     // I work around this by:
     // 1. Getting the serialize constraint
@@ -448,7 +448,7 @@ pub comptime fn get_serialize_len(typ: Type) -> u32 {
 }
 
 /// Returns the number of fields required to pack a type `typ` that implements the `Packable` trait.
-pub comptime fn get_packable_len(typ: Type) -> u32 {
+pub(crate) comptime fn get_packable_len(typ: Type) -> u32 {
     // Similar approach to get_serialize_len but for Packable trait:
 
     // 1. Getting the packable constraint
