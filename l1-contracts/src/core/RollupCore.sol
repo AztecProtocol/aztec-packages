@@ -86,7 +86,13 @@ contract RollupCore is
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-    Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
+    Slasher slasher = new Slasher(
+      _config.slashingQuorum,
+      _config.slashingRoundSize,
+      _config.slashingLifetimeInRounds,
+      _config.slashingExecutionDelayInRounds,
+      _config.slashingVetoer
+    );
     StakingLib.initialize(
       _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig
     );
