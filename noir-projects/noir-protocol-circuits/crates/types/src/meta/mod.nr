@@ -343,7 +343,71 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Generates `Packable` implementation for a given struct.
+/// Generates a `Packable` trait implementation for a given struct `s`.
+///
+/// # Arguments
+/// * `s` - The struct type definition to generate the implementation for
+///
+/// # Returns
+/// A `Quoted` block containing the generated trait implementation
+///
+/// # Requirements
+/// Each struct member type must implement the `Packable` trait (it gets used in the generated code).
+///
+/// # Example
+/// For a struct like:
+/// ```
+/// struct MyStruct {
+///     x: AztecAddress,
+///     y: Field,
+/// }
+/// ```
+///
+/// This generates:
+/// ```
+/// impl Packable for MyStruct {
+///     let N: u32 = 2;
+///
+///     fn pack(self) -> [Field; 2] {
+///         let mut result: [Field; 2] = [0_Field; 2];
+///         let mut offset: u32 = 0_u32;
+///         let packed_member: [Field; 1] = self.x.pack();
+///         let packed_member_len: u32 = <Field as Packable>::N;
+///         for i in 0_u32..packed_member_len {
+///             {
+///                 result[i + offset] = packed_member[i];
+///             }
+///         }
+///         offset = offset + packed_member_len;
+///         let packed_member: [Field; 1] = self.y.pack();
+///         let packed_member_len: u32 = <Field as Packable>::N;
+///         for i in 0_u32..packed_member_len {
+///             {
+///                 result[i + offset] = packed_member[i];
+///             }
+///         }
+///         offset = offset + packed_member_len;
+///         result
+///     }
+///
+///     fn unpack(packed: [Field; 2]) -> Self {
+///         let mut offset: u32 = 0_u32;
+///         let mut member_fields: [Field; 1] = [0_Field; 1];
+///         for i in 0_u32..<AztecAddress as Packable>::N {
+///             member_fields[i] = packed[i + offset];
+///         }
+///         let x: AztecAddress = <AztecAddress as Packable>::unpack(member_fields);
+///         offset = offset + <AztecAddress as Packable>::N;
+///         let mut member_fields: [Field; 1] = [0_Field; 1];
+///         for i in 0_u32..<Field as Packable>::N {
+///             member_fields[i] = packed[i + offset];
+///         }
+///         let y: Field = <Field as Packable>::unpack(member_fields);
+///         offset = offset + <Field as Packable>::N;
+///         Self { x: x, y: y }
+///     }
+/// }
+/// ```
 pub comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();

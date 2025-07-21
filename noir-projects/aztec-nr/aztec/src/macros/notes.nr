@@ -159,15 +159,29 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Generates the following:
-/// - NoteTypeProperties
-/// - NoteType trait implementation
-/// - NoteHash trait implementation
-/// - Packable implementation
+/// Generates the core note functionality for a struct:
 ///
-/// Registers the note in the global `NOTES` map.
+/// - NoteTypeProperties: Defines the structure and properties of note fields
+/// - NoteType trait implementation: Provides the note type ID
+/// - NoteHash trait implementation: Handles note hash and nullifier computation
 ///
-/// For more details on the generated code, see the individual functions.
+/// # Requirements
+///
+/// The note struct must:
+/// - Have an `owner` field
+/// - Implement the `Packable` trait
+/// - Not exceed `MAX_NOTE_PACKED_LEN` when packed
+///
+/// # Registration
+///
+/// Registers the note in the global `NOTES` map to enable note processing functionality.
+///
+/// # Generated Code
+///
+/// For detailed documentation on the generated implementations, see:
+/// - `generate_note_properties()`
+/// - `generate_note_interface()`
+/// - `generate_note_hash_trait_impl()`
 pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_owner(s);
     assert_has_packable(s);
@@ -203,6 +217,14 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// # Generated Code
 /// - NoteTypeProperties: Defines the structure and properties of note fields
 /// - NoteType trait implementation: Provides the note type ID
+///
+/// # Requirements
+///
+/// The note struct must:
+/// - Implement the `Packable` trait
+/// - Not exceed `MAX_NOTE_PACKED_LEN` when packed
+///
+/// Unlike the `#[note]` macro, there is no requirement for an `owner` field.
 ///
 /// # Registration
 /// Registers the note in the global `NOTES` map with:
