@@ -24,6 +24,7 @@ comptime fn get_trait_impl_method(
         .as_typed_expr()
 }
 
+/// Returns the number of fields required to pack a type `typ` that implements the `Packable` trait.
 pub comptime fn get_packable_len(typ: Type) -> u32 {
     // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so
     // I work around this by:
