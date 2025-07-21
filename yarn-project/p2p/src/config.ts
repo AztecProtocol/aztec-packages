@@ -150,6 +150,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** True to disable participating in discovery */
   p2pDiscoveryDisabled?: boolean;
+/** Number of auth attempts to allow before peer is banned. Number is inclusive*/
+  p2pMaxFailedAuthAttemptsAllowed: number;
 
   /** True to simulate discarding transactions. - For testing purposes only*/
   dropTransactions: boolean;

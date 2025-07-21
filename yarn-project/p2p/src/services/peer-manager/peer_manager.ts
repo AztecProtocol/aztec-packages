@@ -60,6 +60,7 @@ export class PeerManager implements PeerManagerInterface {
   private authenticatedPeerIdToValidatorAddress: Map<string, EthAddress> = new Map();
   private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
   private peersToBeDisconnected: Set<string> = new Set();
+  private failedAuthHandshakes: Map<string, number> = new Map();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -402,6 +403,20 @@ export class PeerManager implements PeerManagerInterface {
       this.authenticatedPeerIdToValidatorAddress.has(peerIdAsString)
     );
   }
+
+  /*
+   * Checks whether peer is allowed to connect
+   *
+   * @param addresses: Address of the node
+   *
+   * @returns: True if node is allowed to connect, otherwise false
+   * */
+  public isNodeAllowedToConnect(address: Multiaddr): boolean {
+    const failedAuthHandshakesCount = this.failedAuthHandshakes.get(address.toString()) ?? 0;
+
+    return failedAuthHandshakesCount <= this.config.p2pMaxFailedAuthAttemptsAllowed;
+  }
+
   /**
    * Discovers peers.
    */
@@ -812,6 +827,8 @@ export class PeerManager implements PeerManagerInterface {
    * @param: peerId The Id of the peer to request the Status from.
    * */
   private async exchangeAuthHandshake(peerId: PeerId) {
+    const peerIdString = peerId.toString();
+
     try {
       const ourStatus = await this.createStatusMessage();
       const authRequest = new AuthRequest(ourStatus, Fr.random());
@@ -827,6 +844,7 @@ export class PeerManager implements PeerManagerInterface {
           peerId,
           status: ReqRespStatus[status],
         });
+        this.markAuthHandshakeFailed(peerId);
         this.markPeerForDisconnect(peerId);
         return;
       }
@@ -839,6 +857,7 @@ export class PeerManager implements PeerManagerInterface {
       const peerStatusMessage = peerAuthResponse.status;
       if (!ourStatus.validate(peerStatusMessage)) {
         this.logger.debug(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
+        this.markAuthHandshakeFailed(peerId);
         this.markPeerForDisconnect(peerId);
         return;
       }
@@ -856,11 +875,10 @@ export class PeerManager implements PeerManagerInterface {
             address: sender.toString(),
           },
         );
+        this.markAuthHandshakeFailed(peerId);
         this.markPeerForDisconnect(peerId);
         return;
       }
-
-      const peerIdString = peerId.toString();
 
       // Check to see that this validator address isn't already allocated to a different peer
       const peerForAddress = this.authenticatedValidatorAddressToPeerId.get(sender.toString());
@@ -871,6 +889,7 @@ export class PeerManager implements PeerManagerInterface {
         return;
       }
 
+      this.markAuthHandshakeSuccess(peerId);
       this.authenticatedPeerIdToValidatorAddress.set(peerIdString, sender);
       this.authenticatedValidatorAddressToPeerId.set(sender.toString(), peerId);
       this.logger.info(
@@ -882,8 +901,31 @@ export class PeerManager implements PeerManagerInterface {
       this.logger.debug(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
       });
+      this.markAuthHandshakeFailed(peerId);
       this.markPeerForDisconnect(peerId);
     }
+  }
+
+  /*
+   * Marks when peer fails auth handshake
+   * */
+  private markAuthHandshakeFailed(peerId: PeerId) {
+    const connections = this.libP2PNode.getConnections(peerId);
+    connections.forEach(conn => {
+      const address = conn.remoteAddr.toString();
+      this.failedAuthHandshakes.set(address, (this.failedAuthHandshakes.get(address) || 0) + 1);
+    });
+  }
+
+  /*
+   * Marks when peer exchanges auth handshake
+   * Removes any failed previous attempts
+   * */
+  private markAuthHandshakeSuccess(peerId: PeerId) {
+    const connections = this.libP2PNode.getConnections(peerId);
+    connections.forEach(conn => {
+      this.failedAuthHandshakes.delete(conn.remoteAddr.toString());
+    });
   }
 
   /**
