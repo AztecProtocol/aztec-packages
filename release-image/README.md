@@ -27,5 +27,5 @@ We then manually install our required version of node, and a handful of require 
 
 # Entrypoint
 
-The entrypoint will the aztec cli, you should pass as arguments the desired entrypoint and arguments.
+The entrypoint will be the aztec cli, you should pass as arguments the desired entrypoint and arguments.
 When wanting to run nargo, aztec-wallet, aztec cli, anvil, etc, update the entrypoint to just be bash before executing.
