@@ -1,4 +1,7 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
+import type { Logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 import type { WorldStateSyncStatus, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 
 import type { PeerId } from '@libp2p/interface';
@@ -67,9 +70,28 @@ export class StatusMessage {
     );
   }
 
+  static random(): StatusMessage {
+    return new StatusMessage(
+      '1.0.0',
+      Math.floor(Math.random() * 100),
+      Buffer32.random().toString(),
+      Math.floor(Math.random() * 100),
+      //TODO: add finalisedBlockHash
+    );
+  }
+
   validate(peerStatus: StatusMessage): boolean {
     // TODO: Validate other fields as well
     return this.compressedComponentsVersion === peerStatus.compressedComponentsVersion;
+  }
+
+  equals(other: StatusMessage): boolean {
+    return (
+      this.compressedComponentsVersion === other.compressedComponentsVersion &&
+      this.latestBlockNumber === other.latestBlockNumber &&
+      this.latestBlockHash === other.latestBlockHash &&
+      this.finalisedBlockNumber === other.finalisedBlockNumber
+    );
   }
 }
 
@@ -83,12 +105,16 @@ export class StatusMessage {
 export function reqRespStatusHandler(
   compressedComponentsVersion: string,
   worldStateSynchronizer: WorldStateSynchronizer,
+  logger?: Logger,
 ) {
-  return async (_peerId: PeerId, _msg: Buffer) => {
+  return async (peerId: PeerId, _msg: Buffer) => {
+    logger?.trace(`Received status handshake request from ${peerId}`);
     const status = StatusMessage.fromWorldStateSyncStatus(
       compressedComponentsVersion,
       (await worldStateSynchronizer.status()).syncSummary,
     );
-    return Promise.resolve(status.toBuffer());
+    const response = status.toBuffer();
+    logger?.trace(`Responding status handshake from ${peerId}`, { data: bufferToHex(response) });
+    return response;
   };
 }

@@ -1,0 +1,116 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: ""
+  customAztecNetwork:
+    enabled: false
+
+  l1ExecutionUrls: []
+  l1ConsensusUrls: []
+  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeyHeaders: []
+
+node:
+  mnemonic: "test test test test test test test test test test test junk"
+  mnemonicStartIndex: 1000
+  privateKey:
+
+  persistence:
+    enabled: false
+  statefulSet:
+    enabled: true
+
+  replicaCount: 1
+
+  node:
+    env:
+      OTEL_SERVICE_NAME: "prover-node"
+      PROVER_AGENT_COUNT: 0
+
+    preStartScript: |
+      if [ -n "$MNEMONIC" ]; then
+        KEY_INDEX=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
+        KEY_INDEX_START=${KEY_INDEX_START:-0}
+        PRIVATE_KEY_INDEX=$((KEY_INDEX_START + KEY_INDEX))
+
+        export PRIVATE_KEY="$(cast wallet private-key "$MNEMONIC" --mnemonic-index $PRIVATE_KEY_INDEX)"
+      fi
+
+    startCmd:
+      - --prover-node
+      - --archiver
+
+    hostNetwork: true
+
+    configMap:
+      envEnabled: true
+    secret:
+      envEnabled: true
+
+  service:
+    p2p:
+      enabled: true
+      nodePortEnabled: false
+    admin:
+      enabled: true
+    headless:
+      enabled: false
+
+broker:
+  replicaCount: 1
+  persistence:
+    enabled: false
+  statefulSet:
+    enabled: true
+
+  node:
+    env:
+      OTEL_SERVICE_NAME: "prover-broker"
+    startCmd:
+      - --prover-broker
+
+  hostNetwork: false
+
+  service:
+    httpPort: 8080
+    p2p:
+      enabled: false
+      nodePortEnabled: false
+    admin:
+      enabled: false
+    headless:
+      enabled: false
+  rbac:
+    create: false
+  serviceAccount:
+    create: false
+
+agent:
+  replicaCount: 1
+
+  persistence:
+    enabled: false
+
+  statefulSet:
+    enabled: false
+
+  node:
+    env:
+      OTEL_SERVICE_NAME: "prover-agent"
+    configMap:
+      envEnabled: true
+    startCmd:
+      - --prover-agent
+
+  service:
+    p2p:
+      enabled: false
+      nodePortEnabled: false
+    admin:
+      enabled: false
+    headless:
+      enabled: false
+
+  rbac:
+    create: false
+  serviceAccount:
+    create: false

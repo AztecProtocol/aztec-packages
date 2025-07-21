@@ -12,27 +12,35 @@ pub struct PublicContext {
     pub compute_args_hash: fn() -> Field,
 }
 
+impl Eq for PublicContext {
+    fn eq(self, other: Self) -> bool {
+        (self.args_hash == other.args_hash)
+        // Can't compare the function compute_args_hash
+    }
+}
+
 impl PublicContext {
     pub fn new(compute_args_hash: fn() -> Field) -> Self {
         PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
-    pub fn emit_public_log<T, let N: u32>(_self: &mut Self, log: T)
+    pub fn emit_public_log<T>(_self: &mut Self, log: T)
     where
-        T: Serialize<N>,
+        T: Serialize,
     {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { emit_public_log(Serialize::serialize(log).as_slice()) };
     }
 
-    pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: Field) -> bool {
+    pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: u64) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { note_hash_exists(note_hash, leaf_index) } == 1
     }
 
     pub fn l1_to_l2_msg_exists(_self: Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { l1_to_l2_msg_exists(msg_hash, msg_leaf_index) } == 1
+        // TODO(alvaro): Make l1l2msg leaf index a u64 upstream
+        unsafe { l1_to_l2_msg_exists(msg_hash, msg_leaf_index as u64) } == 1
     }
 
     pub fn nullifier_exists(_self: Self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
@@ -182,7 +190,7 @@ impl PublicContext {
             version()
         }
     }
-    pub fn block_number(_self: Self) -> Field {
+    pub fn block_number(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             block_number()
@@ -194,16 +202,16 @@ impl PublicContext {
             timestamp()
         }
     }
-    pub fn fee_per_l2_gas(_self: Self) -> Field {
+    pub fn base_fee_per_l2_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            fee_per_l2_gas()
+            base_fee_per_l2_gas()
         }
     }
-    pub fn fee_per_da_gas(_self: Self) -> Field {
+    pub fn base_fee_per_da_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            fee_per_da_gas()
+            base_fee_per_da_gas()
         }
     }
 
@@ -233,9 +241,9 @@ impl PublicContext {
         out
     }
 
-    pub fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    pub fn storage_read<T>(self, storage_slot: Field) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         T::unpack(self.raw_storage_read(storage_slot))
     }
@@ -247,9 +255,9 @@ impl PublicContext {
         }
     }
 
-    pub fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
+    pub fn storage_write<T>(self, storage_slot: Field, value: T)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         self.raw_storage_write(storage_slot, value.pack());
     }
@@ -271,17 +279,17 @@ unconstrained fn chain_id() -> Field {
 unconstrained fn version() -> Field {
     version_opcode()
 }
-unconstrained fn block_number() -> Field {
+unconstrained fn block_number() -> u32 {
     block_number_opcode()
 }
 unconstrained fn timestamp() -> u64 {
     timestamp_opcode()
 }
-unconstrained fn fee_per_l2_gas() -> Field {
-    fee_per_l2_gas_opcode()
+unconstrained fn base_fee_per_l2_gas() -> u128 {
+    base_fee_per_l2_gas_opcode()
 }
-unconstrained fn fee_per_da_gas() -> Field {
-    fee_per_da_gas_opcode()
+unconstrained fn base_fee_per_da_gas() -> u128 {
+    base_fee_per_da_gas_opcode()
 }
 unconstrained fn l2_gas_left() -> u32 {
     l2_gas_left_opcode()
@@ -289,10 +297,10 @@ unconstrained fn l2_gas_left() -> u32 {
 unconstrained fn da_gas_left() -> u32 {
     da_gas_left_opcode()
 }
-unconstrained fn is_static_call() -> Field {
+unconstrained fn is_static_call() -> u1 {
     is_static_call_opcode()
 }
-unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u1 {
+unconstrained fn note_hash_exists(note_hash: Field, leaf_index: u64) -> u1 {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
 unconstrained fn emit_note_hash(note_hash: Field) {
@@ -307,7 +315,7 @@ unconstrained fn emit_nullifier(nullifier: Field) {
 unconstrained fn emit_public_log(message: [Field]) {
     emit_public_log_opcode(message)
 }
-unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u1 {
+unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: u64) -> u1 {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
 }
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
@@ -391,16 +399,16 @@ unconstrained fn chain_id_opcode() -> Field {}
 unconstrained fn version_opcode() -> Field {}
 
 #[oracle(avmOpcodeBlockNumber)]
-unconstrained fn block_number_opcode() -> Field {}
+unconstrained fn block_number_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTimestamp)]
 unconstrained fn timestamp_opcode() -> u64 {}
 
-#[oracle(avmOpcodeFeePerL2Gas)]
-unconstrained fn fee_per_l2_gas_opcode() -> Field {}
+#[oracle(avmOpcodeBaseFeePerL2Gas)]
+unconstrained fn base_fee_per_l2_gas_opcode() -> u128 {}
 
-#[oracle(avmOpcodeFeePerDaGas)]
-unconstrained fn fee_per_da_gas_opcode() -> Field {}
+#[oracle(avmOpcodeBaseFeePerDaGas)]
+unconstrained fn base_fee_per_da_gas_opcode() -> u128 {}
 
 #[oracle(avmOpcodeL2GasLeft)]
 unconstrained fn l2_gas_left_opcode() -> u32 {}
@@ -409,10 +417,10 @@ unconstrained fn l2_gas_left_opcode() -> u32 {}
 unconstrained fn da_gas_left_opcode() -> u32 {}
 
 #[oracle(avmOpcodeIsStaticCall)]
-unconstrained fn is_static_call_opcode() -> Field {}
+unconstrained fn is_static_call_opcode() -> u1 {}
 
 #[oracle(avmOpcodeNoteHashExists)]
-unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u1 {}
+unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: u64) -> u1 {}
 
 #[oracle(avmOpcodeEmitNoteHash)]
 unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
@@ -428,7 +436,7 @@ unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 unconstrained fn emit_public_log_opcode(message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
-unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u1 {}
+unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: u64) -> u1 {}
 
 #[oracle(avmOpcodeSendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}

@@ -27,6 +27,8 @@ import {
 export * from './publisher/config.js';
 export type { SequencerConfig };
 
+export const DEFAULT_ATTESTATION_PROPAGATION_TIME = 2;
+
 /**
  * Configuration settings for the SequencerClient.
  */
@@ -37,10 +39,7 @@ export type SequencerClientConfig = PublisherConfig &
   L1ReaderConfig &
   ChainConfig &
   Pick<P2PConfig, 'txPublicSetupAllowList'> &
-  Pick<
-    L1ContractsConfig,
-    'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration' | 'aztecProofSubmissionWindow'
-  >;
+  Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -113,6 +112,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
+  attestationPropagationTime: {
+    env: 'SEQ_ATTESTATION_PROPAGATION_TIME',
+    description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way)',
+    ...numberConfigHelper(DEFAULT_ATTESTATION_PROPAGATION_TIME),
+  },
+  fakeProcessingDelayPerTxMs: {
+    description: 'Used for testing to introduce a fake delay after processing each tx',
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 
@@ -123,12 +130,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, [
-    'ethereumSlotDuration',
-    'aztecSlotDuration',
-    'aztecEpochDuration',
-    'aztecProofSubmissionWindow',
-  ]),
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 
 /**

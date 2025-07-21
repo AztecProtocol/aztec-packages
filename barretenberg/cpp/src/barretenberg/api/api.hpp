@@ -8,9 +8,10 @@ class API {
   public:
     // see the setting of these flags in bb/main.cpp for more information
     struct Flags {
-        bool verbose{ false };                // more logging
-        bool debug{ false };                  // even more logging
-        bool zk{ false };                     // use a zk version of the protocol
+        bool verbose{ false };    // more logging
+        bool debug{ false };      // even more logging
+        bool disable_zk{ false }; // disable the zero knowledge property. this is off by default as we aim to use the
+                                  // zero knowledge variant of the protocol by default
         std::filesystem::path crs_path{ "" }; // the location of reference strings for commitment schemes
         bool recursive{ false };              // deprecated flag indicating that a circuit is to be recursively verified
         bool init_kzg_accumulator{ false };   // stripped down version fo `recursive` in the UltraHonk; also deprecated?
@@ -23,13 +24,14 @@ class API {
                                    // recursive verifier) or is it for an ivc verifier?
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
+        bool slow_low_memory{ false };          // use file backed memory for polynomials
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
             os << "flags: [\n"
                << "  verbose: " << flags.verbose << "\n"
                << "  debug: " << flags.debug << "\n"
-               << "  zk: " << flags.zk << "\n"
+               << "  disable_zk: " << flags.disable_zk << "\n"
                << "  crs_path: " << flags.crs_path << "\n"
                << "  recursive: " << flags.recursive << "\n"
                << "  init_kzg_accumulator: " << flags.init_kzg_accumulator << "\n"
@@ -41,6 +43,7 @@ class API {
                << "  verifier_type: " << flags.verifier_type << "\n"
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
+               << "  slow_low_memory " << flags.slow_low_memory << "\n"
                << "]" << std::endl;
             return os;
         }

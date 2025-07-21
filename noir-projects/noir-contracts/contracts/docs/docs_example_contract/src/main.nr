@@ -8,14 +8,14 @@ use aztec::macros::aztec;
 pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use aztec::{
+        context::PrivateContext,
         macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
         messages::logs::note::encode_and_encrypt_note,
-        note::note_interface::NoteProperties,
-        prelude::{
-            AztecAddress, Map, NoteViewerOptions, PrivateContext, PrivateImmutable, PrivateMutable,
-            PrivateSet, PublicImmutable, PublicMutable,
+        note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
+        protocol_types::{address::AztecAddress, traits::Hash},
+        state_vars::{
+            Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, PublicMutable,
         },
-        protocol_types::traits::Hash,
     };
 
     // how to import methods from other files/folders within your workspace
@@ -104,7 +104,6 @@ pub contract DocsExample {
         storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
         ));
     }
     // docs:end:initialize-private-mutable
@@ -130,7 +129,6 @@ pub contract DocsExample {
         // docs:start:state_vars-PrivateMutableReplace
         storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
             context.msg_sender(),
         ));
         // docs:end:state_vars-PrivateMutableReplace

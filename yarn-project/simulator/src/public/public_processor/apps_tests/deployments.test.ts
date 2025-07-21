@@ -10,7 +10,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { PublicContractsDB } from '../../../server.js';
-import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
+import { createContractClassAndInstance } from '../../avm/fixtures/utils.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
@@ -175,7 +175,7 @@ describe('Public processor contract registration/deployment tests', () => {
     // Second transaction - deploys second token but fails during transfer
     const receiver = AztecAddress.fromNumber(222);
     const transferAmount = 10n;
-    const nonce = new Fr(0);
+    const authwitNonce = new Fr(0);
     const failingConstructorTx = await tester.createTx(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
@@ -190,7 +190,7 @@ describe('Public processor contract registration/deployment tests', () => {
         {
           address: token.address,
           fnName: 'transfer_in_public',
-          args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+          args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
           contractArtifact: TokenContractArtifact,
         },
       ],

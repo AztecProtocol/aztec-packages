@@ -2,26 +2,31 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ValidatorSelectionTestBase, CheatDepositArgs} from "./ValidatorSelectionBase.sol";
-import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {TestConstants} from "../harnesses/TestConstants.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {MultiAdder} from "@aztec/mock/MultiAdder.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+import {TestConstants} from "./../harnesses/TestConstants.sol";
+import {ValidatorSelectionTestBase, CheatDepositArgs} from "./ValidatorSelectionBase.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract SetupEpochTest is ValidatorSelectionTestBase {
   using Checkpoints for Checkpoints.Trace224;
+  using stdStorage for StdStorage;
 
-  modifier whenTheRollupIsInGenesisState() {
-    // Enforced with setup(0) modifier
-    _;
-  }
+  function test_WhenTheRollupDoesNotHaveTheTargetCommitteeSize() external setup(0, 48) {
+    // it should not allow setting up any epoch
+    // it should have the always seed set to max
 
-  function test_GivenTheRollupIsInGenesisState() external setup(0) whenTheRollupIsInGenesisState {
-    // it should set the sample seed to max
-    // it should set the sample seed for the next 2 epochs
-    // it should not change the current epoch
-
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__InsufficientCommitteeSize.selector,
+        0,
+        rollup.getTargetCommitteeSize()
+      )
+    );
     rollup.setupEpoch();
 
     // Read the sample seed for epoch 0 through the rollup contract
@@ -39,24 +44,34 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     Timestamp epoch2Timestamp = Timestamp.wrap(
       block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
     );
-    uint256 epoch2Seed = IValidatorSelection(address(rollup)).getSampleSeedAt(epoch2Timestamp);
-    assertTrue(epoch2Seed != 0, "Epoch 2 seed should be set");
-    assertTrue(epoch2Seed != type(uint224).max, "Epoch 2 seed should be different from max");
+    assertTrue(
+      IValidatorSelection(address(rollup)).getSampleSeedAt(epoch2Timestamp) == type(uint224).max,
+      "Epoch 2 seed should be max"
+    );
 
     // Advance into epoch 2
     vm.warp(Timestamp.unwrap(epoch2Timestamp));
 
     // Read the sample seed for epoch 2 now that we are in epoch 2, it should not change
-    uint256 epoch2SampleSeedInPast = IValidatorSelection(address(rollup)).getCurrentSampleSeed();
     assertEq(
-      epoch2SampleSeedInPast, epoch2Seed, "Epoch 2 seed should remain the same when re-reading"
+      IValidatorSelection(address(rollup)).getCurrentSampleSeed(),
+      type(uint224).max,
+      "Epoch 2 seed should remain the same when re-reading"
     );
 
     // Call setupEpoch again, from the current epoch it should not change the sample seed
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__InsufficientCommitteeSize.selector,
+        0,
+        rollup.getTargetCommitteeSize()
+      )
+    );
     rollup.setupEpoch();
+
     assertEq(
       IValidatorSelection(address(rollup)).getCurrentSampleSeed(),
-      epoch2Seed,
+      type(uint224).max,
       "Epoch 2 seed should not change when calling setupEpoch"
     );
 
@@ -64,20 +79,31 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     Timestamp epoch4Timestamp = Timestamp.wrap(
       block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
     );
-    uint256 epoch4Seed = IValidatorSelection(address(rollup)).getSampleSeedAt(epoch4Timestamp);
-    assertTrue(epoch4Seed != epoch2Seed, "Epoch 4 seed should not be the same as epoch 2 seed");
+    assertTrue(
+      IValidatorSelection(address(rollup)).getSampleSeedAt(epoch4Timestamp) == type(uint224).max,
+      "Epoch 4 seed should be max"
+    );
   }
 
-  modifier whenTheRollupIsNotInGenesisState() {
-    // Enforced with setup(4) modifier
+  modifier whenTheRollupHasTheTargetCommitteeSize() {
     _;
   }
 
-  function test_GivenTheSeedHasBeenSampled() external setup(4) whenTheRollupIsNotInGenesisState {
+  function test_WhenTheSampleSeedHasBeenSet()
+    external
+    setup(4, 4)
+    whenTheRollupHasTheTargetCommitteeSize
+  {
     // it should not change the sample seed
     // it should be calculate the same committee when looking into the past
     // it should not change the commitee even when validators are added or removed
     // it should not change the next seed
+
+    Timestamp epoch2Timestamp = Timestamp.wrap(
+      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
+    );
+
+    vm.warp(Timestamp.unwrap(epoch2Timestamp));
 
     rollup.setupEpoch();
 
@@ -106,6 +132,12 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     );
     assertEq(committeeAfterRepeatedSetup, initialCommittee, "Committee should be the same");
 
+    // Overwrite the flushable epoch to 0 to force our ability to add more validators this epoch
+    // Now reset the next flushable epoch to 0
+    stdstore.enable_packed_slots().target(address(rollup)).sig(
+      IStaking.getNextFlushableEpoch.selector
+    ).depth(0).checked_write(uint256(0));
+
     // Add a couple of extra validators during this epoch, the sampled validator set should not change
     addNumberOfValidators(420420, 2);
 
@@ -130,9 +162,15 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
   function test_WhenItHasBeenALongTimeSinceTheLastSampleSeedWasSet()
     external
-    setup(50)
-    whenItHasBeenALongTimeSinceTheLastSampleSeedWasSet
+    setup(50, 48)
+    whenTheRollupHasTheTargetCommitteeSize
   {
+    Timestamp epoch2Timestamp = Timestamp.wrap(
+      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
+    );
+
+    vm.warp(Timestamp.unwrap(epoch2Timestamp));
+
     // it should use the most recent sample seed
     rollup.setupEpoch();
 
@@ -198,7 +236,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    testERC20.mint(address(multiAdder), rollup.getMinimumStake() * validators.length);
+    testERC20.mint(address(multiAdder), rollup.getDepositAmount() * validators.length);
     multiAdder.addValidators(validators);
   }
 }

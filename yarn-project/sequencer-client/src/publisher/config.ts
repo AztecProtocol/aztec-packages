@@ -6,7 +6,12 @@ import {
   l1ReaderConfigMappings,
   l1TxUtilsConfigMappings,
 } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  type SecretValue,
+  getConfigFromMappings,
+  secretValueConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -16,7 +21,7 @@ export type TxSenderConfig = L1ReaderConfig & {
   /**
    * The private key to be used by the publisher.
    */
-  publisherPrivateKey: `0x${string}`;
+  publisherPrivateKey: SecretValue<`0x${string}`>;
 
   /**
    * The address of the custom forwarder contract.
@@ -48,9 +53,7 @@ export const getTxSenderConfigMappings: (
   publisherPrivateKey: {
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`,
     description: 'The private key to be used by the publisher.',
-    parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
-    defaultValue: NULL_KEY,
-    // fallback: ['VALIDATOR_PRIVATE_KEY'],
+    ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
   },
 });
 

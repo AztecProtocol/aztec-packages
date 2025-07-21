@@ -51,6 +51,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
   }
 
   function test_WhenOwnerAddsValidators(uint256 _depositsPerMint) external {
+    // Always accept the fake proofs
+    setMockZKPassportVerifier();
+
     address caller = address(0xbeefdeef);
 
     // it can add up to the deposits per mint without minting
@@ -62,27 +65,27 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
-    address rollup = stakingAssetHandler.getRollup();
-
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
+      emit IStakingAssetHandler.ValidatorAdded(address(staking), validators[i], WITHDRAWER);
       vm.prank(caller);
-      stakingAssetHandler.addValidator(validators[i]);
-    }
+      stakingAssetHandler.addValidator(validators[i], validMerkleProof, realProof);
 
-    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
+      // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
+      mockZKPassportVerifier.incrementUniqueIdentifier();
+    }
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
 
     // it reverts when adding one more validator
+    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
     vm.expectRevert(
       abi.encodeWithSelector(
         IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
       )
     );
     vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef));
+    stakingAssetHandler.addValidator(address(0xbeefdeef), validMerkleProof, realProof);
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

@@ -5,7 +5,7 @@ import {
   createAztecNodeClient,
   DeployMethod,
   Fr,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   PublicKeys,
   type PXE,
   SponsoredFeePaymentMethod,
@@ -55,7 +55,7 @@ async function setupPXE() {
 }
 
 async function getSponsoredPFCContract() {
-  const instance = await getContractInstanceFromDeployParams(
+  const instance = await getContractInstanceFromInstantiationParams(
     SponsoredFPCContractArtifact,
     {
       salt: new Fr(SPONSORED_FPC_SALT),
@@ -81,8 +81,8 @@ async function createAccount(pxe: PXE) {
       ),
     },
     universalDeploy: true,
-    skipClassRegistration: true,
-    skipPublicDeployment: true,
+    skipClassPublication: true,
+    skipInstancePublication: true,
   };
   const provenInteraction = await deployMethod.prove(deployOpts);
   await provenInteraction.send().wait({ timeout: 120 });
@@ -98,7 +98,7 @@ async function createAccount(pxe: PXE) {
 
 async function deployContract(pxe: PXE, deployer: Wallet) {
   const salt = Fr.random();
-  const contract = await getContractInstanceFromDeployParams(
+  const contract = await getContractInstanceFromInstantiationParams(
     EasyPrivateVotingContract.artifact,
     {
       publicKeys: PublicKeys.default(),

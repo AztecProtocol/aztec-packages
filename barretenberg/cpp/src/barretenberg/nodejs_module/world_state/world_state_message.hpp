@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
@@ -181,7 +182,7 @@ template <typename T> struct FindLeafPathsRequest {
 };
 
 struct FindLeafPathsResponse {
-    std::vector<std::optional<fr_sibling_path>> paths;
+    std::vector<std::optional<SiblingPathAndIndex>> paths;
     MSGPACK_FIELDS(paths);
 };
 
@@ -199,7 +200,7 @@ struct FindLowLeafResponse {
 };
 
 struct BlockShiftRequest {
-    index_t toBlockNumber;
+    block_number_t toBlockNumber;
     MSGPACK_FIELDS(toBlockNumber);
 };
 
@@ -233,7 +234,7 @@ struct UpdateArchiveRequest {
 };
 
 struct SyncBlockRequest {
-    uint64_t blockNumber;
+    block_number_t blockNumber;
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;

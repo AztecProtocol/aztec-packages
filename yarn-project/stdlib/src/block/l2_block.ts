@@ -85,7 +85,7 @@ export class L2Block {
     txsPerBlock = 4,
     numPublicCallsPerTx = 3,
     numPublicLogsPerCall = 1,
-    inHash: Buffer | undefined = undefined,
+    inHash: Fr | undefined = undefined,
     slotNumber: number | undefined = undefined,
     maxEffects: number | undefined = undefined,
   ): Promise<L2Block> {
@@ -93,7 +93,7 @@ export class L2Block {
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      makeHeader(0, txsPerBlock, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
+      makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
       body,
     );
   }
@@ -103,7 +103,7 @@ export class L2Block {
    * @returns The L2 block.
    */
   static empty(): L2Block {
-    return new L2Block(AppendOnlyTreeSnapshot.zero(), BlockHeader.empty(), Body.empty());
+    return new L2Block(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty());
   }
 
   get number(): number {
@@ -143,8 +143,17 @@ export class L2Block {
     return {
       txCount: this.body.txEffects.length,
       blockNumber: this.number,
-      blockTimestamp: this.header.globalVariables.timestamp.toNumber(),
+      blockTimestamp: Number(this.header.globalVariables.timestamp),
       ...logsStats,
+    };
+  }
+
+  toBlockInfo(): BlockInfo {
+    return {
+      archive: this.archive.root.toString(),
+      blockNumber: this.number,
+      slotNumber: Number(this.header.getSlot()),
+      txCount: this.body.txEffects.length,
     };
   }
 
@@ -152,3 +161,10 @@ export class L2Block {
     return this.archive.equals(other.archive) && this.header.equals(other.header) && this.body.equals(other.body);
   }
 }
+
+export type BlockInfo = {
+  archive: string;
+  blockNumber: number;
+  slotNumber: number;
+  txCount: number;
+};

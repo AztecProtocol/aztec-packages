@@ -1,19 +1,19 @@
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { Gas } from '../gas/gas.js';
 import type { PrivateLog } from '../logs/index.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
-import { RollupValidationRequests } from './hints/rollup_validation_requests.js';
+import type { UInt64 } from '../types/shared.js';
 import type { ScopedLogHash } from './log_hash.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
 import { PrivateToPublicKernelCircuitPublicInputs } from './private_to_public_kernel_circuit_public_inputs.js';
 import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from './private_to_rollup_kernel_circuit_public_inputs.js';
 import { PublicCallRequest } from './public_call_request.js';
-import { countAccumulatedItems, mergeAccumulatedData } from './utils/order_and_comparison.js';
+import { countAccumulatedItems } from './utils/order_and_comparison.js';
 
 export class PartialPrivateTailPublicInputsForPublic {
   constructor(
@@ -104,7 +104,6 @@ export class PrivateKernelTailCircuitPublicInputs {
      * Data which is not modified by the circuits.
      */
     public constants: TxConstantData,
-    public rollupValidationRequests: RollupValidationRequests,
     /**
      * The accumulated gas used after private execution.
      * If the tx has a teardown call request, the teardown gas limits will also be included.
@@ -114,6 +113,10 @@ export class PrivateKernelTailCircuitPublicInputs {
      * The address of the fee payer for the transaction.
      */
     public feePayer: AztecAddress,
+    /**
+     * The timestamp by which the transaction must be included in a block.
+     */
+    public includeByTimestamp: UInt64,
 
     public forPublic?: PartialPrivateTailPublicInputsForPublic,
     public forRollup?: PartialPrivateTailPublicInputsForRollup,
@@ -141,8 +144,9 @@ export class PrivateKernelTailCircuitPublicInputs {
       (this.forPublic?.getSize() ?? 0) +
       (this.forRollup?.getSize() ?? 0) +
       this.constants.getSize() +
-      this.rollupValidationRequests.getSize() +
-      this.feePayer.size
+      this.gasUsed.getSize() +
+      this.feePayer.size +
+      8 // includeByTimestamp
     );
   }
 
@@ -152,12 +156,12 @@ export class PrivateKernelTailCircuitPublicInputs {
     }
     return new PrivateToPublicKernelCircuitPublicInputs(
       this.constants,
-      this.rollupValidationRequests,
       this.forPublic.nonRevertibleAccumulatedData,
       this.forPublic.revertibleAccumulatedData,
       this.forPublic.publicTeardownCallRequest,
       this.gasUsed,
       this.feePayer,
+      this.includeByTimestamp,
     );
   }
 
@@ -173,10 +177,10 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
     return new PrivateToRollupKernelCircuitPublicInputs(
       constants,
-      this.rollupValidationRequests,
       this.forRollup.end,
       this.gasUsed,
       this.feePayer,
+      this.includeByTimestamp,
     );
   }
 
@@ -217,8 +221,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyNoteHashes() {
     const noteHashes = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.noteHashes,
+      ? this.forPublic.nonRevertibleAccumulatedData.noteHashes.concat(
           this.forPublic.revertibleAccumulatedData.noteHashes,
         )
       : this.forRollup!.end.noteHashes;
@@ -227,8 +230,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyNullifiers() {
     const nullifiers = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.nullifiers,
+      ? this.forPublic.nonRevertibleAccumulatedData.nullifiers.concat(
           this.forPublic.revertibleAccumulatedData.nullifiers,
         )
       : this.forRollup!.end.nullifiers;
@@ -237,8 +239,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyPrivateLogs() {
     const privateLogs = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.privateLogs,
+      ? this.forPublic.nonRevertibleAccumulatedData.privateLogs.concat(
           this.forPublic.revertibleAccumulatedData.privateLogs,
         )
       : this.forRollup!.end.privateLogs;
@@ -247,8 +248,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyContractClassLogsHashes() {
     const contractClassLogsHashes = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes,
+      ? this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes.concat(
           this.forPublic.revertibleAccumulatedData.contractClassLogsHashes,
         )
       : this.forRollup!.end.contractClassLogsHashes;
@@ -277,9 +277,9 @@ export class PrivateKernelTailCircuitPublicInputs {
     const isForPublic = reader.readBoolean();
     return new PrivateKernelTailCircuitPublicInputs(
       reader.readObject(TxConstantData),
-      reader.readObject(RollupValidationRequests),
       reader.readObject(Gas),
       reader.readObject(AztecAddress),
+      reader.readUInt64(),
       isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForPublic) : undefined,
       !isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForRollup) : undefined,
     );
@@ -290,9 +290,9 @@ export class PrivateKernelTailCircuitPublicInputs {
     return serializeToBuffer(
       isForPublic,
       this.constants,
-      this.rollupValidationRequests,
       this.gasUsed,
       this.feePayer,
+      bigintToUInt64BE(this.includeByTimestamp),
       isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
     );
   }
@@ -300,9 +300,9 @@ export class PrivateKernelTailCircuitPublicInputs {
   static empty() {
     return new PrivateKernelTailCircuitPublicInputs(
       TxConstantData.empty(),
-      RollupValidationRequests.empty(),
       Gas.empty(),
       AztecAddress.ZERO,
+      0n,
       undefined,
       PartialPrivateTailPublicInputsForRollup.empty(),
     );
@@ -318,9 +318,9 @@ export class PrivateKernelTailCircuitPublicInputs {
     data.nullifiers[0] = Fr.random();
     return new PrivateKernelTailCircuitPublicInputs(
       TxConstantData.empty(),
-      RollupValidationRequests.empty(),
       Gas.empty(),
       AztecAddress.ZERO,
+      0n,
       undefined,
       new PartialPrivateTailPublicInputsForRollup(data),
     );

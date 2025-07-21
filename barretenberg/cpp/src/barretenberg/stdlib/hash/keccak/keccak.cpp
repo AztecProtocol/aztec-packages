@@ -5,6 +5,7 @@
 // =====================
 
 #include "keccak.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
@@ -343,7 +344,7 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
             // prevents an extra range table from being created
             constexpr uint256_t maximum = BASE.pow(64 % plookup::keccak_tables::Theta::TABLE_BITS);
             const field_ct target = -most_significant_slice + maximum;
-            ASSERT(((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1) > maximum);
+            BB_ASSERT_GT((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1, maximum);
             target.create_range_constraint(Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
                                            "input to KECCAK_THETA_OUTPUT too large!");
         }
@@ -589,7 +590,7 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
 
     // We require that `num_bytes` does not exceed the size of our input byte array.
     // (can be less if the hash size is not known at circuit-compile time, only the maximum)
-    ASSERT(input.size() >= static_cast<size_t>(num_bytes.get_value()));
+    BB_ASSERT_GTE(input.size(), static_cast<size_t>(num_bytes.get_value()));
     field_ct(num_bytes > uint32_ct(static_cast<uint32_t>(input.size()))).assert_equal(0);
     const size_t input_size = input.size();
     // max_blocks_length = maximum number of bytes to hash
@@ -685,7 +686,7 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
 
     // validate the number of lanes is less than the default plookup size (we use the default size to do a cheap `<`
     // check later on. Should be fine as this translates to ~2MB of input data)
-    ASSERT(uint256_t(sliced_buffer.size()) < (uint256_t(1ULL) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM));
+    BB_ASSERT_LT(uint256_t(sliced_buffer.size()), uint256_t(1ULL) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM);
 
     // If the terminating input byte index matches the terminating block byte index, we set the byte to 0x80.
     // If we trigger this case, set `terminating_index_limb_addition` to 0 so that we do not write `0x01 + 0x80`
@@ -696,6 +697,8 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
     // iterate over our lanes to perform the above listed checks
     for (size_t i = 0; i < sliced_buffer.size(); ++i) {
         // If i > terminating_index, limb must be 0
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1415): Insecure usage of field_t::ranged_less_than
+        // in stdlib::keccak
         bool_ct limb_must_be_zeroes =
             terminating_index.template ranged_less_than<Builder::DEFAULT_PLOOKUP_RANGE_BITNUM>(field_ct(i));
         // Is i == terminating_limb_index?
@@ -790,7 +793,7 @@ stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_
 {
     auto ctx = input.get_context();
 
-    ASSERT(uint256_t(num_bytes.get_value()) == input.size());
+    BB_ASSERT_EQ(uint256_t(num_bytes.get_value()), input.size());
 
     if (ctx == nullptr) {
         // if buffer is constant compute hash and return w/o creating constraints
@@ -820,7 +823,7 @@ stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const ui
 {
     auto ctx = input.get_context();
 
-    ASSERT(uint256_t(num_bytes.get_value()) <= input.size());
+    BB_ASSERT_LTE(uint256_t(num_bytes.get_value()), input.size());
 
     const auto constant_case = [&] { // if buffer is constant, compute hash and return w/o creating constraints
         byte_array_ct output(nullptr, 32);

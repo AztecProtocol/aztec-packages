@@ -1,0 +1,14 @@
+DelegateTest
+├── when new delegatee eq old delegatee
+│   └── it changes no state
+└── when new delegatee neq old delegatee
+    ├── given old delegatee eq 0
+    │   ├── it updates the delegatee
+    │   └── it increases power of the new delegatee
+    ├── when new delegatee eq 0
+    │   ├── it updates the delegatee
+    │   └── it decreases power of the old delegatee
+    └── when neither delegatee eq 0
+        ├── it updates the delegatee
+        ├── it decreases power of the old delegatee
+        └── it increases power of the new delegatee

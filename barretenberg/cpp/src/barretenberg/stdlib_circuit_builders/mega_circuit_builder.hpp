@@ -9,7 +9,6 @@
 
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
@@ -41,8 +40,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
 
-    // Metadata for propagating databus return data commitments via the public input mechanism
-    DatabusPropagationData databus_propagation_data;
+    bool is_kernel = false; // Flag indicating whether this circuit is a kernel
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
@@ -52,20 +50,32 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
-                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
+                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
+                        bool is_kernel = false,
+                        MergeSettings settings = MergeSettings::PREPEND)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
         , op_queue(std::move(op_queue_in))
+        , is_kernel(is_kernel)
     {
         PROFILE_THIS();
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
-        op_queue->initialize_new_subtable();
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
+        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
+        op_queue->initialize_new_subtable(settings);
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
+
+        // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
+        // neighbouring misconfigured subtable cannot affect the current one.
+        if (is_kernel) {
+            queue_ecc_eq();
+        }
     };
 
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
-        : MegaCircuitBuilder_(0, op_queue_in)
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
+                        bool is_kernel = false,
+                        MergeSettings settings = MergeSettings::PREPEND)
+        : MegaCircuitBuilder_(0, op_queue_in, is_kernel, settings)
     {}
 
     /**
@@ -85,15 +95,25 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                         auto& witness_values,
                         const std::vector<uint32_t>& public_inputs,
-                        size_t varnum)
+                        size_t varnum,
+                        bool is_kernel = false,
+                        MergeSettings merge_settings = MergeSettings::PREPEND)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(std::move(op_queue_in))
+        , is_kernel(is_kernel)
     {
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
-        op_queue->initialize_new_subtable();
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
+        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
+        op_queue->initialize_new_subtable(merge_settings);
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
+
+        // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
+        // neighbouring misconfigured subtable cannot affect the current one.
+        if (is_kernel) {
+            queue_ecc_eq();
+        }
     };
 
     /**
@@ -178,7 +198,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         size_t total = count + romcount + ramcount + rangecount + num_goblin_ecc_op_gates;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_goblin_ecc_op_gates << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << num_goblin_ecc_op_gates << "), pubinp = " << this->num_public_inputs() << std::endl;
     }
 
     /**

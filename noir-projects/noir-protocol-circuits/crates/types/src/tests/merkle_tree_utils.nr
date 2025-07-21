@@ -69,6 +69,7 @@ fn test_merkle_tree_update_leaf_three_layers() {
     assert_eq(tree.get_root(), calculate_empty_tree_root(3));
 }
 
+#[derive(Eq)]
 pub struct NonEmptyMerkleTree<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, let SUBTREE_HEIGHT: u32> {
     subtree: MerkleTree<SUBTREE_ITEMS>,
     zero_hashes: [Field; TREE_HEIGHT],

@@ -18,7 +18,6 @@ import type { ConnectionSampler } from './connection_sampler.js';
  * If a peer fails, it is replaced while maintaining the same bucket.
  */
 export class BatchConnectionSampler {
-  private readonly logger = createLogger('p2p:reqresp:batch-connection-sampler');
   private readonly batch: PeerId[] = [];
   private readonly requestsPerPeer: number;
 
@@ -27,6 +26,7 @@ export class BatchConnectionSampler {
     batchSize: number,
     maxPeers: number,
     exclude?: PeerId[],
+    private readonly logger = createLogger('p2p:reqresp:batch-connection-sampler'),
   ) {
     if (maxPeers <= 0) {
       throw new Error('Max peers cannot be 0');

@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
@@ -14,6 +15,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     using Flavor = Flavor_;
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
     using DeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using ArrayType = std::array<std::shared_ptr<DeciderVK>, NUM_>;
     using FF = typename Flavor::FF;
@@ -29,39 +31,39 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
 
     RecursiveDeciderVerificationKeys_(Builder* builder,
                                       const std::shared_ptr<DeciderVK>& accumulator,
-                                      const std::vector<std::shared_ptr<VerificationKey>>& vks)
+                                      const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs)
         : builder(builder)
     {
-        ASSERT(vks.size() == NUM - 1);
+        BB_ASSERT_EQ(vk_and_hashs.size(), NUM - 1);
 
         _data[0] = accumulator;
 
         size_t idx = 1;
-        for (auto& vk : vks) {
-            _data[idx] = std::make_shared<DeciderVK>(builder, vk);
+        for (auto& vk_and_hash : vk_and_hashs) {
+            _data[idx] = std::make_shared<DeciderVK>(builder, vk_and_hash);
             idx++;
         }
     }
 
     /**
-     * @brief Get the max circuit size (and corresponding log circuit size) from the set of decider verification keys
+     * @brief Get the max log circuit size from the set of decider verification keys
      *
-     * @return {max circuit size, max log circuit size}
+     * @return max log circuit size
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
      */
-    std::pair<FF, FF> get_max_circuit_size_and_log_size() const
+    FF get_max_log_circuit_size() const
     {
         // Find the key with the largest circuit size and reaturn its circuit size and log circuit size
         auto* max_key = _data[0].get();
-        size_t max_circuit_size =
-            static_cast<size_t>(static_cast<uint32_t>(max_key->verification_key->circuit_size.get_value()));
+        size_t max_log_circuit_size =
+            static_cast<size_t>(static_cast<uint32_t>(max_key->vk_and_hash->vk->log_circuit_size.get_value()));
         for (const auto& key : _data) {
-            if (static_cast<size_t>(static_cast<uint32_t>(key->verification_key->circuit_size.get_value())) >
-                max_circuit_size) {
+            if (static_cast<size_t>(static_cast<uint32_t>(key->vk_and_hash->vk->log_circuit_size.get_value())) >
+                max_log_circuit_size) {
                 max_key = key.get();
             }
         }
-        return { max_key->verification_key->circuit_size, max_key->verification_key->log_circuit_size };
+        return max_key->vk_and_hash->vk->log_circuit_size;
     }
 
     /**
@@ -78,12 +80,12 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
      */
     std::vector<std::vector<typename Flavor::Commitment>> get_precomputed_commitments() const
     {
-        const size_t num_commitments_to_fold = _data[0]->verification_key->get_all().size();
+        const size_t num_commitments_to_fold = _data[0]->vk_and_hash->vk->get_all().size();
         std::vector<std::vector<typename Flavor::Commitment>> result(num_commitments_to_fold,
                                                                      std::vector<typename Flavor::Commitment>(NUM));
         for (size_t idx = 0; auto& commitment_at_idx : result) {
             for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
-                elt = key->verification_key->get_all()[idx];
+                elt = key->vk_and_hash->vk->get_all()[idx];
             }
             idx++;
         }

@@ -3,13 +3,26 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
+import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {IEmpire, IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
+import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {CompressedTimeMath, CompressedSlot} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+
+struct RoundAccounting {
+  Slot lastVote;
+  IPayload leader;
+  bool executed;
+}
+
+struct CompressedRoundAccounting {
+  CompressedSlot lastVote;
+  IPayload leader;
+  bool executed;
+  mapping(IPayload proposal => uint256 count) yeaCount;
+}
 
 /**
  * @notice  A GovernanceProposer implementation following the empire model
@@ -18,34 +31,35 @@ import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
  *          This also means that the implementation here will need to be "updated" if
  *          the interfaces of the sequencer selection changes, for example going optimistic.
  */
-abstract contract EmpireBase is EIP712, IGovernanceProposer {
-  using SlotLib for Slot;
+abstract contract EmpireBase is EIP712, IEmpire {
   using SignatureLib for Signature;
-
-  struct RoundAccounting {
-    Slot lastVote;
-    IPayload leader;
-    bool executed;
-    mapping(IPayload proposal => uint256 count) yeaCount;
-  }
+  using CompressedTimeMath for Slot;
+  using CompressedTimeMath for CompressedSlot;
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
   // EIP-712 type hash for the Vote struct
-  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal)");
+  bytes32 public constant VOTE_TYPEHASH =
+    keccak256("Vote(address proposal,uint256 nonce,uint256 round)");
 
-  // The quorum size
-  uint256 public immutable N;
-  // The round size
-  uint256 public immutable M;
+  uint256 public immutable QUORUM_SIZE;
+  uint256 public immutable ROUND_SIZE;
 
-  mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
+  mapping(address instance => mapping(uint256 roundNumber => CompressedRoundAccounting)) internal
+    rounds;
+  mapping(address voter => uint256 nonce) public nonces;
 
-  constructor(uint256 _n, uint256 _m) EIP712("EmpireBase", "1") {
-    N = _n;
-    M = _m;
+  constructor(uint256 _quorumSize, uint256 _roundSize) EIP712("EmpireBase", "1") {
+    QUORUM_SIZE = _quorumSize;
+    ROUND_SIZE = _roundSize;
 
-    require(N > M / 2, Errors.GovernanceProposer__InvalidNAndMValues(N, M));
-    require(N <= M, Errors.GovernanceProposer__NCannotBeLargerTHanM(N, M));
+    require(
+      QUORUM_SIZE > ROUND_SIZE / 2,
+      Errors.GovernanceProposer__InvalidNAndMValues(QUORUM_SIZE, ROUND_SIZE)
+    );
+    require(
+      QUORUM_SIZE <= ROUND_SIZE,
+      Errors.GovernanceProposer__NCannotBeLargerTHanM(QUORUM_SIZE, ROUND_SIZE)
+    );
   }
 
   // Note that this one is heavily realying on the fact that this contract
@@ -60,7 +74,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return True if executed successfully, false otherwise
    */
-  function vote(IPayload _proposal) external override(IGovernanceProposer) returns (bool) {
+  function vote(IPayload _proposal) external override(IEmpire) returns (bool) {
     return _internalVote(_proposal, Signature({v: 0, r: bytes32(0), s: bytes32(0)}));
   }
 
@@ -76,7 +90,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    */
   function voteWithSig(IPayload _proposal, Signature memory _sig)
     external
-    override(IGovernanceProposer)
+    override(IEmpire)
     returns (bool)
   {
     return _internalVote(_proposal, _sig);
@@ -89,16 +103,12 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return True if executed successfully, false otherwise
    */
-  function executeProposal(uint256 _roundNumber)
-    external
-    override(IGovernanceProposer)
-    returns (bool)
-  {
+  function executeProposal(uint256 _roundNumber) external override(IEmpire) returns (bool) {
     // Need to ensure that the round is not active.
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
@@ -108,13 +118,15 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
       Errors.GovernanceProposer__ProposalTooOld(_roundNumber, currentRound)
     );
 
-    RoundAccounting storage round = rounds[instance][_roundNumber];
+    CompressedRoundAccounting storage round = rounds[instance][_roundNumber];
     require(!round.executed, Errors.GovernanceProposer__ProposalAlreadyExecuted(_roundNumber));
     require(
       round.leader != IPayload(address(0)), Errors.GovernanceProposer__ProposalCannotBeAddressZero()
     );
     uint256 votesCast = round.yeaCount[round.leader];
-    require(votesCast >= N, Errors.GovernanceProposer__InsufficientVotes(votesCast, N));
+    require(
+      votesCast >= QUORUM_SIZE, Errors.GovernanceProposer__InsufficientVotes(votesCast, QUORUM_SIZE)
+    );
 
     round.executed = true;
 
@@ -136,7 +148,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
   function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external
     view
-    override(IGovernanceProposer)
+    override(IEmpire)
     returns (uint256)
   {
     return rounds[_instance][_round].yeaCount[_proposal];
@@ -148,9 +160,22 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    * @return The round number
    */
   function getCurrentRound() external view returns (uint256) {
-    IValidatorSelection selection = IValidatorSelection(getInstance());
+    IEmperor selection = IEmperor(getInstance());
     Slot currentSlot = selection.getCurrentSlot();
     return computeRound(currentSlot);
+  }
+
+  function getRoundData(address _instance, uint256 _round)
+    external
+    view
+    returns (RoundAccounting memory)
+  {
+    CompressedRoundAccounting storage compressedRound = rounds[_instance][_round];
+    return RoundAccounting({
+      lastVote: compressedRound.lastVote.decompress(),
+      leader: compressedRound.leader,
+      executed: compressedRound.executed
+    });
   }
 
   /**
@@ -160,28 +185,38 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return The round number
    */
-  function computeRound(Slot _slot) public view override(IGovernanceProposer) returns (uint256) {
-    return _slot.unwrap() / M;
+  function computeRound(Slot _slot) public view override(IEmpire) returns (uint256) {
+    return Slot.unwrap(_slot) / ROUND_SIZE;
+  }
+
+  function getVoteSignatureDigest(IPayload _proposal, address _proposer, uint256 _round)
+    public
+    view
+    returns (bytes32)
+  {
+    return
+      _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal, nonces[_proposer], _round)));
   }
 
   // Virtual functions
-  function getInstance() public view virtual override(IGovernanceProposer) returns (address);
-  function getExecutor() public view virtual override(IGovernanceProposer) returns (address);
+  function getInstance() public view virtual override(IEmpire) returns (address);
+  function getExecutor() public view virtual override(IEmpire) returns (address);
   function _execute(IPayload _proposal) internal virtual returns (bool);
 
   function _internalVote(IPayload _proposal, Signature memory _sig) internal returns (bool) {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);
 
-    RoundAccounting storage round = rounds[instance][roundNumber];
+    CompressedRoundAccounting storage round = rounds[instance][roundNumber];
 
     require(
-      currentSlot > round.lastVote, Errors.GovernanceProposer__VoteAlreadyCastForSlot(currentSlot)
+      currentSlot > round.lastVote.decompress(),
+      Errors.GovernanceProposer__VoteAlreadyCastForSlot(currentSlot)
     );
 
     address proposer = selection.getCurrentProposer();
@@ -191,7 +226,8 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
         msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
       );
     } else {
-      bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal)));
+      bytes32 digest = getVoteSignatureDigest(_proposal, proposer, roundNumber);
+      nonces[proposer]++;
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
       require(
@@ -201,16 +237,16 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
     }
 
     round.yeaCount[_proposal] += 1;
-    round.lastVote = currentSlot;
+    round.lastVote = currentSlot.compress();
 
     // @todo We can optimise here for gas by storing some of it packed with the leader.
     if (round.leader != _proposal && round.yeaCount[_proposal] > round.yeaCount[round.leader]) {
       round.leader = _proposal;
     }
 
-    emit VoteCast(_proposal, roundNumber, msg.sender);
+    emit VoteCast(_proposal, roundNumber, proposer);
 
-    if (round.yeaCount[_proposal] == N) {
+    if (round.yeaCount[_proposal] == QUORUM_SIZE) {
       emit ProposalExecutable(_proposal, roundNumber);
     }
 

@@ -40,6 +40,17 @@ describe('AVM bulk test', () => {
       /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'bulk_testing', args }],
       /*teardownCall=*/ undefined,
       /*expectRevert=*/ false,
+      /*feePayer*/ undefined,
+      /*privateInsertions=*/ {
+        nonRevertible: {
+          nullifiers: [new Fr(420000)],
+          noteHashes: [new Fr(420001)],
+        },
+        revertible: {
+          nullifiers: [new Fr(420002)],
+          noteHashes: [new Fr(420003)],
+        },
+      },
     );
   }, 180_000);
 });

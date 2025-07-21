@@ -22,7 +22,24 @@ bool circuit_should_fail = false;
 FastRandom VarianceRNG(0);
 
 // Enable this definition, when you want to find out the instructions that caused a failure
-// #define SHOW_INFORMATION 1
+// #define FUZZING_SHOW_INFORMATION 1
+#ifdef FUZZING_SHOW_INFORMATION
+#define PREP_SINGLE_ARG(stack, first_index, output_index)                                                              \
+    std::string rhs = "c";                                                                                             \
+    std::string out = rhs;                                                                                             \
+    rhs += std::to_string(first_index);                                                                                \
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+
+#define PREP_TWO_ARG(stack, first_index, second_index, output_index)                                                   \
+    std::string lhs = "c";                                                                                             \
+    std::string rhs = "c";                                                                                             \
+    std::string out = "c";                                                                                             \
+    lhs += std::to_string(first_index);                                                                                \
+    rhs += std::to_string(second_index);                                                                               \
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+#endif
 
 #define OPERATION_TYPE_SIZE 1
 
@@ -445,16 +462,25 @@ template <typename Builder> class ByteArrayFuzzBase {
                 /* Offset is beyond buffer bounds; cannot comply.
                  * Return the whole buffer.
                  */
+                if (this->byte_array.size() == 0) {
+                    return ExecutionHandler(this->reference_value, byte_array_t(this->byte_array));
+                }
                 return ExecutionHandler(this->reference_value, this->byte_array.slice(0));
             } else if (offset + length > this->reference_value.size()) {
                 /* Offset is valid but range is not.
                  * Return data from the offset to the end of the buffer.
                  */
+                if (this->byte_array.size() == 0 && offset == 0) {
+                    return ExecutionHandler(this->reference_value, byte_array_t(this->byte_array));
+                }
                 return ExecutionHandler(
                     std::vector<uint8_t>(this->reference_value.data() + offset,
                                          this->reference_value.data() + this->reference_value.size()),
                     this->byte_array.slice(offset));
             } else {
+                if (this->byte_array.size() == 0 && offset == 0 && length == 0) {
+                    return ExecutionHandler(this->reference_value, byte_array_t(this->byte_array));
+                }
                 return ExecutionHandler(std::vector<uint8_t>(this->reference_value.data() + offset,
                                                              this->reference_value.data() + offset + length),
                                         this->byte_array.slice(offset, length));
@@ -492,6 +518,9 @@ template <typename Builder> class ByteArrayFuzzBase {
         ExecutionHandler operator+(const ExecutionHandler& other)
         {
             if (this->reference_value.size() + other.reference_value.size() > (MAX_ARRAY_SIZE * 3)) {
+                if (this->byte_array.size() == 0) {
+                    return ExecutionHandler(this->reference_value, byte_array_t(this->byte_array));
+                }
                 return ExecutionHandler(this->reference_value, this->byte_array.slice(0));
             } else {
                 const auto other_ref = other.reference_value;
@@ -501,33 +530,54 @@ template <typename Builder> class ByteArrayFuzzBase {
                                         this->byte_array.write(other.byte_array));
             }
         }
-        /* Explicit re-instantiation using the various bit_array constructors */
+        /* Explicit re-instantiation using the various byte_array constructors */
         ExecutionHandler set(Builder* builder)
         {
             const auto& ref = this->reference_value;
 
             switch (VarianceRNG.next() % 8) {
             case 0:
+#ifdef SHOW_INFORMATION
+                std::cout << "byte_array_t(e);" << std::cout;
+#endif
                 /* Construct via byte_array */
                 return ExecutionHandler(ref, byte_array_t(this->byte_array));
             case 1:
+#ifdef SHOW_INFORMATION
+                std::cout << "e.get_string();" << std::cout;
+#endif
                 /* Construct via std::string */
                 return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.get_string()));
             case 2:
+#ifdef SHOW_INFORMATION
+                std::cout << "e.get_value();" << std::cout;
+#endif
                 /* Construct via std::vector<uint8_t> */
                 return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.get_value()));
             case 3:
+#ifdef SHOW_INFORMATION
+                std::cout << "e.bytes();" << std::cout;
+#endif
                 /* Construct via bytes_t */
                 return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.bytes()));
             case 4:
+#ifdef SHOW_INFORMATION
+                std::cout << "std::move(e.bytes());" << std::cout;
+#endif
                 /* Construct via bytes_t move constructor */
                 return ExecutionHandler(ref, byte_array_t(builder, std::move(this->byte_array.bytes())));
             case 5: {
                 const auto field = to_field_t();
 
                 if (field == std::nullopt) {
+#ifdef SHOW_INFORMATION
+                    std::cout << "byte_array_t(e);" << std::cout;
+#endif
                     return ExecutionHandler(ref, byte_array_t(this->byte_array));
                 } else {
+#ifdef SHOW_INFORMATION
+                    std::cout << "tmp_f = " << e << ".to_field_t();" << std::cout;
+#endif
                     /* Pick a number ref.size()..32 */
                     const size_t num_bytes = ref.size() + (VarianceRNG.next() % (32 - ref.size() + 1));
                     if (num_bytes > 32)
@@ -540,11 +590,14 @@ template <typename Builder> class ByteArrayFuzzBase {
                     new_ref.insert(new_ref.end(), ref.begin(), ref.end());
 
                     /* Construct via field_t */
+#ifdef SHOW_INFORMATION
+                    std::cout << " = byte_array_t(*tmp_f, " << num_bytes << ");" << std::cout;
+#endif
                     return ExecutionHandler(new_ref, byte_array_t(*field, num_bytes));
                 }
             }
             case 6: {
-                /* Create a bit_array with gibberish.
+                /* Create a byte_array with gibberish.
                  *
                  * The purpose of this is to ascertain that no gibberish
                  * values are retained in the re-assigned value
@@ -595,10 +648,26 @@ template <typename Builder> class ByteArrayFuzzBase {
                                               Instruction& instruction)
         {
             (void)builder;
+#ifdef FUZZING_SHOW_INFORMATION
+            std::cout << "std::array<uint8_t, 128> tmp_a = {";
+            for (size_t i = 0; i < instruction.arguments.element.size; i++) {
+                printf("0x%02X, ", instruction.arguments.element.data[i]);
+            }
+            std::cout << "};" << std::endl;
+            std::cout << "auto c" << stack.size() << " = ";
+#endif
             if (static_cast<bool>(VarianceRNG.next() % 2)) {
                 stack.push_back(byte_array_t(builder, instruction.arguments.element.as_vector()));
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "byte_array_t(&builder, as_vector(tmp_a, " << instruction.arguments.element.size << "));"
+                          << std::endl;
+#endif
             } else {
                 stack.push_back(byte_array_t(builder, instruction.arguments.element.as_string()));
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "byte_array_t(&builder, as_string(tmp_a, " << instruction.arguments.element.size << "));"
+                          << std::endl;
+#endif
             }
             return 0;
         }
@@ -621,6 +690,10 @@ template <typename Builder> class ByteArrayFuzzBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
+#ifdef FUZZING_SHOW_INFORMATION
+            PREP_SINGLE_ARG(stack, first_index, output_index)
+            std::cout << out << " = " << rhs << ".reverse();" << std::endl;
+#endif
             ExecutionHandler result;
             result = stack[first_index].reverse();
             // If the output index is larger than the number of elements in stack, append
@@ -652,6 +725,19 @@ template <typename Builder> class ByteArrayFuzzBase {
             size_t output_index = instruction.arguments.sliceArgs.out;
             const uint16_t offset = instruction.arguments.sliceArgs.offset;
             const uint16_t length = instruction.arguments.sliceArgs.length;
+
+#ifdef FUZZING_SHOW_INFORMATION
+            PREP_SINGLE_ARG(stack, first_index, output_index)
+            std::cout << out << " = " << rhs;
+            if (offset > stack[first_index].reference_value.size()) {
+                std::cout << ".slice(0);" << std::endl;
+            } else if (offset + length > stack[first_index].reference_value.size()) {
+                std::cout << ".slice(" << offset << ");" << std::endl;
+            } else {
+                std::cout << ".slice(" << offset << ", " << length << ");" << std::endl;
+            }
+#endif
+
             ExecutionHandler result;
             result = stack[first_index].slice(offset, length);
             // If the output index is larger than the number of elements in stack, append
@@ -681,6 +767,18 @@ template <typename Builder> class ByteArrayFuzzBase {
             size_t first_index = instruction.arguments.getBitArgs.in % stack.size();
             size_t output_index = instruction.arguments.getBitArgs.out;
             const uint32_t bit = instruction.arguments.getBitArgs.bit;
+
+#ifdef FUZZING_SHOW_INFORMATION
+            PREP_SINGLE_ARG(stack, first_index, output_index)
+            std::cout << out << " = ";
+            if (bit >= stack[first_index].reference_value.size() * 8) {
+                std::cout << rhs << ";" << std::endl;
+            } else {
+                std::cout << "byte_array_t(&builder, bool_to_vector(" << rhs << ".get_bit(" << bit << ")));"
+                          << std::endl;
+            }
+#endif
+
             ExecutionHandler result;
             result = stack[first_index].get_bit(builder, bit);
             // If the output index is larger than the number of elements in stack, append
@@ -710,6 +808,14 @@ template <typename Builder> class ByteArrayFuzzBase {
             size_t first_index = instruction.arguments.setBitArgs.in % stack.size();
             const uint32_t bit = instruction.arguments.setBitArgs.bit;
             const bool value = static_cast<bool>(instruction.arguments.setBitArgs.value % 2);
+
+#ifdef FUZZING_SHOW_INFORMATION
+            if (bit < stack[first_index].reference_value.size() * 8) {
+                PREP_SINGLE_ARG(stack, first_index, first_index)
+                std::cout << rhs << ".set_bit(" << bit << ", " << value << ");" << std::endl;
+            }
+#endif
+
             stack[first_index].set_bit(bit, value);
             return 0;
         };
@@ -733,6 +839,15 @@ template <typename Builder> class ByteArrayFuzzBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
+#ifdef FUZZING_SHOW_INFORMATION
+            PREP_TWO_ARG(stack, first_index, second_index, output_index)
+            if (stack[first_index].reference_value.size() + stack[second_index].reference_value.size() >
+                (MAX_ARRAY_SIZE * 3)) {
+                std::cout << out << " = " << lhs << ".slice(0);" << std::endl;
+            } else {
+                std::cout << out << " = " << lhs << "write(" << rhs << ");" << std::endl;
+            }
+#endif
             ExecutionHandler result;
             result = stack[first_index] + stack[second_index];
             // If the output index is larger than the number of elements in stack, append
@@ -761,6 +876,13 @@ template <typename Builder> class ByteArrayFuzzBase {
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
+
+#ifdef FUZZING_SHOW_INFORMATION
+            PREP_SINGLE_ARG(stack, first_index, output_index)
+            std::cout << "e = " << rhs;
+            std::cout << out << " = ";
+#endif
+
             ExecutionHandler result;
             result = stack[first_index].set(builder);
             // If the output index is larger than the number of elements in stack, append

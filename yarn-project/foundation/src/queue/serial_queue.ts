@@ -5,7 +5,7 @@ import { FifoMemoryQueue } from './fifo_memory_queue.js';
  */
 export class SerialQueue {
   private readonly queue = new FifoMemoryQueue<() => Promise<void>>();
-  private runningPromise!: Promise<void>;
+  private runningPromises: Promise<void>[] = [];
   private started = false;
 
   /**
@@ -14,11 +14,11 @@ export class SerialQueue {
    * waiting for the completion of the previous one before starting its execution.
    * This method should be called once to start processing the queue.
    */
-  public start() {
+  public start(numWorkers = 1) {
     if (this.started) {
       return;
     }
-    this.runningPromise = this.queue.process(fn => fn());
+    this.runningPromises = Array.from({ length: numWorkers }, () => this.queue.process(fn => fn()));
     this.started = true;
   }
 
@@ -41,7 +41,7 @@ export class SerialQueue {
    */
   public cancel() {
     this.queue.cancel();
-    return this.runningPromise;
+    return Promise.all(this.runningPromises).then(() => {});
   }
 
   /**
@@ -52,7 +52,7 @@ export class SerialQueue {
    */
   public end() {
     this.queue.end();
-    return this.runningPromise;
+    return Promise.all(this.runningPromises).then(() => {});
   }
 
   /**

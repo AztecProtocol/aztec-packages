@@ -5,7 +5,12 @@ import { z } from 'zod';
 
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
-import { PrivateExecutionResult, collectSortedContractClassLogs } from './private_execution_result.js';
+import type { OffchainEffect } from './offchain_effect.js';
+import {
+  PrivateExecutionResult,
+  collectOffchainEffects,
+  collectSortedContractClassLogs,
+} from './private_execution_result.js';
 import { type ProvingStats, ProvingTimingsSchema } from './profiling.js';
 import { Tx } from './tx.js';
 
@@ -27,6 +32,10 @@ export class TxProvingResult {
       this.privateExecutionResult.publicFunctionCalldata,
     );
     return tx;
+  }
+
+  getOffchainEffects(): OffchainEffect[] {
+    return collectOffchainEffects(this.privateExecutionResult);
   }
 
   static get schema() {

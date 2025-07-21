@@ -22,6 +22,8 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPaddingBlockRootRollupInputsToWitnessMap,
+  convertPaddingBlockRootRollupOutputsFromWitnessMap,
   convertPrivateBaseRollupInputsToWitnessMap,
   convertPrivateBaseRollupOutputsFromWitnessMap,
   convertPublicBaseRollupInputsToWitnessMap,
@@ -55,6 +57,7 @@ import {
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
   type MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   type PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   type RootRollupInputs,
@@ -345,6 +348,26 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
+  public async getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    const { circuitOutput, proof } = await this.createRecursiveProof(
+      input,
+      'PaddingBlockRootRollupArtifact',
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      convertPaddingBlockRootRollupInputsToWitnessMap,
+      convertPaddingBlockRootRollupOutputsFromWitnessMap,
+    );
+
+    const verificationKey = this.getVerificationKeyDataForCircuit('PaddingBlockRootRollupArtifact');
+
+    await this.verifyProof('PaddingBlockRootRollupArtifact', proof.binaryProof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
   /**
    * Simulates the block merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -449,7 +472,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       SERVER_CIRCUIT_RECURSIVE,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
-      logger.debug,
+      logger,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {

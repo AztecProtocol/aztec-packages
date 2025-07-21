@@ -32,12 +32,12 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(ROW_FIELD_EQ(R, context_stack_context_id, 1),
-                          ROW_FIELD_EQ(R, context_stack_parent_id, 0),
-                          ROW_FIELD_EQ(R, context_stack_next_pc, 20),
-                          ROW_FIELD_EQ(R, context_stack_msg_sender, 30),
-                          ROW_FIELD_EQ(R, context_stack_contract_address, 40),
-                          ROW_FIELD_EQ(R, context_stack_is_static, false))));
+                    AllOf(ROW_FIELD_EQ(context_stack_context_id, 1),
+                          ROW_FIELD_EQ(context_stack_parent_id, 0),
+                          ROW_FIELD_EQ(context_stack_next_pc, 20),
+                          ROW_FIELD_EQ(context_stack_msg_sender, 30),
+                          ROW_FIELD_EQ(context_stack_contract_address, 40),
+                          ROW_FIELD_EQ(context_stack_is_static, false))));
 }
 
 } // namespace

@@ -81,7 +81,7 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
+  local foundry_version="nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       encourage_dev_container
@@ -155,9 +155,14 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
-function start_txes {
+function start_test_env {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
+  trap '(kill -SIGTERM $txe_pids &>/dev/null || true) && ./spartan/bootstrap.sh stop_env' EXIT
+
+  # Start env for spartan tests in the background
+  dump_fail "spartan/bootstrap.sh start_env" &
+  spartan_pid=$!
+
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -179,16 +184,19 @@ function start_txes {
         j=$((j+1))
       done
   done
+
+  echo "Waiting for spartan environment to complete setup..."
+  if wait $spartan_pid; then
+    echo "Spartan environment setup completed successfully."
+  else
+    echo_stderr "Spartan environment setup failed. Exiting."
+  fi
 }
-export -f start_txes
 
 function test {
   echo_header "test all"
 
-  start_txes
-
-  # Make sure KIND starts so it is running by the time we do spartan tests.
-  # spartan/bootstrap.sh kind &>/dev/null &
+  start_test_env
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -232,8 +240,28 @@ function build {
     aztec-up/bootstrap.sh
   )
 
+  local start_building=false
   for project in "${serial_projects[@]}"; do
-    $project/bootstrap.sh ${1:-}
+    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
+    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
+    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
+
+    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
+    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
+      start_building=true
+      continue
+    fi
+
+    # Build the project if we should be building
+    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
+      $project/bootstrap.sh ${1:-}
+    fi
+
+    # Stop the build if we've reached BOOTSTRAP_TO
+    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
+    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
+      return
+    fi
   done
 
   parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
@@ -403,6 +431,7 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_NIGHTLY=1
     build
+    release-image/bootstrap.sh push
     test
     release
     docs/bootstrap.sh release-docs
@@ -415,6 +444,18 @@ case "$cmd" in
     fi
     build
     release
+    ;;
+  "ci-docs")
+    export CI=1
+    export USE_TEST_CACHE=1
+    ./bootstrap.sh
+    docs/bootstrap.sh ci
+    ;;
+  "ci-barretenberg")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export DISABLE_AZTEC_VM=1
+    barretenberg/cpp/bootstrap.sh ci
     ;;
   test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
     $cmd "$@"

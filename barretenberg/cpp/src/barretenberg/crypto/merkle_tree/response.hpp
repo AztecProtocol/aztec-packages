@@ -124,8 +124,26 @@ struct FindLeafIndexResponse {
     FindLeafIndexResponse& operator=(FindLeafIndexResponse&& other) noexcept = default;
 };
 
+struct SiblingPathAndIndex {
+    index_t index;
+    fr_sibling_path path;
+
+    MSGPACK_FIELDS(index, path);
+
+    SiblingPathAndIndex() = default;
+    ~SiblingPathAndIndex() = default;
+    SiblingPathAndIndex(index_t index, fr_sibling_path path)
+        : index(index)
+        , path(path)
+    {}
+    SiblingPathAndIndex(const SiblingPathAndIndex& other) = default;
+    SiblingPathAndIndex(SiblingPathAndIndex&& other) noexcept = default;
+    SiblingPathAndIndex& operator=(const SiblingPathAndIndex& other) = default;
+    SiblingPathAndIndex& operator=(SiblingPathAndIndex&& other) noexcept = default;
+};
+
 struct FindLeafPathResponse {
-    std::vector<std::optional<fr_sibling_path>> leaf_paths;
+    std::vector<std::optional<SiblingPathAndIndex>> leaf_paths;
 
     FindLeafPathResponse() = default;
     ~FindLeafPathResponse() = default;

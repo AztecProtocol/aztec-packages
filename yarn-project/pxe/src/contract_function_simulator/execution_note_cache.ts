@@ -74,14 +74,14 @@ export class ExecutionNoteCache {
     // The nonces will be used to create the "complete" nullifier.
     const updatedNotes = await Promise.all(
       this.notes.map(async ({ note, counter }, i) => {
-        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+        const noteNonce = await computeNoteHashNonce(nonceGenerator, i);
         const uniqueNoteHash = await computeUniqueNoteHash(
-          nonce,
+          noteNonce,
           await siloNoteHash(note.contractAddress, note.noteHash),
         );
         return {
           counter,
-          note: { ...note, nonce },
+          note: { ...note, noteNonce },
           noteHashForConsumption: uniqueNoteHash,
         };
       }),

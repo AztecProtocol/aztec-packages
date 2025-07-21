@@ -29,7 +29,7 @@ export class CapsuleDataProvider implements DataProvider {
   async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     const dataBuffer = await this.#capsules.getAsync(dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
-      this.logger.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
+      this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
     }
     const capsule: Fr[] = [];
@@ -119,7 +119,7 @@ export class CapsuleDataProvider implements DataProvider {
     });
   }
 
-  resetCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][]) {
+  setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][]) {
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
       const maybeLength = await this.loadCapsule(contractAddress, baseSlot);

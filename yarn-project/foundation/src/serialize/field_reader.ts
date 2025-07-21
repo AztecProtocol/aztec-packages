@@ -130,6 +130,22 @@ export class FieldReader {
   }
 
   /**
+   * Reads a 64-bit unsigned integer from the field array at the current index position.
+   * Updates the index position by 1 after reading the number.
+   * Throw if the value is greater than 2 ** 64.
+   *
+   * @returns The read 64-bit unsigned integer value as a bigint.
+   */
+  public readU64(): bigint {
+    const field = this.readField();
+    const value = field.toBigInt();
+    if (value >= 1n << 64n) {
+      throw new Error('Field is not a u64.');
+    }
+    return value;
+  }
+
+  /**
    * Read an array of a fixed size field array.
    *
    * @param size - The fixed number of fields in the array.

@@ -175,6 +175,26 @@ bool read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t
     return code != MDB_SUCCESS; // we're done
 }
 
+bool count_until_next(const LMDBCursor& cursor, const Key& targetKey, uint64_t& count, MDB_cursor_op op)
+{
+    count = 0;
+    MDB_val dbKey;
+    MDB_val dbVal;
+    MDB_val dbTargetKey;
+    dbTargetKey.mv_size = targetKey.size();
+    dbTargetKey.mv_data = (void*)targetKey.data();
+    int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_GET_CURRENT);
+    while (code == MDB_SUCCESS) {
+        int result = mdb_cmp(cursor.underlying_tx(), cursor.underlying_db(), &dbKey, &dbTargetKey);
+        if ((result >= 0 && op == MDB_NEXT) || (result <= 0 && op == MDB_PREV)) {
+            return false;
+        }
+        ++count;
+        code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
+    }
+    return true; // we must have run out of keys
+}
+
 bool read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead, MDB_cursor_op op)
 {
     uint64_t numKeysRead = 0;
@@ -214,6 +234,46 @@ bool read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint
     return false;
 }
 
+bool count_until_next_dup(const LMDBCursor& cursor, const Key& targetKey, uint64_t& count, MDB_cursor_op op)
+{
+    count = 0;
+    MDB_val dbKey;
+    MDB_val dbVal;
+    Key currentKey;
+    bool newKey = true;
+    MDB_val dbTargetKey;
+    dbTargetKey.mv_size = targetKey.size();
+    dbTargetKey.mv_data = (void*)targetKey.data();
+
+    // ensure we are positioned at first data item of current key
+    int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_FIRST_DUP);
+    while (code == MDB_SUCCESS) {
+        code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_GET_CURRENT);
+        if (newKey) {
+            int result = mdb_cmp(cursor.underlying_tx(), cursor.underlying_db(), &dbKey, &dbTargetKey);
+            if ((result >= 0 && op == MDB_NEXT_NODUP) || (result <= 0 && op == MDB_PREV_NODUP)) {
+                return false;
+            }
+            newKey = false;
+        }
+        ++count;
+        // move to the next value at this key
+        code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_NEXT_DUP);
+        if (code == MDB_NOTFOUND) {
+            // move to the next key
+            code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
+            if (code == MDB_SUCCESS) {
+                newKey = true;
+                code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_FIRST_DUP);
+            } else {
+                // no more keys to read
+                return true;
+            }
+        }
+    }
+    return true;
+}
+
 bool read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
 {
     return read_next(cursor, keyValues, numKeysToRead, MDB_NEXT);
@@ -230,5 +290,25 @@ bool read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint
 bool read_prev_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
 {
     return read_next_dup(cursor, keyValues, numKeysToRead, MDB_PREV_NODUP);
+}
+
+bool count_until_next(const LMDBCursor& cursor, const Key& key, uint64_t& count)
+{
+    return count_until_next(cursor, key, count, MDB_NEXT);
+}
+
+bool count_until_prev(const LMDBCursor& cursor, const Key& key, uint64_t& count)
+{
+    return count_until_next(cursor, key, count, MDB_PREV);
+}
+
+bool count_until_next_dup(const LMDBCursor& cursor, const Key& key, uint64_t& count)
+{
+    return count_until_next_dup(cursor, key, count, MDB_NEXT_NODUP);
+}
+
+bool count_until_prev_dup(const LMDBCursor& cursor, const Key& key, uint64_t& count)
+{
+    return count_until_next_dup(cursor, key, count, MDB_PREV_NODUP);
 }
 } // namespace bb::lmdblib::lmdb_queries

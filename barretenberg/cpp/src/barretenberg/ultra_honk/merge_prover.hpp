@@ -7,10 +7,10 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -34,13 +34,13 @@ class MergeProver {
     using MergeProof = std::vector<FF>;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         const std::shared_ptr<CommitmentKey>& commitment_key = nullptr,
+                         const CommitmentKey& commitment_key = CommitmentKey(),
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE MergeProof construct_proof();
 
     std::shared_ptr<ECCOpQueue> op_queue;
-    std::shared_ptr<CommitmentKey> pcs_commitment_key;
+    CommitmentKey pcs_commitment_key;
     std::shared_ptr<Transcript> transcript;
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder

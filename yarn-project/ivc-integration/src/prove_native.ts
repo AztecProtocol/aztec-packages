@@ -29,7 +29,7 @@ import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
 import { enhanceProofWithPiValidationFlag } from '@aztec/stdlib/rollup';
-import type { VerificationKeyData } from '@aztec/stdlib/vks';
+import { VerificationKeyAsFields, type VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as fs from 'fs/promises';
 import { Encoder } from 'msgpackr';
@@ -128,7 +128,7 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
     true,
     path.join(workingDirectory, 'witness.gz'),
     flavor,
-    logger.info,
+    logger,
   );
 
   if (proofResult.status != BB_RESULT.SUCCESS) {
@@ -189,7 +189,7 @@ export async function proveAvm(
   logger: Logger,
   skipPublicInputsValidation: boolean = false,
 ): Promise<{
-  vk: Fr[];
+  vk: VerificationKeyAsFields;
   proof: Fr[];
   publicInputs: AvmCircuitPublicInputs;
 }> {
@@ -259,7 +259,7 @@ export async function proveAvm(
 
   return {
     proof: proofWithPublicInputsValidationFlag,
-    vk,
+    vk: await VerificationKeyAsFields.fromKey(vk),
     publicInputs: avmCircuitInputs.publicInputs,
   };
 }

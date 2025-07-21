@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
@@ -25,14 +26,17 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     using VK = VerifierCommitmentKey<NativeCurve>;
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename NativeCurve::AffineElement;
-    using NativeIPA = IPA<NativeCurve>;
-    using RecursiveIPA = IPA<Curve>;
-    using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+    using StdlibProof = bb::stdlib::Proof<Builder>;
 
-    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(Builder& builder, const size_t n)
+    using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+    template <size_t log_poly_length>
+    std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(Builder& builder)
     {
+        using NativeIPA = IPA<NativeCurve, log_poly_length>;
+        static constexpr size_t poly_length = 1UL << log_poly_length;
+
         // First generate an ipa proof
-        auto poly = Polynomial::random(n);
+        auto poly = Polynomial::random(poly_length);
         // Commit to a zero polynomial
         Commitment commitment = this->commit(poly);
 
@@ -44,8 +48,12 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto prover_transcript = std::make_shared<NativeTranscript>();
         NativeIPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
 
+        // Export proof
+        auto proof = prover_transcript->export_proof();
+
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(proof);
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
@@ -57,15 +65,16 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
         // Construct stdlib verifier transcript
-        auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>(
-            bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data));
+        auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>();
+        recursive_verifier_transcript->load_proof(StdlibProof(builder, proof));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
-
-    Builder build_ipa_recursive_verifier_circuit(const size_t POLY_LENGTH)
+    template <size_t log_poly_length> Builder build_ipa_recursive_verifier_circuit()
     {
+        using RecursiveIPA = IPA<Curve, log_poly_length>;
+
         Builder builder;
-        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
+        auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder);
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
         stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
@@ -78,67 +87,11 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
      * @details Creates an IPA claim and then runs the recursive IPA verification and checks that the circuit is valid.
      * @param POLY_LENGTH
      */
-    void test_recursive_ipa(const size_t POLY_LENGTH)
+    template <size_t poly_length> void test_recursive_ipa()
     {
-        Builder builder(build_ipa_recursive_verifier_circuit(POLY_LENGTH));
+        Builder builder(build_ipa_recursive_verifier_circuit<poly_length>());
         info("IPA Recursive Verifier num finalized gates = ", builder.get_num_finalized_gates());
         EXPECT_TRUE(CircuitChecker::check(builder));
-    }
-
-    /**
-     * @brief Checks the the IPA Recursive Verifier circuit is fixed no matter the ECCVM trace size.
-     * @details Compares the builder blocks and locates which index in which block is different. Also compares the vks
-     * to find which commitment is different.
-     */
-    void test_fixed_ipa_recursive_verifier()
-    {
-        bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-
-        Builder builder_1(build_ipa_recursive_verifier_circuit(1 << 10));
-        Builder builder_2(build_ipa_recursive_verifier_circuit(1 << 11));
-
-        UltraFlavor::ProvingKey pk_1 = (DeciderProvingKey_<UltraFlavor>(builder_1)).proving_key;
-        UltraFlavor::ProvingKey pk_2 = (DeciderProvingKey_<UltraFlavor>(builder_2)).proving_key;
-        UltraFlavor::VerificationKey verification_key_1(pk_1);
-        UltraFlavor::VerificationKey verification_key_2(pk_2);
-        bool broke(false);
-        auto check_eq = [&broke](auto& p1, auto& p2) {
-            EXPECT_TRUE(p1.size() == p2.size());
-            for (size_t idx = 0; idx < p1.size(); idx++) {
-                if (p1[idx] != p2[idx]) {
-                    broke = true;
-                    break;
-                }
-            }
-        };
-
-        // Compares block by block to find which gate is different.
-        size_t block_idx = 0;
-        for (auto [b_10, b_11] : zip_view(builder_1.blocks.get(), builder_2.blocks.get())) {
-            info("block index: ", block_idx);
-            EXPECT_TRUE(b_10.q_1().size() == b_11.q_1().size());
-            EXPECT_TRUE(b_10.selectors.size() == 13);
-            EXPECT_TRUE(b_11.selectors.size() == 13);
-            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
-                check_eq(p_10, p_11);
-            }
-            block_idx++;
-        }
-
-        EXPECT_TRUE(verification_key_1.circuit_size == verification_key_2.circuit_size);
-        EXPECT_TRUE(verification_key_1.num_public_inputs == verification_key_2.num_public_inputs);
-
-        // Compares the VKs to find which commitment is different.
-        UltraFlavor::CommitmentLabels labels;
-        for (auto [vk_10, vk_11, label] :
-             zip_view(verification_key_1.get_all(), verification_key_2.get_all(), labels.get_precomputed())) {
-            if (vk_10 != vk_11) {
-                broke = true;
-                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
-            }
-        }
-
-        EXPECT_FALSE(broke);
     }
 
     /**
@@ -147,15 +100,18 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
      * accumulated claim and checks that it verifies.
      * @param POLY_LENGTH
      */
-    void test_accumulation(const size_t POLY_LENGTH)
+    template <size_t poly_length> void test_accumulation()
     {
+        using NativeIPA = IPA<NativeCurve, poly_length>;
+        using RecursiveIPA = IPA<Curve, poly_length>;
+
         // We create a circuit that does two IPA verifications. However, we don't do the full verifications and instead
         // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
         // contain the commitment and an opening claim.
         Builder builder;
 
-        auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH);
-        auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH);
+        auto [transcript_1, claim_1] = create_ipa_claim<poly_length>(builder);
+        auto [transcript_2, claim_2] = create_ipa_claim<poly_length>(builder);
 
         // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
         // polynomial.
@@ -175,7 +131,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
 
         // Natively verify this proof to check it.
-        auto verifier_transcript = std::make_shared<NativeTranscript>(ipa_proof);
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(ipa_proof);
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
@@ -191,7 +148,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
  */
 TEST_F(IPARecursiveTests, RecursiveSmall)
 {
-    test_recursive_ipa(/*POLY_LENGTH=*/4);
+    static constexpr size_t log_poly_length = 2;
+    test_recursive_ipa<log_poly_length>();
 }
 
 /**
@@ -200,7 +158,8 @@ TEST_F(IPARecursiveTests, RecursiveSmall)
  */
 TEST_F(IPARecursiveTests, RecursiveMedium)
 {
-    test_recursive_ipa(/*POLY_LENGTH=*/1024);
+    static constexpr size_t log_poly_length = 10;
+    test_recursive_ipa<log_poly_length>();
 }
 
 /**
@@ -209,7 +168,8 @@ TEST_F(IPARecursiveTests, RecursiveMedium)
  */
 TEST_F(IPARecursiveTests, RecursiveLarge)
 {
-    test_recursive_ipa(/*POLY_LENGTH=*/1 << CONST_ECCVM_LOG_N);
+    static constexpr size_t log_poly_length = CONST_ECCVM_LOG_N;
+    test_recursive_ipa<log_poly_length>();
 }
 
 /**
@@ -218,7 +178,8 @@ TEST_F(IPARecursiveTests, RecursiveLarge)
  */
 TEST_F(IPARecursiveTests, AccumulateSmall)
 {
-    test_accumulation(/*POLY_LENGTH=*/4);
+    static constexpr size_t log_poly_length = 2;
+    test_accumulation<log_poly_length>();
 }
 
 /**
@@ -227,26 +188,26 @@ TEST_F(IPARecursiveTests, AccumulateSmall)
  */
 TEST_F(IPARecursiveTests, AccumulateMedium)
 {
-    test_accumulation(/*POLY_LENGTH=*/1024);
-}
-
-TEST_F(IPARecursiveTests, ConstantVerifier)
-{
-    test_fixed_ipa_recursive_verifier();
+    static constexpr size_t log_poly_length = 10;
+    test_accumulation<log_poly_length>();
 }
 
 TEST_F(IPARecursiveTests, FullRecursiveVerifier)
 {
-    const size_t POLY_LENGTH = 1024;
-    Builder builder;
-    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
 
-    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
+    static constexpr size_t log_poly_length = 10;
+    static constexpr size_t poly_length = 1UL << log_poly_length;
+    using RecursiveIPA = IPA<Curve, log_poly_length>;
+    //
+    Builder builder;
+    auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder);
+
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, poly_length, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
     info("Full IPA Recursive Verifier num finalized gates for length ",
-         POLY_LENGTH,
+         1UL << log_poly_length,
          " = ",
          builder.get_num_finalized_gates());
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -254,19 +215,21 @@ TEST_F(IPARecursiveTests, FullRecursiveVerifier)
 
 TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
 {
-    const size_t POLY_LENGTH = 1024;
+    static constexpr size_t log_poly_length = 10;
+    using RecursiveIPA = IPA<Curve, log_poly_length>;
 
     // We create a circuit that does two IPA verifications. However, we don't do the full verifications and instead
     // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
     // contain the commitment and an opening claim.
     Builder builder;
 
-    auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH);
-    auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH);
+    auto [transcript_1, claim_1] = create_ipa_claim<log_poly_length>(builder);
+    auto [transcript_2, claim_2] = create_ipa_claim<log_poly_length>(builder);
 
     // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
     // polynomial.
-    auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
+    auto [output_claim, ipa_proof] =
+        RecursiveIPA::template accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
     output_claim.set_public();
     builder.ipa_proof = ipa_proof;
     builder.finalize_circuit(/*ensure_nonzero=*/false);
@@ -277,10 +240,9 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
 
     Builder root_rollup;
     // Fully recursively verify this proof to check it.
-    auto stdlib_pcs_vkey =
-        std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, 1 << CONST_ECCVM_LOG_N, this->vk());
-    auto stdlib_verifier_transcript =
-        std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&root_rollup, 1UL << log_poly_length, this->vk());
+    auto stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
+    stdlib_verifier_transcript->load_proof(StdlibProof(root_rollup, ipa_proof));
     OpeningClaim<Curve> ipa_claim;
     ipa_claim.opening_pair.challenge =
         Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.challenge.get_value());
@@ -291,46 +253,7 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
     root_rollup.finalize_circuit(/*ensure_nonzero=*/true);
     EXPECT_TRUE(result);
     info("Full IPA Recursive Verifier num finalized gates for length ",
-         1 << CONST_ECCVM_LOG_N,
+         1UL << log_poly_length,
          " = ",
          root_rollup.get_num_finalized_gates());
-}
-
-/**
- * @brief Test accumulation of IPA claims with different polynomial lengths
- *
- */
-TEST_F(IPARecursiveTests, AccumulationWithDifferentSizes)
-{
-    // We create a circuit that does two IPA verifications of different sizes. However, we don't do the full
-    // verifications and instead accumulate the claims into one claim. This accumulation is done in circuit. Create two
-    // accumulators, which contain the commitment and an opening claim.
-    const size_t POLY_LENGTH_1 = 16;
-    const size_t POLY_LENGTH_2 = 32;
-    Builder builder;
-
-    auto [transcript_1, claim_1] = create_ipa_claim(builder, POLY_LENGTH_1);
-    auto [transcript_2, claim_2] = create_ipa_claim(builder, POLY_LENGTH_2);
-
-    // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
-    // polynomial.
-    auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
-    output_claim.set_public();
-    builder.ipa_proof = ipa_proof;
-    builder.finalize_circuit(/*ensure_nonzero=*/false);
-    info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
-         builder.get_num_finalized_gates());
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-
-    const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
-                                                 bb::fq(output_claim.opening_pair.evaluation.get_value()) };
-    Commitment native_comm = output_claim.commitment.get_value();
-    const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
-
-    // Natively verify this proof to check it.
-    auto verifier_transcript = std::make_shared<NativeTranscript>(ipa_proof);
-
-    auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
-    EXPECT_TRUE(result);
 }

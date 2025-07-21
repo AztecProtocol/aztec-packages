@@ -14,7 +14,6 @@ use dep::aztec::{
         },
         hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
-        utils::arrays::array_concat,
     },
 };
 
@@ -25,8 +24,8 @@ use dep::aztec::{
 // macro support is expanded.
 
 /// A private note representing a numeric value associated to an account (e.g. a token balance).
+#[derive(Eq, Serialize, Packable)]
 #[custom_note]
-#[derive(Eq, Serialize)]
 pub struct UintNote {
     // The ordering of these fields is important given that it must:
     //   a) match that of UintPartialNotePrivateContent, and
@@ -116,14 +115,13 @@ impl UintNote {
     /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to
     /// belong to the same owner.
     ///
-    /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can
-    /// discover the note. `recipient` will typically be the same as `owner`.
+    /// As part of the partial note creation process, a log will be sent to `recipient` so that they can discover the
+    /// note. `recipient` will typically be the same as `owner`.
     pub fn partial(
         owner: AztecAddress,
         storage_slot: Field,
         context: &mut PrivateContext,
         recipient: AztecAddress,
-        sender: AztecAddress,
         completer: AztecAddress,
     ) -> PartialUintNote {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
@@ -149,7 +147,7 @@ impl UintNote {
         };
 
         let encrypted_log =
-            note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
+            note::compute_partial_note_log(private_log_content, storage_slot, recipient);
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -181,7 +179,7 @@ impl UintPartialNotePrivateContent {
     fn compute_partial_commitment(self, storage_slot: Field) -> Field {
         // Here we commit to all private values, including the storage slot.
         poseidon2_hash_with_separator(
-            array_concat(self.pack(), [storage_slot]),
+            self.pack().concat([storage_slot]),
             GENERATOR_INDEX__NOTE_HASH,
         )
     }
@@ -299,7 +297,7 @@ impl PartialUintNote {
     ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
         let note_completion_log = self.compute_note_completion_log(value);
         let padding = [0; PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_COMPLETION_LOG_LENGTH];
-        array_concat(note_completion_log, padding)
+        note_completion_log.concat(padding)
     }
 
     fn compute_complete_note_hash(self, value: u128) -> Field {
@@ -331,11 +329,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{
-            address::AztecAddress,
-            traits::{FromField, Packable},
-            utils::arrays::array_concat,
-        },
+        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -395,9 +389,6 @@ mod test {
         let public_log_without_tag: [_; 1] =
             subarray(partial_note.compute_note_completion_log(value), 1);
 
-        assert_eq(
-            array_concat(private_log_without_public_tag, public_log_without_tag),
-            note.pack(),
-        );
+        assert_eq(private_log_without_public_tag.concat(public_log_without_tag), note.pack());
     }
 }

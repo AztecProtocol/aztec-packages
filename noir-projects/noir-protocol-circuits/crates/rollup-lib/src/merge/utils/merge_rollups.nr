@@ -1,6 +1,4 @@
-use crate::abis::base_or_merge_rollup_public_inputs::{
-    BaseOrMergeRollupPublicInputs, MERGE_ROLLUP_TYPE,
-};
+use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::hash::accumulate_sha256;
 
 pub fn merge_rollups(
@@ -17,7 +15,6 @@ pub fn merge_rollups(
         prev_rollup.accumulated_mana_used + next_rollup.accumulated_mana_used;
 
     BaseOrMergeRollupPublicInputs {
-        rollup_type: MERGE_ROLLUP_TYPE,
         num_txs,
         constants: prev_rollup.constants,
         start: prev_rollup.start,

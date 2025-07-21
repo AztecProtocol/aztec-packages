@@ -175,13 +175,13 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // docs:start:setup-withdrawal
     const withdrawAmount = 9n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     // Give approval to bridge to burn owner's funds:
     const authwit = await ownerWallet.setPublicAuthWit(
       {
         caller: l2BridgeContract.address,
-        action: l2TokenContract.methods.burn_public(ownerAztecAddress, withdrawAmount, nonce),
+        action: l2TokenContract.methods.burn_public(ownerAztecAddress, withdrawAmount, authwitNonce),
       },
       true,
     );
@@ -196,7 +196,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       EthAddress.ZERO,
     );
     const l2TxReceipt = await l2BridgeContract.methods
-      .exit_to_l1_public(EthAddress.fromString(ownerEthAddress), withdrawAmount, EthAddress.ZERO, nonce)
+      .exit_to_l1_public(EthAddress.fromString(ownerEthAddress), withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send()
       .wait();
 
@@ -220,5 +220,5 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     logger.info(`New L1 balance of ${ownerEthAddress} is ${newL1Balance}`);
     // docs:end:l1-withdraw
     expect(newL1Balance).toBe(withdrawAmount);
-  }, 60000);
+  }, 90000);
 });

@@ -73,11 +73,11 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     const validateActionInteraction = await user1Wallet.setPublicAuthWit(
       {
         caller: l2Bridge.address,
-        action: l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce),
+        action: l2Token.methods.burn_public(ownerAddress, withdrawAmount, authwitNonce),
       },
       true,
     );
@@ -86,7 +86,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
     const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
-    const l2TxReceipt = await crossChainTestHarness.withdrawPublicFromAztecToL1(withdrawAmount, nonce);
+    const l2TxReceipt = await crossChainTestHarness.withdrawPublicFromAztecToL1(withdrawAmount, authwitNonce);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, afterBalance - withdrawAmount);
 
     // Check balance before and after exit.

@@ -1,3 +1,5 @@
+#include "barretenberg/serialize/msgpack_impl.hpp"
+
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -6,6 +8,7 @@
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
 #include "gmock/gmock.h"
 #include <algorithm>
@@ -85,6 +88,48 @@ template <typename G1> class TestAffineElement : public testing::Test {
             // good read
             read(read_ptr, R);
             ASSERT_TRUE(R.on_curve());
+            ASSERT_TRUE(P == R);
+        }
+    }
+
+    static void test_msgpack_serialization()
+    {
+        // a generic point
+        {
+            affine_element P = affine_element(element::random_element());
+
+            // Serialize using msgpack
+            msgpack::sbuffer sbuf;
+            msgpack::pack(sbuf, P);
+
+            // Deserialize using msgpack
+            msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
+            msgpack::object deserialized = oh.get();
+
+            affine_element R;
+            deserialized.convert(R);
+
+            ASSERT_TRUE(R.on_curve() && !R.is_point_at_infinity());
+            ASSERT_TRUE(P == R);
+        }
+
+        // point at infinity
+        {
+            affine_element P = affine_element(element::random_element());
+            P.self_set_infinity();
+
+            // Serialize using msgpack
+            msgpack::sbuffer sbuf;
+            msgpack::pack(sbuf, P);
+
+            // Deserialize using msgpack
+            msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
+            msgpack::object deserialized = oh.get();
+
+            affine_element R;
+            deserialized.convert(R);
+
+            ASSERT_TRUE(R.is_point_at_infinity());
             ASSERT_TRUE(P == R);
         }
     }
@@ -180,6 +225,7 @@ TYPED_TEST(TestAffineElement, ReadWrite)
 TYPED_TEST(TestAffineElement, ReadWriteBuffer)
 {
     TestFixture::test_read_write_buffer();
+    TestFixture::test_msgpack_serialization();
 }
 
 TYPED_TEST(TestAffineElement, PointCompression)
@@ -243,6 +289,50 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
         auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
         EXPECT_EQ(r1, r2);
     }
+}
+
+TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
+{
+    using Curve = curve::BN254;
+    using AffineElement = Curve::AffineElement;
+
+    AffineElement point = AffineElement::random_element();
+    uint256_t x(point.x);
+    uint256_t y(point.y);
+
+    // Construct public inputs
+    std::vector<bb::fr> public_inputs;
+    size_t index = 0;
+    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
+        auto limb = x.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+        public_inputs.emplace_back(bb::fr(limb));
+        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    }
+    index = 0;
+    for (size_t idx = 0; idx < FQ_PUBLIC_INPUT_SIZE; idx++) {
+        auto limb = y.slice(index, index + bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+        public_inputs.emplace_back(bb::fr(limb));
+        index += bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+    }
+
+    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+
+    EXPECT_EQ(reconstructed, point);
+}
+
+TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
+{
+    using Curve = curve::Grumpkin;
+    using AffineElement = Curve::AffineElement;
+
+    AffineElement point = AffineElement::random_element();
+
+    // Construct public inputs
+    std::vector<bb::fr> public_inputs = { point.x, point.y };
+
+    auto reconstructed = AffineElement::reconstruct_from_public(std::span(public_inputs));
+
+    EXPECT_EQ(reconstructed, point);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason

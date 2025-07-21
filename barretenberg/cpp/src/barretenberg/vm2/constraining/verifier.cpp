@@ -14,11 +14,13 @@ AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
 
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept
     : key(std::move(other.key))
+    , transcript(std::move(other.transcript))
 {}
 
 AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 {
     key = other.key;
+    transcript = other.transcript;
     commitments.clear();
     return *this;
 }
@@ -28,7 +30,8 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    Polynomial<FF> polynomial(points, key->circuit_size);
+    const size_t circuit_size = 1 << key->log_circuit_size;
+    Polynomial<FF> polynomial(points, circuit_size);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -51,13 +54,13 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
 
     VerifierCommitments commitments{ key };
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    if (circuit_size != key->circuit_size) {
-        vinfo("Circuit size mismatch: expected", key->circuit_size, " got ", circuit_size);
+    if (circuit_size != (1 << key->log_circuit_size)) {
+        vinfo("Circuit size mismatch: expected", (1 << key->log_circuit_size), " got ", circuit_size);
         return false;
     }
 
@@ -83,17 +86,18 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
-    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    SumcheckOutput<Flavor> output =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {

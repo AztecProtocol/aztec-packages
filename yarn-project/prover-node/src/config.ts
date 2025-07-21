@@ -26,8 +26,6 @@ import {
 } from '@aztec/sequencer-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
-
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientUserConfig &
   P2PConfig &
@@ -35,7 +33,6 @@ export type ProverNodeConfig = ArchiverConfig &
   PublisherConfig &
   TxSenderConfig &
   DataStoreConfig &
-  ProverCoordinationConfig &
   SharedNodeConfig &
   SpecificProverNodeConfig &
   GenesisStateConfig;
@@ -45,6 +42,7 @@ export type SpecificProverNodeConfig = {
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
   proverNodeFailedEpochStore: string | undefined;
+  txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
   txGatheringMaxParallelRequestsPerNode: number;
@@ -86,6 +84,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     description: 'How many tx requests to make in parallel to each node',
     ...numberConfigHelper(100),
   },
+  txGatheringTimeoutMs: {
+    env: 'PROVER_NODE_TX_GATHERING_TIMEOUT_MS',
+    description: 'How long to wait for tx data to be available before giving up',
+    ...numberConfigHelper(120_000),
+  },
 };
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
@@ -96,7 +99,6 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...worldStateConfigMappings,
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
-  ...proverCoordinationConfigMappings,
   ...specificProverNodeConfigMappings,
   ...genesisStateConfigMappings,
   ...sharedNodeConfigMappings,
@@ -123,6 +125,6 @@ export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & 
   const proverId =
     userConfig.proverId && !userConfig.proverId.isZero()
       ? userConfig.proverId
-      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey));
+      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey.getValue()));
   return { ...userConfig, proverId };
 }

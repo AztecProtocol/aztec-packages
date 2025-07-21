@@ -1,0 +1,241 @@
+include "../precomputed.pil";
+
+// This file owns the bytecode columns, and other helper columns.
+//
+// Remark: This does NOT support empty bytecode. We rely on other means to prevent processing empty bytecode:
+//         1) In the noir registration contract, we explicitly prevent empty bytecode being registered (PR #12910).
+//         2) We may still get empty bytecode (which would be invalid) via a sequencer.
+//         3) We handle these in the same way as any bytecode that has not been registered (Merkle check of the address).
+
+namespace bc_decomposition;
+
+pol commit sel;
+sel * (1 - sel) = 0;
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+// Size of the sliding window.
+// This includes the "current byte" and the WINDOW_SIZE - 1 lookahead bytes.
+pol WINDOW_SIZE = 37;
+
+// Internal bytecode identifier which is defined in bc_retrieval.pil
+pol commit id;
+// pc counts from 0 to bytecode_length - 1.
+pol commit pc;
+// bytes_remaining counts from bytecode_length to 1.
+pol commit bytes_remaining;
+
+// This column should be 1 iff the contract is switching, i.e., this row is the last one
+// of a contract bytecode. This is equivalent to bytes_remaining == 1.
+pol commit last_of_contract;
+last_of_contract * (1 - last_of_contract) = 0;
+
+// This is the most important column. It contains the bytecode one byte at a time on each row.
+// If the TX uses several bytecodes, they should go one after the other in this column.
+pol commit bytes;
+
+// sel is set to 1 if and only if bytes_remaining != 0 (i.e., sel == 0 iff bytes_remaining == 0)
+// This is checked by following relation and utilising inverse of bytes_remaining: bytes_rem_inv
+pol commit bytes_rem_inv;
+
+// Remark: Depending on how bytecode hashing constraints work, we might remove this relation.
+#[BC_DEC_SEL_BYTES_REM_NON_ZERO]
+bytes_remaining * ((1 - sel) * (1 - bytes_rem_inv) + bytes_rem_inv) - sel = 0;
+
+// If the current row is not active, then there are no more active rows after that.
+// Note that sel cannot be activated in the first row as sel' is defined.
+// As a consequence, if a row is activated (sel == 1) somewhere in this sub-trace, then
+// the activated rows start from the second row and are contiguous.
+#[TRACE_CONTINUITY]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+// last_of_contract == 1 iff bytes_remaining - 1 == 0
+// We need the helper column for the inverse of bytes_remaining - 1
+pol commit bytes_rem_min_one_inv;
+
+#[BC_DEC_LAST_CONTRACT_BYTES_REM_ONE]
+sel * ((bytes_remaining - 1) * (last_of_contract * (1 - bytes_rem_min_one_inv) + bytes_rem_min_one_inv) + last_of_contract - 1) = 0;
+
+// The following alias is a boolean because last_of_contract == 1 ==> sel == 1 ==> first_row == 0 (sel' is defined)
+pol FIRST_OR_LAST_CONTRACT = precomputed.first_row + last_of_contract;
+
+// Initialization of pc per bytecode to zero
+#[BC_DEC_PC_ZERO_INITIALIZATION]
+FIRST_OR_LAST_CONTRACT * pc' = 0;
+
+// pc evolution (increment within bytecode)
+#[BC_DEC_PC_INCREMENT]
+sel * (1 - last_of_contract) * (pc' - pc - 1) = 0;
+
+// bytes_remaining evolution (decrement within bytecode)
+#[BC_DEC_BYTES_REMAINING_DECREMENT]
+sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
+
+// This is crucial to propagate bytecode_id as this is part of the unique identifier
+// for a given instruction (pair [pc, bytecode_id]). Otherwise, instruction fetching might
+// be misled to copy the wrong instruction from this subtrace.
+#[BC_DEC_ID_CONSTANT]
+(1 - FIRST_OR_LAST_CONTRACT) * (id' - id) = 0;
+
+// This constrains that the bytes are in the range 0 to 255.
+#[BYTES_ARE_BYTES]
+sel { bytes } in precomputed.sel_range_8 { precomputed.clk };
+
+// These are helper columns that will be used for bytecode decomposition.
+pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, bytes_pc_plus_5,
+           bytes_pc_plus_6, bytes_pc_plus_7, bytes_pc_plus_8, bytes_pc_plus_9, bytes_pc_plus_10,
+           bytes_pc_plus_11, bytes_pc_plus_12, bytes_pc_plus_13, bytes_pc_plus_14, bytes_pc_plus_15,
+           bytes_pc_plus_16, bytes_pc_plus_17, bytes_pc_plus_18, bytes_pc_plus_19, bytes_pc_plus_20,
+           bytes_pc_plus_21, bytes_pc_plus_22, bytes_pc_plus_23, bytes_pc_plus_24, bytes_pc_plus_25,
+           bytes_pc_plus_26, bytes_pc_plus_27, bytes_pc_plus_28, bytes_pc_plus_29, bytes_pc_plus_30,
+           bytes_pc_plus_31, bytes_pc_plus_32, bytes_pc_plus_33, bytes_pc_plus_34, bytes_pc_plus_35,
+           bytes_pc_plus_36;
+
+
+// DECOMPOSITION DOES NOT GO OVER THE END OF THE BYTECODE
+//
+// We need to constrain that the bytes_pc_plus_n do not go over the end of the bytecode.
+// In that case we expect there to be 0s. We need a few extra helper columns and some tricks.
+//
+// The basic idea is that, at the end of a given bytecode we have the separator toggled by
+// last_of_contract. We enforce at this row that all bytes_pc_plus_XX values are zeros.
+// Then, we have relations to propagate the vertical bytes to the horizontal ones by shifting
+// them bottom-up and from left-to-right:
+//
+//  pc |  bytes |  +1 |  +2 |                    last_of_contract
+// -----+-------+-----+-----+-------+-----+-----+----------------
+//   ............................
+// 120 |    0x1 | 0x2 | 0x3 | 0x4 | 0x0 | 0x0 | 0
+// 121 |    0x2 | 0x3 | 0x4 | 0x0 | 0x0 | 0x0 | 0
+// 122 |    0x3 | 0x4 | 0x0 | 0x0 | 0x0 | 0x0 | 0
+// 123 |    0x4 | 0x0 | 0x0 | 0x0 | 0x0 | 0x0 | 1
+//
+//
+// How many bytes are we going to read into the sliding window?
+// This is the minimum of WINDOW_SIZE and bytes_remaining.
+//
+//
+// Example:
+// Suppose a bytecode = [0x0, 0x1, ..., 0xA, 0xB, 0xC, 0xD] of size 40.
+//
+//   pc | bytes_remaining | bytes_to_read | bytes |  +1 |  +2 | ...
+// -----+-----------------+---------------+-------+-----+-----+-----
+//    0 |              40 |   WINDOW_SIZE |   0x1 | 0x2 | 0x3 | ...
+//    1 |              39 |   WINDOW_SIZE |   0x2 | 0x3 | 0x4 | ...
+//    2 |              38 |   WINDOW_SIZE |   0x3 | 0x4 | 0x5 | ...
+//    ...
+//   36 |               4 |             4 |   0xA | 0xB | 0xC | ...
+//   37 |               3 |             3 |   0xB | 0xC | 0xD | ...
+//   38 |               2 |             2 |   0xC | 0xD | 0x0 | ...
+//   39 |               1 |             1 |   0xD | 0x0 | 0x0 | ...
+
+pol commit bytes_to_read;
+pol commit sel_overflow_correction_needed;
+sel_overflow_correction_needed * (1 - sel_overflow_correction_needed) = 0;
+// We need to constrain bytes_to_read = min(WINDOW_SIZE, bytes_remaining) which is equal to
+// bytes_remaining if bytes_remaining <= WINDOW_SIZE and WINDOW_SIZE otherwise.
+
+// Absolute value of WINDOW_SIZE - bytes_remaining
+pol commit abs_diff;
+// Remark: The factor sel in relation below is only required to use the skippable mechanism.
+// sel_overflow_correction_needed = 1 if bytes_remaining < WINDOW_SIZE and
+// sel_overflow_correction_needed = 0 if bytes_remaining > WINDOW_SIZE
+#[BC_DEC_ABS_DIFF]
+sel * (2 * sel_overflow_correction_needed * (WINDOW_SIZE - bytes_remaining) - WINDOW_SIZE + bytes_remaining - abs_diff) = 0;
+
+// We prove that the abs_diff is positive (and therefore sel_overflow_correction_needed correct) over the integers
+// using a range check over 16 bits. We know that WINDOWS_SIZE fits into 16 bits and bytes_remaining cannot be larger
+// than the trace size 2^21 (and bytecode hashing/validation could not pass). This provides guarantee that
+// abs_diff cannot be the result of an underflow. This would be only possible for bytes_remaining being very close
+// to the field order.
+#[ABS_DIFF_IS_U16]
+sel { abs_diff } in precomputed.sel_range_16 { precomputed.clk };
+
+#[BC_DEC_OVERFLOW_CORRECTION_VALUE]
+sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + sel_overflow_correction_needed * (bytes_to_read - bytes_remaining)) = 0;
+
+// Constrain shifted columns.
+// We need to guard with (1 - FIRST_OR_LAST_CONTRACT) because otherwise we would need to copy value
+// from another bytecode to satisfy the relations. The issue is then that it would pollute
+// the value packed_field and would lead computing the wrong hash in bytecode hashing.
+// By writing the following relations in the form bytes_pc_plus_i = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_{i-1}'
+// rather than (1 - FIRST_OR_LAST_CONTRACT) * (bytes_pc_plus_i - bytes_pc_plus_{i-1}') = 0
+// we not only help witness generation to be satisfied but enforce the propagation
+// of zero values (instead of garbage) whch effectively prevents a malicious prover to
+// add garbage values beyond the end of the bytecode. This is not strictly necessary
+// but this property comes at no additional cost.
+
+bytes_pc_plus_1 = (1 - FIRST_OR_LAST_CONTRACT) * bytes';
+bytes_pc_plus_2 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_1';
+bytes_pc_plus_3 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_2';
+bytes_pc_plus_4 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_3';
+bytes_pc_plus_5 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_4';
+bytes_pc_plus_6 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_5';
+bytes_pc_plus_7 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_6';
+bytes_pc_plus_8 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_7';
+bytes_pc_plus_9 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_8';
+bytes_pc_plus_10 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_9';
+bytes_pc_plus_11 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_10';
+bytes_pc_plus_12 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_11';
+bytes_pc_plus_13 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_12';
+bytes_pc_plus_14 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_13';
+bytes_pc_plus_15 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_14';
+bytes_pc_plus_16 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_15';
+bytes_pc_plus_17 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_16';
+bytes_pc_plus_18 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_17';
+bytes_pc_plus_19 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_18';
+bytes_pc_plus_20 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_19';
+bytes_pc_plus_21 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_20';
+bytes_pc_plus_22 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_21';
+bytes_pc_plus_23 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_22';
+bytes_pc_plus_24 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_23';
+bytes_pc_plus_25 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_24';
+bytes_pc_plus_26 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_25';
+bytes_pc_plus_27 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_26';
+bytes_pc_plus_28 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_27';
+bytes_pc_plus_29 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_28';
+bytes_pc_plus_30 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_29';
+bytes_pc_plus_31 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_30';
+bytes_pc_plus_32 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_31';
+bytes_pc_plus_33 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_32';
+bytes_pc_plus_34 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_33';
+bytes_pc_plus_35 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_34';
+bytes_pc_plus_36 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_35';
+
+// For bytecode hashing, we need to re-pack 31 bytes at some PCs into a field.
+// We will have a selector for the PCs that are packed. This only needs to happen
+// for PCs 0, 31, 62, ...
+// The "sequencer" can choose which PCs to pack, but the bytecode hashing trace
+// will use this selector (as 1) in the lookup tuple. Therefore, if the sequencer
+// does not choose at least the minimum amount of rows, the lookup will fail.
+// NOTE: The bytecode hashing trace will constrain itself that every 31st pc is packed.
+
+// TODO: We need to ensure that there is a single row per pair (pc, bytecode_id) in
+// this subtrace (otherwise, a malicious prover might copy wrong values).
+// This is ensured by #[SEL_TOGGLED_AT_PACKED] and #[BC_DEC_PC_INCREMENT] relations but
+// still have to implement the unicity on bytecode_id. The current plan is to
+// add a permutation between this sub-trace and bc_retrieval.pil of the form:
+// last_of_contract {id} is bc_retrieval.sel_XXX {bc_retrieval.bytecode_id}
+
+pol commit sel_packed;
+sel_packed * (1 - sel_packed) = 0;
+
+#[SEL_TOGGLED_AT_PACKED]
+sel_packed * (1 - sel) = 0;
+
+// Important: this "field" is not 32 bytes (or 254 bits) long. It is 31 bytes long.
+pol commit packed_field;
+
+// TODO: Once we manually optimize the generated files, this subrelation can benefit from short-circuit multiplication.
+#[BC_DECOMPOSITION_REPACKING]
+sel_packed * (
+       2**0   * bytes_pc_plus_30 + 2**8   * bytes_pc_plus_29 + 2**16  * bytes_pc_plus_28 + 2**24  * bytes_pc_plus_27 + 2**32  * bytes_pc_plus_26 +
+       2**40  * bytes_pc_plus_25 + 2**48  * bytes_pc_plus_24 + 2**56  * bytes_pc_plus_23 + 2**64  * bytes_pc_plus_22 + 2**72  * bytes_pc_plus_21 +
+       2**80  * bytes_pc_plus_20 + 2**88  * bytes_pc_plus_19 + 2**96  * bytes_pc_plus_18 + 2**104 * bytes_pc_plus_17 + 2**112 * bytes_pc_plus_16 +
+       2**120 * bytes_pc_plus_15 + 2**128 * bytes_pc_plus_14 + 2**136 * bytes_pc_plus_13 + 2**144 * bytes_pc_plus_12 + 2**152 * bytes_pc_plus_11 +
+       2**160 * bytes_pc_plus_10 + 2**168 * bytes_pc_plus_9  + 2**176 * bytes_pc_plus_8  + 2**184 * bytes_pc_plus_7  + 2**192 * bytes_pc_plus_6  +
+       2**200 * bytes_pc_plus_5  + 2**208 * bytes_pc_plus_4  + 2**216 * bytes_pc_plus_3  + 2**224 * bytes_pc_plus_2  + 2**232 * bytes_pc_plus_1  +
+       2**240 * bytes
+       - packed_field
+) = 0;

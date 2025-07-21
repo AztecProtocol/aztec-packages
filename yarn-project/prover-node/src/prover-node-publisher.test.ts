@@ -1,4 +1,6 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
@@ -25,7 +27,7 @@ describe('prover-node-publisher', () => {
     config = {
       l1ChainId: 1,
       l1RpcUrls: ['http://localhost:8545'],
-      publisherPrivateKey: '0x1234',
+      publisherPrivateKey: new SecretValue('0x1234'),
       l1PublishRetryIntervalMS: 1000,
       viemPollingIntervalMS: 1000,
       customForwarderContractAddress: EthAddress.random(),
@@ -137,7 +139,15 @@ describe('prover-node-publisher', () => {
         Promise.resolve({
           archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
           headerHash: '0x', // unused,
+          blobCommitmentsHash: '0x', // unused,
           slotNumber: 0n, // unused,
+          feeHeader: {
+            excessMana: 0n, // unused
+            manaUsed: 0n, // unused
+            feeAssetPriceNumerator: 0n, // unused
+            congestionCost: 0n, // unused
+            proverCost: 0n, // unused
+          },
         }),
       );
 
@@ -146,6 +156,14 @@ describe('prover-node-publisher', () => {
       const ourPublicInputs = RootRollupPublicInputs.random();
       ourPublicInputs.previousArchiveRoot = blocks[fromBlock - 2]?.endArchiveRoot ?? Fr.ZERO;
       ourPublicInputs.endArchiveRoot = blocks[toBlock - 1]?.endArchiveRoot ?? Fr.ZERO;
+
+      const ourBatchedBlob = new BatchedBlob(
+        ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+        ourPublicInputs.blobPublicInputs.z,
+        ourPublicInputs.blobPublicInputs.y,
+        ourPublicInputs.blobPublicInputs.c,
+        ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
+      );
 
       // Return our public inputs
       const totalFields = ourPublicInputs.toFields();
@@ -158,6 +176,7 @@ describe('prover-node-publisher', () => {
           toBlock,
           publicInputs: ourPublicInputs,
           proof: Proof.empty(),
+          batchedBlobInputs: ourBatchedBlob,
         })
         .then(() => 'Success')
         .catch(error => error.message);

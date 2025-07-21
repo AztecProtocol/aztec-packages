@@ -1,4 +1,4 @@
-import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import {
   Grumpkin,
   keccak256,
@@ -43,17 +43,19 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { AvmRevertReason } from './errors.js';
 import {
-  getContractFunctionArtifact,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
   initMachineState,
   initPersistableStateManager,
+} from './fixtures/initializers.js';
+import {
+  getContractFunctionArtifact,
   randomMemoryBytes,
   randomMemoryFields,
   randomMemoryUint64s,
   resolveContractAssertionMessage,
-} from './fixtures/index.js';
+} from './fixtures/utils.js';
 import {
   Add,
   CalldataCopy,
@@ -85,7 +87,7 @@ import {
 
 const siloAddress = (contractAddress: AztecAddress) => {
   const contractAddressNullifier = siloNullifier(
-    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
     contractAddress.toField(),
   );
   return contractAddressNullifier;
@@ -488,11 +490,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
-    const blockNumber = Fr.random();
-    const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
-    const feePerDaGas = Fr.random();
-    const feePerL2Gas = Fr.random();
-    const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
+    const blockNumber = randomInt(20000);
+    const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
+    const gasFees = GasFees.random();
 
     beforeAll(async () => {
       address = await AztecAddress.random();
@@ -523,10 +523,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       ['transactionFee', () => transactionFee.toField(), 'get_transaction_fee'],
       ['chainId', () => chainId.toField(), 'get_chain_id'],
       ['version', () => version.toField(), 'get_version'],
-      ['blockNumber', () => blockNumber.toField(), 'get_block_number'],
-      ['timestamp', () => timestamp.toField(), 'get_timestamp'],
-      ['feePerDaGas', () => feePerDaGas.toField(), 'get_fee_per_da_gas'],
-      ['feePerL2Gas', () => feePerL2Gas.toField(), 'get_fee_per_l2_gas'],
+      ['blockNumber', () => new Fr(blockNumber), 'get_block_number'],
+      ['timestamp', () => new Fr(timestamp), 'get_timestamp'],
+      ['feePerDaGas', () => new Fr(gasFees.feePerDaGas), 'get_fee_per_da_gas'],
+      ['feePerL2Gas', () => new Fr(gasFees.feePerL2Gas), 'get_fee_per_l2_gas'],
     ])('%s getter', async (_name: string, valueGetter: () => Fr, functionName: string) => {
       const value = valueGetter();
       const bytecode = getAvmTestContractBytecode(functionName);
@@ -553,7 +553,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   describe('Side effects, world state, nested calls', () => {
     const address = AztecAddress.fromNumber(1);
     const sender = AztecAddress.fromNumber(42);
-    const leafIndex = new Fr(7);
+    const leafIndex = 7n;
     const slotNumber = 1; // must update Noir contract if changing this
     const slot = new Fr(slotNumber);
     const listSlotNumber0 = 2; // must update Noir contract if changing this
@@ -592,16 +592,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     describe.each([
       [/*mockAtLeafIndex=*/ undefined], // doesn't exist at all
       [/*mockAtLeafIndex=*/ leafIndex], // should be found!
-      [/*mockAtLeafIndex=*/ leafIndex.add(Fr.ONE)], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
-    ])('Note hash checks', (mockAtLeafIndex?: Fr) => {
-      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex.equals(leafIndex);
-      const existsElsewhere = mockAtLeafIndex !== undefined && !mockAtLeafIndex.equals(leafIndex);
+      [/*mockAtLeafIndex=*/ leafIndex + 1n], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
+    ])('Note hash checks', (mockAtLeafIndex?: bigint) => {
+      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex == leafIndex;
+      const existsElsewhere = mockAtLeafIndex !== undefined && !(mockAtLeafIndex == leafIndex);
       const existsStr = expectFound ? 'DOES exist' : 'does NOT exist';
-      const foundAtStr = existsElsewhere
-        ? `at leafIndex=${mockAtLeafIndex.toNumber()} (exists at leafIndex=${leafIndex.toNumber()})`
-        : '';
+      const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
-        const calldata = [value0, leafIndex];
+        const calldata = [value0, new Fr(leafIndex)];
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('note_hash_exists');
         if (mockAtLeafIndex !== undefined) {
@@ -635,17 +633,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     describe.each([
       [/*mockAtLeafIndex=*/ undefined], // doesn't exist at all
       [/*mockAtLeafIndex=*/ leafIndex], // should be found!
-      [/*mockAtLeafIndex=*/ leafIndex.add(Fr.ONE)], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
-    ])('L1ToL2 message checks', (mockAtLeafIndex?: Fr) => {
-      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex.equals(leafIndex);
-      const existsElsewhere = mockAtLeafIndex !== undefined && !mockAtLeafIndex.equals(leafIndex);
+      [/*mockAtLeafIndex=*/ leafIndex + 1n], // won't be found! (checking leafIndex+1, but it exists at leafIndex)
+    ])('L1ToL2 message checks', (mockAtLeafIndex?: bigint) => {
+      const expectFound = mockAtLeafIndex !== undefined && mockAtLeafIndex == leafIndex;
+      const existsElsewhere = mockAtLeafIndex !== undefined && !(mockAtLeafIndex == leafIndex);
       const existsStr = expectFound ? 'DOES exist' : 'does NOT exist';
-      const foundAtStr = existsElsewhere
-        ? `at leafIndex=${mockAtLeafIndex.toNumber()} (exists at leafIndex=${leafIndex.toNumber()})`
-        : '';
+      const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
 
       it(`Should return ${expectFound} (and be traced) when message ${existsStr} ${foundAtStr}`, async () => {
-        const calldata = [value0, leafIndex];
+        const calldata = [value0, new Fr(leafIndex)];
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
         if (mockAtLeafIndex !== undefined) {
@@ -670,8 +666,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, 0);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
@@ -1111,8 +1107,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     beforeAll(async () => {
       siloedNullifier0 = await siloNullifier(address, value0);
       const siloedNoteHash0 = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, noteHashIndexInTx);
-      uniqueNoteHash0 = await computeUniqueNoteHash(nonce, siloedNoteHash0);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, noteHashIndexInTx);
+      uniqueNoteHash0 = await computeUniqueNoteHash(noteNonce, siloedNoteHash0);
     });
 
     beforeEach(async () => {

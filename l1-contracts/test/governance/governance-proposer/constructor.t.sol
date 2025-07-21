@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 
 contract FakeRegistry {
   function getGovernance() external pure returns (address) {
@@ -52,8 +52,8 @@ contract ConstructorTest is Test {
     GovernanceProposer g = new GovernanceProposer(REGISTRY, GSE, n, m);
 
     assertEq(address(g.REGISTRY()), address(REGISTRY));
-    assertEq(g.N(), n);
-    assertEq(g.M(), m);
+    assertEq(g.QUORUM_SIZE(), n);
+    assertEq(g.ROUND_SIZE(), m);
     assertEq(g.getExecutor(), address(REGISTRY.getGovernance()), "executor");
     assertEq(g.getInstance(), address(REGISTRY.getCanonicalRollup()), "instance");
   }

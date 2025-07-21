@@ -1,11 +1,13 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
+import { EthAddress, sleep } from '@aztec/aztec.js';
 import { addL1Validator } from '@aztec/cli/l1';
+import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -22,7 +24,7 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 
@@ -47,25 +49,25 @@ describe('e2e_p2p_network', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_network',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
       },
+      mockZkPassportVerifier: true,
     });
 
-    await t.setupAccount();
     await t.addBootstrapNode();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -101,25 +103,44 @@ describe('e2e_p2p_network', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
+    const zkPassportVerifier = getContract({
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.zkPassportVerifierAddress!.toString(),
+      abi: MockZKPassportVerifierAbi,
+      client: t.ctx.deployL1ContractsValues.l1Client,
+    });
+
     expect((await rollup.read.getAttesters()).length).toBe(0);
 
     // Add the validators to the rollup using the same function as the CLI
     for (let i = 0; i < validators.length; i++) {
       const validator = validators[i];
+      const mockPassportProof = ZkPassportProofParams.random().toBuffer();
       await addL1Validator({
         rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
         chainId: t.ctx.aztecNodeConfig.l1ChainId,
         privateKey: t.baseAccountPrivateKey,
         mnemonic: undefined,
         attesterAddress: EthAddress.fromString(validator.attester.toString()),
+        merkleProof: [], // empty merkle proof - check is disabled in the test
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
+        proofParams: mockPassportProof,
         log: t.logger.info,
         debugLogger: t.logger,
       });
+
+      // mock nullifiers - increment the id in the mock zk passport verifier
+      t.logger.info('Incrementing unique identifier in mock zk passport verifier');
+      await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+        hash: await zkPassportVerifier.write.incrementUniqueIdentifier(),
+      });
     }
 
-    const attestersImmediatelyAfterAdding = await rollup.read.getAttesters();
-    expect(attestersImmediatelyAfterAdding.length).toBe(validators.length);
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await rollup.write.flushEntryQueue(),
+    });
+
+    const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
+    expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
@@ -134,7 +155,7 @@ describe('e2e_p2p_network', () => {
     // Changes have now taken effect
     const attesters = await rollup.read.getAttesters();
     expect(attesters.length).toBe(validators.length);
-    expect(attesters.length).toBe(NUM_NODES);
+    expect(attesters.length).toBe(NUM_VALIDATORS);
 
     // Send and await a tx to make sure we mine a block for the warp to correctly progress.
     await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
@@ -159,7 +180,7 @@ describe('e2e_p2p_network', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -168,7 +189,12 @@ describe('e2e_p2p_network', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(4000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
@@ -195,7 +221,7 @@ describe('e2e_p2p_network', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(new Fr(blockNumber), payload, a.signature));
+      .map(a => new BlockAttestation(blockNumber, payload, a.signature));
     const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 

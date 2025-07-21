@@ -5,8 +5,8 @@ use protocol_types::traits::Serialize;
 //
 // pub enum NoteMetadata {
 //   PendingSamePhase{ note_hash_counter: u32 },
-//   PendingOtherPhase{ note_hash_counter: u32, nonce: Field },
-//   Settled{ nonce: Field },
+//   PendingOtherPhase{ note_hash_counter: u32, note_nonce: Field },
+//   Settled{ note_nonce: Field },
 // }
 //
 // For now, we have `NoteMetadata` acting as a sort of tagged union.
@@ -43,21 +43,21 @@ global NoteStage: NoteStageEnum =
 #[derive(Eq, Serialize)]
 pub struct NoteMetadata {
     stage: u8,
-    maybe_nonce: Field,
+    maybe_note_nonce: Field,
 }
 
 impl NoteMetadata {
     /// Constructs a `NoteMetadata` object from optional note hash counter and nonce. Both a zero note hash counter and
     /// a zero nonce are invalid, so those are used to signal non-existent values.
-    pub fn from_raw_data(nonzero_note_hash_counter: bool, maybe_nonce: Field) -> Self {
+    pub fn from_raw_data(nonzero_note_hash_counter: bool, maybe_note_nonce: Field) -> Self {
         if nonzero_note_hash_counter {
-            if maybe_nonce == 0 {
-                Self { stage: NoteStage.PENDING_SAME_PHASE, maybe_nonce }
+            if maybe_note_nonce == 0 {
+                Self { stage: NoteStage.PENDING_SAME_PHASE, maybe_note_nonce }
             } else {
-                Self { stage: NoteStage.PENDING_PREVIOUS_PHASE, maybe_nonce }
+                Self { stage: NoteStage.PENDING_PREVIOUS_PHASE, maybe_note_nonce }
             }
-        } else if maybe_nonce != 0 {
-            Self { stage: NoteStage.SETTLED, maybe_nonce }
+        } else if maybe_note_nonce != 0 {
+            Self { stage: NoteStage.SETTLED, maybe_note_nonce }
         } else {
             panic(
                 f"Note has a zero note hash counter and no nonce - existence cannot be proven",
@@ -94,13 +94,13 @@ impl NoteMetadata {
     /// Asserts that the metadata is that of a pending note from a previous phase and converts it accordingly.
     pub fn to_pending_previous_phase(self) -> PendingPreviousPhaseNoteMetadata {
         assert_eq(self.stage, NoteStage.PENDING_PREVIOUS_PHASE);
-        PendingPreviousPhaseNoteMetadata::new(self.maybe_nonce)
+        PendingPreviousPhaseNoteMetadata::new(self.maybe_note_nonce)
     }
 
     /// Asserts that the metadata is that of a settled note and converts it accordingly.
     pub fn to_settled(self) -> SettledNoteMetadata {
         assert_eq(self.stage, NoteStage.SETTLED);
-        SettledNoteMetadata::new(self.maybe_nonce)
+        SettledNoteMetadata::new(self.maybe_note_nonce)
     }
 }
 
@@ -112,13 +112,13 @@ impl From<PendingSamePhaseNoteMetadata> for NoteMetadata {
 
 impl From<PendingPreviousPhaseNoteMetadata> for NoteMetadata {
     fn from(value: PendingPreviousPhaseNoteMetadata) -> Self {
-        NoteMetadata::from_raw_data(true, value.nonce())
+        NoteMetadata::from_raw_data(true, value.note_nonce())
     }
 }
 
 impl From<SettledNoteMetadata> for NoteMetadata {
     fn from(value: SettledNoteMetadata) -> Self {
-        NoteMetadata::from_raw_data(false, value.nonce())
+        NoteMetadata::from_raw_data(false, value.note_nonce())
     }
 }
 
@@ -147,18 +147,18 @@ impl PendingSamePhaseNoteMetadata {
 /// same (first non-revertible and then revertible) this implies that the note was created in the non-revertible phase,
 /// and that the current phase is the revertible phase.
 pub struct PendingPreviousPhaseNoteMetadata {
-    nonce: Field,
+    note_nonce: Field,
     // This struct does not contain a note hash counter, even though one exists for this note, because we cannot
     // constrain its value (and don't need to - only that it is non-zero).
 }
 
 impl PendingPreviousPhaseNoteMetadata {
-    pub fn new(nonce: Field) -> Self {
-        Self { nonce }
+    pub fn new(note_nonce: Field) -> Self {
+        Self { note_nonce }
     }
 
-    pub fn nonce(self) -> Field {
-        self.nonce
+    pub fn note_nonce(self) -> Field {
+        self.note_nonce
     }
 }
 
@@ -168,15 +168,15 @@ impl PendingPreviousPhaseNoteMetadata {
 /// This represents a settled note, i.e. a note that was created in a prior transaction and is therefore already in the
 /// note hash tree.
 pub struct SettledNoteMetadata {
-    nonce: Field,
+    note_nonce: Field,
 }
 
 impl SettledNoteMetadata {
-    pub fn new(nonce: Field) -> Self {
-        Self { nonce }
+    pub fn new(note_nonce: Field) -> Self {
+        Self { note_nonce }
     }
 
-    pub fn nonce(self) -> Field {
-        self.nonce
+    pub fn note_nonce(self) -> Field {
+        self.note_nonce
     }
 }

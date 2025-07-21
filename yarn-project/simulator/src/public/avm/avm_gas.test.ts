@@ -3,7 +3,7 @@ import { AVM_MAX_OPERANDS } from '@aztec/constants';
 import { computeAddressingCost, getBaseGasCost, getDynamicGasCost, sumGas } from './avm_gas.js';
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { initContext } from './fixtures/index.js';
+import { initContext } from './fixtures/initializers.js';
 import { Add, CalldataCopy, Div, Mul, Set as SetInstruction, Sub } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { MAX_OPCODE_VALUE } from './serialization/instruction_serialization.js';

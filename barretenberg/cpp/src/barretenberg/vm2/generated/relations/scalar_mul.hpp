@@ -20,6 +20,7 @@ template <typename FF_> class scalar_mulImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::scalar_mul_sel)).is_zero();
     }
 

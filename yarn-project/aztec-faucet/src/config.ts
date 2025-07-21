@@ -1,5 +1,11 @@
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  SecretValue,
+  getConfigFromMappings,
+  numberConfigHelper,
+  secretStringConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 export type L1AssetConfig = {
@@ -8,7 +14,7 @@ export type L1AssetConfig = {
 };
 
 export type FaucetConfig = L1ReaderConfig & {
-  l1Mnemonic: string;
+  l1Mnemonic?: SecretValue<string>;
   mnemonicAddressIndex: number;
   interval: number;
   ethAmount: string;
@@ -20,6 +26,7 @@ export const faucetConfigMapping: ConfigMappingsType<FaucetConfig> = {
   l1Mnemonic: {
     env: 'MNEMONIC',
     description: 'The mnemonic for the faucet account',
+    ...secretStringConfigHelper(),
   },
   mnemonicAddressIndex: {
     env: 'FAUCET_MNEMONIC_ADDRESS_INDEX',

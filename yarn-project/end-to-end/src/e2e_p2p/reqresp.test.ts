@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { SentTx, sleep } from '@aztec/aztec.js';
+import { SentTx, Tx, createLogger, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
 
@@ -14,7 +14,7 @@ import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIME
 import { createPXEServiceAndPrepareTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 6;
+const NUM_VALIDATORS = 6;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 
@@ -27,7 +27,8 @@ describe('e2e_p2p_reqresp_tx', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_reqresp_tx',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
@@ -37,7 +38,6 @@ describe('e2e_p2p_reqresp_tx', () => {
         aztecEpochDuration: 64, // stable committee
       },
     });
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
   });
@@ -45,10 +45,12 @@ describe('e2e_p2p_reqresp_tx', () => {
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
+
+  const getNodePort = (nodeIndex: number) => BOOT_NODE_UDP_PORT + 1 + nodeIndex;
 
   it('should produce an attestation by requesting tx data over the p2p network', async () => {
     /**
@@ -68,20 +70,12 @@ describe('e2e_p2p_reqresp_tx', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.logger.info('Preparing transactions to send');
-    const contexts = await timesAsync(2, () =>
-      createPXEServiceAndPrepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
-    );
-
-    t.logger.info('Removing initial node');
-    await t.removeInitialNode();
-
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -91,21 +85,36 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Sleeping to allow nodes to connect');
     await sleep(4000);
 
+    await t.setupAccount();
+
+    t.logger.info('Preparing transactions to send');
+    const contexts = await timesAsync(2, () =>
+      createPXEServiceAndPrepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
+    );
+
+    t.logger.info('Removing initial node');
+    await t.removeInitialNode();
+
     t.logger.info('Starting fresh slot');
     const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
     t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
 
     const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes();
-    t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip}`);
-    t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes}`);
+    t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip.map(getNodePort)}`);
+    t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes.map(getNodePort)}`);
 
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
     // Original implementation of `handleGossipedTx` will store received transactions in the tx pool.
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
-      jest
-        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx')
-        .mockImplementation(() => Promise.resolve());
+      const logger = createLogger(`p2p:${getNodePort(nodeIndex)}`);
+      jest.spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx').mockImplementation((async (
+        payloadData: Buffer,
+      ) => {
+        const txHash = await Tx.fromBuffer(payloadData).getTxHash();
+        logger.info(`Skipping storage of gossiped transaction ${txHash.toString()}`);
+        return Promise.resolve();
+      }) as any);
     }
 
     // We send the tx to the proposer nodes directly, ignoring the pxe and node in each context
@@ -115,7 +124,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       c.txs.map(tx => {
         const node = nodes[proposerIndexes[i]];
         void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
-        return new SentTx(node, tx.getTxHash());
+        return new SentTx(node, () => tx.getTxHash());
       }),
     );
 
@@ -165,7 +174,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       );
     }
 
-    const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
+    const nodesToTurnOffTxGossip = Array.from({ length: NUM_VALIDATORS }, (_, i) => i).filter(
       i => !proposerIndexes.includes(i),
     );
     return { proposerIndexes, nodesToTurnOffTxGossip };

@@ -75,7 +75,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    * @returns An execution payload that contains the required function calls.
    */
   async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
-    const nonce = Fr.random();
+    const txNonce = Fr.random();
     const maxFee = gasSettings.getFeeLimit();
 
     const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
@@ -83,7 +83,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
         caller: this.paymentContract,
         action: {
           name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, txNonce],
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,
@@ -103,7 +103,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
           selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
           type: FunctionType.PRIVATE,
           isStatic: false,
-          args: [maxFee, nonce],
+          args: [maxFee, txNonce],
           returnTypes: [],
         },
       ],

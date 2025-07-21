@@ -2,7 +2,13 @@ import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  bigintToUInt64BE,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -11,6 +17,7 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { schemas } from '../schemas/index.js';
+import type { UInt32, UInt64 } from '../types/index.js';
 
 /**
  * Global variables of the L2 block.
@@ -22,11 +29,11 @@ export class GlobalVariables {
     /** Version for the L2 block. */
     public version: Fr,
     /** Block number of the L2 block. */
-    public blockNumber: Fr,
+    public blockNumber: UInt32,
     /** Slot number of the L2 block */
     public slotNumber: Fr,
     /** Timestamp of the L2 block. */
-    public timestamp: Fr,
+    public timestamp: UInt64,
     /** Recipient of block reward. */
     public coinbase: EthAddress,
     /** Address to receive fees. */
@@ -40,9 +47,9 @@ export class GlobalVariables {
       .object({
         chainId: schemas.Fr,
         version: schemas.Fr,
-        blockNumber: schemas.Fr,
+        blockNumber: schemas.UInt32,
         slotNumber: schemas.Fr,
-        timestamp: schemas.Fr,
+        timestamp: schemas.BigInt,
         coinbase: schemas.EthAddress,
         feeRecipient: schemas.AztecAddress,
         gasFees: GasFees.schema,
@@ -60,9 +67,9 @@ export class GlobalVariables {
 
   static empty(fields: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
     return GlobalVariables.from({
-      blockNumber: Fr.ZERO,
+      blockNumber: 0,
       slotNumber: Fr.ZERO,
-      timestamp: Fr.ZERO,
+      timestamp: 0n,
       chainId: Fr.ZERO,
       version: Fr.ZERO,
       coinbase: EthAddress.ZERO,
@@ -77,9 +84,9 @@ export class GlobalVariables {
     return new GlobalVariables(
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readNumber(),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readUInt64(),
       reader.readObject(EthAddress),
       reader.readObject(AztecAddress),
       reader.readObject(GasFees),
@@ -92,9 +99,9 @@ export class GlobalVariables {
     return new GlobalVariables(
       reader.readField(),
       reader.readField(),
+      reader.readU32(),
       reader.readField(),
-      reader.readField(),
-      reader.readField(),
+      reader.readField().toBigInt(),
       EthAddress.fromField(reader.readField()),
       AztecAddress.fromField(reader.readField()),
       GasFees.fromFields(reader),
@@ -102,7 +109,7 @@ export class GlobalVariables {
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return [
       fields.chainId,
       fields.version,
@@ -116,7 +123,16 @@ export class GlobalVariables {
   }
 
   toBuffer() {
-    return serializeToBuffer(...GlobalVariables.getFields(this));
+    return serializeToBuffer([
+      this.chainId,
+      this.version,
+      this.blockNumber,
+      this.slotNumber,
+      bigintToUInt64BE(this.timestamp),
+      this.coinbase,
+      this.feeRecipient,
+      this.gasFees,
+    ]);
   }
 
   toFields() {
@@ -135,7 +151,7 @@ export class GlobalVariables {
    */
   toFriendlyJSON() {
     return {
-      blockNumber: this.blockNumber.toNumber(),
+      blockNumber: this.blockNumber,
       slotNumber: this.slotNumber.toNumber(),
       timestamp: this.timestamp.toString(),
       coinbase: this.coinbase.toString(),
@@ -151,9 +167,9 @@ export class GlobalVariables {
     return (
       this.chainId.isZero() &&
       this.version.isZero() &&
-      this.blockNumber.isZero() &&
+      this.blockNumber === 0 &&
       this.slotNumber.isZero() &&
-      this.timestamp.isZero() &&
+      this.timestamp === 0n &&
       this.coinbase.isZero() &&
       this.feeRecipient.isZero() &&
       this.gasFees.isEmpty()
@@ -164,13 +180,13 @@ export class GlobalVariables {
     return {
       chainId: this.chainId.toNumber(),
       version: this.version.toNumber(),
-      blockNumber: this.blockNumber.toNumber(),
+      blockNumber: this.blockNumber,
       slotNumber: this.slotNumber.toNumber(),
-      timestamp: this.timestamp.toNumber(),
+      timestamp: this.timestamp,
       coinbase: this.coinbase.toString(),
       feeRecipient: this.feeRecipient.toString(),
-      feePerDaGas: this.gasFees.feePerDaGas.toNumber(),
-      feePerL2Gas: this.gasFees.feePerL2Gas.toNumber(),
+      feePerDaGas: Number(this.gasFees.feePerDaGas),
+      feePerL2Gas: Number(this.gasFees.feePerL2Gas),
     };
   }
 
@@ -182,9 +198,9 @@ export class GlobalVariables {
     return (
       this.chainId.equals(other.chainId) &&
       this.version.equals(other.version) &&
-      this.blockNumber.equals(other.blockNumber) &&
+      this.blockNumber === other.blockNumber &&
       this.slotNumber.equals(other.slotNumber) &&
-      this.timestamp.equals(other.timestamp) &&
+      this.timestamp === other.timestamp &&
       this.coinbase.equals(other.coinbase) &&
       this.feeRecipient.equals(other.feeRecipient) &&
       this.gasFees.equals(other.gasFees)

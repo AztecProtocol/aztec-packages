@@ -34,11 +34,11 @@ TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(ROW_FIELD_EQ(R, class_id_derivation_sel, 1),
-                          ROW_FIELD_EQ(R, class_id_derivation_class_id, FF(0xdeadbeef)),
-                          ROW_FIELD_EQ(R, class_id_derivation_artifact_hash, FF(12)),
-                          ROW_FIELD_EQ(R, class_id_derivation_private_function_root, FF(23)),
-                          ROW_FIELD_EQ(R, class_id_derivation_public_bytecode_commitment, FF(45)))));
+                    AllOf(ROW_FIELD_EQ(class_id_derivation_sel, 1),
+                          ROW_FIELD_EQ(class_id_derivation_class_id, FF(0xdeadbeef)),
+                          ROW_FIELD_EQ(class_id_derivation_artifact_hash, FF(12)),
+                          ROW_FIELD_EQ(class_id_derivation_private_function_root, FF(23)),
+                          ROW_FIELD_EQ(class_id_derivation_public_bytecode_commitment, FF(45)))));
 }
 
 } // namespace

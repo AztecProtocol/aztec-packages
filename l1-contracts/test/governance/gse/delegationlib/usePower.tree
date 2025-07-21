@@ -1,0 +1,5 @@
+UsePowerTest
+├── given power used plus amount gt power at
+│   └── it reverts
+└── given power used plus amount le power at
+    └── it updates power used for proposal

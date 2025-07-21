@@ -5,14 +5,18 @@ pragma solidity >=0.8.27;
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {ISlashFactory} from "./interfaces/ISlashFactory.sol";
+
+struct Offender {
+  address validator;
+  uint96 amount;
+}
 
 /**
  * @notice Payload to slash a specified list of validators for specified amounts and offenses.
  */
 contract SlashPayload is IPayload {
   IValidatorSelection public immutable VALIDATOR_SELECTION;
-  ISlashFactory.Offender[] public offenders;
+  Offender[] public offenders;
 
   constructor(
     address[] memory _validators,
@@ -20,7 +24,7 @@ contract SlashPayload is IPayload {
     IValidatorSelection _validatorSelection
   ) {
     for (uint256 i = 0; i < _validators.length; i++) {
-      offenders.push(ISlashFactory.Offender({validator: _validators[i], amount: _amounts[i]}));
+      offenders.push(Offender({validator: _validators[i], amount: _amounts[i]}));
     }
     VALIDATOR_SELECTION = _validatorSelection;
   }

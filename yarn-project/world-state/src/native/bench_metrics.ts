@@ -67,21 +67,21 @@ export class NativeBenchMetics {
     const data = [];
     for (const blockSync of this.blockSyncMetrics) {
       data.push({
-        name: `blockSync/${blockSync.numTxs}/${blockSync.numLeaves}`,
+        name: `Block Sync/${blockSync.numTxs} txs/${blockSync.numLeaves} leaves per tx`,
         value: blockSync.value,
         unit: 'ms',
       });
     }
     for (const insertion of this.insertionMetrics) {
       data.push({
-        name: `${MerkleTreeId[insertion.treeType]}/${InsertionType[insertion.insertionType]}/${insertion.numLeaves}`,
+        name: `Tree Insertion/${MerkleTreeId[insertion.treeType]}/${InsertionType[insertion.insertionType]}/${insertion.numLeaves} leaves`,
         value: insertion.value,
         unit: 'ms',
       });
     }
     for (const retrieval of this.dataRetrievalMetrics) {
       data.push({
-        name: `dataRetrieval/${DataRetrievalType[retrieval.retrievalType]}`,
+        name: `Data Retrieval/${DataRetrievalType[retrieval.retrievalType]}`,
         value: retrieval.value,
         unit: 'us',
       });

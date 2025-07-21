@@ -3,8 +3,10 @@ import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from 
 import { EthAddress, Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY, getAddressFromPrivateKey, getPublicClient } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
+import { bufferToHex } from '@aztec/foundation/string';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
@@ -97,6 +99,8 @@ export async function startNode(
       nodeConfig.rollupVersion,
     );
 
+    process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
+
     if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
       throw new Error(
         `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
@@ -114,7 +118,6 @@ export async function startNode(
     };
   }
 
-  // if no publisher private key, then use l1Mnemonic
   if (!options.archiver) {
     // expect archiver url in node config
     const archiverUrl = nodeConfig.archiverUrl;
@@ -133,9 +136,9 @@ export async function startNode(
       ...extractNamespacedOptions(options, 'sequencer'),
     };
     let account;
-    if (!sequencerConfig.publisherPrivateKey || sequencerConfig.publisherPrivateKey === NULL_KEY) {
-      if (sequencerConfig.validatorPrivateKeys?.length) {
-        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKeys[0] as `0x${string}`;
+    if (sequencerConfig.publisherPrivateKey.getValue() === NULL_KEY) {
+      if (sequencerConfig.validatorPrivateKeys.getValue().length) {
+        sequencerConfig.publisherPrivateKey = new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0]);
       } else if (!options.l1Mnemonic) {
         userLog(
           '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
@@ -144,11 +147,17 @@ export async function startNode(
       } else {
         account = mnemonicToAccount(options.l1Mnemonic);
         const privKey = account.getHdKey().privateKey;
-        sequencerConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+        sequencerConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
       }
     }
     nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
-    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey));
+    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey.getValue()));
+  }
+
+  // If we dont have a slasher private key, derive one from the mnemonic if provided, using account index 1 (zero was used for the sequencer)
+  if (options.l1Mnemonic && (!nodeConfig.slasherPrivateKey || nodeConfig.slasherPrivateKey.getValue() === NULL_KEY)) {
+    const account = mnemonicToAccount(options.l1Mnemonic, { accountIndex: 1 });
+    nodeConfig.slasherPrivateKey = new SecretValue(bufferToHex(Buffer.from(account.getHdKey().privateKey!)));
   }
 
   if (nodeConfig.p2pEnabled) {

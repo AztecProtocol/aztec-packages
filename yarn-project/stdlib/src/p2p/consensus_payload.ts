@@ -4,11 +4,11 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { encodeAbiParameters, parseAbiParameters, toHex } from 'viem';
+import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { L2Block } from '../block/l2_block.js';
-import { ProposedBlockHeader, StateReference, TxHash } from '../tx/index.js';
+import { ProposedBlockHeader, StateReference } from '../tx/index.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
@@ -21,8 +21,6 @@ export class ConsensusPayload implements Signable {
     public readonly archive: Fr,
     /** The state reference after the block is added */
     public readonly stateReference: StateReference,
-    /** The sequence of transactions in the block */
-    public readonly txHashes: TxHash[],
   ) {}
 
   static get schema() {
@@ -31,37 +29,38 @@ export class ConsensusPayload implements Signable {
         header: ProposedBlockHeader.schema,
         archive: schemas.Fr,
         stateReference: StateReference.schema,
-        txHashes: z.array(TxHash.schema),
       })
-      .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.stateReference, obj.txHashes));
+      .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.stateReference));
   }
 
   static getFields(fields: FieldsOf<ConsensusPayload>) {
-    return [fields.header, fields.archive, fields.stateReference, fields.txHashes] as const;
+    return [fields.header, fields.archive, fields.stateReference] as const;
   }
 
   getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    const abi = parseAbiParameters('uint8, (bytes32, bytes, (uint256), bytes32, bytes32[])');
+    const abi = parseAbiParameters(
+      'uint8, ' + //domainSeperator
+        '(' +
+        'bytes32, ' + // archive
+        '((bytes32,uint32),((bytes32,uint32),(bytes32,uint32),(bytes32,uint32))), ' + // stateReference
+        '(int256), ' + // oracleInput
+        'bytes32' + // headerHash
+        ')',
+    );
     const archiveRoot = this.archive.toString();
-    const stateReference = toHex(this.stateReference.toBuffer());
+    const stateReference = this.stateReference.toAbi();
+
     const headerHash = this.header.hash().toString();
-    const txArray = this.txHashes.map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
       domainSeparator,
-      [archiveRoot, stateReference, [0n] /* @todo See #9963 */, headerHash, txArray],
+      [archiveRoot, stateReference, [0n] /* @todo See #9963 */, headerHash],
     ] as const);
 
     return hexToBuffer(encodedData);
   }
 
   toBuffer(): Buffer {
-    const buffer = serializeToBuffer([
-      this.header,
-      this.archive,
-      this.stateReference,
-      this.txHashes.length,
-      this.txHashes,
-    ]);
+    const buffer = serializeToBuffer([this.header, this.archive, this.stateReference]);
     this.size = buffer.length;
     return buffer;
   }
@@ -72,25 +71,19 @@ export class ConsensusPayload implements Signable {
       reader.readObject(ProposedBlockHeader),
       reader.readObject(Fr),
       reader.readObject(StateReference),
-      reader.readArray(reader.readNumber(), TxHash),
     );
   }
 
   static fromFields(fields: FieldsOf<ConsensusPayload>): ConsensusPayload {
-    return new ConsensusPayload(fields.header, fields.archive, fields.stateReference, fields.txHashes);
+    return new ConsensusPayload(fields.header, fields.archive, fields.stateReference);
   }
 
   static fromBlock(block: L2Block): ConsensusPayload {
-    return new ConsensusPayload(
-      block.header.toPropose(),
-      block.archive.root,
-      block.header.state,
-      block.body.txEffects.map(tx => tx.txHash),
-    );
+    return new ConsensusPayload(block.header.toPropose(), block.archive.root, block.header.state);
   }
 
   static empty(): ConsensusPayload {
-    return new ConsensusPayload(ProposedBlockHeader.empty(), Fr.ZERO, StateReference.empty(), []);
+    return new ConsensusPayload(ProposedBlockHeader.empty(), Fr.ZERO, StateReference.empty());
   }
 
   /**
@@ -107,8 +100,6 @@ export class ConsensusPayload implements Signable {
   }
 
   toString() {
-    return `header: ${this.header.toString()}, archive: ${this.archive.toString()}, stateReference: ${this.stateReference.l1ToL2MessageTree.root.toString()}, txHashes: ${this.txHashes.join(
-      ', ',
-    )}`;
+    return `header: ${this.header.toString()}, archive: ${this.archive.toString()}, stateReference: ${this.stateReference.l1ToL2MessageTree.root.toString()}`;
   }
 }

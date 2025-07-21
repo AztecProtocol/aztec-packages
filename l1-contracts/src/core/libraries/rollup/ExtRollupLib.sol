@@ -4,13 +4,12 @@
 pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {StakingLib} from "./../staking/StakingLib.sol";
-import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelectionLib.sol";
+import {Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {ProposeLib, ProposeArgs, CommitteeAttestation} from "./ProposeLib.sol";
-import {RewardLib} from "./RewardLib.sol";
+import {
+  ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs
+} from "./ProposeLib.sol";
 
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
@@ -21,54 +20,17 @@ library ExtRollupLib {
     EpochProofLib.submitEpochRootProof(_args);
   }
 
+  function validateHeader(ValidateHeaderArgs calldata _args) external {
+    ProposeLib.validateHeader(_args);
+  }
+
   function propose(
     ProposeArgs calldata _args,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobInput,
     bool _checkBlob
   ) external {
     ProposeLib.propose(_args, _attestations, _blobInput, _checkBlob);
-  }
-
-  function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
-    ValidatorSelectionLib.initialize(_targetCommitteeSize);
-  }
-
-  function setupEpoch() external {
-    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setupEpoch(currentEpoch);
-  }
-
-  function setupSeedSnapshotForNextEpoch() external {
-    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
-  }
-
-  function claimSequencerRewards(address _recipient) external returns (uint256) {
-    return RewardLib.claimSequencerRewards(_recipient);
-  }
-
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
-    external
-    returns (uint256)
-  {
-    return RewardLib.claimProverRewards(_recipient, _epochs);
-  }
-
-  function setSlasher(address _slasher) external {
-    StakingLib.setSlasher(_slasher);
-  }
-
-  function vote(uint256 _proposalId) external {
-    StakingLib.vote(_proposalId);
-  }
-
-  function deposit(address _attester, address _withdrawer, bool _onCanonical) external {
-    StakingLib.deposit(_attester, _withdrawer, _onCanonical);
-  }
-
-  function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
-    return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 
   function getEpochProofPublicInputs(
@@ -87,7 +49,7 @@ library ExtRollupLib {
     returns (
       bytes32[] memory blobHashes,
       bytes32 blobsHashesCommitment,
-      bytes32 blobPublicInputsHash
+      bytes[] memory blobCommitments
     )
   {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);

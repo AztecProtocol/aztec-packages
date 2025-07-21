@@ -13,7 +13,6 @@ export type EpochCacheConfig = Pick<
   | 'aztecSlotDuration'
   | 'ethereumSlotDuration'
   | 'aztecEpochDuration'
-  | 'aztecProofSubmissionWindow'
 >;
 
 export function getEpochCacheConfigEnvVars(): EpochCacheConfig {

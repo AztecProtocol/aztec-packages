@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 contract DropProposalTest is GovernanceBase {
@@ -13,10 +13,10 @@ contract DropProposalTest is GovernanceBase {
   function test_GivenProposalIsDropped(address _governanceProposer) external givenProposalIsStable {
     // it revert
     _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposal(proposalId).state, DataStructures.ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).state, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
     assertTrue(governance.dropProposal(proposalId));
-    assertEq(governance.getProposal(proposalId).state, DataStructures.ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).state, ProposalState.Dropped);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalAlreadyDropped.selector));
     governance.dropProposal(proposalId);
@@ -31,7 +31,7 @@ contract DropProposalTest is GovernanceBase {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     assertTrue(governance.execute(proposalId));
-    assertEq(governance.getProposal(proposalId).state, DataStructures.ProposalState.Executed);
+    assertEq(governance.getProposal(proposalId).state, ProposalState.Executed);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalCannotBeDropped.selector));
     governance.dropProposal(proposalId);
@@ -54,7 +54,7 @@ contract DropProposalTest is GovernanceBase {
   {
     // it revert
     _statePending("empty");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Pending);
   }
 
   function test_WhenGetProposalStateIsActive()
@@ -64,7 +64,7 @@ contract DropProposalTest is GovernanceBase {
   {
     // it revert
     _stateActive("empty");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Active);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Active);
   }
 
   function test_WhenGetProposalStateIsQueued(
@@ -75,7 +75,7 @@ contract DropProposalTest is GovernanceBase {
   ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
     // it revert
     _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Queued);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
   }
 
   function test_WhenGetProposalStateIsExecutable(
@@ -86,7 +86,7 @@ contract DropProposalTest is GovernanceBase {
   ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executable);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
   }
 
   function test_WhenGetProposalStateIsRejected()
@@ -96,7 +96,7 @@ contract DropProposalTest is GovernanceBase {
   {
     // it revert
     _stateRejected("empty");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Rejected);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
   function test_WhenGetProposalStateIsExecuted(
@@ -108,7 +108,7 @@ contract DropProposalTest is GovernanceBase {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     assertTrue(governance.execute(proposalId));
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executed);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
   function test_WhenGetProposalStateIsExpired(
@@ -119,7 +119,7 @@ contract DropProposalTest is GovernanceBase {
   ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
     // it revert
     _stateExpired("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Expired);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Expired);
   }
 
   function test_WhenGetProposalStateIsDropped(address _governanceProposer)
@@ -130,10 +130,10 @@ contract DropProposalTest is GovernanceBase {
     // it return true
 
     _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposal(proposalId).state, DataStructures.ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).state, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
     assertTrue(governance.dropProposal(proposalId));
-    assertEq(governance.getProposal(proposalId).state, DataStructures.ProposalState.Dropped);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).state, ProposalState.Dropped);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 }

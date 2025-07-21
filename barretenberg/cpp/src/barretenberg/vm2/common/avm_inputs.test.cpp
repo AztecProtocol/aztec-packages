@@ -17,7 +17,7 @@ using ::testing::SizeIs;
 TEST(AvmInputsTest, Deserialization)
 {
     // cwd is expected to be barretenberg/cpp/build.
-    auto data = read_file("../src/barretenberg/vm2/common/avm_inputs.testdata.bin");
+    auto data = read_file("../src/barretenberg/vm2/testing/avm_inputs.testdata.bin");
     // We only check that deserialization does not crash.
     // Correctness of the deserialization itself is assumed via MessagePack.
     // What we are testing here is that the structure of the inputs in TS matches the C++ structs
@@ -120,10 +120,9 @@ TEST(AvmInputsTest, ValuesInColumns)
     pi.previousRevertibleAccumulatedDataArrayLengths.nullifiers = 50;
     pi.previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs = 60;
 
-    // Set l2 to l1 messages (using 4 columns)
+    // Set l2 to l1 messages (using 3 columns)
     pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.recipient = 1234;
     pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.content = 1357;
-    pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.counter = 2468;
     pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].contractAddress = 3579;
 
     // Set accumulated data elements
@@ -133,7 +132,6 @@ TEST(AvmInputsTest, ValuesInColumns)
     // Set l2 to l1 messages in accumulated data
     pi.accumulatedData.l2ToL1Msgs[1].message.recipient = 3333;
     pi.accumulatedData.l2ToL1Msgs[1].message.content = 7531;
-    pi.accumulatedData.l2ToL1Msgs[1].message.counter = 8642;
     pi.accumulatedData.l2ToL1Msgs[1].contractAddress = 9753;
 
     // Set public logs (spans multiple rows per log)
@@ -307,15 +305,13 @@ TEST(AvmInputsTest, ValuesInColumns)
     EXPECT_EQ(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX],
               pi.accumulatedDataArrayLengths.publicDataWrites);
 
-    // Test l2ToL1Msgs (which use 4 columns)
+    // Test l2ToL1Msgs (which use 3 columns)
     size_t l2_to_l1_msg_row = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
     EXPECT_EQ(flat[col0_offset + l2_to_l1_msg_row],
               pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.recipient);
     EXPECT_EQ(flat[col1_offset + l2_to_l1_msg_row],
               pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.content);
     EXPECT_EQ(flat[col2_offset + l2_to_l1_msg_row],
-              pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].message.counter);
-    EXPECT_EQ(flat[col3_offset + l2_to_l1_msg_row],
               pi.previousNonRevertibleAccumulatedData.l2ToL1Msgs[0].contractAddress);
 
     // End tree snapshots
@@ -342,8 +338,7 @@ TEST(AvmInputsTest, ValuesInColumns)
     size_t acc_l2_to_l1_msg_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + 1; // Using second one
     EXPECT_EQ(flat[col0_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].message.recipient);
     EXPECT_EQ(flat[col1_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].message.content);
-    EXPECT_EQ(flat[col2_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].message.counter);
-    EXPECT_EQ(flat[col3_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].contractAddress);
+    EXPECT_EQ(flat[col2_offset + acc_l2_to_l1_msg_row], pi.accumulatedData.l2ToL1Msgs[1].contractAddress);
 
     // Test public logs
     size_t first_log_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;

@@ -32,7 +32,7 @@ aztec-wallet import-test-accounts
 aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a token
 
 # Mint some tokens to the test0 account
-aztec-wallet send mint_to_private -ca token --args accounts:test0 accounts:test0 100 -f test0
+aztec-wallet send mint_to_private -ca token --args accounts:test0 100 -f test0
 ```
 
 Now, the `test0` account can transfer tokens by running:
@@ -67,6 +67,15 @@ Here you can see the gate count of each private function call in the transaction
 
 This will help you understand which parts of your transaction are bottlenecks and optimize the contract logic accordingly.
 
+## Profiling in aztec.js
+
+Call the `.profile` method on a contract interaction or deployment, specifying the `ProfileMethodOptions`:
+
+#include_code profile-method-options yarn-project/aztec.js/src/contract/interaction_options.ts javascript
+
+It will return a `TxProfileResult`:
+
+#include_code tx-profile-result yarn-project/stdlib/src/tx/profiling.ts
 
 ## Flamegraph
 

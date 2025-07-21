@@ -28,6 +28,12 @@ export async function startProverAgent(
     process.exit(1);
   }
 
+  // Check if running on ARM and fast-fail if so.
+  if (process.arch.startsWith('arm')) {
+    userLog(`Prover agent is not supported on ARM architecture (detected: ${process.arch}). Exiting.`);
+    process.exit(1);
+  }
+
   const config = {
     ...getProverNodeAgentConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverAgentConfig>(options, proverAgentConfigMappings, 'proverAgent'), // override with command line options

@@ -12,18 +12,8 @@ describe('PendingTaggedLog', () => {
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
     const recipient = AztecAddress.fromField(new Fr(789n));
-    const logIndexInTx = 10;
-    const txIndexInBlock = 11;
 
-    const pendingLog = new PendingTaggedLog(
-      log,
-      txHash,
-      uniqueNoteHashes,
-      firstNullifier,
-      recipient,
-      logIndexInTx,
-      txIndexInBlock,
-    );
+    const pendingLog = new PendingTaggedLog(log, txHash, uniqueNoteHashes, firstNullifier, recipient);
     const serialized = pendingLog.toFields();
 
     // Test against snapshot
@@ -116,8 +106,6 @@ describe('PendingTaggedLog', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000006",
         "0x0000000000000000000000000000000000000000000000000000000000000315",
-        "0x000000000000000000000000000000000000000000000000000000000000000a",
-        "0x000000000000000000000000000000000000000000000000000000000000000b",
       ]
     `);
 

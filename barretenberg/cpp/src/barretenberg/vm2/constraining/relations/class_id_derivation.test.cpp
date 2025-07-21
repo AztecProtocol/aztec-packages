@@ -10,19 +10,22 @@
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::StrictMock;
+
 using tracegen::BytecodeTraceBuilder;
 using tracegen::ClassIdDerivationTraceBuilder;
-using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -30,19 +33,18 @@ using simulation::ClassIdDerivation;
 using simulation::ClassIdDerivationEvent;
 using simulation::compute_contract_class_id;
 using simulation::EventEmitter;
+using simulation::FakePoseidon2;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using class_id_derivation_relation = bb::avm2::class_id_derivation<FF>;
-using poseidon2_relation = bb::avm2::poseidon2_hash<FF>;
-
-using lookup_poseidon2_hash_0 = bb::avm2::lookup_class_id_derivation_class_id_poseidon2_0_relation<FF>;
-using lookup_poseidon2_hash_1 = bb::avm2::lookup_class_id_derivation_class_id_poseidon2_1_relation<FF>;
-using lookup_bc_retrieval = bb::avm2::lookup_bc_retrieval_class_id_derivation_relation<FF>;
 
 ContractClass generate_contract_class()
 {
@@ -72,11 +74,15 @@ TEST(ClassIdDerivationConstrainingTest, Basic)
     check_relation<class_id_derivation_relation>(trace);
 }
 
-TEST(ClassIdDerivationConstrainingTest, WithHashInteraction)
+TEST(ClassIdDerivationPoseidonTest, WithHashInteraction)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2 =
+        Poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
     EventEmitter<ClassIdDerivationEvent> event_emitter;
     ClassIdDerivation class_id_derivation(poseidon2, event_emitter);
@@ -97,16 +103,15 @@ TEST(ClassIdDerivationConstrainingTest, WithHashInteraction)
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_hash_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_hash_1::Settings>().process(trace);
+    check_interaction<ClassIdDerivationTraceBuilder,
+                      lookup_class_id_derivation_class_id_poseidon2_0_settings,
+                      lookup_class_id_derivation_class_id_poseidon2_1_settings>(trace);
 }
 
 // TODO: This should probably be refined and moved to bc_retrieval test file once that exists
-TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
+TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<ClassIdDerivationEvent> event_emitter;
     ClassIdDerivation class_id_derivation(poseidon2, event_emitter);
@@ -125,17 +130,14 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
     class_id_derivation.assert_derivation(class_id, klass);
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
-    ContractInstance instance = {};
-    instance.current_class_id = class_id;
     bc_trace_builder.process_retrieval({ { .bytecode_id = 0,
                                            .address = 1,
-                                           .siloed_address = 2,
-                                           .contract_instance = instance,
+                                           .current_class_id = class_id,
                                            .contract_class = klass,
                                            .nullifier_root = 3 } },
                                        trace);
 
-    LookupIntoDynamicTableSequential<lookup_bc_retrieval::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder, lookup_bc_retrieval_class_id_derivation_settings>(trace);
 }
 
 } // namespace

@@ -211,6 +211,11 @@ class alignas(32) uint256_t {
 
     size_t hash() const noexcept { return utils::hash_as_tuple(data[0], data[1], data[2], data[3]); }
 
+    // For serialization
+    void msgpack_pack(auto& packer) const;
+    void msgpack_unpack(auto o);
+    void msgpack_schema(auto& packer) const { packer.pack_alias("uint256_t", "bin32"); }
+
   private:
     [[nodiscard]] static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b);
     [[nodiscard]] static constexpr std::pair<uint64_t, uint64_t> addc(uint64_t a, uint64_t b, uint64_t carry_in);

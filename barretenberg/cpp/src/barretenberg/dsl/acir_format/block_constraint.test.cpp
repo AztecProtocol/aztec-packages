@@ -2,7 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -27,10 +27,11 @@ class MegaHonk : public ::testing::Test {
     // Construct and verify an MegaHonk proof for the provided circuit
     static bool prove_and_verify(Builder& circuit)
     {
-        Prover prover{ circuit };
+        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(circuit);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();
 
-        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
 
         return verifier.verify_proof(proof);
@@ -152,7 +153,6 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -197,7 +197,6 @@ TEST_F(MegaHonk, Databus)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -302,7 +301,6 @@ TEST_F(MegaHonk, DatabusReturn)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},

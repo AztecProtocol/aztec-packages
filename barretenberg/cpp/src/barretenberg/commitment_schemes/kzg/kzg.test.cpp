@@ -25,8 +25,8 @@ class KZGTest : public CommitmentTest<Curve> {
 
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
-    static std::shared_ptr<CK> ck;
-    static std::shared_ptr<VK> vk;
+    static CK ck;
+    static VK vk;
 
     static constexpr Commitment g1_identity = Commitment::one();
 
@@ -35,27 +35,80 @@ class KZGTest : public CommitmentTest<Curve> {
         ck = create_commitment_key<CK>(n);
         vk = create_verifier_commitment_key<VK>();
     }
+
+    static void prove_and_verify(const OpeningPair<Curve>& opening_pair, bb::Polynomial<Fr>& witness)
+    {
+        const Commitment commitment = ck.commit(witness);
+
+        auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
+
+        auto prover_transcript = NativeTranscript::prover_init_empty();
+
+        PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
+
+        auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+        const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
+
+        EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    }
 };
 
-TEST_F(KZGTest, single)
+TEST_F(KZGTest, Single)
 {
 
     auto witness = bb::Polynomial<Fr>::random(n);
-    const Commitment commitment = ck->commit(witness);
-
     const Fr challenge = Fr::random_element();
     const Fr evaluation = witness.evaluate(challenge);
-    auto opening_pair = OpeningPair<Curve>{ challenge, evaluation };
-    auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+    prove_and_verify({ challenge, evaluation }, witness);
+}
 
-    PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
+TEST_F(KZGTest, ZeroEvaluation)
+{
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
+    auto witness = bb::Polynomial<Fr>::random(n);
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = witness.evaluate(challenge);
 
-    EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
+    // Modify witness to achieve zero evaluation
+    witness.at(0) -= evaluation;
+
+    prove_and_verify({ challenge, Fr::zero() }, witness);
+}
+
+TEST_F(KZGTest, ZeroPolynomial)
+{
+    static constexpr size_t POLY_SIZE = 10;
+    bb::Polynomial<Fr> zero(POLY_SIZE);
+    for (size_t idx = 0; idx < POLY_SIZE; ++idx) {
+        zero.at(idx) = 0;
+    }
+
+    // Sanity check
+    ASSERT_TRUE(zero.is_zero());
+
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = zero.evaluate(challenge);
+
+    prove_and_verify({ challenge, evaluation }, zero);
+}
+
+TEST_F(KZGTest, ConstantPolynomial)
+{
+    auto constant = bb::Polynomial<Fr>::random(1);
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = constant.evaluate(challenge);
+
+    prove_and_verify({ challenge, evaluation }, constant);
+}
+
+TEST_F(KZGTest, EmptyPolynomial)
+{
+    bb::Polynomial<Fr> empty_poly;
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = empty_poly.evaluate(challenge);
+
+    prove_and_verify({ challenge, evaluation }, empty_poly);
 }
 
 /**
@@ -74,7 +127,7 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
     // compute the monomial coefficients
     bb::Polynomial<Fr> witness_polynomial(std::span<Fr>(eval_points), std::span<Fr>(witness), n);
     // commit to the polynomial in the monomial form
-    g1::element commitment = ck->commit(witness_polynomial);
+    g1::element commitment = ck.commit(witness_polynomial);
 
     const Fr challenge = Fr::random_element();
     // evaluate the original univariate
@@ -89,7 +142,7 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
     auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
 
-    EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 /**
  * @brief Test full PCS protocol: Gemini, Shplonk, KZG and pairing check
@@ -141,7 +194,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
 
     // Shplonk verifier claim: commitment [Q] - [Q_z], opening point (z_challenge, 0)
     const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(vk->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
+        ShplonkVerifier::reduce_verification(vk.get_g1_identity(), gemini_verifier_claim, verifier_transcript);
 
     // KZG verifier:
     // aggregates inputs [Q] - [Q_z] and [W] into an 'accumulator' (can perform pairing check on result)
@@ -149,7 +202,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
 
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
-    EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 
 TEST_F(KZGTest, ShpleminiKzgWithShift)
@@ -196,13 +249,13 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
-    EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 
 TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
@@ -250,7 +303,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     /* repeated commitments= */ {},
                                                                                     /* has zk = */ {},
@@ -262,7 +315,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
-    EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 {
@@ -320,16 +373,16 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     repeated_commitments);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
 
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-    EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
+    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 
 } // namespace bb
-std::shared_ptr<typename bb::KZGTest::CK> bb::KZGTest::ck = nullptr;
-std::shared_ptr<typename bb::KZGTest::VK> bb::KZGTest::vk = nullptr;
+typename bb::KZGTest::CK bb::KZGTest::ck;
+typename bb::KZGTest::VK bb::KZGTest::vk;

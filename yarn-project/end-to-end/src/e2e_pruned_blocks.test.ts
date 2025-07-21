@@ -7,7 +7,7 @@ import {
   type Wallet,
   retryUntil,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
@@ -48,7 +48,7 @@ describe('e2e_pruned_blocks', () => {
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
       archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
-      aztecProofSubmissionWindow: 1000, // No reorgs please
+      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
     [adminWallet, senderWallet] = wallets;
@@ -79,7 +79,7 @@ describe('e2e_pruned_blocks', () => {
 
     const firstMintReceipt = await token
       .withWallet(adminWallet)
-      .methods.mint_to_private(admin, sender, MINT_AMOUNT / 2n)
+      .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
       .send()
       .wait();
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
@@ -124,7 +124,7 @@ describe('e2e_pruned_blocks', () => {
     // and check that everything worked as expected.
     await token
       .withWallet(adminWallet)
-      .methods.mint_to_private(admin, sender, MINT_AMOUNT / 2n)
+      .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
       .send()
       .wait();
 

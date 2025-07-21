@@ -19,7 +19,7 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 // Note: these ports must be distinct from the other e2e tests, else the tests will
 // interfere with each other.
 const BOOT_NODE_UDP_PORT = 4500;
@@ -40,7 +40,8 @@ describe('e2e_p2p_governance_proposer', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_gerousia',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
@@ -49,7 +50,8 @@ describe('e2e_p2p_governance_proposer', () => {
         listenAddress: '127.0.0.1',
         governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
-        minimumStake: 10n ** 22n,
+        depositAmount: 10n ** 22n,
+        minimumStake: 5n ** 22n,
       },
     });
 
@@ -62,7 +64,7 @@ describe('e2e_p2p_governance_proposer', () => {
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -79,7 +81,7 @@ describe('e2e_p2p_governance_proposer', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const roundSize = await governanceProposer.read.M();
+    const roundSize = await governanceProposer.read.ROUND_SIZE();
 
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
@@ -122,17 +124,17 @@ describe('e2e_p2p_governance_proposer', () => {
       const slot = await rollup.getSlotNumber();
       const round = await governanceProposer.read.computeRound([slot]);
 
-      const info = await governanceProposer.read.rounds([
+      const info = await governanceProposer.read.getRoundData([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
       const leaderVotes = await governanceProposer.read.yeaCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info[1],
+        info.leader,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info[1]} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.leader} have ${leaderVotes} votes`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -146,7 +148,7 @@ describe('e2e_p2p_governance_proposer', () => {
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -156,8 +158,8 @@ describe('e2e_p2p_governance_proposer', () => {
     await sleep(4000);
 
     t.logger.info('Start progressing time to cast votes');
-    const quorumSize = await governanceProposer.read.N();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
+    const quorumSize = await governanceProposer.read.QUORUM_SIZE();
+    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     let govData;
     while (true) {
@@ -173,7 +175,7 @@ describe('e2e_p2p_governance_proposer', () => {
     const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
       ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
     );
-    t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
+    t.logger.info(`Warping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
     await waitL1Block();

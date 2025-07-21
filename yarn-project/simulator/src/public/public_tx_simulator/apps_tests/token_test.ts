@@ -13,7 +13,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   const sender = AztecAddress.fromNumber(111);
   const receiver = AztecAddress.fromNumber(222);
 
-  const token = await deployToken(tester, admin);
+  const token = await setUpToken(tester, admin);
 
   const mintAmount = 100n;
   const mintResult = await tester.simulateTxWithLabel(
@@ -31,7 +31,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   expect(mintResult.revertCode.isOK()).toBe(true);
   await checkBalance(tester, token, sender, sender, mintAmount);
 
-  const nonce = new Fr(0);
+  const authwitNonce = new Fr(0);
   const transferAmount = 50n;
   const transferResult = await tester.simulateTxWithLabel(
     /*txLabel=*/ 'Token/transfer_in_public',
@@ -41,7 +41,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
       {
         address: token.address,
         fnName: 'transfer_in_public',
-        args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+        args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
       },
     ],
   );
@@ -72,7 +72,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
       {
         address: token.address,
         fnName: 'burn_public',
-        args: [/*from=*/ receiver, transferAmount, nonce],
+        args: [/*from=*/ receiver, transferAmount, authwitNonce],
       },
     ],
   );
@@ -84,7 +84,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   logger.info(`TokenContract public tx simulator test took ${endTime - startTime}ms\n`);
 }
 
-export async function deployToken(tester: PublicTxSimulationTester, admin: AztecAddress, seed = 0) {
+export async function setUpToken(tester: PublicTxSimulationTester, admin: AztecAddress, seed = 0) {
   const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
   const token = await tester.registerAndDeployContract(
     constructorArgs,

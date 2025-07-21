@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
@@ -104,21 +105,16 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
 
     bool has_overflow = false;
 
-    UltraExecutionTraceBlocks()
-    {
-        this->aux.has_ram_rom = true;
-        this->pub_inputs.is_pub_inputs = true;
-    }
+    UltraExecutionTraceBlocks() = default;
 
     void compute_offsets(bool is_structured)
     {
         if (is_structured) {
-            info("Trace is structuring not implemented for UltraHonk");
-            ASSERT(false);
+            throw_or_abort("Trace is structuring not implemented for UltraHonk");
         }
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
-            block.trace_offset = offset;
+            block.trace_offset_ = offset;
             offset += block.get_fixed_size(is_structured);
         }
     }

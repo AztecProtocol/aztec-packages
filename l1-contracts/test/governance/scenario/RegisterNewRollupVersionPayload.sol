@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {IGSECore} from "@aztec/core/staking/GSE.sol";
+import {IGSECore} from "@aztec/governance/GSE.sol";
 
 /**
  * @title RegisterNewRollupVersionPayload

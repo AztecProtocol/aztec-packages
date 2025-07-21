@@ -40,7 +40,8 @@ pub contract AMM {
     };
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
-        prelude::{AztecAddress, PublicImmutable},
+        protocol_types::address::AztecAddress,
+        state_vars::PublicImmutable,
     };
 
     use dep::token::Token;
@@ -69,7 +70,8 @@ pub contract AMM {
     /// is willing to add, in order to account for changing market conditions, and will try to add as many tokens as
     /// possible.
     ///
-    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    /// `authwit_nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this
+    /// specific call.
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[private]
@@ -78,7 +80,7 @@ pub contract AMM {
         amount1_max: u128,
         amount0_min: u128,
         amount1_min: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) {
         assert(
             (amount0_min < amount0_max) | (amount0_min == amount0_max),
@@ -106,7 +108,7 @@ pub contract AMM {
                 sender,
                 context.this_address(),
                 amount0_max,
-                nonce,
+                authwit_nonce,
             )
             .call(&mut context);
 
@@ -115,7 +117,7 @@ pub contract AMM {
                 sender,
                 context.this_address(),
                 amount1_max,
-                nonce,
+                authwit_nonce,
             )
             .call(&mut context);
 
@@ -123,7 +125,7 @@ pub contract AMM {
         // supplied, both of which can only be known during public execution. We therefore prepare a partial note that
         // will get completed via minting.
         let liquidity_partial_note =
-            liquidity_token.prepare_private_balance_increase(sender, sender).call(&mut context);
+            liquidity_token.prepare_private_balance_increase(sender).call(&mut context);
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
@@ -232,11 +234,17 @@ pub contract AMM {
     /// Privately removes liquidity from the pool. This function receives how many liquidity tokens to burn, and the
     /// minimum number of tokens the caller is willing to receive, in order to account for changing market conditions.
     ///
-    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    /// `authwit_nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this
+    /// specific call.
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[private]
-    fn remove_liquidity(liquidity: u128, amount0_min: u128, amount1_min: u128, nonce: Field) {
+    fn remove_liquidity(
+        liquidity: u128,
+        amount0_min: u128,
+        amount1_min: u128,
+        authwit_nonce: Field,
+    ) {
         let config = storage.config.read();
 
         let liquidity_token = Token::at(config.liquidity_token);
@@ -249,16 +257,16 @@ pub contract AMM {
         // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and then have
         // the AMM publicly burn its own tokens.
         // TODO(#10287): consider adding a private burn
-        liquidity_token.transfer_to_public(sender, context.this_address(), liquidity, nonce).call(
-            &mut context,
-        );
+        liquidity_token
+            .transfer_to_public(sender, context.this_address(), liquidity, authwit_nonce)
+            .call(&mut context);
 
         // We don't yet know how many tokens the sender will get - that can only be computed during public execution
         // since the it depends on the live balances. We therefore simply prepare partial notes to the sender.
         let token0_partial_note =
-            token0.prepare_private_balance_increase(sender, sender).call(&mut context);
+            token0.prepare_private_balance_increase(sender).call(&mut context);
         let token1_partial_note =
-            token1.prepare_private_balance_increase(sender, sender).call(&mut context);
+            token1.prepare_private_balance_increase(sender).call(&mut context);
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
@@ -310,7 +318,8 @@ pub contract AMM {
 
     /// Privately swaps `amount_in` `token_in` tokens for at least `amount_out_mint` `token_out` tokens with the pool.
     ///
-    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    /// `authwit_nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this
+    /// specific call.
     ///
     /// The identity of the swapper is not revealed, but the action and amounts are.
     #[private]
@@ -319,7 +328,7 @@ pub contract AMM {
         token_out: AztecAddress,
         amount_in: u128,
         amount_out_min: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) {
         let config = storage.config.read();
 
@@ -332,11 +341,10 @@ pub contract AMM {
         // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
         // which will only be known during public execution as it depends on the live balances.
         Token::at(token_in)
-            .transfer_to_public(sender, context.this_address(), amount_in, nonce)
+            .transfer_to_public(sender, context.this_address(), amount_in, authwit_nonce)
             .call(&mut context);
-        let token_out_partial_note = Token::at(token_out)
-            .prepare_private_balance_increase(sender, sender)
-            .call(&mut context);
+        let token_out_partial_note =
+            Token::at(token_out).prepare_private_balance_increase(sender).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_exact_tokens_for_tokens(
@@ -379,7 +387,8 @@ pub contract AMM {
 
     /// Privately swaps at most `amount_in_max` `token_in` tokens for `amount_out` `token_out` tokens with the pool.
     ///
-    /// `nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this specific call.
+    /// `authwit_nonce` can be any non-zero value, as it's only used to isolate token transfer authwits to this
+    /// specific call.
     ///
     /// The identity of the swapper is not revealed, but the action and amounts are.
     #[private]
@@ -388,7 +397,7 @@ pub contract AMM {
         token_out: AztecAddress,
         amount_out: u128,
         amount_in_max: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) {
         let config = storage.config.read();
 
@@ -409,13 +418,12 @@ pub contract AMM {
                 sender,
                 context.this_address(),
                 amount_in_max,
-                nonce,
+                authwit_nonce,
             )
             .call(&mut context);
 
-        let token_out_partial_note = Token::at(token_out)
-            .prepare_private_balance_increase(sender, sender)
-            .call(&mut context);
+        let token_out_partial_note =
+            Token::at(token_out).prepare_private_balance_increase(sender).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_tokens_for_exact_tokens(

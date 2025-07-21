@@ -386,9 +386,9 @@ aztec start --network alpha-testnet --l1-rpc-urls https://example.com --l1-conse
 - `--bot.l1-mnemonic <value>`: The mnemonic for the account to bridge fee juice from L1.
 - `--bot.l1-private-key <value>`: The private key for the account to bridge fee juice from L1.
 - `--bot.sender-private-key <value>`: Signing private key for the sender account.
-- `--bot.sender-salt <value>`: The salt to use to deploys the sender account.
+- `--bot.sender-salt <value>`: The salt to use to instantiate the sender account.
 - `--bot.recipient-encryption-secret <value>`: Encryption secret for a recipient account (default: 0x00000000000000000000000000000000000000000000000000000000cafecafe).
-- `--bot.token-salt <value>`: Salt for the token contract deployment (default: 0x0000000000000000000000000000000000000000000000000000000000000001).
+- `--bot.token-salt <value>`: The salt to use to instantiate the token contract (default: 0x0000000000000000000000000000000000000000000000000000000000000001).
 - `--bot.tx-interval-seconds <value>`: Every how many seconds should a new tx be sent (default: 60).
 - `--bot.private-transfers-per-tx <value>`: How many private token transfers are executed per tx (default: 1).
 - `--bot.public-transfers-per-tx <value>`: How many public token transfers are executed per tx (default: 1).
@@ -455,7 +455,7 @@ aztec create-account [options]
 Options:
 
 - `--skip-initialization`: Skip initializing the account contract. Useful for publicly deploying an existing account.
-- `--public-deploy`: Publicly deploys the account and registers the class if needed.
+- `--public-deploy`: Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
 - `-p, --public-key <string>`: Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
 - `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
 - `-sk, --secret-key <string>`: Secret key for account. Uses random by default. (env: SECRET_KEY)

@@ -15,6 +15,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { L2BlockHash } from '../block/block_hash.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -37,6 +38,7 @@ import { getTokenContractArtifact } from '../tests/fixtures.js';
 import {
   type IndexedTxEffect,
   PrivateExecutionResult,
+  SimulationOverrides,
   Tx,
   TxHash,
   TxReceipt,
@@ -157,7 +159,14 @@ describe('PXESchema', () => {
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(await TxExecutionRequest.random(), true, address, false, true, []);
+    const result = await context.client.simulateTx(
+      await TxExecutionRequest.random(),
+      true,
+      false,
+      true,
+      { msgSender: address, contracts: {} },
+      [],
+    );
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -191,7 +200,7 @@ describe('PXESchema', () => {
   it('getTxEffect', async () => {
     const { l2BlockHash, l2BlockNumber, data } = (await context.client.getTxEffect(TxHash.random()))!;
     expect(data).toBeInstanceOf(TxEffect);
-    expect(l2BlockHash).toMatch(/0x[a-fA-F0-9]{64}/);
+    expect(l2BlockHash).toBeInstanceOf(L2BlockHash);
     expect(l2BlockNumber).toBe(1);
   });
 
@@ -261,11 +270,11 @@ describe('PXESchema', () => {
   });
 
   it('getContractMetadata', async () => {
-    const { contractInstance, isContractInitialized, isContractPubliclyDeployed } =
+    const { contractInstance, isContractInitialized, isContractPublished } =
       await context.client.getContractMetadata(address);
     expect(contractInstance).toEqual(instance);
     expect(isContractInitialized).toEqual(true);
-    expect(isContractPubliclyDeployed).toEqual(true);
+    expect(isContractPublished).toEqual(true);
   });
 
   it('getContractClassMetadata', async () => {
@@ -391,14 +400,14 @@ class MockPXE implements PXE {
   async simulateTx(
     txRequest: TxExecutionRequest,
     _simulatePublic: boolean,
-    msgSender?: AztecAddress,
     _skipTxValidation?: boolean,
-    _enforceFeePayment?: boolean,
+    _skipFeeEnforcement?: boolean,
+    overrides?: SimulationOverrides,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
-    if (msgSender) {
-      expect(msgSender).toBeInstanceOf(AztecAddress);
+    if (overrides?.msgSender) {
+      expect(overrides.msgSender).toBeInstanceOf(AztecAddress);
     }
     if (scopes) {
       expect(scopes).toEqual([]);
@@ -417,7 +426,7 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return {
       data: await TxEffect.random(),
-      l2BlockHash: Fr.random().toString(),
+      l2BlockHash: L2BlockHash.random(),
       l2BlockNumber: 1,
       txIndexInBlock: randomInt(10),
     };
@@ -525,7 +534,7 @@ class MockPXE implements PXE {
     return Promise.resolve({
       contractInstance: this.instance,
       isContractInitialized: true,
-      isContractPubliclyDeployed: true,
+      isContractPublished: true,
     });
   }
   getPrivateEvents<T>(

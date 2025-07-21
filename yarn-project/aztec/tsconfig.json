@@ -55,6 +55,9 @@
       "path": "../kv-store"
     },
     {
+      "path": "../l1-artifacts"
+    },
+    {
       "path": "../noir-contracts.js"
     },
     {

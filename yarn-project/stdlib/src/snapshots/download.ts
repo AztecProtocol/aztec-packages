@@ -1,5 +1,5 @@
 import { fromEntries, getEntries, maxBy } from '@aztec/foundation/collection';
-import { jsonParseWithSchemaSync } from '@aztec/foundation/json-rpc';
+import { jsonParseWithSchema } from '@aztec/foundation/json-rpc';
 import type { ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import {
@@ -20,7 +20,7 @@ export async function getSnapshotIndex(
   try {
     if (await store.exists(snapshotIndexPath)) {
       const snapshotIndexData = await store.read(snapshotIndexPath);
-      return jsonParseWithSchemaSync(snapshotIndexData.toString(), SnapshotsIndexSchema);
+      return jsonParseWithSchema(snapshotIndexData.toString(), SnapshotsIndexSchema);
     } else {
       return undefined;
     }

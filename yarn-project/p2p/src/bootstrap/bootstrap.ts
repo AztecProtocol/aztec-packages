@@ -45,7 +45,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
 
     const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
-      peerIdPrivateKey,
+      peerIdPrivateKey.getValue(),
       p2pIp,
       config.p2pBroadcastPort!,
       config.l1ChainId,

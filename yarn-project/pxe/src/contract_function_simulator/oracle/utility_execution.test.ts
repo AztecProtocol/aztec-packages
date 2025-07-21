@@ -21,9 +21,9 @@ describe('Utility Execution test suite', () => {
   beforeEach(() => {
     executionDataProvider = mock<ExecutionDataProvider>();
 
-    executionDataProvider.getBlockNumber.mockResolvedValue(42);
     executionDataProvider.getChainId.mockResolvedValue(1);
     executionDataProvider.getVersion.mockResolvedValue(1);
+    executionDataProvider.getTimestamp.mockResolvedValue(0n);
 
     acirSimulator = new ContractFunctionSimulator(executionDataProvider, simulator);
   });
@@ -71,7 +71,7 @@ describe('Utility Execution test suite', () => {
         notes.map((note, index) => ({
           contractAddress,
           storageSlot: Fr.random(),
-          nonce: Fr.random(),
+          noteNonce: Fr.random(),
           isSome: new Fr(1),
           note,
           noteHash: Fr.random(),

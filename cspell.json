@@ -276,6 +276,7 @@
     "secp",
     "SEMRESATTRS",
     "Sepolia",
+    "serde",
     "setsid",
     "sigchld",
     "Signerless",
@@ -380,6 +381,8 @@
     "*.cmake"
   ],
   "flagWords": [
-    "anonymous"
+    "anonymous",
+    "offence",
+    "offences"
   ]
 }

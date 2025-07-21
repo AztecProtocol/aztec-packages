@@ -1,5 +1,6 @@
-use super::utils::compute_fn_selector;
-use std::panic;
+use super::utils::{compute_fn_selector, size_in_fields};
+use poseidon::poseidon2::Poseidon2Hasher;
+use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
@@ -9,11 +10,26 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let unit = get_type::<()>();
 
+    let seen_selectors =
+        &mut UHashMap::<Field, Quoted, BuildHasherDefault<Poseidon2Hasher>>::default();
+
     let ifs = functions.map(|function: FunctionDefinition| {
         let parameters = function.parameters();
         let return_type = function.return_type();
 
         let selector: Field = compute_fn_selector(function);
+        let fn_name = function.name();
+
+        // Since function selectors are computed as the first 4 bytes of the hash of the function signature,
+        // it's possible to have collisions. With the following check, we ensure it doesn't happen within
+        // the same contract.
+        if seen_selectors.contains_key(selector) {
+            let existing_fn = seen_selectors.get(selector).unwrap();
+            panic(
+                f"Public function selector collision detected between functions '{fn_name}' and '{existing_fn}'",
+            );
+        }
+        seen_selectors.insert(selector, fn_name);
 
         let mut parameters_size = 0;
         for param in parameters {
@@ -101,83 +117,6 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
         body
     }
-}
-
-comptime fn size_in_fields(typ: Type) -> u32 {
-    let size = array_size_in_fields(typ);
-    let size = size.or_else(|| bool_size_in_fields(typ));
-    let size = size.or_else(|| constant_size_in_fields(typ));
-    let size = size.or_else(|| field_size_in_fields(typ));
-    let size = size.or_else(|| int_size_in_fields(typ));
-    let size = size.or_else(|| str_size_in_fields(typ));
-    let size = size.or_else(|| struct_size_in_fields(typ));
-    let size = size.or_else(|| tuple_size_in_fields(typ));
-    if size.is_some() {
-        size.unwrap()
-    } else {
-        panic(f"Can't determine size in fields of {typ}")
-    }
-}
-
-comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_array().and_then(|typ: (Type, Type)| {
-        let (typ, element_size) = typ;
-        element_size.as_constant().map(|x: u32| x * size_in_fields(typ))
-    })
-}
-
-comptime fn bool_size_in_fields(typ: Type) -> Option<u32> {
-    if typ.is_bool() {
-        Option::some(1)
-    } else {
-        Option::none()
-    }
-}
-
-comptime fn field_size_in_fields(typ: Type) -> Option<u32> {
-    if typ.is_field() {
-        Option::some(1)
-    } else {
-        Option::none()
-    }
-}
-
-comptime fn int_size_in_fields(typ: Type) -> Option<u32> {
-    if typ.as_integer().is_some() {
-        Option::some(1)
-    } else {
-        Option::none()
-    }
-}
-
-comptime fn constant_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_constant()
-}
-
-comptime fn str_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_str().map(|typ| size_in_fields(typ))
-}
-
-comptime fn struct_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_data_type().map(|typ: (TypeDefinition, [Type])| {
-        let struct_type = typ.0;
-        let generics = typ.1;
-        let mut size = 0;
-        for field in struct_type.fields(generics) {
-            size += size_in_fields(field.1);
-        }
-        size
-    })
-}
-
-comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_tuple().map(|types: [Type]| {
-        let mut size = 0;
-        for typ in types {
-            size += size_in_fields(typ);
-        }
-        size
-    })
 }
 
 comptime fn get_type<T>() -> Type {

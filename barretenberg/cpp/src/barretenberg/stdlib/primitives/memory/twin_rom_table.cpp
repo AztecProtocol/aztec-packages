@@ -7,6 +7,7 @@
 #include "twin_rom_table.hpp"
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 
 using namespace bb;
 

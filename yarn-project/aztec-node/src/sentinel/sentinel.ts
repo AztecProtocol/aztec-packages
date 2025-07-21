@@ -6,7 +6,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
 import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
-import { Offence, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -129,6 +129,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const fromSlot = provenSlots[0];
     const toSlot = provenSlots[provenSlots.length - 1];
     const { committee } = await this.epochCache.getCommittee(fromSlot);
+    if (!committee) {
+      this.logger.trace(`No committee found for slot ${fromSlot}`);
+      return {};
+    }
     const stats = await this.computeStats({ fromSlot, toSlot });
     this.logger.debug(`Stats for epoch ${epoch}`, stats);
 
@@ -169,7 +173,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const args = criminals.map(address => ({
       validator: EthAddress.fromString(address),
       amount: this.config.slashInactivityCreatePenalty,
-      offense: Offence.INACTIVITY,
+      offense: Offense.INACTIVITY,
     }));
 
     this.logger.info(`Criminals: ${criminals.length}`, { args });
@@ -273,8 +277,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    */
   protected async processSlot(slot: bigint) {
     const { epoch, seed, committee } = await this.epochCache.getCommittee(slot);
-    if (committee.length === 0) {
-      this.logger.warn(`No committee found for slot ${slot} at epoch ${epoch}`);
+    if (!committee || committee.length === 0) {
+      this.logger.trace(`No committee found for slot ${slot} at epoch ${epoch}`);
       this.lastProcessedSlot = slot;
       return;
     }

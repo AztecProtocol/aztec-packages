@@ -22,7 +22,7 @@ describe('ServerWorldStateSynchronizer', () => {
   let log: Logger;
 
   let l1ToL2Messages: Fr[];
-  let inHash: Buffer;
+  let inHash: Fr;
 
   let blockAndMessagesSource: MockProxy<L2BlockSource & L1ToL2MessageSource>;
   let merkleTreeDb: MockProxy<MerkleTreeAdminDatabase>;
@@ -44,7 +44,7 @@ describe('ServerWorldStateSynchronizer', () => {
     const calculator = await MerkleTreeCalculator.create(L1_TO_L2_MSG_SUBTREE_HEIGHT, Buffer.alloc(32), (lhs, rhs) =>
       Promise.resolve(new SHA256Trunc().hash(lhs, rhs)),
     );
-    inHash = await calculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    inHash = new Fr(await calculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
   });
 
   beforeEach(() => {

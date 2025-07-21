@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
 #include <cstdint>
@@ -65,7 +66,7 @@ generate_big_int_op_constraint_with_modulus(
         value = witness_values[lhs_id] / witness_values[rhs_id];
         break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected BigIntOperationType.");
         break;
     }
 
@@ -148,7 +149,7 @@ std::tuple<BigIntOperation, BigIntToLeBytes> generate_big_int_op_constraint_with
         value = witness_values[lhs_id] / witness_values[rhs_id];
         break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected BigIntOperationType.");
         break;
     }
 
@@ -181,7 +182,6 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -203,7 +203,8 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     mock_opcode_indices(constraint_system);
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -247,7 +248,6 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -266,7 +266,8 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
     WitnessVector witness{
         0, 3, 6, 3, 0,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -298,7 +299,6 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -323,7 +323,8 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -353,7 +354,6 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -378,7 +378,8 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -429,7 +430,6 @@ TEST_F(BigIntTests, TestBigIntDIV)
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -448,7 +448,8 @@ TEST_F(BigIntTests, TestBigIntDIV)
     WitnessVector witness{
         0, 6, 3, 2, 0,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

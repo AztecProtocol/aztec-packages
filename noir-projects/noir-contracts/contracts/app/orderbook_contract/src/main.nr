@@ -40,8 +40,8 @@ pub contract Orderbook {
             storage::storage,
         },
         oracle::notes::check_nullifier_exists,
-        prelude::{AztecAddress, Map, PublicImmutable},
-        protocol_types::traits::{FromField, ToField},
+        protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
+        state_vars::{Map, PublicImmutable},
     };
 
     use token::Token;
@@ -78,7 +78,7 @@ pub contract Orderbook {
         ask_token: AztecAddress,
         bid_amount: u128,
         ask_amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
     ) -> Field {
         let config = storage.config.read();
 
@@ -89,13 +89,13 @@ pub contract Orderbook {
 
         // Transfer tokens from maker to the public balance of this contract.
         Token::at(bid_token)
-            .transfer_to_public(maker, context.this_address(), bid_amount, nonce)
+            .transfer_to_public(maker, context.this_address(), bid_amount, authwit_nonce)
             .call(&mut context);
 
         // Prepare a partial note that will get completed once the order is fulfilled. Note that only the Orderbook
         // contract can complete the partial note.
         let maker_partial_note =
-            Token::at(ask_token).prepare_private_balance_increase(maker, maker).call(&mut context);
+            Token::at(ask_token).prepare_private_balance_increase(maker).call(&mut context);
 
         // We use the partial note's as the order ID. Because partial notes emit a nullifier when created they are
         // unique, and so this guarantees that our order IDs are also unique without having to keep track of past
@@ -121,7 +121,7 @@ pub contract Orderbook {
     /// Privately fulfills an existing order in the orderbook
     /// The taker provides the order ID they want to fulfill
     #[private]
-    fn fulfill_order(order_id: Field, nonce: Field) {
+    fn fulfill_order(order_id: Field, authwit_nonce: Field) {
         let config = storage.config.read();
         let order = storage.orders.at(order_id).read();
         let taker = context.msg_sender();
@@ -138,13 +138,13 @@ pub contract Orderbook {
                 taker,
                 maker_partial_note,
                 order.ask_amount,
-                nonce,
+                authwit_nonce,
             )
             .call(&mut context);
 
         // Prepare partial note for taker to receive bid_token
         let taker_partial_note =
-            Token::at(bid_token).prepare_private_balance_increase(taker, taker).call(&mut context);
+            Token::at(bid_token).prepare_private_balance_increase(taker).call(&mut context);
 
         // Nullify the order such that it cannot be fulfilled again. We emit a nullifier instead of deleting the order
         // from public storage because we get no refund for resetting public storage to zero and just emitting

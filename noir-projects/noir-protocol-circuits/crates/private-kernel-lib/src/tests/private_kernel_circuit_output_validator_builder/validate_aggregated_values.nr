@@ -1,4 +1,5 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
+use dep::types::constants::DEFAULT_UPDATE_DELAY;
 
 #[test]
 fn validate_aggregated_values_empty_data_succeeds() {
@@ -70,77 +71,73 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_random_output_f
 }
 
 /**
- * max_block_number
+ * include_by_timestamp
  */
 #[test]
-fn validate_aggregated_values_max_block_number_from_previous_succeeds() {
+fn validate_aggregated_values_include_by_timestamp_from_both_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(3);
-    builder.output.set_max_block_number(3);
+    builder.previous_kernel.include_by_timestamp = 3;
+    builder.private_call.include_by_timestamp = 3;
+    builder.output.include_by_timestamp = 3;
 
     builder.validate_as_inner_call();
 }
 
 #[test]
-fn validate_aggregated_values_max_block_number_from_private_call_succeeds() {
+fn validate_aggregated_values_include_by_timestamp_from_both_pick_previous_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(3);
-    builder.output.set_max_block_number(3);
+    builder.previous_kernel.include_by_timestamp = 3;
+    builder.private_call.include_by_timestamp = 4;
+    builder.output.include_by_timestamp = 3;
 
     builder.validate_as_inner_call();
 }
 
 #[test]
-fn validate_aggregated_values_max_block_number_from_both_succeeds() {
+fn validate_aggregated_values_include_by_timestamp_from_both_pick_private_call_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(3);
-    builder.private_call.set_max_block_number(3);
-    builder.output.set_max_block_number(3);
+    builder.previous_kernel.include_by_timestamp = 4;
+    builder.private_call.include_by_timestamp = 3;
+    builder.output.include_by_timestamp = 3;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with = "incorrect output include_by_timestamp")]
+fn validate_aggregated_values_include_by_timestamp_from_both_pick_larger_previous_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.previous_kernel.include_by_timestamp = 4;
+    builder.private_call.include_by_timestamp = 3;
+    builder.output.include_by_timestamp = 4;
+
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with = "incorrect output include_by_timestamp")]
+fn validate_aggregated_values_include_by_timestamp_from_both_pick_larger_private_call_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.previous_kernel.include_by_timestamp = 3;
+    builder.private_call.include_by_timestamp = 4;
+    builder.output.include_by_timestamp = 4;
 
     builder.validate_as_inner_call();
 }
 
 #[test]
-fn validate_aggregated_values_max_block_number_from_both_pick_previous_succeeds() {
+fn validate_aggregated_values_include_by_timestamp_pick_for_contract_updates_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(3);
-    builder.private_call.set_max_block_number(4);
-    builder.output.set_max_block_number(3);
+    let include_by_timestamp_for_contract_updates =
+        builder.private_call.historical_header.global_variables.timestamp + DEFAULT_UPDATE_DELAY;
 
-    builder.validate_as_inner_call();
-}
-
-#[test]
-fn validate_aggregated_values_max_block_number_from_both_pick_private_call_succeeds() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.previous_kernel.set_max_block_number(4);
-    builder.private_call.set_max_block_number(3);
-    builder.output.set_max_block_number(3);
-
-    builder.validate_as_inner_call();
-}
-
-#[test(should_fail_with = "incorrect output max_block_number")]
-fn validate_aggregated_values_max_block_number_from_both_pick_larger_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.previous_kernel.set_max_block_number(4);
-    builder.private_call.set_max_block_number(3);
-    builder.output.set_max_block_number(4);
-
-    builder.validate_as_inner_call();
-}
-
-#[test(should_fail_with = "incorrect output max_block_number")]
-fn validate_aggregated_values_max_block_number_random_output_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.set_max_block_number(3);
+    builder.previous_kernel.include_by_timestamp = include_by_timestamp_for_contract_updates + 1;
+    builder.private_call.include_by_timestamp = include_by_timestamp_for_contract_updates + 1;
+    builder.output.include_by_timestamp = include_by_timestamp_for_contract_updates;
 
     builder.validate_as_inner_call();
 }
