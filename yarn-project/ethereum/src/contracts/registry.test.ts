@@ -119,7 +119,7 @@ describe('Registry', () => {
   it('adds a version to the registry', async () => {
     const newVersionSalt = originalVersionSalt + 1;
 
-    const deployer = new L1Deployer(l1Client, newVersionSalt, undefined, logger, defaultL1TxUtilsConfig);
+    const deployer = new L1Deployer(l1Client, newVersionSalt, undefined, undefined, logger, defaultL1TxUtilsConfig);
 
     // We need to steal ownership of the registry to add a rollup without going through governance
     await setRegistryOwnership(EthAddress.fromString(deployer.client.account.address));

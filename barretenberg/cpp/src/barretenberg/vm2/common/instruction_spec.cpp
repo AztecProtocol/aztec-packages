@@ -456,6 +456,10 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_NOT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_inputs({ /*a*/ RegisterInfo::ANY_TAG }).add_output(/*b*/) } },
+    { ExecutionOpCode::CAST,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_CAST_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*a*/ RegisterInfo::ANY_TAG).add_output(/*c*/) } },
     { ExecutionOpCode::GETENVVAR,
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_GETENVVAR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -531,7 +535,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
     { ExecutionOpCode::DEBUGLOG,
-      { .num_addresses = 4,
+      { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_DEBUGLOG_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         // We don't set the right inputs for debuglog because we make it a noop.
         .register_info = RegisterInfo() } },
@@ -579,6 +583,22 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_input(/*contract_address*/ ValueTag::FF) } },
+    { ExecutionOpCode::EMITNOTEHASH,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_EMITNOTEHASH_BASE_L2_GAS,
+                      .base_da = AVM_EMITNOTEHASH_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*note_hash*/ ValueTag::FF) } },
+    { ExecutionOpCode::L1TOL2MSGEXISTS,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_L1TOL2MSGEXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*msg_hash*/ ValueTag::FF, /*leaf_index*/ ValueTag::U64 })
+                             .add_output(/*exists*/) } },
+    { ExecutionOpCode::POSEIDON2PERM,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_POSEIDON2_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
 };
 
 } // namespace bb::avm2

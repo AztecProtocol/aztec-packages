@@ -169,6 +169,9 @@ export class TXE implements TypedOracle {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
+  // Used by setSenderForTags and getSenderForTags oracles.
+  private senderForTags?: AztecAddress;
+
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
@@ -1320,6 +1323,15 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  getSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.resolve(this.senderForTags);
+  }
+
+  setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.senderForTags = senderForTags;
+    return Promise.resolve();
+  }
+
   async privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
@@ -1362,7 +1374,7 @@ export class TXE implements TypedOracle {
       /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
       blockHeader,
       /** List of transient auth witnesses to be used during this simulation */
-      [],
+      Array.from(this.authwits.values()),
       /** List of transient auth witnesses to be used during this simulation */
       [],
       HashedValuesCache.create(),
@@ -1371,6 +1383,13 @@ export class TXE implements TypedOracle {
       this.simulator,
       0,
       1,
+      undefined, // log
+      undefined, // scopes
+      /**
+       * In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
+       * contract would perform, including setting senderForTags.
+       */
+      from,
     );
 
     context.storeInExecutionCache(args, argsHash);
@@ -1449,12 +1468,11 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
         returnsHash: result.entrypoint.publicInputs.returnsHash,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1501,13 +1519,11 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
   }
 
@@ -1614,11 +1630,10 @@ export class TXE implements TypedOracle {
 
     if (isStaticCall) {
       await checkpoint!.revert();
-      const txRequestHash = this.getTxRequestHash();
 
       return {
         returnsHash: returnValuesHash ?? Fr.ZERO,
-        txHash: txRequestHash,
+        txHash: await tx.getTxHash(),
       };
     }
 
@@ -1665,13 +1680,11 @@ export class TXE implements TypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    const txRequestHash = this.getTxRequestHash();
-
     this.setBlockNumber(this.blockNumber + 1);
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,
-      txHash: txRequestHash,
+      txHash: await tx.getTxHash(),
     };
   }
 
