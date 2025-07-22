@@ -304,7 +304,12 @@ export class TXEService {
   }
 
   async getContractAddress() {
-    if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL && this.context != TXEContext.UTILITY) {
+    if (
+      this.contextChecksEnabled &&
+      this.context != TXEContext.TOP_LEVEL &&
+      this.context != TXEContext.UTILITY &&
+      this.context != TXEContext.PRIVATE
+    ) {
       throw new Error(`Attempted to call getContractAddress while in context ${TXEContext[this.context]}`);
     }
 
