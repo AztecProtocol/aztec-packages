@@ -411,8 +411,8 @@ export class PeerManager implements PeerManagerInterface {
    *
    * @returns: True if node is allowed to connect, otherwise false
    * */
-  public isNodeAllowedToConnect(address: Multiaddr): boolean {
-    const failedAuthHandshakesCount = this.failedAuthHandshakes.get(address.toString()) ?? 0;
+  public isNodeAllowedToConnect(id: string | PeerId): boolean {
+    const failedAuthHandshakesCount = this.failedAuthHandshakes.get(id.toString()) ?? 0;
 
     return failedAuthHandshakesCount <= this.config.p2pMaxFailedAuthAttemptsAllowed;
   }
@@ -910,9 +910,13 @@ export class PeerManager implements PeerManagerInterface {
    * Marks when peer fails auth handshake
    * */
   private markAuthHandshakeFailed(peerId: PeerId) {
+    // We both ban by peer ID and the address
+    this.failedAuthHandshakes.set(peerId.toString(), (this.failedAuthHandshakes.get(peerId.toString()) || 0) + 1);
+
     const connections = this.libP2PNode.getConnections(peerId);
     connections.forEach(conn => {
-      const address = conn.remoteAddr.toString();
+      // We mark the IP address
+      const address = conn.remoteAddr.nodeAddress().address;
       this.failedAuthHandshakes.set(address, (this.failedAuthHandshakes.get(address) || 0) + 1);
     });
   }
@@ -922,9 +926,12 @@ export class PeerManager implements PeerManagerInterface {
    * Removes any failed previous attempts
    * */
   private markAuthHandshakeSuccess(peerId: PeerId) {
+    this.failedAuthHandshakes.delete(peerId.toString());
+
     const connections = this.libP2PNode.getConnections(peerId);
     connections.forEach(conn => {
-      this.failedAuthHandshakes.delete(conn.remoteAddr.toString());
+      const address = conn.remoteAddr.nodeAddress().address;
+      this.failedAuthHandshakes.delete(address);
     });
   }
 

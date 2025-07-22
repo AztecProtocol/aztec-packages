@@ -305,12 +305,23 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       },
       connectionGater: {
         denyInboundConnection: (maConn: MultiaddrConnection) => {
-          const allowed = peerManager.isNodeAllowedToConnect(maConn.remoteAddr);
+          const allowed = peerManager.isNodeAllowedToConnect(maConn.remoteAddr.nodeAddress().address);
           if (allowed) {
             return false;
           }
 
           logger.debug(`Connection gater: Denying inbound connection from ${maConn.remoteAddr.toString()}`);
+          return true;
+        },
+        denyInboundEncryptedConnection: (peerId: PeerId, _maConn: MultiaddrConnection) => {
+          //NOTE: it is not necessary to check address here because this was already done by
+          // denyInboundConnection
+          const allowed = peerManager.isNodeAllowedToConnect(peerId);
+          if (allowed) {
+            return false;
+          }
+
+          logger.debug(`Connection gater: Denying inbound encrypted connection from ${peerId.toString()}`);
           return true;
         },
       },
