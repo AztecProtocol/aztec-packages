@@ -91,7 +91,8 @@ template <typename Flavor> class SumcheckProverRound {
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
     }
-    // TODO(RAJU): should we get rid of this function, given `compute_univariates_with_row_skipping()`?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1484): should we get rid of this function, given
+    // `compute_univariates_with_row_skipping()`?
     /**
      * @brief  To compute the round univariate in Round \f$i\f$, the prover first computes the values of Honk
      polynomials \f$ P_1,\ldots, P_N \f$ at the points of the form \f$ (u_0,\ldots, u_{i-1}, k, \vec \ell)\f$ for \f$
