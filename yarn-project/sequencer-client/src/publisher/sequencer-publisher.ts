@@ -56,14 +56,14 @@ type L1ProcessArgs = {
   attestations?: CommitteeAttestation[];
 };
 
-export enum VoteType {
+export enum SignalType {
   GOVERNANCE,
   SLASHING,
 }
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-export type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+export type Action = 'propose' | 'governance-signal' | 'slashing-signal';
 
 interface RequestWithExpiry {
   action: Action;
@@ -91,9 +91,9 @@ export class SequencerPublisher {
   protected slashingProposerAddress?: EthAddress;
   private getSlashPayload?: GetSlashPayloadCallBack = undefined;
 
-  private myLastVotes: Record<VoteType, bigint> = {
-    [VoteType.GOVERNANCE]: 0n,
-    [VoteType.SLASHING]: 0n,
+  private myLastSignals: Record<SignalType, bigint> = {
+    [SignalType.GOVERNANCE]: 0n,
+    [SignalType.SLASHING]: 0n,
   };
 
   protected log = createLogger('sequencer:publisher');
@@ -398,16 +398,16 @@ export class SequencerPublisher {
     return ts;
   }
 
-  private async enqueueCastVoteHelper(
+  private async enqueueCastSignalHelper(
     slotNumber: bigint,
     timestamp: bigint,
-    voteType: VoteType,
+    signalType: SignalType,
     payload: EthAddress,
     base: IEmpireBase,
     signerAddress: EthAddress,
     signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    if (this.myLastVotes[voteType] >= slotNumber) {
+    if (this.myLastSignals[signalType] >= slotNumber) {
       return false;
     }
     if (payload.equals(EthAddress.ZERO)) {
@@ -416,16 +416,16 @@ export class SequencerPublisher {
     const round = await base.computeRound(slotNumber);
     const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
-    if (roundInfo.lastVote >= slotNumber) {
+    if (roundInfo.lastSignalSlot >= slotNumber) {
       return false;
     }
 
-    const cachedLastVote = this.myLastVotes[voteType];
-    this.myLastVotes[voteType] = slotNumber;
+    const cachedLastVote = this.myLastSignals[signalType];
+    this.myLastSignals[signalType] = slotNumber;
 
-    const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
+    const action = signalType === SignalType.GOVERNANCE ? 'governance-signal' : 'slashing-signal';
 
-    const request = await base.createVoteRequestWithSignature(
+    const request = await base.createSignalRequestWithSignature(
       payload.toString(),
       round,
       this.config.l1ChainId,
@@ -458,7 +458,7 @@ export class SequencerPublisher {
           result.receipt &&
           result.receipt.status === 'success' &&
           result.receipt.logs.find(
-            log => log.topics[0] === toEventSelector(getAbiItem({ abi: EmpireBaseAbi, name: 'VoteCast' })),
+            log => log.topics[0] === toEventSelector(getAbiItem({ abi: EmpireBaseAbi, name: 'SignalCast' })),
           );
 
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
@@ -467,7 +467,7 @@ export class SequencerPublisher {
             `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
-          this.myLastVotes[voteType] = cachedLastVote;
+          this.myLastSignals[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
@@ -481,13 +481,13 @@ export class SequencerPublisher {
     return true;
   }
 
-  private async getVoteConfig(
+  private async getSignalConfig(
     slotNumber: bigint,
-    voteType: VoteType,
+    signalType: SignalType,
   ): Promise<{ payload: EthAddress; base: IEmpireBase } | undefined> {
-    if (voteType === VoteType.GOVERNANCE) {
+    if (signalType === SignalType.GOVERNANCE) {
       return { payload: this.governancePayload, base: this.govProposerContract };
-    } else if (voteType === VoteType.SLASHING) {
+    } else if (signalType === SignalType.SLASHING) {
       if (!this.getSlashPayload) {
         return undefined;
       }
@@ -498,31 +498,31 @@ export class SequencerPublisher {
       this.log.info(`Slash payload: ${slashPayload}`);
       return { payload: slashPayload, base: this.slashingProposerContract };
     } else {
-      const _: never = voteType;
-      throw new Error('Unreachable: Invalid vote type');
+      const _: never = signalType;
+      throw new Error('Unreachable: Invalid signal type');
     }
   }
 
   /**
-   * Enqueues a castVote transaction to cast a vote for a given slot number.
-   * @param slotNumber - The slot number to cast a vote for.
-   * @param timestamp - The timestamp of the slot to cast a vote for.
-   * @param voteType - The type of vote to cast.
-   * @returns True if the vote was successfully enqueued, false otherwise.
+   * Enqueues a castSignal transaction to cast a signal for a given slot number.
+   * @param slotNumber - The slot number to cast a signal for.
+   * @param timestamp - The timestamp of the slot to cast a signal for.
+   * @param signalType - The type of signal to cast.
+   * @returns True if the signal was successfully enqueued, false otherwise.
    */
-  public async enqueueCastVote(
+  public async enqueueCastSignal(
     slotNumber: bigint,
     timestamp: bigint,
-    voteType: VoteType,
+    signalType: SignalType,
     signerAddress: EthAddress,
     signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    const voteConfig = await this.getVoteConfig(slotNumber, voteType);
-    if (!voteConfig) {
+    const signalConfig = await this.getSignalConfig(slotNumber, signalType);
+    if (!signalConfig) {
       return false;
     }
-    const { payload, base } = voteConfig;
-    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base, signerAddress, signer);
+    const { payload, base } = signalConfig;
+    return this.enqueueCastSignalHelper(slotNumber, timestamp, signalType, payload, base, signerAddress, signer);
   }
 
   /**

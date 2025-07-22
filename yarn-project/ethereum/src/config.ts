@@ -74,8 +74,8 @@ const LocalGovernanceConfiguration = {
   votingDuration: 60n * 60n,
   executionDelay: 60n,
   gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 1n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
+  quorum: 1n * 10n ** 17n, // 10%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
   minimumVotes: 400n * 10n ** 18n,
 };
 
@@ -88,8 +88,8 @@ const TestnetGovernanceConfiguration = {
   votingDuration: 60n * 60n,
   executionDelay: 60n * 60n * 24n,
   gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 3n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
   minimumVotes: DefaultL1ContractsConfig.minimumStake * 200n,
 };
 
@@ -98,6 +98,23 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
     return TestnetGovernanceConfiguration;
   }
   return LocalGovernanceConfiguration;
+};
+
+const TestnetGSEConfiguration = {
+  depositAmount: BigInt(100e18),
+  minimumStake: BigInt(50e18),
+};
+
+const LocalGSEConfiguration = {
+  depositAmount: BigInt(100e18),
+  minimumStake: BigInt(50e18),
+};
+
+export const getGSEConfiguration = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGSEConfiguration;
+  }
+  return LocalGSEConfiguration;
 };
 
 // Making a default config here as we are only using it thought the deployment

@@ -16,19 +16,18 @@ interface IEmperor {
 }
 
 interface IEmpire {
-  event VoteCast(IPayload indexed proposal, uint256 indexed round, address indexed voter);
-  event ProposalExecutable(IPayload indexed proposal, uint256 indexed round);
-  event ProposalExecuted(IPayload indexed proposal, uint256 indexed round);
+  event SignalCast(IPayload indexed payload, uint256 indexed round, address indexed signaler);
+  event PayloadSubmittable(IPayload indexed payload, uint256 indexed round);
+  event PayloadSubmitted(IPayload indexed payload, uint256 indexed round);
 
-  function vote(IPayload _proposal) external returns (bool);
-  function voteWithSig(IPayload _proposal, Signature memory _sig) external returns (bool);
+  function signal(IPayload _payload) external returns (bool);
+  function signalWithSig(IPayload _payload, Signature memory _sig) external returns (bool);
 
-  function executeProposal(uint256 _roundNumber) external returns (bool);
-  function yeaCount(address _instance, uint256 _round, IPayload _proposal)
+  function submitRoundWinner(uint256 _roundNumber) external returns (bool);
+  function signalCount(address _instance, uint256 _round, IPayload _payload)
     external
     view
     returns (uint256);
   function computeRound(Slot _slot) external view returns (uint256);
   function getInstance() external view returns (address);
-  function getExecutor() external view returns (address);
 }

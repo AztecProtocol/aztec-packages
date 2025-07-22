@@ -99,7 +99,7 @@ struct ECCVMOperation {
  */
 template <typename OpFormat> class EccOpsTable {
     using Subtable = std::vector<OpFormat>;
-    std::vector<Subtable> table;
+    std::deque<Subtable> table;
     Subtable current_subtable; // used to store the current subtable before it is added to the table
   public:
     size_t size() const
@@ -127,8 +127,7 @@ template <typename OpFormat> class EccOpsTable {
 
     void create_new_subtable(size_t size_hint = 0)
     {
-        ASSERT(current_subtable.empty(),
-               "Cannot create a new subtable while there is an current subtable that has not been merged yet.");
+        ASSERT(current_subtable.empty(), "Cannot create a new subtable until the current subtable has been merged.");
         current_subtable.reserve(size_hint);
     }
 
@@ -170,9 +169,13 @@ template <typename OpFormat> class EccOpsTable {
             return; // nothing to merge
         }
 
-        // Get the iterator at which location we should insert the current subtable
-        auto it = settings == MergeSettings::PREPEND ? table.begin() : table.end();
-        table.insert(it, std::move(current_subtable));
+        // Based on merge settings add the current subtable to either the beginning or end of the full table
+        if (settings == MergeSettings::PREPEND) {
+            table.push_front(std::move(current_subtable));
+        } else {
+            table.push_back(std::move(current_subtable));
+        }
+
         current_subtable.clear(); // clear the current subtable after merging
         ASSERT(current_subtable.empty(), "current subtable should be empty after merging. Check the merge logic.");
     }

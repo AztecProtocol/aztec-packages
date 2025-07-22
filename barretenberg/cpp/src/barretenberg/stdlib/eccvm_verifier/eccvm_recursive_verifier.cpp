@@ -16,9 +16,13 @@ ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
                                                const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
                                                const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    , vk_hash(stdlib::witness_t<Builder>(builder, native_verifier_key->hash()))
     , builder(builder)
     , transcript(transcript)
-{}
+{
+    key->fix_witness();    // fixed to a constant
+    vk_hash.fix_witness(); // fixed to a constant
+}
 
 /**
  * @brief Creates a circuit that executes the ECCVM verifier algorithm up to IPA verification.
@@ -54,10 +58,9 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     transcript->load_proof(proof.pre_ipa_proof);
 
     // Fiat-Shamir the vk hash
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
-    // in-circuit hashing.
-    typename Flavor::BF vkey_hash = key->add_hash_to_transcript("", *transcript);
-    vinfo("ECCVM vk hash in recursive verifier: ", vkey_hash);
+    // We do not need to hash the vk in-circuit because both the vk and vk hash are hardcoded as constants.
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("ECCVM vk hash in recursive verifier: ", vk_hash);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

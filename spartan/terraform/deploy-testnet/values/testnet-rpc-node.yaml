@@ -32,10 +32,9 @@ affinity:
 
 replicaCount: 1
 
-node:
-  env:
-    OTEL_SERVICE_NAME: "node"
+hostNetwork: true
 
+node:
   resources:
     requests:
       cpu: "3"
@@ -58,7 +57,7 @@ statefulSet:
         accessModes: [ReadWriteOnce]
         resources:
           requests:
-            storage: 128Gi
+            storage: 16Gi
 
 service:
   p2p:
@@ -66,6 +65,8 @@ service:
     nodePortEnabled: false
   admin:
     enabled: true
-  headless:
-    enabled: false
+    type: ClusterIP
+  rpc:
+    enabled: true
+    type: LoadBalancer
 

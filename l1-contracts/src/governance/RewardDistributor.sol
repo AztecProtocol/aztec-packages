@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
@@ -13,7 +12,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
  * @title RewardDistributor
  * @notice This contract is responsible for distributing rewards.
  */
-contract RewardDistributor is IRewardDistributor, Ownable {
+contract RewardDistributor is IRewardDistributor {
   using SafeERC20 for IERC20;
 
   // This value is pulled out my ass. Don't take it seriously
@@ -22,7 +21,7 @@ contract RewardDistributor is IRewardDistributor, Ownable {
   IERC20 public immutable ASSET;
   IRegistry public immutable REGISTRY;
 
-  constructor(IERC20 _asset, IRegistry _registry, address _owner) Ownable(_owner) {
+  constructor(IERC20 _asset, IRegistry _registry) {
     ASSET = _asset;
     REGISTRY = _registry;
   }

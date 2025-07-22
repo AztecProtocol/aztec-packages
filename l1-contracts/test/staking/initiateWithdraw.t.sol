@@ -16,7 +16,7 @@ contract InitiateWithdrawTest is StakingBase {
   }
 
   modifier whenAttesterIsRegistered() {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
     staking.flushEntryQueue();

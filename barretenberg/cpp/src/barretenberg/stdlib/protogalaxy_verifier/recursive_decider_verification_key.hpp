@@ -36,7 +36,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     std::shared_ptr<VKAndHash> vk_and_hash;
 
     bool is_accumulator = false;
-    std::vector<FF> public_inputs;
+
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
     RelationParameters<FF> relation_parameters;
@@ -67,10 +67,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     {
         is_accumulator = verification_key->is_accumulator;
         if (is_accumulator) {
-
-            for (auto [native_public_input] : zip_view(verification_key->public_inputs)) {
-                public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
-            }
             for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
@@ -122,12 +118,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
 
         NativeDeciderVerificationKey decider_vk(native_honk_vk);
         decider_vk.is_accumulator = is_accumulator;
-
-        decider_vk.public_inputs = std::vector<NativeFF>(
-            static_cast<size_t>(static_cast<uint32_t>(vk_and_hash->vk->num_public_inputs.get_value())));
-        for (auto [public_input, inst_public_input] : zip_view(public_inputs, decider_vk.public_inputs)) {
-            inst_public_input = public_input.get_value();
-        }
 
         for (auto [alpha, inst_alpha] : zip_view(alphas, decider_vk.alphas)) {
             inst_alpha = alpha.get_value();
