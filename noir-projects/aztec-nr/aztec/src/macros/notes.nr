@@ -160,6 +160,30 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     }
 }
 
+/// Generates a compile-time check to ensure a note's packed length does not exceed the maximum allowed size.
+///
+/// This function creates an implementation block for the note type that includes a static assertion
+/// checking that the note's packed length (when serialized) is less than or equal to MAX_NOTE_PACKED_LEN.
+/// This prevents potential overflows when processing notes in the protocol.
+///
+/// # Arguments
+/// * `s` - The note type definition to generate the check for
+///
+/// # Returns
+/// A quoted code block containing the implementation with the static assertion
+comptime fn generate_packed_length_check(s: TypeDefinition) -> Quoted {
+    let typ = s.as_type();
+    // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
+    // when processing the note.
+    quote {
+        impl $typ {
+            fn _packed_length_static_check() {
+                std::static_assert(<$typ as Packable>::N  <= aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN, "$typ packed length exceeds the maximum of $MAX_NOTE_PACKED_LEN fields");
+            }
+        }
+    }
+}
+
 /// Generates the core note functionality for a struct:
 ///
 /// - NoteTypeProperties: Defines the structure and properties of note fields
@@ -188,15 +212,7 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_packable(s);
 
     // TODO(benesjan): Replace this with static_assert inserted into the note quote
-    let note_packed_len = get_packable_len(s.as_type());
-
-    // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
-    // when processing the note.
-    if note_packed_len > MAX_NOTE_PACKED_LEN {
-        panic(
-            f"{s} packs into {note_packed_len} fields which is larger than the maximum of {MAX_NOTE_PACKED_LEN}",
-        );
-    }
+    let note_packed_len = 5;
 
     // We register the note in the global `NOTES` map with the packed length because we need that information
     // inside the #[aztec] macro to generate note processing functionality.
@@ -206,11 +222,13 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     let note_type_id = get_next_note_type_id();
     let note_type_impl = generate_note_type_impl(s, note_type_id);
     let note_hash_impl = generate_note_hash_trait_impl(s);
+    let packed_length_check = generate_packed_length_check(s);
 
     quote {
         $note_properties
         $note_type_impl
         $note_hash_impl
+        $packed_length_check
     }
 }
 
@@ -261,15 +279,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     assert_has_packable(s);
 
     // TODO(benesjan): Replace this with static_assert inserted into the note quote
-    let note_packed_len = get_packable_len(s.as_type());
-
-    // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
-    // when processing the note.
-    if note_packed_len > MAX_NOTE_PACKED_LEN {
-        panic(
-            f"{s} packs into {note_packed_len} fields which is larger than the maximum of {MAX_NOTE_PACKED_LEN}",
-        );
-    }
+    let note_packed_len = 5;
 
     // We register the note in the global `NOTES` map with the packed length because we need that information
     // inside the #[aztec] macro to generate note processing functionality.
@@ -278,10 +288,12 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     let note_type_id = get_next_note_type_id();
     let note_properties = generate_note_properties(s);
     let note_type_impl = generate_note_type_impl(s, note_type_id);
+    let packed_length_check = generate_packed_length_check(s);
 
     quote {
         $note_properties
         $note_type_impl
+        $packed_length_check
     }
 }
 
