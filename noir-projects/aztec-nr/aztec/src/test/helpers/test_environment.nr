@@ -43,6 +43,27 @@ pub struct CallResult<T> {
     pub tx_hash: Field,
 }
 
+pub struct PrivateContextOptions {
+    contract_address: Option<AztecAddress>,
+    historical_block_number: Option<u32>,
+}
+
+impl PrivateContextOptions {
+    pub fn new() -> Self {
+        Self { contract_address: Option::none(), historical_block_number: Option::none() }
+    }
+
+    pub fn at_historical_block_number(&mut self, historical_block_number: u32) -> Self {
+        self.historical_block_number = Option::some(historical_block_number);
+        *self
+    }
+
+    pub fn at_contract_address(&mut self, contract_address: AztecAddress) -> Self {
+        self.contract_address = Option::some(contract_address);
+        *self
+    }
+}
+
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
         Self {}
@@ -135,6 +156,56 @@ impl TestEnvironment {
         // todo: should commit the context to mine a block with the side effects of the context. we should have an
         // oracle that receives the context we produced probably
         self.mine_block();
+
+        ret_value
+    }
+
+    pub unconstrained fn private_context_at<Env, T>(
+        &mut self,
+        addr: AztecAddress,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.private_context(f);
+        txe_oracles::set_contract_address(pre);
+
+        ret
+    }
+
+    pub unconstrained fn private_context_opts<Env, T>(
+        &mut self,
+        opts: PrivateContextOptions,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+
+        let pre_contract_address = txe_oracles::get_contract_address();
+
+        if opts.contract_address.is_some() {
+            txe_oracles::set_contract_address(opts.contract_address.unwrap());
+        }
+
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
+        let mut context = if opts.historical_block_number.is_some() {
+            self.private_at(opts.historical_block_number.unwrap())
+        } else {
+            self.private()
+        };
+
+        txe_oracles::set_private_txe_context();
+
+        let ret_value = f(&mut context);
+        txe_oracles::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context. we should have an
+        // oracle that receives the context we produced probably
+        self.mine_block();
+
+        txe_oracles::set_contract_address(pre_contract_address);
 
         ret_value
     }
