@@ -159,12 +159,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    if (!config.validatorPrivateKeys.getValue().length) {
-      throw new InvalidValidatorPrivateKeyError();
-    }
-
-    const privateKeys = config.validatorPrivateKeys.getValue().map(validatePrivateKey);
-
     let keyStore: ValidatorKeyStore;
 
     if (config.web3SignerUrl) {
@@ -174,6 +168,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       }
       keyStore = new Web3SignerKeyStore(addresses, config.web3SignerUrl);
     } else {
+      const privateKeys = config.validatorPrivateKeys?.getValue().map(validatePrivateKey);
+      if (!privateKeys?.length) {
+        throw new InvalidValidatorPrivateKeyError();
+      }
       keyStore = new LocalKeyStore(privateKeys);
     }
 

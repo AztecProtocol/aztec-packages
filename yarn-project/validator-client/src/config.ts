@@ -13,7 +13,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
  */
 export interface ValidatorClientConfig {
   /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys: SecretValue<`0x${string}`[]>;
+  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
 
   /** Do not run the validator */
   disableValidator: boolean;
