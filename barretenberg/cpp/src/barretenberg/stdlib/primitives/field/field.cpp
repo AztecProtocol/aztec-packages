@@ -1327,8 +1327,8 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const s
     hi_wit.create_range_constraint(num_bits - lsb_index, "split_at: hi value too large.");
 
     // Check that *this = lo_wit + hi_wit * 2^{lsb_index}
-    const field_t<Builder> decomposed = lo_wit + (hi_wit * field_t<Builder>(uint256_t(1) << lsb_index));
-    assert_equal(decomposed, "split_at: decomposition failed");
+    const field_t<Builder> reconstructed = lo_wit + (hi_wit * field_t<Builder>(uint256_t(1) << lsb_index));
+    assert_equal(reconstructed, "split_at: decomposition failed");
 
     // Set the origin tag for both witnesses
     lo_wit.set_origin_tag(tag);

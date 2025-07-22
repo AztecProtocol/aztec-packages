@@ -73,29 +73,21 @@ uint<Builder, Native>::uint(const byte_array<Builder>& other)
     , accumulators()
     , witness_index(IS_CONSTANT)
 {
-    field_t<Builder> accumulator(context, fr::zero());
-    field_t<Builder> scaling_factor(context, fr::one());
     const auto& bytes = other.bytes();
     const size_t num_bytes = bytes.size();
+    field_t<Builder> scaling_factor(context, fr::one());
 
-    // Process pairs of bytes from the end of the byte array.
-    for (size_t i = 0; i < (num_bytes / 2); ++i) {
-        const field_t<Builder> even_scaling_factor = scaling_factor;
-        const field_t<Builder> odd_scaling_factor = scaling_factor * fr(256);
-        accumulator = accumulator.add_two(bytes[num_bytes - 1 - (2 * i)] * even_scaling_factor,
-                                          bytes[num_bytes - 1 - (2 * i + 1)] * odd_scaling_factor);
-
-        scaling_factor = scaling_factor * fr(256 * 256); // Scale by (2^8 * 2^8).
+    // Collect the bytes in reverse order and scale them appropriately.
+    std::vector<field_t<Builder>> scaled_bytes;
+    scaled_bytes.reserve(num_bytes);
+    for (size_t i = 0; i < num_bytes; ++i) {
+        scaled_bytes.push_back(bytes[num_bytes - 1 - i] * scaling_factor);
+        scaling_factor = scaling_factor * fr(256); // Scale by 2^8.
     }
+    field_t<Builder> accumulator = field_t<Builder>::accumulate(scaled_bytes);
 
-    // Process the last byte if the byte array has an odd number of bytes.
-    if (num_bytes % 2 == 1) {
-        const field_t<Builder>& last_byte = bytes[0];
-        accumulator = accumulator + (scaling_factor * last_byte);
-    }
-
-    // Normalize the accumulator and set the witness index or additive constant.
-    accumulator = accumulator.normalize();
+    // If the accumulator is constant, we set the additive constant.
+    // Otherwise, we set the witness index.
     if (accumulator.is_constant()) {
         additive_constant = uint256_t(accumulator.additive_constant);
     } else {
@@ -116,28 +108,20 @@ uint<Builder, Native>::uint(Builder* parent_context, const std::vector<bool_t<Bu
     , accumulators()
     , witness_index(IS_CONSTANT)
 {
-    field_t<Builder> accumulator(context, fr::zero());
     field_t<Builder> scaling_factor(context, fr::one());
     const size_t num_wires = wires.size();
 
-    for (size_t i = 0; i < (num_wires / 2); ++i) {
-        const field_t<Builder> even_scaling_factor = scaling_factor;
-        const field_t<Builder> odd_scaling_factor = scaling_factor * fr(2);
-
-        accumulator = accumulator.add_two(field_t<Builder>(wires[2 * i]) * even_scaling_factor,
-                                          field_t<Builder>(wires[2 * i + 1]) * odd_scaling_factor);
-
-        scaling_factor = scaling_factor * fr(4); // Scale by (2^1 * 2^1).
+    // Collect the bits and scale them appropriately.
+    std::vector<field_t<Builder>> scaled_bits;
+    scaled_bits.reserve(num_wires);
+    for (size_t i = 0; i < num_wires; ++i) {
+        scaled_bits.push_back(field_t<Builder>(wires[i]) * scaling_factor);
+        scaling_factor = scaling_factor * fr(2); // Scale by 2^1.
     }
+    field_t<Builder> accumulator = field_t<Builder>::accumulate(scaled_bits);
 
-    // Process the last wire if the number of wires is odd.
-    if (num_wires % 2 == 1) {
-        const field_t<Builder>& last_wire = field_t<Builder>(wires[num_wires - 1]);
-        accumulator = accumulator + (scaling_factor * last_wire);
-    }
-
-    // Normalize the accumulator and set the witness index or additive constant.
-    accumulator = accumulator.normalize();
+    // If the accumulator is constant, we set the additive constant.
+    // Otherwise, we set the witness index.
     if (accumulator.is_constant()) {
         additive_constant = uint256_t(accumulator.additive_constant);
     } else {
