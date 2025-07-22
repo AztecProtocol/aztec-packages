@@ -2,14 +2,13 @@ use crate::{
     messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
     note::note_getter_options::PropertySelector,
 };
-use poseidon::poseidon2::Poseidon2Hasher;
-use std::{collections::umap::UHashMap, hash::BuildHasherDefault, meta::type_of};
+use std::{collections::bounded_vec::BoundedVec, meta::type_of};
 
-/// A map from note type to note_packed_len.
-// TODO(benesjan): Instead of storing the packed length in the map, just have something like Set containing the types
-// and then access the length as <Type as Packable>::N in the #[aztec] macro code.
-pub comptime mut global NOTES: UHashMap<Type, u32, BuildHasherDefault<Poseidon2Hasher>> =
-    UHashMap::default();
+/// Maximum number of note types within 1 contract.
+comptime global MAX_NOTE_TYPES: u32 = 128;
+
+/// A BoundedVec containing all the note types within this contract.
+pub comptime mut global NOTES: BoundedVec<Type, MAX_NOTE_TYPES> = BoundedVec::new();
 
 comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
 
@@ -17,8 +16,8 @@ comptime mut global NOTE_TYPE_ID_COUNTER: u32 = 0;
 comptime fn get_next_note_type_id() -> Field {
     // We assert that the note type id fits within 7 bits
     assert(
-        NOTE_TYPE_ID_COUNTER < 128 as u32,
-        "A contract can contain at most 128 different note types",
+        NOTE_TYPE_ID_COUNTER < MAX_NOTE_TYPES,
+        f"A contract can contain at most {MAX_NOTE_TYPES} different note types",
     );
 
     let note_type_id = NOTE_TYPE_ID_COUNTER as Field;
@@ -173,8 +172,6 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
 /// A quoted code block containing the implementation with the static assertion
 comptime fn generate_packed_length_check(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    // Ensure the note's packed length does not exceed the maximum allowable size to prevent overflow
-    // when processing the note.
     quote {
         impl $typ {
             fn _packed_length_static_check() {
@@ -199,7 +196,7 @@ comptime fn generate_packed_length_check(s: TypeDefinition) -> Quoted {
 ///
 /// # Registration
 ///
-/// Registers the note in the global `NOTES` map to enable note processing functionality.
+/// Registers the note in the global `NOTES` BoundedVec to enable note processing functionality.
 ///
 /// # Generated Code
 ///
@@ -211,12 +208,9 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     assert_has_owner(s);
     assert_has_packable(s);
 
-    // TODO(benesjan): Replace this with static_assert inserted into the note quote
-    let note_packed_len = 5;
-
-    // We register the note in the global `NOTES` map with the packed length because we need that information
-    // inside the #[aztec] macro to generate note processing functionality.
-    NOTES.insert(s.as_type(), note_packed_len);
+    // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec] macro
+    // to generate note processing functionality.
+    NOTES.push(s.as_type());
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
@@ -247,9 +241,8 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 /// Unlike the `#[note]` macro, there is no requirement for an `owner` field.
 ///
 /// # Registration
-/// Registers the note in the global `NOTES` map with:
-/// - Note type ID
-/// - Packed length
+///
+/// Registers the note in the global `NOTES` BoundedVec to enable note processing functionality.
 ///
 /// # Use Cases
 /// Use this macro when implementing a note that needs custom:
@@ -278,12 +271,9 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
 pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     assert_has_packable(s);
 
-    // TODO(benesjan): Replace this with static_assert inserted into the note quote
-    let note_packed_len = 5;
-
-    // We register the note in the global `NOTES` map with the packed length because we need that information
-    // inside the #[aztec] macro to generate note processing functionality.
-    NOTES.insert(s.as_type(), note_packed_len);
+    // We register the note in the global `NOTES` BoundedVec because we need that information inside the #[aztec] macro
+    // to generate note processing functionality.
+    NOTES.push(s.as_type());
 
     let note_type_id = get_next_note_type_id();
     let note_properties = generate_note_properties(s);
