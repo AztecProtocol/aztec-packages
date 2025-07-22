@@ -2,9 +2,7 @@ import { Buffer } from 'buffer';
 import { Encoder, decode } from 'msgpackr';
 import { readFileSync, writeFileSync } from 'fs';
 import { gzipSync, gunzipSync } from 'zlib';
-import { AsyncApi } from './generated/async.js';
-import { SyncApi } from './generated/sync.js';
-import { NativeApi } from './generated-bkup/nativebk.js';
+import { BbApiBase } from './generated/api_types.js';
 
 /**
  * Represents a private execution step as stored in ivc-inputs.msgpack files.
@@ -114,14 +112,12 @@ export class IvcInputs {
   }
 }
 
-type Api = AsyncApi | SyncApi | NativeApi;
-
 /**
  * High-level helper class for working with IVC inputs and any of the generated APIs.
  * This provides a convenient interface for common IVC operations.
  */
 export class IvcRunner {
-  constructor(private api: Api) {}
+  constructor(private api: BbApiBase) {}
 
   /**
    * Initialize IVC with the given number of circuits
