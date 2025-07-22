@@ -39,6 +39,7 @@ using simulation::AddressDerivationEvent;
 using simulation::compute_contract_address;
 using simulation::Ecc;
 using simulation::EccAddEvent;
+using simulation::EccAddMemoryEvent;
 using simulation::EventEmitter;
 using simulation::hash_public_keys;
 using simulation::MockExecutionIdManager;
@@ -104,13 +105,11 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
     EventEmitter<EccAddEvent> ecadd_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
     EventEmitter<AddressDerivationEvent> address_derivation_event_emitter;
-
-    ToRadix to_radix_simulator(to_radix_event_emitter);
-    Ecc ecc_simulator(to_radix_simulator, ecadd_event_emitter, scalar_mul_event_emitter);
 
     StrictMock<MockExecutionIdManager> mock_exec_id_manager;
     EXPECT_CALL(mock_exec_id_manager, get_execution_id)
@@ -118,6 +117,14 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     StrictMock<MockGreaterThan> mock_gt;
     Poseidon2 poseidon2_simulator(
         mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    ToRadix to_radix_simulator(to_radix_event_emitter);
+    Ecc ecc_simulator(mock_exec_id_manager,
+                      mock_gt,
+                      to_radix_simulator,
+                      ecadd_event_emitter,
+                      scalar_mul_event_emitter,
+                      ecc_add_memory_event_emitter);
 
     AddressDerivation address_derivation(poseidon2_simulator, ecc_simulator, address_derivation_event_emitter);
 
