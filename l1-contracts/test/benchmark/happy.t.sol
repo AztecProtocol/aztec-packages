@@ -133,7 +133,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
-  
+
   // Track attestations by block number for proof submission
   mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
@@ -371,7 +371,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         address proposer = rollup.getCurrentProposer();
 
         skipBlobCheck(address(rollup));
-        
+
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
         blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
