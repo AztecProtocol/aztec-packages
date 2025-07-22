@@ -224,7 +224,7 @@ export class AztecClientBackend {
     if (!this.api) {
       const barretenberg = await Barretenberg.new(this.options);
       // TODO: Initialize SRS for ClientIVC if needed
-      // await barretenberg.initSRSClientIVC();
+      await barretenberg.initSRSClientIVC();
       this.api = new AsyncApi(barretenberg.wasm);
     }
   }

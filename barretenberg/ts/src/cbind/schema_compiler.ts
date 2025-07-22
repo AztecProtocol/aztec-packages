@@ -597,7 +597,7 @@ ${methods}
 
     // For sync API, don't implement BbApiBase since methods are synchronous
     const implementsClause = this.config.mode === 'sync' ? '' : ' implements BbApiBase';
-    
+
     return `export class ${className}${implementsClause} {
   constructor(protected wasm: ${this.getWasmType()}) {}
 
@@ -645,7 +645,7 @@ ${methods}
     if (this.config.mode === 'async') {
       return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    return this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]).then(([variantName, result]: [string, any]) => {
+    return this.wasm.msgpackCall('bbapi', [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
       if (variantName !== '${responseType}') {
         throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
       }
@@ -657,7 +657,7 @@ ${methods}
     // For sync mode, keep the synchronous behavior
     return `  ${name}(command: ${commandType}): ${responseType} {
     const msgpackCommand = from${commandType}(command);
-    const [variantName, result] = this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]);
+    const [variantName, result] = this.wasm.msgpackCall('bbapi', [["${capitalize(name)}", msgpackCommand]]);
     if (variantName !== '${responseType}') {
       throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
     }
