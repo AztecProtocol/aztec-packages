@@ -173,10 +173,9 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
 comptime fn generate_packed_length_check(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     quote {
-        impl $typ {
-            pub fn packed_length_static_check() {
-                std::static_assert(<$typ as Packable>::N  <= aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN, "$typ packed length exceeds the maximum of $MAX_NOTE_PACKED_LEN fields");
-            }
+        #[test]
+        fn packed_length_static_check() {
+            std::static_assert(<$typ as Packable>::N  <= aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN, "$typ packed length exceeds the maximum of $MAX_NOTE_PACKED_LEN fields");
         }
     }
 }

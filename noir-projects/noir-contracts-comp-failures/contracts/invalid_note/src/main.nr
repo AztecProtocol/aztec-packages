@@ -21,7 +21,4 @@ impl Packable for InvalidNote {
     }
 }
 
-
-fn main() {
-    InvalidNote::packed_length_static_check();
-}
+fn main() {}
