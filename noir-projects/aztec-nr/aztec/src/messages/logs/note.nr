@@ -25,24 +25,24 @@ fn assert_note_exists(context: PrivateContext, note_hash_counter: u32) {
     assert(note_exists, "Can only emit a note log for an existing note.");
 }
 
-pub fn compute_note_log<Note, let N: u32>(
+pub fn compute_note_log<Note>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     compute_log(note, storage_slot, recipient, PRIVATE_NOTE_MSG_TYPE_ID)
 }
 
-pub fn compute_partial_note_log<Note, let N: u32>(
+pub fn compute_partial_note_log<Note>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     compute_log(
         note,
@@ -52,19 +52,19 @@ where
     )
 }
 
-fn compute_log<Note, let N: u32>(
+fn compute_log<Note>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
     msg_type: u64,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     let packed_note = note.pack();
 
     // A note message's content is the storage slot followed by the packed note representation
-    let mut msg_content: [Field; N + 1] = std::mem::zeroed();
+    let mut msg_content = [0; 1 + <Note as Packable>::N];
     msg_content[0] = storage_slot;
     for i in 0..packed_note.len() {
         msg_content[1 + i] = packed_note[i];
@@ -82,12 +82,12 @@ where
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.
-pub fn encode_and_encrypt_note<Note, let N: u32>(
+pub fn encode_and_encrypt_note<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
@@ -108,12 +108,12 @@ where
 /// decrypt and process the payload, **leading to the note being lost**.
 ///
 /// Only use this function in scenarios where the recipient not receiving the note is an acceptable outcome.
-pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
+pub fn encode_and_encrypt_note_unconstrained<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
@@ -142,12 +142,12 @@ where
 /// While delivery is not guaranteed, message integrity is still protected via cryptographic commitments in the note
 /// hash tree. For guaranteed delivery, use `encode_and_encrypt_note` with private logs instead. See
 /// `messages::offchain_message::emit_offchain_message` for more details on delivery guarantees.
-pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note, let N: u32>(
+pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;

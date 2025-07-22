@@ -774,7 +774,6 @@ class TranslatorFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = 0;
             this->pub_inputs_offset = 0;
@@ -807,21 +806,15 @@ class TranslatorFlavor {
         }
 
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
-         * @returns The hash of the verification key
          */
         fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
 
         // Don't statically check for object completeness.

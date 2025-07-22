@@ -507,6 +507,7 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), 0, "invalid prover rewards");
 
     {
+      vm.prank(testERC20.owner());
       testERC20.mint(address(feeJuicePortal), interim.feeAmount - interim.portalBalance);
 
       // When the block is proven we should have received the funds

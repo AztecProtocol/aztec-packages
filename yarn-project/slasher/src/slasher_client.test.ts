@@ -218,13 +218,17 @@ describe('SlasherClient', () => {
         // Print debug info
         const round = await slashingProposer.computeRound(slotNumAtNextL1Block);
         const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
-        const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
+        const leaderVotes = await slashingProposer.getPayloadSignals(
+          rollup.address,
+          round,
+          roundInfo.payloadWithMostSignals,
+        );
         logger.info(`Currently in round ${round}`);
         logger.info('Round info:', roundInfo);
         logger.info(`Leader votes: ${leaderVotes}`);
 
         // Have the slasher sign the vote request
-        const voteRequest = await slashingProposer.createVoteRequestWithSignature(
+        const signalRequest = await slashingProposer.createSignalRequestWithSignature(
           payload!.toString(),
           round,
           slasherL1Client.chain.id,
@@ -233,7 +237,7 @@ describe('SlasherClient', () => {
         );
 
         // Have the test harness send the vote request to avoid nonce conflicts
-        await testHarnessL1Client.sendTransaction(voteRequest).catch(ignoreExpectedErrors);
+        await testHarnessL1Client.sendTransaction(signalRequest).catch(ignoreExpectedErrors);
 
         // Check if the payload is cleared
         const slot = await rollup.getSlotNumber();
@@ -314,7 +318,7 @@ describe('SlasherClient', () => {
     const payload2 = await slasherClient.getSlashPayload(slot2);
     expect(payload2).toBe(config.slashOverridePayload);
 
-    slasherClient.proposalExecuted({ round: 0n, proposal: config.slashOverridePayload.toString() });
+    slasherClient.payloadSubmitted({ round: 0n, payload: config.slashOverridePayload.toString() });
 
     const slot3 = BigInt(Math.floor(Math.random() * 1000000));
     const payload3 = await slasherClient.getSlashPayload(slot3);
@@ -447,7 +451,7 @@ describe('SlasherClient', () => {
 
     const firstPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
     expect(firstPayload).toBeDefined();
-    slasherClient.proposalExecuted({ round: 0n, proposal: firstPayload!.toString() });
+    slasherClient.payloadSubmitted({ round: 0n, payload: firstPayload!.toString() });
 
     const secondPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
     expect(secondPayload).toBeDefined();
@@ -506,8 +510,8 @@ class TestSlasherClient extends SlasherClient {
     super(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider, log);
   }
 
-  public override proposalExecuted(args: { round: bigint; proposal: `0x${string}` }) {
-    super.proposalExecuted(args);
+  public override payloadSubmitted(args: { round: bigint; payload: `0x${string}` }) {
+    super.payloadSubmitted(args);
   }
 }
 

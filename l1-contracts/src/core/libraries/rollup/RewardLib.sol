@@ -130,7 +130,8 @@ library RewardLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
-    bool isRewardDistributorCanonical =
+    // Determine if this rollup is canonical according to its RewardDistributor.
+    bool isCanonicalToRewardDistributor =
       address(this) == rewardStorage.config.rewardDistributor.canonicalRollup();
 
     uint256 length = _args.end - _args.start + 1;
@@ -156,7 +157,7 @@ library RewardLib {
 
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 blockRewardsAvailable = isRewardDistributorCanonical
+        uint256 blockRewardsAvailable = isCanonicalToRewardDistributor
           ? rewardStorage.config.rewardDistributor.claimBlockRewards(address(this), added)
           : 0;
         uint256 sequencerShare =

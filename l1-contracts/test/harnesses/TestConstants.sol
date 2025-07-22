@@ -33,6 +33,9 @@ library TestConstants {
   uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
 
+  uint256 internal constant DEPOSIT_AMOUNT = 100e18;
+  uint256 internal constant MINIMUM_STAKE = 50e18;
+
   // Genesis state
   bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
   bytes32 internal constant GENESIS_VK_TREE_ROOT = bytes32(0);
@@ -49,7 +52,7 @@ library TestConstants {
       executionDelay: Timestamp.wrap(60),
       gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
-      voteDifferential: 0.04e18,
+      requiredYeaMargin: 0.04e18,
       minimumVotes: 400e18
     });
   }

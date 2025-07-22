@@ -171,7 +171,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         return buffer;
     }
 
-    static affine_element reconstruct_from_public(const std::span<bb::fr>& limbs);
+    static affine_element reconstruct_from_public(const std::span<const bb::fr>& limbs);
 
     friend std::ostream& operator<<(std::ostream& os, const affine_element& a)
     {

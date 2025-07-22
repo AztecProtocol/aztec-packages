@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -809,7 +810,6 @@ class ECCVMFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
             this->log_circuit_size = CONST_ECCVM_LOG_N;
             this->num_public_inputs = 0;
             this->pub_inputs_offset = 0;
@@ -841,9 +841,7 @@ class ECCVMFlavor {
             return elements;
         }
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
@@ -852,23 +850,15 @@ class ECCVMFlavor {
         fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
         // from MSGPACK and the verification key.
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       lagrange_first,
-                       lagrange_second,
-                       lagrange_last);
+        MSGPACK_FIELDS(
+            log_circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
     };
 
     /**
@@ -1040,7 +1030,7 @@ class ECCVMFlavor {
             serialize_to_buffer(ipa_G_0_eval, proof_data);
             serialize_to_buffer(ipa_a_0_eval, proof_data);
 
-            ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
+            BB_ASSERT_EQ(NativeTranscript::proof_data.size(), old_proof_length);
         }
     };
 

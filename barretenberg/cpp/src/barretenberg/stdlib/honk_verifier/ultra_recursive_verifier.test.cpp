@@ -130,8 +130,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(static_cast<uint64_t>(verifier.key->vk_and_hash->vk->circuit_size.get_value()),
-                  honk_vk->circuit_size);
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->vk_and_hash->vk->log_circuit_size.get_value()),
                   honk_vk->log_circuit_size);
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->vk_and_hash->vk->num_public_inputs.get_value()),
@@ -260,19 +258,18 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
                 OuterVerifier verifier(verification_key, ipa_verification_key);
-                ASSERT(verifier.verify_proof(proof, proving_key->ipa_proof));
+                ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
             } else {
                 OuterVerifier verifier(verification_key);
-                ASSERT(verifier.verify_proof(proof));
+                ASSERT_TRUE(verifier.verify_proof(proof));
             }
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            uint32_t NUM_GATES_EXPECTED = 870390;
-            BB_ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()),
-                         NUM_GATES_EXPECTED,
-                         "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
-                         "are sure this is expected.");
+            uint32_t NUM_GATES_EXPECTED = 870522;
+            ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
+                << "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
+                   "are sure this is expected.";
         }
     }
 

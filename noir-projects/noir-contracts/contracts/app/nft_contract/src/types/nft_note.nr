@@ -24,8 +24,8 @@ use dep::aztec::{
 
 // docs:start:nft_note
 /// A private note representing a token id associated to an account.
+#[derive(Eq, Serialize, Packable)]
 #[custom_note]
-#[derive(Eq, Serialize)]
 pub struct NFTNote {
     // The ordering of these fields is important given that it must:
     //   a) match that of NFTPartialNotePrivateContent, and

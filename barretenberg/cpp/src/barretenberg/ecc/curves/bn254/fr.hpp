@@ -172,7 +172,7 @@ class Bn254FrParams {
 
 using fr = field<Bn254FrParams>;
 
-template <> template <> inline fr fr::reconstruct_from_public(const std::span<fr>& limbs)
+template <> template <> inline fr fr::reconstruct_from_public(const std::span<const fr>& limbs)
 {
 
     BB_ASSERT_EQ(limbs.size(), FR_PUBLIC_INPUTS_SIZE, "Incorrect number of limbs");
