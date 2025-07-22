@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/data_copy.hpp"
+#include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
@@ -53,6 +54,7 @@ class Execution : public ExecutionInterface {
               BitwiseInterface& bitwise,
               DataCopyInterface& data_copy,
               Poseidon2Interface& poseidon2,
+              EccInterface& ecc,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -68,6 +70,7 @@ class Execution : public ExecutionInterface {
         , alu(alu)
         , bitwise(bitwise)
         , poseidon2(poseidon2)
+        , embedded_curve(ecc)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
@@ -129,6 +132,10 @@ class Execution : public ExecutionInterface {
                           MemoryAddress unique_note_hash_addr,
                           MemoryAddress leaf_index_addr,
                           MemoryAddress dst_addr);
+    void nullifier_exists(ContextInterface& context,
+                          MemoryAddress nullifier_offset,
+                          MemoryAddress address_offset,
+                          MemoryAddress exists_offset);
     void get_contract_instance(ContextInterface& context,
                                MemoryAddress address_offset,
                                MemoryAddress dst_offset,
@@ -139,6 +146,14 @@ class Execution : public ExecutionInterface {
                                  MemoryAddress leaf_index_addr,
                                  MemoryAddress dst_addr);
     void poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
+    void ecc_add(ContextInterface& context,
+                 MemoryAddress p_x_addr,
+                 MemoryAddress p_y_addr,
+                 MemoryAddress p_inf_addr,
+                 MemoryAddress q_x_addr,
+                 MemoryAddress q_y_addr,
+                 MemoryAddress q_inf_addr,
+                 MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -172,6 +187,7 @@ class Execution : public ExecutionInterface {
     AluInterface& alu;
     BitwiseInterface& bitwise;
     Poseidon2Interface& poseidon2;
+    EccInterface& embedded_curve;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;

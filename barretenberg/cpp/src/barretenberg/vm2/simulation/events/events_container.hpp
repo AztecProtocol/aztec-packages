@@ -50,6 +50,7 @@ struct EventsContainer {
     EventEmitterInterface<Sha256CompressionEvent>::Container sha256_compression;
     EventEmitterInterface<EccAddEvent>::Container ecc_add;
     EventEmitterInterface<ScalarMulEvent>::Container scalar_mul;
+    EventEmitterInterface<EccAddMemoryEvent>::Container ecc_add_mem;
     EventEmitterInterface<Poseidon2HashEvent>::Container poseidon2_hash;
     EventEmitterInterface<Poseidon2PermutationEvent>::Container poseidon2_permutation;
     EventEmitterInterface<Poseidon2PermutationMemoryEvent>::Container poseidon2_permutation_mem;

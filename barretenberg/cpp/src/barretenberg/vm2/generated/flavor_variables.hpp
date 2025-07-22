@@ -18,6 +18,7 @@
 #include "relations/data_copy.hpp"
 #include "relations/discard.hpp"
 #include "relations/ecc.hpp"
+#include "relations/ecc_mem.hpp"
 #include "relations/emit_notehash.hpp"
 #include "relations/execution.hpp"
 #include "relations/external_call.hpp"
@@ -38,6 +39,7 @@
 #include "relations/note_hash_tree_check.hpp"
 #include "relations/notehash_exists.hpp"
 #include "relations/nullifier_check.hpp"
+#include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
 #include "relations/poseidon2_perm.hpp"
@@ -67,6 +69,7 @@
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_contract_instance_retrieval.hpp"
 #include "relations/lookups_data_copy.hpp"
+#include "relations/lookups_ecc_mem.hpp"
 #include "relations/lookups_emit_notehash.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_external_call.hpp"
@@ -85,6 +88,7 @@
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_notehash_exists.hpp"
 #include "relations/lookups_nullifier_check.hpp"
+#include "relations/lookups_nullifier_exists.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_poseidon2_mem.hpp"
 #include "relations/lookups_public_data_check.hpp"
@@ -98,6 +102,7 @@
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_update_check.hpp"
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
+#include "relations/perms_ecc_mem.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
@@ -107,10 +112,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2474;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2506;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2849;
+    static constexpr size_t NUM_ALL_ENTITIES = 2881;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -132,6 +137,7 @@ struct AvmFlavorVariables {
         avm2::data_copy<FF_>,
         avm2::discard<FF_>,
         avm2::ecc<FF_>,
+        avm2::ecc_mem<FF_>,
         avm2::emit_notehash<FF_>,
         avm2::execution<FF_>,
         avm2::external_call<FF_>,
@@ -152,6 +158,7 @@ struct AvmFlavorVariables {
         avm2::note_hash_tree_check<FF_>,
         avm2::notehash_exists<FF_>,
         avm2::nullifier_check<FF_>,
+        avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
         avm2::poseidon2_perm<FF_>,
@@ -232,6 +239,11 @@ struct AvmFlavorVariables {
         lookup_data_copy_range_read_relation<FF_>,
         lookup_data_copy_range_reads_left_relation<FF_>,
         lookup_data_copy_range_write_relation<FF_>,
+        lookup_ecc_mem_check_dst_addr_in_range_relation<FF_>,
+        lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
+        lookup_ecc_mem_write_mem_0_relation<FF_>,
+        lookup_ecc_mem_write_mem_1_relation<FF_>,
+        lookup_ecc_mem_write_mem_2_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_check_written_storage_slot_relation<FF_>,
@@ -413,6 +425,7 @@ struct AvmFlavorVariables {
         lookup_nullifier_check_silo_poseidon2_relation<FF_>,
         lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
+        lookup_nullifier_exists_nullifier_exists_check_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_check_src_addr_in_range_relation<FF_>,
@@ -494,6 +507,7 @@ struct AvmFlavorVariables {
         lookup_written_public_data_slots_tree_check_new_leaf_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_silo_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
+        perm_ecc_mem_dispatch_exec_ecc_add_relation<FF_>,
         perm_execution_dispatch_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_keccakf1600_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
