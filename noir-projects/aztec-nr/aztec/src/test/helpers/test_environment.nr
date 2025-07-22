@@ -139,6 +139,20 @@ impl TestEnvironment {
         ret_value
     }
 
+    pub unconstrained fn private_context_at<Env, T>(
+        &mut self,
+        addr: AztecAddress,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.private_context(f);
+        txe_oracles::set_contract_address(pre);
+
+        ret
+    }
+
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
     pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
         txe_oracles::set_utility_txe_context();
