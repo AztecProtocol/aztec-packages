@@ -58,7 +58,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
 
     size_t num_public_inputs =
         static_cast<size_t>(static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));
-    std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
@@ -106,13 +105,11 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs,
-        beta,
-        gamma,
-        decider_vk->vk_and_hash->vk->circuit_size,
-        static_cast<uint32_t>(decider_vk->vk_and_hash->vk->pub_inputs_offset.get_value()));
+    const FF public_input_delta = compute_public_input_delta<Flavor>(public_inputs,
+                                                                     beta,
+                                                                     gamma,
+                                                                     decider_vk->vk_and_hash->vk->log_circuit_size,
+                                                                     decider_vk->vk_and_hash->vk->pub_inputs_offset);
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
@@ -129,7 +126,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     decider_vk->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     decider_vk->witness_commitments = std::move(commitments);
-    decider_vk->public_inputs = std::move(public_inputs);
     decider_vk->alphas = std::move(alphas);
 }
 

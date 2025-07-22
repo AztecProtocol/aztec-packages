@@ -333,7 +333,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
         // relation.
         if (is_random_input) {
             std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
-            ASSERT(NUM_KEYS == 2); // Don't want to handle more here
+            ASSERT_EQ(NUM_KEYS, 2U); // Don't want to handle more here
 
             for (size_t idx = 0; idx < NUM_KEYS; idx++) {
                 auto key = std::make_shared<DeciderProvingKey>();

@@ -74,6 +74,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     transcript->load_proof(honk_proof);
     OinkVerifier oink_verifier{ builder, key, transcript };
     oink_verifier.verify();
+    const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
 
     VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
 
@@ -85,12 +86,12 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Extract the data carried on the public inputs of the proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         RollupIO inputs; // pairing points, IPA claim
-        inputs.reconstruct_from_public(key->public_inputs);
+        inputs.reconstruct_from_public(public_inputs);
         output.points_accumulator = inputs.pairing_inputs;
         output.ipa_claim = inputs.ipa_claim;
     } else {
         DefaultIO<Builder> inputs; // pairing points
-        inputs.reconstruct_from_public(key->public_inputs);
+        inputs.reconstruct_from_public(public_inputs);
         output.points_accumulator = inputs.pairing_inputs;
     }
 
@@ -99,8 +100,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
-
-    constrain_log_circuit_size(padding_indicator_array, key->vk_and_hash->vk->circuit_size);
 
     Sumcheck sumcheck(transcript, key->alphas);
 

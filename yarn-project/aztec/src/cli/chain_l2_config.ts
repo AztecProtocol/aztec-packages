@@ -137,9 +137,9 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e',
-  slashFactoryAddress: '0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be',
-  feeAssetHandlerAddress: '0x80d848dc9f52df56789e2d62ce66f19555ff1019',
+  registryAddress: '0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309',
+  slashFactoryAddress: '0x8b1566249dc8fb47234037538ce491f9500480b1',
+  feeAssetHandlerAddress: '0x4f0376b8bcbdf72ddb38c38f48317c00e9c9aec3',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
@@ -148,7 +148,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
-  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
 
   // Deployment stuff

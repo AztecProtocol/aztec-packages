@@ -669,7 +669,8 @@ export class ReqResp implements ReqRespInterface {
       return PeerErrorSeverity.LowToleranceError;
     }
 
-    return this.categorizeConnectionErrors(e, peerId, subProtocol);
+    //TODO: (mralj): think if we should penalize peer here based on connection errors
+    return undefined;
   }
 
   /**
@@ -719,7 +720,9 @@ export class ReqResp implements ReqRespInterface {
       e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
       e?.code === 'ERR_CONNECTION_CLOSED' ||
       e?.code === 'ERR_TRANSIENT_CONNECTION' ||
-      e?.message?.includes('Muxer already closed')
+      e?.message?.includes('Muxer already closed') ||
+      e?.message?.includes('muxer closed') ||
+      e?.message?.includes('ended pushable')
     ) {
       this.logger.debug(
         `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
@@ -759,7 +762,7 @@ export class ReqResp implements ReqRespInterface {
     }
 
     // Catch all error
-    this.logger.error(`Unexpected error sending request to peer`, e, logTags);
+    this.logger.error(`Unexpected error in ReqResp protocol`, e, logTags);
     return PeerErrorSeverity.HighToleranceError;
   }
 }

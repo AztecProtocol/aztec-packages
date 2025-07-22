@@ -77,20 +77,25 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * proof and (2) the associated databus commitment consistency checks.
  * @details The recursive verifier will be either Oink or Protogalaxy depending on the specified proof type. In either
  * case, the verifier accumulator is updated in place via the verification algorithm. Databus commitment consistency
- * checks are performed on the witness commitments and public inputs extracted from the proof by the verifier.
+ * checks are performed on the witness commitments and public inputs extracted from the proof by the verifier. Merge
+ * verification is performed with commitments to the subtable t_j extracted from the PG verifier. The computed
+ * commitment T is propagated to the next step of recursive verification.
  *
  * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
+ * @param merge_commitments Container for the commitments for the Merge recursive verification to be performed
  * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  */
 ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
+    MergeCommitments& merge_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
-    // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
-    std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
+    // Witness commitments and public inputs corresponding to the incoming instance
+    WitnessCommitments witness_commitments;
+    std::vector<StdlibFF> public_inputs;
 
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG: {
@@ -106,7 +111,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
-        decider_vk = verifier.keys_to_fold[1]; // decider vk for the incoming circuit
+        witness_commitments = std::move(verifier.keys_to_fold[1]->witness_commitments);
+        public_inputs = std::move(verifier.public_inputs);
 
         break;
     }
@@ -116,8 +122,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
-        OinkRecursiveVerifier oink{ &circuit, verifier_accum, accumulation_recursive_transcript };
-        oink.verify_proof(verifier_inputs.proof);
+        OinkRecursiveVerifier verifier{ &circuit, verifier_accum, accumulation_recursive_transcript };
+        verifier.verify_proof(verifier_inputs.proof);
         verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
@@ -125,38 +131,42 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // Initialize the gate challenges to zero for use in first round of folding
         verifier_accumulator->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
 
-        decider_vk = verifier_accum; // decider vk for the incoming circuit
+        witness_commitments = std::move(verifier_accum->witness_commitments);
+        public_inputs = std::move(verifier.public_inputs);
 
         break;
     }
     }
 
+    // Extract the commitments to the subtable corresponding to the incoming circuit
+    merge_commitments.set_t_commitments(witness_commitments.get_ecc_op_wires());
+
     // Recursively verify the corresponding merge proof
     PairingPoints pairing_points = goblin.recursively_verify_merge(
-        circuit, decider_vk->witness_commitments.get_ecc_op_wires(), accumulation_recursive_transcript);
+        circuit, merge_commitments, merge_commitments.T_commitments, accumulation_recursive_transcript);
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
     if (verifier_inputs.is_kernel) {
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
-        kernel_input.reconstruct_from_public(decider_vk->public_inputs);
+        kernel_input.reconstruct_from_public(public_inputs);
         nested_pairing_points = kernel_input.pairing_inputs;
 
         // Perform databus consistency checks
-        kernel_input.kernel_return_data.assert_equal(decider_vk->witness_commitments.calldata);
-        kernel_input.app_return_data.assert_equal(decider_vk->witness_commitments.secondary_calldata);
+        kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
+        kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
 
         // Set the kernel return data commitment to be propagated via the public inputs
-        bus_depot.set_kernel_return_data_commitment(decider_vk->witness_commitments.return_data);
+        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
     } else {
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
-        app_input.reconstruct_from_public(decider_vk->public_inputs);
+        app_input.reconstruct_from_public(public_inputs);
         nested_pairing_points = app_input.pairing_inputs;
 
         // Set the app return data commitment to be propagated via the public inputs
-        bus_depot.set_app_return_data_commitment(decider_vk->witness_commitments.return_data);
+        bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
     }
 
     pairing_points.aggregate(nested_pairing_points);
@@ -174,11 +184,13 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
  */
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
-    circuit.is_kernel = true;
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
+
+    // Merge commitments to be used in the recursive verifications
+    MergeCommitments merge_commitments;
 
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
@@ -190,7 +202,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
         PairingPoints pairing_points = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, verifier_input, accumulation_recursive_transcript);
+            circuit, verifier_input, merge_commitments, accumulation_recursive_transcript);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
         // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
@@ -225,8 +237,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
-    // the circuit VK
     if (circuit.is_kernel) {
         // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
         accumulation_transcript = std::make_shared<Transcript>();
@@ -372,18 +382,23 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
 
-    // Get the completed decider verification key correspondsing to the tail kernel from the folding verifier
-    const auto& tail_kernel_decider_vk = folding_verifier.keys_to_fold[1];
+    // Get public inputs and witness commitments extracted from the tail kernel proof
+    const std::vector<StdlibFF>& public_inputs = folding_verifier.public_inputs;
+    WitnessCommitments& witness_commitments = folding_verifier.keys_to_fold[1]->witness_commitments;
 
     // Reconstruct the KernelIO from the public inputs of the tail kernel and perform databus consistency checks
     KernelIO kernel_input; // pairing points, databus return data commitments
-    kernel_input.reconstruct_from_public(tail_kernel_decider_vk->public_inputs);
-    kernel_input.kernel_return_data.assert_equal(tail_kernel_decider_vk->witness_commitments.calldata);
-    kernel_input.app_return_data.assert_equal(tail_kernel_decider_vk->witness_commitments.secondary_calldata);
+    kernel_input.reconstruct_from_public(public_inputs);
+    kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
+    kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
+
+    // Extract the commitments to the subtable corresponding to the incoming circuit
+    MergeCommitments merge_commitments;
+    merge_commitments.set_t_commitments(witness_commitments.get_ecc_op_wires());
 
     // Perform recursive verification of the last merge proof
     PairingPoints points_accumulator = goblin.recursively_verify_merge(
-        builder, tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
+        builder, merge_commitments, merge_commitments.T_commitments, pg_merge_transcript);
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 
     // Perform recursive decider verification
@@ -440,13 +455,19 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    bool mega_verified = verifer.verify_proof(proof.mega_proof);
+    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
+    bool mega_verified = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
+
+    // Extract the commitments to the subtable corresponding to the incoming circuit
+    MergeVerifier::WitnessCommitments merge_commitments;
+    merge_commitments.set_t_commitments(verifier.verification_key->witness_commitments.get_ecc_op_wires());
+
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, verifer.verification_key->witness_commitments.get_ecc_op_wires(), civc_verifier_transcript);
+        proof.goblin_proof, merge_commitments, merge_commitments.T_commitments, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;
 }

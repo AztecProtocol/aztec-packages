@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -373,7 +374,7 @@ template <typename Curve> class ShplonkVerifier_ {
         , commitments({ quotient })
         , scalars{ Fr{ 1 } }
     {
-        ASSERT(num_claims > 1, "Using Shplonk with just one claim. Should use batch reduction.");
+        BB_ASSERT_GT(num_claims, 1U, "Using Shplonk with just one claim. Should use batch reduction.");
         const size_t num_commitments = commitments.size();
         commitments.reserve(num_commitments);
         scalars.reserve(num_commitments);
@@ -381,7 +382,9 @@ template <typename Curve> class ShplonkVerifier_ {
 
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
         scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
-        for (size_t idx = 0; idx < num_claims; idx++) {
+        // The first two powers of nu have already been initialized, we need another `num_claims - 2` powers to batch
+        // all the claims
+        for (size_t idx = 0; idx < num_claims - 2; idx++) {
             pows_of_nu.emplace_back(pows_of_nu.back() * pows_of_nu[1]);
         }
 
@@ -481,6 +484,7 @@ template <typename Curve> class ShplonkVerifier_ {
      * @param g1_identity
      * @return BatchOpeningClaim<Curve>
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1475): Compute g1_identity inside the function body
     BatchOpeningClaim<Curve> export_batch_opening_claim(const Commitment& g1_identity)
     {
         commitments.emplace_back(g1_identity);

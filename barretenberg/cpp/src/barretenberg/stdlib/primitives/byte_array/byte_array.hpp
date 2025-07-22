@@ -8,6 +8,7 @@
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/common/assert.hpp"
 namespace bb::stdlib {
 
 /**
@@ -58,7 +59,8 @@ template <typename Builder> class byte_array {
 
     field_t<Builder>& operator[](const size_t index)
     {
-        ASSERT(index < values.size());
+        BB_ASSERT_LT(index, values.size());
+
         return values[index];
     }
 

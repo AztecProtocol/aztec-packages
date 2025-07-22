@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/data_copy.hpp"
+#include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
@@ -52,6 +53,8 @@ class Execution : public ExecutionInterface {
     Execution(AluInterface& alu,
               BitwiseInterface& bitwise,
               DataCopyInterface& data_copy,
+              Poseidon2Interface& poseidon2,
+              EccInterface& ecc,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -59,18 +62,20 @@ class Execution : public ExecutionInterface {
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
               KeccakF1600Interface& keccakf1600,
-              RangeCheckInterface& range_check,
+              GreaterThanInterface& greater_than,
               GetContractInstanceInterface& get_contract_instance_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , bitwise(bitwise)
+        , poseidon2(poseidon2)
+        , embedded_curve(ecc)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
-        , range_check(range_check)
+        , greater_than(greater_than)
         , get_contract_instance_component(get_contract_instance_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
@@ -85,8 +90,9 @@ class Execution : public ExecutionInterface {
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
+    void cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag);
     void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
-    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
+    void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
@@ -116,7 +122,7 @@ class Execution : public ExecutionInterface {
                    MemoryAddress fields_offset,
                    MemoryAddress fields_size_offset,
                    uint16_t message_size,
-                   bool is_debug_logging_enabled = debug_logging);
+                   bool is_debug_logging_enabled);
     void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -126,10 +132,28 @@ class Execution : public ExecutionInterface {
                           MemoryAddress unique_note_hash_addr,
                           MemoryAddress leaf_index_addr,
                           MemoryAddress dst_addr);
+    void nullifier_exists(ContextInterface& context,
+                          MemoryAddress nullifier_offset,
+                          MemoryAddress address_offset,
+                          MemoryAddress exists_offset);
     void get_contract_instance(ContextInterface& context,
                                MemoryAddress address_offset,
                                MemoryAddress dst_offset,
                                uint8_t member_enum);
+    void emit_note_hash(ContextInterface& context, MemoryAddress note_hash_addr);
+    void l1_to_l2_message_exists(ContextInterface& context,
+                                 MemoryAddress msg_hash_addr,
+                                 MemoryAddress leaf_index_addr,
+                                 MemoryAddress dst_addr);
+    void poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
+    void ecc_add(ContextInterface& context,
+                 MemoryAddress p_x_addr,
+                 MemoryAddress p_y_addr,
+                 MemoryAddress p_inf_addr,
+                 MemoryAddress q_x_addr,
+                 MemoryAddress q_y_addr,
+                 MemoryAddress q_inf_addr,
+                 MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -162,11 +186,13 @@ class Execution : public ExecutionInterface {
 
     AluInterface& alu;
     BitwiseInterface& bitwise;
+    Poseidon2Interface& poseidon2;
+    EccInterface& embedded_curve;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
-    RangeCheckInterface& range_check;
+    GreaterThanInterface& greater_than;
     GetContractInstanceInterface& get_contract_instance_component;
     HighLevelMerkleDBInterface& merkle_db;
 

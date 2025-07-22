@@ -13,8 +13,10 @@
 #include <utility>
 
 #include "barretenberg/api/get_bytecode.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -151,7 +153,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     bool c_set = false;
 
     // If necessary, set values for quadratic term (q_m * w_l * w_r)
-    ASSERT(arg.mul_terms.size() <= 1); // We can only accommodate 1 quadratic term
+    BB_ASSERT_LTE(arg.mul_terms.size(), 1U, "We can only accommodate 1 quadratic term");
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
@@ -163,7 +165,7 @@ poly_triple serialize_arithmetic_gate(Acir::Expression const& arg)
     }
 
     // If necessary, set values for linears terms q_l * w_l, q_r * w_r and q_o * w_o
-    ASSERT(arg.linear_combinations.size() <= 3); // We can only accommodate 3 linear terms
+    BB_ASSERT_LTE(arg.linear_combinations.size(), 3U, "We can only accommodate 3 linear terms");
     for (const auto& linear_term : arg.linear_combinations) {
         fr selector_value(uint256_t(std::get<0>(linear_term)));
         uint32_t witness_idx = std::get<1>(linear_term).value;
@@ -233,7 +235,7 @@ void assign_linear_term(mul_quad_<fr>& gate, int index, uint32_t witness_index, 
         gate.d_scaling = scaling;
         break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected index");
     }
 }
 
@@ -357,7 +359,7 @@ mul_quad_<fr> serialize_mul_quad_gate(Acir::Expression const& arg)
     bool b_set = false;
     bool c_set = false;
     bool d_set = false;
-    ASSERT(arg.mul_terms.size() <= 1); // We can only accommodate 1 quadratic term
+    BB_ASSERT_LTE(arg.mul_terms.size(), 1U, "We can only accommodate 1 quadratic term");
     // Note: mul_terms are tuples of the form {selector_value, witness_idx_1, witness_idx_2}
     if (!arg.mul_terms.empty()) {
         const auto& mul_term = arg.mul_terms[0];
@@ -542,7 +544,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
                     .is_constant = true,
                 };
             } else {
-                ASSERT(false);
+                throw_or_abort("Unrecognized Acir::ConstantOrWitnessEnum variant.");
             }
             return WitnessOrConstant<bb::fr>{
                 .index = 0,
@@ -755,8 +757,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
                     break;
                 default:
-                    info("Invalid PROOF_TYPE in RecursionConstraint!");
-                    ASSERT(false);
+                    throw_or_abort("Invalid PROOF_TYPE in RecursionConstraint!");
                 }
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::BigIntFromLeBytes>) {
                 af.bigint_from_le_bytes_constraints.push_back(BigIntFromLeBytes{

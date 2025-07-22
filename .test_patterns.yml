@@ -139,7 +139,6 @@ tests:
     owners:
       - *palla
   - regex: "src/e2e_p2p/preferred_gossip_network.test.ts"
-    error_regex: "muxer closed locally"
     owners:
       - *palla
   - regex: "src/e2e_fees/private_payments"
@@ -213,7 +212,8 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
+  - regex: "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts" 
+    error_regex: "will propagate messages to peers at the same version"
     owners:
       - *palla
   - regex: "yarn-project/kv-store"

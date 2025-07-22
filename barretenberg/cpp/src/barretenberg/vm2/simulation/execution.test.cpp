@@ -23,14 +23,16 @@
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_ecc.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
@@ -80,10 +82,14 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGasTracker> gas_tracker;
     StrictMock<MockHighLevelMerkleDB> merkle_db;
-    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockGreaterThan> greater_than;
+    StrictMock<MockPoseidon2> poseidon2;
+    StrictMock<MockEcc> ecc;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
+                                                  poseidon2,
+                                                  ecc,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,
@@ -91,7 +97,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   execution_event_emitter,
                                                   context_stack_event_emitter,
                                                   keccakf1600,
-                                                  range_check,
+                                                  greater_than,
                                                   get_contract_instance,
                                                   merkle_db);
 };
@@ -471,7 +477,7 @@ TEST_F(ExecutionSimulationTest, NoteHashExists)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(range_check, assert_range(NOTE_HASH_TREE_LEAF_COUNT - 1 - leaf_index.as<uint64_t>(), 64));
+    EXPECT_CALL(greater_than, gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(true));
 
     EXPECT_CALL(merkle_db, note_hash_exists(leaf_index.as<uint64_t>(), unique_note_hash.as<FF>()))
         .WillOnce(Return(true));
@@ -496,11 +502,202 @@ TEST_F(ExecutionSimulationTest, NoteHashExistsOutOfRange)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
-    EXPECT_CALL(range_check, assert_range(leaf_index.as<uint64_t>() - NOTE_HASH_TREE_LEAF_COUNT, 64));
+    EXPECT_CALL(greater_than, gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(false));
 
     EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
 
     execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, EmitNoteHash)
+{
+    MemoryAddress note_hash_addr = 10;
+
+    auto note_hash = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+    TreeStates tree_state = {};
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(merkle_db, note_hash_write(address, note_hash.as<FF>()));
+
+    execution.emit_note_hash(context, note_hash_addr);
+}
+
+TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
+{
+    MemoryAddress note_hash_addr = 10;
+
+    auto note_hash = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+    TreeStates tree_state = {};
+    tree_state.noteHashTree.counter = MAX_NOTE_HASHES_PER_TX;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr),
+                              "EMITNOTEHASH: Maximum number of note hashes reached");
+}
+
+TEST_F(ExecutionSimulationTest, L1ToL2MessageExists)
+{
+    MemoryAddress msg_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto msg_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(true));
+
+    EXPECT_CALL(merkle_db, l1_to_l2_msg_exists(leaf_index.as<uint64_t>(), msg_hash.as<FF>())).WillOnce(Return(true));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+
+    execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, L1ToL2MessageExistsOutOfRange)
+{
+    MemoryAddress msg_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto msg_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(L1_TO_L2_MSG_TREE_LEAF_COUNT + 1);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(msg_hash_addr)).WillOnce(ReturnRef(msg_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(greater_than, gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index.as<uint64_t>())).WillOnce(Return(false));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
+
+    execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, NullifierExists)
+{
+    MemoryAddress nullifier_offset = 10;
+    MemoryAddress address_offset = 11;
+    MemoryAddress exists_offset = 12;
+
+    auto nullifier = MemoryValue::from<FF>(42);
+    auto address = MemoryValue::from<FF>(7);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(nullifier_offset)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(memory, get(address_offset)).WillOnce(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, nullifier_exists(nullifier.as<FF>(), address.as<FF>())).WillOnce(Return(true));
+
+    EXPECT_CALL(memory, set(exists_offset, MemoryValue::from<uint1_t>(1)));
+
+    execution.nullifier_exists(context, nullifier_offset, address_offset, exists_offset);
+}
+
+TEST_F(ExecutionSimulationTest, Set)
+{
+    MemoryAddress dst_addr = 10;
+    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U8);
+    FF value = 7;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(alu, truncate(value, static_cast<MemoryTag>(dst_tag))).WillOnce(Return(MemoryValue::from<uint8_t>(7)));
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint8_t>(7)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.set(context, dst_addr, dst_tag, value);
+}
+
+TEST_F(ExecutionSimulationTest, Cast)
+{
+    MemoryAddress src_addr = 9;
+    MemoryAddress dst_addr = 10;
+    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U1);
+    MemoryValue value = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
+    EXPECT_CALL(memory, get(src_addr)).WillOnce(ReturnRef(value));
+
+    EXPECT_CALL(alu, truncate(value.as_ff(), static_cast<MemoryTag>(dst_tag)))
+        .WillOnce(Return(MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.cast(context, src_addr, dst_addr, dst_tag);
+}
+
+TEST_F(ExecutionSimulationTest, Poseidon2Perm)
+{
+    MemoryAddress src_address = 10;
+    MemoryAddress dst_address = 20;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas);
+    EXPECT_CALL(poseidon2, permutation(_, src_address, dst_address));
+
+    execution.poseidon2_permutation(context, src_address, dst_address);
+}
+
+TEST_F(ExecutionSimulationTest, EccAdd)
+{
+    MemoryAddress p_x_addr = 10;
+    MemoryAddress p_y_addr = 15;
+    MemoryAddress p_is_inf_addr = 25;
+    MemoryAddress q_x_addr = 20;
+    MemoryAddress q_y_addr = 30;
+    MemoryAddress q_is_inf_addr = 35;
+    MemoryAddress dst_addr = 40;
+
+    MemoryValue p_x = MemoryValue::from<FF>(FF("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a"));
+    MemoryValue p_y = MemoryValue::from<FF>(FF("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60"));
+    EmbeddedCurvePoint p(p_x.as_ff(), p_y, false);
+
+    MemoryValue q_x = MemoryValue::from<FF>(FF("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7"));
+    MemoryValue q_y = MemoryValue::from<FF>(FF("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3"));
+    EmbeddedCurvePoint q(q_x.as_ff(), q_y.as_ff(), false);
+
+    // Mock the context and memory interactions
+    MemoryValue zero = MemoryValue::from<uint1_t>(0);
+    EXPECT_CALL(context, get_memory).WillRepeatedly(ReturnRef(memory));
+    EXPECT_CALL(Const(memory), get(p_x_addr)).WillOnce(ReturnRef(p_x));
+    EXPECT_CALL(memory, get(p_y_addr)).WillOnce(ReturnRef(p_y));
+    EXPECT_CALL(memory, get(p_is_inf_addr)).WillOnce(ReturnRef(zero)); // p is not infinity
+    EXPECT_CALL(memory, get(q_x_addr)).WillOnce(ReturnRef(q_x));
+    EXPECT_CALL(memory, get(q_y_addr)).WillOnce(ReturnRef(q_y));
+    EXPECT_CALL(memory, get(q_is_inf_addr)).WillOnce(ReturnRef(zero)); // q is not infinity
+
+    EXPECT_CALL(gas_tracker, consume_gas);
+
+    // Mock the ECC add operation
+    // EXPECT_CALL(ecc, add(context.get_memory(), _, _, dst_addr));
+    EXPECT_CALL(ecc, add(_, _, _, dst_addr));
+
+    // Execute the ECC add operation
+    execution.ecc_add(context, p_x_addr, p_y_addr, p_is_inf_addr, q_x_addr, q_y_addr, q_is_inf_addr, dst_addr);
 }
 
 } // namespace

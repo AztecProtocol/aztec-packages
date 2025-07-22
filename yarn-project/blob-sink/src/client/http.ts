@@ -109,10 +109,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     }
   }
 
-  public async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
-    // When in reality they will not, but for testing purposes this is fine
-    // Right now we fetch everything, then filter out the blobs that we don't want
+  public async sendBlobsToBlobSink(blobs: Blob[]): Promise<boolean> {
     if (!this.config.blobSinkUrl) {
       this.log.verbose('No blob sink url configured');
       return false;
@@ -120,12 +117,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
     try {
-      const res = await this.fetch(`${this.config.blobSinkUrl}/blob_sidecar`, {
+      const res = await this.fetch(`${this.config.blobSinkUrl}/blobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // eslint-disable-next-line camelcase
-          block_id: blockHash,
           // Snappy compress the blob buffer
           blobs: blobs.map((b, i) => ({ blob: outboundTransform(b.toBuffer()), index: i })),
         }),
@@ -137,10 +132,9 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       this.log.error('Failed to send blobs to blob sink', { status: res.status });
       return false;
-    } catch {
-      this.log.warn(`Blob sink url configured, but unable to send blobs`, {
+    } catch (err) {
+      this.log.error(`Blob sink url configured, but unable to send blobs`, err, {
         blobSinkUrl: this.config.blobSinkUrl,
-        blockHash,
       });
       return false;
     }
@@ -173,7 +167,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     if (blobSinkUrl) {
       this.log.trace(`Attempting to get blobs from blob sink`, { blobSinkUrl, ...ctx });
-      blobs = await this.getBlobSidecarFrom(blobSinkUrl, blockHash, blobHashes, indices);
+      blobs = await this.getBlobsFromSink(blobSinkUrl, blobHashes);
       this.log.debug(`Got ${blobs.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
       if (blobs.length > 0) {
         return blobs;
@@ -197,7 +191,6 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
             slotNumber,
             blobHashes,
             indices,
-            undefined,
             l1ConsensusHostIndex,
           );
           this.log.debug(`Got ${blobs.length} blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
@@ -232,40 +225,62 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     return [];
   }
 
+  private async getBlobsFromSink(blobSinkUrl: string, blobHashes: Buffer[]): Promise<BlobWithIndex[]> {
+    try {
+      const hashStrings = blobHashes.map(bufferToHex).join(',');
+      const res = await this.fetch(`${blobSinkUrl}/blobs?blobHashes=${hashStrings}`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        return getRelevantBlobs((await res.json()).data, blobHashes, this.log, this.opts.onBlobDeserializationError);
+      }
+
+      this.log.warn(`Failed to get blobs from blob sink: ${res.statusText} (${res.status})`);
+      return [];
+    } catch (error: any) {
+      this.log.error(`Error getting blobs from blob sink`, error);
+      return [];
+    }
+  }
+
   public async getBlobSidecarFrom(
     hostUrl: string,
     blockHashOrSlot: string | number,
     blobHashes: Buffer[] = [],
     indices: number[] = [],
-    maxRetries = 10,
     l1ConsensusHostIndex?: number,
   ): Promise<BlobWithIndex[]> {
     try {
-      let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
-      if (indices.length > 0) {
-        baseUrl += `?indices=${indices.join(',')}`;
+      const getBlobs = async (res: Response) =>
+        getRelevantBlobs((await res.json()).data, blobHashes, this.log, this.opts.onBlobDeserializationError);
+
+      let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
+      if (res.ok) {
+        return await getBlobs(res);
       }
 
-      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+      if (res.status === 404 && typeof blockHashOrSlot === 'number') {
+        const latestSlot = await this.getLatestSlotNumber(hostUrl, l1ConsensusHostIndex);
+        this.log.debug(`Requested L1 slot ${blockHashOrSlot} not found, trying out slots up to ${latestSlot}`, {
+          hostUrl,
+          status: res.status,
+          statusText: res.statusText,
+        });
 
-      this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
-      const res = await this.fetch(url, options);
-
-      if (res.ok) {
-        const body = await res.json();
-        const blobs = await getRelevantBlobs(body.data, blobHashes, this.log, this.opts.onBlobDeserializationError);
-        return blobs;
-      } else if (res.status === 404) {
-        // L1 slot may have been missed, try next few
-        if (typeof blockHashOrSlot === 'number' && maxRetries > 0) {
-          const nextSlot = Number(blockHashOrSlot) + 1;
-          this.log.debug(`L1 slot ${blockHashOrSlot} not found, trying next slot ${nextSlot}`);
-          return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1, l1ConsensusHostIndex);
+        let maxRetries = 10;
+        let currentSlot = blockHashOrSlot + 1;
+        while (res.status === 404 && maxRetries > 0 && latestSlot !== undefined && currentSlot <= latestSlot) {
+          this.log.debug(`Trying slot ${currentSlot} for blobs ${blobHashes.map(bufferToHex).join(', ')}`);
+          res = await this.fetchBlobSidecars(hostUrl, currentSlot, indices, l1ConsensusHostIndex);
+          if (res.ok) {
+            return await getBlobs(res);
+          }
+          currentSlot++;
+          maxRetries--;
         }
       }
 
-      // we already handle the two _expected_ cases above & return early
-      // warn if we can't communicate with the remote blob provider
       this.log.warn(`Unable to get blob sidecar for ${blockHashOrSlot}: ${res.statusText} (${res.status})`, {
         status: res.status,
         statusText: res.statusText,
@@ -275,6 +290,43 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     } catch (error: any) {
       this.log.warn(`Error getting blob sidecar from ${hostUrl}: ${error.message ?? error}`);
       return [];
+    }
+  }
+
+  private fetchBlobSidecars(
+    hostUrl: string,
+    blockHashOrSlot: string | number,
+    indices: number[],
+    l1ConsensusHostIndex?: number,
+  ): Promise<Response> {
+    let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
+    if (indices.length > 0) {
+      baseUrl += `?indices=${indices.join(',')}`;
+    }
+
+    const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+    this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
+    return this.fetch(url, options);
+  }
+
+  private async getLatestSlotNumber(hostUrl: string, l1ConsensusHostIndex?: number): Promise<number | undefined> {
+    try {
+      const baseUrl = `${hostUrl}/eth/v1/beacon/headers/head`;
+      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
+      this.log.debug(`Fetching latest slot number`, { url, ...options });
+      const res = await this.fetch(url, options);
+      if (res.ok) {
+        const body = await res.json();
+        const slot = parseInt(body.data.header.message.slot);
+        if (Number.isNaN(slot)) {
+          this.log.error(`Failed to parse slot number from response from ${hostUrl}`, { body });
+          return undefined;
+        }
+        return slot;
+      }
+    } catch (err) {
+      this.log.error(`Error getting latest slot number from ${hostUrl}`, err);
+      return undefined;
     }
   }
 

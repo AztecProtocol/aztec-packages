@@ -139,26 +139,6 @@ describe('e2e_p2p_add_rollup', () => {
     );
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
-    // Hand over the registry to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: registry.address,
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
-
-    // Hand over the GSE to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gseAddress!.toString()),
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
-
     // Now that we have passed on the registry, we can deploy the new rollup.
     const initialTestAccounts = await getInitialTestAccounts();
     const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
@@ -205,13 +185,13 @@ describe('e2e_p2p_add_rollup', () => {
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
-      const leaderVotes = await governanceProposer.read.yeaCount([
+      const leaderVotes = await governanceProposer.read.signalCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info.leader,
+        info.payloadWithMostSignals,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.leader} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -411,11 +391,11 @@ describe('e2e_p2p_add_rollup', () => {
       to: governanceProposer.address,
       data: encodeFunctionData({
         abi: GovernanceProposerAbi,
-        functionName: 'executeProposal',
+        functionName: 'submitRoundWinner',
         args: [govData.round],
       }),
     });
-    t.logger.info(`Executed proposal ${govData.round}`);
+    t.logger.info(`Submitted winner for round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
 

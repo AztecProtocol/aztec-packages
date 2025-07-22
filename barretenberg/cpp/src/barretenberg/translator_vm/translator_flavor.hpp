@@ -774,7 +774,6 @@ class TranslatorFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = 0;
             this->pub_inputs_offset = 0;
@@ -807,21 +806,15 @@ class TranslatorFlavor {
         }
 
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
-         * @returns The hash of the verification key
          */
         fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
 
         // Don't statically check for object completeness.
@@ -1006,7 +999,36 @@ class TranslatorFlavor {
             this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
-    }; // namespace bb
+    };
+
+    /**
+     * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
+     *
+     * @details When used in ClientIVC, the Translator has a large fixed size, which is often not fully utilized.
+     *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
+     *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
+     **/
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                [[maybe_unused]] const EdgeType edge_idx)
+    {
+        // TODO(@Rumata888) do you know of a more efficient way of determining if we can skip a row?
+        auto s0 = polynomials.ordered_range_constraints_0_shift[edge_idx];
+        auto s1 = polynomials.ordered_range_constraints_1_shift[edge_idx];
+        auto s2 = polynomials.ordered_range_constraints_2_shift[edge_idx];
+        auto s3 = polynomials.ordered_range_constraints_3_shift[edge_idx];
+        auto s4 = polynomials.ordered_range_constraints_4_shift[edge_idx];
+        auto s5 = polynomials.ordered_range_constraints_0_shift[edge_idx + 1];
+        auto s6 = polynomials.ordered_range_constraints_1_shift[edge_idx + 1];
+        auto s7 = polynomials.ordered_range_constraints_2_shift[edge_idx + 1];
+        auto s8 = polynomials.ordered_range_constraints_3_shift[edge_idx + 1];
+        auto s9 = polynomials.ordered_range_constraints_4_shift[edge_idx + 1];
+        auto shift_0 = (s0 == 0) && (s1 == 0) && (s2 == 0) && (s3 == 0) && (s4 == 0) && (s5 == 0) && (s6 == 0) &&
+                       (s7 == 0) && (s8 == 0) && (s9 == 0);
+        return shift_0 && (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
+    }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
 } // namespace bb

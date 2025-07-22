@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/events/l1_to_l2_message_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
@@ -49,8 +50,10 @@ struct EventsContainer {
     EventEmitterInterface<Sha256CompressionEvent>::Container sha256_compression;
     EventEmitterInterface<EccAddEvent>::Container ecc_add;
     EventEmitterInterface<ScalarMulEvent>::Container scalar_mul;
+    EventEmitterInterface<EccAddMemoryEvent>::Container ecc_add_mem;
     EventEmitterInterface<Poseidon2HashEvent>::Container poseidon2_hash;
     EventEmitterInterface<Poseidon2PermutationEvent>::Container poseidon2_permutation;
+    EventEmitterInterface<Poseidon2PermutationMemoryEvent>::Container poseidon2_permutation_mem;
     EventEmitterInterface<KeccakF1600Event>::Container keccakf1600;
     EventEmitterInterface<ToRadixEvent>::Container to_radix;
     EventEmitterInterface<FieldGreaterThanEvent>::Container field_gt;
@@ -68,6 +71,7 @@ struct EventsContainer {
     EventEmitterInterface<WrittenPublicDataSlotsTreeCheckEvent>::Container written_public_data_slots_tree_check_events;
     EventEmitterInterface<ContractInstanceRetrievalEvent>::Container contract_instance_retrieval_events;
     EventEmitterInterface<GetContractInstanceEvent>::Container get_contract_instance_events;
+    EventEmitterInterface<L1ToL2MessageTreeCheckEvent>::Container l1_to_l2_msg_tree_check_events;
 };
 
 } // namespace bb::avm2::simulation

@@ -21,7 +21,6 @@ contract EventOnly {
             TestEvent { value },
             &mut context,
             sender,
-            sender,
             PrivateLogContent.NO_CONSTRAINTS,
         );
     }

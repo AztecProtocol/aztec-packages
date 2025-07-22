@@ -61,6 +61,7 @@ pub global PUBLIC_DATA_TREE_ID: Field = 2;
 pub global L1_TO_L2_MESSAGE_TREE_ID: Field = 3;
 pub global ARCHIVE_TREE_ID: Field = 4;
 pub global NOTE_HASH_TREE_LEAF_COUNT: u64 = 1 << (NOTE_HASH_TREE_HEIGHT as u8);
+pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as u8);
 
 // SUB-TREES RELATED CONSTANTS
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
@@ -623,7 +624,9 @@ pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
 // Subtrace IDs.
 pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
 pub global AVM_SUBTRACE_ID_ALU: u32 = 2 * AVM_SUBTRACE_ID_EXECUTION;
-pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_ALU;
+pub global AVM_SUBTRACE_ID_CAST: u32 = 2 * AVM_SUBTRACE_ID_ALU;
+pub global AVM_SUBTRACE_ID_SET: u32 = 2 * AVM_SUBTRACE_ID_CAST;
+pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_SET;
 pub global AVM_SUBTRACE_ID_POSEIDON_PERM: u32 = 2 * AVM_SUBTRACE_ID_BITWISE;
 pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_POSEIDON_PERM;
 pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_TO_RADIX;
@@ -642,8 +645,7 @@ pub global AVM_DYN_GAS_ID_SSTORE: u32 = 2 * AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG;
 // Execution Opcode IDs
 // Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_EXEC_OP_ID_GETENVVAR: u32 = 1;
-pub global AVM_EXEC_OP_ID_SET: u32 = 2 * AVM_EXEC_OP_ID_GETENVVAR;
-pub global AVM_EXEC_OP_ID_MOV: u32 = 2 * AVM_EXEC_OP_ID_SET;
+pub global AVM_EXEC_OP_ID_MOV: u32 = 2 * AVM_EXEC_OP_ID_GETENVVAR;
 pub global AVM_EXEC_OP_ID_JUMP: u32 = 2 * AVM_EXEC_OP_ID_MOV;
 pub global AVM_EXEC_OP_ID_JUMPI: u32 = 2 * AVM_EXEC_OP_ID_JUMP;
 pub global AVM_EXEC_OP_ID_CALL: u32 = 2 * AVM_EXEC_OP_ID_JUMPI;
@@ -658,6 +660,9 @@ pub global AVM_EXEC_OP_ID_DEBUGLOG: u32 = 2 * AVM_EXEC_OP_ID_RETURNDATASIZE;
 pub global AVM_EXEC_OP_ID_SLOAD: u32 = 2 * AVM_EXEC_OP_ID_DEBUGLOG;
 pub global AVM_EXEC_OP_ID_SSTORE: u32 = 2 * AVM_EXEC_OP_ID_SLOAD;
 pub global AVM_EXEC_OP_ID_NOTEHASH_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_SSTORE;
+pub global AVM_EXEC_OP_ID_EMIT_NOTEHASH: u32 = 2 * AVM_EXEC_OP_ID_NOTEHASH_EXISTS;
+pub global AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_EMIT_NOTEHASH;
+pub global AVM_EXEC_OP_ID_NULLIFIEREXISTS: u32 = 2 * AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS;
 
 // Execution Opcode IDs for the ALU subtrace
 // Note: these are all powers of 2 to allow for binary decomposition.
@@ -672,6 +677,7 @@ pub global AVM_EXEC_OP_ID_ALU_LTE: u32 = 2 * AVM_EXEC_OP_ID_ALU_LT;
 pub global AVM_EXEC_OP_ID_ALU_NOT: u32 = 2 * AVM_EXEC_OP_ID_ALU_LTE;
 pub global AVM_EXEC_OP_ID_ALU_SHL: u32 = 2 * AVM_EXEC_OP_ID_ALU_NOT;
 pub global AVM_EXEC_OP_ID_ALU_SHR: u32 = 2 * AVM_EXEC_OP_ID_ALU_SHL;
+pub global AVM_EXEC_OP_ID_ALU_TRUNCATE: u32 = 2 * AVM_EXEC_OP_ID_ALU_SHR;
 
 // AvmCircuitPublicInputs - row indices
 // Global Variables

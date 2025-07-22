@@ -140,94 +140,62 @@ pub fn preprocess_notes_min_sum(
 mod test {
     use crate::{test::utils, Token};
     use super::BalanceSet;
-    use dep::aztec::{
-        protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField},
-        test::helpers::txe_oracles,
-    };
+    use dep::aztec::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField};
 
     #[test]
     unconstrained fn subtract_balance_small_note_first() {
-        let (env, token_contract_address, owner, recipient) = utils::setup(false);
-
-        // The owner mints two notes for the recipient: first one for a small amount, and then one for a large amount.
-        env.impersonate(owner);
-
-        let small_mint_amount: u128 = 5;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
-            &mut env.private(),
-        );
-        env.mine_block();
-
-        let large_mint_amount: u128 = 50;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
-            &mut env.private(),
-        );
-        env.mine_block();
-
-        // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
-        // the notes.
-        utils::check_private_balance(
-            token_contract_address,
-            recipient,
-            small_mint_amount + large_mint_amount,
-        );
-
-        // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the small
-        // note. Because large notes are consumed first, we should see that a change note is created with amount equal
-        // to large - small, indicating that the large note was consumed.
-        txe_oracles::set_contract_address(token_contract_address);
-        let recipient_balance_storage_slot =
-            derive_storage_slot_in_map(Token::storage_layout().balances.slot, recipient.to_field());
-
-        let recipient_balance_set =
-            BalanceSet::new(&mut env.private(), recipient_balance_storage_slot);
-        let emission = recipient_balance_set.sub(recipient, small_mint_amount);
-        assert_eq(emission.emission.unwrap().note.value, large_mint_amount - small_mint_amount);
-
-        // The subtract_balance_large_note_first test does the same as this one, except creating the large note first.
-        // Put together, these two tests check that large notes are consumed first regardless of creation order.
+        check_large_balance_note_used_first([5, 50]);
     }
 
     #[test]
     unconstrained fn subtract_balance_large_note_first() {
+        check_large_balance_note_used_first([50, 5]);
+    }
+
+    unconstrained fn check_large_balance_note_used_first(note_values: [u128; 2]) {
         let (env, token_contract_address, owner, recipient) = utils::setup(false);
 
-        // The owner mints two notes for the recipient: first one for a large amount, and then one for a small amount.
-        env.impersonate(owner);
-
-        let large_mint_amount: u128 = 50;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
-            &mut env.private(),
+        // The owner mints two notes for the recipient
+        let first_note_value = note_values[0];
+        let _ = env.call_private_void(
+            owner,
+            Token::at(token_contract_address).mint_to_private(recipient, first_note_value),
         );
-        env.mine_block();
 
-        let small_mint_amount: u128 = 5;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
-            &mut env.private(),
+        let second_note_value = note_values[1];
+        let _ = env.call_private_void(
+            owner,
+            Token::at(token_contract_address).mint_to_private(recipient, second_note_value),
         );
-        env.mine_block();
 
         // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
         // the notes.
         utils::check_private_balance(
+            env,
             token_contract_address,
             recipient,
-            small_mint_amount + large_mint_amount,
+            first_note_value + second_note_value,
         );
 
-        // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the small
-        // note. Because large notes are consumed first, we should see that a change note is created with amount equal
-        // to large - small, indicating that the large note was consumed.
-        txe_oracles::set_contract_address(token_contract_address);
-        let recipient_balance_storage_slot =
-            derive_storage_slot_in_map(Token::storage_layout().balances.slot, recipient.to_field());
+        // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the smallest
+        // of the two notes. Because large notes are consumed first, we should see that a change note is created with
+        // amount equal to large - small, indicating that the larger note was consumed regardless of the order in which
+        // the notes were created.
+        env.private_context_at(token_contract_address, |context| {
+            let recipient_balance_set = BalanceSet::new(
+                context,
+                derive_storage_slot_in_map(
+                    Token::storage_layout().balances.slot,
+                    recipient.to_field(),
+                ),
+            );
 
-        let recipient_balance_set =
-            BalanceSet::new(&mut env.private(), recipient_balance_storage_slot);
-        let emission = recipient_balance_set.sub(recipient, small_mint_amount);
-        assert_eq(emission.emission.unwrap().note.value, large_mint_amount - small_mint_amount);
+            let smaller_note_value = std::cmp::min(first_note_value, second_note_value);
+            let larger_note_value = std::cmp::max(first_note_value, second_note_value);
 
-        // The subtract_balance_small_note_first test does the same as this one, except creating the small note first.
-        // Put together, these two tests check that large notes are consumed first regardless of creation order.
+            let note =
+                recipient_balance_set.sub(recipient, smaller_note_value).emission.unwrap().note;
+            assert_eq(note.value, larger_note_value - smaller_note_value);
+        });
     }
 }

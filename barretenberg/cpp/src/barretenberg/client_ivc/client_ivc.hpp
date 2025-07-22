@@ -77,6 +77,11 @@ class ClientIVC {
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
+    using StdlibFF = RecursiveFlavor::FF;
+    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
+
+    // Merge commitments
+    using MergeCommitments = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>::WitnessCommitments;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -196,6 +201,7 @@ class ClientIVC {
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
+        MergeCommitments& merge_commitments,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)

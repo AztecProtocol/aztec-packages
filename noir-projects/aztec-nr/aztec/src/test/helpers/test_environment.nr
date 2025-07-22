@@ -12,9 +12,11 @@ use crate::{
         },
         PrivateCallInterface,
         PrivateContext,
+        PrivateStaticCallInterface,
         PrivateVoidCallInterface,
         PublicCallInterface,
         PublicContext,
+        PublicStaticCallInterface,
         PublicVoidCallInterface,
         ReturnsHash,
         UtilityCallInterface,
@@ -41,14 +43,33 @@ pub struct CallResult<T> {
     pub tx_hash: Field,
 }
 
+pub struct PrivateContextOptions {
+    contract_address: Option<AztecAddress>,
+    historical_block_number: Option<u32>,
+}
+
+impl PrivateContextOptions {
+    pub fn new() -> Self {
+        Self { contract_address: Option::none(), historical_block_number: Option::none() }
+    }
+
+    pub fn at_historical_block_number(&mut self, historical_block_number: u32) -> Self {
+        self.historical_block_number = Option::some(historical_block_number);
+        *self
+    }
+
+    pub fn at_contract_address(&mut self, contract_address: AztecAddress) -> Self {
+        self.contract_address = Option::some(contract_address);
+        *self
+    }
+}
+
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        txe_oracles::reset();
         Self {}
     }
 
     pub unconstrained fn _new() -> Self {
-        txe_oracles::reset();
         txe_oracles::enable_context_checks();
         Self {}
     }
@@ -95,6 +116,20 @@ impl TestEnvironment {
         ret_value
     }
 
+    pub unconstrained fn public_context_at<Env, T>(
+        self,
+        addr: AztecAddress,
+        f: fn[Env](&mut PublicContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.public_context(f);
+        txe_oracles::set_contract_address(pre);
+
+        ret
+    }
+
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
     ///
     /// Creates a `PrivateContext`, which allows using aztec-nr features as if inside a private contract function.
@@ -125,6 +160,56 @@ impl TestEnvironment {
         ret_value
     }
 
+    pub unconstrained fn private_context_at<Env, T>(
+        &mut self,
+        addr: AztecAddress,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.private_context(f);
+        txe_oracles::set_contract_address(pre);
+
+        ret
+    }
+
+    pub unconstrained fn private_context_opts<Env, T>(
+        &mut self,
+        opts: PrivateContextOptions,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+
+        let pre_contract_address = txe_oracles::get_contract_address();
+
+        if opts.contract_address.is_some() {
+            txe_oracles::set_contract_address(opts.contract_address.unwrap());
+        }
+
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
+        let mut context = if opts.historical_block_number.is_some() {
+            self.private_at(opts.historical_block_number.unwrap())
+        } else {
+            self.private()
+        };
+
+        txe_oracles::set_private_txe_context();
+
+        let ret_value = f(&mut context);
+        txe_oracles::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context. we should have an
+        // oracle that receives the context we produced probably
+        self.mine_block();
+
+        txe_oracles::set_contract_address(pre_contract_address);
+
+        ret_value
+    }
+
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
     pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
         txe_oracles::set_utility_txe_context();
@@ -133,6 +218,20 @@ impl TestEnvironment {
         txe_oracles::set_top_level_txe_context();
 
         ret_value
+    }
+
+    pub unconstrained fn utility_context_at<Env, T>(
+        &mut self,
+        addr: AztecAddress,
+        f: fn[Env](UtilityContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the utility context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.utility_context(f);
+        txe_oracles::set_contract_address(pre);
+
+        ret
     }
 
     /// Returns the number of the next block to be built.
@@ -353,6 +452,30 @@ impl TestEnvironment {
         CallResult { return_value: (), tx_hash }
     }
 
+    pub unconstrained fn view_private<T, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PrivateStaticCallInterface<M, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        let args = call_interface.get_args();
+        let args_hash = hash_args(args);
+
+        let (_end_side_effect_counter, returns_hash, _) = txe_oracles::private_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            args,
+            args_hash,
+            call_interface.get_is_static(),
+        );
+
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        returns
+    }
+
     pub unconstrained fn simulate_utility<T, let M: u32>(
         _self: Self,
         call_interface: UtilityCallInterface<M, T>,
@@ -430,6 +553,26 @@ impl TestEnvironment {
         CallResult { return_value: (), tx_hash }
     }
 
+    pub unconstrained fn view_public<T, let M: u32>(
+        _self: Self,
+        call_interface: PublicStaticCallInterface<M, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        let (returns_hash, _) = public_call_new_flow(
+            AztecAddress::zero(),
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            true,
+        );
+
+        // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        returns
+    }
+
     pub unconstrained fn call_private_test<T, let M: u32, X>(
         _self: Self,
         from: AztecAddress,
@@ -473,14 +616,14 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted.
-    pub unconstrained fn add_note<Note, let N: u32>(
+    pub unconstrained fn add_note<Note>(
         _self: Self,
         note: Note,
         storage_slot: Field,
         contract_address: AztecAddress,
     )
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        Note: NoteType + NoteHash + Packable,
     {
         let original_contract_address = get_contract_address();
         txe_oracles::set_contract_address(contract_address);

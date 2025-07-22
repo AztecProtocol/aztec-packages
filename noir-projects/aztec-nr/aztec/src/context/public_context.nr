@@ -39,7 +39,8 @@ impl PublicContext {
 
     pub fn l1_to_l2_msg_exists(_self: Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         // Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { l1_to_l2_msg_exists(msg_hash, msg_leaf_index) } == 1
+        // TODO(alvaro): Make l1l2msg leaf index a u64 upstream
+        unsafe { l1_to_l2_msg_exists(msg_hash, msg_leaf_index as u64) } == 1
     }
 
     pub fn nullifier_exists(_self: Self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
@@ -240,9 +241,9 @@ impl PublicContext {
         out
     }
 
-    pub fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    pub fn storage_read<T>(self, storage_slot: Field) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         T::unpack(self.raw_storage_read(storage_slot))
     }
@@ -254,9 +255,9 @@ impl PublicContext {
         }
     }
 
-    pub fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
+    pub fn storage_write<T>(self, storage_slot: Field, value: T)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         self.raw_storage_write(storage_slot, value.pack());
     }
@@ -314,7 +315,7 @@ unconstrained fn emit_nullifier(nullifier: Field) {
 unconstrained fn emit_public_log(message: [Field]) {
     emit_public_log_opcode(message)
 }
-unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u1 {
+unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: u64) -> u1 {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
 }
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
@@ -435,7 +436,7 @@ unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 unconstrained fn emit_public_log_opcode(message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
-unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u1 {}
+unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: u64) -> u1 {}
 
 #[oracle(avmOpcodeSendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}

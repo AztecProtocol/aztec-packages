@@ -203,7 +203,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     auto manifest_expected = TestFixture::construct_mega_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
-    ASSERT(manifest_expected.size() > 0);
+    ASSERT_GT(manifest_expected.size(), 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
             info("Prover manifest discrepency in round ", round);
@@ -211,7 +211,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
             prover_manifest[round].print();
             info("Expected manifest:");
             manifest_expected[round].print();
-            ASSERT(false);
+            FAIL();
         }
     }
 }
@@ -251,13 +251,13 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     auto verifier_manifest = verifier.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
-    ASSERT(prover_manifest.size() > 0);
+    ASSERT_GT(prover_manifest.size(), 0);
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         if (prover_manifest[round] != verifier_manifest[round]) {
             info("Prover/Verifier manifest discrepency in round ", round);
             prover_manifest[round].print();
             verifier_manifest[round].print();
-            ASSERT(false);
+            FAIL();
         }
     }
 }

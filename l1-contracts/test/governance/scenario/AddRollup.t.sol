@@ -49,7 +49,7 @@ contract BadRollup {
 contract AddRollupTest is TestBase {
   using ProposalLib for Proposal;
 
-  IMintableERC20 internal token;
+  TestERC20 internal token;
   Registry internal registry;
   Governance internal governance;
   GovernanceProposer internal governanceProposer;
@@ -93,10 +93,11 @@ contract AddRollupTest is TestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), rollup.getDepositAmount() * VALIDATOR_COUNT);
+    uint256 depositAmount = rollup.getDepositAmount();
+    vm.prank(token.owner());
+    token.mint(address(multiAdder), depositAmount * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
-    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
   }
 
@@ -110,11 +111,11 @@ contract AddRollupTest is TestBase {
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
-      governanceProposer.vote(payload);
+      governanceProposer.signal(payload);
       vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
     }
 
-    governanceProposer.executeProposal(0);
+    governanceProposer.submitRoundWinner(0);
     proposal = governance.getProposal(0);
 
     GSEPayload gsePayload = GSEPayload(address(proposal.payload));
@@ -122,6 +123,7 @@ contract AddRollupTest is TestBase {
 
     assertEq(originalPayload, address(payload));
 
+    vm.prank(token.owner());
     token.mint(EMPEROR, 10000 ether);
 
     vm.startPrank(EMPEROR);
@@ -152,9 +154,11 @@ contract AddRollupTest is TestBase {
       // The result is that 1/3 of the new total supply is off canonical
       uint256 validatorsNeeded = (gse.totalSupply() / 2) / rollup.getDepositAmount() + 1;
 
+      uint256 depositAmount = rollup.getDepositAmount();
       while (val <= validatorsNeeded) {
-        token.mint(address(this), rollup.getDepositAmount());
-        token.approve(address(rollup), rollup.getDepositAmount());
+        vm.prank(token.owner());
+        token.mint(address(this), depositAmount);
+        token.approve(address(rollup), depositAmount);
         rollup.deposit(address(uint160(val)), address(this), false);
         val++;
       }
