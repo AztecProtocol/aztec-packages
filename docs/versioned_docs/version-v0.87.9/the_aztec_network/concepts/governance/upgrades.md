@@ -36,5 +36,3 @@ After governance approval and a delay period, the proposal becomes executable:
 
 - Any Ethereum account can call `execute(_proposalId)` on the Governance contract.
 - The `execute` function calls the proposal code, transitioning the network to the new Rollup instance.
-
-For a more hands-on guide to reacting to upgrades as a sequencer/validators, read [this](../../guides/reacting_to_upgrades.md).
