@@ -1,7 +1,4 @@
-pub mod squash_transient_data;
-
-use crate::components::reset_output_composer::reset_output_hints::squash_transient_data::squash_transient_data;
-use dep::reset_kernel_lib::TransientDataIndexHint;
+use dep::reset_kernel_lib::{squash_transient_data, TransientDataSquashingHint};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
@@ -25,14 +22,14 @@ pub struct ResetOutputHints {
 
 pub unconstrained fn generate_reset_output_hints<let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32>(
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
 ) -> ResetOutputHints {
     // Splice-removes transient items (as opposed to setting items to "empty" in-place).
     let (kept_note_hashes, kept_nullifiers, kept_private_logs) = squash_transient_data(
         previous_kernel.end.note_hashes,
         previous_kernel.end.nullifiers,
         previous_kernel.end.private_logs,
-        transient_data_index_hints,
+        transient_data_squashing_hints,
     );
 
     // We take the "kept" (propagated) side effects, and sort them by their counter.
