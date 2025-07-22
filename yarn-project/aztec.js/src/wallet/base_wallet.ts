@@ -26,32 +26,13 @@ import type {
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 
-import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import type { Wallet } from './wallet.js';
 
 /**
  * A base class for Wallet implementations
  */
-export abstract class BaseWallet implements Wallet {
+export class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE) {}
-
-  abstract getCompleteAddress(): CompleteAddress;
-
-  abstract getChainId(): Fr;
-
-  abstract getVersion(): Fr;
-
-  abstract createTxExecutionRequest(
-    exec: ExecutionPayload,
-    fee: FeeOptions,
-    options: TxExecutionOptions,
-  ): Promise<TxExecutionRequest>;
-
-  abstract createAuthWit(intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness>;
-
-  getAddress() {
-    return this.getCompleteAddress().address;
-  }
 
   registerSender(address: AztecAddress): Promise<AztecAddress> {
     return this.pxe.registerSender(address);
@@ -59,8 +40,8 @@ export abstract class BaseWallet implements Wallet {
   getSenders(): Promise<AztecAddress[]> {
     return this.pxe.getSenders();
   }
-  async removeSender(address: AztecAddress): Promise<void> {
-    await this.pxe.removeSender(address);
+  removeSender(address: AztecAddress): Promise<void> {
+    return this.pxe.removeSender(address);
   }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
@@ -131,7 +112,7 @@ export abstract class BaseWallet implements Wallet {
     event: EventMetadataDefinition,
     from: number,
     limit: number,
-    recipients: AztecAddress[] = [this.getCompleteAddress().address],
+    recipients: AztecAddress[] = [],
   ): Promise<T[]> {
     return this.pxe.getPrivateEvents(contractAddress, event, from, limit, recipients);
   }

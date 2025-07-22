@@ -5,6 +5,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
+import type { Account } from '../account/account.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { getGasLimits } from './get_gas_limits.js';
@@ -21,6 +22,7 @@ export abstract class BaseContractInteraction {
 
   constructor(
     protected wallet: Wallet,
+    protected account: Account,
     protected authWitnesses: AuthWitness[] = [],
     protected capsules: Capsule[] = [],
   ) {}
@@ -120,7 +122,7 @@ export abstract class BaseContractInteraction {
   protected async getDefaultFeeOptions(fee: UserFeeOptions | undefined): Promise<FeeOptions> {
     const maxFeesPerGas =
       fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
-    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(this.wallet.getAddress());
+    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(this.account.getAddress());
     const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, gasSettings);
     return { gasSettings, paymentMethod };
@@ -148,7 +150,7 @@ export abstract class BaseContractInteraction {
     let gasSettings = defaultFeeOptions.gasSettings;
     if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
-      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options);
+      const txRequest = await this.account.createTxExecutionRequest(executionPayload, feeForEstimation, options);
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,

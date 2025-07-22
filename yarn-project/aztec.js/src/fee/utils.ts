@@ -3,6 +3,7 @@ import { type FunctionAbi, decodeFromAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 
+import { SignerlessAccount } from '../account/signerless_account.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
@@ -21,7 +22,10 @@ export async function simulateWithoutSignature(
   abi: FunctionAbi,
   args: any[],
 ) {
-  const interaction = new ContractFunctionInteraction(wallet, contractAddress, abi, args);
+  const { l1ChainId: chainId, rollupVersion } = await wallet.getNodeInfo();
+  const entrypoint = new DefaultEntrypoint(chainId, rollupVersion);
+  const account = new SignerlessAccount(entrypoint);
+  const interaction = new ContractFunctionInteraction(wallet, account, contractAddress, abi, args);
 
   const request = await interaction.request();
   const maxFeesPerGas = (await wallet.getCurrentBaseFees()).mul(1.5);
@@ -29,10 +33,7 @@ export async function simulateWithoutSignature(
   const gasSettings = GasSettings.default({ maxFeesPerGas });
   const fee = { gasSettings, paymentMethod };
 
-  const { l1ChainId: chainId, rollupVersion } = await wallet.getNodeInfo();
-  const entrypoint = new DefaultEntrypoint(chainId, rollupVersion);
-  const signerlessTxExecutionRequest = await entrypoint.createTxExecutionRequest(request, fee, {});
-
+  const signerlessTxExecutionRequest = await account.createTxExecutionRequest(request, fee, {});
   const simulationResult = await wallet.simulateTx(signerlessTxExecutionRequest, false, undefined, true);
   const rawReturnValues = simulationResult.getPrivateReturnValues().values;
   return decodeFromAbi(abi.returnTypes, rawReturnValues!);

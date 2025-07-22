@@ -5,7 +5,8 @@ import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 
-import type { AccountWallet } from '../wallet/account_wallet.js';
+import type { Account } from '../account/account.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { simulateWithoutSignature } from './utils.js';
 
 /**
@@ -22,7 +23,12 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     /**
      * An auth witness provider to authorize fee payments
      */
-    protected wallet: AccountWallet,
+    private account: Account,
+
+    /**
+     * A wallet to perform the simulation to get the accepted asset
+     */
+    private wallet: Wallet,
   ) {}
 
   /**
@@ -78,12 +84,13 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     const txNonce = Fr.random();
     const maxFee = gasSettings.getFeeLimit();
 
-    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+    const setPublicAuthWitInteraction = await this.account.setPublicAuthWit(
+      this.wallet,
       {
         caller: this.paymentContract,
         action: {
           name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, txNonce],
+          args: [this.account.getAddress().toField(), this.paymentContract.toField(), maxFee, txNonce],
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,

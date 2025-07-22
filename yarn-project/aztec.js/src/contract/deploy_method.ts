@@ -14,6 +14,7 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { Capsule, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
+import type { Account } from '../account/account.js';
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -67,6 +68,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   constructor(
     private publicKeys: PublicKeys,
     wallet: Wallet,
+    account: Account,
     private artifact: ContractArtifact,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
@@ -74,7 +76,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
   ) {
-    super(wallet, authWitnesses, capsules);
+    super(wallet, account, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
   }
 
@@ -98,7 +100,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const requestWithoutFee = await this.request(options);
     const { fee: userFee, txNonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
-    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
+    return this.account.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other
@@ -217,6 +219,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       const { address } = await this.getInstance(options);
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,
+        this.account,
         address,
         this.constructorArtifact,
         this.args,
@@ -253,7 +256,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         salt: options.contractAddressSalt,
         publicKeys: this.publicKeys,
         constructorArtifact: this.constructorArtifact,
-        deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
+        deployer: options.universalDeploy ? AztecAddress.ZERO : this.account.getAddress(),
       });
     }
     return this.instance;
@@ -312,6 +315,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     return new DeployMethod(
       this.publicKeys,
       this.wallet,
+      this.account,
       this.artifact,
       this.postDeployCtor,
       this.args,

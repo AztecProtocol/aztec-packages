@@ -12,6 +12,7 @@ import {
   collectOffchainEffects,
 } from '@aztec/stdlib/tx';
 
+import type { Account } from '../account/account.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type {
@@ -51,6 +52,7 @@ type SimulationReturn<T extends boolean | undefined> = T extends true
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
+    account: Account,
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
@@ -58,7 +60,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     capsules: Capsule[] = [],
     private extraHashedArgs: HashedValues[] = [],
   ) {
-    super(wallet, authWitnesses, capsules);
+    super(wallet, account, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
     }
@@ -81,7 +83,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const { fee: userFee, txNonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
+    return await this.account.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // docs:start:request
@@ -225,6 +227,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }): ContractFunctionInteraction {
     return new ContractFunctionInteraction(
       this.wallet,
+      this.account,
       this.contractAddress,
       this.functionDao,
       this.args,

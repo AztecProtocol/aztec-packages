@@ -5,6 +5,7 @@ import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
+import type { Account } from '../account/account.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { simulateWithoutSignature } from './utils.js';
 
@@ -23,8 +24,12 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     /**
      * An auth witness provider to authorize fee payments
      */
-    private wallet: Wallet,
+    private account: Account,
 
+    /**
+     * A wallet to perform the simulation to get the accepted asset
+     */
+    private wallet: Wallet,
     /**
      * If true, the max fee will be set to 1.
      * TODO(#7694): Remove this param once the lacking feature in TXE is implemented.
@@ -87,11 +92,11 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     const maxFee = this.setMaxFeeToOne ? Fr.ONE : gasSettings.getFeeLimit();
     const txNonce = Fr.random();
 
-    const witness = await this.wallet.createAuthWit({
+    const witness = await this.account.createAuthWit({
       caller: this.paymentContract,
       action: {
         name: 'transfer_to_public',
-        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, txNonce],
+        args: [this.account.getAddress().toField(), this.paymentContract.toField(), maxFee, txNonce],
         selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),u128,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
