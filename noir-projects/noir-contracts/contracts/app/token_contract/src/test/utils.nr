@@ -54,8 +54,12 @@ pub unconstrained fn setup_and_mint_to_public(
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000 as u128;
+
     // Mint some tokens
-    Token::at(token_contract_address).mint_to_public(owner, mint_amount).call(&mut env.public());
+    let _ = env.call_public_void(
+        owner,
+        Token::at(token_contract_address).mint_to_public(owner, mint_amount),
+    );
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
@@ -68,7 +72,10 @@ pub unconstrained fn setup_and_mint_amount_to_private(
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
 
     // Mint some tokens
-    mint_to_private(env, token_contract_address, owner, mint_amount);
+    let _ = env.call_private_void(
+        owner,
+        Token::at(token_contract_address).mint_to_private(owner, mint_amount),
+    );
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
@@ -80,32 +87,17 @@ pub unconstrained fn setup_and_mint_to_private(
     setup_and_mint_amount_to_private(with_account_contracts, mint_amount)
 }
 
-pub unconstrained fn mint_to_private(
-    env: &mut TestEnvironment,
-    token_contract_address: AztecAddress,
-    recipient: AztecAddress,
-    amount: u128,
-) {
-    Token::at(token_contract_address).mint_to_private(recipient, amount).call(&mut env.private());
-
-    env.mine_block();
-}
-
 // docs:start:txe_test_read_public
 pub unconstrained fn check_public_balance(
+    env: &mut TestEnvironment,
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: u128,
 ) {
-    let current_contract_address = get_contract_address();
-    txe_oracles::set_contract_address(token_contract_address);
-    let block_number = get_block_number();
-
-    let balances_slot = Token::storage_layout().public_balances.slot;
-    let address_slot = derive_storage_slot_in_map(balances_slot, address);
-    let amount: u128 = storage_read(token_contract_address, address_slot, block_number);
-    assert(amount == address_amount, "Public balance is not correct");
-    txe_oracles::set_contract_address(current_contract_address);
+    assert_eq(
+        env.view_public(Token::at(token_contract_address).balance_of_public(address)),
+        address_amount,
+    );
 }
 // docs:end:txe_test_read_public
 
@@ -140,16 +132,17 @@ pub unconstrained fn check_total_supply(
 
 // docs:start:txe_test_call_utility
 pub unconstrained fn check_private_balance(
+    env: &mut TestEnvironment,
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: u128,
 ) {
-    let current_contract_address = get_contract_address();
-    txe_oracles::set_contract_address(token_contract_address);
-    // Direct call to a utility function
-    let balance_of_private = Token::balance_of_private(address);
-    assert(balance_of_private == address_amount, "Private balance is not correct");
-    txe_oracles::set_contract_address(current_contract_address);
+    assert_eq(
+        env.simulate_utility(Token::at(token_contract_address)._experimental_balance_of_private(
+            address,
+        )),
+        address_amount,
+    );
 }
 // docs:end:txe_test_call_utility
 
