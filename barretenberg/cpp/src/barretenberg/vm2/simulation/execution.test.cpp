@@ -821,7 +821,6 @@ TEST_F(ExecutionSimulationTest, EccAdd)
     EXPECT_CALL(gas_tracker, consume_gas);
 
     // Mock the ECC add operation
-    // EXPECT_CALL(ecc, add(context.get_memory(), _, _, dst_addr));
     EXPECT_CALL(ecc, add(_, _, _, dst_addr));
 
     // Execute the ECC add operation
