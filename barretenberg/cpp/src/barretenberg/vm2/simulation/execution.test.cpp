@@ -31,7 +31,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
@@ -82,9 +82,11 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockGasTracker> gas_tracker;
     StrictMock<MockHighLevelMerkleDB> merkle_db;
     StrictMock<MockGreaterThan> greater_than;
+    StrictMock<MockPoseidon2> poseidon2;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
+                                                  poseidon2,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,
@@ -589,6 +591,50 @@ TEST_F(ExecutionSimulationTest, L1ToL2MessageExistsOutOfRange)
     EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
 
     execution.l1_to_l2_message_exists(context, msg_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, Set)
+{
+    MemoryAddress dst_addr = 10;
+    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U8);
+    FF value = 7;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(alu, truncate(value, static_cast<MemoryTag>(dst_tag))).WillOnce(Return(MemoryValue::from<uint8_t>(7)));
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint8_t>(7)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.set(context, dst_addr, dst_tag, value);
+}
+
+TEST_F(ExecutionSimulationTest, Cast)
+{
+    MemoryAddress src_addr = 9;
+    MemoryAddress dst_addr = 10;
+    uint8_t dst_tag = static_cast<uint8_t>(MemoryTag::U1);
+    MemoryValue value = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
+    EXPECT_CALL(memory, get(src_addr)).WillOnce(ReturnRef(value));
+
+    EXPECT_CALL(alu, truncate(value.as_ff(), static_cast<MemoryTag>(dst_tag)))
+        .WillOnce(Return(MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.cast(context, src_addr, dst_addr, dst_tag);
+}
+
+TEST_F(ExecutionSimulationTest, Poseidon2Perm)
+{
+    MemoryAddress src_address = 10;
+    MemoryAddress dst_address = 20;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas);
+    EXPECT_CALL(poseidon2, permutation(_, src_address, dst_address));
+
+    execution.poseidon2_permutation(context, src_address, dst_address);
 }
 
 } // namespace

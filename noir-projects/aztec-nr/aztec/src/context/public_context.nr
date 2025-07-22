@@ -241,9 +241,9 @@ impl PublicContext {
         out
     }
 
-    pub fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    pub fn storage_read<T>(self, storage_slot: Field) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         T::unpack(self.raw_storage_read(storage_slot))
     }
@@ -255,9 +255,9 @@ impl PublicContext {
         }
     }
 
-    pub fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
+    pub fn storage_write<T>(self, storage_slot: Field, value: T)
     where
-        T: Packable<N>,
+        T: Packable,
     {
         self.raw_storage_write(storage_slot, value.pack());
     }

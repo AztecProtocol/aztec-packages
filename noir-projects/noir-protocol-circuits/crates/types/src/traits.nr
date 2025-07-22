@@ -472,10 +472,12 @@ impl<let M: u32> Deserialize for str<M> {
 /// the resulting Field array. This trait is used when storage efficiency is critical (e.g. when storing data
 /// in the contract's public storage).
 ///
-/// # Type Parameters
-/// * `N` - The length of the Field array, known at compile time.
+/// # Associated Constants
+/// * `N` - The length of the Field array, known at compile time
 #[derive_via(derive_packable)]
-pub trait Packable<let N: u32> {
+pub trait Packable {
+    let N: u32;
+
     /// Packs the current value into a compact array of `Field` elements.
     fn pack(self) -> [Field; N];
 
