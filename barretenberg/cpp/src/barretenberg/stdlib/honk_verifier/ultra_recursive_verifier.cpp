@@ -89,10 +89,15 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         inputs.reconstruct_from_public(public_inputs);
         output.points_accumulator = inputs.pairing_inputs;
         output.ipa_claim = inputs.ipa_claim;
-    } else {
+    } else if constexpr (IsUltraHonk<Flavor>) {
         DefaultIO<Builder> inputs; // pairing points
         inputs.reconstruct_from_public(public_inputs);
         output.points_accumulator = inputs.pairing_inputs;
+    } else {
+        DefaultIO<Builder> inputs; // will be HidingKernelIO
+        inputs.reconstruct_from_public(public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+        // output.ecc_op_tables = inputs.ecc_op_tables;
     }
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
