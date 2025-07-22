@@ -91,7 +91,8 @@ template <typename Flavor> class SumcheckProverRound {
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
     }
-
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1484): should we get rid of this function, given
+    // `compute_univariates_with_row_skipping()`?
     /**
      * @brief  To compute the round univariate in Round \f$i\f$, the prover first computes the values of Honk
      polynomials \f$ P_1,\ldots, P_N \f$ at the points of the form \f$ (u_0,\ldots, u_{i-1}, k, \vec \ell)\f$ for \f$
@@ -278,7 +279,6 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-
      * @brief Helper struct that describes a block of non-zero unskippable rows
      *
      */
@@ -387,16 +387,17 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-     * @brief ZK-version of `compute_univariate` that runs Sumcheck with disabled rows and masking of Round Univariates.
-     * The masking is ensured by adding random Libra univariates to the Sumcheck round univariates.
+     * @brief Version of `compute_univariate` that allows for row-skipping, as a prover-side optimization.
      *
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                               const bb::RelationParameters<FF>& relation_parameters,
-                                               const bb::GateSeparatorPolynomial<FF>& gate_separators)
+    SumcheckRoundUnivariate compute_univariate_with_row_skipping(
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+        const SubrelationSeparators alphas)
     {
-        PROFILE_THIS_NAME("compute_univariate");
+        PROFILE_THIS_NAME("compute_univariate_with_row_skipping");
 
         std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
         // Compute how many nonzero rows we have
@@ -441,20 +442,27 @@ template <typename Flavor> class SumcheckProverRound {
                                                 gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
             }
         });
-    }
-    /**
-     * @brief In the de-facto mode of of operation for ZK, we add a randomising contribution via the Libra technique to
-     * hide the actual round univariate and also ensure the total contribution is amended to take into account
-     * that relation execution is disabled on the last rows of the trace.
-     */
+
+        // Accumulate the per-thread univariate accumulators into a single set of accumulators
+        for (auto& accumulators : thread_univariate_accumulators) {
+            Utils::add_nested_tuples(univariate_accumulators, accumulators);
+        }
+        // Batch the univariate contributions from each sub-relation to obtain the round univariate
+        // these are unmasked; we will mask in sumcheck.
+        const auto round_univariate =
+            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
+
+        return round_univariate;
+    };
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_hiding_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                                      const bb::RelationParameters<FF>& relation_parameters,
-                                                      const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                                      const SubrelationSeparators& alpha,
-                                                      const ZKData& zk_sumcheck_data,
-                                                      const RowDisablingPolynomial<FF> row_disabling_polynomial,
-                                                      const size_t round_idx)
+    SumcheckRoundUnivariate compute_hiding_univariate(
+        const size_t round_idx,
+        const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+        const SubrelationSeparators& alpha,
+        const ZKData& zk_sumcheck_data,
+        const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires Flavor::HasZK
 
     {
@@ -779,7 +787,6 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                                            gate_separators.partial_evaluation_result);
 
         return Utils::scale_and_batch_elements(relation_evaluations, alphas);
-        ;
     }
     /**
      * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in

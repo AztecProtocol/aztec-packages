@@ -64,6 +64,7 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
+
 ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine = nullptr)
 {
     using Curve = curve::BN254;
@@ -124,7 +125,6 @@ TEST_F(ECCVMTests, Zeroes)
 
     ASSERT_TRUE(verified);
 }
-
 /**
  * @brief Check that size of a ECCVM proof matches the corresponding constant
  *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
