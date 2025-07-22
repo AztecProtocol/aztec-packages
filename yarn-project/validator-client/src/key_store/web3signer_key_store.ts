@@ -1,10 +1,8 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
-// import { publicKeyToAddress } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 
-import type { Hex, TypedDataDefinition } from 'viem';
-import { publicKeyToAddress } from 'viem/accounts';
+import type { TypedDataDefinition } from 'viem';
 
 import type { ValidatorKeyStore } from './interface.js';
 
@@ -15,20 +13,10 @@ import type { ValidatorKeyStore } from './interface.js';
  * This implementation uses the Web3Signer JSON-RPC API for secp256k1 signatures.
  */
 export class Web3SignerKeyStore implements ValidatorKeyStore {
-  private addresses: EthAddress[] = [];
-  private addressesToPublicKeys: Map<Hex, Hex> = new Map();
-
   constructor(
-    // private addresses: EthAddress[],
-    publicKeys: Hex[],
+    private addresses: EthAddress[],
     private baseUrl: string,
-  ) {
-    publicKeys.forEach((publicKey, _index) => {
-      const address = publicKeyToAddress(publicKey);
-      this.addresses.push(EthAddress.fromString(address));
-      this.addressesToPublicKeys.set(address.toLowerCase() as `0x${string}`, publicKey);
-    });
-  }
+  ) {}
 
   /**
    * Get the address of a signer by index

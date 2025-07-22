@@ -6,6 +6,7 @@ import {
   numberConfigHelper,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * The Validator Configuration
@@ -28,6 +29,9 @@ export interface ValidatorClientConfig {
 
   /** URL of the Web3Signer instance */
   web3SignerUrl?: string;
+
+  /** List of addresses of remote signers */
+  web3SignerAddresses?: EthAddress[];
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
@@ -63,6 +67,11 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     env: 'WEB3_SIGNER_URL',
     description: 'URL of the Web3Signer instance',
     parseEnv: (val: string) => val.trim(),
+  },
+  web3SignerAddresses: {
+    env: 'WEB3_SIGNER_ADDRESSES',
+    description: 'List of addresses of remote signers',
+    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
   },
 };
 
