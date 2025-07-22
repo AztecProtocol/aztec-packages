@@ -52,7 +52,11 @@ export async function createProverNode(
 
   await trySnapshotSync(config, log);
 
-  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
+  const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
+
+  const archiver =
+    deps.archiver ??
+    (await createArchiver(config, { blobSinkClient, epochCache, telemetry, dateProvider }, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
@@ -75,8 +79,6 @@ export async function createProverNode(
 
   const l1TxUtils = deps.l1TxUtils ?? new L1TxUtils(l1Client, log, deps.dateProvider, config);
   const publisher = deps.publisher ?? new ProverNodePublisher(config, { telemetry, rollupContract, l1TxUtils });
-
-  const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
 
   const proofVerifier = new QueuedIVCVerifier(
     config,

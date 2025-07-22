@@ -234,7 +234,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
 
-    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+
+    const archiver = await createArchiver(
+      config,
+      { blobSinkClient, epochCache, telemetry, dateProvider },
+      { blockUntilSync: true },
+    );
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
@@ -248,8 +254,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
     const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
-
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
