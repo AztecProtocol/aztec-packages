@@ -51,7 +51,7 @@ GoblinProof Goblin::prove(MergeSettings merge_settings)
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
-    prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
+    prove_merge(transcript); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),

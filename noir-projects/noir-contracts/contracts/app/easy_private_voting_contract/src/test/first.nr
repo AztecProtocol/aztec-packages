@@ -47,7 +47,6 @@ unconstrained fn test_fail_end_vote_by_non_admin() {
 unconstrained fn test_cast_vote() {
     let (env, voting_contract_address, _) = utils::setup();
     let alice = env.create_account(2);
-    env.impersonate(alice);
 
     let candidate = 1;
     let _ = env.call_private_void(
