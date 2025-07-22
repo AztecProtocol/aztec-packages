@@ -1437,6 +1437,8 @@ export class TXE implements TypedOracle {
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
     globals.timestamp = this.timestamp;
+    globals.chainId = new Fr(this.CHAIN_ID);
+    globals.version = new Fr(this.ROLLUP_VERSION);
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1550,6 +1552,8 @@ export class TXE implements TypedOracle {
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
     globals.timestamp = this.timestamp;
+    globals.chainId = new Fr(this.CHAIN_ID);
+    globals.version = new Fr(this.ROLLUP_VERSION);
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
