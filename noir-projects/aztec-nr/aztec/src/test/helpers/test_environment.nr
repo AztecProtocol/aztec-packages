@@ -13,11 +13,9 @@ use crate::{
         PrivateCallInterface,
         PrivateContext,
         PrivateStaticCallInterface,
-        PrivateVoidCallInterface,
         PublicCallInterface,
         PublicContext,
         PublicStaticCallInterface,
-        PublicVoidCallInterface,
         ReturnsHash,
         UtilityCallInterface,
         UtilityContext,
@@ -429,29 +427,6 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_private_void<let M: u32, T>(
-        _self: Self,
-        from: AztecAddress,
-        call_interface: PrivateVoidCallInterface<M, T>,
-    ) -> CallResult<()> {
-        let args = call_interface.get_args();
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-
-        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
-            from,
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            args,
-            args_hash,
-            call_interface.get_is_static(),
-        );
-
-        ReturnsHash::new(returns_hash).assert_empty();
-
-        CallResult { return_value: (), tx_hash }
-    }
-
     pub unconstrained fn view_private<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
@@ -533,24 +508,6 @@ impl TestEnvironment {
         // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
         CallResult { return_value: returns, tx_hash }
-    }
-
-    pub unconstrained fn call_public_void<T, let M: u32>(
-        _self: Self,
-        from: AztecAddress,
-        call_interface: PublicVoidCallInterface<M, T>,
-    ) -> CallResult<()> {
-        let (returns_hash, tx_hash) = public_call_new_flow(
-            from,
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
-            false,
-        );
-
-        ReturnsHash::new(returns_hash).assert_empty();
-
-        CallResult { return_value: (), tx_hash }
     }
 
     pub unconstrained fn view_public<T, let M: u32>(
