@@ -79,7 +79,8 @@ contract VoteTest is GovernanceBase {
     address _proposer
   ) external givenStateIsNotActive(_voter, _amount, _support) {
     // it revert
-    _stateDropped("empty", _proposer);
+    _stateDroppable("empty", _proposer);
+    governance.dropProposal(proposalId);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 
@@ -157,14 +158,14 @@ contract VoteTest is GovernanceBase {
     assertEq(proposal.config.gracePeriod, fresh.config.gracePeriod, "gracePeriod");
     assertEq(proposal.config.minimumVotes, fresh.config.minimumVotes, "minimumVotes");
     assertEq(proposal.config.quorum, fresh.config.quorum, "quorum");
-    assertEq(proposal.config.voteDifferential, fresh.config.voteDifferential, "voteDifferential");
+    assertEq(proposal.config.requiredYeaMargin, fresh.config.requiredYeaMargin, "requiredYeaMargin");
     assertEq(proposal.config.votingDelay, fresh.config.votingDelay, "votingDelay");
     assertEq(proposal.config.votingDuration, fresh.config.votingDuration, "votingDuration");
     assertEq(proposal.creation, fresh.creation, "creation");
     assertEq(proposal.proposer, fresh.proposer, "governanceProposer");
-    assertEq(proposal.summedBallot.nea + (_support ? 0 : power), fresh.summedBallot.nea, "nea");
+    assertEq(proposal.summedBallot.nay + (_support ? 0 : power), fresh.summedBallot.nay, "nay");
     assertEq(proposal.summedBallot.yea + (_support ? power : 0), fresh.summedBallot.yea, "yea");
     // The "written" state is still the same.
-    assertTrue(proposal.state == fresh.state, "state");
+    assertTrue(proposal.cachedState == fresh.cachedState, "state");
   }
 }

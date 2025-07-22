@@ -35,6 +35,7 @@ class TranslatorRecursiveVerifier {
     using StdlibProof = stdlib::Proof<Builder>;
 
     std::shared_ptr<VerificationKey> key;
+    FF vk_hash;
     std::shared_ptr<Transcript> transcript;
     VerifierCommitmentKey pcs_verification_key; // can remove maybe hopefully
     std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;

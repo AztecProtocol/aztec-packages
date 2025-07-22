@@ -18,5 +18,6 @@ contract CoinIssuerBase is Test {
     token = IMintableERC20(address(testERC20));
     nom = new CoinIssuer(token, _rate, address(this));
     testERC20.transferOwnership(address(nom));
+    nom.acceptTokenOwnership();
   }
 }

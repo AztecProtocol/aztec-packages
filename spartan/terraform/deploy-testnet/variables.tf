@@ -66,11 +66,5 @@ variable "SNAPSHOT_VALUES" {
 variable "RPC_HOSTNAME" {
   description = "The public hostname for the ingress"
   type        = string
-  default     = "full-node.alpha-testnet.aztec.network"
-}
-
-variable "RPC_IP_NAME" {
-  description = "The global ip address for the ingress"
-  type        = string
-  default     = "alpha-testnet-full-node-ip"
+  default     = "rpc.testnet.aztec.network"
 }
