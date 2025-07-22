@@ -37,9 +37,6 @@ void copy_polynomial(const Fr* src, Fr* dest, size_t num_src_coefficients, size_
 //  2. Compute a lookup table of the roots of unity, and suffer through cache misses from nonlinear access patterns
 template <typename Fr>
     requires SupportsFFT<Fr>
-void fft_inner_serial(std::vector<Fr*> coeffs, const size_t domain_size, const std::vector<Fr*>& root_table);
-template <typename Fr>
-    requires SupportsFFT<Fr>
 void fft_inner_parallel(std::vector<Fr*> coeffs,
                         const EvaluationDomain<Fr>& domain,
                         const Fr&,
@@ -54,9 +51,6 @@ void fft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain);
 template <typename Fr>
     requires SupportsFFT<Fr>
 void fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value);
 
 template <typename Fr>
     requires SupportsFFT<Fr>
@@ -258,111 +252,6 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, const Fr& roo
         }
     }
     polynomial[size - 1] = Fr::zero();
-}
-
-/**
- * @brief Divides p(X) by (X-r₁)⋯(X−rₘ) in-place.
- * Assumes that p(rⱼ)=0 for all j
- *
- * @details we specialize the method when only a single root is given.
- * if one of the roots is 0, then we first factor all other roots.
- * dividing by X requires only a left shift of all coefficient.
- *
- * @param roots list of roots (r₁,…,rₘ)
- */
-template <typename Fr> void factor_roots(std::span<Fr> polynomial, std::span<const Fr> roots)
-{
-    const size_t size = polynomial.size();
-    if (roots.size() == 1) {
-        factor_roots(polynomial, roots[0]);
-    } else {
-        // For division by several roots at once we need a cache.
-        // Let's say we are dividing a₀, a₁, a₂, ... by (r₀, r₁, r₂)
-        // What we need to compute are the inverses: ((-r₀)⁻¹, (-r₁)⁻¹,(-r₂)⁻¹)
-        // Then for a₀ we compute:
-        //      a₀'   = a₀   * (-r₀)⁻¹
-        //      a₀''  = a₀'  * (-r₁)⁻¹
-        //      a₀''' = a₀'' * (-r₂)⁻¹
-        // a₀''' is the lowest coefficient of the resulting polynomial
-        // For a₁ we compute:
-        //      a₁'   = (a₁   - a₀')   * (-r₀)⁻¹
-        //      a₁''  = (a₁'  - a₀'')  * (-r₁)⁻¹
-        //      a₁''' = (a₁'' - a₀''') * (-r₂)⁻¹
-        // a₁''' is the second lowest coefficient of the resulting polynomial
-        // As you see, we only need the intermediate results of the previous round in addition to inversed roots and the
-        // original coefficient to calculate the resulting monomial coefficient. If we cache these results, we don't
-        // have to do several passes over the polynomial
-
-        const size_t num_roots = roots.size();
-        BB_ASSERT_LT(num_roots, size);
-        const size_t new_size = size - num_roots;
-
-        std::vector<Fr> minus_root_inverses;
-        minus_root_inverses.reserve(num_roots);
-
-        // after the loop, this iterator points to the start of the polynomial
-        // after having divided by all zero roots.
-        size_t num_zero_roots{ 0 };
-        // Compute negated root inverses, and skip the 0 root
-        for (const auto& root : roots) {
-            if (root.is_zero()) {
-                // if one of the roots is zero, then the first coefficient must be as well
-                // so we need to start the iteration from the second coefficient on-wards
-                ++num_zero_roots;
-            } else {
-                minus_root_inverses.emplace_back(-root);
-            }
-        }
-        // If there are M zero roots, then the first M coefficients of polynomial must be zero
-        for (size_t i = 0; i < num_zero_roots; ++i) {
-            ASSERT(polynomial[i].is_zero());
-        }
-
-        // View over the polynomial factored by all the zeros
-        // If there are no zeros, then zero_factored == polynomial
-        auto zero_factored = polynomial.subspan(num_zero_roots);
-
-        const size_t num_non_zero_roots = minus_root_inverses.size();
-        if (num_non_zero_roots > 0) {
-            Fr::batch_invert(minus_root_inverses);
-
-            std::vector<Fr> division_cache;
-            division_cache.reserve(num_non_zero_roots);
-
-            // Compute the a₀', a₀'', a₀''' and put them in cache
-            Fr temp = zero_factored[0];
-            for (const auto& minus_root_inverse : minus_root_inverses) {
-                temp *= minus_root_inverse;
-                division_cache.emplace_back(temp);
-            }
-            // We already know the lower coefficient of the result
-            polynomial[0] = division_cache.back();
-
-            // Compute the resulting coefficients one by one
-            for (size_t i = 1; i < zero_factored.size() - num_non_zero_roots; i++) {
-                temp = zero_factored[i];
-                // Compute the intermediate values for the coefficient and save in cache
-                for (size_t j = 0; j < num_non_zero_roots; j++) {
-                    temp -= division_cache[j];
-                    temp *= minus_root_inverses[j];
-                    division_cache[j] = temp;
-                }
-                // Save the resulting coefficient
-                polynomial[i] = temp;
-            }
-        } else if (num_zero_roots > 0) {
-            // if one of the roots is 0 after having divided by all other roots,
-            // then p(X) = a₁⋅X + ⋯ + aₙ₋₁⋅Xⁿ⁻¹
-            // so we shift the array of coefficients to the left
-            // and the result is p(X) = a₁ + ⋯ + aₙ₋₁⋅Xⁿ⁻² and we subtract 1 from the size.
-            std::copy_n(zero_factored.begin(), zero_factored.size(), polynomial.begin());
-        }
-
-        // Clear the last coefficients to prevent accidents
-        for (size_t i = new_size; i < size; ++i) {
-            polynomial[i] = Fr::zero();
-        }
-    }
 }
 
 } // namespace bb::polynomial_arithmetic

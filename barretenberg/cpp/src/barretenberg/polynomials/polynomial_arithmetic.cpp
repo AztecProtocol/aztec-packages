@@ -65,64 +65,6 @@ void copy_polynomial(const Fr* src, Fr* dest, size_t num_src_coefficients, size_
 }
 
 template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_inner_serial(std::vector<Fr*> coeffs, const size_t domain_size, const std::vector<Fr*>& root_table)
-{
-    // Assert that the number of polynomials is a power of two.
-    const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
-    const size_t poly_domain_size = domain_size / num_polys;
-    ASSERT(is_power_of_two(poly_domain_size));
-
-    Fr temp;
-    size_t log2_size = (size_t)numeric::get_msb(domain_size);
-    size_t log2_poly_size = (size_t)numeric::get_msb(poly_domain_size);
-    // efficiently separate odd and even indices - (An introduction to algorithms, section 30.3)
-
-    for (size_t i = 0; i <= domain_size; ++i) {
-        uint32_t swap_index = (uint32_t)reverse_bits((uint32_t)i, (uint32_t)log2_size);
-        // TODO: should probably use CMOV here insead of an if statement
-        if (i < swap_index) {
-            size_t even_poly_idx = i >> log2_poly_size;
-            size_t even_elem_idx = i % poly_domain_size;
-            size_t odd_poly_idx = swap_index >> log2_poly_size;
-            size_t odd_elem_idx = swap_index % poly_domain_size;
-            Fr::__swap(coeffs[even_poly_idx][even_elem_idx], coeffs[odd_poly_idx][odd_elem_idx]);
-        }
-    }
-
-    // For butterfly operations, we use lazy reduction techniques.
-    // Modulus is 254 bits, so we can 'overload' a field element by 4x and still fit it in 4 machine words.
-    // We can validate that field elements are <2p and not risk overflowing. Means we can cut
-    // two modular reductions from the main loop
-
-    // perform first butterfly iteration explicitly: x0 = x0 + x1, x1 = x0 - x1
-    for (size_t l = 0; l < num_polys; l++) {
-        for (size_t k = 0; k < poly_domain_size; k += 2) {
-            Fr::__copy(coeffs[l][k + 1], temp);
-            coeffs[l][k + 1] = coeffs[l][k] - coeffs[l][k + 1];
-            coeffs[l][k] += temp;
-        }
-    }
-
-    for (size_t m = 2; m < domain_size; m *= 2) {
-        const size_t i = (size_t)numeric::get_msb(m);
-        for (size_t k = 0; k < domain_size; k += (2 * m)) {
-            for (size_t j = 0; j < m; ++j) {
-                const size_t even_poly_idx = (k + j) >> log2_poly_size;
-                const size_t even_elem_idx = (k + j) & (poly_domain_size - 1);
-                const size_t odd_poly_idx = (k + j + m) >> log2_poly_size;
-                const size_t odd_elem_idx = (k + j + m) & (poly_domain_size - 1);
-
-                temp = root_table[i - 1][j] * coeffs[odd_poly_idx][odd_elem_idx];
-                coeffs[odd_poly_idx][odd_elem_idx] = coeffs[even_poly_idx][even_elem_idx] - temp;
-                coeffs[even_poly_idx][even_elem_idx] += temp;
-            }
-        }
-    }
-}
-
-template <typename Fr>
 void scale_by_generator(Fr* coeffs,
                         Fr* target,
                         const EvaluationDomain<Fr>& domain,
@@ -582,16 +524,6 @@ void ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 
     ITERATE_OVER_DOMAIN_START(domain);
     coeffs[i >> log2_poly_size][i & poly_mask] *= domain.domain_inverse;
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value)
-{
-    fft_inner_parallel({ coeffs }, domain, domain.root, domain.get_round_roots());
-    ITERATE_OVER_DOMAIN_START(domain);
-    coeffs[i] *= value;
     ITERATE_OVER_DOMAIN_END;
 }
 
@@ -1436,12 +1368,10 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 template fr evaluate<fr>(const fr*, const fr&, const size_t);
 template fr evaluate<fr>(const std::vector<fr*>, const fr&, const size_t);
 template void copy_polynomial<fr>(const fr*, fr*, size_t, size_t);
-template void fft_inner_serial<fr>(std::vector<fr*>, const size_t, const std::vector<fr*>&);
 template void fft_inner_parallel<fr>(std::vector<fr*>, const EvaluationDomain<fr>&, const fr&, const std::vector<fr*>&);
 template void fft<fr>(fr*, const EvaluationDomain<fr>&);
 template void fft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void fft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
-template void fft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
 template void coset_fft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
