@@ -220,10 +220,9 @@ export class AztecClientBackend {
   /** @ignore */
   private async instantiate(): Promise<void> {
     if (!this.api) {
-      const barretenberg = await Barretenberg.new(this.options);
-      // TODO: Initialize SRS for ClientIVC if needed
-      await barretenberg.initSRSClientIVC();
-      this.api = barretenberg;
+      const api = await Barretenberg.new(this.options);
+      await api.initSRSClientIVC();
+      this.api = api;
     }
   }
 
@@ -293,11 +292,11 @@ export class AztecClientBackend {
     await this.instantiate();
     const circuitSizes: number[] = [];
     for (const buf of this.acirBuf) {
-      const gates = await this.api.clientIvcGates({ 
+      const gates = await this.api.clientIvcGates({
         circuit: {
           name: 'circuit',
           bytecode: buf,
-        }, 
+        },
         includeGatesPerOpcode: false
       });
       circuitSizes.push(gates.circuitSize);
