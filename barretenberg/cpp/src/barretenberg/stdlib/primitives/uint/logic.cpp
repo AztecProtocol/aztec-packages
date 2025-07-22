@@ -79,7 +79,7 @@ uint<Builder, Native> uint<Builder, Native>::operator>>(const size_t shift) cons
     // Now, lets calculate:
     // (i) bit position (from lsb) at which we need to slice.
     // (ii) number of bits in the slice based on whether it is the highest slice or not.
-    const uint64_t slice_bit_position = shift % bits_per_limb;
+    const size_t slice_bit_position = shift % bits_per_limb;
     const bool is_slice_hi = (accumulator_index == num_accumulators() - 1);
     const uint8_t num_bits_per_limb = is_slice_hi ? bits_in_high_limb : bits_per_limb;
 
@@ -155,7 +155,7 @@ uint<Builder, Native> uint<Builder, Native>::operator<<(const size_t shift) cons
     // (i) bit position (from lsb) at which we need to slice.
     // (ii) number of bits in the slice based on whether it is the highest slice or not.
     const bool is_slice_hi = (accumulator_index == num_accumulators() - 1);
-    const uint64_t slice_bit_position = adjusted_shift % bits_per_limb;
+    const size_t slice_bit_position = adjusted_shift % bits_per_limb;
     const uint8_t num_bits_per_limb = is_slice_hi ? bits_in_high_limb : bits_per_limb;
 
     // We can now slice the accumulator.
@@ -229,7 +229,7 @@ uint<Builder, Native> uint<Builder, Native>::ror(const size_t target_rotation) c
     // Now, lets calculate:
     // (i) bit position (from lsb) at which we need to slice.
     // (ii) number of bits in the slice based on whether it is the highest slice or not.
-    const uint64_t slice_bit_position = shift % bits_per_limb;
+    const size_t slice_bit_position = shift % bits_per_limb;
     const bool is_slice_hi = (accumulator_index == num_accumulators() - 1);
     const uint8_t num_bits_per_limb = is_slice_hi ? bits_in_high_limb : bits_per_limb;
 
