@@ -78,7 +78,7 @@ class AcirIntegrationTest : public ::testing::Test {
         if constexpr (IsUltraHonk<Flavor>) {
             return verifier.verify_proof(proof);
         } else {
-            return std::get<0>(verifier.verify_proof_mega(proof));
+            return std::get<0>(verifier.verify_proof(proof));
         }
     }
 

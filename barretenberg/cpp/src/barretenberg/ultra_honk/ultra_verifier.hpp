@@ -40,7 +40,7 @@ template <typename Flavor> class UltraVerifier_ {
     bool verify_proof(const HonkProof& proof, const HonkProof& ipa_proof = {})
         requires IsUltraHonk<Flavor>;
 
-    std::pair<bool, std::array<Commitment, Flavor::NUM_WIRES>> verify_proof_mega(const HonkProof& proof)
+    std::pair<bool, std::array<Commitment, Flavor::NUM_WIRES>> verify_proof(const HonkProof& proof)
         requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>);
 
     std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();

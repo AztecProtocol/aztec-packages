@@ -270,7 +270,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
-            bool verified = std::get<0>(verifier.verify_proof_mega(proof));
+            bool verified = std::get<0>(verifier.verify_proof(proof));
 
             ASSERT_TRUE(verified);
         }
@@ -368,7 +368,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
-            bool verified = std::get<0>(verifier.verify_proof_mega(proof));
+            bool verified = std::get<0>(verifier.verify_proof(proof));
 
             ASSERT_TRUE(verified);
         }

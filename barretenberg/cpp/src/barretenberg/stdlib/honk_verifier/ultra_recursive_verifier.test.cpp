@@ -234,7 +234,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 native_result = native_verifier.verify_proof(inner_proof);
             }
         } else {
-            native_result = std::get<0>(native_verifier.verify_proof_mega(inner_proof));
+            native_result = std::get<0>(native_verifier.verify_proof(inner_proof));
         }
 
         NativeVerifierCommitmentKey pcs_vkey{};
@@ -272,7 +272,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 }
             } else {
                 OuterVerifier verifier(verification_key);
-                ASSERT_TRUE(std::get<0>(verifier.verify_proof_mega(proof)));
+                ASSERT_TRUE(std::get<0>(verifier.verify_proof(proof)));
             }
         }
         // Check the size of the recursive verifier

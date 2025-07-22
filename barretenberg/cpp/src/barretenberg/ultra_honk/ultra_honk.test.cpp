@@ -72,7 +72,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
             if constexpr (IsUltraHonk<Flavor>) {
                 verified = verifier.verify_proof(proof);
             } else {
-                verified = std::get<0>(verifier.verify_proof_mega(proof));
+                verified = std::get<0>(verifier.verify_proof(proof));
             }
             EXPECT_EQ(verified, expected_result);
         }

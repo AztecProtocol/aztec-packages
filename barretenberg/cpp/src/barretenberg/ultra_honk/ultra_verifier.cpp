@@ -93,7 +93,7 @@ bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProo
  */
 template <typename Flavor>
 std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::NUM_WIRES>> UltraVerifier_<
-    Flavor>::verify_proof_mega(const HonkProof& proof)
+    Flavor>::verify_proof(const HonkProof& proof)
     requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>)
 {
     using DefaultIO = bb::DefaultIO; // Will be HidingKernelIO
