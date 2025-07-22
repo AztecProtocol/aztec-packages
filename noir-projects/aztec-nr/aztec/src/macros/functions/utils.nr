@@ -208,14 +208,19 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
 
-    // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
-    let args_len_quote = original_params
-        .map(|(_, param_type): (Quoted, Type)| {
-            quote {
+    let args_len_quote = if original_params.len() == 0 {
+        // If the function has no parameters, we set the args_len to 0.
+        quote { 0 }
+    } else {
+        // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+        original_params
+            .map(|(_, param_type): (Quoted, Type)| {
+                quote {
             <$param_type as $crate::protocol_types::traits::Serialize>::N
         }
-        })
-        .join(quote {+});
+            })
+            .join(quote {+})
+    };
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote {
