@@ -17,7 +17,7 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://full-node.alpha-testnet.aztec.network',
+    nodeURL: 'https://rpc.testnet.aztec.network',
     name: 'Aztec Testnet',
     description: 'Public testnet',
     hasTestAccounts: false,
@@ -25,7 +25,7 @@ export const NETWORKS: Network[] = [
     version: '1.1.2',
     sponsoredFPC: {
       version: '1.1.2',
-      address: AztecAddress.fromString('0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047'),
+      address: AztecAddress.fromString('0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2'),
     },
     transactionCongestionThreshold: 40,
   },
