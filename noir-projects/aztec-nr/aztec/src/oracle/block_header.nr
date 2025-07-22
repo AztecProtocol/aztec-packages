@@ -94,17 +94,19 @@ mod test {
         env.mine_block();
 
         // We get our current header for the last archive values.
-        let current_header = env.private().historical_header;
+        env.private_context(|context| {
+            let current_header = context.historical_header;
 
-        let target_block_number = 3;
-        let bad_header = get_block_header_at_internal(target_block_number);
+            let target_block_number = current_header.global_variables.block_number - 2;
+            let bad_header = get_block_header_at_internal(target_block_number);
 
-        // We pass in a different block number than the header received
-        constrain_get_block_header_at_internal(
-            bad_header,
-            target_block_number - 1,
-            current_header.global_variables.block_number - 1,
-            current_header.last_archive.root,
-        );
+            // We pass in a different block number than the header received
+            constrain_get_block_header_at_internal(
+                bad_header,
+                target_block_number - 1,
+                current_header.global_variables.block_number - 1,
+                current_header.last_archive.root,
+            );
+        });
     }
 }
