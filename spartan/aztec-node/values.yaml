@@ -159,9 +159,10 @@ service:
     announcePort: 40400
 
 ingress:
-  enabled: false
-  annotations: {}
-  host:
+  rpc:
+    enabled: false
+    annotations: {}
+    host:
 
 rbac:
   # -- Specifies whether RBAC resources are to be created

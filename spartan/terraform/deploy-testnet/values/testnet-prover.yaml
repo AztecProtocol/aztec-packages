@@ -77,7 +77,7 @@ broker:
         memory: "5Gi"
 
 agent:
-  replicaCount: 1
+  replicaCount: 4
 
   node:
     env:
