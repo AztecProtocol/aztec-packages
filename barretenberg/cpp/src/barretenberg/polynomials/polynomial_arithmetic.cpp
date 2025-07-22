@@ -629,81 +629,6 @@ Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const
     return f;
 }
 
-/**
- * @param zeta - the name given (in our code) to the evaluation challenge ʓ from the Plonk paper.
- */
-template <typename Fr>
-    requires SupportsFFT<Fr>
-bb::polynomial_arithmetic::LagrangeEvaluations<Fr> get_lagrange_evaluations(
-    const Fr& zeta, const EvaluationDomain<Fr>& domain, const size_t num_roots_cut_out_of_vanishing_polynomial)
-{
-    // Compute Z_H*(ʓ), l_start(ʓ), l_{end}(ʓ)
-    // Note that as we modify the vanishing polynomial by cutting out some roots, we must simultaneously ensure that
-    // the lagrange polynomials we require would be l_1(ʓ) and l_{n-k}(ʓ) where k =
-    // num_roots_cut_out_of_vanishing_polynomial. For notational simplicity, we call l_1 as l_start and l_{n-k} as
-    // l_end.
-    //
-    // NOTE: If in future, there arises a need to cut off more zeros, this method will not require any changes.
-    //
-
-    Fr z_pow_n = zeta;
-    for (size_t i = 0; i < domain.log2_size; ++i) {
-        z_pow_n.self_sqr();
-    }
-
-    Fr numerator = z_pow_n - Fr::one();
-
-    Fr denominators[3];
-
-    // Compute the denominator of Z_H*(ʓ)
-    //   (ʓ - ω^{n-1})(ʓ - ω^{n-2})...(ʓ - ω^{n - num_roots_cut_out_of_vanishing_poly})
-    // = (ʓ - ω^{ -1})(ʓ - ω^{ -2})...(ʓ - ω^{  - num_roots_cut_out_of_vanishing_poly})
-    Fr work_root = domain.root_inverse;
-    denominators[0] = Fr::one();
-    for (size_t i = 0; i < num_roots_cut_out_of_vanishing_polynomial; ++i) {
-        denominators[0] *= (zeta - work_root);
-        work_root *= domain.root_inverse;
-    }
-
-    // The expressions of the lagrange polynomials are:
-    //
-    //           ω^0.(X^n - 1)      (X^n - 1)
-    // L_1(X) = --------------- =  -----------
-    //            n.(X - ω^0)       n.(X - 1)
-    //
-    // Notice: here (in this comment), the index i of L_i(X) counts from 1 (not from 0). So L_1 corresponds to the
-    // _first_ root of unity ω^0, and not to the 1-th root of unity ω^1.
-    //
-    //
-    //             ω^{i-1}.(X^n - 1)         X^n - 1          X^n.(ω^{-i+1})^n - 1
-    // L_{i}(X) = ------------------ = -------------------- = -------------------- = L_1(X.ω^{-i+1})
-    //              n.(X - ω^{i-1})    n.(X.ω^{-(i-1)} - 1) |  n.(X.ω^{-i+1} - 1)
-    //                                                      |
-    //                                                      since (ω^{-i+1})^n = 1 trivially
-    //
-    //                                                          (X^n - 1)
-    // => L_{n-k}(X) = L_1(X.ω^{k-n+1}) = L_1(X.ω^{k+1}) =  -----------------
-    //                                                      n.(X.ω^{k+1} - 1)
-    //
-    denominators[1] = zeta - Fr::one();
-
-    // Compute ω^{num_roots_cut_out_of_vanishing_polynomial + 1}
-    Fr l_end_root = (num_roots_cut_out_of_vanishing_polynomial & 1) ? domain.root.sqr() : domain.root;
-    for (size_t i = 0; i < num_roots_cut_out_of_vanishing_polynomial / 2; ++i) {
-        l_end_root *= domain.root.sqr();
-    }
-    denominators[2] = (zeta * l_end_root) - Fr::one();
-    Fr::batch_invert(denominators, 3);
-
-    bb::polynomial_arithmetic::LagrangeEvaluations<Fr> result;
-    result.vanishing_poly = numerator * denominators[0]; // (ʓ^n - 1) / (ʓ-ω^{-1}).(ʓ-ω^{-2})...(ʓ-ω^{-k}) =: Z_H*(ʓ)
-    numerator = numerator * domain.domain_inverse;       // (ʓ^n - 1) / n
-    result.l_start = numerator * denominators[1];        // (ʓ^n - 1) / (n.(ʓ - 1))         =: L_1(ʓ)
-    result.l_end = numerator * denominators[2];          // (ʓ^n - 1) / (n.(ʓ.ω^{k+1} - 1)) =: L_{n-k}(ʓ)
-
-    return result;
-}
-
 // Computes r = \sum_{i=0}^{num_coeffs-1} (L_{i+1}(ʓ).f_i)
 //
 //                     (ʓ^n - 1)
@@ -754,40 +679,6 @@ fr compute_barycentric_evaluation(const fr* coeffs,
 
     aligned_free(denominators);
 
-    return result;
-}
-
-// Convert an fft with `current_size` point evaluations, to one with `current_size >> compress_factor` point evaluations
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void compress_fft(const Fr* src, Fr* dest, const size_t cur_size, const size_t compress_factor)
-{
-    // iterate from top to bottom, allows `dest` to overlap with `src`
-    size_t log2_compress_factor = (size_t)numeric::get_msb(compress_factor);
-    BB_ASSERT_EQ(1UL << log2_compress_factor, compress_factor);
-    size_t new_size = cur_size >> log2_compress_factor;
-    for (size_t i = 0; i < new_size; ++i) {
-        Fr::__copy(src[i << log2_compress_factor], dest[i]);
-    }
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-Fr evaluate_from_fft(const Fr* poly_coset_fft,
-                     const EvaluationDomain<Fr>& large_domain,
-                     const Fr& z,
-                     const EvaluationDomain<Fr>& small_domain)
-{
-    size_t n = small_domain.size;
-    Fr* small_poly_coset_fft = static_cast<Fr*>(aligned_alloc(64, sizeof(Fr) * n));
-    for (size_t i = 0; i < n; ++i) {
-        small_poly_coset_fft[i] = poly_coset_fft[4 * i];
-    }
-
-    Fr zeta_by_g = z * large_domain.generator_inverse;
-
-    const auto result = compute_barycentric_evaluation(small_poly_coset_fft, n, zeta_by_g, small_domain);
-    aligned_free(small_poly_coset_fft);
     return result;
 }
 
@@ -1041,12 +932,8 @@ template void ifft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&
 template void coset_ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template fr compute_kate_opening_coefficients<fr>(const fr*, fr*, const fr&, const size_t);
-template LagrangeEvaluations<fr> get_lagrange_evaluations<fr>(const fr&, const EvaluationDomain<fr>&, const size_t);
-template void compress_fft<fr>(const fr*, fr*, const size_t, const size_t);
-template fr evaluate_from_fft<fr>(const fr*, const EvaluationDomain<fr>&, const fr&, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
 template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t);
-template fr compute_linear_polynomial_product_evaluation<fr>(const fr*, const fr, const size_t);
 template void fft_linear_polynomial_product<fr>(
     const fr* roots, fr*, const size_t n, const EvaluationDomain<fr>&, const bool);
 template void compute_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
@@ -1057,9 +944,6 @@ template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, c
 template void copy_polynomial<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, size_t, size_t);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
-template grumpkin::fr compute_linear_polynomial_product_evaluation<grumpkin::fr>(const grumpkin::fr*,
-                                                                                 const grumpkin::fr,
-                                                                                 const size_t);
 template void compute_interpolation<grumpkin::fr>(const grumpkin::fr*,
                                                   grumpkin::fr*,
                                                   const grumpkin::fr*,

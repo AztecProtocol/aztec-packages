@@ -332,47 +332,6 @@ TEST(polynomials, compute_kate_opening_coefficients)
     aligned_free(multiplicand);
 }
 
-TEST(polynomials, get_lagrange_evaluations)
-{
-    constexpr size_t n = 16;
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    fr z = fr::random_element();
-
-    polynomial_arithmetic::lagrange_evaluations evals = polynomial_arithmetic::get_lagrange_evaluations(z, domain, 1);
-
-    fr vanishing_poly[2 * n];
-    fr l_1_poly[n];
-    fr l_n_minus_1_poly[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        l_1_poly[i] = fr::zero();
-        l_n_minus_1_poly[i] = fr::zero();
-        vanishing_poly[i] = fr::zero();
-    }
-    l_1_poly[0] = fr::one();
-    l_n_minus_1_poly[n - 2] = fr::one();
-
-    fr n_mont{ n, 0, 0, 0 };
-    n_mont.self_to_montgomery_form();
-    vanishing_poly[n - 1] = n_mont * domain.root;
-
-    polynomial_arithmetic::ifft(l_1_poly, domain);
-    polynomial_arithmetic::ifft(l_n_minus_1_poly, domain);
-    polynomial_arithmetic::ifft(vanishing_poly, domain);
-
-    fr l_1_expected;
-    fr l_n_minus_1_expected;
-    fr vanishing_poly_expected;
-    l_1_expected = polynomial_arithmetic::evaluate(l_1_poly, z, n);
-    l_n_minus_1_expected = polynomial_arithmetic::evaluate(l_n_minus_1_poly, z, n);
-    vanishing_poly_expected = polynomial_arithmetic::evaluate(vanishing_poly, z, n);
-    EXPECT_EQ((evals.l_start == l_1_expected), true);
-    EXPECT_EQ((evals.l_end == l_n_minus_1_expected), true);
-    EXPECT_EQ((evals.vanishing_poly == vanishing_poly_expected), true);
-}
-
 TEST(polynomials, barycentric_weight_evaluations)
 {
     constexpr size_t n = 16;

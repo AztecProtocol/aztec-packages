@@ -103,37 +103,16 @@ template <typename Fr>
     requires SupportsFFT<Fr>
 Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n);
 
-// compute Z_H*(z), l_start(z), l_{end}(z) (= l_{n-4}(z))
-template <typename Fr>
-    requires SupportsFFT<Fr>
-LagrangeEvaluations<Fr> get_lagrange_evaluations(const Fr& z,
-                                                 const EvaluationDomain<Fr>& domain,
-                                                 const size_t num_roots_cut_out_of_vanishing_polynomial = 4);
 fr compute_barycentric_evaluation(const fr* coeffs,
                                   unsigned long num_coeffs,
                                   const fr& z,
                                   const EvaluationDomain<fr>& domain);
-// Convert an fft with `current_size` point evaluations, to one with `current_size >> compress_factor` point evaluations
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void compress_fft(const Fr* src, Fr* dest, const size_t current_size, const size_t compress_factor);
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-Fr evaluate_from_fft(const Fr* poly_coset_fft,
-                     const EvaluationDomain<Fr>& large_domain,
-                     const Fr& z,
-                     const EvaluationDomain<Fr>& small_domain);
 
 // This function computes sum of all scalars in a given array.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n);
 
 // This function computes the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...).
 template <typename Fr> void compute_linear_polynomial_product(const Fr* roots, Fr* dest, const size_t n);
-
-// This function evaluates the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...)
-// at x = z.
-template <typename Fr> Fr compute_linear_polynomial_product_evaluation(const Fr* roots, const Fr z, const size_t n);
 
 // This function computes the lagrange (or coset-lagrange) form of the polynomial (x - a)(x - b)(x - c)...
 // given n distinct roots (a, b, c, ...).
