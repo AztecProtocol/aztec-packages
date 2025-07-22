@@ -1,1 +1,1 @@
-typ packed length exceeds the maximum of aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN fields
+Note packed length exceeds the maximum of 12 fields
