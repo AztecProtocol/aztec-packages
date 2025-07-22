@@ -15,7 +15,7 @@ contract SlashTest is StakingBase {
   }
 
   function test_WhenCallerIsNotTheSlasher() external {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
     staking.flushEntryQueue();
@@ -40,7 +40,7 @@ contract SlashTest is StakingBase {
   }
 
   modifier whenAttesterIsRegistered() {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});

@@ -99,7 +99,7 @@ contract GSEBuilder is TestBase {
       vm.prank(address(config.governance));
       config.governance.openFloodgates();
 
-      assertEq(config.governance.isAllDepositsAllowed(), true);
+      assertEq(config.governance.isAllBeneficiariesAllowed(), true);
     }
 
     vm.startPrank(config.registry.owner());
