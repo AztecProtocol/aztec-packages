@@ -204,46 +204,6 @@ template <typename Builder, typename Native> uint256_t uint<Builder, Native>::ge
     return witness_value & MASK;
 }
 
-template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::at(const size_t bit_index) const
-{
-    if (is_constant()) {
-        return bool_t<Builder>(context, get_value().get_bit(bit_index));
-    }
-
-    const uint64_t slice_bit_position = bit_index % bits_per_limb;
-
-    const uint32_t slice_index = accumulators[bit_index / bits_per_limb];
-    const uint64_t slice_value = uint256_t(context->get_variable(slice_index)).data[0];
-
-    const uint64_t slice_lo = slice_value % (1ULL << slice_bit_position);
-    const uint64_t bit_value = (slice_value >> slice_bit_position) & 1ULL;
-    const uint64_t slice_hi = slice_value >> (slice_bit_position + 1);
-
-    const uint32_t slice_lo_idx = slice_bit_position ? context->add_variable(slice_lo) : context->zero_idx;
-    const uint32_t bit_idx = context->add_variable(bit_value);
-    const uint32_t slice_hi_idx =
-        (slice_bit_position + 1 != bits_per_limb) ? context->add_variable(slice_hi) : context->zero_idx;
-
-    context->create_big_add_gate({ slice_index,
-                                   slice_lo_idx,
-                                   bit_idx,
-                                   slice_hi_idx,
-                                   -1,
-                                   1,
-                                   (1 << slice_bit_position),
-                                   (1 << (slice_bit_position + 1)),
-                                   0 });
-
-    if (slice_bit_position != 0) {
-        context->create_new_range_constraint(slice_lo_idx, (1ULL << slice_bit_position) - 1);
-    }
-    if (slice_bit_position + 1 != bits_per_limb) {
-        context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_limb - (slice_bit_position + 1))) - 1);
-    }
-    bool_t<Builder> result = witness_t<Builder>(context, bit_value);
-    return result;
-}
-
 template class uint<bb::UltraCircuitBuilder, uint8_t>;
 template class uint<bb::MegaCircuitBuilder, uint8_t>;
 template class uint<bb::UltraCircuitBuilder, uint16_t>;
