@@ -6,7 +6,7 @@ use aztec::{
 
 #[note]
 pub struct InvalidNote {
-    owner: AztecAddress,
+    pub owner: AztecAddress,
 }
 
 impl Packable for InvalidNote {
@@ -19,4 +19,12 @@ impl Packable for InvalidNote {
     fn unpack(packed: [Field; Self::N]) -> Self {
         Self { owner: AztecAddress::from_field(packed[0]) }
     }
+}
+
+
+fn main() {
+    let note = InvalidNote { owner: AztecAddress::zero() };
+    let packed = note.pack();
+    let unpacked = InvalidNote::unpack(packed);
+    assert(unpacked.owner == note.owner);
 }

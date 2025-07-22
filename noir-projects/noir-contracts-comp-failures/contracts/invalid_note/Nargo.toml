@@ -1,8 +1,8 @@
 [package]
-name = "invalid_note_contract"
+name = "invalid_note"
 authors = [""]
 compiler_version = ">=0.25.0"
-type = "contract"
+type = "bin"
 
 [dependencies]
 aztec = { path = "../../../aztec-nr/aztec" }
