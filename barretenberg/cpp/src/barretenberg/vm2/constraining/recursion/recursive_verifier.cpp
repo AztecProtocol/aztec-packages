@@ -23,7 +23,10 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
     : builder(builder)
     , key(vkey)
     , vk_hash(vk_hash)
-{}
+{
+    key->fix_witness();
+    this->vk_hash.fix_witness();
+}
 
 // Evaluate the given public input column over the multivariate challenge points
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
@@ -88,13 +91,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     transcript->load_proof(stdlib_proof);
 
-    // Fiat-Shamir the vk hash
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
-    // in-circuit hashing.
-    FF vkey_hash = key->add_hash_to_transcript("avm", *transcript);
-    info("AVM vk hash in recursive verifier: ", vkey_hash);
-    info("Expected AVM vk hash in recursive verifier: ", vk_hash);
-    vk_hash.assert_equal(vkey_hash);
+    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
+    transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    info("AVM vk hash in recursive verifier: ", vk_hash);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };

@@ -39,8 +39,9 @@ AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key,
  */
 void AvmProver::execute_preamble_round()
 {
-    // Fiat-shamir the vk hash
-    FF vk_hash = vk->add_hash_to_transcript("avm", *transcript);
+    // TODO(#15892): Fiat-shamir the vk hash by uncommenting the line below.
+    FF vk_hash = vk->hash();
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     vinfo("AVM vk hash in prover: ", vk_hash);
 }
 

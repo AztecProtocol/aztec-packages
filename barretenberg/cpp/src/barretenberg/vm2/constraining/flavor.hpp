@@ -269,7 +269,15 @@ class AvmFlavor {
         }
 
         std::vector<fr> to_field_elements() const override;
-        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override;
+        /**
+         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
+         * the provided VK hash directly to the transcript.
+         */
+        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
     };
 
     // Used by sumcheck.

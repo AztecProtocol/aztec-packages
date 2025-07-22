@@ -101,27 +101,25 @@ class AvmRecursiveFlavor {
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
-        std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         *
-         * @return The hash of the verification key
+         * @brief Unimplemented because AVM VK is hardcoded so hash does not need to be computed. Rather, we just add
+         * the provided VK hash directly to the transcript.
          */
-        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
         {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", circuit_size);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", num_public_inputs);
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
 
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
         }
     };
 
