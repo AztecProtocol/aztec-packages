@@ -62,7 +62,7 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->add_accumulate(a);
     op_queue->add_accumulate(a);
     op_queue->eq_and_reset();
-
+    op_queue->merge();
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
@@ -85,6 +85,7 @@ TEST(ECCVMCircuitBuilderTests, Add)
     typename G1::element a = generators[0];
 
     op_queue->add_accumulate(a);
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -100,6 +101,7 @@ TEST(ECCVMCircuitBuilderTests, Mul)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -118,6 +120,8 @@ TEST(ECCVMCircuitBuilderTests, MulInfinity)
     op_queue->add_accumulate(b);
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
+    op_queue->merge();
+
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
@@ -134,6 +138,8 @@ TEST(ECCVMCircuitBuilderTests, MulOverIdenticalInputs)
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
+    op_queue->merge();
+
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
@@ -150,6 +156,8 @@ TEST(ECCVMCircuitBuilderTests, MSMProducesInfinity)
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(a, -x);
     op_queue->eq_and_reset();
+    op_queue->merge();
+
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
@@ -170,6 +178,8 @@ TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
         op_queue->mul_accumulate(b, x);
         op_queue->mul_accumulate(point_at_infinity, x);
         op_queue->eq_and_reset();
+        op_queue->merge();
+
         ECCVMCircuitBuilder circuit{ op_queue };
         bool result = ECCVMTraceChecker::check(circuit);
         EXPECT_EQ(result, true);
@@ -178,6 +188,8 @@ TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
     {
         op_queue->mul_accumulate(point_at_infinity, x);
         op_queue->eq_and_reset();
+        op_queue->merge();
+
         ECCVMCircuitBuilder circuit{ op_queue };
         bool result = ECCVMTraceChecker::check(circuit);
         EXPECT_EQ(result, true);
@@ -186,6 +198,8 @@ TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
     {
         op_queue->mul_accumulate(b, zero_scalar);
         op_queue->eq_and_reset();
+        op_queue->merge();
+
         ECCVMCircuitBuilder circuit{ op_queue };
         bool result = ECCVMTraceChecker::check(circuit);
         EXPECT_EQ(result, true);
@@ -194,6 +208,8 @@ TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
     {
         op_queue->mul_accumulate(point_at_infinity, zero_scalar);
         op_queue->eq_and_reset();
+        op_queue->merge();
+
         ECCVMCircuitBuilder circuit{ op_queue };
         bool result = ECCVMTraceChecker::check(circuit);
         EXPECT_EQ(result, true);
@@ -203,6 +219,8 @@ TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
         op_queue->mul_accumulate(point_at_infinity, x);
         op_queue->mul_accumulate(b, zero_scalar);
         op_queue->eq_and_reset();
+        op_queue->merge();
+
         ECCVMCircuitBuilder circuit{ op_queue };
         bool result = ECCVMTraceChecker::check(circuit);
         EXPECT_EQ(result, true);
@@ -224,6 +242,7 @@ TEST(ECCVMCircuitBuilderTests, ShortMul)
 
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -241,6 +260,7 @@ TEST(ECCVMCircuitBuilderTests, EqFails)
     op_queue->mul_accumulate(a, x);
     // Tamper with the eq op such that the expected value is incorect
     op_queue->add_erroneous_equality_op_for_testing();
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -252,6 +272,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRow)
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     op_queue->empty_row_for_testing();
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -269,6 +290,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
     op_queue->mul_accumulate(a, x);
     op_queue->empty_row_for_testing();
     op_queue->eq_and_reset();
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -285,6 +307,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithEq)
 
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -302,6 +325,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithAdd)
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
     op_queue->add_accumulate(a);
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -319,6 +343,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithMul)
     op_queue->add_accumulate(a);
     op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
@@ -338,6 +363,8 @@ TEST(ECCVMCircuitBuilderTests, EndWithNoop)
     op_queue->mul_accumulate(a, x);
 
     op_queue->empty_row_for_testing();
+    op_queue->merge();
+
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
@@ -359,6 +386,7 @@ TEST(ECCVMCircuitBuilderTests, MSM)
             op_queue->mul_accumulate(points[i], scalars[i]);
         }
         op_queue->eq_and_reset();
+        op_queue->merge();
     };
 
     // single msms
@@ -391,6 +419,7 @@ TEST(ECCVMCircuitBuilderTests, EqAgainstPointAtInfinity)
 
     op_queue->add_accumulate(a);
     op_queue->eq_and_reset();
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -409,6 +438,7 @@ TEST(ECCVMCircuitBuilderTests, AddPointAtInfinity)
     op_queue->add_accumulate(a);
     op_queue->add_accumulate(b);
     op_queue->eq_and_reset();
+    op_queue->merge();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -425,6 +455,8 @@ TEST(ECCVMCircuitBuilderTests, AddProducesPointAtInfinity)
     op_queue->add_accumulate(a);
     op_queue->add_accumulate(-a);
     op_queue->eq_and_reset();
+    op_queue->merge();
+
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
@@ -440,6 +472,8 @@ TEST(ECCVMCircuitBuilderTests, AddProducesDouble)
     op_queue->add_accumulate(a);
     op_queue->add_accumulate(a);
     op_queue->eq_and_reset();
+    op_queue->merge();
+
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
@@ -475,6 +509,7 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
     for (size_t i = 0; i < 1; i++) {
         op_queue->mul_accumulate(P1, Fr(0));
     }
+    op_queue->merge();
 
     auto eccvm_builder = ECCVMCircuitBuilder(op_queue);
 

@@ -14,12 +14,13 @@
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
+#include "barretenberg/relations/memory_relation.hpp"
+#include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
@@ -53,10 +54,10 @@ class MegaFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 59;
+    static constexpr size_t NUM_ALL_ENTITIES = 60;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 31;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     // Total number of folded polynomials, which is just all polynomials except the shifts
@@ -75,7 +76,8 @@ class MegaFlavor {
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
-                                  bb::AuxiliaryRelation<FF>,
+                                  bb::MemoryRelation<FF>,
+                                  bb::NonNativeFieldRelation<FF>,
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
@@ -147,25 +149,26 @@ class MegaFlavor {
                               q_arith,              // column 8
                               q_delta_range,        // column 9
                               q_elliptic,           // column 10
-                              q_aux,                // column 11
-                              q_poseidon2_external, // column 12
-                              q_poseidon2_internal, // column 13
-                              sigma_1,              // column 14
-                              sigma_2,              // column 15
-                              sigma_3,              // column 16
-                              sigma_4,              // column 17
-                              id_1,                 // column 18
-                              id_2,                 // column 19
-                              id_3,                 // column 20
-                              id_4,                 // column 21
-                              table_1,              // column 22
-                              table_2,              // column 23
-                              table_3,              // column 24
-                              table_4,              // column 25
-                              lagrange_first,       // column 26
-                              lagrange_last,        // column 27
-                              lagrange_ecc_op,      // column 28 // indicator poly for ecc op gates
-                              databus_id            // column 29 // id polynomial, i.e. id_i = i
+                              q_memory,             // column 11
+                              q_nnf,                // column 12
+                              q_poseidon2_external, // column 13
+                              q_poseidon2_internal, // column 14
+                              sigma_1,              // column 15
+                              sigma_2,              // column 16
+                              sigma_3,              // column 17
+                              sigma_4,              // column 18
+                              id_1,                 // column 19
+                              id_2,                 // column 20
+                              id_3,                 // column 21
+                              id_4,                 // column 22
+                              table_1,              // column 23
+                              table_2,              // column 24
+                              table_3,              // column 25
+                              table_4,              // column 26
+                              lagrange_first,       // column 27
+                              lagrange_last,        // column 28
+                              lagrange_ecc_op,      // column 29 // indicator poly for ecc op gates
+                              databus_id            // column 30 // id polynomial, i.e. id_i = i
         )
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
@@ -179,10 +182,10 @@ class MegaFlavor {
                 q_arith,
                 q_delta_range,
                 q_elliptic,
-                q_aux,
+                q_memory,
+                q_nnf,
                 q_poseidon2_external,
                 q_poseidon2_internal,
-
             };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -474,7 +477,8 @@ class MegaFlavor {
                        q_arith,
                        q_delta_range,
                        q_elliptic,
-                       q_aux,
+                       q_memory,
+                       q_nnf,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
@@ -588,7 +592,8 @@ class MegaFlavor {
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
-            q_aux = "Q_AUX";
+            q_memory = "Q_MEMORY";
+            q_nnf = "Q_NNF";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
             sigma_1 = "SIGMA_1";
