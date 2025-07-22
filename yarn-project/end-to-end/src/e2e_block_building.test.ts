@@ -93,7 +93,7 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 16;
 
       const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
       logger.info(`Deployed stateful test contract at ${contract.address}`);
 
       // We have to set minTxsPerBlock to 1 or we could end with dangling txs.
@@ -142,11 +142,10 @@ describe('e2e_block_building', () => {
       const deployer = new ContractDeployer(artifact, owner);
 
       const ownerAddress = owner.getCompleteAddress().address;
-      const sender = ownerAddress;
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
-      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, sender, i + 1));
+      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, i + 1));
       const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
         provenTxs.push(
@@ -179,7 +178,7 @@ describe('e2e_block_building', () => {
     it('assembles a block with multiple txs with public fns', async () => {
       // First deploy the contract
       const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
 
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
@@ -209,7 +208,7 @@ describe('e2e_block_building', () => {
     it.skip('builds blocks with multiple public fns after multiple nullifier insertions', async () => {
       // First deploy the contracts
       const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
       const another = await TestContract.deploy(owner).send().deployed();
 
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
@@ -430,7 +429,7 @@ describe('e2e_block_building', () => {
       // call test contract
       const valuesAsArray = Object.values(values);
 
-      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, address, address, true);
+      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, address, true);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
@@ -536,7 +535,7 @@ describe('e2e_block_building', () => {
       ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes, watcher } = await setup(1));
 
       ownerAddress = owner.getCompleteAddress().address;
-      contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send().deployed();
       initialBlockNumber = await pxe.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
 
@@ -560,13 +559,13 @@ describe('e2e_block_building', () => {
       // Send a tx to the contract that creates a note. This tx will be reorgd but re-included,
       // since it is being built against a proven block number.
       logger.info('Sending initial tx');
-      const tx1 = await contract.methods.create_note(ownerAddress, ownerAddress, 20).send().wait();
+      const tx1 = await contract.methods.create_note(ownerAddress, 20).send().wait();
       expect(tx1.blockNumber).toEqual(initialBlockNumber + 1);
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(21n);
 
       // And send a second one, which won't be re-included.
       logger.info('Sending second tx');
-      const tx2 = await contract.methods.create_note(ownerAddress, ownerAddress, 30).send().wait();
+      const tx2 = await contract.methods.create_note(ownerAddress, 30).send().wait();
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
@@ -605,7 +604,7 @@ describe('e2e_block_building', () => {
 
       // And we should be able to send a new tx on the new chain
       logger.info('Sending new tx on reorgd chain');
-      const tx3 = await contract.methods.create_note(ownerAddress, ownerAddress, 10).send().wait();
+      const tx3 = await contract.methods.create_note(ownerAddress, 10).send().wait();
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(31n);
       expect(tx3.blockNumber).toBeGreaterThanOrEqual(newTx1Receipt.blockNumber! + 1);
     });

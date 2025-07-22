@@ -1,0 +1,23 @@
+{{- if .Values.service.rpc.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+
+  annotations:
+    {{- range $key, $value := .Values.service.rpc.annotations }}
+    {{- printf "%s: %s" $key (tpl $value $ | quote) | nindent 4 }}
+    {{- end }}
+
+spec:
+  type: {{ .Values.service.rpc.type }}
+  ports:
+    - port: {{ .Values.service.rpc.port }}
+      targetPort: rpc
+      protocol: TCP
+      name: rpc
+  selector:
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -30,5 +30,5 @@ There are scripts that:
 ## How
 - `./scripts/benchmark_client_ivc.sh` lets you run `client_ivc_bench` remotely and analyze the results.
 - `./scripts/benchmark_example_ivc_flow_remote.sh` copies the example flow input you'd like to run to the remote machine, runs `bb_cli_bench`, and analyze the results.
-    - For the script to work you need to have the example flows downloaded locally, by `AZTEC_CACHE_COMMIT=origin/next~3 DOWNLOAD_ONLY=1 yarn-project/end-to-end/bootstrap.sh build_bench`
+    - For the script to work you need to have the example flows downloaded locally, by `AZTEC_CACHE_COMMIT=origin/next~3 FORCE_CACHE_DOWNLOAD=1 yarn-project/end-to-end/bootstrap.sh build_bench`
 - If you have other special needs, look inside the above scripts and see what parameters you can give, or use `./scripts/benchmark_remote.sh`.

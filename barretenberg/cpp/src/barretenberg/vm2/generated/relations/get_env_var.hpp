@@ -13,13 +13,13 @@ template <typename FF_> class get_env_varImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::execution_sel_get_env_var)).is_zero();
+        return (in.get(C::execution_sel_execute_get_env_var)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -30,65 +30,58 @@ template <typename FF_> class get_env_varImpl {
     {
         using C = ColumnAndShifts;
 
-        { // SHOULD_GET_ENV_VAR
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_sel_should_get_env_var) -
-                        in.get(C::execution_sel_get_env_var) * in.get(C::execution_sel_should_execute_opcode));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
         { // FROM_PUBLIC_INPUTS
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::execution_sel_should_get_env_var) *
+                in.get(C::execution_sel_execute_get_env_var) *
                 (in.get(C::execution_sel_envvar_pi_lookup_col0) + in.get(C::execution_sel_envvar_pi_lookup_col1)) *
                 (in.get(C::execution_register_0_) - in.get(C::execution_value_from_pi));
             tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
+            std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         { // ADDRESS_FROM_CONTEXT
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_should_get_env_var) * in.get(C::execution_is_address) *
+            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_address) *
                        (in.get(C::execution_register_0_) - in.get(C::execution_contract_address));
+            tmp *= scaling_factor;
+            std::get<1>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SENDER_FROM_CONTEXT
+            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_sender) *
+                       (in.get(C::execution_register_0_) - in.get(C::execution_msg_sender));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // SENDER_FROM_CONTEXT
+        { // TRANSACTION_FEE_FROM_CONTEXT
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_should_get_env_var) * in.get(C::execution_is_sender) *
-                       (in.get(C::execution_register_0_) - in.get(C::execution_msg_sender));
+            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_transactionfee) *
+                       (in.get(C::execution_register_0_) - in.get(C::execution_transaction_fee));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        { // TRANSACTION_FEE_FROM_CONTEXT
+        { // ISSTATICCALL_FROM_CONTEXT
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_should_get_env_var) * in.get(C::execution_is_transactionfee) *
-                       (in.get(C::execution_register_0_) - in.get(C::execution_transaction_fee));
+            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_isstaticcall) *
+                       (in.get(C::execution_register_0_) - in.get(C::execution_is_static));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        { // ISSTATICCALL_FROM_CONTEXT
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_should_get_env_var) * in.get(C::execution_is_isstaticcall) *
-                       (in.get(C::execution_register_0_) - in.get(C::execution_is_static));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
         { // L2GASLEFT_FROM_GAS
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_should_get_env_var) * in.get(C::execution_is_l2gasleft) *
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_l2gasleft) *
                        (in.get(C::execution_register_0_) -
                         (in.get(C::execution_l2_gas_limit) - in.get(C::execution_l2_gas_used)));
             tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
+            std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         { // DAGASLEFT_FROM_GAS
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_should_get_env_var) * in.get(C::execution_is_dagasleft) *
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_get_env_var) * in.get(C::execution_is_dagasleft) *
                        (in.get(C::execution_register_0_) -
                         (in.get(C::execution_da_gas_limit) - in.get(C::execution_da_gas_used)));
             tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
+            std::get<6>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -101,34 +94,31 @@ template <typename FF> class get_env_var : public Relation<get_env_varImpl<FF>> 
     {
         switch (index) {
         case 0:
-            return "SHOULD_GET_ENV_VAR";
-        case 1:
             return "FROM_PUBLIC_INPUTS";
-        case 2:
+        case 1:
             return "ADDRESS_FROM_CONTEXT";
-        case 3:
+        case 2:
             return "SENDER_FROM_CONTEXT";
-        case 4:
+        case 3:
             return "TRANSACTION_FEE_FROM_CONTEXT";
-        case 5:
+        case 4:
             return "ISSTATICCALL_FROM_CONTEXT";
-        case 6:
+        case 5:
             return "L2GASLEFT_FROM_GAS";
-        case 7:
+        case 6:
             return "DAGASLEFT_FROM_GAS";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SHOULD_GET_ENV_VAR = 0;
-    static constexpr size_t SR_FROM_PUBLIC_INPUTS = 1;
-    static constexpr size_t SR_ADDRESS_FROM_CONTEXT = 2;
-    static constexpr size_t SR_SENDER_FROM_CONTEXT = 3;
-    static constexpr size_t SR_TRANSACTION_FEE_FROM_CONTEXT = 4;
-    static constexpr size_t SR_ISSTATICCALL_FROM_CONTEXT = 5;
-    static constexpr size_t SR_L2GASLEFT_FROM_GAS = 6;
-    static constexpr size_t SR_DAGASLEFT_FROM_GAS = 7;
+    static constexpr size_t SR_FROM_PUBLIC_INPUTS = 0;
+    static constexpr size_t SR_ADDRESS_FROM_CONTEXT = 1;
+    static constexpr size_t SR_SENDER_FROM_CONTEXT = 2;
+    static constexpr size_t SR_TRANSACTION_FEE_FROM_CONTEXT = 3;
+    static constexpr size_t SR_ISSTATICCALL_FROM_CONTEXT = 4;
+    static constexpr size_t SR_L2GASLEFT_FROM_GAS = 5;
+    static constexpr size_t SR_DAGASLEFT_FROM_GAS = 6;
 };
 
 } // namespace bb::avm2

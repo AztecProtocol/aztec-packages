@@ -36,7 +36,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct c = a + b;
         EXPECT_TRUE(c.witness_index == a.witness_index);
         EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates);
-        field_ct d(&builder, fr::coset_generator(0)); // like b, d is just a constant and not a wire value
+        field_ct d(&builder, fr::coset_generator<0>()); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
         for (size_t i = 0; i < 17; ++i) {
@@ -166,17 +166,16 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 EXPECT_TRUE(converted.witness_index == field_elt.witness_index);
             }
         }
-#ifndef NDEBUG
         // Check that the conversion aborts in the case of random field elements.
         bool_ct invalid_bool;
         // Case 4: Invalid constant conversion
-        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(input_array.back())),
-                     "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
+        EXPECT_THROW_OR_ABORT(
+            invalid_bool = bool_ct(field_ct(input_array.back())),
+            "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
         // Case 5: Invalid witness conversion
         Builder builder = Builder();
-        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
-                     "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
-#endif
+        EXPECT_THROW_OR_ABORT(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
+                              "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
     }
     /**
      * @brief Test that bool is converted correctly
@@ -409,19 +408,17 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(q.is_constant());
         EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
 
-#ifndef NDEBUG
         {
             // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
             b = 0;
-            EXPECT_DEATH(a / b, ".*");
+            EXPECT_THROW_OR_ABORT(a / b, ".*");
         }
         { // Case 2. Numerator != const, denominator = const 0. Check that the division is aborted
             Builder builder = Builder();
             field_ct a = witness_ct(&builder, bb::fr::random_element());
             b = 0;
-            EXPECT_DEATH(a / b, ".*");
+            EXPECT_THROW_OR_ABORT(a / b, ".*");
         }
-#endif
         {
             // Case 3. Numerator != const, denominator = witness 0 . Check that the circuit fails.
             Builder builder = Builder();
@@ -682,9 +679,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
         { // a is a const 0
             a = field_ct(0);
-#ifndef NDEBUG
-            EXPECT_DEATH(a.assert_is_not_zero(), "assert_is_not_zero");
-#endif
+            EXPECT_THROW_OR_ABORT(a.assert_is_not_zero(), "assert_is_not_zero");
         }
     }
 
@@ -1068,14 +1063,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         [[maybe_unused]] field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
-#ifndef NDEBUG
-        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
-#endif
+        EXPECT_THROW_OR_ABORT(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
 
         exponent = field_ct(exponent_val);
-#ifndef NDEBUG
-        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
-#endif
+        EXPECT_THROW_OR_ABORT(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
     };
 
     static void test_copy_as_new_witness()
@@ -1107,12 +1098,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         elt.assert_is_zero();
         // If we apply `assert_is_zero()` to a non-zero constant, we hit an ASSERT failure
         elt = bb::fr::random_element();
-#ifndef NDEBUG
 
         if (elt.get_value() != 0) {
-            EXPECT_DEATH(elt.assert_is_zero(), "field_t::assert_is_zero");
+            EXPECT_THROW_OR_ABORT(elt.assert_is_zero(), "field_t::assert_is_zero");
         }
-#endif
         // Create a witness 0
         Builder builder = Builder();
         elt = witness_ct(&builder, bb::fr::zero());

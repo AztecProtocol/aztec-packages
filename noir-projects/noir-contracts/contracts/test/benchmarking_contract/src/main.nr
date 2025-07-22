@@ -24,9 +24,9 @@ pub contract Benchmarking {
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[private]
-    fn create_note(owner: AztecAddress, sender: AztecAddress, value: Field) {
+    fn create_note(owner: AztecAddress, value: Field) {
         // docs:start:increment_valuenote
-        increment(storage.notes.at(owner), value, owner, sender);
+        increment(storage.notes.at(owner), value, owner);
         // docs:end:increment_valuenote
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
@@ -35,12 +35,12 @@ pub contract Benchmarking {
     // See https://discourse.aztec.network/t/utxo-concurrency-issues-for-private-state/635
     // by @rahul-kothari for a full explanation on why this is needed.
     #[private]
-    fn recreate_note(owner: AztecAddress, sender: AztecAddress, index: u32) {
+    fn recreate_note(owner: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        increment(owner_notes, note.value, owner, sender);
+        increment(owner_notes, note.value, owner);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.

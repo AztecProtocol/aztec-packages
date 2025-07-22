@@ -16,6 +16,13 @@ namespace {
 
 MemoryValue unconstrained_rotate_left(MemoryValue x, uint8_t len)
 {
+    // We avoid an undefined behavior in the shift below: "x_uint64_t >> (64 - len)"
+    // if it were evaluated with len = 0. (cpp standard on bitwise shifts requires rhs
+    // to be less than the number of bits in lhs).
+    if (len == 0) {
+        return x;
+    }
+
     const auto x_uint64_t = x.as<uint64_t>();
     assert(len < 64);
     const auto out_uint64_t = (x_uint64_t << len) | x_uint64_t >> (64 - len);

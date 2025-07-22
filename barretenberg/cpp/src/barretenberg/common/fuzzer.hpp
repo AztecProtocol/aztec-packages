@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage, google-runtime-int)
@@ -104,7 +105,7 @@ template <typename T> static inline uint256_t fast_log_distributed_uint256(T& rn
 // Don't use dereference casts, since the data may be not aligned and it causes segfault
 uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
 {
-    ASSERT(buffer_size <= 32);
+    BB_ASSERT_LTE(buffer_size, 32U);
 
     uint64_t parts[4] = { 0, 0, 0, 0 };
 

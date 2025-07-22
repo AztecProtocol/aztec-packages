@@ -9,6 +9,7 @@
 #include <bitset>
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 
 using namespace bb;
 
@@ -99,7 +100,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
  */
 template <typename Builder> byte_array<Builder>::byte_array(const field_t<Builder>& input, const size_t num_bytes)
 {
-    ASSERT(num_bytes <= 32);
+    BB_ASSERT_LTE(num_bytes, 32U);
     uint256_t value = input.get_value();
     values.resize(num_bytes);
     context = input.get_context();
@@ -242,7 +243,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write(byte
 
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(byte_array const& other, size_t index)
 {
-    ASSERT(index + other.values.size() <= values.size());
+    BB_ASSERT_LTE(index + other.values.size(), values.size());
     for (size_t i = 0; i < other.values.size(); i++) {
         values[i + index] = other.values[i];
     }
@@ -251,7 +252,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(b
 
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset) const
 {
-    ASSERT(offset < values.size());
+    BB_ASSERT_LT(offset, values.size());
     return byte_array(context, bytes_t(values.begin() + (long)(offset), values.end()));
 }
 
@@ -261,9 +262,9 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
  **/
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset, size_t length) const
 {
-    ASSERT(offset < values.size());
+    BB_ASSERT_LT(offset, values.size());
     // it's <= cause vector constructor doesn't include end point
-    ASSERT(length <= values.size() - offset);
+    BB_ASSERT_LTE(length, values.size() - offset);
     auto start = values.begin() + (long)(offset);
     auto end = values.begin() + (long)((offset + length));
     return byte_array(context, bytes_t(start, end));

@@ -10,6 +10,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
@@ -32,16 +33,16 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
                                            size_t left_expansion = 0)
 {
     size_t expanded_size = array.size() + right_expansion + left_expansion;
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    std::shared_ptr<Fr[]> backing_clone = _allocate_aligned_memory<Fr>(expanded_size);
+    std::shared_ptr<BackingMemory<Fr>> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
     // zero any left extensions to the array
-    memset(static_cast<void*>(backing_clone.get()), 0, sizeof(Fr) * left_expansion);
+    memset(static_cast<void*>(backing_clone->raw_data()), 0, sizeof(Fr) * left_expansion);
     // copy our cloned array over
-    memcpy(static_cast<void*>(backing_clone.get() + left_expansion),
-           static_cast<const void*>(array.backing_memory_.get()),
+    memcpy(static_cast<void*>(backing_clone->raw_data() + left_expansion),
+           static_cast<const void*>(array.data()),
            sizeof(Fr) * array.size());
     // zero any right extensions to the array
-    memset(static_cast<void*>(backing_clone.get() + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
+    memset(
+        static_cast<void*>(backing_clone->raw_data() + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
     return { array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, backing_clone };
 }
 
@@ -53,7 +54,7 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
         size + start_index, /* end index, actual memory used is (end - start) */
         virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
-        _allocate_aligned_memory<Fr>(size)
+        BackingMemory<Fr>::allocate(size)
     };
 }
 
@@ -81,7 +82,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
         size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
         ASSERT(offset < size || size == 0);
         BB_ASSERT_LTE((offset + range), size);
-        memset(static_cast<void*>(coefficients_.backing_memory_.get() + offset), 0, sizeof(Fr) * range);
+        memset(static_cast<void*>(coefficients_.data() + offset), 0, sizeof(Fr) * range);
     });
 }
 
@@ -296,7 +297,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
 {
     Polynomial p(size, virtual_size, Polynomial<Fr>::DontZeroMemory::FLAG);
-    memset(static_cast<void*>(p.coefficients_.backing_memory_.get()), 0, sizeof(Fr) * size);
+    memset(static_cast<void*>(p.coefficients_.data()), 0, sizeof(Fr) * size);
     return p;
 }
 
@@ -366,6 +367,18 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t
     result.coefficients_.start_ += magnitude;
     result.coefficients_.end_ += magnitude;
     return result;
+}
+
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::reverse() const
+{
+    const size_t end_index = this->end_index();
+    const size_t start_index = this->start_index();
+    const size_t poly_size = this->size();
+    Polynomial reversed(/*size=*/poly_size, /*virtual_size=*/end_index);
+    for (size_t idx = end_index; idx > start_index; --idx) {
+        reversed.at(end_index - idx) = this->at(idx - 1);
+    }
+    return reversed;
 }
 
 template class Polynomial<bb::fr>;

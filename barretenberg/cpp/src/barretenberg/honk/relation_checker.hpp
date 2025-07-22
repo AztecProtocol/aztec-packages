@@ -50,25 +50,17 @@ template <typename Flavor> class RelationChecker {
             for (auto& element : result) {
                 if constexpr (has_linearly_dependent) {
                     if (element != 0 && Relation::SUBRELATION_LINEARLY_INDEPENDENT[subrelation_idx]) {
-                        info("RelationChecker: ",
-                             label,
-                             " relation (subrelation idx: ",
-                             subrelation_idx,
-                             ") failed at row idx: ",
-                             i,
-                             ".");
-                        ASSERT(false);
+                        std::ostringstream oss;
+                        oss << "RelationChecker: " << label << " relation (subrelation idx: " << subrelation_idx
+                            << ") failed at row idx: " << i << ".";
+                        throw_or_abort(oss.str());
                     }
                 } else {
                     if (element != 0) {
-                        info("RelationChecker: ",
-                             label,
-                             " relation (subrelation idx: ",
-                             subrelation_idx,
-                             ") failed at row idx: ",
-                             i,
-                             ".");
-                        ASSERT(false);
+                        std::ostringstream oss;
+                        oss << "RelationChecker: " << label << " relation (subrelation idx: " << subrelation_idx
+                            << ") failed at row idx: " << i << ".";
+                        throw_or_abort(oss.str());
                     }
                 }
                 subrelation_idx++;
@@ -80,12 +72,10 @@ template <typename Flavor> class RelationChecker {
             for (auto& element : result) {
                 // Check that linearly dependent subrelation result is  0 over the entire execution trace
                 if (element != 0 && Relation::SUBRELATION_LINEARLY_INDEPENDENT[subrelation_idx]) {
-                    info("RelationChecker: ",
-                         label,
-                         " linearly dependent subrelation idx: ",
-                         subrelation_idx,
-                         " failed.");
-                    ASSERT(false);
+                    std::ostringstream oss;
+                    oss << "RelationChecker: " << label << " linearly dependent subrelation idx: " << subrelation_idx
+                        << ") failed.";
+                    throw_or_abort(oss.str());
                 }
                 subrelation_idx++;
             }

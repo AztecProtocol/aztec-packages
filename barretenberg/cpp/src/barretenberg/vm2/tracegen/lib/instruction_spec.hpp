@@ -13,6 +13,8 @@ namespace bb::avm2::tracegen {
 
 enum class SubtraceSel : uint8_t {
     ALU,
+    CAST,
+    SET,
     BITWISE,
     TORADIXBE,
     POSEIDON2PERM,
@@ -20,6 +22,7 @@ enum class SubtraceSel : uint8_t {
     DATACOPY,
     EXECUTION,
     KECCAKF1600,
+    GETCONTRACTINSTANCE,
 };
 
 struct SubtraceInfo {
@@ -44,5 +47,13 @@ FF get_subtrace_id(SubtraceSel subtrace_sel);
  * @return The corresponding column selector.
  */
 Column get_subtrace_selector(SubtraceSel subtrace_sel);
+
+/**
+ * @brief Get the column selector for a given dynamic gas ID.
+ *
+ * @param dyn_gas_id The dynamic gas ID.
+ * @return The corresponding column selector.
+ */
+Column get_dyn_gas_selector(uint32_t dyn_gas_id);
 
 } // namespace bb::avm2::tracegen

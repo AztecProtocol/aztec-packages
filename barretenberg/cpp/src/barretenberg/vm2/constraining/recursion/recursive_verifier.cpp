@@ -29,12 +29,12 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
+    size_t circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
-        .virtual_size_ =
-            static_cast<uint32_t>(key->circuit_size.get_value()), // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        .backing_memory_ = std::static_pointer_cast<FF[]>(get_mem_slab(sizeof(FF) * points.size())),
+        .virtual_size_ = circuit_size,
+        .backing_memory_ = BackingMemory<FF>::allocate(points.size()),
     };
 
     memcpy(

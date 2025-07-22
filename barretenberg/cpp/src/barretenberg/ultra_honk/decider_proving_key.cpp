@@ -5,6 +5,8 @@
 // =====================
 
 #include "decider_proving_key.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -103,7 +105,7 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     size_t table_offset = circuit.blocks.lookup.trace_offset();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
     const size_t max_tables_size = dyadic_size() - table_offset;
-    ASSERT(dyadic_size() > max_tables_size);
+    BB_ASSERT_GT(dyadic_size(), max_tables_size);
 
     // Allocate the polynomials containing the actual table data
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
@@ -255,18 +257,16 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
         if (block_size > fixed_block_size && block != overflow_block) {
             // Disallow overflow in blocks that are not expected to be used by App circuits
             if (&block == &blocks.pub_inputs) {
-                info("WARNING: Number of public inputs (",
-                     block_size,
-                     ") cannot exceed capacity specified in structured trace: ",
-                     fixed_block_size);
-                ASSERT(false);
+                std::ostringstream oss;
+                oss << "WARNING: Number of public inputs (" << block_size
+                    << ") cannot exceed capacity specified in structured trace: " << fixed_block_size;
+                throw_or_abort(oss.str());
             }
             if (&block == &blocks.ecc_op) {
-                info("WARNING: Number of ecc op gates (",
-                     block_size,
-                     ") cannot exceed capacity specified in structured trace: ",
-                     fixed_block_size);
-                ASSERT(false);
+                std::ostringstream oss;
+                oss << "WARNING: Number of ecc op gates (" << block_size
+                    << ") cannot exceed capacity specified in structured trace: " << fixed_block_size;
+                throw_or_abort(oss.str());
             }
 
             // Set has_overflow to true if at least one block exceeds its capacity

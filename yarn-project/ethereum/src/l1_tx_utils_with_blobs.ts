@@ -1,6 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 
-import { formatGwei } from 'viem';
+import { type Hex, formatGwei } from 'viem';
 
 import { type GasPrice, L1TxUtils } from './l1_tx_utils.js';
 
@@ -12,7 +12,13 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  override async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+  override async attemptTxCancellation(
+    currentTxHash: Hex,
+    nonce: number,
+    isBlobTx = false,
+    previousGasPrice?: GasPrice,
+    attempts = 0,
+  ) {
     const account = this.client.account;
 
     // Get gas price with higher priority fee for cancellation
@@ -27,9 +33,11 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.debug(`Attempting to cancel transaction with nonce ${nonce}`, {
+    this.logger?.debug(`Attempting to cancel blob L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
+      maxFeePerBlobGas:
+        cancelGasPrice.maxFeePerBlobGas === undefined ? undefined : formatGwei(cancelGasPrice.maxFeePerBlobGas),
     });
     const request = {
       to: account.address,
@@ -71,6 +79,9 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
         maxFeePerGas: cancelGasPrice.maxFeePerGas,
         maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
       });
+
+      this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+
       const receipt = await this.monitorTransaction(
         request,
         cancelTxHash,

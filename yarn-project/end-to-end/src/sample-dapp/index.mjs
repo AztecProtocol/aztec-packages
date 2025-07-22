@@ -40,8 +40,7 @@ async function mintPrivateFunds(pxe) {
 
   // We mint tokens to the owner
   const mintAmount = 20n;
-  const from = ownerWallet.getAddress(); // we are setting from to owner here because we need a sender to calculate the tag
-  await token.methods.mint_to_private(from, ownerWallet.getAddress(), mintAmount).send().wait();
+  await token.methods.mint_to_private(ownerWallet.getAddress(), mintAmount).send().wait();
 
   await showPrivateBalances(pxe);
 }

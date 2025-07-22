@@ -18,6 +18,10 @@ class Poseidon2TraceBuilder final {
         const simulation::EventEmitterInterface<simulation::Poseidon2PermutationEvent>::Container& perm_events,
         TraceContainer& trace);
 
+    void process_permutation_with_memory(const simulation::EventEmitterInterface<
+                                             simulation::Poseidon2PermutationMemoryEvent>::Container& perm_mem_events,
+                                         TraceContainer& trace);
+
     static const InteractionDefinition interactions;
 };
 

@@ -11,7 +11,6 @@ use crate::macros::{
         module_has_storage,
     },
 };
-use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
@@ -208,17 +207,26 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
-    let args_len = original_params
-        .map(|(name, typ): (Quoted, Type)| {
-            generate_serialize_to_fields(name, typ, false).0.len()
-        })
-        .fold(0, |acc: u32, val: u32| acc + val);
+
+    let args_len_quote = if original_params.len() == 0 {
+        // If the function has no parameters, we set the args_len to 0.
+        quote { 0 }
+    } else {
+        // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+        original_params
+            .map(|(_, param_type): (Quoted, Type)| {
+                quote {
+            <$param_type as $crate::protocol_types::traits::Serialize>::N
+        }
+            })
+            .join(quote {+})
+    };
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
     let context_creation = quote {
         let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
         // We start from 1 because we skip the selector for the dispatch function.
-        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(1, $args_len);
+        let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
         dep::aztec::hash::hash_args_array(serialized_args)
         });
     };
@@ -356,7 +364,7 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
     let assertion_message = f"Function {name} can only be called statically";
     if is_fn_private(f) {
         // Here `context` is of type context::PrivateContext
-        quote { assert(context.inputs.call_context.is_static_call == true, $assertion_message); }
+        quote { assert(context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         // Here `context` is of type context::PublicContext
         quote { assert(context.is_static_call(), $assertion_message); }

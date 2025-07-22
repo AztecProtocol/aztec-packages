@@ -13,15 +13,15 @@ include "../public_inputs.pil";
  * Note that if you ask the gadget to silo the note hash, you also need to ask it to make it unique.
  * For reading, we enforce that the note hash is already unique.
  *
- * Read usage (lookup):
- * sel { precomputed.zero, unique_note_hash, leaf_index, note_hash_tree_root }
+ * Read usage:
+ * sel { precomputed.zero, unique_note_hash, leaf_index, note_hash_tree_root, exists }
  * in note_hash_tree_check.sel { note_hash_tree_check.write, note_hash_tree_check.note_hash,
- *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root };
+ *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root, note_hash_tree_check.exists };
  *
- * Write usage (permutation):
+ * Write usage:
  * sel { note_hash, note_hash_next_available_leaf_index, prev_note_hash_tree_root,
  *     should_silo, address, should_unique, note_hash_index, discard, next_note_hash_tree_root  }
- * is note_hash_tree_check.write { note_hash_tree_check.note_hash,
+ * in note_hash_tree_check.write { note_hash_tree_check.note_hash,
  *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root, note_hash_tree_check.should_silo,
  *     note_hash_tree_check.address, note_hash_tree_check.should_unique, note_hash_tree_check.note_hash_index,
  *     note_hash_tree_check.discard, note_hash_tree_check.next_root };
@@ -38,6 +38,7 @@ namespace note_hash_tree_check;
     pol commit write;
     write * (1 - write) = 0;
     pol READ = 1 - write;
+    pol commit exists;
 
     pol commit note_hash;
     pol commit leaf_index;
@@ -129,7 +130,11 @@ namespace note_hash_tree_check;
 
     // ====== TREE CHECK ======
     pol commit prev_leaf_value;
-    prev_leaf_value = (1 - write) * unique_note_hash;
+
+    // exists = prev_leaf_value == unique_note_hash
+    pol PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF = prev_leaf_value - unique_note_hash;
+    pol commit prev_leaf_value_unique_note_hash_diff_inv;
+    sel * (PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF * (exists * (1 - prev_leaf_value_unique_note_hash_diff_inv) + prev_leaf_value_unique_note_hash_diff_inv) - 1 + exists) = 0;
 
     pol commit next_leaf_value;
     // If reading, next_leaf_value is unconstrained

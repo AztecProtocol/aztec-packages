@@ -11,6 +11,7 @@ class FieldGreaterThanInterface {
   public:
     virtual ~FieldGreaterThanInterface() = default;
     virtual bool ff_gt(const FF& a, const FF& b) = 0;
+    virtual U256Decomposition canon_dec(const FF& a) = 0;
 };
 
 class FieldGreaterThan : public FieldGreaterThanInterface {
@@ -21,6 +22,7 @@ class FieldGreaterThan : public FieldGreaterThanInterface {
     {}
 
     bool ff_gt(const FF& a, const FF& b) override;
+    U256Decomposition canon_dec(const FF& a) override;
 
   private:
     RangeCheckInterface& range_check;

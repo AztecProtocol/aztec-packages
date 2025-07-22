@@ -3,7 +3,7 @@ use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as deri
 use types::{
     address::AztecAddress,
     contract_class_id::ContractClassId,
-    shared_mutable::scheduled_value_change::ScheduledValueChange,
+    delayed_public_mutable::scheduled_value_change::ScheduledValueChange,
     tests::fixtures,
     traits::{FromField, ToField},
 };

@@ -185,8 +185,12 @@ export class ServerWorldStateSynchronizer
    * @returns A promise that resolves with the block number the world state was synced to
    */
   public async syncImmediate(targetBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number> {
-    if (this.currentState !== WorldStateRunningState.RUNNING || this.blockStream === undefined) {
+    if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running. Unable to perform sync.`);
+    }
+
+    if (this.blockStream === undefined) {
+      throw new Error('Block stream is not initialized. Unable to perform sync.');
     }
 
     // If we have been given a block number to sync to and we have reached that number then return

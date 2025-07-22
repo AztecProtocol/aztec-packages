@@ -14,14 +14,14 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{FromField, Hash, Serialize, ToField},
+        traits::{FromField, Hash, Packable, Serialize, ToField},
     },
     state_vars::{PrivateSet, storage::HasStorageSlot},
 };
 use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
 
-#[derive(Serialize)]
+#[derive(Packable, Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
@@ -121,11 +121,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let card_note = CardNote::from_card(card, owner);
-            self.set.insert(card_note.note).emit(encode_and_encrypt_note(
-                self.set.context,
-                owner,
-                self.set.context.msg_sender(),
-            ));
+            self.set.insert(card_note.note).emit(encode_and_encrypt_note(self.set.context, owner));
             inserted_cards = inserted_cards.push_back(card_note);
         }
 

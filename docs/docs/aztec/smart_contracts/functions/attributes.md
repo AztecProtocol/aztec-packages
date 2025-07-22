@@ -255,16 +255,6 @@ impl CustomNote {
     }
 }
 
-impl Packable<2> for CustomNote {
-    fn pack(self) -> [Field; 2] {
-        [self.data, self.owner.to_field()]
-    }
-
-    fn unpack(packed_content: [Field; 2]) -> CustomNote {
-        CustomNote { data: packed_content[0], owner: AztecAddress { inner: packed_content[1] } }
-    }
-}
-
 struct CustomNoteProperties {
     data: aztec::note::note_getter_options::PropertySelector,
     owner: aztec::note::note_getter_options::PropertySelector,

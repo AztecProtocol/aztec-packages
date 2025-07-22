@@ -36,6 +36,7 @@ struct NoteHashAppendData {
 
 struct NoteHashTreeReadWriteEvent {
     FF note_hash;
+    FF existing_leaf_value;
     uint64_t leaf_index;
     AppendOnlyTreeSnapshot prev_snapshot;
 

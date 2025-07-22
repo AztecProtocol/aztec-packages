@@ -1,11 +1,11 @@
 use crate::{
     abis::side_effect::{Ordered, Scoped},
     address::AztecAddress,
-    constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
-    traits::{Deserialize, Empty, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Serialize},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ReadRequest {
     pub value: Field,
     pub counter: u32,
@@ -17,27 +17,9 @@ impl Ordered for ReadRequest {
     }
 }
 
-impl Eq for ReadRequest {
-    fn eq(self, read_request: ReadRequest) -> bool {
-        (self.value == read_request.value) & (self.counter == read_request.counter)
-    }
-}
-
 impl Empty for ReadRequest {
     fn empty() -> Self {
         ReadRequest { value: 0, counter: 0 }
-    }
-}
-
-impl Serialize<READ_REQUEST_LENGTH> for ReadRequest {
-    fn serialize(self) -> [Field; READ_REQUEST_LENGTH] {
-        [self.value, self.counter as Field]
-    }
-}
-
-impl Deserialize<READ_REQUEST_LENGTH> for ReadRequest {
-    fn deserialize(values: [Field; READ_REQUEST_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32 }
     }
 }
 
@@ -47,6 +29,7 @@ impl ReadRequest {
     }
 }
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ScopedReadRequest {
     pub read_request: ReadRequest,
     pub contract_address: AztecAddress,
@@ -61,37 +44,12 @@ impl Scoped<ReadRequest> for ScopedReadRequest {
     }
 }
 
-impl Eq for ScopedReadRequest {
-    fn eq(self, other: ScopedReadRequest) -> bool {
-        (self.read_request == other.read_request)
-            & (self.contract_address.eq(other.contract_address))
-    }
-}
-
 impl Empty for ScopedReadRequest {
     fn empty() -> Self {
         ScopedReadRequest {
             read_request: ReadRequest::empty(),
             contract_address: AztecAddress::empty(),
         }
-    }
-}
-
-impl Serialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
-    fn serialize(self) -> [Field; SCOPED_READ_REQUEST_LEN] {
-        self.read_request.serialize().concat([self.contract_address.to_field()])
-    }
-}
-
-impl Deserialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
-    fn deserialize(values: [Field; SCOPED_READ_REQUEST_LEN]) -> Self {
-        let mut reader = Reader::new(values);
-        let res = Self {
-            read_request: reader.read_struct(ReadRequest::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
-        };
-        reader.finish();
-        res
     }
 }
 
@@ -104,18 +62,30 @@ impl ScopedReadRequest {
     }
 }
 
-#[test]
-fn serialization_of_empty_read() {
-    let item = ReadRequest::empty();
-    let serialized = item.serialize();
-    let deserialized = ReadRequest::deserialize(serialized);
-    assert(item.eq(deserialized));
-}
+mod test {
+    use crate::{
+        abis::read_request::{ReadRequest, ScopedReadRequest},
+        constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-#[test]
-fn serialization_of_empty_scoped() {
-    let item = ScopedReadRequest::empty();
-    let serialized = item.serialize();
-    let deserialized = ScopedReadRequest::deserialize(serialized);
-    assert(item.eq(deserialized));
+    #[test]
+    fn serialization_of_empty_read_request() {
+        let item = ReadRequest::empty();
+        // We use the READ_REQUEST_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; READ_REQUEST_LENGTH] = item.serialize();
+        let deserialized = ReadRequest::deserialize(serialized);
+        assert_eq(item, deserialized);
+    }
+
+    #[test]
+    fn serialization_of_empty_scoped_read_request() {
+        let item = ScopedReadRequest::empty();
+        // We use the SCOPED_READ_REQUEST_LEN constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; SCOPED_READ_REQUEST_LEN] = item.serialize();
+        let deserialized = ScopedReadRequest::deserialize(serialized);
+        assert_eq(item, deserialized);
+    }
 }

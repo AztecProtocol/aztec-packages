@@ -2,7 +2,7 @@ use crate::{
     context::{call_interfaces::CallInterface, gas::GasOpts, PrivateContext, PublicContext},
     hash::hash_args,
     oracle::execution_cache,
-    test::helpers::cheatcodes,
+    test::helpers::txe_oracles,
 };
 use protocol_types::{
     address::AztecAddress,
@@ -11,10 +11,6 @@ use protocol_types::{
     traits::{Deserialize, Serialize},
 };
 use std::meta::derive;
-
-// The following 2 lines have been added here because derivation of Serialize and Deserialize does not handle imports
-use protocol_types::public_keys::{IvpkM, NpkM, OvpkM, TpkM};
-use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 pub struct Deployer<let N: u32, let M: u32> {
     pub path: str<N>,
@@ -31,7 +27,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     where
         C: CallInterface<P>,
     {
-        let instance = cheatcodes::deploy(
+        let instance = txe_oracles::deploy(
             self.path,
             self.name,
             call_interface.get_name(),
@@ -39,14 +35,14 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.secret,
         );
 
-        let inputs = cheatcodes::get_private_context_inputs();
+        let inputs = txe_oracles::get_private_context_inputs(Option::none());
         let mut private_context = PrivateContext::new(inputs, 0);
         let args = call_interface.get_args();
         let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };
         execution_cache::store(args, args_hash);
 
-        let previous_contract_address = cheatcodes::get_contract_address();
-        cheatcodes::set_contract_address(from);
+        let previous_contract_address = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(from);
 
         let _ = private_context.call_private_function_with_args_hash(
             instance.to_address(),
@@ -55,9 +51,9 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             call_interface.get_is_static(),
         );
 
-        cheatcodes::set_contract_address(previous_contract_address);
+        txe_oracles::set_contract_address(previous_contract_address);
 
-        cheatcodes::advance_blocks_by(1);
+        txe_oracles::advance_blocks_by(1);
 
         instance
     }
@@ -70,7 +66,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     where
         C: CallInterface<P>,
     {
-        let instance = cheatcodes::deploy(
+        let instance = txe_oracles::deploy(
             self.path,
             self.name,
             call_interface.get_name(),
@@ -80,8 +76,8 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 
         let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        let previous_contract_address = cheatcodes::get_contract_address();
-        cheatcodes::set_contract_address(from);
+        let previous_contract_address = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(from);
 
         let results = public_context.call_public_function(
             instance.to_address(),
@@ -91,9 +87,9 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         );
         assert(results.len() == 0);
 
-        cheatcodes::set_contract_address(previous_contract_address);
+        txe_oracles::set_contract_address(previous_contract_address);
 
-        cheatcodes::advance_blocks_by(1);
+        txe_oracles::advance_blocks_by(1);
 
         instance
     }
@@ -105,9 +101,9 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     ) -> ContractInstance
     where
         C: CallInterface<P>,
-        T: Deserialize<_>,
+        T: Deserialize,
     {
-        let instance = cheatcodes::deploy(
+        let instance = txe_oracles::deploy(
             self.path,
             self.name,
             call_interface.get_name(),
@@ -117,8 +113,8 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 
         let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
 
-        let previous_contract_address = cheatcodes::get_contract_address();
-        cheatcodes::set_contract_address(from);
+        let previous_contract_address = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(from);
 
         let _ = public_context.call_public_function(
             instance.to_address(),
@@ -126,15 +122,15 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             call_interface.get_args(),
             GasOpts::default(),
         );
-        cheatcodes::set_contract_address(previous_contract_address);
+        txe_oracles::set_contract_address(previous_contract_address);
 
-        cheatcodes::advance_blocks_by(1);
+        txe_oracles::advance_blocks_by(1);
 
         instance
     }
 
     pub unconstrained fn without_initializer(self) -> ContractInstance {
-        cheatcodes::deploy(self.path, self.name, "", &[], self.secret)
+        txe_oracles::deploy(self.path, self.name, "", &[], self.secret)
     }
 }
 

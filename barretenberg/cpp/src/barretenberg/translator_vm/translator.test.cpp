@@ -48,6 +48,30 @@ class TranslatorTests : public ::testing::Test {
 } // namespace
 
 /**
+ * @brief Check that size of a Translator proof matches the corresponding constant
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in translator_flavor.hpp, etc...
+ * - translator_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
+ */
+TEST_F(TranslatorTests, ProofLengthCheck)
+{
+    using Fq = fq;
+
+    auto prover_transcript = std::make_shared<Transcript>();
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
+
+    // Generate a circuit and its verification key (computed at runtime from the proving key)
+    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+
+    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+    TranslatorProver prover{ proving_key, prover_transcript };
+    auto proof = prover.construct_proof();
+    EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+}
+
+/**
  * @brief Test simple circuit with public inputs
  *
  */

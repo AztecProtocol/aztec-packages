@@ -1,22 +1,12 @@
-use crate::{
-    constants::EPOCH_CONSTANT_DATA_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
-};
+use crate::{constants::EPOCH_CONSTANT_DATA_LENGTH, traits::{Deserialize, Empty, Serialize}};
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct EpochConstantData {
     // TODO: Move chain_id and version to here.
     pub vk_tree_root: Field,
     pub protocol_contract_tree_root: Field,
     pub prover_id: Field,
-}
-
-impl Eq for EpochConstantData {
-    fn eq(self, other: EpochConstantData) -> bool {
-        self.vk_tree_root.eq(other.vk_tree_root)
-            & self.protocol_contract_tree_root.eq(other.protocol_contract_tree_root)
-            & self.prover_id.eq(other.prover_id)
-    }
 }
 
 impl Empty for EpochConstantData {
@@ -25,38 +15,13 @@ impl Empty for EpochConstantData {
     }
 }
 
-impl Serialize<EPOCH_CONSTANT_DATA_LENGTH> for EpochConstantData {
-    fn serialize(self) -> [Field; EPOCH_CONSTANT_DATA_LENGTH] {
-        let mut fields: BoundedVec<Field, EPOCH_CONSTANT_DATA_LENGTH> = BoundedVec::new();
-
-        fields.push(self.vk_tree_root);
-        fields.push(self.protocol_contract_tree_root);
-        fields.push(self.prover_id);
-
-        assert_eq(fields.len(), EPOCH_CONSTANT_DATA_LENGTH);
-
-        fields.storage()
-    }
-}
-
-impl Deserialize<EPOCH_CONSTANT_DATA_LENGTH> for EpochConstantData {
-    fn deserialize(fields: [Field; EPOCH_CONSTANT_DATA_LENGTH]) -> EpochConstantData {
-        let mut reader = Reader::new(fields);
-        let item = Self {
-            vk_tree_root: reader.read(),
-            protocol_contract_tree_root: reader.read(),
-            prover_id: reader.read(),
-        };
-
-        reader.finish();
-        item
-    }
-}
-
 #[test]
-fn serialization_of_empty_epoch_constant_data() {
-    let item = EpochConstantData::empty();
-    let serialized = item.serialize();
+fn serialization_of_epoch_constant_data() {
+    let item =
+        EpochConstantData { vk_tree_root: 123, protocol_contract_tree_root: 456, prover_id: 789 };
+    // We use the EPOCH_CONSTANT_DATA_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; EPOCH_CONSTANT_DATA_LENGTH] = item.serialize();
     let deserialized = EpochConstantData::deserialize(serialized);
     assert(item.eq(deserialized));
 }

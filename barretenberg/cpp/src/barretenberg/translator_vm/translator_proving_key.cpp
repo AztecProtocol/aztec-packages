@@ -5,6 +5,7 @@
 // =====================
 
 #include "translator_proving_key.hpp"
+#include "barretenberg/common/assert.hpp"
 namespace bb {
 /**
  * @brief Construct a set of polynomials that are the result of interleaving a group of polynomials into one. Used in
@@ -31,12 +32,12 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
     auto targets = proving_key->polynomials.get_interleaved();
 
     const size_t num_polys_in_group = interleaved[0].size();
-    ASSERT(num_polys_in_group == Flavor::INTERLEAVING_GROUP_SIZE);
+    BB_ASSERT_EQ(num_polys_in_group, Flavor::INTERLEAVING_GROUP_SIZE);
 
     // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
     // dividing by the number of polynomials in the group
     const size_t MINI_CIRCUIT_SIZE = targets[0].size() / num_polys_in_group;
-    ASSERT(MINI_CIRCUIT_SIZE * num_polys_in_group == targets[0].size());
+    BB_ASSERT_EQ(MINI_CIRCUIT_SIZE * num_polys_in_group, targets[0].size());
 
     auto ordering_function = [&](size_t index) {
         // Get the index of the interleaved polynomial
@@ -137,7 +138,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
         // from Montgomery
         std::sort(ordered_vectors_uint.begin(), ordered_vectors_uint.end());
-        ASSERT(ordered_vectors_uint.size() == dyadic_circuit_size_without_masking);
+        BB_ASSERT_EQ(ordered_vectors_uint.size(), dyadic_circuit_size_without_masking);
         // Copy the values into the actual polynomial
         ordered_constraint_polynomials[i].copy_vector(ordered_vectors_uint);
     };
@@ -221,7 +222,8 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
     // configurations ensure this still remain within boundaries of the polynomial size otherwise the assignment would
     // fail.
     size_t index_into_random = num_ordered_polynomials * num_random_values_per_ordered;
-    ASSERT(remaining_random_values < num_ordered_polynomials && end < ordered[0].end_index());
+    BB_ASSERT_LT(remaining_random_values, num_ordered_polynomials);
+    BB_ASSERT_LT(end, ordered[0].end_index());
     for (size_t i = 0; i < remaining_random_values; i++) {
         ordered[i].at(end) = random_values[index_into_random];
         index_into_random++;

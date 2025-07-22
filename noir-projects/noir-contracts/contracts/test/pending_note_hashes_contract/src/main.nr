@@ -45,7 +45,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -88,7 +88,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     // Nested/inner function to create and insert a note
@@ -102,7 +102,7 @@ pub contract PendingNoteHashes {
         note.randomness = 2;
 
         // Insert note
-        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     // Nested/inner function to create and insert a note
@@ -116,10 +116,10 @@ pub contract PendingNoteHashes {
         // Insert note
         let emission = owner_balance.insert(note);
 
-        emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
+        emission.emit(encode_and_encrypt_note(&mut context, owner));
 
         // Emit note again
-        emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
+        emission.emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -334,7 +334,7 @@ pub contract PendingNoteHashes {
         let good_note = ValueNote::new(10, owner);
         // Insert good note with real log
         let good_note_emission = owner_balance.insert(good_note);
-        good_note_emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
+        good_note_emission.emit(encode_and_encrypt_note(&mut context, owner));
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
         // This note has not been inserted...
@@ -345,7 +345,7 @@ pub contract PendingNoteHashes {
             good_note_emission.note_hash_counter,
         );
 
-        bad_note_emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
+        bad_note_emission.emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     #[contract_library_method]
@@ -359,7 +359,7 @@ pub contract PendingNoteHashes {
 
         for i in 0..max_notes_per_call() {
             let note = ValueNote::new(i as Field, owner);
-            owner_balance.insert(note).emit(encode_and_encrypt_note(context, owner, sender));
+            owner_balance.insert(note).emit(encode_and_encrypt_note(context, owner));
         }
     }
 

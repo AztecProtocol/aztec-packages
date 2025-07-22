@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/numeric/bitop/count_leading_zeros.hpp"
 #include "barretenberg/numeric/bitop/keep_n_lsb.hpp"
@@ -121,7 +122,8 @@ MerkleTree<Store, HashingPolicy>::MerkleTree(Store& store, size_t depth, uint8_t
     , depth_(depth)
     , tree_id_(tree_id)
 {
-    ASSERT(depth_ >= 1 && depth <= 256);
+    BB_ASSERT_GTE(depth_, 1U);
+    BB_ASSERT_LTE(depth, 256U);
     zero_hashes_.resize(depth);
 
     // Compute the zero values at each layer.
@@ -184,8 +186,9 @@ fr_hash_path MerkleTree<Store, HashingPolicy>::get_hash_path(index_t index)
             status = store_.get(std::vector<uint8_t>(it, it + 32), data);
         } else {
             // This is a stump. The hash path can be fully restored from this node.
-            // In case of a stump, we store: [key : (value, local_index, true)], i.e. 65-byte data.
-            ASSERT(data.size() == STUMP_NODE_SIZE);
+            BB_ASSERT_EQ(data.size(),
+                         STUMP_NODE_SIZE,
+                         "We store: [key : (value, local_index, true)], i.e. 65-byte data, in a thump.");
             fr current = from_buffer<fr>(data, 0);
             index_t element_index = from_buffer<index_t>(data, 32);
             index_t subtree_index = numeric::keep_n_lsb(index, i + 1);
@@ -256,7 +259,7 @@ fr_sibling_path MerkleTree<Store, HashingPolicy>::get_sibling_path(index_t index
         } else {
             // This is a stump. The sibling path can be fully restored from this node.
             // In case of a stump, we store: [key : (value, local_index, true)], i.e. 65-byte data.
-            ASSERT(data.size() == STUMP_NODE_SIZE);
+            BB_ASSERT_EQ(data.size(), STUMP_NODE_SIZE);
             fr current = from_buffer<fr>(data, 0);
             index_t element_index = from_buffer<index_t>(data, 32);
             index_t subtree_index = numeric::keep_n_lsb(index, i + 1);
@@ -383,8 +386,7 @@ fr MerkleTree<Store, HashingPolicy>::update_element(fr const& root, fr const& va
 
         return fork_stump(existing_value, existing_index, value, index, height, common_height);
     } else {
-        // If its not a stump, the data size must be 64 bytes.
-        ASSERT(data.size() == REGULAR_NODE_SIZE);
+        BB_ASSERT_EQ(data.size(), REGULAR_NODE_SIZE, "If it's not a stump, the data size must be 64 bytes.");
         bool is_right = bit_set(index, height - 1);
         fr subtree_root = from_buffer<fr>(data, is_right ? 32 : 0);
         fr subtree_root_copy = subtree_root;

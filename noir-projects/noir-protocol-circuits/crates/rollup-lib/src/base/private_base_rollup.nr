@@ -14,7 +14,8 @@ use crate::{
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
-        contract_class_log::ContractClassLog, log::Log, public_data_write::PublicDataWrite,
+        contract_class_log::ContractClassLog, log::Log,
+        partial_state_reference::PartialStateReference, public_data_write::PublicDataWrite,
         public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
@@ -27,7 +28,6 @@ use dep::types::{
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
-    partial_state_reference::PartialStateReference,
     traits::{Empty, Hash},
 };
 
@@ -207,7 +207,8 @@ mod tests {
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             block_constant_data::BlockConstantData, gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            partial_state_reference::PartialStateReference, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
         address::AztecAddress,
@@ -224,7 +225,6 @@ mod tests {
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
-        partial_state_reference::PartialStateReference,
         tests::{
             fixture_builder::FixtureBuilder,
             fixtures::{self, merkle_tree::generate_full_sha_tree},

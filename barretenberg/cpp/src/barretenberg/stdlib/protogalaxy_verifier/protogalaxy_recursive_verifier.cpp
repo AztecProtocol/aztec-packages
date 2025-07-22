@@ -5,6 +5,7 @@
 // =====================
 
 #include "protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
@@ -13,33 +14,25 @@
 namespace bb::stdlib::recursion::honk {
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_one_incomplete_key(
-    const std::shared_ptr<DeciderVK>& key, std::string& domain_separator)
-{
-    OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
-    oink_verifier.verify();
-}
-
-template <class DeciderVerificationKeys>
 void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
     const std::vector<FF>& proof)
 {
+    BB_ASSERT_EQ(keys_to_fold.NUM, 2UL, "Protogalaxy only supports folding 2 instances.");
     transcript->load_proof(proof);
-    size_t index = 0;
     auto key = keys_to_fold[0];
-    auto domain_separator = std::to_string(index);
+    auto domain_separator = std::to_string(0);
     if (!key->is_accumulator) {
-        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
+        OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
+        oink_verifier.verify();
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
-    index++;
 
-    for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, index++) {
-        auto key = *it;
-        auto domain_separator = std::to_string(index);
-        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
-    }
+    key = keys_to_fold[1];
+    domain_separator = std::to_string(1);
+    OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
+    oink_verifier.verify();
+    public_inputs = std::move(oink_verifier.public_inputs);
 }
 
 template <class DeciderVerificationKeys>
@@ -120,12 +113,12 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     std::vector<Commitment> accumulator_commitments;
     std::vector<Commitment> instance_commitments;
     for (const auto& precomputed : keys_to_fold.get_precomputed_commitments()) {
-        ASSERT(precomputed.size() == 2);
+        BB_ASSERT_EQ(precomputed.size(), 2U);
         accumulator_commitments.emplace_back(precomputed[0]);
         instance_commitments.emplace_back(precomputed[1]);
     }
     for (const auto& witness : keys_to_fold.get_witness_commitments()) {
-        ASSERT(witness.size() == 2);
+        BB_ASSERT_EQ(witness.size(), 2U);
         accumulator_commitments.emplace_back(witness[0]);
         instance_commitments.emplace_back(witness[1]);
     }
@@ -185,9 +178,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
-    auto [accumulator_circuit_size, accumulator_log_circuit_size] = keys_to_fold.get_max_circuit_size_and_log_size();
+    FF accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
     accumulator->vk_and_hash->vk->log_circuit_size = accumulator_log_circuit_size;
-    accumulator->vk_and_hash->vk->circuit_size = accumulator_circuit_size;
 
     // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {

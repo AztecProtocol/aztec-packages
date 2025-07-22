@@ -7,7 +7,6 @@ import {
   type BasicValue,
   type ContractArtifact,
   ContractArtifactSchema,
-  type ContractNote,
   type FieldLayout,
   type FunctionAbi,
   type FunctionArtifact,
@@ -277,52 +276,6 @@ function getStorageLayout(input: NoirCompiledContract) {
 }
 
 /**
- * Generates records of the notes with note type ids of the artifact.
- * @param input - The compiled noir contract to get note types for
- * @return A record of the note types and their ids
- */
-function getNoteTypes(input: NoirCompiledContract) {
-  // The type is useless here as it does not give us any guarantee (e.g. `AbiValue` can be one of many different
-  // types) so we nuke it and later we manually check the values are as we expect.
-  const notes = input.outputs.globals.notes as any[];
-
-  if (!notes) {
-    return {};
-  }
-
-  return notes.reduce((acc: Record<string, Omit<ContractNote, 'id'> & { id: string }>, note) => {
-    const noteFields = note.fields;
-
-    // We find note type id by looking for respective kinds as each of them is unique
-    const rawNoteTypeId = noteFields.find((field: any) => field.kind === 'integer');
-    const rawName = noteFields.find((field: any) => field.kind === 'string');
-    const rawNoteFields = noteFields.find((field: any) => field.kind === 'struct');
-
-    if (!rawNoteTypeId || !rawName || !rawNoteFields) {
-      throw new Error(`Could not find note type id, name or fields for note ${note}`);
-    }
-
-    const noteTypeId = rawNoteTypeId.value as string;
-    const name = rawName.value as string;
-
-    // Note type id is encoded as a hex string
-    const fields = rawNoteFields.fields.map((field: any) => {
-      return {
-        name: field.name,
-        index: parseInt(field.value.fields[0].value.value, 16),
-        nullable: field.value.fields[1].value.value,
-      };
-    });
-    acc[name] = {
-      id: noteTypeId,
-      typ: name,
-      fields,
-    };
-    return acc;
-  }, {});
-}
-
-/**
  * Given a Nargo output generates an Aztec-compatible contract artifact.
  * Does not include public bytecode, apart from the public_dispatch function.
  * @param compiled - Noir build output.
@@ -338,7 +291,6 @@ function generateContractArtifact(contract: NoirCompiledContract): ContractArtif
         .map(f => generateFunctionAbi(f, contract)),
       outputs: contract.outputs,
       storageLayout: getStorageLayout(contract),
-      notes: getNoteTypes(contract),
       fileMap: contract.file_map,
     });
   } catch (err) {
@@ -362,7 +314,6 @@ function generateContractArtifactForPublic(contract: NoirCompiledContract): Cont
         .map(f => generateFunctionAbi(f, contract)),
       outputs: contract.outputs,
       storageLayout: getStorageLayout(contract),
-      notes: getNoteTypes(contract),
       fileMap: contract.file_map,
     });
   } catch (err) {

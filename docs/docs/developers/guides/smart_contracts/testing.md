@@ -209,10 +209,6 @@ For example:
 
 #include_code fail_with_message /noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr rust
 
-You can also use the `assert_public_call_fails` or `assert_private_call_fails` methods on the `TestEnvironment` to check that a call fails.
-
-#include_code assert_public_fail /noir-projects/noir-contracts/contracts/app/token_contract/src/test/access_control.nr rust
-
 ### Logging
 
 You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../reference/debugging/index.md)

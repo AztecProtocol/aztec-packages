@@ -14,8 +14,8 @@ use dep::std::mem::zeroed;
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
 // Owner of the tokens provides a "secret_hash" as an argument to the public "shield" function and then the tokens
 // can be redeemed in private by presenting the preimage of the "secret_hash" (the secret).
+#[derive(Eq, Packable)]
 #[custom_note]
-#[derive(Eq)]
 pub struct TransparentNote {
     amount: u128,
     secret_hash: Field,

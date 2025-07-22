@@ -48,8 +48,6 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->vk_and_hash->vk->log_circuit_size);
 
-    constrain_log_circuit_size(padding_indicator_array, accumulator->vk_and_hash->vk->circuit_size);
-
     Sumcheck sumcheck(transcript, accumulator->alphas, accumulator->target_sum);
 
     SumcheckOutput<Flavor> output =

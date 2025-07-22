@@ -38,6 +38,9 @@ class Goblin {
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
+    using SubtableCommitments = MergeVerifier::SubtableWitnessCommitments;
+    using RecursiveSubtableCommitments = MergeRecursiveVerifier::SubtableWitnessCommitments;
+    using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<MegaBuilder>>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
@@ -91,27 +94,33 @@ class Goblin {
      * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param t_commitments The commitments to the subtable for which the merge is being verified.
+     * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the
+     * transcript by the PG verifier with which the Merge verifier shares a transcript
+     * @param merged_table_commitment The commitment to the merged table as read from the proof
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return PairingPoints
      */
     PairingPoints recursively_verify_merge(
         MegaBuilder& builder,
-        const RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+        const RecursiveSubtableCommitments& subtable_commitments,
+        std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
         const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
      *
      * @param proof
-     * @param t_commitments // The commitments to the subtable for which the merge is being verified
+     * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the
+     * transcript by the PG verifier with which the Merge verifier shares a transcript
+     * @param merged_table_commitment The commitment to the merged table as read from the proof
      * @param transcript
      *
      * @return true
      * @return false
      */
     static bool verify(const GoblinProof& proof,
-                       const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+                       const SubtableCommitments& subtable_commitments,
+                       std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
                        const std::shared_ptr<Transcript>& transcript);
 };
 

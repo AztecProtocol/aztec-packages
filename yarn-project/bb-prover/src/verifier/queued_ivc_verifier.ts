@@ -100,6 +100,9 @@ class IVCVerifierMetrics {
       [this.localHistogramOk, true],
       [this.localHistogramFails, false],
     ] as const) {
+      if (histogram.count === 0) {
+        continue;
+      }
       res.observe(this.aggDurationMetrics.avg, histogram.mean, { [Attributes.OK]: ok });
       res.observe(this.aggDurationMetrics.max, histogram.max, { [Attributes.OK]: ok });
       res.observe(this.aggDurationMetrics.min, histogram.min, { [Attributes.OK]: ok });

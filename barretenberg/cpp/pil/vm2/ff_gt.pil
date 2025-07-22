@@ -16,6 +16,25 @@ include "./range_check.pil";
 // +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+---------------+
 //
 // This trace should be looked up with the tuple (a,b,result,sel_gt)
+
+// This gadget provides a second functionality: Canonical decomposition of a field element into two 128-bit limbs.
+// This consists in proving that a = a_lo + 2^128 * a_hi is a 128-bit decomposition of a which does not overflow p.
+// This corresponds to the first 2 rows of the table above.
+// Note that the first 4 rows of GT computation consists in such a canonical decomposition over a and b.
+
+// Usage for GT:
+//
+// sel_caller { a, b, result }
+// in
+// ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+//
+// Usage for Canonical decomposition:
+//
+// sel_caller { a, lo, hi }
+// in
+// ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo, ff_gt.a_hi };
+
+
 namespace ff_gt;
     pol commit sel;
     sel * (1 - sel) = 0;
@@ -33,6 +52,12 @@ namespace ff_gt;
     // This will be off when doing the shifts for the remaning range constraints.
     pol commit sel_gt;
     sel_gt * (1 - sel_gt) = 0;
+    pol commit sel_dec;
+    sel_dec * (1 - sel_dec) = 0;
+
+    pol SEL_START = sel_gt + sel_dec; // First row of the computation.
+    // Note that sel_gt and sel_dec are mutually exclusive due to different counters.
+    // Namely, #[SET_RNG_CTR_GT] and #[SET_RNG_CTR_DEC] below are mutually exclusive.
 
     // TODO: Commited because lookups don't support constants
     pol commit constant_128;
@@ -48,7 +73,7 @@ namespace ff_gt;
     pol commit a_hi;
 
     #[A_DECOMPOSITION]
-    sel_gt * (a - (a_lo + POW_128 * a_hi)) = 0;
+    SEL_START * (a - (a_lo + POW_128 * a_hi)) = 0;
 
     // We only do 2 range checks per row.
     // We'll shift the other 8 range checks necessary in 4 rows after the sel_gt one.
@@ -68,9 +93,9 @@ namespace ff_gt;
     pol commit p_sub_a_hi; // p_hi - a_hi
 
     #[P_SUB_A_LO]
-    sel_gt * (p_sub_a_lo - (P_LO - a_lo - 1 + p_a_borrow * POW_128)) = 0;
+    SEL_START * (p_sub_a_lo - (P_LO - a_lo - 1 + p_a_borrow * POW_128)) = 0;
     #[P_SUB_A_HI]
-    sel_gt * (p_sub_a_hi - (P_HI - a_hi - p_a_borrow)) = 0;
+    SEL_START * (p_sub_a_hi - (P_HI - a_hi - p_a_borrow)) = 0;
 
     // ========= B DECOMPOSITION =========
 
@@ -179,12 +204,16 @@ namespace ff_gt;
     // Each call to GT requires 5x 256-bit range checks. We keep track of how many are left here.
     pol commit cmp_rng_ctr;
 
-    // if this row is a comparison operation, the next range_check_remaining value is set to 5
-    #[SET_RNG_CTR]
+    // if this row is a comparison operation, we need 4 additional rows (5 rows of 2 128-bit range checks)
+    #[RNG_CTR_GT_INIT]
     sel_gt * (cmp_rng_ctr - 4) = 0;
 
+    // if this row is a canonical decomposition operation, we need 1 additional row (2 rows of 2 128-bit range checks)
+    #[RNG_CTR_DEC_INIT]
+    sel_dec * (cmp_rng_ctr - 1) = 0;
+
     // the number of range checks must decrement by 1 until it is equal to 0;
-    #[SUB_RNG_CTR]
+    #[RNG_CTR_DECREMENT]
     cmp_rng_ctr * (cmp_rng_ctr - 1 - cmp_rng_ctr') = 0;
 
     pol commit sel_shift_rng;
@@ -212,7 +241,8 @@ namespace ff_gt;
     (p_sub_b_hi' - res_hi) * sel_shift_rng = 0;
 
     // ========= SELECTOR =========
-    // Selector should be on on the whole 5 rows that are required for the gt operations + range checks.
-    // So if sel_gt is on, sel should be on, but also if the previous one had sel_shift_rng on.
+    // Selector should be on on the whole 5 (resp. 2) rows that are required for the gt
+    // (resp. canonical decomposition) operations + range checks.
+    // So if sel_gt or sel_dec is on, sel should be on, but also if the previous one had sel_shift_rng on.
     #[SEL_CONSISTENCY]
-    sel_shift_rng + sel_gt' - sel' = 0;
+    sel_shift_rng + (sel_gt' + sel_dec') - sel' = 0;

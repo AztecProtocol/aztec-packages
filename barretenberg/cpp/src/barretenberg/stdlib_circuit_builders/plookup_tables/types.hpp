@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "./fixed_base/fixed_base_params.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
 namespace bb::plookup {
@@ -323,13 +325,8 @@ struct LookupHashTable {
     Value operator[](const Key& key) const
     {
         auto it = index_map.find(key);
-        if (it != index_map.end()) {
-            return it->second;
-        } else {
-            info("LookupHashTable: Key not found!");
-            ASSERT(false);
-            return 0;
-        }
+        ASSERT(it != index_map.end(), "LookupHashTable: Key not found!");
+        return it->second;
     }
 
     bool operator==(const LookupHashTable& other) const = default;
@@ -389,7 +386,8 @@ struct BasicTable {
 
     size_t size() const
     {
-        ASSERT(column_1.size() == column_2.size() && column_2.size() == column_3.size());
+        BB_ASSERT_EQ(column_1.size(), column_2.size());
+        BB_ASSERT_EQ(column_2.size(), column_3.size());
         return column_1.size();
     }
 };

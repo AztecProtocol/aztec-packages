@@ -5,8 +5,10 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
+#include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -256,9 +258,7 @@ void update_subtree_membership(field_t<Builder> const& new_root,
  */
 template <typename Builder> field_t<Builder> compute_tree_root(std::vector<field_t<Builder>> const& input)
 {
-    // Check if the input vector size is a power of 2.
-    ASSERT(input.size() > 0);
-    ASSERT(!(input.size() & (input.size() - 1)) == true);
+    ASSERT(numeric::is_power_of_two(input.size()), "Check if the input vector size is a power of 2.");
     auto layer = input;
     while (layer.size() > 1) {
         std::vector<field_t<Builder>> next_layer(layer.size() / 2);

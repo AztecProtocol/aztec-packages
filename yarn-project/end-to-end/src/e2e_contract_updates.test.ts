@@ -10,9 +10,13 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import {
+  DelayedPublicMutableValuesWithHash,
+  ScheduledDelayChange,
+  ScheduledValueChange,
+} from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import { setup } from './fixtures/utils.js';
@@ -41,7 +45,10 @@ describe('e2e_contract_updates', () => {
       deployer,
     });
 
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), predictedInstance.address);
+    const delayedPublicMutableSlot = await deriveStorageSlotInMap(
+      new Fr(UPDATED_CLASS_IDS_SLOT),
+      predictedInstance.address,
+    );
 
     const leaves: PublicDataTreeLeaf[] = [];
 
@@ -56,9 +63,9 @@ describe('e2e_contract_updates', () => {
 
     const valueChange = ScheduledValueChange.empty(1);
     const delayChange = new ScheduledDelayChange(undefined, DEFAULT_TEST_UPDATE_DELAY, 0n);
-    const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
+    const delayedPublicMutableValuesWithHash = new DelayedPublicMutableValuesWithHash(valueChange, delayChange);
 
-    await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);
+    await delayedPublicMutableValuesWithHash.writeToTree(delayedPublicMutableSlot, writeToTree);
 
     return leaves;
   };

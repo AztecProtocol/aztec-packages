@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/tracegen/lib/get_contract_instance_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
@@ -294,11 +295,12 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                       i < exec_instruction_spec.num_addresses ? 1 : 0);
         }
 
-        // Gadget / Subtrace Selectors
+        // Gadget / Subtrace Selectors / Decomposable selectors
         auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { { { C::precomputed_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
-                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
+                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                      { C::precomputed_dyn_gas_id, exec_instruction_spec.dyn_gas_id } } });
     }
 }
 
@@ -566,6 +568,27 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
                       { C::precomputed_is_l2gasleft, envvar_spec.is_l2gasleft ? 1 : 0 },
                       { C::precomputed_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
                       { C::precomputed_out_tag, envvar_spec.out_tag },
+                  } });
+    }
+}
+
+/**
+ * See `opcodes/get_contract_instance.pil` for an ascii version of this table.
+ */
+void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer& trace)
+{
+    using C = Column;
+
+    // Set valid rows based on the precomputed table
+    for (uint8_t enum_value = 0; enum_value <= static_cast<uint8_t>(ContractInstanceMember::MAX); enum_value++) {
+        const auto& spec = GetContractInstanceSpec::get_table(enum_value);
+
+        trace.set(static_cast<uint32_t>(enum_value),
+                  { {
+                      { C::precomputed_is_valid_member_enum, spec.is_valid_member_enum ? 1 : 0 },
+                      { C::precomputed_is_deployer, spec.is_deployer ? 1 : 0 },
+                      { C::precomputed_is_class_id, spec.is_class_id ? 1 : 0 },
+                      { C::precomputed_is_init_hash, spec.is_init_hash ? 1 : 0 },
                   } });
     }
 }

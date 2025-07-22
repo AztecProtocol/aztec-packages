@@ -191,7 +191,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   public async runRandomNodesQuery(): Promise<void> {
     if (this.currentState !== PeerDiscoveryState.RUNNING) {
-      throw new Error('DiscV5Service not running');
+      return;
     }
 
     // First, wait some time before starting the peer discovery
@@ -229,6 +229,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async stop(): Promise<void> {
+    if (this.currentState !== PeerDiscoveryState.RUNNING) {
+      return;
+    }
     await this.discv5.off(Discv5Event.DISCOVERED, this.handlers.onDiscovered);
     await this.discv5.off(Discv5Event.ENR_ADDED, this.handlers.onEnrAdded);
     await this.discv5.off(Discv5Event.MULTIADDR_UPDATED, this.handlers.onMultiaddrUpdated);

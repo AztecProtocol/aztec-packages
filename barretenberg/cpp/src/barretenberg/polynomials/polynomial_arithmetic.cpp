@@ -884,7 +884,7 @@ void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
     // First compute X_i^n (which forms a multiplicative subgroup of order k)
     size_t log2_subgroup_size = target_domain.log2_size - src_domain.log2_size; // log_2(k)
     size_t subgroup_size = 1UL << log2_subgroup_size;                           // k
-    ASSERT(target_domain.log2_size >= src_domain.log2_size);
+    BB_ASSERT_GTE(target_domain.log2_size, src_domain.log2_size);
     Fr subgroup_roots[subgroup_size];
     compute_multiplicative_subgroup(log2_subgroup_size, src_domain, &subgroup_roots[0]);
 
@@ -951,7 +951,7 @@ void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
     // i.e. the 4th roots of unity
     size_t log2_subgroup_size = target_domain.log2_size - src_domain.log2_size;
     size_t subgroup_size = 1UL << log2_subgroup_size;
-    ASSERT(target_domain.log2_size >= src_domain.log2_size);
+    BB_ASSERT_GTE(target_domain.log2_size, src_domain.log2_size);
 
     Fr* subgroup_roots = new Fr[subgroup_size];
     compute_multiplicative_subgroup(log2_subgroup_size, src_domain, &subgroup_roots[0]);
@@ -1176,7 +1176,7 @@ void compress_fft(const Fr* src, Fr* dest, const size_t cur_size, const size_t c
 {
     // iterate from top to bottom, allows `dest` to overlap with `src`
     size_t log2_compress_factor = (size_t)numeric::get_msb(compress_factor);
-    ASSERT(1UL << log2_compress_factor == compress_factor);
+    BB_ASSERT_EQ(1UL << log2_compress_factor, compress_factor);
     size_t new_size = cur_size >> log2_compress_factor;
     for (size_t i = 0; i < new_size; ++i) {
         Fr::__copy(src[i << log2_compress_factor], dest[i]);

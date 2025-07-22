@@ -203,7 +203,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     auto manifest_expected = TestFixture::construct_mega_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
-    ASSERT(manifest_expected.size() > 0);
+    ASSERT_GT(manifest_expected.size(), 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
             info("Prover manifest discrepency in round ", round);
@@ -211,7 +211,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
             prover_manifest[round].print();
             info("Expected manifest:");
             manifest_expected[round].print();
-            ASSERT(false);
+            FAIL();
         }
     }
 }
@@ -251,13 +251,13 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     auto verifier_manifest = verifier.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
-    ASSERT(prover_manifest.size() > 0);
+    ASSERT_GT(prover_manifest.size(), 0);
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         if (prover_manifest[round] != verifier_manifest[round]) {
             info("Prover/Verifier manifest discrepency in round ", round);
             prover_manifest[round].print();
             verifier_manifest[round].print();
-            ASSERT(false);
+            FAIL();
         }
     }
 }
@@ -334,23 +334,4 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
         EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
     }
-}
-
-TYPED_TEST(MegaTranscriptTests, ProofLengthTest)
-{
-    using Flavor = TypeParam;
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    auto builder = typename Flavor::CircuitBuilder();
-    TestFixture::generate_test_circuit(builder);
-
-    // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_EQ(proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
 }

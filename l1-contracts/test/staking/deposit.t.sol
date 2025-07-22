@@ -49,7 +49,7 @@ contract DepositTest is StakingBase {
   }
 
   modifier givenCallerHasSufficientFunds() {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     _;
   }
 
@@ -63,7 +63,7 @@ contract DepositTest is StakingBase {
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
     staking.flushEntryQueue();
 
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), type(uint256).max);
 
     // Now reset the next flushable epoch to 0

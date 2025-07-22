@@ -10,7 +10,7 @@ use crate::context::{
 };
 use crate::hash::{hash_args, hash_calldata};
 use crate::oracle::execution_cache;
-use crate::test::helpers::cheatcodes;
+use crate::test::helpers::txe_oracles;
 
 pub trait CallInterface<let N: u32> {
     fn get_args(self) -> [Field];
@@ -22,7 +22,7 @@ pub trait CallInterface<let N: u32> {
 
 // PrivateCallInterface
 
-pub struct PrivateCallInterface<let M: u32, T, let N: u32> {
+pub struct PrivateCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -32,9 +32,9 @@ pub struct PrivateCallInterface<let M: u32, T, let N: u32> {
     is_static: bool,
 }
 
-impl<let M: u32, T, let N: u32> PrivateCallInterface<M, T, N>
+impl<let M: u32, T> PrivateCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     pub fn new(
         target_contract: AztecAddress,
@@ -79,7 +79,7 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PrivateCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -103,7 +103,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateCallInterface<M, T, 
 
 // PrivateVoidCallInterface
 
-pub struct PrivateVoidCallInterface<let M: u32, T, let N: u32> {
+pub struct PrivateVoidCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -113,9 +113,9 @@ pub struct PrivateVoidCallInterface<let M: u32, T, let N: u32> {
     is_static: bool,
 }
 
-impl<let M: u32, T, let N: u32> PrivateVoidCallInterface<M, T, N>
+impl<let M: u32, T> PrivateVoidCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     pub fn new(
         target_contract: AztecAddress,
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateVoidCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PrivateVoidCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -185,7 +185,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateVoidCallInterface<M,
 
 // PrivateStaticCallInterface
 
-pub struct PrivateStaticCallInterface<let M: u32, T, let N: u32> {
+pub struct PrivateStaticCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -195,7 +195,7 @@ pub struct PrivateStaticCallInterface<let M: u32, T, let N: u32> {
     is_static: bool,
 }
 
-impl<let M: u32, T, let N: u32> PrivateStaticCallInterface<M, T, N> {
+impl<let M: u32, T> PrivateStaticCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -216,7 +216,7 @@ impl<let M: u32, T, let N: u32> PrivateStaticCallInterface<M, T, N> {
 
     pub fn view(self, context: &mut PrivateContext) -> T
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         execution_cache::store(self.args, self.args_hash);
         let returns = context.call_private_function_with_args_hash(
@@ -229,7 +229,7 @@ impl<let M: u32, T, let N: u32> PrivateStaticCallInterface<M, T, N> {
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateStaticCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PrivateStaticCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -253,7 +253,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateStaticCallInterface<
 
 // PrivateStaticVoidCallInterface
 
-pub struct PrivateStaticVoidCallInterface<let M: u32, T, let N: u32> {
+pub struct PrivateStaticVoidCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -263,7 +263,7 @@ pub struct PrivateStaticVoidCallInterface<let M: u32, T, let N: u32> {
     is_static: bool,
 }
 
-impl<let M: u32, T, let N: u32> PrivateStaticVoidCallInterface<M, T, N> {
+impl<let M: u32, T> PrivateStaticVoidCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -295,7 +295,7 @@ impl<let M: u32, T, let N: u32> PrivateStaticVoidCallInterface<M, T, N> {
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateStaticVoidCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PrivateStaticVoidCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -319,7 +319,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PrivateStaticVoidCallInterf
 
 // PublicCallInterface
 
-pub struct PublicCallInterface<let M: u32, T, let N: u32> {
+pub struct PublicCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -329,9 +329,9 @@ pub struct PublicCallInterface<let M: u32, T, let N: u32> {
     is_static: bool,
 }
 
-impl<let M: u32, T, let N: u32> PublicCallInterface<M, T, N>
+impl<let M: u32, T> PublicCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     pub fn new(
         target_contract: AztecAddress,
@@ -363,7 +363,7 @@ where
             self.args,
             self.gas_opts,
         );
-        Deserialize::deserialize(returns.as_array::<N>())
+        Deserialize::deserialize(returns.as_array())
     }
 
     pub unconstrained fn view(self, context: &mut PublicContext) -> T {
@@ -373,7 +373,7 @@ where
             self.args,
             self.gas_opts,
         );
-        Deserialize::deserialize(returns.as_array::<N>())
+        Deserialize::deserialize(returns.as_array())
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
@@ -401,7 +401,7 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PublicCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PublicCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -425,7 +425,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PublicCallInterface<M, T, N
 
 // PublicVoidCallInterface
 
-pub struct PublicVoidCallInterface<let M: u32, T, let N: u32> {
+pub struct PublicVoidCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -435,7 +435,7 @@ pub struct PublicVoidCallInterface<let M: u32, T, let N: u32> {
     gas_opts: GasOpts,
 }
 
-impl<let M: u32, T, let N: u32> PublicVoidCallInterface<M, T, N> {
+impl<let M: u32, T> PublicVoidCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -515,7 +515,7 @@ impl<let M: u32, T, let N: u32> PublicVoidCallInterface<M, T, N> {
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PublicVoidCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PublicVoidCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -539,7 +539,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PublicVoidCallInterface<M, 
 
 // PublicStaticCallInterface
 
-pub struct PublicStaticCallInterface<let M: u32, T, let N: u32> {
+pub struct PublicStaticCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -549,9 +549,9 @@ pub struct PublicStaticCallInterface<let M: u32, T, let N: u32> {
     gas_opts: GasOpts,
 }
 
-impl<let M: u32, T, let N: u32> PublicStaticCallInterface<M, T, N>
+impl<let M: u32, T> PublicStaticCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     pub fn new(
         target_contract: AztecAddress,
@@ -582,7 +582,7 @@ where
             self.args,
             self.gas_opts,
         );
-        Deserialize::deserialize(returns.as_array::<N>())
+        Deserialize::deserialize(returns.as_array())
     }
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
@@ -598,7 +598,7 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PublicStaticCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PublicStaticCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -622,7 +622,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PublicStaticCallInterface<M
 
 // PublicStaticVoidCallInterface
 
-pub struct PublicStaticVoidCallInterface<let M: u32, T, let N: u32> {
+pub struct PublicStaticVoidCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -632,7 +632,7 @@ pub struct PublicStaticVoidCallInterface<let M: u32, T, let N: u32> {
     gas_opts: GasOpts,
 }
 
-impl<let M: u32, T, let N: u32> PublicStaticVoidCallInterface<M, T, N> {
+impl<let M: u32, T> PublicStaticVoidCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -678,7 +678,7 @@ impl<let M: u32, T, let N: u32> PublicStaticVoidCallInterface<M, T, N> {
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PublicStaticVoidCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PublicStaticVoidCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -702,7 +702,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PublicStaticVoidCallInterfa
 
 // UtilityCallInterface
 
-pub struct UtilityCallInterface<let M: u32, T, let N: u32> {
+pub struct UtilityCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -711,7 +711,7 @@ pub struct UtilityCallInterface<let M: u32, T, let N: u32> {
     return_type: T,
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for UtilityCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -733,7 +733,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityCallInterface<M, T, 
     }
 }
 
-impl<let M: u32, T, let N: u32> UtilityCallInterface<M, T, N> {
+impl<let M: u32, T> UtilityCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -763,7 +763,7 @@ impl<let M: u32, T, let N: u32> UtilityCallInterface<M, T, N> {
 
 // UtilityVoidCallInterface
 
-pub struct UtilityVoidCallInterface<let M: u32, T, let N: u32> {
+pub struct UtilityVoidCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -772,7 +772,7 @@ pub struct UtilityVoidCallInterface<let M: u32, T, let N: u32> {
     return_type: T,
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityVoidCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for UtilityVoidCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -794,7 +794,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityVoidCallInterface<M,
     }
 }
 
-impl<let M: u32, T, let N: u32> UtilityVoidCallInterface<M, T, N> {
+impl<let M: u32, T> UtilityVoidCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -822,16 +822,16 @@ impl<let M: u32, T, let N: u32> UtilityVoidCallInterface<M, T, N> {
     }
 }
 
-pub trait TXEPublicCallInterface<T, let N: u32> {
+pub trait TXEPublicCallInterface<T> {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field);
 }
 
-impl<let M: u32, T, let N: u32> TXEPublicCallInterface<T, N> for PublicCallInterface<M, T, N>
+impl<let M: u32, T> TXEPublicCallInterface<T> for PublicCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -845,12 +845,12 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> TXEPublicCallInterface<T, N> for PublicVoidCallInterface<M, T, N>
+impl<let M: u32, T> TXEPublicCallInterface<T> for PublicVoidCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -864,12 +864,12 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> TXEPublicCallInterface<T, N> for PublicStaticCallInterface<M, T, N>
+impl<let M: u32, T> TXEPublicCallInterface<T> for PublicStaticCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -883,12 +883,12 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> TXEPublicCallInterface<T, N> for PublicStaticVoidCallInterface<M, T, N>
+impl<let M: u32, T> TXEPublicCallInterface<T> for PublicStaticVoidCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -902,19 +902,19 @@ where
     }
 }
 
-pub trait TXEPrivateCallInterface<T, let N: u32> {
+pub trait TXEPrivateCallInterface<T> {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field);
 }
 
-impl<let M: u32, T, let N: u32> TXEPrivateCallInterface<T, N> for PrivateCallInterface<M, T, N>
+impl<let M: u32, T> TXEPrivateCallInterface<T> for PrivateCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
         let args = self.get_args();
         let args_hash = hash_args(args);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
@@ -929,16 +929,16 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> TXEPrivateCallInterface<T, N> for PrivateVoidCallInterface<M, T, N>
+impl<let M: u32, T> TXEPrivateCallInterface<T> for PrivateVoidCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
         let args = self.get_args();
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
@@ -953,16 +953,16 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> TXEPrivateCallInterface<T, N> for PrivateStaticCallInterface<M, T, N>
+impl<let M: u32, T> TXEPrivateCallInterface<T> for PrivateStaticCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
         let args = self.get_args();
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
 
-        let (_, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
@@ -977,16 +977,16 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> TXEPrivateCallInterface<T, N> for PrivateStaticVoidCallInterface<M, T, N>
+impl<let M: u32, T> TXEPrivateCallInterface<T> for PrivateStaticVoidCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
         let args = self.get_args();
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
 
-        let (_, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
@@ -1001,13 +1001,13 @@ where
     }
 }
 
-pub trait TXEUtilityCallInterface<T, let N: u32> {
+pub trait TXEUtilityCallInterface<T> {
     unconstrained fn call_with_txe(self) -> T;
 }
 
-impl<let M: u32, T, let N: u32> TXEUtilityCallInterface<T, N> for UtilityCallInterface<M, T, N>
+impl<let M: u32, T> TXEUtilityCallInterface<T> for UtilityCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self) -> T {
         let args = self.get_args();
@@ -1025,9 +1025,9 @@ where
     }
 }
 
-impl<let M: u32, T, let N: u32> TXEUtilityCallInterface<T, N> for UtilityVoidCallInterface<M, T, N>
+impl<let M: u32, T> TXEUtilityCallInterface<T> for UtilityVoidCallInterface<M, T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
     unconstrained fn call_with_txe(self) -> T {
         let args = self.get_args();

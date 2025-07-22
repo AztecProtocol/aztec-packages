@@ -1,6 +1,5 @@
 import {
   type ContractArtifact,
-  type ContractNote,
   type FieldLayout,
   type FunctionAbi,
   FunctionSelector,
@@ -27,13 +26,6 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
  */
 export type ContractStorageLayout<T extends string> = {
   [K in T]: FieldLayout;
-};
-
-/**
- * Type representing the notes used in a contract.
- */
-export type ContractNotes<T extends string> = {
-  [K in T]: ContractNote;
 };
 
 /**

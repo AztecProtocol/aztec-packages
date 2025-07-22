@@ -5,19 +5,19 @@ use dep::protocol_types::traits::{Packable, ToField};
 use std::option::Option;
 
 // docs:start:NoteViewerOptions
-pub struct NoteViewerOptions<Note, let N: u32> {
-    pub selects: BoundedVec<Option<Select>, N>,
-    pub sorts: BoundedVec<Option<Sort>, N>,
+pub struct NoteViewerOptions<Note, let M: u32> {
+    pub selects: BoundedVec<Option<Select>, M>,
+    pub sorts: BoundedVec<Option<Sort>, M>,
     pub limit: u32,
     pub offset: u32,
     pub status: u8,
 }
 // docs:end:NoteViewerOptions
 
-impl<Note, let N: u32> NoteViewerOptions<Note, N> {
-    pub fn new() -> NoteViewerOptions<Note, N>
+impl<Note, let M: u32> NoteViewerOptions<Note, M> {
+    pub fn new() -> NoteViewerOptions<Note, M>
     where
-        Note: NoteType + Packable<N>,
+        Note: NoteType + Packable<N = M>,
     {
         NoteViewerOptions {
             selects: BoundedVec::new(),

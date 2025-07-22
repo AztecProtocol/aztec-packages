@@ -15,22 +15,13 @@ export class LocalBlobSinkClient implements BlobSinkClientInterface {
     return Promise.resolve();
   }
 
-  public async sendBlobsToBlobSink(blockId: string, blobs: Blob[]): Promise<boolean> {
-    await this.blobStore.addBlobSidecars(
-      blockId,
-      blobs.map((blob, index) => new BlobWithIndex(blob, index)),
-    );
+  public async sendBlobsToBlobSink(blobs: Blob[]): Promise<boolean> {
+    const blobsWithIndex = blobs.map((blob, index) => new BlobWithIndex(blob, index));
+    await this.blobStore.addBlobs(blobsWithIndex);
     return true;
   }
 
-  public async getBlobSidecar(blockId: string, blobHashes: Buffer[], indices?: number[]): Promise<BlobWithIndex[]> {
-    const blobSidecars = await this.blobStore.getBlobSidecars(blockId, indices);
-    if (!blobSidecars) {
-      return [];
-    }
-    return blobSidecars.filter(blob => {
-      const blobHash = blob.blob.getEthVersionedBlobHash();
-      return blobHashes.some(hash => hash.equals(blobHash));
-    });
+  public getBlobSidecar(_blockId: string, blobHashes: Buffer[]): Promise<BlobWithIndex[]> {
+    return this.blobStore.getBlobsByHashes(blobHashes);
   }
 }

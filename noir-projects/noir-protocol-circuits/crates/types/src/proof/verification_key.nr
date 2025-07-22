@@ -5,43 +5,43 @@ use crate::{
     },
     traits::{Deserialize, Empty, Serialize},
 };
+use std::meta::derive;
 
+#[derive(Eq)]
 pub struct VerificationKey<let N: u32> {
     pub key: [Field; N],
     pub hash: Field,
 }
 
-impl<let N: u32> Serialize<N + 1> for VerificationKey<N> {
-    fn serialize(self) -> [Field; N + 1] {
-        let mut fields = [0; N + 1];
-        for i in 0..N {
+impl<let M: u32> Serialize for VerificationKey<M> {
+    let N: u32 = M + 1;
+
+    fn serialize(self) -> [Field; Self::N] {
+        let mut fields = [0; Self::N];
+        for i in 0..M {
             fields[i] = self.key[i];
         }
-        fields[N] = self.hash;
+        fields[M] = self.hash;
         fields
     }
 }
 
-impl<let N: u32> Deserialize<N + 1> for VerificationKey<N> {
-    fn deserialize(fields: [Field; N + 1]) -> Self {
+impl<let M: u32> Deserialize for VerificationKey<M> {
+    let N: u32 = M + 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut key = VerificationKey::empty();
-        for i in 0..N {
+        for i in 0..M {
             key.key[i] = fields[i];
         }
-        key.hash = fields[N];
+        key.hash = fields[M];
         key
     }
 }
 
-impl<let N: u32> Empty for VerificationKey<N> {
+impl<let M: u32> Empty for VerificationKey<M> {
     fn empty() -> Self {
-        VerificationKey { hash: 0, key: [0; N] }
-    }
-}
-
-impl<let N: u32> Eq for VerificationKey<N> {
-    fn eq(self, other: Self) -> bool {
-        (self.hash == other.hash) & (self.key == other.key)
+        VerificationKey { hash: 0, key: [0; M] }
     }
 }
 
@@ -49,11 +49,3 @@ pub type RollupHonkVerificationKey = VerificationKey<ROLLUP_HONK_VERIFICATION_KE
 pub type HonkVerificationKey = VerificationKey<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 pub type ClientIVCVerificationKey = VerificationKey<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 pub type AvmVerificationKey = VerificationKey<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
-
-#[test]
-fn serialization_of_empty() {
-    let key: VerificationKey<20> = VerificationKey::empty();
-    let serialized = key.serialize();
-    let deserialized = VerificationKey::deserialize(serialized);
-    assert(key.eq(deserialized));
-}

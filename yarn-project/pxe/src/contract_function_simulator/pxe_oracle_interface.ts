@@ -500,6 +500,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
         // Fetch the private logs for the tags and iterate over them
         const logsByTags = await this.#getPrivateLogsByTags(tagsForTheWholeWindow);
+        this.log.debug(`Found ${logsByTags.filter(logs => logs.length > 0).length} logs as recipient ${recipient}`, {
+          recipient,
+          contractName,
+          contractAddress,
+        });
 
         for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
           const logsByTag = logsByTags[logIndex];
@@ -519,13 +524,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
-
-            this.log.debug(`Found ${logsByTags.length} logs as recipient ${recipient}`, {
-              recipient,
-              secret: secretCorrespondingToLog.appTaggingSecret,
-              contractName,
-              contractAddress,
-            });
 
             if (
               secretCorrespondingToLog.index >= initialIndex &&

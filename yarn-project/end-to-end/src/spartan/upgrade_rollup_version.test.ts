@@ -1,6 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type NodeInfo, type PXE, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
 import {
+  DefaultL1ContractsConfig,
   type L1ContractAddresses,
   RegistryContract,
   RollupContract,
@@ -99,6 +100,7 @@ describe('spartan_upgrade_rollup_version', () => {
           provingCostPerMana: BigInt(100),
           feeJuicePortalInitialBalance: fundingNeeded,
           realVerifier: false,
+          exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,

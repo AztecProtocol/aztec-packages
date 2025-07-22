@@ -22,7 +22,7 @@ TEST(ReturndataSizeConstrainingTest, SimpleTest)
 {
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_sel_returndata_size, 1 },
+          { C::execution_sel_execute_returndata_size, 1 },
           { C::execution_register_0_, /*rd_size=*/10 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U32) },
           { C::execution_last_child_returndata_size, 10 } },
@@ -34,7 +34,7 @@ TEST(ReturndataSizeConstrainingTest, NegativeInvalidMemTag)
 {
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_sel_returndata_size, 1 },
+          { C::execution_sel_execute_returndata_size, 1 },
           { C::execution_register_0_, 12345 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U64) },
           { C::execution_last_child_returndata_size, 12345 } },
@@ -47,7 +47,7 @@ TEST(ReturndataSizeConstrainingTest, NegativeInvalidLastChildSuccess)
 {
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_sel_returndata_size, 1 },
+          { C::execution_sel_execute_returndata_size, 1 },
           { C::execution_register_0_, /*rd_size=*/12345 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U32) },
           { C::execution_last_child_returndata_size, 10 } },

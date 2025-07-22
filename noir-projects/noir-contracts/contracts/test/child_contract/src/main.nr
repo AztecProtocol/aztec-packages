@@ -65,7 +65,6 @@ pub contract Child {
         storage.a_map_with_private_values.at(owner).insert(note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            owner,
         ));
         new_value
     }

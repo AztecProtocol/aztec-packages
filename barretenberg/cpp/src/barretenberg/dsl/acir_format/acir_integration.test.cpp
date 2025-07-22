@@ -405,9 +405,9 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     const auto& secondary_calldata = builder.get_secondary_calldata();
     const auto& return_data = builder.get_return_data();
 
-    BB_ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
-    BB_ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
-    BB_ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
+    ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
+    ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
+    ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
 
     // Check that return data was computed from the two calldata inputs as expected
     ASSERT_EQ(builder.get_variable(calldata[0]) + builder.get_variable(secondary_calldata[0]),
@@ -498,7 +498,7 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
 {
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
-    //      export DOWNLOAD_ONLY=1
+    //      export FORCE_CACHE_DOWNLOAD=1
     //      yarn-project/end-to-end/bootstrap.sh build_bench
     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
                              "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";

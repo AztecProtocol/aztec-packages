@@ -13,6 +13,7 @@ class MockFieldGreaterThan : public FieldGreaterThanInterface {
     ~MockFieldGreaterThan() override;
 
     MOCK_METHOD(bool, ff_gt, (const FF& a, const FF& b), (override));
+    MOCK_METHOD(U256Decomposition, canon_dec, (const FF& a), (override));
 };
 
 } // namespace bb::avm2::simulation

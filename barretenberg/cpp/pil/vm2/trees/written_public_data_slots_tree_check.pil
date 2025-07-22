@@ -14,12 +14,12 @@ include "../precomputed.pil";
 // sel {
 //     contract_address,
 //     slot,
-//     exists,
+//     leaf_not_exists,
 //     written_slots_root
 // } in written_public_data_slots_tree_check.sel {
 //     written_public_data_slots_tree_check.address,
 //     written_public_data_slots_tree_check.slot,
-//     written_public_data_slots_tree_check.exists,
+//     written_public_data_slots_tree_check.leaf_not_exists,
 //     written_public_data_slots_tree_check.root
 // };
 //
@@ -29,13 +29,17 @@ include "../precomputed.pil";
 //     slot,
 //     sel,
 //     prev_written_slots_root,
-//     next_written_slots_root
+//     prev_written_slots_tree_size,
+//     next_written_slots_root,
+//     next_written_slots_tree_size
 // } in written_public_data_slots_tree_check.sel {
 //     written_public_data_slots_tree_check.address,
 //     written_public_data_slots_tree_check.slot,
 //     written_public_data_slots_tree_check.write,
 //     written_public_data_slots_tree_check.root,
-//     written_public_data_slots_tree_check.write_root
+//     written_public_data_slots_tree_check.tree_size_before_write,
+//     written_public_data_slots_tree_check.write_root,
+//     written_public_data_slots_tree_check.tree_size_after_write
 // };
 
 namespace written_public_data_slots_tree_check;
@@ -52,8 +56,10 @@ namespace written_public_data_slots_tree_check;
 
     pol commit slot;
     pol commit root;
-    pol commit exists;
-    exists * (1 - exists) = 0;
+    pol commit leaf_not_exists;
+    leaf_not_exists * (1 - leaf_not_exists) = 0;
+    pol EXISTS = 1 - leaf_not_exists;
+
     pol commit address;
 
     // Write specific inputs
@@ -84,9 +90,9 @@ namespace written_public_data_slots_tree_check;
 
     // ========= HANDLE REDUNDANT WRITES  =========
     pol commit should_insert;
-    should_insert = write * (1 - exists);
+    should_insert = write * leaf_not_exists;
     // On a failing write, the root must not change
-    write * exists * (root - write_root) = 0;
+    write * EXISTS * (root - write_root) = 0;
 
     tree_size_after_write = tree_size_before_write + should_insert;
 
@@ -122,15 +128,11 @@ namespace written_public_data_slots_tree_check;
     pol commit slot_low_leaf_slot_diff_inv;
     pol SLOT_LOW_LEAF_SLOT_DIFF = leaf_slot - low_leaf_slot;
 
-    // SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> exists == 1
+    // SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> EXISTS == 1
     #[EXISTS_CHECK]
-    sel * (SLOT_LOW_LEAF_SLOT_DIFF * (exists * (1 - slot_low_leaf_slot_diff_inv) + slot_low_leaf_slot_diff_inv) - 1 + exists) = 0;
+    sel * (SLOT_LOW_LEAF_SLOT_DIFF * (EXISTS * (1 - slot_low_leaf_slot_diff_inv) + slot_low_leaf_slot_diff_inv) - 1 + EXISTS) = 0;
 
     // If the leaf doesn't exist, we need to validate that the slot is greater than the low leaf slot
-
-    // We commit leaf not exists as well as exists since it'll be used as a selector for the following lookup
-    pol commit leaf_not_exists;
-    sel * (1 - exists - leaf_not_exists) = 0;
 
     #[LOW_LEAF_SLOT_VALIDATION]
     leaf_not_exists { leaf_slot, low_leaf_slot, sel }

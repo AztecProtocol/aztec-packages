@@ -17,7 +17,9 @@ use crate::constants::{
     MAX_PRIVATE_LOGS_PER_TX,
 };
 use crate::utils::arrays::ClaimedLengthArray;
+use std::meta::derive;
 
+#[derive(Eq)]
 pub struct PrivateAccumulatedData {
     pub note_hashes: ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     pub nullifiers: ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
@@ -28,18 +30,6 @@ pub struct PrivateAccumulatedData {
 
     pub public_call_requests: ClaimedLengthArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
     pub private_call_stack: ClaimedLengthArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
-}
-
-impl Eq for PrivateAccumulatedData {
-    fn eq(self, other: Self) -> bool {
-        (self.note_hashes == other.note_hashes)
-            & (self.nullifiers == other.nullifiers)
-            & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-            & (self.private_logs == other.private_logs)
-            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
-            & (self.public_call_requests == other.public_call_requests)
-            & (self.private_call_stack == other.private_call_stack)
-    }
 }
 
 impl Empty for PrivateAccumulatedData {

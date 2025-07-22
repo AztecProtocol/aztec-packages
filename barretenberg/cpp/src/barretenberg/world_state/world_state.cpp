@@ -950,7 +950,7 @@ bool WorldState::remove_historical_block(const block_number_t& blockNumber, Worl
 bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point)
 {
     // NOTE: this hash operations needs to match the one in
-    // noir-project/noir-protocol-circuits/crates/types/src/block_header.nr
+    // noir-project/noir-protocol-circuits/crates/types/src/abis/block_header.nr
     return HashPolicy::hash({ generator_point,
                               // last archive - which, at genesis, is all 0s
                               0, // root

@@ -6,7 +6,7 @@ import { type GetContractReturnType, type Hex, type TransactionReceipt, encodeFu
 
 import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
-import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
+import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
 import { extractProposalIdFromLogs } from './governance.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
@@ -33,11 +33,11 @@ export class GovernanceProposerContract implements IEmpireBase {
   }
 
   public getQuorumSize(): Promise<bigint> {
-    return this.proposer.read.N();
+    return this.proposer.read.QUORUM_SIZE();
   }
 
   public getRoundSize(): Promise<bigint> {
-    return this.proposer.read.M();
+    return this.proposer.read.ROUND_SIZE();
   }
 
   public computeRound(slot: bigint): Promise<bigint> {
@@ -51,36 +51,37 @@ export class GovernanceProposerContract implements IEmpireBase {
   public async getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
-  ): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }> {
+  ): Promise<{ lastSignalSlot: bigint; payloadWithMostSignals: Hex; executed: boolean }> {
     return await this.proposer.read.getRoundData([rollupAddress, round]);
   }
 
-  public getProposalVotes(rollupAddress: Hex, round: bigint, proposal: Hex): Promise<bigint> {
-    return this.proposer.read.yeaCount([rollupAddress, round, proposal]);
+  public getPayloadSignals(rollupAddress: Hex, round: bigint, payload: Hex): Promise<bigint> {
+    return this.proposer.read.signalCount([rollupAddress, round, payload]);
   }
 
-  public createVoteRequest(payload: Hex): L1TxRequest {
+  public createSignalRequest(payload: Hex): L1TxRequest {
     return {
       to: this.address.toString(),
-      data: encodeVote(payload),
+      data: encodeSignal(payload),
     };
   }
 
-  public async createVoteRequestWithSignature(
+  public async createSignalRequestWithSignature(
     payload: Hex,
+    round: bigint,
     chainId: number,
     signerAddress: Hex,
     signer: (msg: Hex) => Promise<Hex>,
   ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(signerAddress);
-    const signature = await signVoteWithSig(signer, payload, nonce, this.address.toString(), chainId);
+    const signature = await signSignalWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
     return {
       to: this.address.toString(),
-      data: encodeVoteWithSignature(payload, signature),
+      data: encodeSignalWithSignature(payload, signature),
     };
   }
 
-  public async executeProposal(
+  public async submitRoundWinner(
     round: bigint,
     l1TxUtils: L1TxUtils,
   ): Promise<{
@@ -92,7 +93,7 @@ export class GovernanceProposerContract implements IEmpireBase {
       to: this.address.toString(),
       data: encodeFunctionData({
         abi: this.proposer.abi,
-        functionName: 'executeProposal',
+        functionName: 'submitRoundWinner',
         args: [round],
       }),
     });

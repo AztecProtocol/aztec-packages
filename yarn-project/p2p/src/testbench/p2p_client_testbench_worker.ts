@@ -68,6 +68,8 @@ function mockAttestationPool(): AttestationPool {
     deleteAttestationsForSlotAndProposal: () => Promise.resolve(),
     getAttestationsForSlot: () => Promise.resolve([]),
     getAttestationsForSlotAndProposal: () => Promise.resolve([]),
+    addBlockProposal: () => Promise.resolve(),
+    getBlockProposal: () => Promise.resolve(undefined),
   };
 }
 
@@ -86,6 +88,7 @@ function mockEpochCache(): EpochCacheInterface {
       }),
     getEpochAndSlotInNextL1Slot: () => ({ epoch: 0n, slot: 0n, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),
+    getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
   };
 }

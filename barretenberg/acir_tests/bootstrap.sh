@@ -16,10 +16,10 @@ tests_tar=barretenberg-acir-tests-$(hash_str \
 
 tests_hash=$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
+  $(../cpp/bootstrap.sh hash) \
   $(cache_content_hash \
     ^barretenberg/acir_tests/ \
     ./.rebuild_patterns \
-    ../cpp/.rebuild_patterns \
     ../ts/.rebuild_patterns \
     ../noir/))
 

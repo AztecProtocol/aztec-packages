@@ -6,9 +6,9 @@ use protocol_types::traits::Serialize;
 /// # Arguments
 ///
 /// * `data` - The data to emit.
-pub unconstrained fn emit_offchain_effect<T, let N: u32>(data: T)
+pub unconstrained fn emit_offchain_effect<T>(data: T)
 where
-    T: Serialize<N>,
+    T: Serialize,
 {
     emit_offchain_effect_oracle(data.serialize());
 }

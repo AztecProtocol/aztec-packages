@@ -143,7 +143,7 @@ export class P2PInstrumentation {
     ] as const) {
       for (const topicName of Object.values(TopicType)) {
         const histogram = histograms.get(topicName);
-        if (!histogram) {
+        if (!histogram || histogram.count === 0) {
           continue;
         }
 

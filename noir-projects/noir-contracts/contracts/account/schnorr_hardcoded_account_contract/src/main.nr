@@ -8,11 +8,11 @@ pub contract SchnorrHardcodedAccount {
         authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
         context::PrivateContext,
         macros::functions::{private, view},
-        oracle::auth_witness::get_auth_witness,
+        oracle::{auth_witness::get_auth_witness, notes::set_sender_for_tags},
     };
     use std::embedded_curve_ops::EmbeddedCurvePoint;
 
-    global public_key: EmbeddedCurvePoint = EmbeddedCurvePoint {
+    global signing_public_key: EmbeddedCurvePoint = EmbeddedCurvePoint {
         x: 0x16b93f4afae55cab8507baeb8e7ab4de80f5ab1e9e1f5149bf8cd0d375451d90,
         y: 0x208d44b36eb6e73b254921134d002da1a90b41131024e3b1d721259182106205,
         is_infinite: false,
@@ -21,6 +21,11 @@ pub contract SchnorrHardcodedAccount {
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[private]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
+        // Since this value is only used for unconstrained tagging and not for any constrained logic,
+        // it is safe to set from a constrained context.
+        unsafe { set_sender_for_tags(context.this_address()) };
+
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }
@@ -46,7 +51,11 @@ pub contract SchnorrHardcodedAccount {
         }
 
         // Verify signature using hardcoded public key
-        schnorr::verify_signature(public_key, signature, outer_hash.to_be_bytes::<32>())
+        schnorr::verify_signature(
+            signing_public_key,
+            signature,
+            outer_hash.to_be_bytes::<32>(),
+        )
     }
     // docs:end:is-valid
 }

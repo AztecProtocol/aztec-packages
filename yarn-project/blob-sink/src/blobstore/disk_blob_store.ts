@@ -1,6 +1,7 @@
+import { bufferToHex } from '@aztec/foundation/string';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
-import { type BlobWithIndex, BlobsWithIndexes } from '../types/index.js';
+import { BlobWithIndex } from '../types/index.js';
 import type { BlobStore } from './interface.js';
 
 export class DiskBlobStore implements BlobStore {
@@ -10,22 +11,25 @@ export class DiskBlobStore implements BlobStore {
     this.blobs = store.openMap('blobs');
   }
 
-  public async getBlobSidecars(blockId: string, indices?: number[]): Promise<BlobWithIndex[] | undefined> {
-    const blobBuffer = await this.blobs.getAsync(`${blockId}`);
-    if (!blobBuffer) {
-      return undefined;
+  public async getBlobsByHashes(blobHashes: Buffer[]): Promise<BlobWithIndex[]> {
+    const results: BlobWithIndex[] = [];
+
+    for (const blobHash of blobHashes) {
+      const key = bufferToHex(blobHash);
+      const blobBuffer = await this.blobs.getAsync(key);
+      if (blobBuffer) {
+        results.push(BlobWithIndex.fromBuffer(blobBuffer));
+      }
     }
 
-    const blobsWithIndexes = BlobsWithIndexes.fromBuffer(blobBuffer);
-    if (indices) {
-      // If indices are provided, return the blobs at the specified indices
-      return blobsWithIndexes.getBlobsFromIndices(indices);
-    }
-    // If no indices are provided, return all blobs
-    return blobsWithIndexes.blobs;
+    return results;
   }
 
-  public async addBlobSidecars(blockId: string, blobSidecars: BlobWithIndex[]): Promise<void> {
-    await this.blobs.set(blockId, new BlobsWithIndexes(blobSidecars).toBuffer());
+  public async addBlobs(blobs: BlobWithIndex[]): Promise<void> {
+    for (const blob of blobs) {
+      const blobHash = blob.blob.getEthVersionedBlobHash();
+      const key = bufferToHex(blobHash);
+      await this.blobs.set(key, blob.toBuffer());
+    }
   }
 }

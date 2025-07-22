@@ -17,6 +17,9 @@ class MockAlu : public AluInterface {
     MOCK_METHOD(MemoryValue, add, (const MemoryValue& a, const MemoryValue& b), (override));
     MOCK_METHOD(MemoryValue, eq, (const MemoryValue& a, const MemoryValue& b), (override));
     MOCK_METHOD(MemoryValue, lt, (const MemoryValue& a, const MemoryValue& b), (override));
+    MOCK_METHOD(MemoryValue, lte, (const MemoryValue& a, const MemoryValue& b), (override));
+    MOCK_METHOD(MemoryValue, op_not, (const MemoryValue& a), (override));
+    MOCK_METHOD(MemoryValue, truncate, (const FF& a, MemoryTag dst_tag), (override));
 };
 
 } // namespace bb::avm2::simulation

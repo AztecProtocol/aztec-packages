@@ -4,6 +4,8 @@ import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
+import { AuthRequest, AuthResponse } from './protocols/auth.js';
+import { BlockTxsRequest, BlockTxsResponse } from './protocols/block_txs/block_txs_reqresp.js';
 import { StatusMessage } from './protocols/status.js';
 import type { ReqRespStatus } from './status.js';
 
@@ -15,6 +17,8 @@ export const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
 export const GOODBYE_PROTOCOL = '/aztec/req/goodbye/0.1.0';
 export const TX_REQ_PROTOCOL = '/aztec/req/tx/0.1.0';
 export const BLOCK_REQ_PROTOCOL = '/aztec/req/block/0.1.0';
+export const AUTH_PROTOCOL = '/aztec/req/auth/0.1.0';
+export const BLOCK_TXS_REQ_PROTOCOL = '/aztec/req/block_txs/0.1.0';
 
 export enum ReqRespSubProtocol {
   PING = PING_PROTOCOL,
@@ -22,6 +26,8 @@ export enum ReqRespSubProtocol {
   GOODBYE = GOODBYE_PROTOCOL,
   TX = TX_REQ_PROTOCOL,
   BLOCK = BLOCK_REQ_PROTOCOL,
+  AUTH = AUTH_PROTOCOL,
+  BLOCK_TXS = BLOCK_TXS_REQ_PROTOCOL,
 }
 
 /**
@@ -92,6 +98,8 @@ export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.TX]: noopValidator,
   [ReqRespSubProtocol.GOODBYE]: noopValidator,
   [ReqRespSubProtocol.BLOCK]: noopValidator,
+  [ReqRespSubProtocol.AUTH]: noopValidator,
+  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
 };
 
 /*
@@ -117,7 +125,7 @@ export type SubProtocolMap = {
  * Default handler for unimplemented sub protocols, this SHOULD be overwritten
  * by the service, but is provided as a fallback
  */
-const defaultHandler = (_msg: any): Promise<Buffer> => {
+export const defaultHandler = (_msg: any): Promise<Buffer> => {
   return Promise.resolve(Buffer.from('unimplemented'));
 };
 
@@ -130,6 +138,8 @@ export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.TX]: defaultHandler,
   [ReqRespSubProtocol.GOODBYE]: defaultHandler,
   [ReqRespSubProtocol.BLOCK]: defaultHandler,
+  [ReqRespSubProtocol.AUTH]: defaultHandler,
+  [ReqRespSubProtocol.BLOCK_TXS]: defaultHandler,
 };
 
 /**
@@ -210,12 +220,25 @@ export const subProtocolMap = {
     request: Fr, // block number
     response: L2Block,
   },
+  [ReqRespSubProtocol.AUTH]: {
+    request: AuthRequest,
+    response: AuthResponse,
+  },
+  [ReqRespSubProtocol.BLOCK_TXS]: {
+    request: BlockTxsRequest,
+    response: BlockTxsResponse,
+  },
 };
 
 export interface ReqRespInterface {
   start(
-    subProtocolHandlers: ReqRespSubProtocolHandlers,
+    subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,
     subProtocolValidators: ReqRespSubProtocolValidators,
+  ): Promise<void>;
+  addSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
   ): Promise<void>;
   stop(): Promise<void>;
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(

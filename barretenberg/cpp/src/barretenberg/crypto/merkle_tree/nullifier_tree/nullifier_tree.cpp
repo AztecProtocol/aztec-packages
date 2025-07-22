@@ -8,6 +8,7 @@
 #include "../hash.hpp"
 #include "../memory_store.hpp"
 #include "../merkle_tree.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/numeric/bitop/count_leading_zeros.hpp"
 #include "barretenberg/numeric/bitop/keep_n_lsb.hpp"
@@ -21,8 +22,9 @@ template <typename Store, typename HashingPolicy>
 NullifierTree<Store, HashingPolicy>::NullifierTree(Store& store, size_t depth, size_t initial_size, uint8_t tree_id)
     : MerkleTree<Store, HashingPolicy>(store, depth, tree_id)
 {
-    ASSERT(depth_ >= 1 && depth <= 256);
-    ASSERT(initial_size > 0);
+    BB_ASSERT_GTE(depth_, 1U);
+    BB_ASSERT_LTE(depth, 256U);
+    BB_ASSERT_GT(initial_size, 0U);
     zero_hashes_.resize(depth);
 
     // Create the zero hashes for the tree

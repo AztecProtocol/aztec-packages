@@ -1,5 +1,7 @@
-use dep::aztec::{
-    macros::notes::note, oracle::random::random, protocol_types::address::AztecAddress,
+use aztec::{
+    macros::notes::note,
+    oracle::random::random,
+    protocol_types::{address::AztecAddress, traits::Packable},
 };
 
 trait OwnedNote {
@@ -7,8 +9,8 @@ trait OwnedNote {
     fn get_amount(self) -> u128;
 }
 
+#[derive(Eq, Packable)]
 #[note]
-#[derive(Eq)]
 pub struct TokenNote {
     // The amount of tokens in the note
     amount: u128,

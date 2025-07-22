@@ -6,6 +6,7 @@
 
 #include "blake3s.hpp"
 #include "../blake2s/blake_util.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "blake3s_plookup.hpp"
 
@@ -246,7 +247,8 @@ using namespace blake3_internal;
 
 template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input)
 {
-    ASSERT(input.size() <= 1024, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+    BB_ASSERT_LTE(
+        input.size(), 1024U, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 
     if constexpr (HasPlookup<Builder>) {
         return blake3s_plookup::blake3s<Builder>(input);

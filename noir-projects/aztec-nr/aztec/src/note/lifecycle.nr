@@ -8,13 +8,13 @@ use crate::note::{
 use crate::oracle::notes::notify_created_note;
 use protocol_types::traits::Packable;
 
-pub fn create_note<Note, let N: u32>(
+pub fn create_note<Note>(
     context: &mut PrivateContext,
     storage_slot: Field,
     note: Note,
 ) -> NoteEmission<Note>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    Note: NoteType + NoteHash + Packable,
 {
     let note_hash_counter = context.side_effect_counter;
 

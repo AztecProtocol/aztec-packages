@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include <cstddef>
 #include <memory>
 
@@ -76,8 +77,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_.get(); }
-    const T* data() const { return backing_memory_.get(); }
+    T* data() { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
+    const T* data() const { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -139,6 +140,5 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
      * for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    std::shared_ptr<T[]> backing_memory_;
+    std::shared_ptr<BackingMemory<T>> backing_memory_;
 };

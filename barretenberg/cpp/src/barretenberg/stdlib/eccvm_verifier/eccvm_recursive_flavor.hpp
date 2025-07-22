@@ -112,10 +112,8 @@ class ECCVMRecursiveFlavor {
             : pcs_verification_key(builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key)
         {
 
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
-            // `log_circuit_size` from MSGPACK and the verification key.
-            this->circuit_size = BF{ 1UL << CONST_ECCVM_LOG_N };
-            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `log_circuit_size` from MSGPACK
+            // and the verification key.
             this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
@@ -126,12 +124,48 @@ class ECCVMRecursiveFlavor {
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
-        std::vector<BF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+        /**
+         * @brief Serialize verification key to field elements.
+         *
+         * @return std::vector<BF>
+         */
+        std::vector<BF> to_field_elements() const override
+        {
+            using namespace bb::stdlib::field_conversion;
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        /**
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
         FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            throw_or_abort("Not implemented yet!");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
+
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
         }
     };
 

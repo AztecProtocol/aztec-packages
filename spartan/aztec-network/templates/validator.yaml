@@ -90,6 +90,8 @@ spec:
           env:
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: SLASHER_KEY_INDEX_START
+              value: {{ .Values.aztec.slasherKeyIndexStart | quote }}
             - name: VALIDATORS_PER_NODE
               value: {{ .Values.validator.keysPerNode | quote }}
             - name: MNEMONIC
@@ -127,6 +129,10 @@ spec:
               value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.validator.p2p.floodPublish }}"
+            - name: P2P_DROP_TX
+              value: "{{ .Values.validator.p2p.dropTransactions }}"
+            - name: P2P_DROP_TX_CHANCE
+              value: "{{ .Values.validator.p2p.dropTransactionsProbability }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE

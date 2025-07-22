@@ -36,6 +36,9 @@ template <typename FF_> class contextImpl {
         const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
         const auto execution_SWITCH_CTX = in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call);
         const auto execution_DEFAULT_CTX_ROW = (FF(1) - execution_SWITCH_CTX);
+        const auto execution_PC_JUMP = in.get(C::execution_sel_execute_internal_call) +
+                                       in.get(C::execution_sel_execute_internal_return) +
+                                       in.get(C::execution_sel_execute_jump) + in.get(C::execution_sel_execute_jumpi);
         const auto execution_NESTED_RET_REV_ONLY =
             in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_error));
         const auto execution_SEL_CONSUMED_ALL_GAS = in.get(C::execution_sel_error);
@@ -50,14 +53,11 @@ template <typename FF_> class contextImpl {
             in.get(C::execution_prev_l2_gas_used) + execution_TOTAL_L2_GAS_USED;
         const auto execution_PREV_GAS_PLUS_USAGE_DA =
             in.get(C::execution_prev_da_gas_used) + execution_TOTAL_DA_GAS_USED;
-        const auto execution_PC_JUMP = in.get(C::execution_sel_internal_call) +
-                                       in.get(C::execution_sel_internal_return) + in.get(C::execution_sel_jump) +
-                                       in.get(C::execution_sel_jumpi);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_enter_call) -
-                        (in.get(C::execution_sel_call) + in.get(C::execution_sel_static_call)) *
+                        (in.get(C::execution_sel_execute_call) + in.get(C::execution_sel_execute_static_call)) *
                             (FF(1) - in.get(C::execution_sel_error)));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
@@ -70,9 +70,10 @@ template <typename FF_> class contextImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_sel_exit_call) -
-                        (FF(1) - ((FF(1) - in.get(C::execution_sel_revert)) - in.get(C::execution_sel_return)) *
-                                     (FF(1) - in.get(C::execution_sel_error))));
+            auto tmp =
+                (in.get(C::execution_sel_exit_call) - (FF(1) - ((FF(1) - in.get(C::execution_sel_execute_revert)) -
+                                                                in.get(C::execution_sel_execute_return)) *
+                                                                   (FF(1) - in.get(C::execution_sel_error))));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
@@ -199,7 +200,7 @@ template <typename FF_> class contextImpl {
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
-                       (in.get(C::execution_is_static_shift) - in.get(C::execution_sel_static_call));
+                       (in.get(C::execution_is_static_shift) - in.get(C::execution_sel_execute_static_call));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
@@ -370,14 +371,14 @@ template <typename FF_> class contextImpl {
         {
             using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_rollback_context) -
-                        in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_return)));
+                        in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_execute_return)));
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_nested_return) -
-                        in.get(C::execution_nested_exit_call) * in.get(C::execution_sel_return));
+                        in.get(C::execution_nested_exit_call) * in.get(C::execution_sel_execute_return));
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
         }

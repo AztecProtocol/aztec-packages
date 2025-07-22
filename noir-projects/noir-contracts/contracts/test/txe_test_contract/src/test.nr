@@ -1,50 +1,50 @@
 use crate::TXETest;
 
-use dep::aztec::test::helpers::test_environment::TestEnvironment;
-
-use aztec::macros::functions::initializer;
+use aztec::{
+    macros::functions::initializer,
+    note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}, note_viewer_options::NoteViewerOptions},
+    oracle::notes::set_sender_for_tags,
+    protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
+    test::helpers::test_environment::TestEnvironment,
+};
 use value_note::{balance_utils, value_note::ValueNote};
 
-use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
-use dep::aztec::note::note_viewer_options::NoteViewerOptions;
-use dep::aztec::protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map};
-
 pub unconstrained fn setup(
-    initial_value: Field,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+    initial_value: u64,
+) -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
     // Setup env, generate keys
-    let mut env = TestEnvironment::_new();
+    let mut env = TestEnvironment::new();
     let owner = env.create_account(1);
-    let sender = env.create_account(2);
+
+    // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
+    // usually done by account contract's entrypoint.
+    let sender = env.create_account(7097070);
+    set_sender_for_tags(sender);
+
     env.impersonate(owner);
 
     // Deploy contract and initialize
-    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
+    let initializer = TXETest::interface().initialize(initial_value, owner);
     let counter_contract = env.deploy_self("TXETest").with_private_initializer(owner, initializer);
     let contract_address = counter_contract.to_address();
-    (&mut env, contract_address, owner, sender)
+    (&mut env, contract_address, owner)
 }
 
 #[test]
 unconstrained fn new_calling_flow_increment_self_and_other() {
-    let mut env = TestEnvironment::new();
-    let owner = env.create_account(1);
-    let sender = env.create_account(2);
-    let third = env.create_account(3);
+    let initial_value: u64 = 2;
 
-    let initial_value: Field = 2;
-    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let counter_contract = env.deploy_self("TXETest").with_private_initializer(owner, initializer);
-    let contract_address = counter_contract.to_address();
+    let (mut env, contract_address, owner) = setup(initial_value);
+    let third = env.create_account(2);
 
-    let initializer2 = TXETest::interface().initialize(initial_value as u64, third);
+    let initializer2 = TXETest::interface().initialize(initial_value, third);
     let counter_contract2 =
         env.deploy_self("TXETest").with_private_initializer(owner, initializer2);
     let contract_address2 = counter_contract2.to_address();
 
     let _ = env.call_private_void(
         owner,
-        TXETest::at(contract_address).increment_self_and_other(contract_address2, owner, sender),
+        TXETest::at(contract_address).increment_self_and_other(contract_address2, owner),
     );
 
     env.impersonate(contract_address);
@@ -77,17 +77,10 @@ unconstrained fn new_calling_flow_increment_self_and_other() {
 
 #[test]
 unconstrained fn new_calling_flow_increment_with_new_call_flow() {
-    let mut env = TestEnvironment::new();
-    let owner = env.create_account(1);
-    let sender = env.create_account(2);
-    env.impersonate(owner);
+    let initial_value: u64 = 2;
+    let (mut env, contract_address, owner) = setup(initial_value);
 
-    let initial_value: Field = 2;
-    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let counter_contract = env.deploy_self("TXETest").with_private_initializer(owner, initializer);
-    let contract_address = counter_contract.to_address();
-
-    let _ = env.call_private_void(owner, TXETest::at(contract_address).increment(owner, sender));
+    let _ = env.call_private_void(owner, TXETest::at(contract_address).increment(owner));
 
     env.impersonate(contract_address);
 
@@ -106,13 +99,8 @@ unconstrained fn new_calling_flow_increment_with_new_call_flow() {
 
 #[test]
 unconstrained fn new_public_calling_flow() {
-    let mut env = TestEnvironment::new();
-    let owner = env.create_account(1);
-
-    let initial_value: Field = 2;
-    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let contract_address =
-        env.deploy_self("TXETest").with_private_initializer(owner, initializer).to_address();
+    let initial_value: u64 = 2;
+    let (mut env, contract_address, owner) = setup(initial_value);
 
     let expected_value = 69420;
 
@@ -124,13 +112,8 @@ unconstrained fn new_public_calling_flow() {
 
 #[test]
 unconstrained fn public_call_and_not() {
-    let mut env = TestEnvironment::new();
-    let owner = env.create_account(1);
-
-    let initial_value: Field = 2;
-    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let contract_address =
-        env.deploy_self("TXETest").with_private_initializer(owner, initializer).to_address();
+    let initial_value: u64 = 2;
+    let (mut env, contract_address, owner) = setup(initial_value);
 
     let expected_value = 69420;
 
@@ -172,13 +155,8 @@ unconstrained fn public_call_and_not() {
 
 #[test]
 unconstrained fn private_calls() {
-    let mut env = TestEnvironment::new();
-    let owner = env.create_account(1);
-
-    let initial_value: Field = 2;
-    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let contract_address =
-        env.deploy_self("TXETest").with_private_initializer(owner, initializer).to_address();
+    let initial_value: u64 = 2;
+    let (mut env, contract_address, owner) = setup(initial_value);
 
     let expected_value = 69420;
 
@@ -225,13 +203,8 @@ unconstrained fn private_calls() {
 
 #[test]
 unconstrained fn utility_calls() {
-    let mut env = TestEnvironment::new();
-    let owner = env.create_account(1);
-
-    let initial_value: Field = 2;
-    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
-    let contract_address =
-        env.deploy_self("TXETest").with_private_initializer(owner, initializer).to_address();
+    let initial_value: u64 = 2;
+    let (mut env, contract_address, _) = setup(initial_value);
 
     let expected_value = 69420;
 

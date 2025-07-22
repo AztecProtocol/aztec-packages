@@ -4,10 +4,11 @@ use crate::{
     constants::{PROPOSED_BLOCK_HEADER_LENGTH, PROPOSED_BLOCK_HEADER_LENGTH_BYTES},
     content_commitment::ContentCommitment,
     hash::sha256_to_field,
-    traits::{Deserialize, Empty, FromField, Hash, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Hash, Serialize, ToField},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ProposedBlockHeader {
     pub last_archive_root: Field,
     pub content_commitment: ContentCommitment,
@@ -20,53 +21,6 @@ pub struct ProposedBlockHeader {
     pub gas_fees: GasFees,
 
     pub total_mana_used: Field,
-}
-
-impl Eq for ProposedBlockHeader {
-    fn eq(self, other: Self) -> bool {
-        (self.last_archive_root == other.last_archive_root)
-            & (self.content_commitment == other.content_commitment)
-            & (self.slot_number == other.slot_number)
-            & (self.timestamp == other.timestamp)
-            & (self.coinbase == other.coinbase)
-            & (self.fee_recipient == other.fee_recipient)
-            & (self.gas_fees == other.gas_fees)
-            & (self.total_mana_used == other.total_mana_used)
-    }
-}
-
-impl Serialize<PROPOSED_BLOCK_HEADER_LENGTH> for ProposedBlockHeader {
-    fn serialize(self) -> [Field; PROPOSED_BLOCK_HEADER_LENGTH] {
-        let mut serialized: BoundedVec<Field, PROPOSED_BLOCK_HEADER_LENGTH> = BoundedVec::new();
-
-        serialized.push(self.last_archive_root);
-        serialized.extend_from_array(self.content_commitment.serialize());
-        serialized.push(self.slot_number);
-        serialized.push(self.timestamp as Field);
-        serialized.push(self.coinbase.to_field());
-        serialized.push(self.fee_recipient.to_field());
-        serialized.extend_from_array(self.gas_fees.serialize());
-        serialized.push(self.total_mana_used);
-
-        serialized.storage()
-    }
-}
-
-impl Deserialize<PROPOSED_BLOCK_HEADER_LENGTH> for ProposedBlockHeader {
-    fn deserialize(serialized: [Field; PROPOSED_BLOCK_HEADER_LENGTH]) -> Self {
-        let mut reader = Reader::new(serialized);
-
-        ProposedBlockHeader {
-            last_archive_root: reader.read(),
-            content_commitment: reader.read_struct(ContentCommitment::deserialize),
-            slot_number: reader.read(),
-            timestamp: reader.read() as u64,
-            coinbase: EthAddress::from_field(reader.read()),
-            fee_recipient: AztecAddress::from_field(reader.read()),
-            gas_fees: reader.read_struct(GasFees::deserialize),
-            total_mana_used: reader.read(),
-        }
-    }
 }
 
 impl Empty for ProposedBlockHeader {
@@ -143,11 +97,22 @@ impl Hash for ProposedBlockHeader {
 }
 
 #[test]
-fn serialization_of_empty() {
-    let header = ProposedBlockHeader::empty();
-    let serialized = header.serialize();
+fn serde() {
+    let item = ProposedBlockHeader {
+        last_archive_root: 123,
+        content_commitment: ContentCommitment::empty(),
+        slot_number: 1234,
+        timestamp: 5678,
+        coinbase: EthAddress::empty(),
+        fee_recipient: AztecAddress::empty(),
+        gas_fees: GasFees { fee_per_da_gas: 100, fee_per_l2_gas: 200 },
+        total_mana_used: 151617,
+    };
+    // We use the PROPOSED_BLOCK_HEADER_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; PROPOSED_BLOCK_HEADER_LENGTH] = item.serialize();
     let deserialized = ProposedBlockHeader::deserialize(serialized);
-    assert(header.eq(deserialized));
+    assert(item.eq(deserialized));
 }
 
 #[test]

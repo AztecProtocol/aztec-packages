@@ -1,0 +1,54 @@
+include "../constants_gen.pil";
+include "../range_check.pil";
+include "../trees/note_hash_tree_check.pil";
+
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    #[skippable_if]
+    sel_execute_emit_notehash = 0; // from execution.pil.
+
+    // =========== VALIDATION ===========
+
+    pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX -
+        prev_num_note_hashes_emitted;
+
+    pol commit remaining_note_hashes_inv;
+    // Opcode errors if REMAINING_NOTE_HASH_WRITES is 0
+    #[EMIT_NOTEHASH_MAX_NOTE_HASH_WRITES_REACHED]
+    sel_execute_emit_notehash * (REMAINING_NOTE_HASH_WRITES * (sel_opcode_error * (1 - remaining_note_hashes_inv) + remaining_note_hashes_inv) - 1 + sel_opcode_error) = 0;
+
+    // Commited since it's used in the lookup
+    pol commit sel_write_note_hash;
+    #[EMIT_NOTEHASH_LIMIT_REACHED]
+    sel_execute_emit_notehash * ((1 - sel_opcode_error) - sel_write_note_hash) = 0;
+
+    // =========== OPCODE EXECUTION ===========
+
+    #[NOTEHASH_TREE_WRITE]
+    sel_write_note_hash {
+        register[0], // note_hash
+        prev_note_hash_tree_size, // leaf_index from context.pil
+        prev_note_hash_tree_root, // from context.pil
+        sel_write_note_hash, // should_silo
+        contract_address,  // from context.pil
+        sel_write_note_hash, // should_unique
+        prev_num_note_hashes_emitted, // note_hash_index from context.pil
+        discard, // from discard.pil
+        note_hash_tree_root // next_root from context.pil
+    } in note_hash_tree_check.write {
+        note_hash_tree_check.note_hash,
+        note_hash_tree_check.leaf_index,
+        note_hash_tree_check.prev_root,
+        note_hash_tree_check.should_silo,
+        note_hash_tree_check.address,
+        note_hash_tree_check.should_unique,
+        note_hash_tree_check.note_hash_index,
+        note_hash_tree_check.discard,
+        note_hash_tree_check.next_root
+    };
+
+    #[EMIT_NOTEHASH_TREE_SIZE_INCREASE]
+    sel_execute_emit_notehash * (prev_note_hash_tree_size + sel_write_note_hash - note_hash_tree_size) = 0;
+
+    #[EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE]
+    sel_execute_emit_notehash * (prev_num_note_hashes_emitted + sel_write_note_hash - num_note_hashes_emitted) = 0;

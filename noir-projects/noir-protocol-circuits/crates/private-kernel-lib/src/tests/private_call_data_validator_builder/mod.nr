@@ -15,10 +15,9 @@ use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
     abis::{
         note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
-        private_kernel::private_call_data::PrivateCallData,
+        private_kernel::private_call_data::PrivateCallData, transaction::tx_request::TxRequest,
     },
     tests::fixture_builder::FixtureBuilder,
-    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateCallDataValidatorBuilder {

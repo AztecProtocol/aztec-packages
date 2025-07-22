@@ -7,13 +7,13 @@ use dep::aztec::macros::aztec;
 // deprecated and has been replaced with partial notes in the standard token contract.
 // TODO(#11970): https://github.com/AztecProtocol/aztec-packages/issues/11970
 //
-// Minimal token implementation that supports `AuthWit` accounts and SharedMutable variables.
+// Minimal token implementation that supports `AuthWit` accounts and DelayedPublicMutable variables.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
 // The designated caller is ALWAYS used here, and not based on a flag as cross-chain.
 // message hash = H([caller, contract, selector, ...args])
 // To be read as `caller` calls function at `contract` defined by `selector` with `args`
 // Including a nonce in the message hash ensures that the message can only be used once.
-// The SharedMutables are used for access control related to minters and blacklist.
+// The DelayedPublicMutables are used for access control related to minters and blacklist.
 #[aztec]
 pub contract TokenBlacklist {
     // Libs
@@ -32,7 +32,7 @@ pub contract TokenBlacklist {
             note_interface::{NoteHash, NoteProperties, NoteType},
         },
         protocol_types::traits::ToField,
-        state_vars::{Map, PrivateSet, PublicMutable, SharedMutable},
+        state_vars::{DelayedPublicMutable, Map, PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
 
@@ -55,7 +55,7 @@ pub contract TokenBlacklist {
         total_supply: PublicMutable<u128, Context>,
         pending_shields: PrivateSet<TransparentNote, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
+        roles: Map<AztecAddress, DelayedPublicMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
     }
 
     // docs:start:constructor
@@ -192,11 +192,7 @@ pub contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            to,
-            context.msg_sender(),
-        ));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context, to));
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -207,7 +203,7 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
@@ -226,12 +222,10 @@ pub contract TokenBlacklist {
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
-            from,
         ));
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             to,
-            from,
         ));
     }
 
@@ -241,7 +235,7 @@ pub contract TokenBlacklist {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

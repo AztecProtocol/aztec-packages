@@ -27,8 +27,10 @@ void FieldGreaterThanTraceBuilder::process(
         LimbsComparisonWitness p_sub_b_witness = event.p_sub_b_witness;
         LimbsComparisonWitness res_witness = event.res_witness;
 
-        bool sel_gt = true;
-        int8_t cmp_rng_ctr = 4;
+        bool sel_gt = event.operation == simulation::FieldGreaterOperation::GREATER_THAN;
+        bool sel_dec = event.operation == simulation::FieldGreaterOperation::CANONICAL_DECOMPOSITION;
+
+        int8_t cmp_rng_ctr = event.operation == simulation::FieldGreaterOperation::GREATER_THAN ? 4 : 1;
 
         auto write_row = [&]() {
             FF cmp_rng_ctr_inv = cmp_rng_ctr > 0 ? FF(cmp_rng_ctr).invert() : FF::zero();
@@ -36,7 +38,8 @@ void FieldGreaterThanTraceBuilder::process(
                       { { { C::ff_gt_sel, 1 },
                           { C::ff_gt_a, event.a },
                           { C::ff_gt_b, event.b },
-                          { C::ff_gt_result, event.result },
+                          { C::ff_gt_result, event.gt_result },
+                          { C::ff_gt_sel_dec, sel_dec },
                           { C::ff_gt_sel_gt, sel_gt },
                           { C::ff_gt_constant_128, 128 },
                           // No conversion available from uint128_t to FF. Yikes.
@@ -63,6 +66,7 @@ void FieldGreaterThanTraceBuilder::process(
             row++;
 
             sel_gt = false;
+            sel_dec = false;
 
             // shift the limbs to be range checked
             a_limbs.lo = p_sub_a_witness.lo;

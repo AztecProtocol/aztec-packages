@@ -412,15 +412,8 @@ comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
 /// Generates a quote that implements `Serialize` for a given struct `s`.
 /// If the struct already implements `Serialize`, we return an empty quote.
 pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted {
-    // We try to get the serialized length of the struct. If it does not implement `Serialize`, we get Option::none()
-    let serialized_len_typ = std::meta::typ::fresh_type_variable();
-    // We don't care about the result of the implements check. We just want to get the serialized length.
-    let _ = s.as_type().implements(
-        quote { crate::protocol_types::traits::Serialize<$serialized_len_typ> }.as_trait_constraint(),
-    );
-    let maybe_serialized_length = serialized_len_typ.as_constant();
-
-    if maybe_serialized_length.is_some() {
+    if s.as_type().implements(quote { crate::protocol_types::traits::Serialize }
+        .as_trait_constraint()) {
         // We got some serialized length meaning that the struct implements `Serialize`. For this reason we return
         // an empty quote for the implementation.
         quote {}

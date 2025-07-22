@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
@@ -35,6 +36,7 @@ using simulation::EventEmitter;
 using simulation::MerkleDB;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
+using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
@@ -43,7 +45,6 @@ using simulation::MockPoseidon2;
 using simulation::MockWrittenPublicDataSlotsTreeCheck;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
-using simulation::unconstrained_compute_leaf_slot;
 
 using testing::NiceMock;
 using testing::ReturnRef;
@@ -55,7 +56,7 @@ using sload = bb::avm2::sload<FF>;
 TEST(SLoadConstrainingTest, PositiveTest)
 {
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -68,7 +69,7 @@ TEST(SLoadConstrainingTest, PositiveTest)
 TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
 {
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -81,7 +82,7 @@ TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
 TEST(SLoadConstrainingTest, NegativeSloadSuccess)
 {
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -102,6 +103,7 @@ TEST(SLoadConstrainingTest, Interactions)
     NiceMock<MockLowLevelMerkleDB> low_level_merkle_db;
     NiceMock<MockNullifierTreeCheck> nullifier_tree_check;
     NiceMock<MockNoteHashTreeCheck> note_hash_tree_check;
+    NiceMock<MockL1ToL2MessageTreeCheck> l1_to_l2_message_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -114,7 +116,8 @@ TEST(SLoadConstrainingTest, Interactions)
                        public_data_tree_check,
                        nullifier_tree_check,
                        note_hash_tree_check,
-                       written_public_data_slots_tree_check);
+                       written_public_data_slots_tree_check,
+                       l1_to_l2_message_tree_check);
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
@@ -123,7 +126,7 @@ TEST(SLoadConstrainingTest, Interactions)
     FF value = merkle_db.storage_read(contract_address, slot);
 
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, slot },
           { C::execution_register_1_, value },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },

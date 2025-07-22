@@ -44,6 +44,8 @@ export type L1ContractsConfig = {
   manaTarget: bigint;
   /** The proving cost per mana */
   provingCostPerMana: bigint;
+  /** The number of seconds to wait for an exit */
+  exitDelaySeconds: number;
 } & L1TxUtilsConfig;
 
 export const DefaultL1ContractsConfig = {
@@ -54,12 +56,13 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   depositAmount: BigInt(100e18),
   minimumStake: BigInt(50e18),
-  slashingQuorum: 6,
-  slashingRoundSize: 10,
-  governanceProposerQuorum: 51,
-  governanceProposerRoundSize: 100,
+  slashingQuorum: 101,
+  slashingRoundSize: 200,
+  governanceProposerQuorum: 151,
+  governanceProposerRoundSize: 300,
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
+  exitDelaySeconds: 2 * 24 * 60 * 60,
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -71,8 +74,8 @@ const LocalGovernanceConfiguration = {
   votingDuration: 60n * 60n,
   executionDelay: 60n,
   gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 1n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
+  quorum: 1n * 10n ** 17n, // 10%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
   minimumVotes: 400n * 10n ** 18n,
 };
 
@@ -85,8 +88,8 @@ const TestnetGovernanceConfiguration = {
   votingDuration: 60n * 60n,
   executionDelay: 60n * 60n * 24n,
   gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 3n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
   minimumVotes: DefaultL1ContractsConfig.minimumStake * 200n,
 };
 
@@ -95,6 +98,23 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
     return TestnetGovernanceConfiguration;
   }
   return LocalGovernanceConfiguration;
+};
+
+const TestnetGSEConfiguration = {
+  depositAmount: BigInt(100e18),
+  minimumStake: BigInt(50e18),
+};
+
+const LocalGSEConfiguration = {
+  depositAmount: BigInt(100e18),
+  minimumStake: BigInt(50e18),
+};
+
+export const getGSEConfiguration = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGSEConfiguration;
+  }
+  return LocalGSEConfiguration;
 };
 
 // Making a default config here as we are only using it thought the deployment
@@ -229,6 +249,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_PROVING_COST_PER_MANA',
     description: 'The proving cost per mana',
     ...bigintConfigHelper(DefaultL1ContractsConfig.provingCostPerMana),
+  },
+  exitDelaySeconds: {
+    env: 'AZTEC_EXIT_DELAY_SECONDS',
+    description: 'The delay before a validator can exit the set',
+    ...numberConfigHelper(DefaultL1ContractsConfig.exitDelaySeconds),
   },
   ...l1TxUtilsConfigMappings,
 };

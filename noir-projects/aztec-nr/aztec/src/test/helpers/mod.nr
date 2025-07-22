@@ -1,4 +1,4 @@
 pub mod test_environment;
-pub mod cheatcodes;
+pub mod txe_oracles;
 pub mod authwit;
 pub mod utils;

@@ -48,7 +48,7 @@ mod test {
         let order = Order::new(config, bid_amount, ask_amount, token0, token1);
         assert(order.bid_amount == bid_amount);
         assert(order.ask_amount == ask_amount);
-        assert(order.bid_token_is_zero == true);
+        assert(order.bid_token_is_zero);
 
         // Test token1 to token0 direction
         let order = Order::new(config, bid_amount, ask_amount, token1, token0);

@@ -21,9 +21,13 @@ TranslatorRecursiveVerifier::TranslatorRecursiveVerifier(
     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
     const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    , vk_hash(stdlib::witness_t<Builder>(builder, native_verifier_key->hash()))
     , transcript(transcript)
     , builder(builder)
-{}
+{
+    key->fix_witness();    // fixed to a constant
+    vk_hash.fix_witness(); // fixed to a constant
+}
 
 // Relation params used in sumcheck which is done over FF but the received data is from BF
 void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
@@ -98,6 +102,11 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
     transcript->load_proof(proof);
+
+    // Fiat-Shamir the vk hash
+    // We do not need to hash the vk in-circuit because both the vk and vk hash are hardcoded as constants.
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("Translator vk hash in recursive verifier: ", vk_hash);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

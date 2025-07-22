@@ -68,7 +68,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 1 },
                                    { C::execution_next_pc, 2 },
-                                   { C::execution_sel_call, 1 },
+                                   { C::execution_sel_execute_call, 1 },
                                    { C::execution_sel_enter_call, 1 },
                                    { C::execution_context_id, 1 },
                                    { C::execution_next_context_id, 2 },
@@ -99,7 +99,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 20 },
                                    { C::execution_next_pc, 30 },
-                                   { C::execution_sel_return, 1 },
+                                   { C::execution_sel_execute_return, 1 },
                                    { C::execution_rop_0_, 500 },      // Return data size offset
                                    { C::execution_rop_1_, 600 },      // Return data offset
                                    { C::execution_register_0_, 200 }, // Return data size

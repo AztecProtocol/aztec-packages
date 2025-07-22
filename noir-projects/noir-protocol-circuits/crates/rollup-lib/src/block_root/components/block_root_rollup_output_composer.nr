@@ -15,15 +15,13 @@ use blob::{
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
-        epoch_constant_data::EpochConstantData,
+        block_header::BlockHeader, epoch_constant_data::EpochConstantData,
+        partial_state_reference::PartialStateReference, state_reference::StateReference,
     },
-    block_header::BlockHeader,
     constants::{AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT},
     content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
-    partial_state_reference::PartialStateReference,
     proposed_block_header::ProposedBlockHeader,
-    state_reference::StateReference,
     traits::{Empty, Hash},
 };
 

@@ -9,16 +9,6 @@ variable "GCP_REGION" {
   type    = string
 }
 
-variable "GCP_BLOCKCHAIN_NODE_ID" {
-  default = "eth-sepolia-node-3"
-  type    = string
-}
-
-variable "GCP_BLOCKCHAIN_NODE_REGION" {
-  default = "us-central1"
-  type    = string
-}
-
 variable "GKE_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -28,13 +18,13 @@ variable "GKE_CLUSTER_CONTEXT" {
 variable "RELEASE_PREFIX" {
   description = "The prefix to use for the helm installs"
   type        = string
-  default     = "alpha-testnet"
+  default     = "testnet"
 }
 
 variable "NAMESPACE" {
   description = "The namespace to install into"
   type        = string
-  default     = "alpha-testnet"
+  default     = "testnet"
 }
 
 variable "AZTEC_DOCKER_IMAGE" {
@@ -52,24 +42,35 @@ variable "METRICS_NAMESPACE" {
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string
-  default     = "alpha-testnet-validator.yaml"
+  default     = "testnet-validator.yaml"
+}
+
+variable "ARCHIVE_NODE_VALUES" {
+  description = "The values file to apply"
+  type        = string
+  default     = "testnet-archive-node.yaml"
 }
 
 variable "PROVER_VALUES" {
   description = "The values file to apply"
   type        = string
-  default     = "alpha-testnet-prover.yaml"
+  default     = "testnet-prover.yaml"
 }
 
-variable "NODE_VALUES" {
+variable "NODE_RPC_VALUES" {
   description = "The values file to apply"
   type        = string
-  default     = "alpha-testnet-node.yaml"
+  default     = "testnet-rpc-node.yaml"
 }
 
 variable "SNAPSHOT_VALUES" {
   description = "The values file to apply"
   type        = string
-  default     = "alpha-testnet-snapshots.yaml"
+  default     = "testnet-snapshots.yaml"
 }
 
+variable "RPC_HOSTNAME" {
+  description = "The public hostname for the ingress"
+  type        = string
+  default     = "rpc.testnet.aztec.network"
+}

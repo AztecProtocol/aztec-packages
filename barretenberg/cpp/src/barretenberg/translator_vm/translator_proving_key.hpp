@@ -7,6 +7,7 @@
 #pragma once
 #include <utility>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1317)
@@ -63,7 +64,7 @@ class TranslatorProvingKey {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);
                     } else {
-                        ASSERT(circuit.get_variable(wire[i]) == 0);
+                        BB_ASSERT_EQ(circuit.get_variable(wire[i]), 0);
                     }
                 }
             });

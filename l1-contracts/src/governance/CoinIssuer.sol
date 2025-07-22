@@ -6,6 +6,7 @@ import {ICoinIssuer} from "@aztec/governance/interfaces/ICoinIssuer.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {Ownable2Step} from "@oz/access/Ownable2Step.sol";
 
 /**
  * @title CoinIssuer
@@ -21,6 +22,10 @@ contract CoinIssuer is ICoinIssuer, Ownable {
     ASSET = _asset;
     RATE = _rate;
     timeOfLastMint = block.timestamp;
+  }
+
+  function acceptTokenOwnership() external override(ICoinIssuer) onlyOwner {
+    Ownable2Step(address(ASSET)).acceptOwnership();
   }
 
   /**

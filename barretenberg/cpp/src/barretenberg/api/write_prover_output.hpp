@@ -10,6 +10,20 @@
 
 namespace bb {
 
+inline std::string field_elements_to_json(const std::vector<bb::fr>& fields)
+{
+    std::stringstream ss;
+    ss << "[";
+    for (size_t i = 0; i < fields.size(); ++i) {
+        ss << '"' << fields[i] << '"';
+        if (i < fields.size() - 1) {
+            ss << ",";
+        }
+    }
+    ss << "]";
+    return ss.str();
+}
+
 template <typename VK> struct PubInputsProofAndKey {
     PublicInputsVector public_inputs;
     HonkProof proof;

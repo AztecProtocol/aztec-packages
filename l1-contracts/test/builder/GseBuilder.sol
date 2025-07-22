@@ -64,7 +64,9 @@ contract GSEBuilder is TestBase {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(address(this), config.testERC20);
+      config.gse = new GSE(
+        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      );
       vm.label(address(config.gse), "GSE");
     }
 
@@ -97,11 +99,10 @@ contract GSEBuilder is TestBase {
       vm.prank(address(config.governance));
       config.governance.openFloodgates();
 
-      assertEq(config.governance.isAllDepositsAllowed(), true);
+      assertEq(config.governance.isAllBeneficiariesAllowed(), true);
     }
 
     vm.startPrank(config.registry.owner());
-    config.registry.updateGovernance(address(config.governance));
     config.registry.transferOwnership(address(config.governance));
     vm.stopPrank();
 

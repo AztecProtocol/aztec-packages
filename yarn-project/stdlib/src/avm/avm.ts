@@ -388,7 +388,6 @@ export class AvmRevertCheckpointHint {
 export class AvmTxHint {
   constructor(
     public readonly hash: string,
-    public readonly globalVariables: GlobalVariables,
     public readonly gasSettings: GasSettings,
     public readonly effectiveGasFees: GasFees,
     public readonly nonRevertibleAccumulatedData: {
@@ -425,7 +424,6 @@ export class AvmTxHint {
 
     return new AvmTxHint(
       txHash.hash.toString(),
-      tx.data.constants.historicalHeader.globalVariables,
       gasSettings,
       effectiveGasFees,
       {
@@ -449,7 +447,6 @@ export class AvmTxHint {
   static empty() {
     return new AvmTxHint(
       '',
-      GlobalVariables.empty(),
       GasSettings.empty(),
       GasFees.empty(),
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
@@ -466,7 +463,6 @@ export class AvmTxHint {
     return z
       .object({
         hash: z.string(),
-        globalVariables: GlobalVariables.schema,
         gasSettings: GasSettings.schema,
         effectiveGasFees: GasFees.schema,
         nonRevertibleAccumulatedData: z.object({
@@ -488,7 +484,6 @@ export class AvmTxHint {
       .transform(
         ({
           hash,
-          globalVariables,
           gasSettings,
           effectiveGasFees,
           nonRevertibleAccumulatedData,
@@ -501,7 +496,6 @@ export class AvmTxHint {
         }) =>
           new AvmTxHint(
             hash,
-            globalVariables,
             gasSettings,
             effectiveGasFees,
             nonRevertibleAccumulatedData,
@@ -518,6 +512,7 @@ export class AvmTxHint {
 
 export class AvmExecutionHints {
   constructor(
+    public readonly globalVariables: GlobalVariables,
     public tx: AvmTxHint,
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
@@ -539,12 +534,13 @@ export class AvmExecutionHints {
   ) {}
 
   static empty() {
-    return new AvmExecutionHints(AvmTxHint.empty());
+    return new AvmExecutionHints(GlobalVariables.empty(), AvmTxHint.empty());
   }
 
   static get schema() {
     return z
       .object({
+        globalVariables: GlobalVariables.schema,
         tx: AvmTxHint.schema,
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
@@ -564,6 +560,7 @@ export class AvmExecutionHints {
       })
       .transform(
         ({
+          globalVariables,
           tx,
           contractInstances,
           contractClasses,
@@ -582,6 +579,7 @@ export class AvmExecutionHints {
           revertCheckpointHints,
         }) =>
           new AvmExecutionHints(
+            globalVariables,
             tx,
             contractInstances,
             contractClasses,

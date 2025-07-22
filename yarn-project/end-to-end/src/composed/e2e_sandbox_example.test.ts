@@ -251,7 +251,7 @@ describe('e2e_sandbox_example', () => {
     const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
     const bananaCoin = await TokenContract.at(bananaCoinAddress, fundedWallet);
     const mintAmount = 10n ** 20n;
-    await bananaCoin.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
+    await bananaCoin.methods.mint_to_private(alice, mintAmount).send().wait();
 
     ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
     const amountTransferToBob = 100n;

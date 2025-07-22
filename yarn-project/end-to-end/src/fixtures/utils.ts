@@ -50,7 +50,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -598,11 +598,7 @@ export async function setup(
 
     if (sequencerClient) {
       const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(
-        publisher.l1TxUtils,
-        dateProvider,
-        config.ethereumSlotDuration,
-      );
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
     }
 
     let proverNode: ProverNode | undefined = undefined;
@@ -922,7 +918,12 @@ export function createAndSyncProverNode(
       ...proverNodeConfig,
     };
 
-    const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');
+    const l1TxUtils = createDelayedL1TxUtils(
+      aztecNodeConfig,
+      proverNodePrivateKey,
+      'prover-node',
+      proverNodeDeps.dateProvider,
+    );
 
     const proverNode = await createProverNode(
       proverConfig,
@@ -935,11 +936,16 @@ export function createAndSyncProverNode(
   });
 }
 
-function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
+function createDelayedL1TxUtils(
+  aztecNodeConfig: AztecNodeConfig,
+  privateKey: `0x${string}`,
+  logName: string,
+  dateProvider?: DateProvider,
+) {
   const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
 
   const log = createLogger(logName);
-  const l1TxUtils = new DelayedTxUtils(l1Client, log, aztecNodeConfig);
+  const l1TxUtils = new DelayedTxUtils(l1Client, log, dateProvider, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
 }

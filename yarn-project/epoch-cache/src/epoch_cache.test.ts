@@ -32,6 +32,7 @@ describe('EpochCache', () => {
     // Mock the getCommitteeAt method
     rollupContract.getCommitteeAt.mockResolvedValue(testCommittee.map(v => v.toString()));
     rollupContract.getSampleSeedAt.mockResolvedValue(0n);
+    rollupContract.getAttesters.mockResolvedValue(testCommittee.map(v => v.toString()));
 
     l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
 
@@ -199,5 +200,31 @@ describe('EpochCache', () => {
     const { committee: first } = await epochCache.getCommittee(BigInt(0 * EPOCH_DURATION));
     expect(first).toEqual(committees[0]);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return all validators', async () => {
+    let testTime = new Date();
+    jest.setSystemTime(testTime);
+    const initialValidators = times(100, i => EthAddress.fromNumber(i + 1));
+    const updatedValidators = times(100, i => EthAddress.fromNumber(i + 101));
+    rollupContract.getAttesters.mockResolvedValueOnce(initialValidators.map(x => x.toString()));
+    const validators = await epochCache.getRegisteredValidators();
+    expect(validators.map(v => v.toString())).toEqual(initialValidators.map(v => v.toString()));
+    expect(rollupContract.getAttesters).toHaveBeenCalledTimes(1);
+
+    // Move forward 30 seconds and it should return the cached attesters
+    testTime = new Date(testTime.getTime() + 30 * 1000);
+    jest.setSystemTime(testTime);
+    const validators2 = await epochCache.getRegisteredValidators();
+    expect(validators2.map(v => v.toString())).toEqual(initialValidators.map(v => v.toString()));
+    expect(rollupContract.getAttesters).toHaveBeenCalledTimes(1);
+
+    // Move forward in time past 60 seconds and we should query the contract again
+    testTime = new Date(testTime.getTime() + 31 * 1000);
+    jest.setSystemTime(testTime);
+    rollupContract.getAttesters.mockResolvedValueOnce(updatedValidators.map(x => x.toString()));
+    const validators3 = await epochCache.getRegisteredValidators();
+    expect(validators3.map(v => v.toString())).toEqual(updatedValidators.map(v => v.toString()));
+    expect(rollupContract.getAttesters).toHaveBeenCalledTimes(2);
   });
 });

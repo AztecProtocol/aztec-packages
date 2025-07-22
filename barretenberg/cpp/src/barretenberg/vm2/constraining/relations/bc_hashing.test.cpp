@@ -13,6 +13,8 @@
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
@@ -24,12 +26,23 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::Return;
+using ::testing::StrictMock;
+
 using testing::random_bytes;
 using testing::random_fields;
 
+using simulation::EventEmitter;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::Poseidon2;
+using simulation::Poseidon2HashEvent;
+using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using tracegen::BytecodeTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bc_hashing = bb::avm2::bc_hashing<FF>;
@@ -70,9 +83,18 @@ TEST(BytecodeHashingConstrainingTest, MultipleBytecodeHash)
 
 TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
 {
-    simulation::EventEmitter<simulation::Poseidon2HashEvent> hash_event_emitter;
-    simulation::EventEmitter<simulation::Poseidon2PermutationEvent> perm_event_emitter;
-    simulation::Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    StrictMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
+    EXPECT_CALL(mock_execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+
+    Poseidon2 poseidon2(
+        mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
     });

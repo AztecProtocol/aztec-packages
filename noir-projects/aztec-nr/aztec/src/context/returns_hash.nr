@@ -20,23 +20,23 @@ impl ReturnsHash {
 
     /// This is only used during private execution, since in public it is the VM itself that keeps track of return
     /// values.
-    pub fn get_preimage<T, let N: u32>(self) -> T
+    pub fn get_preimage<T>(self) -> T
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         // Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it.
-        let preimage: [Field; N] = unsafe { execution_cache::load(self.hash) };
+        let preimage = unsafe { execution_cache::load(self.hash) };
         assert_eq(self.hash, hash_args_array(preimage));
 
         Deserialize::deserialize(preimage)
     }
 
-    pub fn get_preimage_and_assert_empty<T, let N: u32>(self) -> T
+    pub fn get_preimage_and_assert_empty<T>(self) -> T
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         // Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it.
-        let preimage: [Field; N] = unsafe { execution_cache::load(self.hash) };
+        let preimage = unsafe { execution_cache::load(self.hash) };
         assert_eq(self.hash, hash_args_array(preimage));
         assert_eq(self.hash, 0);
 

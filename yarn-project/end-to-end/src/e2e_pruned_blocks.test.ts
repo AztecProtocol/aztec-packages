@@ -79,7 +79,7 @@ describe('e2e_pruned_blocks', () => {
 
     const firstMintReceipt = await token
       .withWallet(adminWallet)
-      .methods.mint_to_private(admin, sender, MINT_AMOUNT / 2n)
+      .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
       .send()
       .wait();
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
@@ -124,7 +124,7 @@ describe('e2e_pruned_blocks', () => {
     // and check that everything worked as expected.
     await token
       .withWallet(adminWallet)
-      .methods.mint_to_private(admin, sender, MINT_AMOUNT / 2n)
+      .methods.mint_to_private(sender, MINT_AMOUNT / 2n)
       .send()
       .wait();
 

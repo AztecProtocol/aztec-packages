@@ -32,7 +32,6 @@ pub contract NoConstructor {
         storage.private_mutable.initialize(note).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
         ));
     }
 

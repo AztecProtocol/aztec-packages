@@ -30,7 +30,8 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    Polynomial<FF> polynomial(points, key->circuit_size);
+    const size_t circuit_size = 1 << key->log_circuit_size;
+    Polynomial<FF> polynomial(points, circuit_size);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -58,8 +59,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // Fiat-Shamir the vk hash
     FF vk_hash = key->add_hash_to_transcript("avm", *transcript);
     vinfo("AVM vk hash in verifier: ", vk_hash);
-
-    VerifierCommitments commitments{ key };
 
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
