@@ -83,6 +83,10 @@ library ExtRollupLib2 {
     InvalidateLib.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
   }
 
+  function slash(address _attester, uint256 _amount) external returns (bool) {
+    return StakingLib.trySlash(_attester, _amount);
+  }
+
   function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256) {
     return ValidatorSelectionLib.canProposeAtTime(_ts, _archive);
   }
@@ -109,9 +113,5 @@ library ExtRollupLib2 {
 
   function getEntryQueueFlushSize() external view returns (uint256) {
     return StakingLib.getEntryQueueFlushSize();
-  }
-
-  function slash(address _attester, uint256 _amount) external returns (bool) {
-    return StakingLib.trySlash(_attester, _amount);
   }
 }
