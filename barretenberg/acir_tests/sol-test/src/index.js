@@ -6,8 +6,8 @@ import solc from "solc";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 456;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 507;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 457;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 508;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -166,6 +166,26 @@ const deploy = async (signer, abi, bytecode) => {
 };
 
 /**
+ * Links a library address to bytecode
+ * @param {string} bytecode - The bytecode with library placeholders
+ * @param {string} libraryName - The library name
+ * @param {string} libraryAddress - The deployed library address
+ * @returns {string} - The linked bytecode
+ */
+const linkLibrary = (bytecode, libraryName, libraryAddress) => {
+  // Remove 0x prefix from address if present
+  const address = libraryAddress.replace(/^0x/, '');
+
+  // Library placeholder is __$<keccak256(libraryName)[0:34]>$__
+  // We need to find and replace this placeholder with the actual address
+  const placeholder = `__\\$[a-fA-F0-9]{34}\\$__`;
+  const regex = new RegExp(placeholder, 'g');
+
+  // Replace all occurrences of the placeholder with the library address
+  return bytecode.replace(regex, address);
+};
+
+/**
  * Takes in a proof as fields, and returns the public inputs, as well as the number of public inputs
  * @param {Array<String>} proofAsFields
  * @return {Array} [number, Array<String>]
@@ -258,7 +278,31 @@ try {
   const provider = await getProvider(randomPort);
   const signer = new ethers.Wallet(key, provider);
 
-  const address = await deploy(signer, abi, bytecode);
+  let finalBytecode = bytecode;
+
+  // Deploy ZKTranscript library if needed and link it
+  if (testingHonk && hasZK) {
+    // Check if there's a library placeholder in the bytecode
+    const libraryPlaceholder = /__\$[a-fA-F0-9]{34}\$__/;
+    if (libraryPlaceholder.test(bytecode)) {
+      // Get the ZKTranscriptLib contract from compilation output
+      const zkTranscriptContract = output.contracts["Verifier.sol"]["ZKTranscriptLib"];
+      if (zkTranscriptContract) {
+        const libraryBytecode = zkTranscriptContract.evm.bytecode.object;
+        const libraryAbi = zkTranscriptContract.abi;
+
+        // Deploy the library
+        console.log("Deploying ZKTranscriptLib library...");
+        const libraryAddress = await deploy(signer, libraryAbi, libraryBytecode);
+        console.log("ZKTranscriptLib deployed at:", libraryAddress);
+
+        // Link the library to the verifier bytecode
+        finalBytecode = linkLibrary(bytecode, "ZKTranscriptLib", libraryAddress);
+      }
+    }
+  }
+
+  const address = await deploy(signer, abi, finalBytecode);
   const contract = new ethers.Contract(address, abi, signer);
 
   const result = await contract.test(proofStr, publicInputs);

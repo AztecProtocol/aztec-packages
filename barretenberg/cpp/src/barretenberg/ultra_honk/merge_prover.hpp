@@ -34,6 +34,7 @@ class MergeProver {
     using MergeProof = std::vector<FF>;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
+                         const MergeSettings settings = MergeSettings::PREPEND,
                          const CommitmentKey& commitment_key = CommitmentKey(),
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
@@ -42,6 +43,8 @@ class MergeProver {
     std::shared_ptr<ECCOpQueue> op_queue;
     CommitmentKey pcs_commitment_key;
     std::shared_ptr<Transcript> transcript;
+    MergeSettings settings;
+
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
