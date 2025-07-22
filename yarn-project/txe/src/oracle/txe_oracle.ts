@@ -637,7 +637,10 @@ export class TXE implements TypedOracle {
 
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const [index] = await snap.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
-    return index !== undefined;
+
+    const inPendingCache = this.noteCache.getNullifiers(this.contractAddress).has(nullifier.toBigInt());
+
+    return index !== undefined || inPendingCache;
   }
 
   getL1ToL2MembershipWitness(
