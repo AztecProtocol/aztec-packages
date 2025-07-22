@@ -1,17 +1,19 @@
 #!/usr/bin/env node
+import { fileURLToPath } from 'url';
 import { AztecClientBackend } from '../barretenberg/backend.js';
 import { IvcInputs } from './ivc-inputs.js';
 import { existsSync } from 'fs';
+import { dirname } from 'path';
 
 /**
  * Simple test specifically for AztecClientBackend
  */
 async function testAztecClientBackend() {
   const inputsPath = './ivc-inputs.msgpack';
-  
+
   console.log('=== AztecClientBackend Test ===');
   console.log('Input file:', inputsPath);
-  
+
   if (!existsSync(inputsPath)) {
     console.error('Error: ivc-inputs.msgpack file not found');
     console.log('Please ensure the file exists in the current directory');
@@ -39,24 +41,27 @@ async function testAztecClientBackend() {
 
     // Create AztecClientBackend
     console.log('\nCreating AztecClientBackend...');
-    const backend = new AztecClientBackend(bytecodes);
-    
+    const backend = new AztecClientBackend(bytecodes, {
+      wasmPath:
+        dirname(fileURLToPath(import.meta.url)) + '/../../../cpp/build-wasm-threads/bin/barretenberg-debug.wasm.gz',
+    });
+
     // Generate proof
     console.log('Generating ClientIVC proof...');
     const startTime = Date.now();
-    
+
     const [proof, vk] = await backend.prove(witnesses, vks);
-    
+
     const elapsedTime = Date.now() - startTime;
     console.log(`✓ Proof generated in ${elapsedTime}ms`);
     console.log(`  - Proof size: ${proof.length} bytes`);
     console.log(`  - VK size: ${vk.length} bytes`);
-    
+
     // Verify the proof (this is also done internally in prove())
     console.log('\nVerifying proof...');
     const isValid = await backend.verify(proof, vk);
     console.log(`✓ Proof verification: ${isValid ? 'VALID' : 'INVALID'}`);
-    
+
     if (!isValid) {
       throw new Error('Proof verification failed');
     }
@@ -64,7 +69,7 @@ async function testAztecClientBackend() {
     // Clean up
     await backend.destroy();
     console.log('\n✅ AztecClientBackend test completed successfully!');
-    
+
   } catch (error) {
     console.error('\n❌ Test failed:', error);
     process.exit(1);

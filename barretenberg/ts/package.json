@@ -35,8 +35,7 @@
     "test:debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules ./node_modules/.bin/jest --no-cache --passWithNoTests --runInBand",
     "simple_test": "NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
     "test2": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/test-ivc-runner.ts",
-    "test3": "./scripts/test-with-sourcemaps.sh src/cbind/test-aztec-client-backend.ts",
-    "test4": "./scripts/test-with-sourcemaps.sh src/cbind/test-ivc-runner-augmented.ts",
+    "test3": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/test-aztec-client-backend.ts",
     "deploy": "npm publish --access public"
   },
   "jest": {
