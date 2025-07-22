@@ -1095,5 +1095,53 @@ TEST(ExecutionTraceGenTest, L1ToL2MessageExists)
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS))));
 }
 
+TEST(ExecutionTraceGenTest, NullifierExists)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    // constants
+    uint16_t nullifier_offset = 100;
+    uint16_t address_offset = 200;
+    uint16_t exists_offset = 300;
+    FF nullifier = 0x123456;
+    FF address = 0xdeadbeef;
+    bool exists = true;
+
+    const auto instr = InstructionBuilder(WireOpCode::NULLIFIEREXISTS)
+                           .operand<uint16_t>(nullifier_offset)
+                           .operand<uint16_t>(address_offset)
+                           .operand<uint16_t>(exists_offset)
+                           .build();
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { TaggedValue::from_tag(ValueTag::FF, nullifier), TaggedValue::from_tag(ValueTag::FF, address) },
+        .output = { TaggedValue::from_tag(ValueTag::U1, exists ? 1 : 0) }, // exists = true
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) },
+                                                   { .resolved_operand = MemoryValue::from<FF>(address) },
+                                                   { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(exists_offset) } } }
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the nullifier_exists
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_nullifier_exists, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, nullifier),
+                          ROW_FIELD_EQ(execution_rop_1_, address),
+                          ROW_FIELD_EQ(execution_rop_2_, exists_offset),
+                          ROW_FIELD_EQ(execution_register_0_, nullifier),
+                          ROW_FIELD_EQ(execution_register_1_, address),
+                          ROW_FIELD_EQ(execution_register_2_, exists ? 1 : 0),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, MEM_TAG_U1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIEREXISTS))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen
