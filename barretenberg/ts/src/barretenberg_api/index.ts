@@ -13,7 +13,7 @@ import {
 import { Fr, Point, Buffer32, Ptr } from '../types/index.js';
 
 export class BarretenbergApi {
-  constructor(protected wasm: BarretenbergWasmMainWorker) {}
+  constructor(public wasm: BarretenbergWasmMainWorker) {}
 
   async pedersenCommit(inputsBuffer: Fr[], ctxIndex: number): Promise<Point> {
     const inArgs = [inputsBuffer, ctxIndex].map(serializeBufferable);
