@@ -63,7 +63,12 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
             EXPECT_EQ(verified, expected_result);
         } else {
             Verifier verifier(verification_key);
-            bool verified = verifier.verify_proof(proof);
+            bool verified = false;
+            if constexpr (IsUltraHonk<Flavor>) {
+                verified = verifier.verify_proof(proof);
+            } else {
+                verified = std::get<0>(verifier.verify_proof_mega(proof));
+            }
             EXPECT_EQ(verified, expected_result);
         }
     };
@@ -287,7 +292,11 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
             return verifier.verify_proof(proof, proving_key->ipa_proof);
         } else {
             typename TestFixture::Verifier verifier(verification_key);
-            return verifier.verify_proof(proof);
+            if constexpr (IsUltraHonk<TypeParam>) {
+                return verifier.verify_proof(proof);
+            } else {
+                return std::get<0>(verifier.verify_proof(proof));
+            }
         }
     };
 
