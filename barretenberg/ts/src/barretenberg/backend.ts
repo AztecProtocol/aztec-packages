@@ -9,8 +9,6 @@ import {
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
 import { ungzip } from 'pako';
-import { BbApiBase } from '../cbind/generated/api_types.js';
-import { AsyncApi } from '../cbind/index.js';
 import { Decoder, Encoder } from 'msgpackr/pack';
 
 export class AztecClientBackendError extends Error {
@@ -212,7 +210,7 @@ export class AztecClientBackend {
   // These are initialized asynchronously in the `init` function,
   // constructors cannot be asynchronous which is why we do this.
 
-  protected api!: BbApiBase;
+  protected api!: Barretenberg;
 
   constructor(
     protected acirBuf: Uint8Array[],
@@ -225,7 +223,7 @@ export class AztecClientBackend {
       const barretenberg = await Barretenberg.new(this.options);
       // TODO: Initialize SRS for ClientIVC if needed
       await barretenberg.initSRSClientIVC();
-      this.api = new AsyncApi(barretenberg.wasm);
+      this.api = barretenberg;
     }
   }
 
@@ -295,10 +293,12 @@ export class AztecClientBackend {
     await this.instantiate();
     const circuitSizes: number[] = [];
     for (const buf of this.acirBuf) {
-      const gates = await this.api.clientIvcGates({ circuit: {
-        name: 'circuit',
-        bytecode: buf,
-      }, includeGatesPerOpcode: false
+      const gates = await this.api.clientIvcGates({ 
+        circuit: {
+          name: 'circuit',
+          bytecode: buf,
+        }, 
+        includeGatesPerOpcode: false
       });
       circuitSizes.push(gates.circuitSize);
     }
