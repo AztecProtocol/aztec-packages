@@ -25,6 +25,8 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
     MegaVerifier verifier{ builder.get(), stdlib_mega_vk_and_hash, civc_rec_verifier_transcript };
     MegaVerifier::Output mega_output = verifier.verify_proof(proof.mega_proof);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1483): remove duplication of pairing points
+    // reconstruction
     // Extract public inputs
     bb::stdlib::recursion::honk::HidingKernelIO<Builder> hiding_output;
     hiding_output.reconstruct_from_public(verifier.key->public_inputs);
