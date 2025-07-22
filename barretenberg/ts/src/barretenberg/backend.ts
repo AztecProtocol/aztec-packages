@@ -11,6 +11,7 @@ import {
 import { ungzip } from 'pako';
 import { BbApiBase } from '../cbind/generated/api_types.js';
 import { AsyncApi } from '../cbind/index.js';
+import { Encoder } from 'msgpackr/pack';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
@@ -269,25 +270,19 @@ export class AztecClientBackend {
     // The proof result contains a Proof object with megaProof and goblinProof
     // For ClientIVC, we need to extract the raw proof data
     // TODO: This needs to be properly serialized based on the expected format
-    const proof = proveResult.proof;
-
-    // For now, we'll need to serialize the proof properly
-    // This is a placeholder - the actual serialization needs to match what Aztec expects
-    const proofData = Buffer.concat([
-      // Serialize megaProof fields
-      ...proof.megaProof.map(fr => Buffer.from(fr)),
-      // Serialize goblinProof if needed
-    ]);
-
+    const proof = new Encoder({useRecords: false}).encode(proveResult.proof);
     // Generate the VK
-    const vkResult = await this.api.clientIvcComputeIvcVk({});
-    const vk = Buffer.from(vkResult.vk);
+    const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
+      name: 'tail',
+      bytecode: this.acirBuf[this.acirBuf.length - 1],
+    } });
+    const vk = Buffer.from(vkResult.bytes);
 
     // Note: Verification may not work correctly until we properly serialize the proof
-    if (!(await this.verify(proofData, vk))) {
+    if (!(await this.verify(proof, vk))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
     }
-    return [proofData, vk];
+    return [proof, vk];
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {

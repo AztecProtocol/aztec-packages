@@ -4,6 +4,7 @@
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
@@ -164,10 +165,9 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
-    const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
-
-    const bool verified = ClientIVC::verify(proof, vk);
-    return verified;
+    auto vk_buffer = read_file(vk_path);
+    auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = vk_buffer }.execute();
+    return response.valid;
 }
 
 bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)

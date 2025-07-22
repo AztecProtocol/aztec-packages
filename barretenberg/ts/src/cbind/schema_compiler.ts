@@ -2,8 +2,6 @@
  * Unified schema compiler with integrated strategies
  */
 
-import { Buffer } from 'buffer';
-
 // Core type definitions
 export type Schema =
   | string
@@ -190,7 +188,7 @@ export class SchemaCompiler {
           }
         }
       }
-      
+
       // Add BbApiBase interface
       if (this.functionMetadata.length > 0) {
         parts.push('', '// Base API interface');
@@ -228,7 +226,7 @@ export class SchemaCompiler {
 
     for (const type of baseTypes) {
       // Skip built-in types
-      if (['string', 'number', 'boolean', 'Buffer'].includes(type)) {
+      if (['string', 'number', 'boolean', 'Buffer', 'Uint8Array'].includes(type)) {
         continue;
       }
 
@@ -336,7 +334,7 @@ export class SchemaCompiler {
       case 'vector': {
         const [subtype] = args[0];
         if (subtype === 'unsigned char') {
-          return { typeName: 'Buffer' };
+          return { typeName: 'Uint8Array' };
         }
         const subtypeInfo = this.processSchema(subtype);
         return {
@@ -351,7 +349,7 @@ export class SchemaCompiler {
         let targetType: string;
 
         if (msgpackName.startsWith('bin')) {
-          targetType = 'Buffer';
+          targetType = 'Uint8Array';
         } else if (['int', 'unsigned int', 'unsigned short'].includes(msgpackName)) {
           targetType = 'number';
         } else {
@@ -399,7 +397,7 @@ export class SchemaCompiler {
       case 'string':
         return { typeName: 'string' };
       case 'bin32':
-        return { typeName: 'Buffer' };
+        return { typeName: 'Uint8Array' };
       default:
         return { typeName: pascalCase(schema) };
     }
@@ -565,7 +563,7 @@ ${conversions}
       for (const type of this.referencedTypes) {
         neededImports.add(type);
       }
-      
+
       // Add BbApiBase interface
       neededImports.add('BbApiBase');
 
@@ -579,10 +577,10 @@ ${conversions}
   }
 
   private generateBbApiBaseInterface(): string {
-    const methods = this.functionMetadata.map(m => 
+    const methods = this.functionMetadata.map(m =>
       `  ${m.name}(command: ${m.commandType}): Promise<${m.responseType}>;`
     ).join('\n');
-    
+
     return `export interface BbApiBase {
 ${methods}
   destroy(): Promise<void>;
@@ -597,7 +595,10 @@ ${methods}
       return this.generateNativeApiClass(methods);
     }
 
-    return `export class ${className} implements BbApiBase {
+    // For sync API, don't implement BbApiBase since methods are synchronous
+    const implementsClause = this.config.mode === 'sync' ? '' : ' implements BbApiBase';
+    
+    return `export class ${className}${implementsClause} {
   constructor(protected wasm: ${this.getWasmType()}) {}
 
 ${methods}
@@ -631,7 +632,7 @@ ${methods}
     if (this.config.mode === 'native') {
       return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    return this.sendCommand(['${metadata.commandType}', msgpackCommand]).then(([variantName, result]) => {
+    return this.sendCommand(['${metadata.commandType}', msgpackCommand]).then(([variantName, result]: [string, any]) => {
       if (variantName !== '${responseType}') {
         throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
       }
@@ -644,7 +645,7 @@ ${methods}
     if (this.config.mode === 'async') {
       return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    return this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]).then(([variantName, result]) => {
+    return this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]).then(([variantName, result]: [string, any]) => {
       if (variantName !== '${responseType}') {
         throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
       }
@@ -652,7 +653,7 @@ ${methods}
     });
   }`;
     }
-    
+
     // For sync mode, keep the synchronous behavior
     return `  ${name}(command: ${commandType}): ${responseType} {
     const msgpackCommand = from${commandType}(command);
@@ -787,7 +788,7 @@ ${methods}
 export function createSharedTypesCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'types',
-    imports: [`import { Buffer } from 'buffer';`],
+    imports: [],
   });
 }
 
@@ -795,7 +796,6 @@ export function createSyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'sync',
     imports: [
-      `import { Buffer } from 'buffer';`,
       `import { BarretenbergWasmMain } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
     ],
   });
@@ -805,7 +805,6 @@ export function createAsyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'async',
     imports: [
-      `import { Buffer } from 'buffer';`,
       `import { BarretenbergWasmMainWorker } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
     ],
   });
