@@ -108,7 +108,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         {
             for (uint256 i = 0; i < $NUM_PUBLIC_INPUTS - PAIRING_POINTS_SIZE; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
-                logFr("pubInput i", pubInput);
 
                 numerator = numerator * (numeratorAcc + pubInput);
                 denominator = denominator * (denominatorAcc + pubInput);
@@ -119,7 +118,6 @@ abstract contract BaseHonkVerifier is IVerifier {
 
             for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
                 Fr pubInput = pairingPointObject[i];
-                logFr("PP pubInput i", pubInput);
 
                 numerator = numerator * (numeratorAcc + pubInput);
                 denominator = denominator * (denominatorAcc + pubInput);

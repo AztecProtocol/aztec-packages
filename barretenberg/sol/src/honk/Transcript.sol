@@ -94,10 +94,6 @@ library TranscriptLib {
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
 
-        logUint("circuitSize", circuitSize);
-        logUint("publicInputsSize", publicInputsSize);
-        logUint("pubInputsOffset", pubInputsOffset);
-
         for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
@@ -119,8 +115,6 @@ library TranscriptLib {
         round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
         round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
         round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
-
-        logG("w1", proof.w1);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);

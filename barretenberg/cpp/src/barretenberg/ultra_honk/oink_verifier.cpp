@@ -53,15 +53,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_
         vinfo("vk hash in Oink verifier: ", vkey_hash);
     }
 
-    std::cerr << "Oink log circuit size: " << verification_key->vk->log_circuit_size << std::endl;
-    std::cerr << "Oink public inputs size: " << verification_key->vk->num_public_inputs << std::endl;
-    std::cerr << "Oink public inputs offset: " << verification_key->vk->pub_inputs_offset << std::endl;
-
     for (size_t i = 0; i < verification_key->vk->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
-        std::cerr << "Oink public input " << i << ": " << public_input_i << std::endl;
     }
 }
 
@@ -76,8 +71,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_wire_comm
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
     witness_comms.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_r);
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
-
-    std::cerr << "Oink W1: " << witness_comms.w_l << std::endl;
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -127,8 +120,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_deriv
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-
-    std::cerr << "Oink: beta: " << beta << std::endl;
 
     witness_comms.lookup_inverses =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
