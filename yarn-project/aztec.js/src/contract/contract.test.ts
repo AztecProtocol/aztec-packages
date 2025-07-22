@@ -21,13 +21,15 @@ import type {
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { type Account } from '../account/account.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;
   let contractAddress: AztecAddress;
-  let account: CompleteAddress;
+  let account: MockProxy<Account>;
+  let accountAddress: CompleteAddress;
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
@@ -140,7 +142,9 @@ describe('Contract Class', () => {
 
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
-    account = await CompleteAddress.random();
+    account = mock<Account>();
+    accountAddress = await CompleteAddress.random();
+    account.getCompleteAddress.mockResolvedValue(accountAddress);
     const contractClass = await getContractClassFromArtifact(defaultArtifact);
     contractInstance = {
       address: contractAddress,
@@ -164,7 +168,7 @@ describe('Contract Class', () => {
 
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
-    wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
+    account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractMetadata.mockResolvedValue({
       contractInstance,
       isContractInitialized: true,
@@ -188,7 +192,7 @@ describe('Contract Class', () => {
 
     expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
-    expect(wallet.createTxExecutionRequest).toHaveBeenCalledTimes(1);
+    expect(account.createTxExecutionRequest).toHaveBeenCalledTimes(1);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
     expect(wallet.sendTx).toHaveBeenCalledWith(mockTx);
   });
@@ -196,10 +200,10 @@ describe('Contract Class', () => {
   it('should call view on a utility function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({
-      from: account.address,
+      from: accountAddress.address,
     });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], accountAddress.address);
     expect(result).toBe(mockUtilityResultValue.result);
   });
 

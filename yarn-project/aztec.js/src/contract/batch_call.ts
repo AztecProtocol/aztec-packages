@@ -2,6 +2,7 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/pay
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
+import type { Account } from '../account/account.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } from './interaction_options.js';
@@ -10,9 +11,10 @@ import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } f
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
+    account: Account,
     protected calls: BaseContractInteraction[],
   ) {
-    super(wallet);
+    super(wallet, account);
   }
 
   /**
@@ -27,7 +29,7 @@ export class BatchCall extends BaseContractInteraction {
     const { fee: userFee, txNonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
+    return await this.account.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   /**
@@ -92,7 +94,7 @@ export class BatchCall extends BaseContractInteraction {
     );
     const { fee: userFee, txNonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {
+    const txRequest = await this.account.createTxExecutionRequest(requestWithoutFee, fee, {
       txNonce,
       cancellable,
     });
