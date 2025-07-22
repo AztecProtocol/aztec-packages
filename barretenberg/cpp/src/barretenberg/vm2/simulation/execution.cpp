@@ -10,6 +10,7 @@
 #include "barretenberg/common/log.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
@@ -134,6 +135,19 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     }
 }
 
+void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
+{
+    constexpr auto opcode = ExecutionOpCode::CAST;
+    auto& memory = context.get_memory();
+    auto val = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { val });
+
+    get_gas_tracker().consume_gas();
+    MemoryValue truncated = alu.truncate(val.as_ff(), static_cast<MemoryTag>(dst_tag));
+    memory.set(dst_addr, truncated);
+    set_output(opcode, truncated);
+}
+
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -190,14 +204,14 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value)
 {
     get_gas_tracker().consume_gas();
 
     constexpr auto opcode = ExecutionOpCode::SET;
-    TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
-    context.get_memory().set(dst_addr, tagged_value);
-    set_output(opcode, tagged_value);
+    MemoryValue truncated = alu.truncate(value, static_cast<MemoryTag>(tag));
+    context.get_memory().set(dst_addr, truncated);
+    set_output(opcode, truncated);
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
@@ -585,6 +599,31 @@ void Execution::note_hash_exists(ContextInterface& context,
     set_output(opcode, value);
 }
 
+void Execution::nullifier_exists(ContextInterface& context,
+                                 MemoryAddress nullifier_offset,
+                                 MemoryAddress address_offset,
+                                 MemoryAddress exists_offset)
+{
+    constexpr auto opcode = ExecutionOpCode::NULLIFIEREXISTS;
+    auto& memory = context.get_memory();
+
+    auto nullifier = memory.get(nullifier_offset);
+    auto address = memory.get(address_offset);
+    set_and_validate_inputs(opcode, { nullifier, address });
+
+    get_gas_tracker().consume_gas();
+
+    // Check nullifier existence via MerkleDB
+    // (this also tag checks address and nullifier as FFs)
+    auto exists = merkle_db.nullifier_exists(nullifier.as_ff(), address.as_ff());
+
+    // Write result to memory
+    // (assigns tag u1 to result)
+    TaggedValue result = TaggedValue::from<uint1_t>(exists ? 1 : 0);
+    memory.set(exists_offset, result);
+    set_output(opcode, result);
+}
+
 void Execution::get_contract_instance(ContextInterface& context,
                                       MemoryAddress address_offset,
                                       MemoryAddress dst_offset,
@@ -656,6 +695,52 @@ void Execution::l1_to_l2_message_exists(ContextInterface& context,
 
     memory.set(dst_addr, value);
     set_output(opcode, value);
+}
+
+void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+{
+    get_gas_tracker().consume_gas();
+    try {
+        poseidon2.permutation(context.get_memory(), src_addr, dst_addr);
+    } catch (const Poseidon2Exception& e) {
+        throw OpcodeExecutionException("Poseidon2 permutation failed: " + std::string(e.what()));
+    }
+}
+
+void Execution::ecc_add(ContextInterface& context,
+                        MemoryAddress p_x_addr,
+                        MemoryAddress p_y_addr,
+                        MemoryAddress p_inf_addr,
+                        MemoryAddress q_x_addr,
+                        MemoryAddress q_y_addr,
+                        MemoryAddress q_inf_addr,
+                        MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::ECADD;
+    auto& memory = context.get_memory();
+
+    // Read the points from memory.
+    MemoryValue p_x = memory.get(p_x_addr);
+    MemoryValue p_y = memory.get(p_y_addr);
+    MemoryValue p_inf = memory.get(p_inf_addr);
+
+    MemoryValue q_x = memory.get(q_x_addr);
+    MemoryValue q_y = memory.get(q_y_addr);
+    MemoryValue q_inf = memory.get(q_inf_addr);
+
+    set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
+    get_gas_tracker().consume_gas();
+
+    // Once inputs are tag checked the conversion to EmbeddedCurvePoint is safe, on curve checks are done in the add
+    // method.
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff(), p_inf == MemoryValue::from<uint1_t>(1));
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff(), q_inf == MemoryValue::from<uint1_t>(1));
+
+    try {
+        embedded_curve.add(memory, p, q, dst_addr);
+    } catch (const EccException& e) {
+        throw OpcodeExecutionException("Embedded curve add failed: " + std::string(e.what()));
+    }
 }
 
 // This context interface is a top-level enqueued one.
@@ -827,6 +912,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::NOT:
         call_with_operands(&Execution::op_not, context, resolved_operands);
         break;
+    case ExecutionOpCode::CAST:
+        call_with_operands(&Execution::cast, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
@@ -870,7 +958,13 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     case ExecutionOpCode::DEBUGLOG:
-        call_with_operands(&Execution::debug_log, context, resolved_operands);
+        debug_log(context,
+                  resolved_operands.at(0).as<MemoryAddress>(),
+                  resolved_operands.at(1).as<MemoryAddress>(),
+                  resolved_operands.at(2).as<MemoryAddress>(),
+                  resolved_operands.at(3).as<uint16_t>(),
+                  debug_logging);
+        break;
     case ExecutionOpCode::AND:
         call_with_operands(&Execution::and_op, context, resolved_operands);
         break;
@@ -889,6 +983,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::NOTEHASHEXISTS:
         call_with_operands(&Execution::note_hash_exists, context, resolved_operands);
         break;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        call_with_operands(&Execution::nullifier_exists, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETCONTRACTINSTANCE:
         call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
         break;
@@ -897,6 +994,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::L1TOL2MSGEXISTS:
         call_with_operands(&Execution::l1_to_l2_message_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::POSEIDON2PERM:
+        call_with_operands(&Execution::poseidon2_permutation, context, resolved_operands);
+        break;
+    case ExecutionOpCode::ECADD:
+        call_with_operands(&Execution::ecc_add, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

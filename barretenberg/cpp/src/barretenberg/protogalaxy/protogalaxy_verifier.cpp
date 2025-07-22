@@ -13,33 +13,24 @@
 namespace bb {
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_one_incomplete_key(
-    const std::shared_ptr<DeciderVK>& key, const std::string& domain_separator)
-{
-    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
-    oink_verifier.verify();
-}
-
-template <class DeciderVerificationKeys>
 void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
     const std::vector<FF>& proof)
 {
     transcript->load_proof(proof);
-    size_t index = 0;
     auto key = keys_to_fold[0];
-    auto domain_separator = std::to_string(index);
+    auto domain_separator = std::to_string(0);
     if (!key->is_accumulator) {
-        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
+        OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
+        oink_verifier.verify();
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
-    index++;
 
-    for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, index++) {
-        auto key = *it;
-        auto domain_separator = std::to_string(index);
-        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
-    }
+    key = keys_to_fold[1];
+    domain_separator = std::to_string(1);
+    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
+    oink_verifier.verify();
+    public_inputs = std::move(oink_verifier.public_inputs);
 }
 
 template <typename FF, size_t NUM>
@@ -116,7 +107,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
     next_accumulator->vk->log_circuit_size = accumulator_log_circuit_size;
-    next_accumulator->vk->circuit_size = 1 << accumulator_log_circuit_size;
 
     // Compute next folding parameters
     const auto [vanishing_polynomial_at_challenge, lagranges] =

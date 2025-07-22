@@ -147,7 +147,7 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey& vk2) {
         auto vk1_data = read_file(vk1_path);
         auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
-        ASSERT(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
+        ASSERT_TRUE(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
     };
 
     // Helper lambda to verify proof
@@ -251,7 +251,7 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVks)
     create_test_private_execution_steps(input_path);
 
     ClientIVCAPI api;
-    EXPECT_TRUE(api.check_precomputed_vks(input_path));
+    EXPECT_TRUE(api.check_precomputed_vks(ClientIVCAPI::Flags{}, input_path));
 }
 
 // Check a case where precomputed VKs don't match
@@ -289,6 +289,14 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVksMismatch)
 
     // Should fail because VK doesn't match
     ClientIVCAPI api;
-    bool result = api.check_precomputed_vks(input_path);
+    bool result = api.check_precomputed_vks(ClientIVCAPI::Flags{}, input_path);
     EXPECT_FALSE(result);
+
+    // Check with --update_input should still fail but update the VK in the input.
+    result = api.check_precomputed_vks(ClientIVCAPI::Flags{ .update_inputs = true }, input_path);
+    EXPECT_FALSE(result);
+
+    // Check again and it should succeed with the updated VK.
+    result = api.check_precomputed_vks(ClientIVCAPI::Flags{}, input_path);
+    EXPECT_TRUE(result);
 }

@@ -48,7 +48,7 @@ import type { ValidatorClient } from '@aztec/validator-client';
 import EventEmitter from 'node:events';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type Action, type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
+import { type Action, type SequencerPublisher, SignalType } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
@@ -400,18 +400,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     );
 
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastVote(
+    const enqueueGovernanceVotePromise = this.publisher.enqueueCastSignal(
       slot,
       newGlobalVariables.timestamp,
-      VoteType.GOVERNANCE,
+      SignalType.GOVERNANCE,
       proposerAddress,
       msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
 
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
+    const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
       slot,
       newGlobalVariables.timestamp,
-      VoteType.SLASHING,
+      SignalType.SLASHING,
       proposerAddress,
       msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );

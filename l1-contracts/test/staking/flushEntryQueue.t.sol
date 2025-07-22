@@ -198,7 +198,7 @@ contract FlushEntryQueueTest is StakingBase {
   }
 
   function _help_deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     uint256 balance = stakingAsset.balanceOf(address(staking));
 
@@ -209,10 +209,10 @@ contract FlushEntryQueueTest is StakingBase {
 
   function _help_flushEntryQueue(uint256 _numValidators, uint256 _expectedFlushSize) internal {
     GSE gse = staking.getGSE();
-    address canonicalMagicAddress = gse.getCanonicalMagicAddress();
+    address bonusInstanceAddress = gse.BONUS_INSTANCE_ADDRESS();
     uint256 initialActiveAttesterCount = staking.getActiveAttesterCount();
     uint256 initialCanonicalCount =
-      gse.getAttestersAtTime(canonicalMagicAddress, Timestamp.wrap(block.timestamp)).length;
+      gse.getAttestersAtTime(bonusInstanceAddress, Timestamp.wrap(block.timestamp)).length;
     uint256 initialInstanceCount =
       gse.getAttestersAtTime(address(staking), Timestamp.wrap(block.timestamp)).length;
 
@@ -307,7 +307,7 @@ contract FlushEntryQueueTest is StakingBase {
 
     // Check the canonical set has the proper validators
     address[] memory attestersOnCanonical =
-      gse.getAttestersAtTime(canonicalMagicAddress, Timestamp.wrap(block.timestamp));
+      gse.getAttestersAtTime(bonusInstanceAddress, Timestamp.wrap(block.timestamp));
     assertEq(
       attestersOnCanonical.length,
       initialCanonicalCount + onCanonicalCount,
