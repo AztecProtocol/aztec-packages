@@ -65,64 +65,6 @@ void copy_polynomial(const Fr* src, Fr* dest, size_t num_src_coefficients, size_
 }
 
 template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_inner_serial(std::vector<Fr*> coeffs, const size_t domain_size, const std::vector<Fr*>& root_table)
-{
-    // Assert that the number of polynomials is a power of two.
-    const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
-    const size_t poly_domain_size = domain_size / num_polys;
-    ASSERT(is_power_of_two(poly_domain_size));
-
-    Fr temp;
-    size_t log2_size = (size_t)numeric::get_msb(domain_size);
-    size_t log2_poly_size = (size_t)numeric::get_msb(poly_domain_size);
-    // efficiently separate odd and even indices - (An introduction to algorithms, section 30.3)
-
-    for (size_t i = 0; i <= domain_size; ++i) {
-        uint32_t swap_index = (uint32_t)reverse_bits((uint32_t)i, (uint32_t)log2_size);
-        // TODO: should probably use CMOV here insead of an if statement
-        if (i < swap_index) {
-            size_t even_poly_idx = i >> log2_poly_size;
-            size_t even_elem_idx = i % poly_domain_size;
-            size_t odd_poly_idx = swap_index >> log2_poly_size;
-            size_t odd_elem_idx = swap_index % poly_domain_size;
-            Fr::__swap(coeffs[even_poly_idx][even_elem_idx], coeffs[odd_poly_idx][odd_elem_idx]);
-        }
-    }
-
-    // For butterfly operations, we use lazy reduction techniques.
-    // Modulus is 254 bits, so we can 'overload' a field element by 4x and still fit it in 4 machine words.
-    // We can validate that field elements are <2p and not risk overflowing. Means we can cut
-    // two modular reductions from the main loop
-
-    // perform first butterfly iteration explicitly: x0 = x0 + x1, x1 = x0 - x1
-    for (size_t l = 0; l < num_polys; l++) {
-        for (size_t k = 0; k < poly_domain_size; k += 2) {
-            Fr::__copy(coeffs[l][k + 1], temp);
-            coeffs[l][k + 1] = coeffs[l][k] - coeffs[l][k + 1];
-            coeffs[l][k] += temp;
-        }
-    }
-
-    for (size_t m = 2; m < domain_size; m *= 2) {
-        const size_t i = (size_t)numeric::get_msb(m);
-        for (size_t k = 0; k < domain_size; k += (2 * m)) {
-            for (size_t j = 0; j < m; ++j) {
-                const size_t even_poly_idx = (k + j) >> log2_poly_size;
-                const size_t even_elem_idx = (k + j) & (poly_domain_size - 1);
-                const size_t odd_poly_idx = (k + j + m) >> log2_poly_size;
-                const size_t odd_elem_idx = (k + j + m) & (poly_domain_size - 1);
-
-                temp = root_table[i - 1][j] * coeffs[odd_poly_idx][odd_elem_idx];
-                coeffs[odd_poly_idx][odd_elem_idx] = coeffs[even_poly_idx][even_elem_idx] - temp;
-                coeffs[even_poly_idx][even_elem_idx] += temp;
-            }
-        }
-    }
-}
-
-template <typename Fr>
 void scale_by_generator(Fr* coeffs,
                         Fr* target,
                         const EvaluationDomain<Fr>& domain,
@@ -399,135 +341,6 @@ void fft_inner_parallel(
 
 template <typename Fr>
     requires SupportsFFT<Fr>
-void partial_fft_serial_inner(Fr* coeffs,
-                              Fr* target,
-                              const EvaluationDomain<Fr>& domain,
-                              const std::vector<Fr*>& root_table)
-{
-    // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
-    // We need a 2-round modified FFT for commiting to the 4n-sized quotient polynomial for
-    // the PLONK prover.
-    //
-    // We assume that the number of coefficients is a multiplicand of 4, since the domain size
-    // we use in PLONK would always be a power of 2, this is a reasonable assumption.
-    // Let n = N / 4 where N is the input domain size, we wish to compute
-    // R_{i,s} = \sum_{j=0}^{3} Y_{i + jn} * \omega^{(i + jn)(s + 1)}
-    //
-    // We should store the result in the following way:
-    // (R_{0,3} , R_{1,3}, R_{3,3}, ..., R_{n, 3})  {coefficients of X^0}
-    // (R_{0,2} , R_{1,2}, R_{3,2}, ..., R_{n, 2})  {coefficients of X^1}
-    // (R_{0,1} , R_{1,1}, R_{3,1}, ..., R_{n, 1})  {coefficients of X^2}
-    // (R_{0,0} , R_{1,0}, R_{3,0}, ..., R_{n, 0})  {coefficients of X^3}
-    size_t n = domain.size >> 2;
-    size_t index = 0;
-    size_t full_mask = domain.size - 1;
-    size_t m = domain.size >> 1;
-    size_t half_mask = m - 1;
-    const Fr* round_roots = root_table[static_cast<size_t>(numeric::get_msb(m)) - 1];
-    size_t root_index = 0;
-
-    // iterate for s = 0, 1, 2, 3 to compute R_{i,s}
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t s = 0; s < 4; s++) {
-            target[(3 - s) * n + i] = 0;
-            for (size_t j = 0; j < 4; ++j) {
-                index = i + j * n;
-                root_index = (index * (s + 1)) & full_mask;
-                target[(3 - s) * n + i] +=
-                    (root_index < m ? Fr::one() : -Fr::one()) * coeffs[index] * round_roots[root_index & half_mask];
-            }
-        }
-    }
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft_parellel_inner(
-    Fr* coeffs, const EvaluationDomain<Fr>& domain, const std::vector<Fr*>& root_table, Fr constant, bool is_coset)
-{
-    // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
-    // We need a 2-round modified FFT for commiting to the 4n-sized quotient polynomial for
-    // the PLONK prover.
-    //
-    // We assume that the number of coefficients is a multiplicand of 4, since the domain size
-    // we use in PLONK would always be a power of 2, this is a reasonable assumption.
-    // Let n = N / 4 where N is the input domain size, we wish to compute
-    // R_{i,s} = \sum_{j=0}^{3} Y_{i + jn} * \omega^{(i + jn)(s + 1)}
-    //
-    // Input `coeffs` is the evaluation form (FFT) of a polynomial.
-    // (Y_{0,0} , Y_{1,0}, Y_{3,0}, ..., Y_{n, 0})
-    // (Y_{0,1} , Y_{1,1}, Y_{3,1}, ..., Y_{n, 1})
-    // (Y_{0,2} , Y_{1,2}, Y_{3,2}, ..., Y_{n, 2})
-    // (Y_{0,3} , Y_{1,3}, Y_{3,3}, ..., Y_{n, 3})
-    //
-    // We should store the result in the following way:
-    // (R_{0,3} , R_{1,3}, R_{3,3}, ..., R_{n, 3})  {coefficients of X^0}
-    // (R_{0,2} , R_{1,2}, R_{3,2}, ..., R_{n, 2})  {coefficients of X^1}
-    // (R_{0,1} , R_{1,1}, R_{3,1}, ..., R_{n, 1})  {coefficients of X^2}
-    // (R_{0,0} , R_{1,0}, R_{3,0}, ..., R_{n, 0})  {coefficients of X^3}
-
-    size_t n = domain.size >> 2;
-    size_t full_mask = domain.size - 1;
-    size_t m = domain.size >> 1;
-    size_t half_mask = m - 1;
-    const Fr* round_roots = root_table[static_cast<size_t>(numeric::get_msb(m)) - 1];
-
-    EvaluationDomain<Fr> small_domain(n);
-
-    // iterate for s = 0, 1, 2, 3 to compute R_{i,s}
-    ITERATE_OVER_DOMAIN_START(small_domain);
-    Fr temp[4];
-    temp[0] = coeffs[i];
-    temp[1] = coeffs[i + n];
-    temp[2] = coeffs[i + 2 * n];
-    temp[3] = coeffs[i + 3 * n];
-    coeffs[i] = 0;
-    coeffs[i + n] = 0;
-    coeffs[i + 2 * n] = 0;
-    coeffs[i + 3 * n] = 0;
-
-    size_t index, root_index;
-    Fr temp_constant = constant;
-    Fr root_multiplier = 1;
-
-    for (size_t s = 0; s < 4; s++) {
-        for (size_t j = 0; j < 4; ++j) {
-            index = i + j * n;
-            root_index = (index * (s + 1));
-            if (is_coset) {
-                root_index -= 4 * i;
-            }
-            root_index &= full_mask;
-            root_multiplier = round_roots[root_index & half_mask];
-            if (root_index >= m) {
-                root_multiplier = -round_roots[root_index & half_mask];
-            }
-            coeffs[(3 - s) * n + i] += root_multiplier * temp[j];
-        }
-        if (is_coset) {
-            temp_constant *= domain.generator;
-            coeffs[(3 - s) * n + i] *= temp_constant;
-        }
-    }
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft_serial(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
-{
-    partial_fft_serial_inner(coeffs, target, domain, domain.get_round_roots());
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
-{
-    partial_fft_parellel_inner(coeffs, domain, domain.get_round_roots(), constant, is_coset);
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
 void fft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel({ coeffs }, domain, domain.root, domain.get_round_roots());
@@ -582,16 +395,6 @@ void ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 
     ITERATE_OVER_DOMAIN_START(domain);
     coeffs[i >> log2_poly_size][i & poly_mask] *= domain.domain_inverse;
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value)
-{
-    fft_inner_parallel({ coeffs }, domain, domain.root, domain.get_round_roots());
-    ITERATE_OVER_DOMAIN_START(domain);
-    coeffs[i] *= value;
     ITERATE_OVER_DOMAIN_END;
 }
 
@@ -743,30 +546,6 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
     }
 }
 
-template <typename Fr>
-void add(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain)
-{
-    ITERATE_OVER_DOMAIN_START(domain);
-    r_coeffs[i] = a_coeffs[i] + b_coeffs[i];
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-void sub(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain)
-{
-    ITERATE_OVER_DOMAIN_START(domain);
-    r_coeffs[i] = a_coeffs[i] - b_coeffs[i];
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-void mul(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain)
-{
-    ITERATE_OVER_DOMAIN_START(domain);
-    r_coeffs[i] = a_coeffs[i] * b_coeffs[i];
-    ITERATE_OVER_DOMAIN_END;
-}
-
 template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n)
 {
     size_t num_threads = get_num_cpus_pow2();
@@ -823,197 +602,6 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
     return r;
 }
 
-/**
- * @brief Compute evaluations of lagrange polynomial L_1(X) on the specified domain
- *
- * @param l_1_coefficients
- * @param src_domain
- * @param target_domain
- * @details Let the size of the target domain be k*n, where k is a power of 2.
- * Evaluate L_1(X) = (X^{n} - 1 / (X - 1)) * (1 / n) at the k*n points X_i = w'^i.g,
- * i = 0, 1,..., k*n-1, where w' is the target domain (kn'th) root of unity, and g is the
- * source domain multiplicative generator. The evaluation domain is taken to be the coset
- * w'^i.g, rather than just the kn'th roots, to avoid division by zero in L_1(X).
- * The computation is done in three steps:
- * Step 1) (Parallelized) Compute the evaluations of 1/denominator of L_1 at X_i using
- * Montgomery batch inversion.
- * Step 2) Compute the evaluations of the numerator of L_1 using the fact that (X_i)^n forms
- * a subgroup of order k.
- * Step 3) (Parallelized) Construct the evaluations of L_1 on X_i using the numerator and
- * denominator evaluations from Steps 1 and 2.
- *
- * Note 1: Let w = n'th root of unity. When evaluated at the k*n'th roots of unity, the term
- * X^{n} forms a subgroup of order k, since (w'^i)^n = w^{in/k} = w^{1/k}. Similarly, for X_i
- * we have (X_i)^n = (w'^i.g)^n = w^{in/k}.g^n = w^{1/k}.g^n.
- * For example, if k = 2:
- * for even powers of w', X^{n} = w^{2in/2} = 1
- * for odd powers of w', X = w^{i}w^{n/2} -> X^{n} = w^{in}w^{n/2} = -1
- * The numerator term, therefore, can only take two values (for k = 2):
- * For even indices: (X^{n} - 1)/n = (g^n - 1)/n
- * For odd indices: (X^{n} - 1)/n = (-g^n - 1)/n
- *
- * Note 2: We can use the evaluations of L_1 to compute the k*n-fft evaluations of any L_i(X).
- * We can consider `l_1_coefficients` to be a k*n-sized vector of the evaluations of L_1(X),
- * for all X = k*n'th roots of unity. To compute the vector for the k*n-fft transform of
- * L_i(X), we perform a (k*i)-left-shift of this vector.
- */
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
-                                     const EvaluationDomain<Fr>& src_domain,
-                                     const EvaluationDomain<Fr>& target_domain)
-{
-    // Step 1: Compute the 1/denominator for each evaluation: 1 / (X_i - 1)
-    Fr multiplicand = target_domain.root; // kn'th root of unity w'
-
-    // First compute X_i - 1, i = 0,...,kn-1
-    parallel_for(target_domain.num_threads, [&](size_t j) {
-        const Fr root_shift = multiplicand.pow(static_cast<uint64_t>(j * target_domain.thread_size));
-        Fr work_root = src_domain.generator * root_shift; // g.(w')^{j*thread_size}
-        size_t offset = j * target_domain.thread_size;
-        for (size_t i = offset; i < offset + target_domain.thread_size; ++i) {
-            l_1_coefficients[i] = work_root - Fr::one(); // (w')^{j*thread_size + i}.g - 1
-            work_root *= multiplicand;                   // (w')^{j*thread_size + i + 1}
-        }
-    });
-
-    // Compute 1/(X_i - 1) using Montgomery batch inversion
-    Fr::batch_invert(l_1_coefficients, target_domain.size);
-
-    // Step 2: Compute numerator (1/n)*(X_i^n - 1)
-    // First compute X_i^n (which forms a multiplicative subgroup of order k)
-    size_t log2_subgroup_size = target_domain.log2_size - src_domain.log2_size; // log_2(k)
-    size_t subgroup_size = 1UL << log2_subgroup_size;                           // k
-    BB_ASSERT_GTE(target_domain.log2_size, src_domain.log2_size);
-    Fr subgroup_roots[subgroup_size];
-    compute_multiplicative_subgroup(log2_subgroup_size, src_domain, &subgroup_roots[0]);
-
-    // Subtract 1 and divide by n to get the k elements (1/n)*(X_i^n - 1)
-    for (size_t i = 0; i < subgroup_size; ++i) {
-        subgroup_roots[i] -= Fr::one();
-        subgroup_roots[i] *= src_domain.domain_inverse;
-    }
-    // Step 3: Construct L_1(X_i) by multiplying the 1/denominator evaluations in
-    // l_1_coefficients by the numerator evaluations in subgroup_roots
-    size_t subgroup_mask = subgroup_size - 1;
-    parallel_for(target_domain.num_threads, [&](size_t i) {
-        for (size_t j = 0; j < target_domain.thread_size; ++j) {
-            size_t eval_idx = i * target_domain.thread_size + j;
-            l_1_coefficients[eval_idx] *= subgroup_roots[eval_idx & subgroup_mask];
-        }
-    });
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
-                                           const EvaluationDomain<Fr>& src_domain,
-                                           const EvaluationDomain<Fr>& target_domain,
-                                           const size_t num_roots_cut_out_of_vanishing_polynomial)
-{
-    // Older version:
-    // the PLONK divisor polynomial is equal to the vanishing polynomial divided by the vanishing polynomial for the
-    // last subgroup element Z_H(X) = \prod_{i=1}^{n-1}(X - w^i) = (X^n - 1) / (X - w^{n-1}) i.e. we divide by vanishing
-    // polynomial, then multiply by degree-1 polynomial (X - w^{n-1})
-
-    // Updated version:
-    // We wish to implement this function such that it supports a modified vanishing polynomial, in which
-    // k (= num_roots_cut_out_of_vanishing_polynomial) roots are cut out. i.e.
-    //                           (X^n - 1)
-    // Z*_H(X) = ------------------------------------------
-    //           (X - w^{n-1}).(X - w^{n-2})...(X - w^{k})
-    //
-    // We set the default value of k as 4 so as to ensure that the evaluation domain is 4n. The reason for cutting out
-    // some roots is described here: https://hackmd.io/@zacwilliamson/r1dm8Rj7D#The-problem-with-this-approach.
-    // Briefly, the reason we need to cut roots is because on adding randomness to permutation polynomial z(X),
-    // its degree becomes (n + 2), so for fft evaluation, we will need an evaluation domain of size >= 4(n + 2) = 8n
-    // since size of evalutation domain needs to be a power of two. To avoid this, we need to bring down the degree
-    // of the permutation polynomial (after adding randomness) to <= n.
-    //
-    //
-    // NOTE: If in future, there arises a need to cut off more zeros, this method will not require any changes.
-    //
-
-    // Assert that the number of polynomials in coeffs is a power of 2.
-    const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
-    const size_t poly_size = target_domain.size / num_polys;
-    ASSERT(is_power_of_two(poly_size));
-    const size_t poly_mask = poly_size - 1;
-    const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
-
-    // `fft_point_evaluations` should be in point-evaluation form, evaluated at the 4n'th roots of unity mulitplied by
-    // `target_domain`'s coset generator P(X) = X^n - 1 will form a subgroup of order 4 when evaluated at these points
-    // If X = w^i, P(X) = 1
-    // If X = w^{i + j/4}, P(X) = w^{n/4} = w^{n/2}^{n/2} = sqrt(-1)
-    // If X = w^{i + j/2}, P(X) = -1
-    // If X = w^{i + j/2 + k/4}, P(X) = w^{n/4}.-1 = -w^{i} = -sqrt(-1)
-    // i.e. the 4th roots of unity
-    size_t log2_subgroup_size = target_domain.log2_size - src_domain.log2_size;
-    size_t subgroup_size = 1UL << log2_subgroup_size;
-    BB_ASSERT_GTE(target_domain.log2_size, src_domain.log2_size);
-
-    Fr* subgroup_roots = new Fr[subgroup_size];
-    compute_multiplicative_subgroup(log2_subgroup_size, src_domain, &subgroup_roots[0]);
-
-    // Step 3: fill array with values of (g.X)^n - 1, scaled by the cofactor
-    for (size_t i = 0; i < subgroup_size; ++i) {
-        subgroup_roots[i] -= Fr::one();
-    }
-
-    // Step 4: invert array entries to compute denominator term of 1/Z_H*(X)
-    Fr::batch_invert(&subgroup_roots[0], subgroup_size);
-
-    // The numerator term of Z_H*(X) is the polynomial (X - w^{n-1})(X - w^{n-2})...(X - w^{n-k})
-    // => (g.w_i - w^{n-1})(g.w_i - w^{n-2})...(g.w_i - w^{n-k})
-    // Compute w^{n-1}
-    std::vector<Fr> numerator_constants(num_roots_cut_out_of_vanishing_polynomial);
-    if (num_roots_cut_out_of_vanishing_polynomial > 0) {
-        numerator_constants[0] = -src_domain.root_inverse;
-        for (size_t i = 1; i < num_roots_cut_out_of_vanishing_polynomial; ++i) {
-            numerator_constants[i] = numerator_constants[i - 1] * src_domain.root_inverse;
-        }
-    }
-    // Compute first value of g.w_i
-
-    // Step 5: iterate over point evaluations, scaling each one by the inverse of the vanishing polynomial
-    if (subgroup_size >= target_domain.thread_size) {
-        Fr work_root = src_domain.generator;
-        for (size_t i = 0; i < target_domain.size; i += subgroup_size) {
-            for (size_t j = 0; j < subgroup_size; ++j) {
-                size_t poly_idx = (i + j) >> log2_poly_size;
-                size_t elem_idx = (i + j) & poly_mask;
-                coeffs[poly_idx][elem_idx] *= subgroup_roots[j];
-
-                for (size_t k = 0; k < num_roots_cut_out_of_vanishing_polynomial; ++k) {
-                    coeffs[poly_idx][elem_idx] *= work_root + numerator_constants[k];
-                }
-                work_root *= target_domain.root;
-            }
-        }
-    } else {
-        parallel_for(target_domain.num_threads, [&](size_t k) {
-            size_t offset = k * target_domain.thread_size;
-            const Fr root_shift = target_domain.root.pow(static_cast<uint64_t>(offset));
-            Fr work_root = src_domain.generator * root_shift;
-            for (size_t i = offset; i < offset + target_domain.thread_size; i += subgroup_size) {
-                for (size_t j = 0; j < subgroup_size; ++j) {
-                    size_t poly_idx = (i + j) >> log2_poly_size;
-                    size_t elem_idx = (i + j) & poly_mask;
-                    coeffs[poly_idx][elem_idx] *= subgroup_roots[j];
-
-                    for (size_t k = 0; k < num_roots_cut_out_of_vanishing_polynomial; ++k) {
-                        coeffs[poly_idx][elem_idx] *= work_root + numerator_constants[k];
-                    }
-
-                    work_root *= target_domain.root;
-                }
-            }
-        });
-    }
-    delete[] subgroup_roots;
-}
-
 template <typename Fr>
     requires SupportsFFT<Fr>
 Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n)
@@ -1039,81 +627,6 @@ Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const
     }
 
     return f;
-}
-
-/**
- * @param zeta - the name given (in our code) to the evaluation challenge ʓ from the Plonk paper.
- */
-template <typename Fr>
-    requires SupportsFFT<Fr>
-bb::polynomial_arithmetic::LagrangeEvaluations<Fr> get_lagrange_evaluations(
-    const Fr& zeta, const EvaluationDomain<Fr>& domain, const size_t num_roots_cut_out_of_vanishing_polynomial)
-{
-    // Compute Z_H*(ʓ), l_start(ʓ), l_{end}(ʓ)
-    // Note that as we modify the vanishing polynomial by cutting out some roots, we must simultaneously ensure that
-    // the lagrange polynomials we require would be l_1(ʓ) and l_{n-k}(ʓ) where k =
-    // num_roots_cut_out_of_vanishing_polynomial. For notational simplicity, we call l_1 as l_start and l_{n-k} as
-    // l_end.
-    //
-    // NOTE: If in future, there arises a need to cut off more zeros, this method will not require any changes.
-    //
-
-    Fr z_pow_n = zeta;
-    for (size_t i = 0; i < domain.log2_size; ++i) {
-        z_pow_n.self_sqr();
-    }
-
-    Fr numerator = z_pow_n - Fr::one();
-
-    Fr denominators[3];
-
-    // Compute the denominator of Z_H*(ʓ)
-    //   (ʓ - ω^{n-1})(ʓ - ω^{n-2})...(ʓ - ω^{n - num_roots_cut_out_of_vanishing_poly})
-    // = (ʓ - ω^{ -1})(ʓ - ω^{ -2})...(ʓ - ω^{  - num_roots_cut_out_of_vanishing_poly})
-    Fr work_root = domain.root_inverse;
-    denominators[0] = Fr::one();
-    for (size_t i = 0; i < num_roots_cut_out_of_vanishing_polynomial; ++i) {
-        denominators[0] *= (zeta - work_root);
-        work_root *= domain.root_inverse;
-    }
-
-    // The expressions of the lagrange polynomials are:
-    //
-    //           ω^0.(X^n - 1)      (X^n - 1)
-    // L_1(X) = --------------- =  -----------
-    //            n.(X - ω^0)       n.(X - 1)
-    //
-    // Notice: here (in this comment), the index i of L_i(X) counts from 1 (not from 0). So L_1 corresponds to the
-    // _first_ root of unity ω^0, and not to the 1-th root of unity ω^1.
-    //
-    //
-    //             ω^{i-1}.(X^n - 1)         X^n - 1          X^n.(ω^{-i+1})^n - 1
-    // L_{i}(X) = ------------------ = -------------------- = -------------------- = L_1(X.ω^{-i+1})
-    //              n.(X - ω^{i-1})    n.(X.ω^{-(i-1)} - 1) |  n.(X.ω^{-i+1} - 1)
-    //                                                      |
-    //                                                      since (ω^{-i+1})^n = 1 trivially
-    //
-    //                                                          (X^n - 1)
-    // => L_{n-k}(X) = L_1(X.ω^{k-n+1}) = L_1(X.ω^{k+1}) =  -----------------
-    //                                                      n.(X.ω^{k+1} - 1)
-    //
-    denominators[1] = zeta - Fr::one();
-
-    // Compute ω^{num_roots_cut_out_of_vanishing_polynomial + 1}
-    Fr l_end_root = (num_roots_cut_out_of_vanishing_polynomial & 1) ? domain.root.sqr() : domain.root;
-    for (size_t i = 0; i < num_roots_cut_out_of_vanishing_polynomial / 2; ++i) {
-        l_end_root *= domain.root.sqr();
-    }
-    denominators[2] = (zeta * l_end_root) - Fr::one();
-    Fr::batch_invert(denominators, 3);
-
-    bb::polynomial_arithmetic::LagrangeEvaluations<Fr> result;
-    result.vanishing_poly = numerator * denominators[0]; // (ʓ^n - 1) / (ʓ-ω^{-1}).(ʓ-ω^{-2})...(ʓ-ω^{-k}) =: Z_H*(ʓ)
-    numerator = numerator * domain.domain_inverse;       // (ʓ^n - 1) / n
-    result.l_start = numerator * denominators[1];        // (ʓ^n - 1) / (n.(ʓ - 1))         =: L_1(ʓ)
-    result.l_end = numerator * denominators[2];          // (ʓ^n - 1) / (n.(ʓ.ω^{k+1} - 1)) =: L_{n-k}(ʓ)
-
-    return result;
 }
 
 // Computes r = \sum_{i=0}^{num_coeffs-1} (L_{i+1}(ʓ).f_i)
@@ -1169,40 +682,6 @@ fr compute_barycentric_evaluation(const fr* coeffs,
     return result;
 }
 
-// Convert an fft with `current_size` point evaluations, to one with `current_size >> compress_factor` point evaluations
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void compress_fft(const Fr* src, Fr* dest, const size_t cur_size, const size_t compress_factor)
-{
-    // iterate from top to bottom, allows `dest` to overlap with `src`
-    size_t log2_compress_factor = (size_t)numeric::get_msb(compress_factor);
-    BB_ASSERT_EQ(1UL << log2_compress_factor, compress_factor);
-    size_t new_size = cur_size >> log2_compress_factor;
-    for (size_t i = 0; i < new_size; ++i) {
-        Fr::__copy(src[i << log2_compress_factor], dest[i]);
-    }
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-Fr evaluate_from_fft(const Fr* poly_coset_fft,
-                     const EvaluationDomain<Fr>& large_domain,
-                     const Fr& z,
-                     const EvaluationDomain<Fr>& small_domain)
-{
-    size_t n = small_domain.size;
-    Fr* small_poly_coset_fft = static_cast<Fr*>(aligned_alloc(64, sizeof(Fr) * n));
-    for (size_t i = 0; i < n; ++i) {
-        small_poly_coset_fft[i] = poly_coset_fft[4 * i];
-    }
-
-    Fr zeta_by_g = z * large_domain.generator_inverse;
-
-    const auto result = compute_barycentric_evaluation(small_poly_coset_fft, n, zeta_by_g, small_domain);
-    aligned_free(small_poly_coset_fft);
-    return result;
-}
-
 // This function computes sum of all scalars in a given array.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 {
@@ -1244,27 +723,6 @@ template <typename Fr> Fr compute_linear_polynomial_product_evaluation(const Fr*
         result *= (z - roots[i]);
     }
     return result;
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_linear_polynomial_product(
-    const Fr* roots, Fr* dest, const size_t n, const EvaluationDomain<Fr>& domain, const bool is_coset)
-{
-    size_t m = domain.size >> 1;
-    const Fr* round_roots = domain.get_round_roots()[static_cast<size_t>(numeric::get_msb(m)) - 1];
-
-    Fr current_root = 0;
-    for (size_t i = 0; i < m; ++i) {
-        current_root = round_roots[i];
-        current_root *= (is_coset ? domain.generator : 1);
-        dest[i] = 1;
-        dest[i + m] = 1;
-        for (size_t j = 0; j < n; ++j) {
-            dest[i] *= (current_root - roots[j]);
-            dest[i + m] *= (-current_root - roots[j]);
-        }
-    }
 }
 
 template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const Fr* evaluation_points, const size_t n)
@@ -1436,12 +894,10 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 template fr evaluate<fr>(const fr*, const fr&, const size_t);
 template fr evaluate<fr>(const std::vector<fr*>, const fr&, const size_t);
 template void copy_polynomial<fr>(const fr*, fr*, size_t, size_t);
-template void fft_inner_serial<fr>(std::vector<fr*>, const size_t, const std::vector<fr*>&);
 template void fft_inner_parallel<fr>(std::vector<fr*>, const EvaluationDomain<fr>&, const fr&, const std::vector<fr*>&);
 template void fft<fr>(fr*, const EvaluationDomain<fr>&);
 template void fft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void fft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
-template void fft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
 template void coset_fft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
@@ -1454,50 +910,17 @@ template void ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template void ifft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
 template void coset_ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
-template void partial_fft_serial_inner<fr>(fr*, fr*, const EvaluationDomain<fr>&, const std::vector<fr*>&);
-template void partial_fft_parellel_inner<fr>(fr*, const EvaluationDomain<fr>&, const std::vector<fr*>&, fr, bool);
-template void partial_fft_serial<fr>(fr*, fr*, const EvaluationDomain<fr>&);
-template void partial_fft<fr>(fr*, const EvaluationDomain<fr>&, fr, bool);
-template void add<fr>(const fr*, const fr*, fr*, const EvaluationDomain<fr>&);
-template void sub<fr>(const fr*, const fr*, fr*, const EvaluationDomain<fr>&);
-template void mul<fr>(const fr*, const fr*, fr*, const EvaluationDomain<fr>&);
-template void compute_lagrange_polynomial_fft<fr>(fr*, const EvaluationDomain<fr>&, const EvaluationDomain<fr>&);
-template void divide_by_pseudo_vanishing_polynomial<fr>(std::vector<fr*>,
-                                                        const EvaluationDomain<fr>&,
-                                                        const EvaluationDomain<fr>&,
-                                                        const size_t);
 template fr compute_kate_opening_coefficients<fr>(const fr*, fr*, const fr&, const size_t);
-template LagrangeEvaluations<fr> get_lagrange_evaluations<fr>(const fr&, const EvaluationDomain<fr>&, const size_t);
-template void compress_fft<fr>(const fr*, fr*, const size_t, const size_t);
-template fr evaluate_from_fft<fr>(const fr*, const EvaluationDomain<fr>&, const fr&, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
 template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t);
-template fr compute_linear_polynomial_product_evaluation<fr>(const fr*, const fr, const size_t);
-template void fft_linear_polynomial_product<fr>(
-    const fr* roots, fr*, const size_t n, const EvaluationDomain<fr>&, const bool);
 template void compute_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
 template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template void copy_polynomial<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, size_t, size_t);
-template void add<grumpkin::fr>(const grumpkin::fr*,
-                                const grumpkin::fr*,
-                                grumpkin::fr*,
-                                const EvaluationDomain<grumpkin::fr>&);
-template void sub<grumpkin::fr>(const grumpkin::fr*,
-                                const grumpkin::fr*,
-                                grumpkin::fr*,
-                                const EvaluationDomain<grumpkin::fr>&);
-template void mul<grumpkin::fr>(const grumpkin::fr*,
-                                const grumpkin::fr*,
-                                grumpkin::fr*,
-                                const EvaluationDomain<grumpkin::fr>&);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
-template grumpkin::fr compute_linear_polynomial_product_evaluation<grumpkin::fr>(const grumpkin::fr*,
-                                                                                 const grumpkin::fr,
-                                                                                 const size_t);
 template void compute_interpolation<grumpkin::fr>(const grumpkin::fr*,
                                                   grumpkin::fr*,
                                                   const grumpkin::fr*,
