@@ -23,8 +23,5 @@ impl Packable for InvalidNote {
 
 
 fn main() {
-    let note = InvalidNote { owner: AztecAddress::zero() };
-    let packed = note.pack();
-    let unpacked = InvalidNote::unpack(packed);
-    assert(unpacked.owner == note.owner);
+    InvalidNote::packed_length_static_check();
 }
