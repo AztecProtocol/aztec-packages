@@ -30,9 +30,11 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
+    // Indicates whether a given builder is a kernel and specific logic has to be applied to it
     struct KernelConfig {
-        bool is_kernel = false;
-        bool last_tail = false;
+        bool is_kernel = false; // if set, the ecc ops table will start with an eq and reset
+        bool last_tail = false; // if set, we add a no-op at the beginning of its ecc ops subtable for correct
+                                // functioning of translator
     };
 
     // Stores record of ecc operations and performs corresponding native operations internally
@@ -50,7 +52,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
 
-    KernelConfig kernel_config = {}; // Kernel configuration
+    KernelConfig kernel_config = {};
 
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),

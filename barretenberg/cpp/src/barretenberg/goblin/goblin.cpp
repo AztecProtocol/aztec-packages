@@ -51,7 +51,7 @@ GoblinProof Goblin::prove(MergeSettings merge_settings)
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
-    prove_merge(transcript); // Use shared transcript for merge proving
+    prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
@@ -120,11 +120,11 @@ bool Goblin::verify(const GoblinProof& proof,
     bool op_queue_consistency_verified =
         translator_verifier.verify_consistency_with_final_merge(merged_table_commitment);
 
-    info("merge verified?: ", merge_verified);
-    info("eccvm verified?: ", eccvm_verified);
-    info("accumulator construction_verified?: ", accumulator_construction_verified);
-    info("translation verified?: ", translation_verified);
-    info("consistency verified?: ", op_queue_consistency_verified);
+    vinfo("merge verified?: ", merge_verified);
+    vinfo("eccvm verified?: ", eccvm_verified);
+    vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
+    vinfo("translation verified?: ", translation_verified);
+    vinfo("consistency verified?: ", op_queue_consistency_verified);
 
     return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
            op_queue_consistency_verified;
