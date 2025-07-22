@@ -83,4 +83,8 @@ library Errors {
   error GSE__FatalError(string);
 
   error Delegation__InsufficientPower(address, uint256, uint256);
+
+  error Governance__BlsKeyAlreadyRegistered(address account);
+  error Governance__BlsKeyNotRegistered(address account);
+  error Governance__BlsKeyAlreadyInUse(address currentOwner);
 }

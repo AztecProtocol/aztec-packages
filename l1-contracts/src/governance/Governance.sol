@@ -11,6 +11,7 @@ import {
   Withdrawal
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {BN254G1} from "@aztec/governance/libraries/BN254G1.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
@@ -126,6 +127,7 @@ contract Governance is IGovernance {
   using ProposalLib for Proposal;
   using UserLib for User;
   using ConfigurationLib for Configuration;
+  using BN254G1 for BN254G1.G1Point;
 
   IERC20 public immutable ASSET;
 
@@ -201,6 +203,25 @@ contract Governance is IGovernance {
    * `withdrawalCount` is only updated during `initiateWithdraw` and `proposeWithLock`.
    */
   uint256 public withdrawalCount;
+
+  /**
+   * @dev Mapping from address to their registered BLS public key
+   *
+   * `blsPublicKeys` stores G1 points on the BN254 curve for each address that has registered a BLS key
+   */
+  mapping(address account => BN254G1.G1Point key) internal blsPublicKeys;
+
+  /**
+   * @dev Mapping to check if an address has a registered BLS public key
+   */
+  mapping(address account => bool registered) public hasBlsKey;
+
+  /**
+   * @dev Mapping from BLS key hash to the address that owns it
+   *
+   * `keyOwners` ensures uniqueness - each BLS public key can only be registered by one address
+   */
+  mapping(bytes32 keyHash => address owner) internal keyOwners;
 
   /**
    * @dev Modifier to ensure that the caller is the governance contract itself.
@@ -534,6 +555,81 @@ contract Governance is IGovernance {
   }
 
   /**
+   * @notice Register a BLS public key for the calling address
+   * @dev The key must be a valid point on the BN254 G1 curve
+   * @param _x The x-coordinate of the G1 point
+   * @param _y The y-coordinate of the G1 point
+   */
+  function registerBlsKey(uint256 _x, uint256 _y) external override(IGovernance) {
+    require(
+      !hasBlsKey[msg.sender], Errors.Governance__BlsKeyAlreadyRegistered(msg.sender)
+    );
+
+    // Check if this key is already in use by another address
+    bytes32 keyHash = keccak256(abi.encodePacked(_x, _y));
+    address currentOwner = keyOwners[keyHash];
+    require(
+      currentOwner == address(0), Errors.Governance__BlsKeyAlreadyInUse(currentOwner)
+    );
+
+    BN254G1.G1Point memory newKey = BN254G1.createValidatedPoint(_x, _y);
+    blsPublicKeys[msg.sender] = newKey;
+    hasBlsKey[msg.sender] = true;
+    keyOwners[keyHash] = msg.sender;
+
+    emit BlsKeyRegistered(msg.sender, _x, _y);
+  }
+
+  /**
+   * @notice Update an existing BLS public key for the calling address
+   * @dev The key must be a valid point on the BN254 G1 curve
+   * @param _x The x-coordinate of the new G1 point
+   * @param _y The y-coordinate of the new G1 point
+   */
+  function updateBlsKey(uint256 _x, uint256 _y) external override(IGovernance) {
+    require(
+      hasBlsKey[msg.sender], Errors.Governance__BlsKeyNotRegistered(msg.sender)
+    );
+
+    // Remove old key from ownership mapping
+    BN254G1.G1Point memory oldKey = blsPublicKeys[msg.sender];
+    bytes32 oldKeyHash = keccak256(abi.encodePacked(oldKey.x, oldKey.y));
+    delete keyOwners[oldKeyHash];
+
+    // Check if new key is already in use by another address
+    bytes32 newKeyHash = keccak256(abi.encodePacked(_x, _y));
+    address currentOwner = keyOwners[newKeyHash];
+    require(
+      currentOwner == address(0), Errors.Governance__BlsKeyAlreadyInUse(currentOwner)
+    );
+
+    BN254G1.G1Point memory newKey = BN254G1.createValidatedPoint(_x, _y);
+    blsPublicKeys[msg.sender] = newKey;
+    keyOwners[newKeyHash] = msg.sender;
+
+    emit BlsKeyUpdated(msg.sender, _x, _y);
+  }
+
+  /**
+   * @notice Remove the BLS public key for the calling address
+   */
+  function removeBlsKey() external override(IGovernance) {
+    require(
+      hasBlsKey[msg.sender], Errors.Governance__BlsKeyNotRegistered(msg.sender)
+    );
+
+    // Remove key from ownership mapping
+    BN254G1.G1Point memory oldKey = blsPublicKeys[msg.sender];
+    bytes32 keyHash = keccak256(abi.encodePacked(oldKey.x, oldKey.y));
+    delete keyOwners[keyHash];
+
+    delete blsPublicKeys[msg.sender];
+    hasBlsKey[msg.sender] = false;
+
+    emit BlsKeyRemoved(msg.sender);
+  }
+
+  /**
    * @notice Get the power of an address at a given timestamp.
    * @dev If the timestamp is the current block timestamp, we return the powerNow.
    * Otherwise, we return the powerAt the timestamp.
@@ -583,6 +679,8 @@ contract Governance is IGovernance {
     return total.powerAt(_ts);
   }
 
+
+
   /**
    * @notice Check if an address is permitted to hold power in Governance.
    *
@@ -627,6 +725,20 @@ contract Governance is IGovernance {
     returns (Withdrawal memory)
   {
     return withdrawals[_withdrawalId];
+  }
+
+  /**
+   * @notice Get the BLS public key for a given address
+   * @param _account The address to get the BLS key for
+   * @return The BLS public key as a G1 point, or (0,0) if no key is registered
+   */
+  function getBlsKey(address _account)
+    external
+    view
+    override(IGovernance)
+    returns (BN254G1.G1Point memory)
+  {
+    return blsPublicKeys[_account];
   }
 
   /**
