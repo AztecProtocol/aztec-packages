@@ -679,8 +679,6 @@ contract Governance is IGovernance {
     return total.powerAt(_ts);
   }
 
-
-
   /**
    * @notice Check if an address is permitted to hold power in Governance.
    *
