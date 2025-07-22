@@ -124,6 +124,35 @@ struct ClientIvcProve {
 };
 
 /**
+ * @struct ClientIvcVerify
+ * @brief Verify a ClientIVC proof with its verification key
+ */
+struct ClientIvcVerify {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcVerify";
+
+    /**
+     * @struct Response
+     * @brief Contains the verification result
+     */
+    struct Response {
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcVerifyResponse";
+
+        /** @brief True if the proof is valid */
+        bool valid;
+        MSGPACK_FIELDS(valid);
+        bool operator==(const Response&) const = default;
+    };
+
+    /** @brief The ClientIVC proof to verify */
+    ClientIVC::Proof proof;
+    /** @brief The verification key */
+    std::vector<uint8_t> vk;
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(proof, vk);
+    bool operator==(const ClientIvcVerify&) const = default;
+};
+
+/**
  * @struct ClientIvcComputeStandaloneVk
  * @brief Compute standalone verification key for a circuit
  */

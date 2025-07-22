@@ -237,40 +237,40 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
     await this.instantiate();
-    
-    // Start IVC with the number of circuits
-    await this.api.clientIvcStart({ numCircuits: this.acirBuf.length });
-    
-    // Load and accumulate each circuit
+
+    // Queue IVC start with the number of circuits
+    this.api.clientIvcStart({ numCircuits: this.acirBuf.length });
+
+    // Queue load and accumulate for each circuit
     for (let i = 0; i < this.acirBuf.length; i++) {
       const bytecode = this.acirBuf[i];
       const witness = witnessBuf[i] || Buffer.from([]);
       const vk = vksBuf[i] || Buffer.from([]);
       const functionName = `unknown_wasm_${i}`;
-      
+
       // Load the circuit
-      await this.api.clientIvcLoad({
+      this.api.clientIvcLoad({
         circuit: {
           name: functionName,
           bytecode: Buffer.from(bytecode),
           verificationKey: Buffer.from(vk),
         }
       });
-      
+
       // Accumulate with witness
-      await this.api.clientIvcAccumulate({
+      this.api.clientIvcAccumulate({
         witness: Buffer.from(witness),
       });
     }
-    
-    // Generate the proof
+
+    // Generate the proof (and wait for all previous steps to finish)
     const proveResult = await this.api.clientIvcProve({});
-    
+
     // The proof result contains a Proof object with megaProof and goblinProof
     // For ClientIVC, we need to extract the raw proof data
     // TODO: This needs to be properly serialized based on the expected format
     const proof = proveResult.proof;
-    
+
     // For now, we'll need to serialize the proof properly
     // This is a placeholder - the actual serialization needs to match what Aztec expects
     const proofData = Buffer.concat([
@@ -278,11 +278,11 @@ export class AztecClientBackend {
       ...proof.megaProof.map(fr => Buffer.from(fr)),
       // Serialize goblinProof if needed
     ]);
-    
+
     // Generate the VK
     const vkResult = await this.api.clientIvcComputeIvcVk({});
     const vk = Buffer.from(vkResult.vk);
-    
+
     // Note: Verification may not work correctly until we properly serialize the proof
     if (!(await this.verify(proofData, vk))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
@@ -292,29 +292,48 @@ export class AztecClientBackend {
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
-    // Use circuitVerify with the ClientIVC proof
-    const result = await this.api.circuitVerify({
-      proofSystem: 'ClientIVC',
-      proof: Buffer.from(proof),
-      vk: Buffer.from(vk),
-    });
-    return result.valid;
+    // Use clientIvcVerify to verify the ClientIVC proof
+    // TODO: The proof needs to be properly deserialized from Uint8Array to Proof structure
+    // For now, we'll need to implement proper deserialization
+    try {
+      const result = await this.api.clientIvcVerify({
+        proof: {
+          // Placeholder - needs proper deserialization from the proof Uint8Array
+          megaProof: [],
+          goblinProof: {
+            mergeProof: [],
+            eccvmProof: {
+              preIpaProof: [],
+              ipaProof: []
+            },
+            translatorProof: []
+          }
+        },
+        vk: Buffer.from(vk),
+      });
+      // The result should have a 'valid' field based on our C++ implementation
+      return (result as any).valid || false;
+    } catch (error) {
+      console.error('ClientIVC verification failed:', error);
+      return false;
+    }
   }
 
   async gates(): Promise<number[]> {
-    await this.instantiate();
-    
-    // Get gate counts for each circuit
-    const gateCounts: number[] = [];
-    for (const bytecode of this.acirBuf) {
-      const result = await this.api.circuitInfo({
-        circuit: {
-          bytecode: Buffer.from(bytecode),
-        }
-      });
-      gateCounts.push(result.gateCount);
-    }
-    return gateCounts;
+    // await this.instantiate();
+
+    // // Get gate counts for each circuit
+    // const gateCounts: number[] = [];
+    // for (const bytecode of this.acirBuf) {
+    //   const result = await this.api.circuitInfo({
+    //     circuit: {
+    //       bytecode: Buffer.from(bytecode),
+    //     }
+    //   });
+    //   gateCounts.push(result.gateCount);
+    // }
+    // return gateCounts;
+    throw new AztecClientBackendError('Gates count is not implemented for AztecClientBackend.');
   }
 
   async destroy(): Promise<void> {

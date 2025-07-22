@@ -1,6 +1,7 @@
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
@@ -89,6 +90,17 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     Response response;
     response.proof = std::move(proof);
     return response;
+}
+
+ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request*/) &&
+{
+    // Deserialize the verification key from the byte buffer
+    const auto verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
+
+    // Verify the proof using ClientIVC's static verify method
+    const bool verified = ClientIVC::verify(proof, verification_key);
+
+    return { .valid = verified };
 }
 
 static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
