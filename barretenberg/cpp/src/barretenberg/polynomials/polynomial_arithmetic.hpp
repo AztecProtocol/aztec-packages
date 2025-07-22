@@ -96,35 +96,6 @@ template <typename Fr>
     requires SupportsFFT<Fr>
 void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
 
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft_serial_inner(Fr* coeffs,
-                              Fr* target,
-                              const EvaluationDomain<Fr>& domain,
-                              const std::vector<Fr*>& root_table);
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft_parellel_inner(Fr* coeffs,
-                                const EvaluationDomain<Fr>& domain,
-                                const std::vector<Fr*>& root_table,
-                                Fr constant = 1,
-                                bool is_coset = false);
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft_serial(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain);
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain, Fr constant = 1, bool is_coset = false);
-
-template <typename Fr>
-void add(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain);
-template <typename Fr>
-void sub(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain);
-
-template <typename Fr>
-void mul(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain);
-
 // For L_1(X) = (X^{n} - 1 / (X - 1)) * (1 / n)
 // Compute the size k*n-fft of L_1(X), where k is determined by the target domain (e.g. large_domain -> 4*n)
 // We can use this to compute the k*n-fft evaluations of any L_i(X).

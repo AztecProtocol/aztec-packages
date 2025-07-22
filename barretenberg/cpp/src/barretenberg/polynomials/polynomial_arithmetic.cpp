@@ -341,135 +341,6 @@ void fft_inner_parallel(
 
 template <typename Fr>
     requires SupportsFFT<Fr>
-void partial_fft_serial_inner(Fr* coeffs,
-                              Fr* target,
-                              const EvaluationDomain<Fr>& domain,
-                              const std::vector<Fr*>& root_table)
-{
-    // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
-    // We need a 2-round modified FFT for commiting to the 4n-sized quotient polynomial for
-    // the PLONK prover.
-    //
-    // We assume that the number of coefficients is a multiplicand of 4, since the domain size
-    // we use in PLONK would always be a power of 2, this is a reasonable assumption.
-    // Let n = N / 4 where N is the input domain size, we wish to compute
-    // R_{i,s} = \sum_{j=0}^{3} Y_{i + jn} * \omega^{(i + jn)(s + 1)}
-    //
-    // We should store the result in the following way:
-    // (R_{0,3} , R_{1,3}, R_{3,3}, ..., R_{n, 3})  {coefficients of X^0}
-    // (R_{0,2} , R_{1,2}, R_{3,2}, ..., R_{n, 2})  {coefficients of X^1}
-    // (R_{0,1} , R_{1,1}, R_{3,1}, ..., R_{n, 1})  {coefficients of X^2}
-    // (R_{0,0} , R_{1,0}, R_{3,0}, ..., R_{n, 0})  {coefficients of X^3}
-    size_t n = domain.size >> 2;
-    size_t index = 0;
-    size_t full_mask = domain.size - 1;
-    size_t m = domain.size >> 1;
-    size_t half_mask = m - 1;
-    const Fr* round_roots = root_table[static_cast<size_t>(numeric::get_msb(m)) - 1];
-    size_t root_index = 0;
-
-    // iterate for s = 0, 1, 2, 3 to compute R_{i,s}
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t s = 0; s < 4; s++) {
-            target[(3 - s) * n + i] = 0;
-            for (size_t j = 0; j < 4; ++j) {
-                index = i + j * n;
-                root_index = (index * (s + 1)) & full_mask;
-                target[(3 - s) * n + i] +=
-                    (root_index < m ? Fr::one() : -Fr::one()) * coeffs[index] * round_roots[root_index & half_mask];
-            }
-        }
-    }
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft_parellel_inner(
-    Fr* coeffs, const EvaluationDomain<Fr>& domain, const std::vector<Fr*>& root_table, Fr constant, bool is_coset)
-{
-    // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
-    // We need a 2-round modified FFT for commiting to the 4n-sized quotient polynomial for
-    // the PLONK prover.
-    //
-    // We assume that the number of coefficients is a multiplicand of 4, since the domain size
-    // we use in PLONK would always be a power of 2, this is a reasonable assumption.
-    // Let n = N / 4 where N is the input domain size, we wish to compute
-    // R_{i,s} = \sum_{j=0}^{3} Y_{i + jn} * \omega^{(i + jn)(s + 1)}
-    //
-    // Input `coeffs` is the evaluation form (FFT) of a polynomial.
-    // (Y_{0,0} , Y_{1,0}, Y_{3,0}, ..., Y_{n, 0})
-    // (Y_{0,1} , Y_{1,1}, Y_{3,1}, ..., Y_{n, 1})
-    // (Y_{0,2} , Y_{1,2}, Y_{3,2}, ..., Y_{n, 2})
-    // (Y_{0,3} , Y_{1,3}, Y_{3,3}, ..., Y_{n, 3})
-    //
-    // We should store the result in the following way:
-    // (R_{0,3} , R_{1,3}, R_{3,3}, ..., R_{n, 3})  {coefficients of X^0}
-    // (R_{0,2} , R_{1,2}, R_{3,2}, ..., R_{n, 2})  {coefficients of X^1}
-    // (R_{0,1} , R_{1,1}, R_{3,1}, ..., R_{n, 1})  {coefficients of X^2}
-    // (R_{0,0} , R_{1,0}, R_{3,0}, ..., R_{n, 0})  {coefficients of X^3}
-
-    size_t n = domain.size >> 2;
-    size_t full_mask = domain.size - 1;
-    size_t m = domain.size >> 1;
-    size_t half_mask = m - 1;
-    const Fr* round_roots = root_table[static_cast<size_t>(numeric::get_msb(m)) - 1];
-
-    EvaluationDomain<Fr> small_domain(n);
-
-    // iterate for s = 0, 1, 2, 3 to compute R_{i,s}
-    ITERATE_OVER_DOMAIN_START(small_domain);
-    Fr temp[4];
-    temp[0] = coeffs[i];
-    temp[1] = coeffs[i + n];
-    temp[2] = coeffs[i + 2 * n];
-    temp[3] = coeffs[i + 3 * n];
-    coeffs[i] = 0;
-    coeffs[i + n] = 0;
-    coeffs[i + 2 * n] = 0;
-    coeffs[i + 3 * n] = 0;
-
-    size_t index, root_index;
-    Fr temp_constant = constant;
-    Fr root_multiplier = 1;
-
-    for (size_t s = 0; s < 4; s++) {
-        for (size_t j = 0; j < 4; ++j) {
-            index = i + j * n;
-            root_index = (index * (s + 1));
-            if (is_coset) {
-                root_index -= 4 * i;
-            }
-            root_index &= full_mask;
-            root_multiplier = round_roots[root_index & half_mask];
-            if (root_index >= m) {
-                root_multiplier = -round_roots[root_index & half_mask];
-            }
-            coeffs[(3 - s) * n + i] += root_multiplier * temp[j];
-        }
-        if (is_coset) {
-            temp_constant *= domain.generator;
-            coeffs[(3 - s) * n + i] *= temp_constant;
-        }
-    }
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft_serial(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
-{
-    partial_fft_serial_inner(coeffs, target, domain, domain.get_round_roots());
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void partial_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
-{
-    partial_fft_parellel_inner(coeffs, domain, domain.get_round_roots(), constant, is_coset);
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
 void fft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel({ coeffs }, domain, domain.root, domain.get_round_roots());
@@ -673,30 +544,6 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
         scale_by_generator(coeffs[i], coeffs[i], domain, generator_start, domain.generator_inverse, poly_size);
         generator_start *= generator_inv_pow_n;
     }
-}
-
-template <typename Fr>
-void add(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain)
-{
-    ITERATE_OVER_DOMAIN_START(domain);
-    r_coeffs[i] = a_coeffs[i] + b_coeffs[i];
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-void sub(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain)
-{
-    ITERATE_OVER_DOMAIN_START(domain);
-    r_coeffs[i] = a_coeffs[i] - b_coeffs[i];
-    ITERATE_OVER_DOMAIN_END;
-}
-
-template <typename Fr>
-void mul(const Fr* a_coeffs, const Fr* b_coeffs, Fr* r_coeffs, const EvaluationDomain<Fr>& domain)
-{
-    ITERATE_OVER_DOMAIN_START(domain);
-    r_coeffs[i] = a_coeffs[i] * b_coeffs[i];
-    ITERATE_OVER_DOMAIN_END;
 }
 
 template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n)
@@ -1384,13 +1231,6 @@ template void ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template void ifft_with_constant<fr>(fr*, const EvaluationDomain<fr>&, const fr&);
 template void coset_ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
-template void partial_fft_serial_inner<fr>(fr*, fr*, const EvaluationDomain<fr>&, const std::vector<fr*>&);
-template void partial_fft_parellel_inner<fr>(fr*, const EvaluationDomain<fr>&, const std::vector<fr*>&, fr, bool);
-template void partial_fft_serial<fr>(fr*, fr*, const EvaluationDomain<fr>&);
-template void partial_fft<fr>(fr*, const EvaluationDomain<fr>&, fr, bool);
-template void add<fr>(const fr*, const fr*, fr*, const EvaluationDomain<fr>&);
-template void sub<fr>(const fr*, const fr*, fr*, const EvaluationDomain<fr>&);
-template void mul<fr>(const fr*, const fr*, fr*, const EvaluationDomain<fr>&);
 template void compute_lagrange_polynomial_fft<fr>(fr*, const EvaluationDomain<fr>&, const EvaluationDomain<fr>&);
 template void divide_by_pseudo_vanishing_polynomial<fr>(std::vector<fr*>,
                                                         const EvaluationDomain<fr>&,
@@ -1411,18 +1251,6 @@ template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, con
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
 template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template void copy_polynomial<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, size_t, size_t);
-template void add<grumpkin::fr>(const grumpkin::fr*,
-                                const grumpkin::fr*,
-                                grumpkin::fr*,
-                                const EvaluationDomain<grumpkin::fr>&);
-template void sub<grumpkin::fr>(const grumpkin::fr*,
-                                const grumpkin::fr*,
-                                grumpkin::fr*,
-                                const EvaluationDomain<grumpkin::fr>&);
-template void mul<grumpkin::fr>(const grumpkin::fr*,
-                                const grumpkin::fr*,
-                                grumpkin::fr*,
-                                const EvaluationDomain<grumpkin::fr>&);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
 template grumpkin::fr compute_linear_polynomial_product_evaluation<grumpkin::fr>(const grumpkin::fr*,
