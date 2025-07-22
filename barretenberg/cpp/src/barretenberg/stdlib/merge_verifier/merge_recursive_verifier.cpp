@@ -11,8 +11,8 @@ namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                                                 const std::shared_ptr<Transcript>& transcript,
-                                                                 MergeSettings settings)
+                                                                 const MergeSettings settings,
+                                                                 const std::shared_ptr<Transcript>& transcript)
     : builder(builder)
     , transcript(transcript)
     , settings(settings)

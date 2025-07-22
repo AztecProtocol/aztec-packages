@@ -24,7 +24,7 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -51,9 +51,9 @@ GoblinProof Goblin::prove()
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
+    prove_merge(transcript); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
-    prove_merge(transcript); // Use shared transcript for merge proving
     BB_ASSERT_EQ(merge_verification_queue.size(),
                  1U,
                  "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
@@ -85,7 +85,7 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(
     const MergeProof& merge_proof = merge_verification_queue.front();
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
-    MergeRecursiveVerifier merge_verifier{ &builder, transcript };
+    MergeRecursiveVerifier merge_verifier{ &builder, MergeSettings::PREPEND, transcript };
     PairingPoints pairing_points =
         merge_verifier.verify_proof(stdlib_merge_proof, subtable_commitments, merged_table_commitment);
 
@@ -99,7 +99,7 @@ bool Goblin::verify(const GoblinProof& proof,
                     std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment,
                     const std::shared_ptr<Transcript>& transcript)
 {
-    MergeVerifier merge_verifier(transcript);
+    MergeVerifier merge_verifier(MergeSettings::PREPEND, transcript);
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof, subtable_commitments, merged_table_commitment);
 
     ECCVMVerifier eccvm_verifier(transcript);

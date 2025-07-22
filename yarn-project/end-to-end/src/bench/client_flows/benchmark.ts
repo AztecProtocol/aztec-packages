@@ -36,7 +36,8 @@ const GATE_TYPES = [
   'arithmetic',
   'delta_range',
   'elliptic',
-  'aux',
+  'memory',
+  'nnf',
   'poseidon2_external',
   'poseidon2_internal',
   'overflow',
@@ -126,9 +127,13 @@ type ClientFlowBenchmark = {
 };
 
 function getMinimumTrace(logs: Log[]): StructuredTrace {
+  const LOG_MESSAGE_CANDIDATE_PADDING = 5;
   const minimumMessage = 'Minimum required block sizes for structured trace';
   const minimumMessageIndex = logs.findIndex(log => log.message.includes(minimumMessage));
-  const candidateLogs = logs.slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex + 5);
+  const candidateLogs = logs.slice(
+    minimumMessageIndex - GATE_TYPES.length,
+    minimumMessageIndex + LOG_MESSAGE_CANDIDATE_PADDING,
+  );
 
   const traceLogs = candidateLogs
     .filter(log => GATE_TYPES.some(type => log.message.includes(type)))
