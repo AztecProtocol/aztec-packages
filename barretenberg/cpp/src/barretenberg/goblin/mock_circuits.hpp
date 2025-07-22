@@ -92,11 +92,9 @@ class GoblinMockCircuits {
         if (large) { // Results in circuit size 2^19
             generate_sha256_test_circuit<MegaBuilder>(builder, 9);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 8);
-            stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
             generate_sha256_test_circuit<MegaBuilder>(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
-            stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
