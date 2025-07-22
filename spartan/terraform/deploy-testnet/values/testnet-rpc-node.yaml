@@ -70,3 +70,8 @@ service:
     enabled: true
     type: LoadBalancer
 
+ingress:
+  rpc:
+    enabled: true
+    host: null
+    annotations: {}
