@@ -45,6 +45,12 @@ variable "VALIDATOR_VALUES" {
   default     = "testnet-validator.yaml"
 }
 
+variable "ARCHIVE_NODE_VALUES" {
+  description = "The values file to apply"
+  type        = string
+  default     = "testnet-archive-node.yaml"
+}
+
 variable "PROVER_VALUES" {
   description = "The values file to apply"
   type        = string
