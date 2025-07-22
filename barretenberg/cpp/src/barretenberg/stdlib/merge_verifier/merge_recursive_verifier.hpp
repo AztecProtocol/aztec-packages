@@ -67,8 +67,8 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     };
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                                     MergeSettings settings = MergeSettings::PREPEND);
+                                     const MergeSettings settings = MergeSettings::PREPEND,
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
         const stdlib::Proof<CircuitBuilder>& proof,

@@ -73,6 +73,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             op_queue->mul_accumulate(a, x);
             op_queue->mul_accumulate(b, x);
             op_queue->mul_accumulate(c, x);
+            op_queue->merge();
         }
         InnerBuilder builder{ op_queue };
         return builder;
@@ -142,6 +143,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
     {
         InnerBuilder builder = generate_circuit(&engine);
         builder.op_queue->add_erroneous_equality_op_for_testing();
+        builder.op_queue->merge();
         std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
         InnerProver prover(builder, prover_transcript);
         ECCVMProof proof = prover.construct_proof();

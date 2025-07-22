@@ -5,9 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
 namespace bb::stdlib::blake_util {
@@ -15,7 +13,7 @@ namespace bb::stdlib::blake_util {
 using namespace bb::plookup;
 
 // constants
-enum blake_constant { BLAKE3_STATE_SIZE = 16 };
+enum blake_constant { BLAKE_STATE_SIZE = 16 };
 
 constexpr uint8_t MSG_SCHEDULE_BLAKE3[7][16] = {
     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }, { 2, 6, 3, 10, 7, 0, 4, 13, 1, 11, 12, 5, 9, 14, 15, 8 },
@@ -68,36 +66,6 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  *
  * Function `G' in the Blake2s and Blake3s algorithm which is the core
  * mixing step with additions, xors and right-rotates. This function is
- * used in StandardPlonk (without lookup tables).
- *
- * Inputs: - A pointer to a 16-word `state`,
- *         - indices a, b, c, d,
- *         - addition messages x and y
- *
- **/
-template <typename Builder>
-void g(uint32<Builder> state[BLAKE3_STATE_SIZE],
-       size_t a,
-       size_t b,
-       size_t c,
-       size_t d,
-       uint32<Builder> x,
-       uint32<Builder> y)
-{
-    state[a] = state[a] + state[b] + x;
-    state[d] = (state[d] ^ state[a]).ror(16);
-    state[c] = state[c] + state[d];
-    state[b] = (state[b] ^ state[c]).ror(12);
-    state[a] = state[a] + state[b] + y;
-    state[d] = (state[d] ^ state[a]).ror(8);
-    state[c] = state[c] + state[d];
-    state[b] = (state[b] ^ state[c]).ror(7);
-}
-
-/**
- *
- * Function `G' in the Blake2s and Blake3s algorithm which is the core
- * mixing step with additions, xors and right-rotates. This function is
  * used in  Ultra version (with lookup tables).
  *
  * Inputs: - A pointer to a 16-word `state`,
@@ -142,14 +110,14 @@ void g(uint32<Builder> state[BLAKE3_STATE_SIZE],
  *
  **/
 template <typename Builder>
-void g_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
-              size_t a,
-              size_t b,
-              size_t c,
-              size_t d,
-              field_t<Builder> x,
-              field_t<Builder> y,
-              const bool last_update = false)
+void g(field_t<Builder> state[BLAKE_STATE_SIZE],
+       size_t a,
+       size_t b,
+       size_t c,
+       size_t d,
+       field_t<Builder> x,
+       field_t<Builder> y,
+       const bool last_update = false)
 {
     typedef field_t<Builder> field_pt;
 
@@ -198,15 +166,15 @@ void g_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
 }
 
 /*
- * This is the round function used in Blake2s and Blake3s.
+ * This is the round function used in Blake2s and Blake3s for Ultra.
  * Inputs: - 16-word state
  *         - 16-word msg
  *         - round numbe
  *         - which_blake to choose Blake2 or Blake3 (false -> Blake2)
  */
 template <typename Builder>
-void round_fn(uint32<Builder> state[BLAKE3_STATE_SIZE],
-              uint32<Builder> msg[BLAKE3_STATE_SIZE],
+void round_fn(field_t<Builder> state[BLAKE_STATE_SIZE],
+              field_t<Builder> msg[BLAKE_STATE_SIZE],
               size_t round,
               const bool which_blake = false)
 {
@@ -220,39 +188,10 @@ void round_fn(uint32<Builder> state[BLAKE3_STATE_SIZE],
     g<Builder>(state, 3, 7, 11, 15, msg[schedule[6]], msg[schedule[7]]);
 
     // Mix the rows.
-    g<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]]);
-    g<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]]);
-    g<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]]);
-    g<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]]);
-}
-
-/*
- * This is the round function used in Blake2s and Blake3s for Ultra.
- * Inputs: - 16-word state
- *         - 16-word msg
- *         - round numbe
- *         - which_blake to choose Blake2 or Blake3 (false -> Blake2)
- */
-template <typename Builder>
-void round_fn_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
-                     field_t<Builder> msg[BLAKE3_STATE_SIZE],
-                     size_t round,
-                     const bool which_blake = false)
-{
-    // Select the message schedule based on the round.
-    const uint8_t* schedule = which_blake ? MSG_SCHEDULE_BLAKE3[round] : MSG_SCHEDULE_BLAKE2[round];
-
-    // Mix the columns.
-    g_lookup<Builder>(state, 0, 4, 8, 12, msg[schedule[0]], msg[schedule[1]]);
-    g_lookup<Builder>(state, 1, 5, 9, 13, msg[schedule[2]], msg[schedule[3]]);
-    g_lookup<Builder>(state, 2, 6, 10, 14, msg[schedule[4]], msg[schedule[5]]);
-    g_lookup<Builder>(state, 3, 7, 11, 15, msg[schedule[6]], msg[schedule[7]]);
-
-    // Mix the rows.
-    g_lookup<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]], true);
-    g_lookup<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]], true);
-    g_lookup<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]], true);
-    g_lookup<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]], true);
+    g<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]], true);
+    g<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]], true);
+    g<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]], true);
+    g<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]], true);
 }
 
 } // namespace bb::stdlib::blake_util

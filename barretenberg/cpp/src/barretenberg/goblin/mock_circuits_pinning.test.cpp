@@ -28,7 +28,7 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
         if (large) {
             EXPECT_EQ(proving_key->log_dyadic_size(), 19);
         } else {
-            EXPECT_EQ(proving_key->log_dyadic_size(), 18);
+            EXPECT_EQ(proving_key->log_dyadic_size(), 19);
         };
     };
     run_test(true);

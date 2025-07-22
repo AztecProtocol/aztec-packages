@@ -67,19 +67,23 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    enum AUX_SELECTORS {
-        NONE,
-        LIMB_ACCUMULATE_1,
-        LIMB_ACCUMULATE_2,
-        NON_NATIVE_FIELD_1,
-        NON_NATIVE_FIELD_2,
-        NON_NATIVE_FIELD_3,
+    enum MEMORY_SELECTORS {
+        MEM_NONE,
         RAM_CONSISTENCY_CHECK,
         ROM_CONSISTENCY_CHECK,
         RAM_TIMESTAMP_CHECK,
         ROM_READ,
         RAM_READ,
         RAM_WRITE,
+    };
+
+    enum NNF_SELECTORS {
+        NNF_NONE,
+        LIMB_ACCUMULATE_1,
+        LIMB_ACCUMULATE_2,
+        NON_NATIVE_FIELD_1,
+        NON_NATIVE_FIELD_2,
+        NON_NATIVE_FIELD_3,
     };
 
     struct RangeList {
@@ -709,7 +713,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Custom Gate Selectors
      **/
-    void apply_aux_selectors(const AUX_SELECTORS type);
+    void apply_memory_selectors(const MEMORY_SELECTORS type);
+    void apply_nnf_selectors(const NNF_SELECTORS type);
 
     /**
      * Non Native Field Arithmetic

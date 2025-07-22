@@ -11,7 +11,7 @@
 
 namespace bb {
 
-MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, MergeSettings settings)
+MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , settings(settings){};
 

@@ -21,7 +21,7 @@ class BlakeCircuit {
             input_buffer.write(byte_array_ct(field_ct(public_witness_ct(&builder, public_inputs[i]))));
         }
 
-        bb::stdlib::blake2s<Builder>(input_buffer);
+        bb::stdlib::Blake2s<Builder>::hash(input_buffer);
 
         return builder;
     }

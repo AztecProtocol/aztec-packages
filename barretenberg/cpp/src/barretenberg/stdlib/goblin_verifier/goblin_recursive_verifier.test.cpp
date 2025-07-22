@@ -57,6 +57,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         builder.queue_ecc_no_op();
         GoblinMockCircuits::construct_simple_circuit(builder);
 
+        // Merge the ecc ops from the newly constructed circuit
+        goblin_final.op_queue->merge();
+
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         auto t_current = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();

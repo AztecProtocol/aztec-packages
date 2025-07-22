@@ -264,7 +264,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     block.q_4().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
-    block.q_aux().emplace_back(0);
+    block.q_memory().emplace_back(0);
+    block.q_nnf().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(0);
 }

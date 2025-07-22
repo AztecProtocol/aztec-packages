@@ -125,6 +125,7 @@ TEST(EccOpsTableTest, UltraOpsTablePrependOnly)
         for (const auto& op : subtable_ops) {
             ultra_ops_table.push(op);
         }
+        ultra_ops_table.merge();
     }
 
     std::reverse(subtables.begin(), subtables.end());
@@ -164,10 +165,11 @@ TEST(EccOpsTableTest, UltraOpsPrependThenAppend)
                                                                 MergeSettings::PREPEND,
                                                                 MergeSettings::APPEND };
     for (const auto& [subtable_ops, setting] : zip_view(subtables, merge_settings)) {
-        ultra_ops_table.create_new_subtable(setting);
+        ultra_ops_table.create_new_subtable();
         for (const auto& op : subtable_ops) {
             ultra_ops_table.push(op);
         }
+        ultra_ops_table.merge(setting);
     }
 
     std::vector<std::vector<UltraOp>> ordered_subtables;
@@ -215,6 +217,7 @@ TEST(EccOpsTableTest, EccvmOpsTable)
         for (const auto& op : subtable_ops) {
             eccvm_ops_table.push(op);
         }
+        eccvm_ops_table.merge();
     }
 
     std::reverse(subtables.begin(), subtables.end());
@@ -255,10 +258,11 @@ TEST(EccOpsTableTest, EccvmOpsTablePrependThenAppend)
     // Construct the concatenated eccvm ops table
     EccvmOpsTable eccvm_ops_table;
     for (const auto& [subtable_ops, setting] : zip_view(subtables, merge_settings)) {
-        eccvm_ops_table.create_new_subtable(setting);
+        eccvm_ops_table.create_new_subtable();
         for (const auto& op : subtable_ops) {
             eccvm_ops_table.push(op);
         }
+        eccvm_ops_table.merge(setting);
     }
 
     std::vector<std::vector<ECCVMOperation>> ordered_subtables;

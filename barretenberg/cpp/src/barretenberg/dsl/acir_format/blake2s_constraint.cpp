@@ -36,7 +36,7 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
         arr.write(element_bytes);
     }
 
-    byte_array_ct output_bytes = stdlib::blake2s<Builder>(arr);
+    byte_array_ct output_bytes = stdlib::Blake2s<Builder>::hash(arr);
 
     // Convert byte array to vector of field_t
     auto bytes = output_bytes.bytes();

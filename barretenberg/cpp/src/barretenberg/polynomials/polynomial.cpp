@@ -191,11 +191,13 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
 {
+    ASSERT(size() == virtual_size());
     return polynomial_arithmetic::evaluate(data(), z, target_size);
 }
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
+    ASSERT(size() == virtual_size());
     return polynomial_arithmetic::evaluate(data(), z, size());
 }
 

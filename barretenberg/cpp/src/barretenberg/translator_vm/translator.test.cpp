@@ -41,6 +41,7 @@ class TranslatorTests : public ::testing::Test {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
+        op_queue->merge();
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }

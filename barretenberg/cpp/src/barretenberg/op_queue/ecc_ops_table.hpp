@@ -15,7 +15,7 @@
 namespace bb {
 
 /**
- * @brief The MergeSettings define whether an incoming subtable will be added at the beginning (PREPEND) or at the end
+ * @brief The MergeSettings define whether an current subtable will be added at the beginning (PREPEND) or at the end
  * (APPEND) of the EccOpQueue.
  */
 enum MergeSettings { PREPEND, APPEND };
@@ -99,16 +99,18 @@ struct ECCVMOperation {
  */
 template <typename OpFormat> class EccOpsTable {
     using Subtable = std::vector<OpFormat>;
-    std::vector<Subtable> table;
-
+    std::deque<Subtable> table;
+    Subtable current_subtable; // used to store the current subtable before it is added to the table
   public:
-    MergeSettings settings;
     size_t size() const
     {
+        ASSERT(current_subtable.empty(),
+               "Current subtable should be merged before computing the size of the full table of ecc ops.");
         size_t total = 0;
         for (const auto& subtable : table) {
             total += subtable.size();
         }
+
         return total;
     }
 
@@ -119,27 +121,21 @@ template <typename OpFormat> class EccOpsTable {
     void push(const OpFormat& op)
     {
         // Get the reference of the subtable to update
-        auto& subtable_to_update = settings == MergeSettings::PREPEND ? table.front() : table.back();
-        subtable_to_update.push_back(op);
+
+        current_subtable.push_back(op);
     }
 
-    void create_new_subtable(MergeSettings settings = MergeSettings::PREPEND, size_t size_hint = 0)
+    void create_new_subtable(size_t size_hint = 0)
     {
-        this->settings = settings;
-        // If there is a single subtable and it is empty, dont create a new one
-        if (table.size() == 1 && table.front().empty()) {
-            return;
-        }
-        // Get the iterator at which location we should insert a new subtable
-        auto it = settings == MergeSettings::PREPEND ? table.begin() : table.end();
-        Subtable new_subtable;
-        new_subtable.reserve(size_hint);
-        table.insert(it, std::move(new_subtable));
+        ASSERT(current_subtable.empty(), "Cannot create a new subtable until the current subtable has been merged.");
+        current_subtable.reserve(size_hint);
     }
 
     // const version of operator[]
     const OpFormat& operator[](size_t index) const
     {
+        ASSERT(current_subtable.empty(),
+               "Current subtable should be merged before attempting to index into the full table.");
         BB_ASSERT_LT(index, size());
         // simple linear search to find the correct subtable
         for (const auto& subtable : table) {
@@ -154,6 +150,9 @@ template <typename OpFormat> class EccOpsTable {
     // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator
     std::vector<OpFormat> get_reconstructed() const
     {
+        ASSERT(current_subtable.empty(),
+               "current subtable should be merged before reconstructing the full table of operations.");
+
         std::vector<OpFormat> reconstructed_table;
         reconstructed_table.reserve(size());
         for (const auto& subtable : table) {
@@ -162,6 +161,23 @@ template <typename OpFormat> class EccOpsTable {
             }
         }
         return reconstructed_table;
+    }
+
+    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    {
+        if (current_subtable.empty()) {
+            return; // nothing to merge
+        }
+
+        // Based on merge settings add the current subtable to either the beginning or end of the full table
+        if (settings == MergeSettings::PREPEND) {
+            table.push_front(std::move(current_subtable));
+        } else {
+            table.push_back(std::move(current_subtable));
+        }
+
+        current_subtable.clear(); // clear the current subtable after merging
+        ASSERT(current_subtable.empty(), "current subtable should be empty after merging. Check the merge logic.");
     }
 };
 
@@ -196,22 +212,22 @@ class UltraEccOpsTable {
     using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
     using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
+    size_t current_subtable_idx = 0; // index of the current subtable being constructed
     UltraOpsTable table;
 
   public:
     size_t size() const { return table.size(); }
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
-    size_t current_ultra_subtable_size() const
-    {
-        const size_t subtable_idx = table.settings == MergeSettings::PREPEND ? 0 : table.num_subtables() - 1;
-        return table.get()[subtable_idx].size() * NUM_ROWS_PER_OP;
-    }
+    size_t current_ultra_subtable_size() const { return table.get()[current_subtable_idx].size() * NUM_ROWS_PER_OP; }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
-    void create_new_subtable(MergeSettings settings = MergeSettings::PREPEND, size_t size_hint = 0)
-    {
-        table.create_new_subtable(settings, size_hint);
-    }
+    void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
+    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    {
+        table.merge(settings);
+        current_subtable_idx = settings == MergeSettings::PREPEND ? 0 : table.num_subtables() - 1;
+    }
+
     std::vector<UltraOp> get_reconstructed() const { return table.get_reconstructed(); }
 
     // Construct the columns of the full ultra ecc ops table
@@ -229,9 +245,8 @@ class UltraEccOpsTable {
     {
 
         const size_t poly_size = previous_ultra_table_size();
-        const size_t subtable_start_idx = table.settings == MergeSettings::PREPEND ? 1 : 0;
-        const size_t subtable_end_idx =
-            table.settings == MergeSettings::PREPEND ? table.num_subtables() : table.num_subtables() - 1;
+        const size_t subtable_start_idx = current_subtable_idx == 0 ? 1 : 0;
+        const size_t subtable_end_idx = current_subtable_idx == 0 ? table.num_subtables() : table.num_subtables() - 1;
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
@@ -241,8 +256,8 @@ class UltraEccOpsTable {
     ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {
         const size_t poly_size = current_ultra_subtable_size();
-        const size_t subtable_start_idx = table.settings == MergeSettings::PREPEND ? 0 : table.num_subtables() - 1;
-        const size_t subtable_end_idx = table.settings == MergeSettings::PREPEND ? 1 : table.num_subtables();
+        const size_t subtable_start_idx = current_subtable_idx;
+        const size_t subtable_end_idx = current_subtable_idx + 1;
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }

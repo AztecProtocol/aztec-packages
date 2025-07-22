@@ -27,33 +27,36 @@ template <typename T> struct UltraTraceBlockData {
     T arithmetic;
     T delta_range;
     T elliptic;
-    T aux;
+    T memory;
+    T nnf;
     T poseidon2_external;
     T poseidon2_internal;
     T overflow;
 
     auto get()
     {
-        return RefArray{ pub_inputs,         lookup,  arithmetic, delta_range, elliptic, aux, poseidon2_external,
-                         poseidon2_internal, overflow };
+        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
+                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
     }
 
     auto get() const
     {
-        return RefArray{ pub_inputs,         lookup,  arithmetic, delta_range, elliptic, aux, poseidon2_external,
-                         poseidon2_internal, overflow };
+        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
+                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
     }
 
     auto get_gate_blocks() const
     {
-        return RefArray{ lookup, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal };
+        return RefArray{
+            lookup, arithmetic, delta_range, elliptic, memory, nnf, poseidon2_external, poseidon2_internal
+        };
     }
 
     bool operator==(const UltraTraceBlockData& other) const = default;
 };
 
-class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 13> {
-    using SelectorType = ExecutionTraceBlock<fr, 4, 13>::SelectorType;
+class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
+    using SelectorType = ExecutionTraceBlock<fr, 4, 14>::SelectorType;
 
   public:
     void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
@@ -83,16 +86,15 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_
     auto& q_arith() { return this->selectors[7]; };
     auto& q_delta_range() { return this->selectors[8]; };
     auto& q_elliptic() { return this->selectors[9]; };
-    auto& q_aux() { return this->selectors[10]; };
-    auto& q_poseidon2_external() { return this->selectors[11]; };
-    auto& q_poseidon2_internal() { return this->selectors[12]; };
+    auto& q_memory() { return this->selectors[10]; };
+    auto& q_nnf() { return this->selectors[11]; };
+    auto& q_poseidon2_external() { return this->selectors[12]; };
+    auto& q_poseidon2_internal() { return this->selectors[13]; };
 
     RefVector<SelectorType> get_gate_selectors()
     {
-        return {
-            q_lookup_type(),        q_arith(), q_delta_range(), q_elliptic(), q_aux(), q_poseidon2_external(),
-            q_poseidon2_internal(),
-        };
+        return { q_lookup_type(), q_arith(), q_delta_range(),        q_elliptic(),
+                 q_memory(),      q_nnf(),   q_poseidon2_external(), q_poseidon2_internal() };
     }
 };
 
@@ -127,7 +129,8 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
         info("arithmetic :\t", this->arithmetic.size());
         info("delta range:\t", this->delta_range.size());
         info("elliptic   :\t", this->elliptic.size());
-        info("auxiliary  :\t", this->aux.size());
+        info("memory     :\t", this->memory.size());
+        info("nnf        :\t", this->nnf.size());
         info("poseidon ext  :\t", this->poseidon2_external.size());
         info("poseidon int  :\t", this->poseidon2_internal.size());
         info("overflow :\t", this->overflow.size());

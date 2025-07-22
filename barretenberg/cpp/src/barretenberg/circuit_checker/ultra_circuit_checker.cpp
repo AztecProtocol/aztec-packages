@@ -80,7 +80,7 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     if (!result) {
         return false;
     }
-    result = result & relaxed_check_aux_relation(builder);
+    result = result & relaxed_check_memory_relation(builder);
     if (!result) {
         return false;
     }
@@ -107,7 +107,7 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     // Initialize empty AllValues of the correct Flavor based on Builder type; for input to Relation::accumulate
     auto values = init_empty_values<Builder>();
     Params params;
-    params.eta = memory_data.eta; // used in Auxiliary relation for RAM/ROM consistency
+    params.eta = memory_data.eta; // used in Memory relation for RAM/ROM consistency
     params.eta_two = memory_data.eta_two;
     params.eta_three = memory_data.eta_three;
 
@@ -139,23 +139,27 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
 #ifndef ULTRA_FUZZ
-        result = result && check_relation<Auxiliary>(values, params);
+        result = result && check_relation<Memory>(values, params);
         if (!result) {
-            return report_fail("Failed Auxiliary relation at row idx = ", idx);
+            return report_fail("Failed Memory relation at row idx = ", idx);
+        }
+        result = result && check_relation<NonNativeField>(values, params);
+        if (!result) {
+            return report_fail("Failed NonNativeField relation at row idx = ", idx);
         }
         result = result && check_relation<DeltaRangeConstraint>(values, params);
         if (!result) {
             return report_fail("Failed DeltaRangeConstraint relation at row idx = ", idx);
         }
 #else
-        // Bigfield related auxiliary gates
-        if (values.q_aux == 1) {
+        // Bigfield related nnf gates
+        if (values.q_nnf == 1) {
             bool f0 = values.q_o == 1 && (values.q_4 == 1 || values.q_m == 1);
             bool f1 = values.q_r == 1 && (values.q_o == 1 || values.q_4 == 1 || values.q_m == 1);
             if (f0 && f1) {
-                result = result && check_relation<Auxiliary>(values, params);
+                result = result && check_relation<NonNativeField>(values, params);
                 if (!result) {
-                    return report_fail("Failed Non Native Auxiliary relation at row idx = ", idx);
+                    return report_fail("Failed NonNativeField relation at row idx = ", idx);
                 }
             }
         }
@@ -289,7 +293,7 @@ void UltraCircuitChecker::populate_values(
     values.w_o = builder.get_variable(block.w_o()[idx]);
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
     // we are indexing into the correct block before updating the w_4 value.
-    const bool is_ram_rom_block = (&block == &builder.blocks.aux);
+    const bool is_ram_rom_block = (&block == &builder.blocks.memory);
     if (is_ram_rom_block && memory_data.read_record_gates.contains(idx)) {
         values.w_4 = compute_memory_record_term(
             values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);
@@ -348,7 +352,8 @@ void UltraCircuitChecker::populate_values(
     values.q_arith = block.q_arith()[idx];
     values.q_delta_range = block.q_delta_range()[idx];
     values.q_elliptic = block.q_elliptic()[idx];
-    values.q_aux = block.q_aux()[idx];
+    values.q_memory = block.q_memory()[idx];
+    values.q_nnf = block.q_nnf()[idx];
     values.q_lookup = block.q_lookup_type()[idx];
     values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
     values.q_poseidon2_external = block.q_poseidon2_external()[idx];
@@ -428,7 +433,7 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
 }
 
 /**
- * @brief Check that aux relation is satisfied
+ * @brief Check that memory relation is satisfied
  * @details For fuzzing purposes, we skip RAM/ROM finalization step
  * because of its complexity.
  * Instead
@@ -440,7 +445,7 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
  * @param builder Circuit Builder
  * @return all the memory calls are valid
  */
-template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation(Builder& builder)
+template <typename Builder> bool UltraCircuitChecker::relaxed_check_memory_relation(Builder& builder)
 {
     for (size_t i = 0; i < builder.rom_ram_logic.rom_arrays.size(); i++) {
         auto rom_array = builder.rom_ram_logic.rom_arrays[i];

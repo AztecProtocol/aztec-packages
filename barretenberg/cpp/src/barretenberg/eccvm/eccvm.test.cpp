@@ -61,6 +61,7 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
     op_queue->mul_accumulate(c, x);
+    op_queue->merge();
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
@@ -78,6 +79,7 @@ ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine 
     for (auto i = 0; i < 8; i++) {
         op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
     }
+    op_queue->merge();
 
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
@@ -162,6 +164,7 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     auto builder = generate_circuit(&engine);
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->add_erroneous_equality_op_for_testing();
+    builder.op_queue->merge();
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);

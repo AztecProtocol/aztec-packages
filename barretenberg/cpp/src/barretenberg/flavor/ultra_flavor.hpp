@@ -18,10 +18,11 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
+#include "barretenberg/relations/memory_relation.hpp"
+#include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
@@ -56,10 +57,10 @@ class UltraFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (witness polynomials,
     // precomputed polynomials and shifts). We often need containers of this size to hold related data, so we choose a
     // name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 40;
+    static constexpr size_t NUM_ALL_ENTITIES = 41;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 28;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
     // Total number of folded polynomials, which is just all polynomials except the shifts
@@ -83,7 +84,8 @@ class UltraFlavor {
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
-                                  bb::AuxiliaryRelation<FF>,
+                                  bb::MemoryRelation<FF>,
+                                  bb::NonNativeFieldRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
                                   bb::Poseidon2InternalRelation<FF>>;
 
@@ -156,32 +158,32 @@ class UltraFlavor {
                               q_arith,              // column 7
                               q_delta_range,        // column 8
                               q_elliptic,           // column 9
-                              q_aux,                // column 10
-                              q_poseidon2_external, // column 11
-                              q_poseidon2_internal, // column 12
-                              sigma_1,              // column 13
-                              sigma_2,              // column 14
-                              sigma_3,              // column 15
-                              sigma_4,              // column 16
-                              id_1,                 // column 17
-                              id_2,                 // column 18
-                              id_3,                 // column 19
-                              id_4,                 // column 20
-                              table_1,              // column 21
-                              table_2,              // column 22
-                              table_3,              // column 23
-                              table_4,              // column 24
-                              lagrange_first,       // column 25
-                              lagrange_last)        // column 26
+                              q_memory,             // column 10
+                              q_nnf,                // column 11
+                              q_poseidon2_external, // column 12
+                              q_poseidon2_internal, // column 13
+                              sigma_1,              // column 14
+                              sigma_2,              // column 15
+                              sigma_3,              // column 16
+                              sigma_4,              // column 17
+                              id_1,                 // column 18
+                              id_2,                 // column 19
+                              id_3,                 // column 20
+                              id_4,                 // column 21
+                              table_1,              // column 22
+                              table_2,              // column 23
+                              table_3,              // column 24
+                              table_4,              // column 25
+                              lagrange_first,       // column 26
+                              lagrange_last)        // column 27
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
         auto get_gate_selectors()
         {
-            return RefArray{
-                q_lookup, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal
-            };
+            return RefArray{ q_lookup, q_arith, q_delta_range,        q_elliptic,
+                             q_memory, q_nnf,   q_poseidon2_external, q_poseidon2_internal };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
@@ -507,7 +509,8 @@ class UltraFlavor {
                        q_arith,
                        q_delta_range,
                        q_elliptic,
-                       q_aux,
+                       q_memory,
+                       q_nnf,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
@@ -604,7 +607,8 @@ class UltraFlavor {
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
-            q_aux = "Q_AUX";
+            q_memory = "Q_MEMORY";
+            q_nnf = "Q_NNF";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
             sigma_1 = "SIGMA_1";
@@ -645,7 +649,8 @@ class UltraFlavor {
             this->q_arith = verification_key->q_arith;
             this->q_delta_range = verification_key->q_delta_range;
             this->q_elliptic = verification_key->q_elliptic;
-            this->q_aux = verification_key->q_aux;
+            this->q_memory = verification_key->q_memory;
+            this->q_nnf = verification_key->q_nnf;
             this->q_poseidon2_external = verification_key->q_poseidon2_external;
             this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
             this->sigma_1 = verification_key->sigma_1;

@@ -71,8 +71,8 @@ class MergeVerifier {
         WitnessCommitments() = default;
     };
 
-    explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                           MergeSettings settings = MergeSettings::PREPEND);
+    explicit MergeVerifier(const MergeSettings settings = MergeSettings::PREPEND,
+                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     bool verify_proof(const HonkProof& proof,
                       const SubtableWitnessCommitments& subtable_commitments,
                       std::array<Commitment, NUM_WIRES>& merged_table_commitment);

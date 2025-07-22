@@ -11,14 +11,13 @@ class ECCOpQueueTest {
     using Polynomial = bb::Polynomial<Fr>;
 
     // Perform some basic interactions with the ECC op queue to mock the behavior of a single circuit
-    static void populate_an_arbitrary_subtable_of_ops(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
-                                                      const MergeSettings settings = MergeSettings::PREPEND)
+    static void populate_an_arbitrary_subtable_of_ops(const std::shared_ptr<bb::ECCOpQueue>& op_queue)
     {
         auto P1 = G1::random_element();
         auto P2 = G1::random_element();
         auto z = Fr::random_element();
 
-        op_queue->initialize_new_subtable(settings);
+        op_queue->initialize_new_subtable();
         op_queue->add_accumulate(P1);
         op_queue->mul_accumulate(P2, z);
         op_queue->eq_and_reset();
@@ -28,8 +27,10 @@ class ECCOpQueueTest {
      * @brief Check that the table column polynomials reconstructed by the op queue have the correct relationship
      *
      */
-    static void check_table_column_polynomials(const std::shared_ptr<bb::ECCOpQueue>& op_queue)
+    static void check_table_column_polynomials(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
+                                               MergeSettings settings = MergeSettings::PREPEND)
     {
+        op_queue->merge(settings);
         // Construct column polynomials corresponding to the full table (T), the previous table (T_prev), and the
         // current subtable (t_current)
         auto table_polynomials = op_queue->construct_ultra_ops_table_columns();
@@ -43,7 +44,7 @@ class ECCOpQueueTest {
             const Fr table_eval = table_poly.evaluate(eval_challenge); // T(x)
             // Check that the previous table polynomial is constructed correctly according to the merge settings by
             // checking the identity at a single point
-            if (op_queue->get_current_settings() == MergeSettings::PREPEND) {
+            if (settings == MergeSettings::PREPEND) {
                 // T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable
                 const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_num_rows(); // k
                 const Fr subtable_eval = subtable_poly.evaluate(eval_challenge); // t_current(x)
@@ -88,6 +89,7 @@ TEST(ECCOpQueueTest, Basic)
     ECCOpQueue op_queue;
     op_queue.add_accumulate(bb::g1::affine_one);
     op_queue.empty_row_for_testing();
+    op_queue.merge();
     const auto& eccvm_ops = op_queue.get_eccvm_ops();
     EXPECT_EQ(eccvm_ops[0].base_point, G1::one());
     EXPECT_EQ(eccvm_ops[1].op_code.add, false);
@@ -149,8 +151,8 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionPrependThenAppend)
     }
 
     // Do a single append operation
-    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, MergeSettings::APPEND);
-    ECCOpQueueTest::check_table_column_polynomials(op_queue);
+    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
+    ECCOpQueueTest::check_table_column_polynomials(op_queue, MergeSettings::APPEND);
 
     ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
 }

@@ -16,12 +16,19 @@ namespace bb {
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
+                         const MergeSettings settings,
                          const CommitmentKey& commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
-    , pcs_commitment_key(commitment_key.initialized() ? commitment_key
-                                                      : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
-    , transcript(transcript){};
+    , transcript(transcript)
+    , settings(settings)
+{
+    // Merge the current subtable (for which a merge proof is being constructed) prior to
+    // procedeing with proving.
+    op_queue->merge(settings);
+    pcs_commitment_key =
+        commitment_key.initialized() ? commitment_key : CommitmentKey(op_queue->get_ultra_ops_table_num_rows());
+};
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -60,7 +67,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
     std::array<Polynomial, NUM_WIRES> left_table_reversed;
 
-    if (op_queue->get_current_settings() == MergeSettings::PREPEND) {
+    if (settings == MergeSettings::PREPEND) {
         left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
         right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
     } else {
@@ -85,8 +92,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Note: This is hacky at the moment because the prover still needs to commit to T_prev. Once we connect two
         // steps of the Merge, T_prev will not be sent by the Merge prover, so the following lines will be removed
-        auto previous_table =
-            op_queue->get_current_settings() == MergeSettings::PREPEND ? right_table[idx] : left_table[idx];
+        auto previous_table = settings == MergeSettings::PREPEND ? right_table[idx] : left_table[idx];
         transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(previous_table));
         transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
                                      pcs_commitment_key.commit(merged_table[idx]));

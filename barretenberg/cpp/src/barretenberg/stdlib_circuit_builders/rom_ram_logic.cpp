@@ -138,11 +138,11 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomR
 {
     // Record wire value can't yet be computed
     record.record_witness = builder->add_variable(0);
-    builder->apply_aux_selectors(CircuitBuilder::AUX_SELECTORS::ROM_READ);
-    builder->blocks.aux.populate_wires(
+    builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::ROM_READ);
+    builder->blocks.memory.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
-    // Note: record the index into the aux block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.aux.size() - 1;
+    // Note: record the index into the memory block that contains the RAM/ROM gates
+    record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
     ++builder->num_gates;
 }
@@ -153,11 +153,11 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builde
     record.record_witness = builder->add_variable(0);
     // record_witness is intentionally used only in a single gate
     builder->update_used_witnesses(record.record_witness);
-    builder->apply_aux_selectors(CircuitBuilder::AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
-    builder->blocks.aux.populate_wires(
+    builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK);
+    builder->blocks.memory.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
-    // Note: record the index into the aux block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.aux.size() - 1;
+    // Note: record the index into the memory block that contains the RAM/ROM gates
+    record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
     ++builder->num_gates;
 }
@@ -230,7 +230,8 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
     // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
     // arithmetic gate to occur out of sequence.
-    builder->create_dummy_gate(builder->blocks.aux, max_index, builder->zero_idx, builder->zero_idx, builder->zero_idx);
+    builder->create_dummy_gate(
+        builder->blocks.memory, max_index, builder->zero_idx, builder->zero_idx, builder->zero_idx);
     builder->create_big_add_gate(
         {
             max_index,
@@ -360,14 +361,14 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
     // we will be applying copy constraints + set membership constraints.
     // Later on during proof construction we will compute the record wire value + assign it
     record.record_witness = builder->add_variable(0);
-    builder->apply_aux_selectors(record.access_type == RamRecord::AccessType::READ
-                                     ? CircuitBuilder::AUX_SELECTORS::RAM_READ
-                                     : CircuitBuilder::AUX_SELECTORS::RAM_WRITE);
-    builder->blocks.aux.populate_wires(
+    builder->apply_memory_selectors(record.access_type == RamRecord::AccessType::READ
+                                        ? CircuitBuilder::MEMORY_SELECTORS::RAM_READ
+                                        : CircuitBuilder::MEMORY_SELECTORS::RAM_WRITE);
+    builder->blocks.memory.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
 
     // Note: record the index into the block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.aux.size() - 1;
+    record.gate_index = builder->blocks.memory.size() - 1;
     ++builder->num_gates;
 }
 
@@ -375,11 +376,11 @@ template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::create_sorted_RAM_gate(CircuitBuilder* builder, RamRecord& record)
 {
     record.record_witness = builder->add_variable(0);
-    builder->apply_aux_selectors(CircuitBuilder::AUX_SELECTORS::RAM_CONSISTENCY_CHECK);
-    builder->blocks.aux.populate_wires(
+    builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK);
+    builder->blocks.memory.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
-    // Note: record the index into the aux block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.aux.size() - 1;
+    // Note: record the index into the memory block that contains the RAM/ROM gates
+    record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
     ++builder->num_gates;
 }
@@ -391,7 +392,7 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
 {
     record.record_witness = builder->add_variable(0);
     // Note: record the index into the block that contains the RAM/ROM gates
-    record.gate_index = builder->blocks.aux.size(); // no -1 since we havent added the gate yet
+    record.gate_index = builder->blocks.memory.size(); // no -1 since we havent added the gate yet
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This method used to add a single arithmetic gate
     // with two purposes: (1) to provide wire values to the previous RAM gate via shifts, and (2) to perform a
@@ -401,7 +402,7 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
 
     // Create a final gate with all selectors zero; wire values are accessed by the previous RAM gate via
     // shifted wires
-    builder->create_dummy_gate(builder->blocks.aux,
+    builder->create_dummy_gate(builder->blocks.memory,
                                record.index_witness,
                                record.timestamp_witness,
                                record.value_witness,
@@ -529,8 +530,8 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
 
         uint32_t timestamp_delta_witness = builder->add_variable(timestamp_delta);
 
-        builder->apply_aux_selectors(CircuitBuilder::AUX_SELECTORS::RAM_TIMESTAMP_CHECK);
-        builder->blocks.aux.populate_wires(
+        builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK);
+        builder->blocks.memory.populate_wires(
             current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx);
 
         ++builder->num_gates;
@@ -544,7 +545,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     // (the previous gate will access the wires on this gate and requires them to be those of the last record)
     const auto& last = sorted_ram_records[ram_array.records.size() - 1];
     builder->create_dummy_gate(
-        builder->blocks.aux, last.index_witness, last.timestamp_witness, builder->zero_idx, builder->zero_idx);
+        builder->blocks.memory, last.index_witness, last.timestamp_witness, builder->zero_idx, builder->zero_idx);
 
     // Step 3: validate difference in timestamps is monotonically increasing. i.e. is <= maximum timestamp
     const size_t max_timestamp = ram_array.access_count - 1;

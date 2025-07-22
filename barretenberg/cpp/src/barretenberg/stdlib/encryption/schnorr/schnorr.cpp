@@ -6,7 +6,6 @@
 
 #include "schnorr.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -58,7 +57,7 @@ std::array<field_t<C>, 2> schnorr_verify_signature_internal(const byte_array<C>&
     hash_input.write(message);
 
     // compute  e' = hash(([s]g + [e]pub).x | message)
-    byte_array<C> output = blake2s(hash_input);
+    byte_array<C> output = stdlib::Blake2s<C>::hash(hash_input);
     static constexpr size_t LO_BYTES = cycle_group<C>::cycle_scalar::LO_BITS / 8;
     static constexpr size_t HI_BYTES = 32 - LO_BYTES;
     field_t<C> output_hi(output.slice(0, LO_BYTES));
