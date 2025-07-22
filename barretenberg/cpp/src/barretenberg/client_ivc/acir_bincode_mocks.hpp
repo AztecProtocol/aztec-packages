@@ -9,6 +9,29 @@ namespace bb::acir_bincode_mocks {
 
 const size_t BIT_COUNT = 254;
 
+inline uint8_t hex_char_to_value(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return static_cast<uint8_t>(c - '0');
+    }
+    if (c >= 'a' && c <= 'f') {
+        return static_cast<uint8_t>(10 + (c - 'a'));
+    }
+    if (c >= 'A' && c <= 'F') {
+        return static_cast<uint8_t>(10 + (c - 'A'));
+    }
+    throw std::invalid_argument("Invalid hex character");
+}
+// Converts a 64-character hex string to a vector<uint8_t>
+inline std::vector<uint8_t> hex_string_to_bytes(const std::string& str)
+{
+    std::vector<uint8_t> bytes;
+    for (const char& c : str) {
+        bytes.push_back(hex_char_to_value(c));
+    }
+    return bytes;
+}
+
 /**
  * @brief Helper function to create a minimal circuit bytecode and witness for testing
  * @return A pair of (circuit_bytecode, witness_data)
@@ -23,15 +46,16 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
     // No public inputs
     circuit.public_parameters = Acir::PublicInputs{ {} };
 
-    std::string one = "0000000000000000000000000000000000000000000000000000000000000001";
-    std::string minus_one = "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000";
+    std::vector<uint8_t> one = hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000001");
+    std::vector<uint8_t> minus_one =
+        hex_string_to_bytes("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000");
 
     Acir::Expression expr;
 
     // Create constraint: w0 * w1 - w2 = 0
     expr.mul_terms = { { one, Acir::Witness{ 0 }, Acir::Witness{ 1 } } }; // w0 * w1
     expr.linear_combinations = { { minus_one, Acir::Witness{ 2 } } };     // -1 * w2
-    expr.q_c = "0000000000000000000000000000000000000000000000000000000000000000";
+    expr.q_c = hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000000");
 
     Acir::Opcode::AssertZero assert_zero;
     assert_zero.value = expr;
@@ -56,9 +80,12 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
 
     // w0=2, w1=3, w2=6 (so 2*3=6)
     stack_item.witness.value = {
-        { Witnesses::Witness{ 0 }, "0000000000000000000000000000000000000000000000000000000000000002" }, // w0 = 2
-        { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000003" }, // w1 = 3
-        { Witnesses::Witness{ 2 }, "0000000000000000000000000000000000000000000000000000000000000006" }  // w2 = 6
+        { Witnesses::Witness{ 0 },
+          hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000002") }, // w0 = 2
+        { Witnesses::Witness{ 1 },
+          hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000003") }, // w1 = 3
+        { Witnesses::Witness{ 2 },
+          hex_string_to_bytes("0000000000000000000000000000000000000000000000000000000000000006") } // w2 = 6
     };
     witness_stack.stack.push_back(stack_item);
 
@@ -76,11 +103,18 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
     // Create witnesses equal to size of a mega VK in fields.
     std::vector<Acir::FunctionInput> vk_inputs;
     for (uint32_t i = 0; i < vk_size; i++) {
-        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ i } }, BIT_COUNT };
-        vk_inputs.push_back(input);
+        auto i_wit = std::variant<Acir::FunctionInput::Constant, Acir::FunctionInput::Witness>{
+            std::in_place_type<Acir::FunctionInput::Witness>, Acir::Witness{ i }
+        };
+        vk_inputs.push_back(Acir::FunctionInput{ .value = i_wit });
+        ;
     }
-    Acir::FunctionInput key_hash{ { Acir::ConstantOrWitnessEnum::Witness{ static_cast<uint32_t>(vk_size) } },
-                                  BIT_COUNT };
+
+    auto vk_size_wit = std::variant<Acir::FunctionInput::Constant, Acir::FunctionInput::Witness>{
+        std::in_place_type<Acir::FunctionInput::Witness>, Acir::Witness{ static_cast<uint32_t>(vk_size) }
+    };
+    Acir::FunctionInput key_hash{ .value = vk_size_wit };
+    ;
     size_t total_num_witnesses = /* vk */ vk_size + /* key_hash */ 1;
 
     // Modeled after noir-projects/mock-protocol-circuits/crates/mock-private-kernel-init/src/main.nr
@@ -119,12 +153,12 @@ inline std::vector<uint8_t> create_kernel_witness(const std::vector<bb::fr>& app
     for (uint32_t i = 0; i < app_vk_fields.size(); i++) {
         std::stringstream ss;
         ss << app_vk_fields[i];
-        kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
+        kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = hex_string_to_bytes(ss.str());
     }
     std::stringstream ss;
     ss << crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(app_vk_fields);
     kernel_witness.stack.back().witness.value[Witnesses::Witness{ static_cast<uint32_t>(app_vk_fields.size()) }] =
-        ss.str();
+        hex_string_to_bytes(ss.str());
 
     return kernel_witness.bincodeSerialize();
 }
