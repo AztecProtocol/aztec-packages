@@ -25,7 +25,8 @@ using Command = NamedUnion<CircuitProve,
                            CircuitWriteSolidityVerifier,
                            CircuitProveAndVerify,
                            CircuitBenchmark,
-                           ClientIvcCheckPrecomputedVk>;
+                           ClientIvcCheckPrecomputedVk,
+                           ClientIvcGates>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -44,7 +45,8 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    CircuitProveAndVerify::Response,
                                    CircuitBenchmark::Response,
-                                   ClientIvcCheckPrecomputedVk::Response>;
+                                   ClientIvcCheckPrecomputedVk::Response,
+                                   ClientIvcGates::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.

@@ -5,7 +5,9 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -190,6 +192,71 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
         response.valid = false;
     }
+    return response;
+}
+
+ClientIvcGates::Response ClientIvcGates::execute(BBApiRequest& request) &&
+{
+    Response response;
+
+    // Try to parse as a single circuit first
+    std::vector<acir_format::AcirFormat> constraint_systems;
+    try {
+        // Try single circuit format
+        std::vector<uint8_t> bytecode_copy(circuit.bytecode.begin(), circuit.bytecode.end());
+        const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode_copy));
+        constraint_systems.push_back(constraint_system);
+    } catch (...) {
+        // If that fails, try program format (multiple circuits)
+        std::vector<uint8_t> bytecode_copy(circuit.bytecode.begin(), circuit.bytecode.end());
+        constraint_systems = acir_format::program_buf_to_acir_format(std::move(bytecode_copy));
+    }
+
+    // For now, we only process the first circuit
+    // TODO: Handle multiple circuits properly
+    if (constraint_systems.empty()) {
+        throw_or_abort("No circuits found in bytecode");
+    }
+
+    const auto& constraint_system = constraint_systems[0];
+    acir_format::AcirProgram program{ constraint_system };
+
+    // Get IVC constraints if any
+    const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
+
+    // Create metadata with appropriate IVC context
+    acir_format::ProgramMetadata metadata{
+        .ivc = ivc_constraints.empty() ? nullptr
+                                       : create_mock_ivc_from_constraints(ivc_constraints, request.trace_settings),
+        .collect_gates_per_opcode = include_gates_per_opcode
+    };
+
+    // Create and finalize circuit
+    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+    builder.finalize_circuit(/*ensure_nonzero=*/true);
+
+    // Set response values
+    response.acir_opcodes = static_cast<uint32_t>(program.constraints.num_acir_opcodes);
+    response.circuit_size = static_cast<uint32_t>(builder.num_gates);
+
+    // Optionally include gates per opcode
+    if (include_gates_per_opcode) {
+        response.gates_per_opcode = std::vector<uint32_t>(program.constraints.gates_per_opcode.begin(),
+                                                          program.constraints.gates_per_opcode.end());
+    }
+
+    // Log circuit details
+    info("ClientIvcGates - circuit: ",
+         circuit.name,
+         ", acir_opcodes: ",
+         response.acir_opcodes,
+         ", circuit_size: ",
+         response.circuit_size);
+
+    // Print structured execution trace details
+    builder.blocks.set_fixed_block_sizes(request.trace_settings);
+    builder.blocks.summarize();
+
     return response;
 }
 

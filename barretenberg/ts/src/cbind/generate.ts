@@ -48,7 +48,7 @@ const GENERATORS: GeneratorConfig[] = [
 
 async function generate() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const bbBuildPath = join(__dirname, '..', '..', '..', 'cpp', 'build', 'bin', 'bb');
+  const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../cpp/build/bin/bb');
 
   // Get schema from bb
   console.log('Fetching msgpack schema from bb...');

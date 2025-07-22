@@ -5,8 +5,8 @@ on:
     branches:
       - next
   workflow_dispatch:
-    inputs: 
-      commit: 
+    inputs:
+      commit:
         description: "Git commit SHA to build (leave empty for latest)"
         required: false
         default: ""
@@ -18,22 +18,20 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
           context: container-builds/fuzzing-container/src/
           push: true
-          tags: |
-            ghcr.io/aztecprotocol/fuzzing-container:latest
-            ghcr.io/aztecprotocol/fuzzing-container:${{ github.sha }}
+          tags: ghcr.io/aztecprotocol/fuzzing-container:latest
           build-args: |
-            COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}
+            COMMIT=${{ github.event.inputs.commit || 'latest' }}

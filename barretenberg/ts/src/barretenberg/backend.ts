@@ -292,20 +292,17 @@ export class AztecClientBackend {
   }
 
   async gates(): Promise<number[]> {
-    // await this.instantiate();
-
-    // // Get gate counts for each circuit
-    // const gateCounts: number[] = [];
-    // for (const bytecode of this.acirBuf) {
-    //   const result = await this.api.circuitInfo({
-    //     circuit: {
-    //       bytecode: Buffer.from(bytecode),
-    //     }
-    //   });
-    //   gateCounts.push(result.gateCount);
-    // }
-    // return gateCounts;
-    throw new AztecClientBackendError('Gates count is not implemented for AztecClientBackend.');
+    await this.instantiate();
+    const circuitSizes: number[] = [];
+    for (const buf of this.acirBuf) {
+      const gates = await this.api.clientIvcGates({ circuit: {
+        name: 'circuit',
+        bytecode: buf,
+      }, includeGatesPerOpcode: false
+      });
+      circuitSizes.push(gates.circuitSize);
+    }
+    return circuitSizes;
   }
 
   async destroy(): Promise<void> {

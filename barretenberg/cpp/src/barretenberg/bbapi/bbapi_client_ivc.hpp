@@ -235,4 +235,37 @@ struct ClientIvcCheckPrecomputedVk {
     bool operator==(const ClientIvcCheckPrecomputedVk&) const = default;
 };
 
+/**
+ * @struct ClientIvcGates
+ * @brief Get gate counts for a circuit
+ */
+struct ClientIvcGates {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcGates";
+
+    /**
+     * @struct Response
+     * @brief Contains gate count information
+     */
+    struct Response {
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcGatesResponse";
+
+        /** @brief Number of ACIR opcodes */
+        uint32_t acir_opcodes;
+        /** @brief Circuit size (total number of gates) */
+        uint32_t circuit_size;
+        /** @brief Optional: gate counts per opcode */
+        std::vector<uint32_t> gates_per_opcode;
+        MSGPACK_FIELDS(acir_opcodes, circuit_size, gates_per_opcode);
+        bool operator==(const Response&) const = default;
+    };
+
+    /** @brief The circuit to analyze */
+    CircuitInputNoVK circuit;
+    /** @brief Whether to include detailed gate counts per opcode */
+    bool include_gates_per_opcode;
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(circuit, include_gates_per_opcode);
+    bool operator==(const ClientIvcGates&) const = default;
+};
+
 } // namespace bb::bbapi

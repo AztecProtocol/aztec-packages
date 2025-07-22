@@ -11,21 +11,21 @@ import { existsSync } from 'fs';
 // Test with NativeApi
 async function testWithNativeApi(inputsPath: string) {
   console.log('\n=== Testing with NativeApi ===');
-  
+
   const inputs = IvcInputs.fromFile(inputsPath);
   console.log('✓ Successfully loaded', inputs.getStepCount(), 'steps');
 
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const bbPath = join(__dirname, '..', '..', '..', 'cpp', 'build-no-avm', 'bin', 'bb');
+  const bbPath = join(__dirname, '..', '..', '..', 'cpp', 'build', 'bin', 'bb');
   console.log('Using Barretenberg binary at:', bbPath);
-  
+
   const api = await NativeApi.new(bbPath);
   const runner = new IvcRunner(api);
-  
+
   console.log("Runner created");
   await runner.accumulateFromFile(inputsPath);
   console.log("Accumulation complete");
-  
+
   const proof = await runner.prove();
   console.log("Proof generation complete");
   console.log("Proof structure:", {
@@ -47,7 +47,7 @@ async function testWithNativeApi(inputsPath: string) {
 // Test with AztecClientBackend
 async function testWithAztecClientBackend(inputsPath: string) {
   console.log('\n=== Testing with AztecClientBackend ===');
-  
+
   const inputs = IvcInputs.fromFile(inputsPath);
   console.log('✓ Successfully loaded', inputs.getStepCount(), 'steps');
 
@@ -59,15 +59,15 @@ async function testWithAztecClientBackend(inputsPath: string) {
 
   // Create AztecClientBackend
   const backend = new AztecClientBackend(bytecodes);
-  
+
   console.log("Backend created");
-  
+
   try {
     const [proof, vk] = await backend.prove(witnesses, vks);
     console.log("Proof generation complete");
     console.log("Proof size:", proof.length, "bytes");
     console.log("VK size:", vk.length, "bytes");
-    
+
     // Note: Verification is already done internally in prove()
     console.log("✓ AztecClientBackend test completed successfully");
   } catch (error) {
@@ -81,7 +81,7 @@ async function testWithAztecClientBackend(inputsPath: string) {
 // Test with AsyncApi through IvcRunner
 async function testWithAsyncApi(inputsPath: string) {
   console.log('\n=== Testing with AsyncApi through IvcRunner ===');
-  
+
   const inputs = IvcInputs.fromFile(inputsPath);
   console.log('✓ Successfully loaded', inputs.getStepCount(), 'steps');
 
@@ -89,11 +89,11 @@ async function testWithAsyncApi(inputsPath: string) {
   const bb = await Barretenberg.new({ threads: 1 });
   const api = new AsyncApi(bb.wasm);
   const runner = new IvcRunner(api);
-  
+
   console.log("Runner created with AsyncApi");
   await runner.accumulateFromFile(inputsPath);
   console.log("Accumulation complete");
-  
+
   const proof = await runner.prove();
   console.log("Proof generation complete");
   console.log("Proof structure:", {
@@ -115,10 +115,10 @@ async function testWithAsyncApi(inputsPath: string) {
 // Main test function
 async function runAllTests() {
   const realInputsPath = './ivc-inputs.msgpack';
-  
+
   console.log('=== IVC Runner Test Suite ===');
   console.log('Testing file:', realInputsPath);
-  
+
   if (!existsSync(realInputsPath)) {
     console.error('Error: ivc-inputs.msgpack file not found');
     console.log('Please ensure the file exists in the current directory');
@@ -130,7 +130,7 @@ async function runAllTests() {
     await testWithNativeApi(realInputsPath);
     await testWithAztecClientBackend(realInputsPath);
     await testWithAsyncApi(realInputsPath);
-    
+
     console.log('\n✅ All tests completed successfully!');
   } catch (error) {
     console.error('\n❌ Test failed:', error);

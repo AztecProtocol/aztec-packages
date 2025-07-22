@@ -8,7 +8,7 @@ inline void abort_with_message [[noreturn]] (std::string const& err)
 }
 
 // Native implementation of throw_or_abort
-void throw_or_abort_impl [[noreturn]] (const char* err)
+extern "C" void throw_or_abort_impl [[noreturn]] (const char* err)
 {
 #ifndef BB_NO_EXCEPTIONS
     throw std::runtime_error(err);

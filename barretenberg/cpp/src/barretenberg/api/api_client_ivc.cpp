@@ -275,54 +275,41 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 {
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
-    auto constraint_systems = get_constraint_systems(bytecode_path);
 
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    // Get the raw bytecode
+    std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
 
-    size_t i = 0;
-    for (const auto& constraint_system : constraint_systems) {
-        acir_format::AcirProgram program{ constraint_system };
-        const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
-        acir_format::ProgramMetadata metadata{ .ivc = ivc_constraints.empty() ? nullptr
-                                                                              : create_mock_ivc_from_constraints(
-                                                                                    ivc_constraints, trace_settings),
-                                               .collect_gates_per_opcode = include_gates_per_opcode };
+    // The bytecode may contain multiple circuits for a program
+    // We'll use the ClientIvcGates API for a single circuit
+    // If there are multiple circuits, we would need to parse them first
+    bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
-        auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-        builder.finalize_circuit(/*ensure_nonzero=*/true);
-        size_t circuit_size = builder.num_gates;
+    // Use the new ClientIvcGates API
+    auto response = bbapi::ClientIvcGates{ .circuit = { .name = "circuit", .bytecode = bytecode },
+                                           .include_gates_per_opcode = include_gates_per_opcode }
+                        .execute(request);
 
-        // Print the details of the gate types within the structured execution trace
-        builder.blocks.set_fixed_block_sizes(trace_settings);
-        builder.blocks.summarize();
-
-        // Build individual circuit report
-        std::string gates_per_opcode_str;
-        for (size_t j = 0; j < program.constraints.gates_per_opcode.size(); j++) {
-            gates_per_opcode_str += std::to_string(program.constraints.gates_per_opcode[j]);
-            if (j != program.constraints.gates_per_opcode.size() - 1) {
+    // Build individual circuit report
+    std::string gates_per_opcode_str;
+    if (include_gates_per_opcode && !response.gates_per_opcode.empty()) {
+        for (size_t j = 0; j < response.gates_per_opcode.size(); j++) {
+            gates_per_opcode_str += std::to_string(response.gates_per_opcode[j]);
+            if (j != response.gates_per_opcode.size() - 1) {
                 gates_per_opcode_str += ",";
             }
         }
-
-        auto result_string = format(
-            "{\n        \"acir_opcodes\": ",
-            program.constraints.num_acir_opcodes,
-            ",\n        \"circuit_size\": ",
-            circuit_size,
-            (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
-            "\n  }");
-
-        // Attach a comma if there are more circuit reports to generate
-        if (i != (constraint_systems.size() - 1)) {
-            result_string = format(result_string, ",");
-        }
-
-        functions_string = format(functions_string, result_string);
-
-        i++;
     }
+
+    auto result_string = format(
+        "{\n        \"acir_opcodes\": ",
+        response.acir_opcodes,
+        ",\n        \"circuit_size\": ",
+        response.circuit_size,
+        (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+        "\n  }");
+
+    functions_string = format(functions_string, result_string);
+
     std::cout << format(functions_string, "\n]}");
 }
 

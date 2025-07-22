@@ -16,7 +16,7 @@ async function testWithRealFile() {
 
   // If we have real data, we could test the actual IVC flow
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const bbPath = join(__dirname, '..', '..', '..', 'cpp', 'build-no-avm', 'bin', 'bb');
+  const bbPath = join(__dirname, '..', '..', '..', 'cpp', 'build', 'bin', 'bb');
   console.log('Using Barretenberg binary at:', bbPath);
   const api = await NativeApi.new(bbPath);
   const runner = new IvcRunner(api as any);

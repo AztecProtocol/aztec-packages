@@ -1,1 +1,1 @@
-barretenberg_module(bbapi common client_ivc dsl serialize)
+barretenberg_module(bbapi common client_ivc dsl)
