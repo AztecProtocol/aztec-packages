@@ -65,7 +65,7 @@ void Ecc::add(MemoryInterface& memory,
         // and the is_infinity flag is stored at dst_address + 2.
         // Therefore, the maximum address that needs to be written to is dst_address + 2.
         uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 2;
-        if (cmp.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
+        if (gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
             throw std::runtime_error("dst address out of range");
         }
 

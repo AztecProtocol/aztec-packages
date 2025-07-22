@@ -114,98 +114,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2511;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2518;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2886;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2881;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2852;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2503;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2878;
-<<<<<<< HEAD
->>>>>>> 0d46376178 (feat(avm)!: mem aware ec_add)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2849;
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2420;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2795;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2454;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2827;
->>>>>>> 5c3cdbcb1f (feat(avm)!: poseidon2 mem & errs)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2483;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2856;
-<<<<<<< HEAD
->>>>>>> 662c9ea151 (feat(avm)!: mem aware ec_add)
-<<<<<<< HEAD
->>>>>>> e7c46aef90 (feat(avm)!: mem aware ec_add)
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2827;
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2400;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2773;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2432;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2805;
->>>>>>> 3edaf30aa9 (feat(avm)!: poseidon2 mem & errs)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2461;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2834;
->>>>>>> b1e014e64f (feat(avm)!: mem aware ec_add)
-<<<<<<< HEAD
->>>>>>> 4aec1b80d9 (feat(avm)!: mem aware ec_add)
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2472;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2845;
->>>>>>> 8d8ee45d0c (feat(avm)!: err handling)
->>>>>>> 7ed27eecd7 (feat(avm)!: err handling)
->>>>>>> 9817182466 (feat(avm)!: err handling)
->>>>>>> 39a3adc40c (feat(avm)!: err handling)
->>>>>>> 35b8755406 (feat(avm)!: err handling)
->>>>>>> 69a34fcb27 (feat(avm)!: err handling)
->>>>>>> 49a0a5cc62 (feat(avm)!: err handling)
->>>>>>> 19ca96a396 (feat(avm)!: err handling)
->>>>>>> e834c4ea5f (feat(avm)!: err handling)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2513;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2888;
->>>>>>> 33ed091de5 (feat: ecc_mem handles point error)
+    static constexpr size_t NUM_ALL_ENTITIES = 2893;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
