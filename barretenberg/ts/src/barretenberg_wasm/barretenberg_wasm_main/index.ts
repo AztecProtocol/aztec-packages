@@ -157,6 +157,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   msgpackCall(cbind: string, input: any[]): any {
     const outputSizePtr = this.call('bbmalloc', 4);
     const outputMsgpackPtr = this.call('bbmalloc', 4);
+    console.log('msgpackCall', cbind, input);
 
     const inputBuffer = new Encoder({ useRecords: false }).pack(input);
     const inputPtr = this.call('bbmalloc', inputBuffer.length);

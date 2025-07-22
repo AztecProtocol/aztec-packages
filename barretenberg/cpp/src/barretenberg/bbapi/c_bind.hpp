@@ -5,7 +5,7 @@
 
 namespace bb::bbapi {
 // Function declaration for CLI usage
-CommandResponse bbapi(Command command);
+CommandResponse bbapi(Command&& command);
 } // namespace bb::bbapi
 
 // Forward declaration for CBIND

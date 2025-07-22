@@ -1,6 +1,8 @@
 #pragma once
+#include "barretenberg/common/msgpack_to_json.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <sstream>
 #define MSGPACK_NO_BOOST
 #include "msgpack/object_fwd.hpp"
 #include <concepts>
@@ -117,11 +119,13 @@ template <HasMsgpackSchemaName... Types> class NamedUnion {
     // Msgpack deserialization
     void msgpack_unpack(msgpack::object const& o)
     {
+        constexpr size_t MAX_OUTPUT_CHARS = 100;
         // access object assuming it is an array of size 2
         if (o.type != msgpack::type::ARRAY || o.via.array.size != 2) {
-            throw_or_abort("Expected an array of size 2 for NamedUnion deserialization");
+            throw_or_abort("Expected an array of size 2 for NamedUnion deserialization, got " +
+                           bb::msgpack_to_json(o, MAX_OUTPUT_CHARS));
         }
-        auto& arr = o.via.array;
+        const auto& arr = o.via.array;
         if (arr.ptr[0].type != msgpack::type::STR) {
             throw_or_abort("Expected first element to be a string (type name) in NamedUnion deserialization");
         }

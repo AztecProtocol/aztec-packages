@@ -25,7 +25,7 @@ std::mutex request_mutex;
  * @param command The command to execute
  * @return CommandResponse The response from executing the command
  */
-CommandResponse bbapi(Command command)
+CommandResponse bbapi(Command&& command)
 {
 #ifndef NO_MULTITHREADING
     // Try to lock, but error if it would block (indicating concurrent access)
