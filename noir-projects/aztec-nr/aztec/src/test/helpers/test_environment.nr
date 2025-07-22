@@ -472,23 +472,6 @@ impl TestEnvironment {
         returns
     }
 
-    pub unconstrained fn simulate_void_utility<T, let M: u32>(
-        _self: Self,
-        call_interface: UtilityCallInterface<M, T>,
-    ) {
-        let args = call_interface.get_args();
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-
-        let returns_hash = crate::oracle::simulate_utility_function::simulate_utility_function(
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            args_hash,
-        );
-
-        ReturnsHash::new(returns_hash).assert_empty();
-    }
-
     pub unconstrained fn call_public<T, let M: u32>(
         _self: Self,
         from: AztecAddress,

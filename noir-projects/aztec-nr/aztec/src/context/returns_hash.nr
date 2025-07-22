@@ -1,6 +1,13 @@
 use crate::{hash::hash_args_array, oracle::execution_cache};
 use dep::protocol_types::traits::Deserialize;
 
+/// A hash that represents a private contract function call's return value. Call `get_preimage` to get the underlying
+/// value.
+///
+/// The kernels don't process the actual return values but instead their hashes, so it is up to contracts to populate
+/// oracles with the preimages of these hashes on return to make them available to their callers.
+///
+/// Public calls don't utilize this mechanism since the AVM does process the full return values.
 pub struct ReturnsHash {
     hash: Field,
 }
@@ -10,16 +17,7 @@ impl ReturnsHash {
         ReturnsHash { hash }
     }
 
-    pub fn assert_empty(self) {
-        assert_eq(self.hash, 0);
-    }
-
-    pub fn raw(self) -> Field {
-        self.hash
-    }
-
-    /// This is only used during private execution, since in public it is the VM itself that keeps track of return
-    /// values.
+    /// Fetches the underlying return value from an oracle, constraining that it corresponds to the return data hash.
     pub fn get_preimage<T>(self) -> T
     where
         T: Deserialize,
@@ -30,18 +28,6 @@ impl ReturnsHash {
         // with a zero hash), correctly constraining `self.hash`.
         let preimage = unsafe { execution_cache::load(self.hash) };
         assert_eq(self.hash, hash_args_array(preimage), "Preimage mismatch");
-
-        Deserialize::deserialize(preimage)
-    }
-
-    pub fn get_preimage_and_assert_empty<T>(self) -> T
-    where
-        T: Deserialize,
-    {
-        // Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it.
-        let preimage = unsafe { execution_cache::load(self.hash) };
-        assert_eq(self.hash, hash_args_array(preimage));
-        assert_eq(self.hash, 0);
 
         Deserialize::deserialize(preimage)
     }
