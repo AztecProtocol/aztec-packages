@@ -318,8 +318,10 @@ export class AztecClientBackend {
   }
 
   async destroy(): Promise<void> {
-    // BbApiBase doesn't have a destroy method
-    // The underlying implementation should clean up when appropriate
+    if (!this.api) {
+      return;
+    }
+    await this.api.destroy();
   }
 }
 

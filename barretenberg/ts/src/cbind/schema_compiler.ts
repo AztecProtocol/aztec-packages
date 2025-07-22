@@ -585,6 +585,7 @@ ${conversions}
     
     return `export interface BbApiBase {
 ${methods}
+  destroy(): Promise<void>;
 }`;
   }
 
@@ -600,6 +601,10 @@ ${methods}
   constructor(protected wasm: ${this.getWasmType()}) {}
 
 ${methods}
+
+  async destroy(): Promise<void> {
+    await this.wasm.destroy();
+  }
 }`;
   }
 
@@ -756,6 +761,10 @@ export class NativeApi implements BbApiBase {
 
   async close(): Promise<void> {
     this.proc.kill();
+  }
+
+  async destroy(): Promise<void> {
+    await this.close();
   }
 
 ${methods}
