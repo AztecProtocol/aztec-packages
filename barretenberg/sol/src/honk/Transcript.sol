@@ -10,9 +10,6 @@ import {
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
-import {logFr} from "./Debug.sol";
-import {logUint} from "./Debug.sol";
-import {logG} from "./Debug.sol";
 
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
@@ -118,8 +115,6 @@ library TranscriptLib {
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
-
-        logFr("eta", eta);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
         Fr unused;

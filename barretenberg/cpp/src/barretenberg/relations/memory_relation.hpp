@@ -54,7 +54,7 @@ template <typename FF_> class MemoryRelationImpl {
      * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | --- | 0       |
      * | RAM consistency check        | 1     | 0   | 0   | 0   | 0   | 0   | 1       |
      *
-     * WORKNOTE: Proposed updated selector pattern (i.e. replace q_arith with q_3):
+     * NOTE: Proposed updated selector pattern (i.e. replace q_arith with q_3):
      *
      * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
      * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |

@@ -26,8 +26,6 @@ import {RelationsLib} from "./Relations.sol";
 
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
 
-import {logFr} from "./Debug.sol";
-
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
 
@@ -69,8 +67,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         Transcript memory t = TranscriptLib.generateTranscript(
             p, publicInputs, vk.circuitSize, $NUM_PUBLIC_INPUTS, /*pubInputsOffset=*/ 1
         );
-
-        logFr("beta", t.relationParameters.beta);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.

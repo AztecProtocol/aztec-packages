@@ -99,8 +99,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_sorted_li
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
 
-    std::cerr << "Oink eta: " << eta << std::endl;
-
     // Get commitments to lookup argument polynomials and fourth wire
     witness_comms.lookup_read_counts =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_read_counts);
