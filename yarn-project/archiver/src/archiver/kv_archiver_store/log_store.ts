@@ -88,7 +88,7 @@ export class LogStore {
           acc.set(tag, currentLogs.concat(logs));
         }
         return acc;
-      });
+      }, new Map());
     const tagsToUpdate = Array.from(taggedLogsToAdd.keys());
 
     return this.db.transactionAsync(async () => {
