@@ -1,6 +1,6 @@
 import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
-import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
 import { LocalBlobSinkClient } from './local.js';
+import { runBlobSinkClientTests } from './tests.js';
 
 describe('LocalBlobSinkClient', () => {
   runBlobSinkClientTests(() => {

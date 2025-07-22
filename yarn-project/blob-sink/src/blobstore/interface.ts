@@ -2,11 +2,11 @@ import type { BlobWithIndex } from '../types/index.js';
 
 export interface BlobStore {
   /**
-   * Get a blob by block id
+   * Get blobs by their hashes
    */
-  getBlobSidecars: (blockId: string, indices?: number[]) => Promise<BlobWithIndex[] | undefined>;
+  getBlobsByHashes: (blobHashes: Buffer[]) => Promise<BlobWithIndex[]>;
   /**
-   * Add a blob to the store
+   * Add blobs to the store, indexed by their hashes
    */
-  addBlobSidecars: (blockId: string, blobSidecars: BlobWithIndex[]) => Promise<void>;
+  addBlobs: (blobs: BlobWithIndex[]) => Promise<void>;
 }

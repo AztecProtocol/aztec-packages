@@ -255,7 +255,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Sending blobs to blob sink`);
       const blobs = await getBlobs(l2BlockTx);
       const blobSinkClient = createBlobSinkClient(context.config);
-      await blobSinkClient.sendBlobsToBlobSink(txReceipt.blockHash, blobs);
+      await blobSinkClient.sendBlobsToBlobSink(blobs);
 
       // And wait for the node to see the new block
       await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 5, 0.1);
