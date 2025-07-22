@@ -462,7 +462,7 @@ describe('ValidatorClient', () => {
 
       // We should have used the first address to sign
       const payloadToSign = request.getPayloadToSign();
-      const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.validatorPrivateKeys.getValue()[0]));
+      const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.validatorPrivateKeys!.getValue()[0]));
       const signature = firstSigner.sign(payloadToSign);
       expect(authResponse.signature.equals(signature)).toBeTruthy();
     });
@@ -473,7 +473,7 @@ describe('ValidatorClient', () => {
       p2pClient.handleAuthRequestFromPeer.mockResolvedValueOnce(ourStatus);
       // Make sure our addresses are registered
       const registeredAddress = validatorClient.getValidatorAddresses()[1];
-      const validatorPrivateKey = config.validatorPrivateKeys.getValue()[1];
+      const validatorPrivateKey = config.validatorPrivateKeys!.getValue()[1];
       epochCache.getRegisteredValidators.mockResolvedValueOnce([registeredAddress]);
       const peerId = await createSecp256k1PeerId();
       const request = AuthRequest.random();
@@ -502,8 +502,8 @@ describe('ValidatorClient', () => {
       };
 
       const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
-      expect(config.validatorPrivateKeys.getValue()).toHaveLength(1);
-      expect(config.validatorPrivateKeys.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
+      expect(config.validatorPrivateKeys!.getValue()).toHaveLength(1);
+      expect(config.validatorPrivateKeys!.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
     });
   });
 });

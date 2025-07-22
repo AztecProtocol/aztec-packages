@@ -1,7 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { addressFromPrivateKey } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -594,7 +593,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const payloadToSign = authRequest.getPayloadToSign();
-    const signature = await this.keyStore.signTypedDataWithAddress(addressToUse, payloadToSign);
+    const signature = await this.keyStore.signMessageWithAddress(addressToUse, payloadToSign);
     const authResponse = new AuthResponse(statusMessage, signature);
     return authResponse.toBuffer();
   }

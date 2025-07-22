@@ -46,7 +46,7 @@ export function encodeSignalWithSignature(payload: Hex, signature: Signature) {
  * @param account - The account to sign with (optional if hoisted on wallet client)
  * @returns The EIP-712 signature
  */
-export async function signVoteWithSig(
+export async function signSignalWithSig(
   signer: (msg: TypedDataDefinition) => Promise<Hex>,
   payload: Hex,
   nonce: bigint,
