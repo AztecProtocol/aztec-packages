@@ -64,7 +64,7 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
     circuit.opcodes.push_back(opcode);
 
     circuit.current_witness_index = 3;
-    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Unbounded{} };
+    circuit.function_name = "simple_circuit";
     circuit.private_parameters = {};
     circuit.return_values = Acir::PublicInputs{ {} };
     circuit.assert_messages = {};
@@ -132,7 +132,7 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
 
     circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call } });
     circuit.current_witness_index = static_cast<uint32_t>(total_num_witnesses);
-    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
+    circuit.function_name = "simple_circuit";
 
     // Create the program with the circuit
     Acir::Program program;

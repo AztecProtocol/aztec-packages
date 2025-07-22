@@ -4979,7 +4979,7 @@ struct PublicInputs {
 };
 
 struct Circuit {
-    std::string name;
+    std::string function_name;
     uint32_t current_witness_index;
     std::vector<Acir::Opcode> opcodes;
     std::vector<Acir::Witness> private_parameters;
@@ -4994,7 +4994,7 @@ struct Circuit {
     void msgpack_pack(auto& packer) const
     {
         packer.pack_map(7);
-        packer.pack(std::make_pair("name", name));
+        packer.pack(std::make_pair("function_name", function_name));
         packer.pack(std::make_pair("current_witness_index", current_witness_index));
         packer.pack(std::make_pair("opcodes", opcodes));
         packer.pack(std::make_pair("private_parameters", private_parameters));
@@ -5007,7 +5007,7 @@ struct Circuit {
     {
         auto name = "Circuit";
         auto kvmap = Helpers::make_kvmap(o, name);
-        Helpers::conv_fld_from_kvmap(kvmap, name, "name", name, false);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "function_name", function_name, false);
         Helpers::conv_fld_from_kvmap(kvmap, name, "current_witness_index", current_witness_index, false);
         Helpers::conv_fld_from_kvmap(kvmap, name, "opcodes", opcodes, false);
         Helpers::conv_fld_from_kvmap(kvmap, name, "private_parameters", private_parameters, false);
@@ -5018,7 +5018,7 @@ struct Circuit {
 };
 
 struct BrilligBytecode {
-    std::string name;
+    std::string function_name;
     std::vector<Acir::BrilligOpcode> bytecode;
 
     friend bool operator==(const BrilligBytecode&, const BrilligBytecode&);
@@ -5028,7 +5028,7 @@ struct BrilligBytecode {
     void msgpack_pack(auto& packer) const
     {
         packer.pack_map(2);
-        packer.pack(std::make_pair("name", name));
+        packer.pack(std::make_pair("function_name", function_name));
         packer.pack(std::make_pair("bytecode", bytecode));
     }
 
@@ -5036,7 +5036,7 @@ struct BrilligBytecode {
     {
         auto name = "BrilligBytecode";
         auto kvmap = Helpers::make_kvmap(o, name);
-        Helpers::conv_fld_from_kvmap(kvmap, name, "name", name, false);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "function_name", function_name, false);
         Helpers::conv_fld_from_kvmap(kvmap, name, "bytecode", bytecode, false);
     }
 };
@@ -8755,7 +8755,7 @@ namespace Acir {
 
 inline bool operator==(const BrilligBytecode& lhs, const BrilligBytecode& rhs)
 {
-    if (!(lhs.name == rhs.name)) {
+    if (!(lhs.function_name == rhs.function_name)) {
         return false;
     }
     if (!(lhs.bytecode == rhs.bytecode)) {
@@ -8788,7 +8788,7 @@ template <typename Serializer>
 void serde::Serializable<Acir::BrilligBytecode>::serialize(const Acir::BrilligBytecode& obj, Serializer& serializer)
 {
     serializer.increase_container_depth();
-    serde::Serializable<decltype(obj.name)>::serialize(obj.name, serializer);
+    serde::Serializable<decltype(obj.function_name)>::serialize(obj.function_name, serializer);
     serde::Serializable<decltype(obj.bytecode)>::serialize(obj.bytecode, serializer);
     serializer.decrease_container_depth();
 }
@@ -8799,7 +8799,7 @@ Acir::BrilligBytecode serde::Deserializable<Acir::BrilligBytecode>::deserialize(
 {
     deserializer.increase_container_depth();
     Acir::BrilligBytecode obj;
-    obj.name = serde::Deserializable<decltype(obj.name)>::deserialize(deserializer);
+    obj.function_name = serde::Deserializable<decltype(obj.function_name)>::deserialize(deserializer);
     obj.bytecode = serde::Deserializable<decltype(obj.bytecode)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
@@ -10204,7 +10204,7 @@ namespace Acir {
 
 inline bool operator==(const Circuit& lhs, const Circuit& rhs)
 {
-    if (!(lhs.name == rhs.name)) {
+    if (!(lhs.function_name == rhs.function_name)) {
         return false;
     }
     if (!(lhs.current_witness_index == rhs.current_witness_index)) {
@@ -10252,7 +10252,7 @@ template <typename Serializer>
 void serde::Serializable<Acir::Circuit>::serialize(const Acir::Circuit& obj, Serializer& serializer)
 {
     serializer.increase_container_depth();
-    serde::Serializable<decltype(obj.name)>::serialize(obj.name, serializer);
+    serde::Serializable<decltype(obj.function_name)>::serialize(obj.function_name, serializer);
     serde::Serializable<decltype(obj.current_witness_index)>::serialize(obj.current_witness_index, serializer);
     serde::Serializable<decltype(obj.opcodes)>::serialize(obj.opcodes, serializer);
     serde::Serializable<decltype(obj.private_parameters)>::serialize(obj.private_parameters, serializer);
@@ -10268,7 +10268,7 @@ Acir::Circuit serde::Deserializable<Acir::Circuit>::deserialize(Deserializer& de
 {
     deserializer.increase_container_depth();
     Acir::Circuit obj;
-    obj.name = serde::Deserializable<decltype(obj.name)>::deserialize(deserializer);
+    obj.function_name = serde::Deserializable<decltype(obj.function_name)>::deserialize(deserializer);
     obj.current_witness_index = serde::Deserializable<decltype(obj.current_witness_index)>::deserialize(deserializer);
     obj.opcodes = serde::Deserializable<decltype(obj.opcodes)>::deserialize(deserializer);
     obj.private_parameters = serde::Deserializable<decltype(obj.private_parameters)>::deserialize(deserializer);
