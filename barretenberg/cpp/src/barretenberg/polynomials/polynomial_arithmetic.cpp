@@ -725,27 +725,6 @@ template <typename Fr> Fr compute_linear_polynomial_product_evaluation(const Fr*
     return result;
 }
 
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_linear_polynomial_product(
-    const Fr* roots, Fr* dest, const size_t n, const EvaluationDomain<Fr>& domain, const bool is_coset)
-{
-    size_t m = domain.size >> 1;
-    const Fr* round_roots = domain.get_round_roots()[static_cast<size_t>(numeric::get_msb(m)) - 1];
-
-    Fr current_root = 0;
-    for (size_t i = 0; i < m; ++i) {
-        current_root = round_roots[i];
-        current_root *= (is_coset ? domain.generator : 1);
-        dest[i] = 1;
-        dest[i + m] = 1;
-        for (size_t j = 0; j < n; ++j) {
-            dest[i] *= (current_root - roots[j]);
-            dest[i + m] *= (-current_root - roots[j]);
-        }
-    }
-}
-
 template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const Fr* evaluation_points, const size_t n)
 {
     std::vector<Fr> local_roots;
@@ -934,8 +913,6 @@ template void coset_ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template fr compute_kate_opening_coefficients<fr>(const fr*, fr*, const fr&, const size_t);
 template fr compute_sum<fr>(const fr*, const size_t);
 template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t);
-template void fft_linear_polynomial_product<fr>(
-    const fr* roots, fr*, const size_t n, const EvaluationDomain<fr>&, const bool);
 template void compute_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 

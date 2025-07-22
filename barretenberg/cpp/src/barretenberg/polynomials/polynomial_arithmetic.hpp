@@ -114,13 +114,6 @@ template <typename Fr> Fr compute_sum(const Fr* src, const size_t n);
 // This function computes the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...).
 template <typename Fr> void compute_linear_polynomial_product(const Fr* roots, Fr* dest, const size_t n);
 
-// This function computes the lagrange (or coset-lagrange) form of the polynomial (x - a)(x - b)(x - c)...
-// given n distinct roots (a, b, c, ...).
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void fft_linear_polynomial_product(
-    const Fr* roots, Fr* dest, const size_t n, const EvaluationDomain<Fr>& domain, const bool is_coset = false);
-
 // This function interpolates from points {(z_1, f(z_1)), (z_2, f(z_2)), ...}.
 // `src` contains {f(z_1), f(z_2), ...}
 template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const Fr* evaluation_points, const size_t n);

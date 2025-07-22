@@ -382,41 +382,6 @@ TEST(polynomials, linear_poly_product)
     EXPECT_EQ(result, expected);
 }
 
-TEST(polynomials, fft_linear_poly_product)
-{
-    constexpr size_t n = 60;
-    fr roots[n];
-
-    fr z = fr::random_element();
-    fr expected = 1;
-    for (size_t i = 0; i < n; ++i) {
-        roots[i] = fr::random_element();
-        expected *= (z - roots[i]);
-    }
-
-    constexpr size_t log2_n = static_cast<size_t>(numeric::get_msb(n));
-    constexpr size_t N = static_cast<size_t>(1 << (log2_n + 1));
-    auto domain = evaluation_domain(N);
-    domain.compute_lookup_table();
-
-    fr dest[N];
-    polynomial_arithmetic::fft_linear_polynomial_product(roots, dest, n, domain);
-    fr result = polynomial_arithmetic::compute_barycentric_evaluation(dest, N, z, domain);
-
-    fr dest_coset[N];
-    fr z_by_g = z * domain.generator_inverse;
-    polynomial_arithmetic::fft_linear_polynomial_product(roots, dest_coset, n, domain, true);
-    fr result1 = polynomial_arithmetic::compute_barycentric_evaluation(dest_coset, N, z_by_g, domain);
-
-    fr coeffs[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(roots, coeffs, n);
-    fr result2 = polynomial_arithmetic::evaluate(coeffs, z, n + 1);
-
-    EXPECT_EQ(result, expected);
-    EXPECT_EQ(result1, expected);
-    EXPECT_EQ(result2, expected);
-}
-
 template <typename FF> class PolynomialTests : public ::testing::Test {};
 
 using FieldTypes = ::testing::Types<bb::fr, grumpkin::fr>;
