@@ -77,7 +77,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
         ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
         ivc->verifier_accumulator->vk->num_public_inputs = 16;
         using FF = ClientIVC::FF;
-        ivc->verifier_accumulator->vk->log_circuit_size = 18;
+        // ivc->verifier_accumulator->vk->log_circuit_size = 18;
         ivc->verifier_accumulator->public_inputs = std::vector<FF>(16, FF::one());
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;

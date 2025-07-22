@@ -526,7 +526,6 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     }
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
-    info("Hash prior to complete_kernel_circuit_logic: ", builder.hash_circuit());
     ivc->complete_kernel_circuit_logic(builder);
 
     // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they

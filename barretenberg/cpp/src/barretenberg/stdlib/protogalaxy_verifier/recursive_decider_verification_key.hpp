@@ -71,11 +71,9 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             for (auto [native_public_input] : zip_view(verification_key->public_inputs)) {
                 public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
             }
-            info("hash in the constructor 1:", builder->hash_circuit());
             for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
-            info("hash in the constructor 2:", builder->hash_circuit());
 
             auto other_comms = verification_key->witness_commitments.get_all();
             size_t comm_idx = 0;
@@ -83,30 +81,20 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                 comm = Commitment::from_witness(builder, other_comms[comm_idx]);
                 comm_idx++;
             }
-            info("hash in the constructor 3:", builder->hash_circuit());
             target_sum = FF::from_witness(builder, verification_key->target_sum);
-            info("hash in the constructor 4:", builder->hash_circuit());
             size_t challenge_idx = 0;
             gate_challenges = std::vector<FF>(verification_key->gate_challenges.size());
-            info("hash in the constructor 5:", builder->hash_circuit());
             for (auto& challenge : gate_challenges) {
                 challenge = FF::from_witness(builder, verification_key->gate_challenges[challenge_idx]);
                 challenge_idx++;
             }
-            info("hash in the constructor 6:", builder->hash_circuit());
             relation_parameters.eta = FF::from_witness(builder, verification_key->relation_parameters.eta);
-            info("hash in the constructor 7:", builder->hash_circuit());
             relation_parameters.eta_two = FF::from_witness(builder, verification_key->relation_parameters.eta_two);
-            info("hash in the constructor 8:", builder->hash_circuit());
             relation_parameters.eta_three = FF::from_witness(builder, verification_key->relation_parameters.eta_three);
-            info("hash in the constructor 9:", builder->hash_circuit());
             relation_parameters.beta = FF::from_witness(builder, verification_key->relation_parameters.beta);
-            info("hash in the constructor 10:", builder->hash_circuit());
             relation_parameters.gamma = FF::from_witness(builder, verification_key->relation_parameters.gamma);
-            info("hash in the constructor 11:", builder->hash_circuit());
             relation_parameters.public_input_delta =
                 FF::from_witness(builder, verification_key->relation_parameters.public_input_delta);
-            info("hash in the constructor 12:", builder->hash_circuit());
             relation_parameters.lookup_grand_product_delta =
                 FF::from_witness(builder, verification_key->relation_parameters.lookup_grand_product_delta);
         }

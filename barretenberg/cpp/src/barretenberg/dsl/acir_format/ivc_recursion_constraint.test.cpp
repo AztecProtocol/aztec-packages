@@ -476,7 +476,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
         }
     }
 
-    info("now we do the fake stuff ========================================");
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
@@ -489,18 +488,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
         program.witness = {}; // remove the witness to mimick VK construction context
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, TraceSettings());
-    }
-
-    auto labels = kernel_vk->get_labels();
-    size_t i = 0;
-    for (auto [vk_entry, expected_vk_entry] :
-         zip_view(kernel_vk->get_labels(), expected_hiding_kernel_vk->get_labels())) {
-        if (vk_entry != expected_vk_entry) {
-            info("label: ", labels[i]);
-            info("expected_label: ", expected_vk_entry);
-            info("mock vk", vk_entry);
-        }
-        i++;
     }
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking
