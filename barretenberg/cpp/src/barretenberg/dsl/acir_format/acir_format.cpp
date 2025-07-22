@@ -596,11 +596,14 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
 
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
 
-    // If the incoming program is a kernel, it will have at least one ivc_recursion_constraint.
-    bool is_kernel = !constraints.ivc_recursion_constraints.empty();
-
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum, is_kernel };
+    auto builder = MegaCircuitBuilder{ op_queue,
+                                       witness,
+                                       constraints.public_inputs,
+                                       constraints.varnum,
+                                       { .is_kernel = !constraints.ivc_recursion_constraints.empty(),
+                                         .last_tail = metadata.ivc->num_circuits_accumulated ==
+                                                      metadata.ivc->get_num_circuits() - 1 } };
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);

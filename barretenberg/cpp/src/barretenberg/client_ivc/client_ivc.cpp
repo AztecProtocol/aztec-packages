@@ -237,7 +237,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
 
-    if (circuit.is_kernel) {
+    if (circuit.kernel_config.is_kernel) {
         // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
         accumulation_transcript = std::make_shared<Transcript>();
     }
@@ -270,9 +270,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("set honk vk metadata");
     }
 
-    VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.is_kernel };
+    VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.kernel_config.is_kernel };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
-        BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
+        BB_ASSERT_EQ(circuit.kernel_config.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
         MegaOinkProver oink_prover{ proving_key, honk_vk, accumulation_transcript };
         vinfo("computing oink proof...");
@@ -350,11 +350,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
     // share a transcript
     std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
-
-    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
-    // circuit are well formed to allow correctly representing shiftable polynomials (which are
-    // expected to start with 0).
-    builder.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(builder);
 
@@ -447,7 +442,7 @@ ClientIVC::Proof ClientIVC::prove()
     goblin.transcript = transcript;
 
     // Prove ECCVM and Translator
-    return { mega_proof, goblin.prove() };
+    return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)

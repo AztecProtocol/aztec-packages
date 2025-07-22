@@ -1,3 +1,4 @@
+
 // === AUDIT STATUS ===
 // internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
@@ -17,6 +18,10 @@ namespace bb {
 template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaExecutionTraceBlocks> {
   private:
     DataBus databus; // Container for public calldata/returndata
+    ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
+    void set_goblin_ecc_op_code_constant_variables();
+    void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
+    void apply_databus_selectors(BusId bus_idx);
 
   public:
     using ExecutionTrace = MegaExecutionTraceBlocks;
@@ -24,6 +29,13 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+
+    // Indicates whether a given builder is a kernel and specific logic has to be applied to it
+    struct KernelConfig {
+        bool is_kernel = false; // if set, the ecc ops table will start with an eq and reset
+        bool last_tail = false; // if set, we add a no-op at the beginning of its ecc ops subtable for correct
+                                // functioning of translator
+    };
 
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
@@ -40,21 +52,14 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
 
-    bool is_kernel = false; // Flag indicating whether this circuit is a kernel
+    KernelConfig kernel_config = {};
 
-  private:
-    ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
-    void set_goblin_ecc_op_code_constant_variables();
-    void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
-    void apply_databus_selectors(BusId bus_idx);
-
-  public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
-                        bool is_kernel = false)
+                        KernelConfig config = KernelConfig{})
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
         , op_queue(std::move(op_queue_in))
-        , is_kernel(is_kernel)
+        , kernel_config(config)
     {
         PROFILE_THIS();
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
@@ -64,15 +69,22 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
 
+        if (config.last_tail) {
+            // Add a no-op at the beginning of the last to be appended kernel (tail) circuit to ensure the wires
+            // representing the op queue in translator circuit are well formed to allow correctly representing shiftable
+            // polynomials (which are expected to start with 0).
+            queue_ecc_no_op();
+        }
+
         // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
         // neighbouring misconfigured subtable cannot affect the current one.
-        if (is_kernel) {
+        if (config.is_kernel) {
             queue_ecc_eq();
         }
     };
 
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, bool is_kernel = false)
-        : MegaCircuitBuilder_(0, op_queue_in, is_kernel)
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, KernelConfig config = KernelConfig{})
+        : MegaCircuitBuilder_(0, op_queue_in, config)
     {}
 
     /**
@@ -93,10 +105,10 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
                         auto& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum,
-                        bool is_kernel = false)
+                        KernelConfig config = KernelConfig{})
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(std::move(op_queue_in))
-        , is_kernel(is_kernel)
+        , kernel_config(config)
     {
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
         // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
@@ -105,9 +117,16 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
 
+        if (config.last_tail) {
+            // Add a no-op at the beginning of the last to be appended kernel (tail) circuit to ensure the wires
+            // representing the op queue in translator circuit are well formed to allow correctly representing shiftable
+            // polynomials (which are expected to start with 0).
+            queue_ecc_no_op();
+        }
+
         // If the incoming circuit is a kernel, start its subtable with an eq and reset operation to ensure a
         // neighbouring misconfigured subtable cannot affect the current one.
-        if (is_kernel) {
+        if (config.is_kernel) {
             queue_ecc_eq();
         }
     };
