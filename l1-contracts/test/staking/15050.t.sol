@@ -22,6 +22,7 @@ contract Test15050 is StakingBase {
   }
 
   function test_15050() external {
+    vm.prank(stakingAsset.owner());
     stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
@@ -50,7 +51,7 @@ contract Test15050 is StakingBase {
       .with_key(address(staking)).with_key(uint256(0)).depth(1).checked_write(address(payload));
 
     stdstore.clear();
-    stdstore.target(address(caller)).sig("yeaCount(address,uint256,address)").with_key(
+    stdstore.target(address(caller)).sig("signalCount(address,uint256,address)").with_key(
       address(staking)
     ).with_key(uint256(0)).with_key(address(payload)).checked_write(caller.ROUND_SIZE());
 
@@ -75,7 +76,7 @@ contract Test15050 is StakingBase {
     // the accounting. And then we see that the proposal is marked as executed, so we cannot
     // execute it again, but at the same time, the attester was not actually slashes!
     // It can require a bit of fiddling here to get the correct one going gas-wise.
-    caller.executeProposal{gas: 200000}(0);
+    caller.submitRoundWinner{gas: 200000}(0);
 
     r = caller.getRoundData(address(staking), 0);
     assertFalse(r.executed);
@@ -89,7 +90,7 @@ contract Test15050 is StakingBase {
 
     // Because it failed to execute, we can execute it now with more gas
 
-    caller.executeProposal(0);
+    caller.submitRoundWinner(0);
 
     r = caller.getRoundData(address(staking), 0);
     assertTrue(r.executed);

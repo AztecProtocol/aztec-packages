@@ -13,7 +13,6 @@
 
 #include "../../primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "../../primitives/field/field.hpp"
-#include "../../primitives/packed_byte_array/packed_byte_array.hpp"
 
 namespace bb::stdlib::blake3s_plookup {
 
