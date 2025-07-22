@@ -276,39 +276,86 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
 
-    // Get the raw bytecode
-    std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
-
-    // The bytecode may contain multiple circuits for a program
-    // We'll use the ClientIvcGates API for a single circuit
-    // If there are multiple circuits, we would need to parse them first
     bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
-    // Use the new ClientIvcGates API
-    auto response = bbapi::ClientIvcGates{ .circuit = { .name = "circuit", .bytecode = bytecode },
-                                           .include_gates_per_opcode = include_gates_per_opcode }
-                        .execute(request);
+    // Try to load as private execution steps first
+    std::vector<PrivateExecutionStepRaw> raw_steps;
+    bool is_private_execution_steps = false;
 
-    // Build individual circuit report
-    std::string gates_per_opcode_str;
-    if (include_gates_per_opcode && !response.gates_per_opcode.empty()) {
-        for (size_t j = 0; j < response.gates_per_opcode.size(); j++) {
-            gates_per_opcode_str += std::to_string(response.gates_per_opcode[j]);
-            if (j != response.gates_per_opcode.size() - 1) {
-                gates_per_opcode_str += ",";
-            }
-        }
+    try {
+        raw_steps = PrivateExecutionStepRaw::load(bytecode_path);
+        is_private_execution_steps = true;
+    } catch (...) {
+        // If that fails, it might be raw ACIR bytecode
     }
 
-    auto result_string = format(
-        "{\n        \"acir_opcodes\": ",
-        response.acir_opcodes,
-        ",\n        \"circuit_size\": ",
-        response.circuit_size,
-        (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
-        "\n  }");
+    if (is_private_execution_steps && !raw_steps.empty()) {
+        // Handle private execution steps format
+        size_t i = 0;
+        for (const auto& step : raw_steps) {
+            // Use the new ClientIvcGates API for each circuit
+            auto response = bbapi::ClientIvcGates{ .circuit = { .name = step.function_name, .bytecode = step.bytecode },
+                                                   .include_gates_per_opcode = include_gates_per_opcode }
+                                .execute(request);
 
-    functions_string = format(functions_string, result_string);
+            // Build individual circuit report
+            std::string gates_per_opcode_str;
+            if (include_gates_per_opcode && !response.gates_per_opcode.empty()) {
+                for (size_t j = 0; j < response.gates_per_opcode.size(); j++) {
+                    gates_per_opcode_str += std::to_string(response.gates_per_opcode[j]);
+                    if (j != response.gates_per_opcode.size() - 1) {
+                        gates_per_opcode_str += ",";
+                    }
+                }
+            }
+
+            auto result_string = format("{\n        \"acir_opcodes\": ",
+                                        response.acir_opcodes,
+                                        ",\n        \"circuit_size\": ",
+                                        response.circuit_size,
+                                        (include_gates_per_opcode
+                                             ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]")
+                                             : ""),
+                                        "\n  }");
+
+            // Attach a comma if there are more circuit reports to generate
+            if (i != (raw_steps.size() - 1)) {
+                result_string = format(result_string, ",");
+            }
+
+            functions_string = format(functions_string, result_string);
+            i++;
+        }
+    } else {
+        // Handle raw ACIR bytecode format (backward compatibility)
+        std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
+
+        // Use the new ClientIvcGates API
+        auto response = bbapi::ClientIvcGates{ .circuit = { .name = "circuit", .bytecode = bytecode },
+                                               .include_gates_per_opcode = include_gates_per_opcode }
+                            .execute(request);
+
+        // Build individual circuit report
+        std::string gates_per_opcode_str;
+        if (include_gates_per_opcode && !response.gates_per_opcode.empty()) {
+            for (size_t j = 0; j < response.gates_per_opcode.size(); j++) {
+                gates_per_opcode_str += std::to_string(response.gates_per_opcode[j]);
+                if (j != response.gates_per_opcode.size() - 1) {
+                    gates_per_opcode_str += ",";
+                }
+            }
+        }
+
+        auto result_string = format(
+            "{\n        \"acir_opcodes\": ",
+            response.acir_opcodes,
+            ",\n        \"circuit_size\": ",
+            response.circuit_size,
+            (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+            "\n  }");
+
+        functions_string = format(functions_string, result_string);
+    }
 
     std::cout << format(functions_string, "\n]}");
 }
