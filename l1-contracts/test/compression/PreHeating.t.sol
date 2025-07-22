@@ -140,7 +140,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
-  
+
   // Track attestations by block number for proof submission
   mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
