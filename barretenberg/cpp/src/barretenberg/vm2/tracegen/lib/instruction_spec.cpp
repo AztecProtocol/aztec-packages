@@ -88,6 +88,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SSTORE } },
     { ExecutionOpCode::NOTEHASHEXISTS,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NOTEHASH_EXISTS } },
+    { ExecutionOpCode::NULLIFIEREXISTS,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NULLIFIEREXISTS } },
     // Misc
     { ExecutionOpCode::GETCONTRACTINSTANCE,
       { .subtrace_selector = SubtraceSel::GETCONTRACTINSTANCE, .subtrace_operation_id = 0 } },
@@ -96,6 +98,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::L1TOL2MSGEXISTS,
       { .subtrace_selector = SubtraceSel::EXECUTION,
         .subtrace_operation_id = AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS } },
+    // EC
+    { ExecutionOpCode::ECADD, { .subtrace_selector = SubtraceSel::ECC, .subtrace_operation_id = 0 } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
