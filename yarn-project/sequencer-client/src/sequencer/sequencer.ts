@@ -405,7 +405,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       newGlobalVariables.timestamp,
       VoteType.GOVERNANCE,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
 
     const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
@@ -413,7 +413,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       newGlobalVariables.timestamp,
       VoteType.SLASHING,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);

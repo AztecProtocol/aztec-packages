@@ -35,7 +35,14 @@ import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData, getAbiItem, toEventSelector, toHex } from 'viem';
+import {
+  type TransactionReceipt,
+  type TypedDataDefinition,
+  encodeFunctionData,
+  getAbiItem,
+  toEventSelector,
+  toHex,
+} from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -405,7 +412,7 @@ export class SequencerPublisher {
     payload: EthAddress,
     base: IEmpireBase,
     signerAddress: EthAddress,
-    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     if (this.myLastVotes[voteType] >= slotNumber) {
       return false;
@@ -515,7 +522,7 @@ export class SequencerPublisher {
     timestamp: bigint,
     voteType: VoteType,
     signerAddress: EthAddress,
-    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     const voteConfig = await this.getVoteConfig(slotNumber, voteType);
     if (!voteConfig) {

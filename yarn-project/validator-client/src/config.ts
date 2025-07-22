@@ -25,6 +25,9 @@ export interface ValidatorClientConfig {
 
   /** Will re-execute until this many milliseconds are left in the slot */
   validatorReexecuteDeadlineMs: number;
+
+  /** URL of the Web3Signer instance */
+  web3SignerUrl?: string;
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
@@ -55,6 +58,11 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
     description: 'Will re-execute until this many milliseconds are left in the slot',
     ...numberConfigHelper(6000),
+  },
+  web3SignerUrl: {
+    env: 'WEB3_SIGNER_URL',
+    description: 'URL of the Web3Signer instance',
+    parseEnv: (val: string) => val.trim(),
   },
 };
 

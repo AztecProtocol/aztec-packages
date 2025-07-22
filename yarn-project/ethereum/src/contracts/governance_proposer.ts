@@ -2,7 +2,14 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 
-import { type GetContractReturnType, type Hex, type TransactionReceipt, encodeFunctionData, getContract } from 'viem';
+import {
+  type GetContractReturnType,
+  type Hex,
+  type TransactionReceipt,
+  type TypedDataDefinition,
+  encodeFunctionData,
+  getContract,
+} from 'viem';
 
 import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
@@ -71,7 +78,7 @@ export class GovernanceProposerContract implements IEmpireBase {
     round: bigint,
     chainId: number,
     signerAddress: Hex,
-    signer: (msg: Hex) => Promise<Hex>,
+    signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(signerAddress);
     const signature = await signVoteWithSig(signer, payload, nonce, round, this.address.toString(), chainId);

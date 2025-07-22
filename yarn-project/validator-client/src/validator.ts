@@ -37,6 +37,7 @@ import {
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
+import type { TypedDataDefinition } from 'viem';
 
 import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -185,8 +186,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.getAddresses();
   }
 
-  public signWithAddress(addr: EthAddress, msg: Buffer32) {
-    return this.keyStore.signWithAddress(addr, msg);
+  public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
+    return this.keyStore.signTypedDataWithAddress(addr, msg);
   }
 
   public configureSlashing(
@@ -582,7 +583,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const payloadToSign = authRequest.getPayloadToSign();
-    const signature = await this.keyStore.signWithAddress(addressToUse, payloadToSign);
+    const signature = await this.keyStore.signTypedDataWithAddress(addressToUse, payloadToSign);
     const authResponse = new AuthResponse(statusMessage, signature);
     return authResponse.toBuffer();
   }

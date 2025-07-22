@@ -8,6 +8,7 @@ import {
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
+  type TypedDataDefinition,
   encodeFunctionData,
   getContract,
 } from 'viem';
@@ -78,7 +79,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     round: bigint,
     chainId: number,
     signerAddress: Hex,
-    signer: (msg: Hex) => Promise<Hex>,
+    signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(signerAddress);
     const signature = await signVoteWithSig(signer, payload, nonce, round, this.address.toString(), chainId);
