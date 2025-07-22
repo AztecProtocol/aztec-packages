@@ -11,7 +11,7 @@ import {
 import { ungzip } from 'pako';
 import { BbApiBase } from '../cbind/generated/api_types.js';
 import { AsyncApi } from '../cbind/index.js';
-import { Encoder } from 'msgpackr/pack';
+import { Decoder, Encoder } from 'msgpackr/pack';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
@@ -267,51 +267,28 @@ export class AztecClientBackend {
     // Generate the proof (and wait for all previous steps to finish)
     const proveResult = await this.api.clientIvcProve({});
 
-    // The proof result contains a Proof object with megaProof and goblinProof
-    // For ClientIVC, we need to extract the raw proof data
-    // TODO: This needs to be properly serialized based on the expected format
+    // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({useRecords: false}).encode(proveResult.proof);
     // Generate the VK
     const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
       name: 'tail',
       bytecode: this.acirBuf[this.acirBuf.length - 1],
     } });
-    const vk = Buffer.from(vkResult.bytes);
 
     // Note: Verification may not work correctly until we properly serialize the proof
-    if (!(await this.verify(proof, vk))) {
+    if (!(await this.verify(proof, vkResult.bytes))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
     }
-    return [proof, vk];
+    return [proof, vkResult.bytes];
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
-    // Use clientIvcVerify to verify the ClientIVC proof
-    // TODO: The proof needs to be properly deserialized from Uint8Array to Proof structure
-    // For now, we'll need to implement proper deserialization
-    try {
-      const result = await this.api.clientIvcVerify({
-        proof: {
-          // Placeholder - needs proper deserialization from the proof Uint8Array
-          megaProof: [],
-          goblinProof: {
-            mergeProof: [],
-            eccvmProof: {
-              preIpaProof: [],
-              ipaProof: []
-            },
-            translatorProof: []
-          }
-        },
-        vk: Buffer.from(vk),
-      });
-      // The result should have a 'valid' field based on our C++ implementation
-      return (result as any).valid || false;
-    } catch (error) {
-      console.error('ClientIVC verification failed:', error);
-      return false;
-    }
+    const result = await this.api.clientIvcVerify({
+      proof: new Decoder({useRecords: false}).decode(proof),
+      vk: Buffer.from(vk),
+    });
+    return result.valid;
   }
 
   async gates(): Promise<number[]> {
