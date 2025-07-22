@@ -304,10 +304,13 @@ export class TXEService {
   }
 
   async getContractAddress() {
-    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (
+      this.contextChecksEnabled &&
+      this.context != TXEContext.TOP_LEVEL &&
+      this.context != TXEContext.UTILITY &&
+      this.context != TXEContext.PRIVATE
+    ) {
+      throw new Error(`Attempted to call getContractAddress while in context ${TXEContext[this.context]}`);
     }
 
     const contractAddress = await this.typedOracle.getContractAddress();
