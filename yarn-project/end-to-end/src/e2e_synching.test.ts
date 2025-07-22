@@ -537,9 +537,7 @@ describe('e2e_synching', () => {
           const blobSinkClient = createBlobSinkClient({
             blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
           });
-          const archiver = await createArchiver(opts.config!, blobSinkClient, {
-            blockUntilSync: true,
-          });
+          const archiver = await createArchiver(opts.config!, { blobSinkClient }, { blockUntilSync: true });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
