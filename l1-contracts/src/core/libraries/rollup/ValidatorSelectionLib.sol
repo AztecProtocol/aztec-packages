@@ -3,13 +3,11 @@
 pragma solidity >=0.8.27;
 
 import {RollupStore} from "@aztec/core/interfaces/IRollup.sol";
-import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
-
-import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {
   SignatureLib, Signature, CommitteeAttestations
@@ -354,6 +352,28 @@ library ValidatorSelectionLib {
     }
   }
 
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) internal returns (Slot, uint256) {
+    Slot slot = _ts.slotFromTimestamp();
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
+
+    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
+
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+
+    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
+    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
+
+    (address proposer,) = getProposerAt(slot);
+    require(
+      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
+    );
+
+    return (slot, pendingBlockNumber + 1);
+  }
+
   function getCachedProposer(Slot _slot)
     internal
     view
@@ -398,28 +418,6 @@ library ValidatorSelectionLib {
     assembly {
       storageStruct.slot := position
     }
-  }
-
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) internal returns (Slot, uint256) {
-    Slot slot = _ts.slotFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
-
-    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
-
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
-
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-
-    (address proposer,) = getProposerAt(slot);
-    require(
-      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
-
-    return (slot, pendingBlockNumber + 1);
   }
 
   /**

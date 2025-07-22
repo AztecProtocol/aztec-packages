@@ -254,7 +254,7 @@ contract RollupCore is
     CommitteeAttestations memory _attestations,
     address[] memory _committee,
     uint256 _invalidIndex
-  ) external {
+  ) external override(IRollupCore) {
     ExtRollupLib2.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
   }
 
@@ -262,7 +262,7 @@ contract RollupCore is
     uint256 _blockNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _committee
-  ) external {
+  ) external override(IRollupCore) {
     ExtRollupLib2.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
   }
 

@@ -2,23 +2,19 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {
-  IRollupCore, RollupStore, BlockHeaderValidationFlags
-} from "@aztec/core/interfaces/IRollup.sol";
-import {
-  TempBlockLog, CompressedTempBlockLog
-} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
+import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {
   CommitteeAttestations, SignatureLib, Signature
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 
 library InvalidateLib {
   using TimeLib for Timestamp;
