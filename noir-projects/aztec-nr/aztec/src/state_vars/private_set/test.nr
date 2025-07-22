@@ -164,26 +164,3 @@ unconstrained fn insert_remove_and_read_again_pending() {
         assert_eq(state_var.get_notes(NoteGetterOptions::new()).len(), 0);
     });
 }
-
-// #[test]
-// unconstrained fn insert_deliver_and_view() {
-//     let mut env = TestEnvironment::new();
-
-//     let emission = env.private_context(|context| {
-//         let state_var = in_private(context);
-
-//         let note = MockNote::new(VALUE).build_note();
-//         state_var.insert(note)
-//     });
-
-//     env.deliver_note(
-//         contract_address, // from context
-//         emission.storage_slot,
-//         emission.note_hash_counter, // nonce requires discovery - we may know index but not nonce generator -- annoying
-//         emission.note.pack(),
-//         emission.note.compute_note_hash(emission.storage_slot),
-//         emission.note.compute_nullifier_unconstrained( /* note hash for nullify - this is the settled note hash, which reqs nonce */ ),
-//         tx_hash, // from past context call - how to get? env.last_tx_hash()? would get with the discovery as we'd know nonce gen
-//         recipient // whatever
-//     );
-// }
