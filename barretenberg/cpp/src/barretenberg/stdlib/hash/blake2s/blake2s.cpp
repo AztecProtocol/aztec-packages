@@ -50,10 +50,10 @@ template <typename Builder> void Blake2s<Builder>::compress(blake2s_state& S, by
 {
     using plookup::ColumnIdx;
     using namespace blake_util;
-    field_ct m[16];
-    field_ct v[16];
+    field_ct m[BLAKE2S_STATE_SIZE];
+    field_ct v[BLAKE2S_STATE_SIZE];
 
-    for (size_t i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < BLAKE2S_STATE_SIZE; ++i) {
         m[i] = static_cast<field_ct>(in.slice(i * 4, 4).reverse());
     }
 
@@ -81,7 +81,7 @@ template <typename Builder> void Blake2s<Builder>::compress(blake2s_state& S, by
     v[15] = lookup_4[ColumnIdx::C3][0];
 
     for (size_t idx = 0; idx < 10; idx++) {
-        blake_util::round_fn_lookup(v, m, idx);
+        blake_util::round_fn(v, m, idx);
     }
 
     // At this point in the algorithm, the elements (v0, v1, v2, v3) and (v8, v9, v10, v11) in the state matrix 'v' can

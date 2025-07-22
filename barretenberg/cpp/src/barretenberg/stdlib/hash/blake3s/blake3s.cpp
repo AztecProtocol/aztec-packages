@@ -5,7 +5,6 @@
 // =====================
 
 #include "blake3s.hpp"
-#include "../blake2s/blake_util.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
@@ -48,15 +47,15 @@ void Blake3s<Builder>::compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
     state[15] = field_ct(block.get_context(), uint256_t(flags));
 
     for (size_t idx = 0; idx < 7; idx++) {
-        round_fn_lookup(state, block_words, idx, true);
+        round_fn(state, block_words, idx, true);
     }
 }
 
 template <typename Builder>
-void Blake3s<Builder>::blake3_compress_in_place(field_t<Builder> cv[8],
-                                                const byte_array<Builder>& block,
-                                                uint8_t block_len,
-                                                uint8_t flags)
+void Blake3s<Builder>::compress_in_place(field_t<Builder> cv[8],
+                                         const byte_array<Builder>& block,
+                                         uint8_t block_len,
+                                         uint8_t flags)
 {
     field_ct state[BLAKE3_STATE_SIZE];
     compress_pre(state, cv, block, block_len, flags);
@@ -75,11 +74,11 @@ void Blake3s<Builder>::blake3_compress_in_place(field_t<Builder> cv[8],
 }
 
 template <typename Builder>
-void Blake3s<Builder>::blake3_compress_xof(const field_t<Builder> cv[8],
-                                           const byte_array<Builder>& block,
-                                           uint8_t block_len,
-                                           uint8_t flags,
-                                           byte_array<Builder>& out)
+void Blake3s<Builder>::compress_xof(const field_t<Builder> cv[8],
+                                    const byte_array<Builder>& block,
+                                    uint8_t block_len,
+                                    uint8_t flags,
+                                    byte_array<Builder>& out)
 {
     field_ct state[BLAKE3_STATE_SIZE];
 
@@ -124,7 +123,7 @@ Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_t<Builder> 
  * Blake3s wrapper functions.
  *
  */
-template <typename Builder> void Blake3s<Builder>::blake3_hasher_init(blake3_hasher* self)
+template <typename Builder> void Blake3s<Builder>::hasher_init(blake3_hasher* self)
 {
     for (size_t i = 0; i < (BLAKE3_KEY_LEN >> 2); ++i) {
         self->key[i] = field_ct(uint256_t(IV[i]));
@@ -140,7 +139,7 @@ template <typename Builder> void Blake3s<Builder>::blake3_hasher_init(blake3_has
 }
 
 template <typename Builder>
-void Blake3s<Builder>::blake3_hasher_update(blake3_hasher* self, const byte_array<Builder>& input, size_t input_len)
+void Blake3s<Builder>::hasher_update(blake3_hasher* self, const byte_array<Builder>& input, size_t input_len)
 {
     if (input_len == 0) {
         return;
@@ -148,10 +147,10 @@ void Blake3s<Builder>::blake3_hasher_update(blake3_hasher* self, const byte_arra
 
     size_t start_counter = 0;
     while (input_len > BLAKE3_BLOCK_LEN) {
-        blake3_compress_in_place(self->cv,
-                                 input.slice(start_counter, BLAKE3_BLOCK_LEN),
-                                 BLAKE3_BLOCK_LEN,
-                                 self->flags | maybe_start_flag(self));
+        compress_in_place(self->cv,
+                          input.slice(start_counter, BLAKE3_BLOCK_LEN),
+                          BLAKE3_BLOCK_LEN,
+                          self->flags | maybe_start_flag(self));
         self->blocks_compressed = static_cast<uint8_t>(self->blocks_compressed + 1);
         start_counter += BLAKE3_BLOCK_LEN;
         input_len -= BLAKE3_BLOCK_LEN;
@@ -169,14 +168,13 @@ void Blake3s<Builder>::blake3_hasher_update(blake3_hasher* self, const byte_arra
     input_len -= take;
 }
 
-template <typename Builder>
-void Blake3s<Builder>::blake3_hasher_finalize(const blake3_hasher* self, byte_array<Builder>& out)
+template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_hasher* self, byte_array<Builder>& out)
 {
     uint8_t block_flags = self->flags | maybe_start_flag(self) | CHUNK_END;
     output_t output = make_output(self->cv, self->buf, self->buf_len, block_flags);
 
     byte_array_ct wide_buf(out.get_context(), BLAKE3_BLOCK_LEN);
-    blake3_compress_xof(output.input_cv, output.block, output.block_len, output.flags | ROOT, wide_buf);
+    compress_xof(output.input_cv, output.block, output.block_len, output.flags | ROOT, wide_buf);
     for (size_t i = 0; i < BLAKE3_OUT_LEN; i++) {
         out.set_byte(i, wide_buf[i]);
     }
@@ -184,14 +182,15 @@ void Blake3s<Builder>::blake3_hasher_finalize(const blake3_hasher* self, byte_ar
 
 template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byte_array<Builder>& input)
 {
-    ASSERT(input.size() <= 1024, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+    ASSERT(input.size() <= BLAKE3_CHUNK_LEN,
+           "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 
     blake3_hasher hasher = {};
     hasher.context = input.get_context();
-    blake3_hasher_init(&hasher);
-    blake3_hasher_update(&hasher, input, input.size());
+    hasher_init(&hasher);
+    hasher_update(&hasher, input, input.size());
     byte_array_ct result(input.get_context(), BLAKE3_OUT_LEN);
-    blake3_hasher_finalize(&hasher, result);
+    hasher_finalize(&hasher, result);
     return result;
 }
 

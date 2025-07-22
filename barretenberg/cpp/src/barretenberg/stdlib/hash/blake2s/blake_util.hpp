@@ -13,7 +13,7 @@ namespace bb::stdlib::blake_util {
 using namespace bb::plookup;
 
 // constants
-enum blake_constant { BLAKE3_STATE_SIZE = 16 };
+enum blake_constant { BLAKE_STATE_SIZE = 16 };
 
 constexpr uint8_t MSG_SCHEDULE_BLAKE3[7][16] = {
     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }, { 2, 6, 3, 10, 7, 0, 4, 13, 1, 11, 12, 5, 9, 14, 15, 8 },
@@ -110,14 +110,14 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
  *
  **/
 template <typename Builder>
-void g_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
-              size_t a,
-              size_t b,
-              size_t c,
-              size_t d,
-              field_t<Builder> x,
-              field_t<Builder> y,
-              const bool last_update = false)
+void g(field_t<Builder> state[BLAKE_STATE_SIZE],
+       size_t a,
+       size_t b,
+       size_t c,
+       size_t d,
+       field_t<Builder> x,
+       field_t<Builder> y,
+       const bool last_update = false)
 {
     typedef field_t<Builder> field_pt;
 
@@ -173,25 +173,25 @@ void g_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
  *         - which_blake to choose Blake2 or Blake3 (false -> Blake2)
  */
 template <typename Builder>
-void round_fn_lookup(field_t<Builder> state[BLAKE3_STATE_SIZE],
-                     field_t<Builder> msg[BLAKE3_STATE_SIZE],
-                     size_t round,
-                     const bool which_blake = false)
+void round_fn(field_t<Builder> state[BLAKE_STATE_SIZE],
+              field_t<Builder> msg[BLAKE_STATE_SIZE],
+              size_t round,
+              const bool which_blake = false)
 {
     // Select the message schedule based on the round.
     const uint8_t* schedule = which_blake ? MSG_SCHEDULE_BLAKE3[round] : MSG_SCHEDULE_BLAKE2[round];
 
     // Mix the columns.
-    g_lookup<Builder>(state, 0, 4, 8, 12, msg[schedule[0]], msg[schedule[1]]);
-    g_lookup<Builder>(state, 1, 5, 9, 13, msg[schedule[2]], msg[schedule[3]]);
-    g_lookup<Builder>(state, 2, 6, 10, 14, msg[schedule[4]], msg[schedule[5]]);
-    g_lookup<Builder>(state, 3, 7, 11, 15, msg[schedule[6]], msg[schedule[7]]);
+    g<Builder>(state, 0, 4, 8, 12, msg[schedule[0]], msg[schedule[1]]);
+    g<Builder>(state, 1, 5, 9, 13, msg[schedule[2]], msg[schedule[3]]);
+    g<Builder>(state, 2, 6, 10, 14, msg[schedule[4]], msg[schedule[5]]);
+    g<Builder>(state, 3, 7, 11, 15, msg[schedule[6]], msg[schedule[7]]);
 
     // Mix the rows.
-    g_lookup<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]], true);
-    g_lookup<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]], true);
-    g_lookup<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]], true);
-    g_lookup<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]], true);
+    g<Builder>(state, 0, 5, 10, 15, msg[schedule[8]], msg[schedule[9]], true);
+    g<Builder>(state, 1, 6, 11, 12, msg[schedule[10]], msg[schedule[11]], true);
+    g<Builder>(state, 2, 7, 8, 13, msg[schedule[12]], msg[schedule[13]], true);
+    g<Builder>(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]], true);
 }
 
 } // namespace bb::stdlib::blake_util

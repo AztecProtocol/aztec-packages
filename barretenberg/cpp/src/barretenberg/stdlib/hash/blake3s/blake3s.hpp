@@ -8,6 +8,7 @@
 
 #include "../../primitives/byte_array/byte_array.hpp"
 #include "../../primitives/field/field.hpp"
+#include "barretenberg/stdlib/hash/blake2s/blake_util.hpp"
 
 namespace bb::stdlib {
 template <typename Builder> class Blake3s {
@@ -29,16 +30,9 @@ template <typename Builder> class Blake3s {
         DERIVE_KEY_CONTEXT = 1 << 5,
         DERIVE_KEY_MATERIAL = 1 << 6,
     };
-
+    static constexpr size_t BLAKE3_STATE_SIZE = stdlib::blake_util::BLAKE_STATE_SIZE;
     // constants
-    enum blake3s_constant {
-        BLAKE3_KEY_LEN = 32,
-        BLAKE3_OUT_LEN = 32,
-        BLAKE3_BLOCK_LEN = 64,
-        BLAKE3_CHUNK_LEN = 1024,
-        BLAKE3_MAX_DEPTH = 54,
-        BLAKE3_STATE_SIZE = 16
-    };
+    enum blake3s_constant { BLAKE3_KEY_LEN = 32, BLAKE3_OUT_LEN = 32, BLAKE3_BLOCK_LEN = 64, BLAKE3_CHUNK_LEN = 1024 };
 
     static constexpr std::array<uint32_t, 8> IV{ 0x6A09E667UL, 0xBB67AE85UL, 0x3C6EF372UL, 0xA54FF53AUL,
                                                  0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL };
@@ -65,12 +59,9 @@ template <typename Builder> class Blake3s {
                              uint8_t block_len,
                              uint8_t flags);
 
-    static void blake3_compress_in_place(field_t<Builder> cv[8],
-                                         const byte_array_ct& block,
-                                         uint8_t block_len,
-                                         uint8_t flags);
+    static void compress_in_place(field_t<Builder> cv[8], const byte_array_ct& block, uint8_t block_len, uint8_t flags);
 
-    static void blake3_compress_xof(
+    static void compress_xof(
         const field_t<Builder> cv[8], const byte_array_ct& block, uint8_t block_len, uint8_t flags, byte_array_ct& out);
 
     /*
@@ -90,11 +81,11 @@ template <typename Builder> class Blake3s {
                                 uint8_t block_len,
                                 uint8_t flags);
 
-    static void blake3_hasher_init(blake3_hasher* self);
+    static void hasher_init(blake3_hasher* self);
 
-    static void blake3_hasher_update(blake3_hasher* self, const byte_array_ct& input, size_t input_len);
+    static void hasher_update(blake3_hasher* self, const byte_array_ct& input, size_t input_len);
 
-    static void blake3_hasher_finalize(const blake3_hasher* self, byte_array_ct& out);
+    static void hasher_finalize(const blake3_hasher* self, byte_array_ct& out);
 
   public:
     static byte_array_ct hash(const byte_array_ct& input);
