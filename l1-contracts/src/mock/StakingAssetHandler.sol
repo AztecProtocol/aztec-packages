@@ -59,7 +59,7 @@ interface IStakingAssetHandler {
   // Add validator methods
   function addValidator(
     address _attester,
-    bytes32[] memory merkleProof,
+    bytes32[] memory _merkleProof,
     ProofVerificationParams memory _params
   ) external;
   function reenterExitedValidator(address _attester) external;

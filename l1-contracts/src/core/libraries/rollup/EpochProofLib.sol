@@ -6,11 +6,10 @@ import {
   SubmitEpochRootProofArgs,
   PublicInputArgs,
   IRollupCore,
-  RollupStore,
-  BlockHeaderValidationFlags
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
-import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
@@ -215,6 +214,31 @@ library EpochProofLib {
     return publicInputs;
   }
 
+  /**
+   * @notice Verifies the attestations for the last block in the epoch
+   * @param _endBlockNumber The last block number in the epoch
+   * @param _attestations The attestations to verify
+   */
+  function verifyLastBlockAttestations(
+    uint256 _endBlockNumber,
+    CommitteeAttestations memory _attestations
+  ) private {
+    // Get the stored attestation hash and payload digest for the last block
+    TempBlockLog memory blockLog = STFLib.getTempBlockLog(_endBlockNumber);
+
+    // Verify that the provided attestations match the stored hash
+    bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
+    require(
+      providedAttestationsHash == blockLog.attestationsHash, Errors.Rollup__InvalidAttestations()
+    );
+
+    // Get the slot and epoch for the last block
+    Slot slot = blockLog.slotNumber;
+    Epoch epoch = STFLib.getEpochForBlock(_endBlockNumber);
+
+    ValidatorSelectionLib.verify(slot, epoch, _attestations, blockLog.payloadDigest);
+  }
+
   function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -293,30 +317,5 @@ library EpochProofLib {
 
   function addressToField(address _a) private pure returns (bytes32) {
     return bytes32(uint256(uint160(_a)));
-  }
-
-  /**
-   * @notice Verifies the attestations for the last block in the epoch
-   * @param _endBlockNumber The last block number in the epoch
-   * @param _attestations The attestations to verify
-   */
-  function verifyLastBlockAttestations(
-    uint256 _endBlockNumber,
-    CommitteeAttestations memory _attestations
-  ) private {
-    // Get the stored attestation hash and payload digest for the last block
-    TempBlockLog memory blockLog = STFLib.getTempBlockLog(_endBlockNumber);
-
-    // Verify that the provided attestations match the stored hash
-    bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
-    require(
-      providedAttestationsHash == blockLog.attestationsHash, Errors.Rollup__InvalidAttestations()
-    );
-
-    // Get the slot and epoch for the last block
-    Slot slot = blockLog.slotNumber;
-    Epoch epoch = STFLib.getEpochForBlock(_endBlockNumber);
-
-    ValidatorSelectionLib.verify(slot, epoch, _attestations, blockLog.payloadDigest);
   }
 }

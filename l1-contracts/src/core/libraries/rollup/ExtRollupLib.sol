@@ -5,12 +5,10 @@ pragma solidity >=0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {InvalidateLib} from "./InvalidateLib.sol";
 import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 import {
   ProposeLib,
@@ -55,6 +53,11 @@ library ExtRollupLib {
     ProposeLib.propose(_args, _attestations, _blobInput, _checkBlob);
   }
 
+  function prune() external {
+    require(STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp)), Errors.Rollup__NothingToPrune());
+    STFLib.prune();
+  }
+
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
@@ -79,10 +82,5 @@ library ExtRollupLib {
 
   function getBlobBaseFee() external view returns (uint256) {
     return BlobLib.getBlobBaseFee();
-  }
-
-  function prune() external {
-    require(STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp)), Errors.Rollup__NothingToPrune());
-    STFLib.prune();
   }
 }
