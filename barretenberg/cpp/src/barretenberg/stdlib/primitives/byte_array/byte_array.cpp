@@ -87,17 +87,16 @@ byte_array<Builder>::byte_array(Builder* parent_context, const std::string& inpu
  *
  *  We separate the problem of imposing that reconstructed <= r - 1 into two cases.
  *
- *      Case 0: When s_lo <  reconstructed_lo, we must impose that reconstructed_hi <  s_hi, i.e., s_hi - v_hi - 2 > 0.
- *      Case 1:      s_lo >= reconstructed_lo, we must impose that reconstructed_hi =< s_hi, i.e.  s_hi - v_hi - 1 > 0.
+ *      Case 0: When s_lo <  reconstructed_lo, we must impose that reconstructed_hi <  s_hi, i.e., s_hi -
+ * reconstructed_hi - 2 > 0. Case 1:      s_lo >= reconstructed_lo, we must impose that reconstructed_hi =< s_hi, i.e.
+ *      s_hi - reconstructed_hi - 1 > 0.
  *
- * To unify these cases, we introduce a predicate that distinguishes them. Consider the expression s_lo - v_lo. As an
- * integer, this lies in [-2^128+1, 2^128-1], with Case 0 corresponding to the numbers < 0. Shifting to
- *      diff_lo :=  s_lo - reconstructed_lo + 2^128,
- * Case 0 corresponds to the range [1, 2^128-1]. We see that the 129th bit of diff_lo exactly indicates Case 1.
- * Extracting the 129th bit denoted `diff_lo_hi` and adding it to reconstructed_hi, we have a uniform
- * constraint to apply. Namely, setting
- *      overlap := 1 - diff_overlap_lo_hi
- * and
+ * To unify these cases, we introduce a predicate that distinguishes them. Consider the expression
+ *      s_lo - reconstructed_lo
+ * As an integer, it lies in [-2^128+1, 2^128-1], with Case 0 corresponding to the numbers < 0.
+ * Shifting to diff_lo :=  s_lo - reconstructed_lo + 2^128, Case 0 corresponds to the range [1, 2^128-1]. We see that
+ * the 129th bit of diff_lo exactly indicates Case 1. Extracting the 129th bit denoted `diff_lo_hi` and adding it to
+ * reconstructed_hi, we have a uniform constraint to apply. Namely, setting overlap := 1 - diff_overlap_lo_hi and
  *      diff_hi := s_hi - reconstructed_hi - overlap,
  * range constraining y_hi to 128 bits imposes validator < r.
  */
