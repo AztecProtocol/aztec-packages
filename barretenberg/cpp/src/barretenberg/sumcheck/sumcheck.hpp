@@ -230,10 +230,9 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
 
         multivariate_challenge.reserve(virtual_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
-        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
-        // compute_univariate also takes into account the zk_sumcheck_data.
+        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
         auto round_univariate =
-            round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
+            round.compute_univariate_with_row_skipping(full_polynomials, relation_parameters, gate_separators, alphas);
         // Initialize the partially evaluated polynomials which will be used in the following rounds.
         // This will use the information in the structured full polynomials to save memory if possible.
         partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
@@ -257,8 +256,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
             PROFILE_THIS_NAME("sumcheck loop");
 
             // Write the round univariate to the transcript
-            round_univariate =
-                round.compute_univariate(partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
+            round_univariate = round.compute_univariate_with_row_skipping(
+                partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
@@ -319,17 +318,16 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
-        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
-        // compute_univariate also takes into account the contribution required to hide the round univariates.
-        auto hiding_univariate = round.compute_hiding_univariate(full_polynomials,
+        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
+        auto hiding_univariate = round.compute_hiding_univariate(round_idx,
+                                                                 full_polynomials,
                                                                  relation_parameters,
                                                                  gate_separators,
                                                                  alphas,
                                                                  zk_sumcheck_data,
-                                                                 row_disabling_polynomial,
-                                                                 round_idx);
+                                                                 row_disabling_polynomial);
         auto round_univariate =
-            round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
+            round.compute_univariate_with_row_skipping(full_polynomials, relation_parameters, gate_separators, alphas);
         round_univariate += hiding_univariate;
 
         // Initialize the partially evaluated polynomials which will be used in the following rounds.
@@ -363,22 +361,21 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
                                                       // We operate on partially_evaluated_polynomials in place.
         }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-
             PROFILE_THIS_NAME("sumcheck loop");
 
             // Computes the round univariate in two parts: first the contribution necessary to hide the polynomial and
             // account for having randomness at the end of the trace and then the contribution from the full
             // relation. Note: we compute the hiding univariate first as the `compute_univariate` method prepares
             // relevant data structures for the next round
-            hiding_univariate = round.compute_hiding_univariate(partially_evaluated_polynomials,
+            hiding_univariate = round.compute_hiding_univariate(round_idx,
+                                                                partially_evaluated_polynomials,
                                                                 relation_parameters,
                                                                 gate_separators,
                                                                 alphas,
                                                                 zk_sumcheck_data,
-                                                                row_disabling_polynomial,
-                                                                round_idx);
-            round_univariate =
-                round.compute_univariate(partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
+                                                                row_disabling_polynomial);
+            round_univariate = round.compute_univariate_with_row_skipping(
+                partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
             round_univariate += hiding_univariate;
 
             if constexpr (!IsGrumpkinFlavor<Flavor>) {
