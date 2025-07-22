@@ -58,7 +58,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
 
     size_t num_public_inputs =
         static_cast<size_t>(static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));
-    std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
@@ -127,7 +126,6 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     decider_vk->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     decider_vk->witness_commitments = std::move(commitments);
-    decider_vk->public_inputs = std::move(public_inputs);
     decider_vk->alphas = std::move(alphas);
 }
 

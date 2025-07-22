@@ -29,7 +29,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
     std::shared_ptr<VerificationKey> vk;
 
     bool is_accumulator = false;
-    std::vector<FF> public_inputs;
+
     SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
@@ -44,13 +44,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
         : vk(vk)
     {}
 
-    MSGPACK_FIELDS(vk,
-                   relation_parameters,
-                   alphas,
-                   is_accumulator,
-                   public_inputs,
-                   gate_challenges,
-                   target_sum,
-                   witness_commitments);
+    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_accumulator, gate_challenges, target_sum, witness_commitments);
 };
 } // namespace bb

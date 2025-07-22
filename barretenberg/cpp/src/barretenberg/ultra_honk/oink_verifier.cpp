@@ -36,7 +36,6 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
 
     verification_key->witness_commitments = witness_comms;
     verification_key->relation_parameters = relation_parameters;
-    verification_key->public_inputs = public_inputs;
     verification_key->alphas = generate_alphas_round();
 }
 

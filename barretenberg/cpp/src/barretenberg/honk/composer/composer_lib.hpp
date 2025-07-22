@@ -8,7 +8,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/polynomials/polynomial_store.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
 #include <memory>
