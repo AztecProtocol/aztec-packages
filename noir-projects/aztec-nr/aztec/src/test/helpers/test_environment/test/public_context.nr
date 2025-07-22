@@ -1,4 +1,5 @@
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct};
+use protocol_types::{address::AztecAddress, traits::FromField};
 
 use dep::std::mem::zeroed;
 
@@ -8,6 +9,16 @@ global value: MockStruct = MockStruct { a: 17, b: 42 };
 global other_value: MockStruct = MockStruct { a: 7, b: 8 };
 
 global nullifier: Field = 9;
+
+#[test]
+unconstrained fn at_sets_contract_address() {
+    let mut env = TestEnvironment::_new();
+    let contract_address = AztecAddress::from_field(17);
+
+    env.public_context_at(contract_address, |context| {
+        assert_eq(context.this_address(), contract_address);
+    });
+}
 
 #[test]
 unconstrained fn default_storage_value() {
