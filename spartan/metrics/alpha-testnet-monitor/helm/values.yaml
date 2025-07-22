@@ -13,7 +13,7 @@ service:
   port: 80
 
 env:
-  ROLLUP_CONTRACT_ADDRESS: "0xee6d4e937f0493fb461f28a75cf591f1dba8704e"
+  ROLLUP_CONTRACT_ADDRESS: "0x216f071653a82ced3ef9d29f3f0c0ed7829c8f81"
 
 secrets:
   # These will be populated from GCP secrets during deployment
