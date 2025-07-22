@@ -137,8 +137,6 @@ template <typename Builder, typename Native> class uint {
     bool is_constant() const { return witness_index == IS_CONSTANT; }
     Builder* get_context() const { return context; }
 
-    bool_t<Builder> at(const size_t bit_index) const;
-
     size_t get_width() const { return width; }
 
     uint32_t get_witness_index() const { return witness_index; }
