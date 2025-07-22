@@ -84,6 +84,7 @@ describe('SlasherClient', () => {
       genesisArchiveRoot: Fr.random(),
       slashingQuorum: 6,
       slashingRoundSize: 10,
+      slashingExecutionDelayInRounds: 1,
       ethereumSlotDuration,
       aztecSlotDuration,
       aztecEpochDuration: 4,
