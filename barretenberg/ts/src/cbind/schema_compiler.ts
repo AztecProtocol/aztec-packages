@@ -602,8 +602,8 @@ ${methods}
 
 ${methods}
 
-  async destroy(): Promise<void> {
-    await this.wasm.destroy();
+  destroy(): Promise<void> {
+    return this.wasm.destroy();
   }
 }`;
   }
@@ -627,25 +627,36 @@ ${methods}
 
   private generateApiMethod(metadata: FunctionMetadata): string {
     const { name, commandType, responseType } = metadata;
-    const isAsync = this.config.mode !== 'sync';
-    const asyncPrefix = isAsync ? 'async ' : '';
-    const asyncSuffix = isAsync ? 'await ' : '';
-    const returnType = isAsync ? `Promise<${responseType}>` : responseType;
 
     if (this.config.mode === 'native') {
-      return `  async ${name}(command: ${commandType}): Promise<${responseType}> {
+      return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    const [variantName, result] = await this.sendCommand(['${metadata.commandType}', msgpackCommand]);
-    if (variantName !== '${responseType}') {
-      throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
-    }
-    return to${responseType}(result);
+    return this.sendCommand(['${metadata.commandType}', msgpackCommand]).then(([variantName, result]) => {
+      if (variantName !== '${responseType}') {
+        throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
+      }
+      return to${responseType}(result);
+    });
   }`;
     }
 
-    return `  ${asyncPrefix}${name}(command: ${commandType}): ${returnType} {
+    // For async mode, queue immediately and return promise
+    if (this.config.mode === 'async') {
+      return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    const [variantName, result] = ${asyncSuffix}this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]);
+    return this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]).then(([variantName, result]) => {
+      if (variantName !== '${responseType}') {
+        throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
+      }
+      return to${responseType}(result);
+    });
+  }`;
+    }
+    
+    // For sync mode, keep the synchronous behavior
+    return `  ${name}(command: ${commandType}): ${responseType} {
+    const msgpackCommand = from${commandType}(command);
+    const [variantName, result] = this.wasm.msgpackCall('bbapi', ["${capitalize(name)}", msgpackCommand]);
     if (variantName !== '${responseType}') {
       throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
     }
@@ -763,8 +774,8 @@ export class NativeApi implements BbApiBase {
     this.proc.kill();
   }
 
-  async destroy(): Promise<void> {
-    await this.close();
+  destroy(): Promise<void> {
+    return this.close();
   }
 
 ${methods}
