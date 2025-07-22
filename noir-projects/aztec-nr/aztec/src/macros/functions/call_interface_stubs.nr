@@ -1,7 +1,7 @@
 use crate::macros::utils::{
     add_to_field_array, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
 };
-use std::meta::{type_of, unquote};
+use std::meta::unquote;
 
 comptime global FROM_FIELD: TypedExpr = {
     let from_field_trait = quote { protocol_types::traits::FromField }.as_trait_constraint();
