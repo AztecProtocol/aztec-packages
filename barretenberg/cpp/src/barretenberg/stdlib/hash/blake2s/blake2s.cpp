@@ -4,9 +4,9 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "blake2s.hpp"
 #include "blake_util.hpp"
 
+#include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 
 /**
@@ -50,8 +50,8 @@ template <typename Builder> void Blake2s<Builder>::compress(blake2s_state& S, by
 {
     using plookup::ColumnIdx;
     using namespace blake_util;
-    std::array<field_ct, blake_util::BLAKE3_STATE_SIZE> m;
-    std::array<field_ct, blake_util::BLAKE3_STATE_SIZE> v;
+    field_ct m[16];
+    field_ct v[16];
 
     for (size_t i = 0; i < 16; ++i) {
         m[i] = static_cast<field_ct>(in.slice(i * 4, 4).reverse());
@@ -111,7 +111,7 @@ template <typename Builder> void Blake2s<Builder>::blake2s(blake2s_state& S, byt
     }
 
     // Set last block.
-    S.f[0] = field_ct(static_cast<uint256_t>(static_cast<uint32_t>(-1)));
+    S.f[0] = field_t<Builder>(uint256_t((uint32_t)-1));
 
     byte_array_ct final(in.get_context());
     final.write(in.slice(offset)).write(byte_array_ct(in.get_context(), BLAKE2S_BLOCKBYTES - size));

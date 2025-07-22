@@ -5,10 +5,8 @@
 // =====================
 
 #pragma once
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 
 #include "../../primitives/byte_array/byte_array.hpp"
-#include "../../primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "../../primitives/field/field.hpp"
 
 namespace bb::stdlib {
@@ -46,8 +44,8 @@ template <typename Builder> class Blake3s {
                                                  0x510E527FUL, 0x9B05688CUL, 0x1F83D9ABUL, 0x5BE0CD19UL };
 
     struct blake3_hasher {
-        std::array<field_t<Builder>, 8> key;
-        std::array<field_t<Builder>, 8> cv;
+        field_t<Builder> key[8];
+        field_t<Builder> cv[8];
         byte_array<Builder> buf;
         uint8_t buf_len;
         uint8_t blocks_compressed;
@@ -56,27 +54,24 @@ template <typename Builder> class Blake3s {
     };
 
     struct output_t {
-        std::array<field_t<Builder>, 8> input_cv;
+        field_t<Builder> input_cv[8];
         byte_array<Builder> block;
         uint8_t block_len;
         uint8_t flags;
     };
-    static void compress_pre(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
-                             const std::array<field_t<Builder>, 8> cv,
+    static void compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
+                             const field_t<Builder> cv[8],
                              const byte_array_ct& block,
                              uint8_t block_len,
                              uint8_t flags);
 
-    static void blake3_compress_in_place(std::array<field_t<Builder>, 8> cv,
+    static void blake3_compress_in_place(field_t<Builder> cv[8],
                                          const byte_array_ct& block,
                                          uint8_t block_len,
                                          uint8_t flags);
 
-    static void blake3_compress_xof(const std::array<field_t<Builder>, 8> cv,
-                                    const byte_array_ct& block,
-                                    uint8_t block_len,
-                                    uint8_t flags,
-                                    byte_array_ct& out);
+    static void blake3_compress_xof(
+        const field_t<Builder> cv[8], const byte_array_ct& block, uint8_t block_len, uint8_t flags, byte_array_ct& out);
 
     /*
      * Blake3s helper functions.
@@ -90,7 +85,7 @@ template <typename Builder> class Blake3s {
             return 0;
         }
     }
-    static output_t make_output(const std::array<field_t<Builder>, 8> input_cv,
+    static output_t make_output(const field_t<Builder> input_cv[8],
                                 const byte_array_ct& block,
                                 uint8_t block_len,
                                 uint8_t flags);

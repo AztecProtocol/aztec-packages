@@ -19,13 +19,13 @@ using namespace blake_util;
  *
  */
 template <typename Builder>
-void Blake3s<Builder>::compress_pre(std::array<field_t<Builder>, BLAKE3_STATE_SIZE> state,
-                                    const std::array<field_t<Builder>, 8> cv,
+void Blake3s<Builder>::compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
+                                    const field_t<Builder> cv[8],
                                     const byte_array<Builder>& block,
                                     uint8_t block_len,
                                     uint8_t flags)
 {
-    std::array<field_ct, BLAKE3_STATE_SIZE> block_words;
+    field_ct block_words[BLAKE3_STATE_SIZE];
     for (size_t i = 0; i < BLAKE3_STATE_SIZE; ++i) {
         block_words[i] = field_ct(block.slice(i * 4, 4).reverse());
     }
@@ -53,12 +53,12 @@ void Blake3s<Builder>::compress_pre(std::array<field_t<Builder>, BLAKE3_STATE_SI
 }
 
 template <typename Builder>
-void Blake3s<Builder>::blake3_compress_in_place(std::array<field_t<Builder>, 8> cv,
+void Blake3s<Builder>::blake3_compress_in_place(field_t<Builder> cv[8],
                                                 const byte_array<Builder>& block,
                                                 uint8_t block_len,
                                                 uint8_t flags)
 {
-    std::array<field_ct, BLAKE3_STATE_SIZE> state;
+    field_ct state[BLAKE3_STATE_SIZE];
     compress_pre(state, cv, block, block_len, flags);
 
     /**
@@ -75,13 +75,13 @@ void Blake3s<Builder>::blake3_compress_in_place(std::array<field_t<Builder>, 8> 
 }
 
 template <typename Builder>
-void Blake3s<Builder>::blake3_compress_xof(const std::array<field_t<Builder>, 8> cv,
+void Blake3s<Builder>::blake3_compress_xof(const field_t<Builder> cv[8],
                                            const byte_array<Builder>& block,
                                            uint8_t block_len,
                                            uint8_t flags,
                                            byte_array<Builder>& out)
 {
-    std::array<field_ct, BLAKE3_STATE_SIZE> state;
+    field_ct state[BLAKE3_STATE_SIZE];
 
     compress_pre(state, cv, block, block_len, flags);
 
@@ -101,7 +101,7 @@ void Blake3s<Builder>::blake3_compress_xof(const std::array<field_t<Builder>, 8>
 }
 
 template <typename Builder>
-Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const std::array<field_t<Builder>, 8> input_cv,
+Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_t<Builder> input_cv[8],
                                                          const byte_array<Builder>& block,
                                                          uint8_t block_len,
                                                          uint8_t flags)
