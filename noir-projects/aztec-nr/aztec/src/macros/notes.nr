@@ -1,7 +1,4 @@
-use crate::{
-    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
-    note::note_getter_options::PropertySelector,
-};
+use crate::note::note_getter_options::PropertySelector;
 use std::{collections::bounded_vec::BoundedVec, meta::type_of};
 
 /// Maximum number of note types within 1 contract.
@@ -34,10 +31,12 @@ comptime fn get_next_note_type_id() -> Field {
 /// }
 comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Quoted {
     let name = s.name();
+    let typ = s.as_type();
 
     quote {
         impl aztec::note::note_interface::NoteType for $name {
             fn get_id() -> Field {
+                std::static_assert(<$typ as Packable>::N  <= $crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN, "typ packed length exceeds the maximum of aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN fields");
                 $note_type_id
             }
         }
@@ -159,27 +158,6 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Generates a compile-time check to ensure a note's packed length does not exceed the maximum allowed size.
-///
-/// This function creates an implementation block for the note type that includes a static assertion
-/// checking that the note's packed length (when serialized) is less than or equal to MAX_NOTE_PACKED_LEN.
-/// This prevents potential overflows when processing notes in the protocol.
-///
-/// # Arguments
-/// * `s` - The note type definition to generate the check for
-///
-/// # Returns
-/// A quoted code block containing the implementation with the static assertion
-comptime fn generate_packed_length_check(s: TypeDefinition) -> Quoted {
-    let typ = s.as_type();
-    quote {
-        #[test]
-        fn packed_length_static_check() {
-            std::static_assert(<$typ as Packable>::N  <= aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN, "$typ packed length exceeds the maximum of $MAX_NOTE_PACKED_LEN fields");
-        }
-    }
-}
-
 /// Generates the core note functionality for a struct:
 ///
 /// - NoteTypeProperties: Defines the structure and properties of note fields
@@ -215,13 +193,11 @@ pub comptime fn note(s: TypeDefinition) -> Quoted {
     let note_type_id = get_next_note_type_id();
     let note_type_impl = generate_note_type_impl(s, note_type_id);
     let note_hash_impl = generate_note_hash_trait_impl(s);
-    let packed_length_check = generate_packed_length_check(s);
 
     quote {
         $note_properties
         $note_type_impl
         $note_hash_impl
-        $packed_length_check
     }
 }
 
@@ -277,12 +253,10 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     let note_type_id = get_next_note_type_id();
     let note_properties = generate_note_properties(s);
     let note_type_impl = generate_note_type_impl(s, note_type_id);
-    let packed_length_check = generate_packed_length_check(s);
 
     quote {
         $note_properties
         $note_type_impl
-        $packed_length_check
     }
 }
 
