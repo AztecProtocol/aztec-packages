@@ -215,6 +215,98 @@ auto process_carry_add_with_tracegen(MemoryTag input_tag)
     return trace;
 }
 
+TestTraceContainer process_mul_trace(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    auto [_a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto a = MemoryValue::from_tag(input_tag, _a);
+    auto b = MemoryValue::from_tag(input_tag, _b);
+    auto c = a * b;
+    auto tag = static_cast<uint8_t>(input_tag);
+    auto is_u128 = input_tag == MemoryTag::U128;
+
+    auto c_int = static_cast<uint256_t>(a.as_ff()) * static_cast<uint256_t>(b.as_ff());
+    auto c_hi = input_tag == MemoryTag::FF ? 0 : c_int >> get_tag_bits(input_tag);
+
+    auto trace = TestTraceContainer::from_rows({
+        {
+            .alu_c_hi = c_hi,
+            .alu_constant_64 = 64,
+            .alu_ia = a,
+            .alu_ia_tag = tag,
+            .alu_ib = b,
+            .alu_ib_tag = tag,
+            .alu_ic = c,
+            .alu_ic_tag = tag,
+            .alu_max_bits = get_tag_bits(input_tag),
+            .alu_max_value = get_tag_max_value(input_tag),
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_MUL,
+            .alu_sel = 1,
+            .alu_sel_is_u128 = is_u128 ? 1 : 0,
+            .alu_sel_op_mul = 1,
+            .alu_tag_u128_diff_inv = is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert(),
+            .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
+            .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
+            .execution_register_0_ = a,                                // = ia
+            .execution_register_1_ = b,                                // = ib
+            .execution_register_2_ = c,                                // = ic
+            .execution_sel_execute_alu = 1,                            // = sel
+            .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_MUL, // = alu_op_id
+        },
+    });
+
+    if (is_u128) {
+        auto a_lo = static_cast<uint256_t>(a.as_ff()) % (uint256_t(1) << 64);
+        auto a_hi = static_cast<uint256_t>(a.as_ff()) >> 64;
+        auto b_lo = static_cast<uint256_t>(b.as_ff()) % (uint256_t(1) << 64);
+        auto b_hi = static_cast<uint256_t>(b.as_ff()) >> 64;
+        auto hi_operand = (uint256_t(1) << 128) * (a_hi * b_hi);
+        c_hi = (c_int - hi_operand >> 128) % (uint256_t(1) << 64);
+        trace.set(0,
+                  { { { Column::alu_a_lo, a_lo },
+                      { Column::alu_a_hi, a_hi },
+                      { Column::alu_b_lo, b_lo },
+                      { Column::alu_b_hi, b_hi },
+                      { Column::alu_c_hi, c_hi },
+                      { Column::alu_cf, hi_operand == 0 ? 0 : 1 } } });
+    }
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
+    return trace;
+}
+
+TestTraceContainer process_mul_with_tracegen(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+    auto [_a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto a = MemoryValue::from_tag(input_tag, _a);
+    auto b = MemoryValue::from_tag(input_tag, _b);
+    uint256_t a_int = static_cast<uint256_t>(a.as_ff());
+    uint256_t b_int = static_cast<uint256_t>(b.as_ff());
+    auto c_hi = input_tag == MemoryTag::FF ? 0 : a_int * b_int >> get_tag_bits(input_tag);
+    if (input_tag == MemoryTag::U128) {
+        c_hi = (a_int * b_int - (a_int >> 64) * (b_int >> 64)) << 64 >> 192;
+    }
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::MUL, .a = a, .b = b, .c = a * b },
+        },
+        trace);
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
+    return trace;
+}
+
 TestTraceContainer process_lt_trace(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
@@ -556,6 +648,98 @@ TEST(AluConstrainingTest, NegativeAddWrongTagCMismatch)
     check_relation<alu>(trace);
     trace.set(Column::alu_ic_tag, 0, tag - 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
+}
+
+// MUL TESTS
+
+TEST_P(AluTagTest, AluMulTag)
+{
+    const auto tag = GetParam();
+    auto trace = process_mul_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluMulTagTraceGen)
+{
+    const auto tag = GetParam();
+    auto trace = process_mul_with_tracegen(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, AluMulU128Carry)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+
+    auto a = MemoryValue::from_tag(MemoryTag::U128, get_tag_max_value(MemoryTag::U128));     // = -1
+    auto b = MemoryValue::from_tag(MemoryTag::U128, get_tag_max_value(MemoryTag::U128) - 2); // = -3
+    auto c = a * b;                                                                          // = 3
+    auto overflow_c_int = static_cast<uint256_t>(a.as_ff()) * static_cast<uint256_t>(b.as_ff());
+
+    auto tag = static_cast<uint8_t>(MemoryTag::U128);
+
+    auto a_lo = static_cast<uint256_t>(a.as_ff()) % (uint256_t(1) << 64);
+    auto a_hi = static_cast<uint256_t>(a.as_ff()) >> 64;
+    auto b_lo = static_cast<uint256_t>(b.as_ff()) % (uint256_t(1) << 64);
+    auto b_hi = static_cast<uint256_t>(b.as_ff()) >> 64;
+    auto hi_operand = (uint256_t(1) << 128) * (a_hi * b_hi);
+    auto c_hi = (overflow_c_int - hi_operand >> 128) % (uint256_t(1) << 64);
+    auto trace = TestTraceContainer::from_rows({
+        {
+            .alu_a_hi = a_hi,
+            .alu_a_lo = a_lo,
+            .alu_b_hi = b_hi,
+            .alu_b_lo = b_lo,
+            .alu_c_hi = c_hi,
+            .alu_cf = 1, // a * b overflows
+            .alu_constant_64 = 64,
+            .alu_ia = a,
+            .alu_ia_tag = tag,
+            .alu_ib = b,
+            .alu_ib_tag = tag,
+            .alu_ic = c,
+            .alu_ic_tag = tag,
+            .alu_max_bits = get_tag_bits(MemoryTag::U128),
+            .alu_max_value = get_tag_max_value(MemoryTag::U128),
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_MUL,
+            .alu_sel = 1,
+            .alu_sel_is_u128 = 1,
+            .alu_sel_op_mul = 1,
+            .alu_tag_u128_diff_inv = 0,
+            .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
+            .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
+            .execution_register_0_ = a,                                // = ia
+            .execution_register_1_ = b,                                // = ib
+            .execution_register_2_ = c,                                // = ic
+            .execution_sel_execute_alu = 1,                            // = sel
+            .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_MUL, // = alu_op_id
+        },
+    });
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
+
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+
+    // Below = (a * b mod p) mod 2^128
+    auto should_fail_overflowed = MemoryValue::from_tag_truncating(MemoryTag::U128, a.as_ff() * b.as_ff());
+    trace.set(Column::alu_ic, 0, should_fail_overflowed);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_MUL_U128");
+}
+
+TEST_P(AluTagTest, NegativeAluMulTag)
+{
+    const auto tag = GetParam();
+    auto trace = process_mul_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+    trace.set(Column::alu_ic, 0, trace.get(Column::alu_ic, 0) + 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_MUL");
 }
 
 // LT TESTS

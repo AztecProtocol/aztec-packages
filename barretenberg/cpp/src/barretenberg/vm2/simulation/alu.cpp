@@ -24,6 +24,22 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
 {
     try {
         MemoryValue c = a * b; // This will throw if the tags do not match.
+        uint256_t a_int = static_cast<uint256_t>(a.as_ff());
+        uint256_t b_int = static_cast<uint256_t>(b.as_ff());
+        uint256_t c_hi = 0;
+        MemoryTag tag = a.get_tag();
+        // TODO(MW): Add (shifted) range checks for decomposition of a, b for u128 case
+        // TODO(MW): Either gate the c_hi check by u128 tag, or check in all cases but use a new limb_bits column for
+        // each tag (e.g. u64 => range check c_hi is in 32 bits)
+        if (tag == MemoryTag::U128) {
+            // For u128, we decompose a and b into 64 bit chunks and discard the highest bits given by the product.
+            // See alu.pil and alu_trace.cpp for more documentation:
+            c_hi = (a_int * b_int - (a_int >> 64) * (b_int >> 64)) << 64 >> 192;
+        } else if (tag != MemoryTag::FF) {
+            // For other integers, we just take the 'overflowed' bits:
+            c_hi = a_int * b_int >> get_tag_bits(tag);
+        }
+        range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
@@ -94,7 +110,7 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
 
     // Circuit leakage: range check for `mid` value defined by a = ic + mid * 2^dst_tag_bits + hi_128 * 2^128 and
     // mid is (128 - dst_tag_bits) bits.
-    bool is_trivial = dst_tag == ValueTag::FF || static_cast<uint256_t>(a) <= get_tag_max_value(dst_tag);
+    bool is_trivial = dst_tag == MemoryTag::FF || static_cast<uint256_t>(a) <= get_tag_max_value(dst_tag);
     if (!is_trivial) {
 
         uint128_t a_lo = 0;

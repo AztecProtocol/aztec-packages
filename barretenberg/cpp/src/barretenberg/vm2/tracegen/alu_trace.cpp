@@ -30,13 +30,54 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  // I think the only situation in which a + b != c as fields is when c overflows the bit size
                  // if this in unclear, I can use > or actually check bit sizes:
                  { Column::alu_cf, event.a.as_ff() + event.b.as_ff() != event.c.as_ff() } };
+    case simulation::AluOperation::MUL: {
+        bool is_u128 = event.a.get_tag() == ValueTag::U128;
+        uint256_t a_int = static_cast<uint256_t>(event.a.as_ff());
+        uint256_t b_int = static_cast<uint256_t>(event.b.as_ff());
+        // Columns shared for all tags in a MUL:
+        std::vector<std::pair<Column, FF>> res = {
+            { Column::alu_sel_op_mul, 1 },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::MUL).subtrace_operation_id },
+            { Column::alu_constant_64, 64 },
+            { Column::alu_sel_is_u128, is_u128 },
+            { Column::alu_tag_u128_diff_inv,
+              is_u128
+                  ? 0
+                  : FF((static_cast<uint8_t>(event.a.get_tag())) - static_cast<uint8_t>(MemoryTag::U128)).invert() },
+        };
+        if (is_u128) {
+            // For u128s, we decompose a and b into 64 bit chunks:
+            auto a_lo = a_int % (uint256_t(1) << 64);
+            auto a_hi = a_int >> 64;
+            auto b_lo = b_int % (uint256_t(1) << 64);
+            auto b_hi = b_int >> 64;
+            // TODO(MW): We don't really need to do op = a_hi * b_hi * 2^128, then (a * b - op) >> 128 % 2^64, but kept
+            // the calculation to clarify we're removing the a_hi * b_hi operand from a * b, simplify?
+            // We discard the top bits (given by a_hi * b_hi * 2^128) from c_hi:
+            auto hi_operand = (uint256_t(1) << 128) * (a_hi * b_hi);
+            res.insert(res.end(),
+                       {
+                           { Column::alu_a_lo, a_lo },
+                           { Column::alu_a_hi, a_hi },
+                           { Column::alu_b_lo, b_lo },
+                           { Column::alu_b_hi, b_hi },
+                           { Column::alu_c_hi, (a_int * b_int - hi_operand >> 128) % (uint256_t(1) << 64) },
+                           { Column::alu_cf, hi_operand == 0 ? 0 : 1 },
+                       });
+        } else {
+            // For non-u128s, we just take the top bits of a*b:
+            res.insert(res.end(),
+                       { { Column::alu_c_hi, is_ff ? 0 : a_int * b_int >> get_tag_bits(event.a.get_tag()) } });
+        }
+        return res;
+    }
     case simulation::AluOperation::EQ: {
         const FF diff = event.a.as_ff() - event.b.as_ff();
         return { { Column::alu_sel_op_eq, 1 },
                  { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::EQ).subtrace_operation_id },
                  { Column::alu_helper1, diff == 0 ? 0 : diff.invert() } };
     }
-    case simulation::AluOperation::LT: {
+    case simulation::AluOperation::LT:
         return {
             { Column::alu_lt_ops_input_a, event.b },
             { Column::alu_lt_ops_input_b, event.a },
@@ -53,8 +94,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                   ? 0
                   : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
         };
-    }
-    case simulation::AluOperation::LTE: {
+    case simulation::AluOperation::LTE:
         return {
             { Column::alu_lt_ops_input_a, event.a },
             { Column::alu_lt_ops_input_b, event.b },
@@ -71,7 +111,6 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                   ? 0
                   : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
         };
-    }
     case simulation::AluOperation::NOT: {
         const FF tag_diff = static_cast<uint8_t>(event.a.get_tag()) - static_cast<uint8_t>(MemoryTag::FF);
         bool is_ff = event.a.get_tag() == ValueTag::FF;
@@ -169,6 +208,7 @@ const InteractionDefinition AluTraceBuilder::interactions =
         .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_range_check_mul_u128_c_hi_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
 } // namespace bb::avm2::tracegen

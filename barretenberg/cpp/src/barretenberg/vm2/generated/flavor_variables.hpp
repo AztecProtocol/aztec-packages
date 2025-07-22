@@ -213,6 +213,7 @@ struct AvmFlavorVariables {
         lookup_alu_ff_gt_relation<FF_>,
         lookup_alu_int_gt_relation<FF_>,
         lookup_alu_large_trunc_canonical_dec_relation<FF_>,
+        lookup_alu_range_check_mul_u128_c_hi_relation<FF_>,
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_register_tag_value_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
