@@ -19,11 +19,20 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
-#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
+
+template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
+{
+    std::string in;
+    in.resize(32);
+    stdlib::packed_byte_array<Builder> input(&builder, in);
+    for (size_t i = 0; i < num_iterations; i++) {
+        input = stdlib::SHA256<Builder>::hash(input);
+    }
+}
 
 /**
  * @brief An arbitrary but small-ish structuring that can be used for testing with non-trivial circuits in cases when
@@ -82,11 +91,11 @@ class GoblinMockCircuits {
         PROFILE_THIS();
 
         if (large) { // Results in circuit size 2^19
-            stdlib::generate_sha256_test_circuit(builder, 9);
+            generate_sha256_test_circuit<MegaBuilder>(builder, 9);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 8);
             stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
-            stdlib::generate_sha256_test_circuit(builder, 8);
+            generate_sha256_test_circuit<MegaBuilder>(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
             stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
@@ -158,7 +167,7 @@ class GoblinMockCircuits {
         const size_t NUM_SHA_HASHES = 1;
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
-        stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
+        generate_sha256_test_circuit<MegaBuilder>(builder, NUM_SHA_HASHES);
     }
 };
 } // namespace bb

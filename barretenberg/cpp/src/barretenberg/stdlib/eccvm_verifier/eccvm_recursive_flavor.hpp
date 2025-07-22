@@ -146,9 +146,7 @@ class ECCVMRecursiveFlavor {
         }
 
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
@@ -156,11 +154,18 @@ class ECCVMRecursiveFlavor {
         FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
 
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
         }
     };
 

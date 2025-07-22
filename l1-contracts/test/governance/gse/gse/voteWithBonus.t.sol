@@ -7,10 +7,10 @@ import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
-contract VoteWithCanonicalTest is WithGSE {
+contract VoteWithBonusTest is WithGSE {
   using ProposalLib for Proposal;
 
-  address internal MAGIC_ADDRESS;
+  address internal BONUS_ADDRESS;
 
   function setUp() public override {
     super.setUp();
@@ -18,21 +18,21 @@ contract VoteWithCanonicalTest is WithGSE {
     vm.prank(governance.governanceProposer());
     governance.propose(IPayload(address(0xbeef)));
 
-    MAGIC_ADDRESS = gse.getCanonicalMagicAddress();
+    BONUS_ADDRESS = gse.getBonusInstanceAddress();
   }
 
-  function test_GivenCallerIsNotCanonicalAtProposalTime(address _instance) external {
+  function test_GivenCallerIsNotLatestAtProposalTime(address _instance) external {
     // it reverts
 
     vm.assume(_instance != address(0));
 
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotCanonical.selector, _instance));
-    gse.voteWithCanonical(0, 0, true);
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotLatestRollup.selector, _instance));
+    gse.voteWithBonus(0, 0, true);
   }
 
-  modifier givenCallerIsCanonicalAtProposalTime(address _instance) {
-    vm.assume(_instance != address(0) && _instance != MAGIC_ADDRESS);
+  modifier givenCallerIsLatestAtProposalTime(address _instance) {
+    vm.assume(_instance != address(0) && _instance != BONUS_ADDRESS);
 
     vm.prank(gse.owner());
     gse.addRollup(_instance);
@@ -40,11 +40,11 @@ contract VoteWithCanonicalTest is WithGSE {
     _;
   }
 
-  function test_GivenAmountGreaterThanAvailableCanonicalPower(
+  function test_GivenAmountGreaterThanAvailableBonusPower(
     address _instance,
     address _attester,
     uint256 _amount
-  ) external givenCallerIsCanonicalAtProposalTime(_instance) {
+  ) external givenCallerIsLatestAtProposalTime(_instance) {
     // it reverts
 
     uint256 availablePower = _prepare(_instance, _attester);
@@ -53,34 +53,34 @@ contract VoteWithCanonicalTest is WithGSE {
     vm.prank(_instance);
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Delegation__InsufficientPower.selector, MAGIC_ADDRESS, availablePower, amount
+        Errors.Delegation__InsufficientPower.selector, BONUS_ADDRESS, availablePower, amount
       )
     );
-    gse.voteWithCanonical(0, amount, true);
+    gse.voteWithBonus(0, amount, true);
   }
 
-  function test_GivenAmountLessOrEqualToAvailableCanonicalPower(
+  function test_GivenAmountLessOrEqualToAvailableBonusPower(
     address _instance,
     address _attester,
     bool _support,
     uint256 _amount
-  ) external givenCallerIsCanonicalAtProposalTime(_instance) {
-    // it uses delegation power for canonical
+  ) external givenCallerIsLatestAtProposalTime(_instance) {
+    // it uses delegation power for bonus
     // it votes in governance
 
     Proposal memory proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, 0);
-    assertEq(proposal.summedBallot.nea, 0);
+    assertEq(proposal.summedBallot.nay, 0);
 
     uint256 availablePower = _prepare(_instance, _attester);
     uint256 amount = bound(_amount, 0, availablePower);
 
     vm.prank(_instance);
-    gse.voteWithCanonical(0, amount, _support);
+    gse.voteWithBonus(0, amount, _support);
 
     proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, _support ? amount : 0);
-    assertEq(proposal.summedBallot.nea, _support ? 0 : amount);
+    assertEq(proposal.summedBallot.nay, _support ? 0 : amount);
   }
 
   function _prepare(address _instance, address _attester) internal returns (uint256) {
@@ -89,7 +89,7 @@ contract VoteWithCanonicalTest is WithGSE {
     Proposal memory proposal = governance.getProposal(0);
     vm.warp(Timestamp.unwrap(proposal.pendingThroughMemory()) + 1);
 
-    uint256 availablePower = gse.getVotingPowerAt(MAGIC_ADDRESS, proposal.pendingThroughMemory());
+    uint256 availablePower = gse.getVotingPowerAt(BONUS_ADDRESS, proposal.pendingThroughMemory());
 
     return availablePower;
   }

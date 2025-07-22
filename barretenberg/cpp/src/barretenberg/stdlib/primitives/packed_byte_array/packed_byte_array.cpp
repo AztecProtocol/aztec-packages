@@ -31,11 +31,11 @@ packed_byte_array<Builder>::packed_byte_array(Builder* parent_context, const siz
     , num_bytes(n)
 {
     const size_t num_elements = num_bytes / BYTES_PER_ELEMENT + (num_bytes % BYTES_PER_ELEMENT != 0);
-    limbs = std::vector<field_pt>(num_elements);
+    limbs = std::vector<field_ct>(num_elements);
 }
 
 template <typename Builder>
-packed_byte_array<Builder>::packed_byte_array(const std::vector<field_pt>& input, const size_t bytes_per_input)
+packed_byte_array<Builder>::packed_byte_array(const std::vector<field_ct>& input, const size_t bytes_per_input)
     : context(get_context_from_fields(input))
     , num_bytes(bytes_per_input * input.size())
 {
@@ -49,14 +49,14 @@ packed_byte_array<Builder>::packed_byte_array(const std::vector<field_pt>& input
 
     const size_t num_elements = num_bytes / BYTES_PER_ELEMENT + (num_bytes % BYTES_PER_ELEMENT != 0);
     for (size_t i = 0; i < num_elements; ++i) {
-        field_pt limb(context, 0);
+        field_ct limb(context, 0);
         if (uint256_t(limb.get_value()).get_msb() >= 128) {
             context->failure("packed_byte_array: input field element to `packed_byte_array` is >16 bytes!");
         }
         const size_t num_inputs = (i == num_elements - 1) ? (input.size() - (i * inputs_per_limb)) : inputs_per_limb;
         for (size_t j = 0; j < num_inputs; ++j) {
             const uint64_t limb_shift = (BYTES_PER_ELEMENT - ((j + 1) * bytes_per_input)) << 3;
-            limb += input[i * inputs_per_limb + j] * field_pt(context, uint256_t(1) << limb_shift);
+            limb += input[i * inputs_per_limb + j] * field_ct(context, uint256_t(1) << limb_shift);
         }
         limbs.push_back(limb);
     }
@@ -86,7 +86,7 @@ packed_byte_array<Builder>::packed_byte_array(Builder* parent_context, const std
 }
 
 template <typename Builder>
-packed_byte_array<Builder>::packed_byte_array(const byte_array_pt& input)
+packed_byte_array<Builder>::packed_byte_array(const byte_array_ct& input)
     : context(input.get_context())
     , num_bytes(input.size())
 {
@@ -96,10 +96,10 @@ packed_byte_array<Builder>::packed_byte_array(const byte_array_pt& input)
 
     for (size_t i = 0; i < num_elements; ++i) {
         const size_t bytes_in_element = (i == num_elements - 1) ? num_bytes - i * BYTES_PER_ELEMENT : BYTES_PER_ELEMENT;
-        field_pt limb(context, 0);
+        field_ct limb(context, 0);
         for (size_t j = 0; j < bytes_in_element; ++j) {
             const uint64_t shift = static_cast<uint64_t>(BYTES_PER_ELEMENT - 1 - j) * 8;
-            limb += field_pt(bytes[i * BYTES_PER_ELEMENT + j]) * field_pt(context, uint256_t(1) << shift);
+            limb += field_ct(bytes[i * BYTES_PER_ELEMENT + j]) * field_ct(context, uint256_t(1) << shift);
         }
         limbs.push_back(limb);
     }
@@ -129,7 +129,7 @@ packed_byte_array<Builder>& packed_byte_array<Builder>::operator=(const packed_b
 {
     context = other.context;
     num_bytes = other.num_bytes;
-    limbs = std::vector<field_pt>(other.limbs.begin(), other.limbs.end());
+    limbs = std::vector<field_ct>(other.limbs.begin(), other.limbs.end());
     return *this;
 }
 
@@ -137,51 +137,33 @@ template <typename Builder> packed_byte_array<Builder>& packed_byte_array<Builde
 {
     context = other.context;
     num_bytes = other.num_bytes;
-    limbs = std::vector<field_pt>(other.limbs.begin(), other.limbs.end());
+    limbs = std::vector<field_ct>(other.limbs.begin(), other.limbs.end());
     return *this;
 }
 
-template <typename Builder>
-packed_byte_array<Builder> packed_byte_array<Builder>::from_field_element_vector(const std::vector<field_pt>& input)
+template <typename Builder> packed_byte_array<Builder>::operator byte_array_ct() const
 {
-    packed_byte_array result(get_context_from_fields(input), input.size() * 32);
-
-    for (size_t i = 0; i < input.size(); ++i) {
-        uint256_t raw = input[i].get_value();
-        field_pt lo(witness_pt(result.context, raw.slice(0, 128)));
-        field_pt hi(witness_pt(result.context, raw.slice(128, 256)));
-        lo.create_range_constraint(128, "packed_byte_array::from_field_element_vector range fail");
-        hi.create_range_constraint(128, "packed_byte_array::from_field_element_vector range fail");
-        input[i].assert_equal(lo + (hi * (uint256_t(1) << 128)));
-        result.limbs[2 * i] = hi;
-        result.limbs[2 * i + 1] = lo;
-    }
-    return result;
-}
-
-template <typename Builder> packed_byte_array<Builder>::operator byte_array_pt() const
-{
-    std::vector<field_pt> bytes;
+    std::vector<field_ct> bytes;
 
     for (size_t i = 0; i < limbs.size(); ++i) {
         const size_t bytes_in_limb = (i == limbs.size() - 1) ? num_bytes - (i * BYTES_PER_ELEMENT) : BYTES_PER_ELEMENT;
-        field_pt accumulator(context, 0);
+        field_ct accumulator(context, 0);
         uint256_t limb_value(limbs[i].get_value());
         for (size_t j = 0; j < bytes_in_limb; ++j) {
             const uint64_t bit_shift = (BYTES_PER_ELEMENT - 1 - j) * 8;
             uint64_t byte_val = (limb_value >> bit_shift).data[0] & (uint64_t)(255);
-            field_pt byte(witness_t(context, fr(byte_val)));
+            field_ct byte(witness_t(context, fr(byte_val)));
             byte.create_range_constraint(8);
-            accumulator += (field_pt(byte) * field_pt(context, uint256_t(1) << bit_shift));
+            accumulator += (field_ct(byte) * field_ct(context, uint256_t(1) << bit_shift));
             bytes.emplace_back(byte);
         }
         accumulator.assert_equal(limbs[i]);
     }
-    return byte_array_pt(context, bytes);
+    return byte_array_ct(context, bytes);
 }
 
 template <typename Builder>
-void packed_byte_array<Builder>::append(const field_pt& to_append, const size_t bytes_to_append)
+void packed_byte_array<Builder>::append(const field_ct& to_append, const size_t bytes_to_append)
 {
     const size_t current_capacity = limbs.size() * BYTES_PER_ELEMENT;
     const size_t current_size = size();
@@ -204,17 +186,17 @@ void packed_byte_array<Builder>::append(const field_pt& to_append, const size_t 
     const uint64_t next_padding = (BYTES_PER_ELEMENT - num_bytes_for_new_limb) << 3;
     bool is_constant = to_append.witness_index == IS_CONSTANT;
 
-    field_pt to_current;
-    to_current = is_constant ? field_pt(context, append_current) : witness_t(context, append_current);
-    limbs[limbs.size() - 1] += (to_current * field_pt(context, uint256_t(1) << current_padding));
+    field_ct to_current;
+    to_current = is_constant ? field_ct(context, append_current) : witness_t(context, append_current);
+    limbs[limbs.size() - 1] += (to_current * field_ct(context, uint256_t(1) << current_padding));
 
-    field_pt reconstructed = to_current;
+    field_ct reconstructed = to_current;
     if (num_bytes_for_new_limb > 0) {
-        field_pt to_add;
-        to_add = is_constant ? field_pt(context, append_next) : witness_t(context, append_next);
-        limbs.emplace_back(to_add * field_pt(context, uint256_t(1) << next_padding));
+        field_ct to_add;
+        to_add = is_constant ? field_ct(context, append_next) : witness_t(context, append_next);
+        limbs.emplace_back(to_add * field_ct(context, uint256_t(1) << next_padding));
 
-        reconstructed += to_add * field_pt(context, uint256_t(1) << uint256_t(num_bytes_for_current_limb * 8));
+        reconstructed += to_add * field_ct(context, uint256_t(1) << uint256_t(num_bytes_for_current_limb * 8));
     }
 
     if (!is_constant) {
@@ -227,13 +209,13 @@ void packed_byte_array<Builder>::append(const field_pt& to_append, const size_t 
 template <typename Builder>
 std::vector<field_t<Builder>> packed_byte_array<Builder>::to_unverified_byte_slices(const size_t bytes_per_slice) const
 {
-    std::vector<field_pt> slices;
+    std::vector<field_ct> slices;
     for (size_t i = 0; i < limbs.size(); ++i) {
         uint256_t limb_value(limbs[i].get_value());
         const size_t bytes_in_limb = (i == limbs.size() - 1) ? num_bytes - (i * BYTES_PER_ELEMENT) : BYTES_PER_ELEMENT;
         const size_t num_slices = (bytes_in_limb / bytes_per_slice) + (bytes_in_limb % bytes_per_slice != 0);
 
-        field_pt accumulator(context, 0);
+        field_ct accumulator(context, 0);
         for (size_t j = 0; j < num_slices; ++j) {
             const size_t bytes_in_slice =
                 (j == num_slices - 1) ? bytes_in_limb - (j * bytes_per_slice) : bytes_per_slice;
@@ -245,9 +227,9 @@ std::vector<field_t<Builder>> packed_byte_array<Builder>::to_unverified_byte_sli
             if (limbs[i].witness_index != IS_CONSTANT) {
                 slices.push_back(witness_t(context, fr(slice)));
             } else {
-                slices.push_back(field_pt(context, fr(slice)));
+                slices.push_back(field_ct(context, fr(slice)));
             }
-            accumulator += (slices.back() * field_pt(context, uint256_t(1) << start));
+            accumulator += (slices.back() * field_ct(context, uint256_t(1) << start));
         }
 
         limbs[i].assert_equal(accumulator);

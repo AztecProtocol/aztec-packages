@@ -27,6 +27,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
+    const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         verification_key->gate_challenges.emplace_back(
@@ -47,7 +48,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     // Reconstruct the nested IPA claim from the public inputs and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
         RollUpIO inputs;
-        inputs.reconstruct_from_public(verification_key->public_inputs);
+        inputs.reconstruct_from_public(public_inputs);
 
         // verify the ipa_proof with this claim
         ipa_transcript->load_proof(ipa_proof);
@@ -59,7 +60,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         decider_output.pairing_points.aggregate(inputs.pairing_inputs);
     } else {
         DefaultIO inputs;
-        inputs.reconstruct_from_public(verification_key->public_inputs);
+        inputs.reconstruct_from_public(public_inputs);
 
         decider_output.pairing_points.aggregate(inputs.pairing_inputs);
     }
