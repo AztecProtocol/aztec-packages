@@ -96,25 +96,6 @@ template <typename Fr>
     requires SupportsFFT<Fr>
 void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain);
 
-// For L_1(X) = (X^{n} - 1 / (X - 1)) * (1 / n)
-// Compute the size k*n-fft of L_1(X), where k is determined by the target domain (e.g. large_domain -> 4*n)
-// We can use this to compute the k*n-fft evaluations of any L_i(X).
-// We can consider `l_1_coefficients` to be a k*n-sized vector of the evaluations of L_1(X),
-// for all X = k*n'th roots of unity.
-// To compute the vector for the k*n-fft transform of L_i(X), we perform a (k*i)-left-shift of this vector
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
-                                     const EvaluationDomain<Fr>& src_domain,
-                                     const EvaluationDomain<Fr>& target_domain);
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
-                                           const EvaluationDomain<Fr>& src_domain,
-                                           const EvaluationDomain<Fr>& target_domain,
-                                           const size_t num_roots_cut_out_of_vanishing_polynomial = 4);
-
 // void populate_with_vanishing_polynomial(Fr* coeffs, const size_t num_non_zero_entries, const EvaluationDomain<Fr>&
 // src_domain, const EvaluationDomain<Fr>& target_domain);
 
