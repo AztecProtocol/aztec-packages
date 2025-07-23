@@ -180,8 +180,18 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
 
   private async advanceL2Block() {
     const initialBlockNumber = await this.aztecNode.getBlockNumber();
-    await this.aztecNodeAdmin?.flushTxs();
+
+    let minTxsPerBlock = undefined;
+    if (this.aztecNodeAdmin) {
+      ({ minTxsPerBlock } = await this.aztecNodeAdmin.getConfig());
+      await this.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 }); // Set to 0 to ensure we can advance the block
+    }
+
     await retryUntil(async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1);
+
+    if (this.aztecNodeAdmin && minTxsPerBlock !== undefined) {
+      await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });
+    }
   }
 }
 // docs:end:cross_chain_test_harness
