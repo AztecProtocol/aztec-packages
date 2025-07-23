@@ -1,4 +1,7 @@
-use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
+use crate::reset::transient_data::{
+    derived_hints::NoteLogLinkedSourceIndices,
+    transient_data_squashing_hint::TransientDataSquashingHint,
+};
 use types::{
     abis::{
         note_hash::ScopedNoteHash,
@@ -30,7 +33,7 @@ pub fn validate_log_squashing<let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32, l
     expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
     min_revertible_side_effect_counter: u32,
     transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-    note_log_linked_source_indices: [u32; LOGS_LEN],
+    note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LOGS_LEN],
 ) {
     // This loop determines whether each log should be:
     // - kept and propagated forward, or
@@ -38,17 +41,19 @@ pub fn validate_log_squashing<let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32, l
     let mut kept_logs_counter = 0;
     for i in 0..LOGS_LEN {
         let log = logs.array[i];
-        let linked_source_index = note_log_linked_source_indices[i];
+        let linked_source_indices = note_log_linked_source_indices[i];
 
         // A log is considered a "note log" if its `note_hash_counter` is non-zero.
         let is_note_log = log.inner.note_hash_counter != 0;
 
         // === Read the hinted data ===
         // If the log is squashed, it should be linked to the note hash at this index.
-        let squashed_note_hash_index =
-            transient_data_squashing_hints[linked_source_index].note_hash_index;
+        let squashed_note_hash_index = transient_data_squashing_hints[linked_source_indices
+            .transient_data_squashing_hint_index]
+            .note_hash_index;
         // If the log is kept, it should be linked to this note hash.
-        let hinted_kept_note_hash = expected_kept_note_hashes.array[linked_source_index];
+        let hinted_kept_note_hash =
+            expected_kept_note_hashes.array[linked_source_indices.kept_note_hash_index];
         // The expected output if the log is kept.
         let expected_kept_log = expected_kept_logs.array[kept_logs_counter];
 
@@ -65,7 +70,7 @@ pub fn validate_log_squashing<let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32, l
                 // This prevents malicious users from faking a note hash beyond the claimed length to justify keeping a
                 // log that should be squashed.
                 assert(
-                    linked_source_index < expected_kept_note_hashes.length,
+                    linked_source_indices.kept_note_hash_index < expected_kept_note_hashes.length,
                     "Index of linked kept note hash exceeds claimed length",
                 );
             }
@@ -346,8 +351,8 @@ mod tests {
         builder.validate();
     }
 
-    #[test(should_fail_with = "Index of linked kept note hash exceeds claimed length")]
-    fn fails_kept_note_log_linked_to_fake_note_hash_with_tweaked_hint() {
+    #[test(should_fail_with = "Index out of bounds")]
+    fn fails_kept_note_log_linked_to_fake_note_hash_with_tweaked_hint_out_of_bounds() {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // This log is linked to a note hash beyond the claimed length.
@@ -371,7 +376,41 @@ mod tests {
         let mut derived_hints = builder.build_derived_hints();
 
         // Tweak the hint to keep the log with the kept note hash at index 1.
-        derived_hints.note_log_linked_source_indices[0] = 1;
+        derived_hints.note_log_linked_source_indices[0].kept_note_hash_index = 1;
+
+        builder.validate_with_derived_hints(derived_hints);
+    }
+
+    #[test(should_fail_with = "Index of linked kept note hash exceeds claimed length")]
+    fn fails_kept_note_log_linked_to_fake_note_hash_with_tweaked_hint_exceeds_claimed_length() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        // This log is linked to a note hash beyond the claimed length.
+        builder.add_logs([PrivateLogData { log: mock_log(101), counter: 7, note_hash_counter: 999 }]);
+
+        builder.add_note_hashes([
+            NoteHash { value: 11, counter: 1 },
+            NoteHash { value: 99, counter: 999 },
+        ]);
+
+        // Change the length of the note hashes array to 1, to make the note hash at index 1 beyond the claimed length.
+        builder.note_hashes.length = 1;
+
+        builder.keep_logs([0]);
+
+        builder.keep_note_hashes([0, 1]);
+
+        // Change the length of the expected kept note hashes array to 1, to ignore the note hash at index 1.
+        builder.expected_kept_note_hashes.length = 1;
+
+        let mut derived_hints = builder.build_derived_hints();
+
+        // Tweak the hint to keep the log with the kept note hash at index 1.
+        derived_hints.note_log_linked_source_indices[0].kept_note_hash_index = 1;
+
+        // Change the index of the possible squashing hint to default (0) so that it won't trigger an out of bounds
+        // error like in the previous test.
+        derived_hints.note_log_linked_source_indices[0].transient_data_squashing_hint_index = 0;
 
         builder.validate_with_derived_hints(derived_hints);
     }
@@ -447,7 +486,7 @@ mod tests {
         let mut derived_hints = builder.build_derived_hints();
 
         // Tweak the hint to squash the log with the note hash at index 0.
-        derived_hints.note_log_linked_source_indices[0] = 0;
+        derived_hints.note_log_linked_source_indices[0].transient_data_squashing_hint_index = 0;
 
         builder.validate_with_derived_hints(derived_hints);
     }
@@ -481,7 +520,7 @@ mod tests {
         let mut derived_hints = builder.build_derived_hints();
 
         // Tweak the hint to squash the log with the note hash at index 1.
-        derived_hints.note_log_linked_source_indices[0] = 1;
+        derived_hints.note_log_linked_source_indices[0].transient_data_squashing_hint_index = 1;
 
         builder.validate_with_derived_hints(derived_hints);
     }

@@ -366,6 +366,44 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn succeeds_full_arrays_keep_all() {
+        let mut builder = TransientDataFixtureBuilder::new();
+
+        builder.add_note_hashes([
+            NoteHash { value: 11, counter: 1 },
+            NoteHash { value: 22, counter: 2 },
+            NoteHash { value: 33, counter: 3 },
+            NoteHash { value: 44, counter: 4 },
+            NoteHash { value: 55, counter: 5 },
+            NoteHash { value: 66, counter: 6 },
+        ]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 10, counter: 7, note_hash: 33 },
+            Nullifier { value: 20, counter: 8, note_hash: 0 },
+            Nullifier { value: 30, counter: 9, note_hash: 0 },
+            Nullifier { value: 40, counter: 10, note_hash: 11 },
+            Nullifier { value: 50, counter: 11, note_hash: 66 },
+        ]);
+
+        builder.add_logs([
+            PrivateLogData { log: mock_log(101), counter: 12, note_hash_counter: 5 },
+            PrivateLogData { log: mock_log(202), counter: 13, note_hash_counter: 0 },
+            PrivateLogData { log: mock_log(303), counter: 14, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(404), counter: 15, note_hash_counter: 1 },
+            PrivateLogData { log: mock_log(505), counter: 16, note_hash_counter: 6 },
+            PrivateLogData { log: mock_log(606), counter: 17, note_hash_counter: 0 },
+            PrivateLogData { log: mock_log(707), counter: 18, note_hash_counter: 1 },
+        ]);
+
+        builder.keep_note_hashes([0, 1, 2, 3, 4, 5]);
+        builder.keep_nullifiers([0, 1, 2, 3, 4]);
+        builder.keep_logs([0, 1, 2, 3, 4, 5, 6]);
+
+        builder.validate();
+    }
+
+    #[test]
     fn succeeds_identical_note_hashes() {
         let mut builder = TransientDataFixtureBuilder::new();
 

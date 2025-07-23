@@ -5,6 +5,7 @@ mod squash_flags;
 
 use crate::reset::transient_data::transient_data_squashing_hint::TransientDataSquashingHint;
 use note_log_linked_source_indices::build_note_log_linked_source_indices;
+pub(crate) use note_log_linked_source_indices::NoteLogLinkedSourceIndices;
 use nullifier_index_sorted_tuples::build_nullifier_index_sorted_tuples;
 pub(crate) use num_active_squashing_hints::get_num_active_squashing_hints;
 use squash_flags::{build_note_hash_squash_flags, build_nullifier_squash_flags};
@@ -28,7 +29,7 @@ pub struct DerivedHints<let SQUASHING_HINTS_LEN: u32, let NOTE_HASHES_LEN: u32, 
     pub nullifier_squash_flags: [bool; NULLIFIERS_LEN],
     /// For each note log, identifies the index of its linked note hash, either in the `kept_note_hashes` array, or in
     /// the `transient_data_squashing_hints` array if squashed.
-    pub note_log_linked_source_indices: [u32; LOGS_LEN],
+    pub note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LOGS_LEN],
 }
 
 /// Constructs all derived hints needed to apply transient data squashing logic.

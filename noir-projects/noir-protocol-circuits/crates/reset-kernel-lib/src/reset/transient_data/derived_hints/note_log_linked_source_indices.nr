@@ -8,25 +8,39 @@ use dep::types::{
     utils::arrays::{ClaimedLengthArray, find_first_index},
 };
 
-/// Builds an array of source indices indicating the origin of each log's associated note hash.
+pub struct NoteLogLinkedSourceIndices {
+    pub transient_data_squashing_hint_index: u32,
+    pub kept_note_hash_index: u32,
+}
+
+/// Builds an array of source descriptors for each log's associated note hash.
 ///
-/// For each log in the `logs` array:
-/// - If the log is linked to a **kept** note hash (i.e., a note hash that wasn't squashed),
-///   the corresponding index in the result array points to that note hash's index in `kept_note_hashes`.
-/// - If the log is linked to a **squashed** note hash, the index points to the relevant entry
-///   in `transient_data_squashing_hints` that identifies the squashed note hash.
+/// - If a log is linked to a **kept** note hash (i.e., one that wasn't squashed), the `kept_note_hash_index` field in
+///   the corresponding entry is set to the index of that note hash in the `kept_note_hashes` array.
+/// - If a log is linked to a **squashed** note hash, the `transient_data_squashing_hint_index` field is set to the
+///   index of the hint that points to the squashed pair containing the note hash.
+/// - If a log is not linked to any note hash (`note_hash_counter == 0`), the corresponding entry is filled with default
+///   values (`0` for both indices).
 ///
-/// For logs not linked to any note hash (i.e., `note_hash_counter == 0`), the source indices are irrelevant. This
-/// function uses the default value `0` for them in the returned array.
+/// The default index `0` is used when a log is not linked to a kept or squashed note hash. These values are not
+/// meaningful, but they ensure that downstream validation logic does not trigger out-of-bounds errors when attempting
+/// to match the log against a possible kept note hash or squashing hint.
 ///
-/// @returns An array of indices, each representing where the log's linked note hash originated from.
+/// @returns An array of `NoteLogLinkedSourceIndices` where each entry corresponds to a log in `logs` and describes the
+/// origin of its possible linked note hash (may be in `kept_note_hashes` or in `transient_data_squashing_hints`).
 pub unconstrained fn build_note_log_linked_source_indices<let LOGS_LEN: u32, let NOTE_HASHES_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
     logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
     note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
     kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-) -> [u32; LOGS_LEN] {
-    let mut linked_source_indices = [0; LOGS_LEN];
+) -> [NoteLogLinkedSourceIndices; LOGS_LEN] {
+    let mut linked_source_indices = [
+        NoteLogLinkedSourceIndices {
+            transient_data_squashing_hint_index: 0,
+            kept_note_hash_index: 0,
+        }; LOGS_LEN
+    ];
+
     for i in 0..logs.length {
         let log_note_hash_counter = logs.array[i].inner.note_hash_counter;
         // A nonzero counter implies the log is linked to a note hash.
@@ -37,7 +51,7 @@ pub unconstrained fn build_note_log_linked_source_indices<let LOGS_LEN: u32, let
             let mut is_kept = false;
             for kept_note_hash_index in 0..kept_note_hashes.length {
                 if kept_note_hashes.array[kept_note_hash_index].counter() == log_note_hash_counter {
-                    linked_source_indices[i] = kept_note_hash_index;
+                    linked_source_indices[i].kept_note_hash_index = kept_note_hash_index;
                     is_kept = true;
                 }
             }
@@ -56,7 +70,8 @@ pub unconstrained fn build_note_log_linked_source_indices<let LOGS_LEN: u32, let
                     |hint| hint.note_hash_index == squashed_note_hash_index,
                 );
 
-                linked_source_indices[i] = transient_data_squashing_hint_index;
+                linked_source_indices[i].transient_data_squashing_hint_index =
+                    transient_data_squashing_hint_index;
             }
         }
     }
