@@ -487,9 +487,8 @@ describe('Web3SignerKeyStore Integration Tests', () => {
     });
   });
 
-  describe('Integration Tests (Real Web3Signer)', () => {
+  describe.skip('Integration Tests (Real Web3Signer)', () => {
     // These tests require a running Web3Signer instance at localhost:9000
-    // They are marked as conditional and will be skipped if Web3Signer is not available
     const isWeb3SignerAvailable = async (): Promise<boolean> => {
       try {
         const response = await fetch(`${WEB3_SIGNER_URL}/upcheck`, { method: 'GET' });
