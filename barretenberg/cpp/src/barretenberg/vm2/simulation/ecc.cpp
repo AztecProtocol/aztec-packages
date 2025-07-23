@@ -6,6 +6,9 @@
 
 namespace bb::avm2::simulation {
 
+// This function assumes that the points p and q are on the curve. You should only
+// use this function internally if you can guarantee this. Otherwise it is called
+// via the opcode ECADD, see the overloaded function Ecc::add (which performs the curve check)
 EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q)
 {
     // Check if points are on the curve.
@@ -17,8 +20,13 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
     return result;
 }
 
+// This function assumes that the point is on the curve. As this should only be used internally,
+// it is treated as a catastrophic failure if the point is not on the curve.
 EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& scalar)
 {
+    // This is bad - the scalar mul circuit assumes that the point is on the curve.
+    assert(point.on_curve() && "Point must be on the curve for scalar multiplication");
+
     auto intermediate_states = std::vector<ScalarMulIntermediateState>(254);
     auto bits = to_radix.to_le_bits(scalar, 254);
 
@@ -57,8 +65,12 @@ void Ecc::add(MemoryInterface& memory,
         // and the is_infinity flag is stored at dst_address + 2.
         // Therefore, the maximum address that needs to be written to is dst_address + 2.
         uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 2;
-        if (cmp.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
+        if (gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
             throw std::runtime_error("dst address out of range");
+        }
+
+        if (!p.on_curve() || !q.on_curve()) {
+            throw std::runtime_error("One of the points is not on the curve");
         }
 
         EmbeddedCurvePoint result = add(p, q);

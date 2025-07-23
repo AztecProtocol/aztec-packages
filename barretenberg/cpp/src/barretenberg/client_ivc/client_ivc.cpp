@@ -456,7 +456,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    bool mega_verified = verifier.verify_proof(proof.mega_proof);
+    auto [mega_verified, _] = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit

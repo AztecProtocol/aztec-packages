@@ -561,6 +561,10 @@ void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, Memory
     uint32_t da_gas_factor = static_cast<uint32_t>(!was_slot_written_before);
     get_gas_tracker().consume_gas({ .l2Gas = 0, .daGas = da_gas_factor });
 
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("SSTORE: Cannot write to storage in static context");
+    }
+
     if (!was_slot_written_before &&
         merkle_db.get_tree_state().publicDataTree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
         throw OpcodeExecutionException("SSTORE: Maximum number of data writes reached");
@@ -624,6 +628,32 @@ void Execution::nullifier_exists(ContextInterface& context,
     set_output(opcode, result);
 }
 
+void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITNULLIFIER;
+
+    auto& memory = context.get_memory();
+    MemoryValue nullifier = memory.get(nullifier_addr);
+    set_and_validate_inputs(opcode, { nullifier });
+
+    get_gas_tracker().consume_gas();
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Cannot emit nullifier in static context");
+    }
+
+    if (merkle_db.get_tree_state().nullifierTree.counter == MAX_NULLIFIERS_PER_TX) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Maximum number of nullifiers reached");
+    }
+
+    // Emit nullifier via MerkleDB
+    // (and tag check nullifier as FF)
+    bool success = merkle_db.nullifier_write(context.get_address(), nullifier.as<FF>());
+    if (!success) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Nullifier collision");
+    }
+}
+
 void Execution::get_contract_instance(ContextInterface& context,
                                       MemoryAddress address_offset,
                                       MemoryAddress dst_offset,
@@ -659,6 +689,10 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
     set_and_validate_inputs(opcode, { note_hash });
 
     get_gas_tracker().consume_gas();
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("EMITNOTEHASH: Cannot emit note hash in static context");
+    }
 
     if (merkle_db.get_tree_state().noteHashTree.counter == MAX_NOTE_HASHES_PER_TX) {
         throw OpcodeExecutionException("EMITNOTEHASH: Maximum number of note hashes reached");
@@ -985,6 +1019,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::NULLIFIEREXISTS:
         call_with_operands(&Execution::nullifier_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITNULLIFIER:
+        call_with_operands(&Execution::emit_nullifier, context, resolved_operands);
         break;
     case ExecutionOpCode::GETCONTRACTINSTANCE:
         call_with_operands(&Execution::get_contract_instance, context, resolved_operands);

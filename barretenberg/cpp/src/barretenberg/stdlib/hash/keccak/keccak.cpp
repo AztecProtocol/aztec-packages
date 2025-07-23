@@ -549,14 +549,14 @@ template <typename Builder> byte_array<Builder> keccak<Builder>::sponge_squeeze(
         field_ct output_limb = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_FORMAT_OUTPUT, internal.state[i]);
         byte_array_ct limb_bytes(output_limb, 8);
         byte_array_ct little_endian_limb_bytes(internal.context, 8);
-        little_endian_limb_bytes.set_byte(0, limb_bytes[7]);
-        little_endian_limb_bytes.set_byte(1, limb_bytes[6]);
-        little_endian_limb_bytes.set_byte(2, limb_bytes[5]);
-        little_endian_limb_bytes.set_byte(3, limb_bytes[4]);
-        little_endian_limb_bytes.set_byte(4, limb_bytes[3]);
-        little_endian_limb_bytes.set_byte(5, limb_bytes[2]);
-        little_endian_limb_bytes.set_byte(6, limb_bytes[1]);
-        little_endian_limb_bytes.set_byte(7, limb_bytes[0]);
+        little_endian_limb_bytes[0] = limb_bytes[7];
+        little_endian_limb_bytes[1] = limb_bytes[6];
+        little_endian_limb_bytes[2] = limb_bytes[5];
+        little_endian_limb_bytes[3] = limb_bytes[4];
+        little_endian_limb_bytes[4] = limb_bytes[3];
+        little_endian_limb_bytes[5] = limb_bytes[2];
+        little_endian_limb_bytes[6] = limb_bytes[1];
+        little_endian_limb_bytes[7] = limb_bytes[0];
         result.write(little_endian_limb_bytes);
     }
     return result;
@@ -582,7 +582,7 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
     // make sure that every byte past `num_bytes` is zero!
     for (size_t i = 0; i < input.size(); ++i) {
         bool_ct valid_byte = uint32_ct(static_cast<uint32_t>(i)) < num_bytes;
-        input.set_byte(i, (input[i] * valid_byte));
+        input[i] = input[i] * valid_byte;
     }
 
     auto* ctx = input.get_context();
@@ -601,7 +601,7 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
     const size_t byte_difference = max_blocks_length - input_size;
     byte_array_ct padding_bytes(ctx, byte_difference);
     for (size_t i = 0; i < byte_difference; ++i) {
-        padding_bytes.set_byte(i, witness_ct::create_constant_witness(ctx, 0));
+        padding_bytes[i] = witness_ct::create_constant_witness(ctx, 0);
     }
     block_bytes.write(padding_bytes);
 
@@ -614,8 +614,8 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
     if (num_bytes.is_constant()) {
         const auto terminating_byte = static_cast<size_t>(num_bytes.get_value());
         const auto terminating_block_byte = static_cast<size_t>(num_real_blocks_bytes.get_value()) - 1;
-        block_bytes.set_byte(terminating_byte, witness_ct::create_constant_witness(ctx, 0x1));
-        block_bytes.set_byte(terminating_block_byte, witness_ct::create_constant_witness(ctx, 0x80));
+        block_bytes[terminating_byte] = witness_ct::create_constant_witness(ctx, 0x1);
+        block_bytes[terminating_block_byte] = witness_ct::create_constant_witness(ctx, 0x80);
     }
 
     // keccak lanes interpret memory as little-endian integers,
@@ -625,14 +625,14 @@ std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct&
         for (size_t j = 0; j < 8; ++j) {
             temp[j] = block_bytes[i + j];
         }
-        block_bytes.set_byte(i, temp[7]);
-        block_bytes.set_byte(i + 1, temp[6]);
-        block_bytes.set_byte(i + 2, temp[5]);
-        block_bytes.set_byte(i + 3, temp[4]);
-        block_bytes.set_byte(i + 4, temp[3]);
-        block_bytes.set_byte(i + 5, temp[2]);
-        block_bytes.set_byte(i + 6, temp[1]);
-        block_bytes.set_byte(i + 7, temp[0]);
+        block_bytes[i] = temp[7];
+        block_bytes[i + 1] = temp[6];
+        block_bytes[i + 2] = temp[5];
+        block_bytes[i + 3] = temp[4];
+        block_bytes[i + 4] = temp[3];
+        block_bytes[i + 5] = temp[2];
+        block_bytes[i + 6] = temp[1];
+        block_bytes[i + 7] = temp[0];
     }
     const size_t byte_size = block_bytes.size();
 
@@ -799,7 +799,7 @@ stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_
         byte_array_ct output(nullptr, 32);
         const std::vector<uint8_t> result = hash_native(input.get_value());
         for (size_t i = 0; i < 32; ++i) {
-            output.set_byte(i, result[i]);
+            output[i] = result[i];
         }
         return output;
     }
@@ -828,7 +828,7 @@ stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const ui
         byte_array_ct output(nullptr, 32);
         const std::vector<uint8_t> result = hash_native(input.get_value());
         for (size_t i = 0; i < 32; ++i) {
-            output.set_byte(i, result[i]);
+            output[i] = result[i];
         }
         return output;
     };
@@ -889,14 +889,14 @@ stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opco
     for (size_t i = 0; i < 4; ++i) {
         byte_array_ct limb_bytes(lanes[i], 8);
         byte_array_ct little_endian_limb_bytes(context, 8);
-        little_endian_limb_bytes.set_byte(0, limb_bytes[7]);
-        little_endian_limb_bytes.set_byte(1, limb_bytes[6]);
-        little_endian_limb_bytes.set_byte(2, limb_bytes[5]);
-        little_endian_limb_bytes.set_byte(3, limb_bytes[4]);
-        little_endian_limb_bytes.set_byte(4, limb_bytes[3]);
-        little_endian_limb_bytes.set_byte(5, limb_bytes[2]);
-        little_endian_limb_bytes.set_byte(6, limb_bytes[1]);
-        little_endian_limb_bytes.set_byte(7, limb_bytes[0]);
+        little_endian_limb_bytes[0] = limb_bytes[7];
+        little_endian_limb_bytes[1] = limb_bytes[6];
+        little_endian_limb_bytes[2] = limb_bytes[5];
+        little_endian_limb_bytes[3] = limb_bytes[4];
+        little_endian_limb_bytes[4] = limb_bytes[3];
+        little_endian_limb_bytes[5] = limb_bytes[2];
+        little_endian_limb_bytes[6] = limb_bytes[1];
+        little_endian_limb_bytes[7] = limb_bytes[0];
         result.write(little_endian_limb_bytes);
     }
     return result;

@@ -157,13 +157,13 @@ mod test {
 
         // The owner mints two notes for the recipient
         let first_note_value = note_values[0];
-        let _ = env.call_private_void(
+        let _ = env.call_private(
             owner,
             Token::at(token_contract_address).mint_to_private(recipient, first_note_value),
         );
 
         let second_note_value = note_values[1];
-        let _ = env.call_private_void(
+        let _ = env.call_private(
             owner,
             Token::at(token_contract_address).mint_to_private(recipient, second_note_value),
         );
