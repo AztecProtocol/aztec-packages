@@ -407,8 +407,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
     points_accumulator.aggregate(decider_pairing_points);
 
-    stdlib::recursion::honk::HidingKernelIO<ClientCircuit> hiding_output{ merge_commitments.T_commitments,
-                                                                          points_accumulator };
+    stdlib::recursion::honk::HidingKernelIO<ClientCircuit> hiding_output{ points_accumulator,
+                                                                          merge_commitments.T_commitments };
     hiding_output.set_public();
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
@@ -458,12 +458,8 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    auto [mega_verified, _] = verifier.verify_proof(proof.mega_proof);
+    auto [mega_verified, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
-
-    // Extract public inputs
-    HidingKernelIO hiding_output;
-    hiding_output.reconstruct_from_public(verifier.verification_key->public_inputs);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     MergeVerifier::WitnessCommitments merge_commitments;
