@@ -9,7 +9,6 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
-#include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
 namespace bb::stdlib {
@@ -344,7 +343,7 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
             // prevents an extra range table from being created
             constexpr uint256_t maximum = BASE.pow(64 % plookup::keccak_tables::Theta::TABLE_BITS);
             const field_ct target = -most_significant_slice + maximum;
-            BB_ASSERT_GT((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1, maximum);
+            ASSERT(((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1) > maximum);
             target.create_range_constraint(Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
                                            "input to KECCAK_THETA_OUTPUT too large!");
         }

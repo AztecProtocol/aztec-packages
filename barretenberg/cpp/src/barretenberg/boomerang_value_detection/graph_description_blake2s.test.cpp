@@ -4,8 +4,6 @@
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
-#include "barretenberg/stdlib/hash/blake2s/blake2s_plookup.hpp"
-#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 
 using namespace bb;
@@ -31,7 +29,7 @@ TEST(boomerang_stdlib_blake2s, graph_description_single_block_plookup)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_ct input_arr(&builder, input_v);
-    byte_array_ct output = stdlib::blake2s<Builder>(input_arr);
+    byte_array_ct output = stdlib::Blake2s<Builder>::hash(input_arr);
 
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
@@ -56,7 +54,7 @@ TEST(boomerang_stdlib_blake2s, graph_description_double_block_plookup)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_ct input_arr(&builder, input_v);
-    byte_array_ct output = stdlib::blake2s<Builder>(input_arr);
+    byte_array_ct output = stdlib::Blake2s<Builder>::hash(input_arr);
 
     auto expected = crypto::blake2s(input_v);
 
