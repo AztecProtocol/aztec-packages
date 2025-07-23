@@ -32,7 +32,6 @@ comptime fn get_next_note_type_id() -> Field {
 comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Quoted {
     let name = s.name();
     let typ = s.as_type();
-
     let max_packed_len = crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 
     let error_message: str<_> = f"{name} packed length exceeds the maximum of {max_packed_len} fields"
