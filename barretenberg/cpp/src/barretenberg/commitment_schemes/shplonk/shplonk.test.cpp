@@ -53,7 +53,6 @@ TYPED_TEST(ShplonkTest, ShplonkLinearlyDependent)
     using ShplonkProver = ShplonkProver_<TypeParam>;
     using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
-    using OpeningVector = OpeningVector<TypeParam>;
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -74,22 +73,17 @@ TYPED_TEST(ShplonkTest, ShplonkLinearlyDependent)
 
     // Shplonk verification
     auto verifier_opening_claims = ClaimData::verifier_opening_claims(setup);
-    std::vector<OpeningVector> opening_vectors = {
-        { verifier_opening_claims[0].opening_pair.challenge,
-          { Fr(1) },
-          { verifier_opening_claims[0].opening_pair.evaluation } },
-        { verifier_opening_claims[1].opening_pair.challenge,
-          { Fr(1) },
-          { verifier_opening_claims[1].opening_pair.evaluation } },
-        { verifier_opening_claims[2].opening_pair.challenge, coefficients, evals }
+    std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> update_data = {
+        { { 0 }, { Fr(1) }, verifier_opening_claims[0].opening_pair },
+        { { 1 }, { Fr(1) }, verifier_opening_claims[1].opening_pair },
+        { { 0, 1 }, coefficients, verifier_opening_claims[2].opening_pair },
     };
-    std::vector<std::vector<size_t>> indices = { { 0 }, { 1 }, { 0, 1 } };
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
     ShplonkVerifier verifier(commitments, verifier_transcript, verifier_opening_claims.size());
 
     // Execute the shplonk verifier functionality
     const auto batched_verifier_claim =
-        verifier.reduce_vector_claims_verification(this->vk().get_g1_identity(), indices, opening_vectors);
+        verifier.reduce_verification_vector_claims(this->vk().get_g1_identity(), update_data);
 
     this->verify_opening_claim(batched_verifier_claim, batched_opening_claim.polynomial);
 }
