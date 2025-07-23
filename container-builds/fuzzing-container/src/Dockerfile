@@ -6,13 +6,17 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN userdel -r ubuntu && useradd -m fuzzer -G sudo
+RUN useradd -m fuzzer -G sudo
 WORKDIR /home/fuzzer
 
-# Check whether the version of barretenberg is fresh
-ADD https://api.github.com/repos/AztecProtocol/aztec-packages/commits?path=barretenberg version.json
+# Build arguemnt to avoid layer caching
+ARG COMMIT=latest
 
-RUN git clone https://github.com/AztecProtocol/aztec-packages.git
+RUN git clone https://github.com/AztecProtocol/aztec-packages.git && \
+    cd aztec-packages &&                                             \
+    if [ "$COMMIT" != "latest" ]; then                               \
+        git checkout $COMMIT || exit 1;                              \
+    fi
 
 # Download crs
 WORKDIR /home/fuzzer/aztec-packages/barretenberg
