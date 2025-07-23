@@ -84,10 +84,6 @@ tests:
       - *tom
 
   # e2e tests skipped
-  - regex: "src/e2e_sequencer/gov_proposal"
-    skip: true
-    owners:
-      - *lasse
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
