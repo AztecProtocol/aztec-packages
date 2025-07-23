@@ -29,7 +29,6 @@ import {
   toForeignCallResult,
   toSingle,
 } from '../util/encoding.js';
-import { ExpectedFailureError } from '../util/expected_failure_error.js';
 
 enum TXEContext {
   TOP_LEVEL,
