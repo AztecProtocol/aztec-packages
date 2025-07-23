@@ -246,25 +246,6 @@ impl TestEnvironment {
         txe_oracles::get_last_block_timestamp()
     }
 
-    /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
-    /// emit and retrieve nullifiers (because they are hashed with a contract address), and formulate notes in a canonical way.
-    /// The contract_address also represents the "msg_sender" when we call a contract with a private or public context; and when
-    /// we call utility functions, we must set this contract address to the contract being called.
-    /// The contract address can be manipulated to do the above at any particular address, and not simply the one provided at
-    /// the instantiation of the test.
-    /// Returns the currently set contract address.
-    pub unconstrained fn contract_address(_self: Self) -> AztecAddress {
-        get_contract_address()
-    }
-
-    /// Modifies the currently set contract address. As per above, it sets the "msg_sender" address on our subsequent calls.
-    /// This is useful when we have multiple "accounts" that need to interact with an arbitrary contract. This also allows
-    /// us to change the "contract" we emit side effects from, and is required when we want to run a utility function
-    /// on another contract.
-    pub unconstrained fn impersonate(_self: Self, address: AztecAddress) {
-        txe_oracles::set_contract_address(address)
-    }
-
     pub unconstrained fn mine_block_at(&mut self, timestamp: u64) {
         self.set_next_block_timestamp(timestamp);
         self.mine_block();

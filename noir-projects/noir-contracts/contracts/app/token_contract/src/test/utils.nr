@@ -31,9 +31,6 @@ pub unconstrained fn setup(
         (owner, recipient)
     };
 
-    // Start the test in the account contract address
-    env.impersonate(owner);
-
     // Deploy token contract
     let initializer_call_interface = Token::interface().constructor(
         owner,
