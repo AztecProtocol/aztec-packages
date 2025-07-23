@@ -214,6 +214,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     uint256 constant LIBRA_EVALUATIONS = 4;
     uint256 constant LIBRA_UNIVARIATES_LENGTH = 9;
 
+    struct Pairing {
+        Honk.G1Point P_0;
+        Honk.G1Point P_1;
+    }
+
     function verifyShplemini(Honk.ZKProof memory proof, Honk.VerificationKey memory vk, ZKTranscript memory tp)
         internal
         view
@@ -431,19 +436,20 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = quotient_commitment;
         scalars[boundary] = tp.shplonkZ; // evaluation challenge
 
-        Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
-        Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
+        Pairing memory pair;
+        pair.P_0 = batchMul(commitments, scalars);
+        pair.P_1 = negateInplace(quotient_commitment);
 
         // Aggregate pairing points
-        Fr recursionSeparator = generateRecursionSeparator(proof, P_0_agg, P_1_agg);
+        Fr recursionSeparator = generateRecursionSeparator(proof.pairingPointObject, pair.P_0, pair.P_1);
         (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
             convertPairingPointsToG1(proof.pairingPointObject);
 
         // accumulate with aggregate points in proof
-        P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
-        P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
+        pair.P_0 = mulWithSeperator(pair.P_0, P_0_other, recursionSeparator);
+        pair.P_1 = mulWithSeperator(pair.P_1, P_1_other, recursionSeparator);
 
-        return pairing(P_0_agg, P_1_agg);
+        return pairing(pair.P_0, pair.P_1);
     }
 
     struct SmallSubgroupIpaIntermediates {

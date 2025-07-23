@@ -109,10 +109,11 @@ function convertG1ToPairingPoints(Honk.G1Point memory lhs, Honk.G1Point memory r
     pairingPoints[15] = Fr.wrap(uint64(rhs.y >> 204));
 }
 
-function generateRecursionSeparator(Honk.Proof memory proof, Honk.G1Point memory accLhs, Honk.G1Point memory accRhs)
-    pure
-    returns (Fr recursionSeparator)
-{
+function generateRecursionSeparator(
+    Fr[PAIRING_POINTS_SIZE] memory proofPairingPoints,
+    Honk.G1Point memory accLhs,
+    Honk.G1Point memory accRhs
+) pure returns (Fr recursionSeparator) {
     // hash the proof aggregated X
     // hash the proof aggregated Y
     // hash the accum X
@@ -121,30 +122,7 @@ function generateRecursionSeparator(Honk.Proof memory proof, Honk.G1Point memory
     uint256[PAIRING_POINTS_SIZE * 2] memory recursionSeparatorElements;
 
     for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-        recursionSeparatorElements[i] = Fr.unwrap(proof.pairingPointObject[i]);
-    }
-    Fr[PAIRING_POINTS_SIZE] memory accumulatorPoints = convertG1ToPairingPoints(accLhs, accRhs);
-
-    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-        recursionSeparatorElements[PAIRING_POINTS_SIZE + i] = Fr.unwrap(accumulatorPoints[i]);
-    }
-
-    recursionSeparator = FrLib.fromBytes32(keccak256(abi.encodePacked(recursionSeparatorElements)));
-}
-
-function generateRecursionSeparator(Honk.ZKProof memory proof, Honk.G1Point memory accLhs, Honk.G1Point memory accRhs)
-    pure
-    returns (Fr recursionSeparator)
-{
-    // hash the proof aggregated X
-    // hash the proof aggregated Y
-    // hash the accum X
-    // hash the accum Y
-
-    uint256[PAIRING_POINTS_SIZE * 2] memory recursionSeparatorElements;
-
-    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-        recursionSeparatorElements[i] = Fr.unwrap(proof.pairingPointObject[i]);
+        recursionSeparatorElements[i] = Fr.unwrap(proofPairingPoints[i]);
     }
     Fr[PAIRING_POINTS_SIZE] memory accumulatorPoints = convertG1ToPairingPoints(accLhs, accRhs);
 

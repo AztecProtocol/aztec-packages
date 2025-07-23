@@ -1498,8 +1498,10 @@ function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point mem
     return point;
 }
 
-
-function convertPairingPointsToG1(Fr[PAIRING_POINTS_SIZE] memory pairingPoints) pure returns (Honk.G1Point memory lhs, Honk.G1Point memory rhs) {
+function convertPairingPointsToG1(Fr[PAIRING_POINTS_SIZE] memory pairingPoints)
+    pure
+    returns (Honk.G1Point memory lhs, Honk.G1Point memory rhs)
+{
     uint256 lhsX = Fr.unwrap(pairingPoints[0]);
     lhsX |= Fr.unwrap(pairingPoints[1]) << 68;
     lhsX |= Fr.unwrap(pairingPoints[2]) << 136;
@@ -1525,7 +1527,10 @@ function convertPairingPointsToG1(Fr[PAIRING_POINTS_SIZE] memory pairingPoints) 
     rhs.y = rhsY;
 }
 
-function convertG1ToPairingPoints(Honk.G1Point memory lhs, Honk.G1Point memory rhs) pure returns (Fr[PAIRING_POINTS_SIZE] memory pairingPoints) {
+function convertG1ToPairingPoints(Honk.G1Point memory lhs, Honk.G1Point memory rhs)
+    pure
+    returns (Fr[PAIRING_POINTS_SIZE] memory pairingPoints)
+{
     // lhs.x
     pairingPoints[0] = Fr.wrap(uint64(lhs.x));
     pairingPoints[1] = Fr.wrap(uint64(lhs.x >> 68));
@@ -1548,8 +1553,42 @@ function convertG1ToPairingPoints(Honk.G1Point memory lhs, Honk.G1Point memory r
     pairingPoints[15] = Fr.wrap(uint64(rhs.y >> 204));
 }
 
-function frMulWithG1(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point memory) {
+function generateRecursionSeparator(Fr[PAIRING_POINTS_SIZE] memory proofPairingPoints, Honk.G1Point memory accLhs, Honk.G1Point memory accRhs)
+    pure
+    returns (Fr recursionSeparator)
+{
+    // hash the proof aggregated X
+    // hash the proof aggregated Y
+    // hash the accum X
+    // hash the accum Y
 
+    uint256[PAIRING_POINTS_SIZE * 2] memory recursionSeparatorElements;
+
+    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        recursionSeparatorElements[i] = Fr.unwrap(proofPairingPoints[i]);
+    }
+    Fr[PAIRING_POINTS_SIZE] memory accumulatorPoints = convertG1ToPairingPoints(accLhs, accRhs);
+
+    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        recursionSeparatorElements[PAIRING_POINTS_SIZE + i] = Fr.unwrap(accumulatorPoints[i]);
+    }
+
+    recursionSeparator = FrLib.fromBytes32(keccak256(abi.encodePacked(recursionSeparatorElements)));
+}
+
+function mulWithSeperator(Honk.G1Point memory basePoint, Honk.G1Point memory other, Fr recursionSeperator)
+    view
+    returns (Honk.G1Point memory)
+{
+    Honk.G1Point memory result;
+
+    result = frMulWithG1(recursionSeperator, basePoint);
+    result = g1Add(result, other);
+
+    return result;
+}
+
+function frMulWithG1(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point memory) {
     Honk.G1Point memory result;
 
     assembly {
@@ -1578,9 +1617,7 @@ function g1Add(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (H
         mstore(add(free, 0x40), mload(rhs))
         mstore(add(free, 0x60), mload(add(rhs, 0x20)))
         let success := staticcall(gas(), 0x06, free, 0x80, free, 0x40)
-        if iszero(success) {
-            revert(0, 0)
-        }
+        if iszero(success) { revert(0, 0) }
         mstore(result, mload(free))
         mstore(add(result, 0x20), mload(add(free, 0x20)))
     }
@@ -1589,7 +1626,6 @@ function g1Add(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (H
 }
 
 function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool decodedResult) {
-
     bytes memory input = abi.encodePacked(
         rhs.x,
         rhs.y,
@@ -1993,23 +2029,15 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
 
         // Aggregate pairing points
-        Fr recursionSeparator = TranscriptLib.generateRecursionSeparator(proof, P_0_agg, P_1_agg);
-        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) = convertPairingPointsToG1(proof.pairingPointObject);
+        Fr recursionSeparator = generateRecursionSeparator(proof.pairingPointObject, P_0_agg, P_1_agg);
+        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
+            convertPairingPointsToG1(proof.pairingPointObject);
 
         // accumulate with aggregate points in proof
         P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
         P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
 
         return pairing(P_0_agg, P_1_agg);
-    }
-
-    function mulWithSeperator(Honk.G1Point memory basePoint, Honk.G1Point memory other, Fr recursionSeperator) internal view returns (Honk.G1Point memory) {
-        Honk.G1Point memory result;
-
-        result = frMulWithG1(recursionSeperator, basePoint);
-        result = g1Add(result, other);
-
-        return result;
     }
 
     function batchMul(

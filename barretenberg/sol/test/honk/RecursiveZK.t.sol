@@ -2,20 +2,20 @@
 // Copyright 2022 Aztec
 pragma solidity >=0.8.21;
 
-import {TestBaseHonk} from "./TestBaseHonk.sol";
+import {TestBaseHonkZK} from "./TestBaseHonkZK.sol";
 
 // TODO(md): need to generalize the verifier instances
-import {RecursiveHonkVerifier} from "../../src/honk/instance/RecursiveHonk.sol";
+import {RecursiveHonkZKVerifier} from "../../src/honk/instance/RecursiveHonkZK.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
 import "forge-std/console.sol";
 
-contract RecursiveHonkTest is TestBaseHonk {
-    function setUp() public override(TestBaseHonk) {
+contract RecursiveHonkTest is TestBaseHonkZK {
+    function setUp() public override(TestBaseHonkZK) {
         super.setUp();
 
-        verifier = IVerifier(address(new RecursiveHonkVerifier()));
+        verifier = IVerifier(address(new RecursiveHonkZKVerifier()));
         fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Recursive);
 
         // Inputs below are for the inner proof, outer has no public inputs
