@@ -389,7 +389,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       executionResult => executionResult.publicInputs.nullifierReadRequests,
     );
     // TODO(#15902): Collect future logs and only allow squashing a note hash when all its logs have been emitted
-    // (i.e. non of the future logs are linked to the to-be-squashed note hashes).
+    // (i.e. none of the future logs are linked to the to-be-squashed note hashes).
     if (this.nextIteration) {
       // If it's not the final reset, only one dimension will be reset at a time.
       // The note hashes and nullifiers for the remaining read requests can't be squashed.
