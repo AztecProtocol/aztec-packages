@@ -14,6 +14,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 
 /**
  * Testing the things that should be getters are not updating state!
@@ -98,6 +99,34 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     address proposer2 = rollup.getCurrentProposer();
 
     assertEq(proposer, proposer2, "proposer should be the same");
+
+    (, bytes32[] memory writes) = vm.accesses(address(rollup));
+    assertEq(writes.length, 0, "No writes should be done");
+  }
+
+  // Checks that getProposerAt yields the same result as sampling the entire committee
+  // and then fetching the proposer from it given the proposer index.
+  function test_getProposerFromCommittee(uint16 _slot, bool _setup) external setup(4, 4) {
+    timeCheater.cheat__jumpForwardEpochs(2);
+    Slot s = Slot.wrap(timeCheater.currentSlot()) + Slot.wrap(_slot);
+    Timestamp t = timeCheater.slotToTimestamp(s);
+
+    vm.warp(Timestamp.unwrap(t));
+
+    if (_setup) {
+      rollup.setupEpoch();
+    }
+
+    vm.record();
+
+    address proposer = rollup.getProposerAt(t);
+
+    address[] memory committee = rollup.getCommitteeAt(t);
+    uint256 seed = rollup.getSampleSeedAt(t);
+    Epoch epoch = rollup.getEpochAt(t);
+    uint256 proposerIndex = ValidatorSelectionLib.computeProposerIndex(epoch, s, seed, 4);
+
+    assertEq(proposer, committee[proposerIndex], "proposer should be the same");
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
