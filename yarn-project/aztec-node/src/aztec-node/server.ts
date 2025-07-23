@@ -340,7 +340,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       watchers,
       dateProvider,
     );
-    slasherClient.start();
+    await slasherClient.start();
 
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
