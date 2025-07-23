@@ -92,7 +92,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     transcript->load_proof(stdlib_proof);
 
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
-    transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
     info("AVM vk hash in recursive verifier: ", vk_hash);
 
     RelationParams relation_parameters;

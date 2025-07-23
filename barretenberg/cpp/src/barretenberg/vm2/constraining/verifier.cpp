@@ -59,7 +59,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
     FF vk_hash = key->hash();
     // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
-    vinfo("AVM vk hash in verifier: ", vk_hash);
+    info("AVM vk hash in verifier: ", vk_hash);
 
     VerifierCommitments commitments{ key };
     // Get commitments to VM wires
