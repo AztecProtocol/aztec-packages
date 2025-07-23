@@ -228,8 +228,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             outer_circuit.ipa_proof = output.ipa_proof.get_value();
         }
 
-        info("HELLO");
-
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
