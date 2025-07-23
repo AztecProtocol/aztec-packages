@@ -118,6 +118,12 @@ template <typename Builder> class DefaultIO {
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
+
+    /**
+     * @brief Add default public inputs when they are not present
+     *
+     */
+    static void add_default(Builder& builder) { PairingInputs::add_default_to_public_inputs(builder); };
 };
 
 /**
@@ -179,6 +185,19 @@ template <class Builder_> class HidingKernelIO {
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
+
+    /**
+     * @brief Add default public inputs when they are not present
+     *
+     */
+    static void add_default(Builder& builder)
+    {
+        PairingInputs::add_default_to_public_inputs(builder);
+        for (size_t idx = 0; idx < Builder::NUM_WIRES; idx++) {
+            G1 point = G1::point_at_infinity(&builder);
+            point.set_public();
+        }
+    };
 };
 
 /**
