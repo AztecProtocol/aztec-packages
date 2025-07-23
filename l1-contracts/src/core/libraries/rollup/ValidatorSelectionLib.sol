@@ -219,7 +219,6 @@ library ValidatorSelectionLib {
     setCachedProposer(_slot, proposer, stack.proposerIndex);
   }
 
-  // Q: Do we still need to cache the proposer?
   function setCachedProposer(Slot _slot, address _proposer, uint256 _proposerIndex) internal {
     require(
       _proposerIndex <= type(uint96).max,
@@ -230,25 +229,24 @@ library ValidatorSelectionLib {
   }
 
   function getProposerAt(Slot _slot) internal returns (address, uint256) {
-    (address cachedProposer, uint256 proposerIndex) = getCachedProposer(_slot);
+    (address cachedProposer, uint256 cachedProposerIndex) = getCachedProposer(_slot);
     if (cachedProposer != address(0)) {
-      return (cachedProposer, proposerIndex);
+      return (cachedProposer, cachedProposerIndex);
     }
 
-    // @note this is deliberately "bad" for the simple reason of code reduction.
-    //       it does not need to actually return the full committee and then draw from it
-    //       it can just return the proposer directly, but then we duplicate the code
-    //       which we just don't have room for right now...
     Epoch epochNumber = _slot.epochFromSlot();
 
     uint224 sampleSeed = getSampleSeed(epochNumber);
-    address[] memory committee = sampleValidators(epochNumber, sampleSeed);
-    if (committee.length == 0) {
+    (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(epochNumber, sampleSeed);
+    uint256 committeeSize = indices.length;
+    if (committeeSize == 0) {
       return (address(0), 0);
     }
-
-    uint256 index = computeProposerIndex(epochNumber, _slot, sampleSeed, committee.length);
-    return (committee[index], index);
+    uint256 proposerIndex = computeProposerIndex(epochNumber, _slot, sampleSeed, committeeSize);
+    return (
+      StakingLib.getAttesterFromIndexAtTime(indices[proposerIndex], Timestamp.wrap(ts)),
+      proposerIndex
+    );
   }
 
   /**
@@ -260,24 +258,7 @@ library ValidatorSelectionLib {
    * @return The validators for the given epoch
    */
   function sampleValidators(Epoch _epoch, uint224 _seed) internal returns (address[] memory) {
-    ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = epochToSampleTime(_epoch);
-    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
-    uint256 targetCommitteeSize = store.targetCommitteeSize;
-
-    require(
-      validatorSetSize >= targetCommitteeSize,
-      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
-    );
-
-    if (targetCommitteeSize == 0) {
-      return new address[](0);
-    }
-
-    // Sample the larger committee
-    uint256[] memory indices =
-      SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
-
+    (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(_epoch, _seed);
     return StakingLib.getAttestersFromIndicesAtTime(Timestamp.wrap(ts), indices);
   }
 
@@ -421,6 +402,35 @@ library ValidatorSelectionLib {
   }
 
   /**
+   * @notice  Samples a validator set for a specific epoch and returns their indices within the set.
+   *
+   * @dev     Only used internally, should never be called for anything but the "next" epoch
+   *          Allowing us to always use `lastSeed`.
+   *
+   * @return  The sample time and the indices of the validators for the given epoch
+   */
+  function sampleValidatorsIndices(Epoch _epoch, uint224 _seed)
+    internal
+    returns (uint32, uint256[] memory)
+  {
+    ValidatorSelectionStorage storage store = getStorage();
+    uint32 ts = epochToSampleTime(_epoch);
+    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
+    uint256 targetCommitteeSize = store.targetCommitteeSize;
+
+    require(
+      validatorSetSize >= targetCommitteeSize,
+      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
+    );
+
+    if (targetCommitteeSize == 0) {
+      return (ts, new uint256[](0));
+    }
+
+    return (ts, SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed));
+  }
+
+  /**
    * @notice  Computes the nextSeed for an epoch
    *
    * @dev     We include the `_epoch` instead of using the randao directly to avoid issues with foundry testing
@@ -457,7 +467,7 @@ library ValidatorSelectionLib {
    * @return The index of the proposer
    */
   function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
-    private
+    internal
     pure
     returns (uint256)
   {
