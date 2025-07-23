@@ -461,12 +461,17 @@ resource "helm_release" "bot" {
 
   set {
     name  = "bot.nodeUrl"
-    value = "https://${var.RPC_HOSTNAME}:8080"
+    value = "https://${var.RPC_HOSTNAME}"
   }
 
   set_list {
     name  = "global.l1ExecutionUrls"
     value = local.ethereum_hosts
+  }
+
+  set {
+    name  = "bot.mnemonic"
+    value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
   }
 
   timeout       = 300

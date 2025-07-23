@@ -18,6 +18,8 @@ bot:
   maxErrors: 3
   stopIfUnhealthy: true
   nodeUrl: ""
+  testAccounts: false
+  botPrivateKey: "0xcafe"
 
   persistence:
     enabled: false

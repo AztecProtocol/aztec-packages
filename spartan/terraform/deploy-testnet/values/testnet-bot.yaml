@@ -21,22 +21,26 @@ bot:
   maxErrors: 3
   stopIfUnhealthy: true
   nodeUrl: ""
+  testAccounts: false
+  botPrivateKey: "0xcafe"
 
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
 
   affinity:
-    podAntiAffinity:
+    nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - node
-          topologyKey: "kubernetes.io/hostname"
-          namespaceSelector: {}
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
 
   node:
     resources:

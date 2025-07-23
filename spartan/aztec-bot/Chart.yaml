@@ -7,5 +7,5 @@ appVersion: "1.0.0"
 
 dependencies:
   - name: aztec-node
-    alias: validator
+    alias: bot
     version: 0.1.0
