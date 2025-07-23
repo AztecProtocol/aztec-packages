@@ -6,7 +6,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -257,10 +257,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         }),
       )
     ).filter(peer => peer !== undefined);
-
-    if (directPeers.length > 0) {
-      logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
-    }
 
     const node = await createLibp2p({
       start: false,
@@ -530,6 +526,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
   ): Promise<void> {
     return this.reqresp.addSubProtocol(subProtocol, handler, validator);
+  }
+
+  public registerThisValidatorAddresses(address: EthAddress[]): void {
+    this.peerManager.registerThisValidatorAddresses(address);
   }
 
   public getPeers(includePending?: boolean): PeerInfo[] {

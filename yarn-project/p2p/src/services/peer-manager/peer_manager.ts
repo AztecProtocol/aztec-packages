@@ -12,11 +12,11 @@ import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 import type { Multiaddr } from '@multiformats/multiaddr';
-import type { Libp2p } from 'libp2p';
 import { inspect } from 'util';
 
 import type { P2PConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
+import type { FullLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { AuthRequest, AuthResponse } from '../reqresp/protocols/auth.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
@@ -61,6 +61,8 @@ export class PeerManager implements PeerManagerInterface {
   private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
   private peersToBeDisconnected: Set<string> = new Set();
   private failedAuthHandshakes: Map<string, number> = new Map();
+  private validatorAddresses: EthAddress[] = [];
+  private initializedPreferredPeers: boolean = false;
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -70,7 +72,7 @@ export class PeerManager implements PeerManagerInterface {
   };
 
   constructor(
-    private libP2PNode: Libp2p,
+    private libP2PNode: FullLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
     telemetryClient: TelemetryClient,
@@ -157,10 +159,63 @@ export class PeerManager implements PeerManagerInterface {
     this.peerScoring.decayAllScores();
     this.cleanupExpiredTimeouts();
 
+    await this.setupDirectPeersIfValidator();
     await this.updateAuthenticatedPeers();
     await this.processScheduledDisconnects();
 
     this.discover();
+  }
+
+  /*
+   * If this node is connecting to preferred peers, make sure it is registered validator */
+  async setupDirectPeersIfValidator() {
+    if (!this.config.preferredPeers) {
+      return;
+    }
+
+    const registeredValidators = await this.epochCache.getRegisteredValidators();
+    const validatorSet = new Set(registeredValidators.map(v => v.toString()));
+    const isThisNodePartOfValidatorSet = this.validatorAddresses.some(v => validatorSet.has(v.toString()));
+
+    if (!isThisNodePartOfValidatorSet) {
+      return;
+    }
+
+    // Already initialized preferred peers, don't wastefully repeat the same work
+    if (this.initializedPreferredPeers) {
+      return;
+    }
+
+    const preferredPeersEnrs: ENR[] = this.config.preferredPeers.map(enr => ENR.decodeTxt(enr));
+    await Promise.all(preferredPeersEnrs.map(enr => enr.peerId()))
+      .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
+      .catch(e => this.logger.error('Error initializing preferred peers', e));
+
+    const directPeers = (
+      await Promise.all(
+        preferredPeersEnrs.map(async enr => {
+          const peerId = await enr.peerId();
+          const address = enr.getLocationMultiaddr('tcp');
+          if (address === undefined) {
+            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+          }
+          return {
+            id: peerId,
+            addrs: [address],
+          };
+        }),
+      )
+    ).filter(peer => peer !== undefined);
+
+    await Promise.all(
+      directPeers.map(peer => {
+        this.libP2PNode.services.pubsub.direct.add(peer.id.toString());
+
+        return this.libP2PNode.peerStore.merge(peer.id, { multiaddrs: peer.addrs });
+      }),
+    );
+
+    this.initializedPreferredPeers = true;
   }
 
   /**
@@ -249,6 +304,10 @@ export class PeerManager implements PeerManagerInterface {
       this.authenticatedValidatorAddressToPeerId.delete(validatorAddress.toString());
       this.authenticatedPeerIdToValidatorAddress.delete(peerId.toString());
     }
+  }
+
+  public registerThisValidatorAddresses(address: EthAddress[]): void {
+    this.validatorAddresses = [...address];
   }
 
   /**
@@ -896,6 +955,9 @@ export class PeerManager implements PeerManagerInterface {
         `Successfully completed auth handshake with peer ${peerId}, validator address ${sender.toString()}`,
         logData,
       );
+
+      //Authed peers are important, it is better to mark them as direct in Gossipsub
+      this.libP2PNode.services.pubsub.direct.add(peerIdString);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
       this.logger.debug(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
