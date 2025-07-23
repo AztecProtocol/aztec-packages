@@ -8,7 +8,7 @@ import {
   splitHonkProof,
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
-import { fromClientIVCProof, toClientIVCProof } from '../cbind/index.js';
+import { fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_types.js';
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';
