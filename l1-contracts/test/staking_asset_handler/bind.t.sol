@@ -15,7 +15,7 @@ contract BindTest is StakingAssetHandlerBase {
   function setUp() public override {
     super.setUp();
     // Check is disabled by default
-    enableBindCheck();
+    _enableBindCheck();
   }
 
   function test_WhenUsingTheBoundAddress() external {

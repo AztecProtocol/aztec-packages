@@ -331,7 +331,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       oracleInput: OracleInput(0)
     });
 
-    skipBlobCheck(address(rollup));
+    _skipBlobCheck(address(rollup));
 
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
@@ -351,13 +351,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       bytes32 digest = ProposeLib.digest(ree.proposePayload);
       for (uint256 i = 0; i < _signatureCount; i++) {
-        attestations[i] = createAttestation(validators[i], digest);
+        attestations[i] = _createAttestation(validators[i], digest);
       }
 
       // We must include empty attestations to make the committee commitment match
       if (ree.provideEmptyAttestations) {
         for (uint256 i = _signatureCount; i < validators.length; i++) {
-          attestations[i] = createEmptyAttestation(validators[i]);
+          attestations[i] = _createEmptyAttestation(validators[i]);
         }
       }
 
@@ -393,7 +393,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         address invalidAttester = vm.addr(invalidAttesterKey);
         attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
         for (uint256 i = 0; i < attestations.length; ++i) {
-          attestations[i] = createAttestation(invalidAttester, digest);
+          attestations[i] = _createAttestation(invalidAttester, digest);
           incorrectCommittee[i] = attestations[i].addr;
         }
         bytes32 incorrectCommitteeCommitment = keccak256(abi.encode(incorrectCommittee));
@@ -417,7 +417,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
 
         incorrectCommittee[validators.length - 2] = invalidAttester;
-        attestations[validators.length - 2] = createAttestation(invalidAttester, digest);
+        attestations[validators.length - 2] = _createAttestation(invalidAttester, digest);
 
         bytes32 incorrectCommitteeCommitment = keccak256(abi.encode(incorrectCommittee));
 
@@ -508,7 +508,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function createAttestation(address _signer, bytes32 _digest)
+  function _createAttestation(address _signer, bytes32 _digest)
     internal
     view
     returns (CommitteeAttestation memory)
@@ -522,7 +522,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     return CommitteeAttestation({addr: _signer, signature: signature});
   }
 
-  function createEmptyAttestation(address _signer)
+  function _createEmptyAttestation(address _signer)
     internal
     pure
     returns (CommitteeAttestation memory)

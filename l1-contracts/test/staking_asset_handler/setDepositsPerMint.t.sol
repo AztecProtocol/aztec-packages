@@ -52,7 +52,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
   function test_WhenOwnerAddsValidators(uint256 _depositsPerMint) external {
     // Always accept the fake proofs
-    setMockZKPassportVerifier();
+    _setMockZKPassportVerifier();
 
     address caller = address(0xbeefdeef);
 

@@ -188,7 +188,7 @@ contract RollupBase is DecoderBase {
         vm.blobhashes(blobHashes);
       } else {
         // skip blob check if forge gas report is true
-        skipBlobCheck(address(rollup));
+        _skipBlobCheck(address(rollup));
       }
     }
 

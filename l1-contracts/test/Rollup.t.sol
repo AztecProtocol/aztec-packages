@@ -323,7 +323,7 @@ contract RollupTest is RollupBase {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, Timestamp.unwrap(header.timestamp)));
 
-    skipBlobCheck(address(rollup));
+    _skipBlobCheck(address(rollup));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroDaFee.selector));
     ProposeArgs memory args = ProposeArgs({
@@ -346,7 +346,7 @@ contract RollupTest is RollupBase {
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, Timestamp.unwrap(header.timestamp)));
 
-    skipBlobCheck(address(rollup));
+    _skipBlobCheck(address(rollup));
 
     uint256 expectedFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
 
@@ -454,7 +454,7 @@ contract RollupTest is RollupBase {
       uint256 coinbaseBalance = testERC20.balanceOf(header.coinbase);
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
-      skipBlobCheck(address(rollup));
+      _skipBlobCheck(address(rollup));
       interim.baseFee =
         SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
 
@@ -720,7 +720,7 @@ contract RollupTest is RollupBase {
     // Tweak the timestamp.
     header.timestamp = badTs;
 
-    skipBlobCheck(address(rollup));
+    _skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
     ProposeArgs memory args = ProposeArgs({
       header: header,
@@ -743,7 +743,7 @@ contract RollupTest is RollupBase {
     // Tweak the coinbase.
     header.coinbase = address(0);
 
-    skipBlobCheck(address(rollup));
+    _skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
     ProposeArgs memory args = ProposeArgs({
       header: header,

@@ -54,17 +54,17 @@ contract ZKPassportBase is Test {
     // ( When the proof was made )
     // Set the timestamp to 2025-06-05 15:34:45 UTC
     vm.warp(1749137685);
-    realProof = makeValidProof();
-    fakeProof = makeFakeProof();
+    realProof = _makeValidProof();
+    fakeProof = _makeFakeProof();
 
     // Mock verifier
     mockZKPassportVerifier = new MockZKPassportVerifier();
   }
 
-  function makeValidProof() internal view returns (ProofVerificationParams memory params) {
-    bytes memory proof = loadBytesFromFile("valid_proof.hex");
-    bytes32[] memory publicInputs = loadBytes32FromFile("valid_public_inputs.json");
-    bytes memory committedInputs = loadBytesFromFile("valid_committed_inputs.hex");
+  function _makeValidProof() internal view returns (ProofVerificationParams memory params) {
+    bytes memory proof = _loadBytesFromFile("valid_proof.hex");
+    bytes32[] memory publicInputs = _loadBytes32FromFile("valid_public_inputs.json");
+    bytes memory committedInputs = _loadBytesFromFile("valid_committed_inputs.hex");
 
     // Order of bytes of committed inputs for each disclosure proof
     uint256[] memory committedInputCounts = new uint256[](2);
@@ -84,21 +84,13 @@ contract ZKPassportBase is Test {
     });
   }
 
-  function makeFakeProof() internal pure returns (ProofVerificationParams memory params) {
+  function _makeFakeProof() internal pure returns (ProofVerificationParams memory params) {
     bytes memory proof = bytes(string(""));
     bytes32[] memory publicInputs = new bytes32[](0);
     bytes memory committedInputs = bytes(string(""));
 
     // Order of bytes of committed inputs for each disclosure proof
-    uint256[] memory committedInputCounts = new uint256[](8);
-    committedInputCounts[0] = 181;
-    committedInputCounts[1] = 601;
-    committedInputCounts[2] = 601;
-    committedInputCounts[3] = 601;
-    committedInputCounts[4] = 601;
-    committedInputCounts[5] = 11;
-    committedInputCounts[6] = 25;
-    committedInputCounts[7] = 25;
+    uint256[] memory committedInputCounts = new uint256[](0);
 
     params = ProofVerificationParams({
       vkeyHash: VKEY_HASH,
@@ -116,21 +108,21 @@ contract ZKPassportBase is Test {
   /**
    * @dev Helper function to load proof data from a file
    */
-  function loadBytesFromFile(string memory name) internal view returns (bytes memory) {
+  function _loadBytesFromFile(string memory name) internal view returns (bytes memory) {
     // Try to read the file as a string
-    string memory path = getPath(name);
+    string memory path = _getPath(name);
     string memory proofHex = vm.readFile(path);
 
     // Check if content starts with 0x
     if (bytes(proofHex).length > 2 && bytes(proofHex)[0] == "0" && bytes(proofHex)[1] == "x") {
-      proofHex = slice(proofHex, 2, bytes(proofHex).length - 2);
+      proofHex = _slice(proofHex, 2, bytes(proofHex).length - 2);
     }
 
     // Try to parse the bytes
     return vm.parseBytes(proofHex);
   }
 
-  function getPath(string memory name) internal view returns (string memory path) {
+  function _getPath(string memory name) internal view returns (string memory path) {
     string memory root = vm.projectRoot();
     path = string.concat(root, "/test/staking_asset_handler/zkpassport/fixtures/", name);
   }
@@ -138,8 +130,8 @@ contract ZKPassportBase is Test {
   /**
    * @dev Helper function to load public inputs from a file
    */
-  function loadBytes32FromFile(string memory name) internal view returns (bytes32[] memory) {
-    string memory path = getPath(name);
+  function _loadBytes32FromFile(string memory name) internal view returns (bytes32[] memory) {
+    string memory path = _getPath(name);
 
     string memory inputsJson = vm.readFile(path);
     // Parse the inputs from the file
@@ -156,7 +148,7 @@ contract ZKPassportBase is Test {
   /**
    * @dev Helper function to slice a string
    */
-  function slice(string memory s, uint256 start, uint256 length)
+  function _slice(string memory s, uint256 start, uint256 length)
     internal
     pure
     returns (string memory)

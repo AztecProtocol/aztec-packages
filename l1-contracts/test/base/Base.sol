@@ -31,7 +31,7 @@ contract TestBase is Test {
     partialStateReference: EMPTY_PARTIALSTATE_REFERENCE
   });
 
-  function assertGt(Timestamp a, Timestamp b) internal {
+  function _assertGt(Timestamp a, Timestamp b) internal {
     if (a <= b) {
       emit log("Error: a > b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -40,7 +40,7 @@ contract TestBase is Test {
     }
   }
 
-  function assertGt(Timestamp a, uint256 b) internal {
+  function _assertGt(Timestamp a, uint256 b) internal {
     if (a <= Timestamp.wrap(b)) {
       emit log("Error: a > b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -49,21 +49,21 @@ contract TestBase is Test {
     }
   }
 
-  function assertGt(Timestamp a, Timestamp b, string memory err) internal {
+  function _assertGt(Timestamp a, Timestamp b, string memory err) internal {
     if (a <= b) {
       emit log_named_string("Error", err);
-      assertGt(a, b);
+      _assertGt(a, b);
     }
   }
 
-  function assertGt(Timestamp a, uint256 b, string memory err) internal {
+  function _assertGt(Timestamp a, uint256 b, string memory err) internal {
     if (a <= Timestamp.wrap(b)) {
       emit log_named_string("Error", err);
-      assertGt(a, b);
+      _assertGt(a, b);
     }
   }
 
-  function assertLe(Timestamp a, Timestamp b) internal {
+  function _assertLe(Timestamp a, Timestamp b) internal {
     if (a > b) {
       emit log("Error: a <= b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -72,7 +72,7 @@ contract TestBase is Test {
     }
   }
 
-  function assertLe(Timestamp a, uint256 b) internal {
+  function _assertLe(Timestamp a, uint256 b) internal {
     if (a > Timestamp.wrap(b)) {
       emit log("Error: a <= b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -81,21 +81,21 @@ contract TestBase is Test {
     }
   }
 
-  function assertLe(Timestamp a, Timestamp b, string memory err) internal {
+  function _assertLe(Timestamp a, Timestamp b, string memory err) internal {
     if (a > b) {
       emit log_named_string("Error", err);
-      assertLe(a, b);
+      _assertLe(a, b);
     }
   }
 
-  function assertLe(Timestamp a, uint256 b, string memory err) internal {
+  function _assertLe(Timestamp a, uint256 b, string memory err) internal {
     if (a > Timestamp.wrap(b)) {
       emit log_named_string("Error", err);
-      assertLe(a, b);
+      _assertLe(a, b);
     }
   }
 
-  function assertLt(Timestamp a, Timestamp b) internal {
+  function _assertLt(Timestamp a, Timestamp b) internal {
     if (a >= b) {
       emit log("Error: a < b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -104,7 +104,7 @@ contract TestBase is Test {
     }
   }
 
-  function assertLt(Timestamp a, uint256 b) internal {
+  function _assertLt(Timestamp a, uint256 b) internal {
     if (a >= Timestamp.wrap(b)) {
       emit log("Error: a < b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -113,21 +113,21 @@ contract TestBase is Test {
     }
   }
 
-  function assertLt(Timestamp a, Timestamp b, string memory err) internal {
+  function _assertLt(Timestamp a, Timestamp b, string memory err) internal {
     if (a >= b) {
       emit log_named_string("Error", err);
-      assertLt(a, b);
+      _assertLt(a, b);
     }
   }
 
-  function assertLt(Timestamp a, uint256 b, string memory err) internal {
+  function _assertLt(Timestamp a, uint256 b, string memory err) internal {
     if (a >= Timestamp.wrap(b)) {
       emit log_named_string("Error", err);
-      assertLt(a, b);
+      _assertLt(a, b);
     }
   }
 
-  function assertEq(Timestamp a, Timestamp b) internal {
+  function _assertEq(Timestamp a, Timestamp b) internal {
     if (a != b) {
       emit log("Error: a == b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -136,7 +136,7 @@ contract TestBase is Test {
     }
   }
 
-  function assertEq(Timestamp a, uint256 b) internal {
+  function _assertEq(Timestamp a, uint256 b) internal {
     if (a != Timestamp.wrap(b)) {
       emit log("Error: a == b not satisfied [Timestamp]");
       emit log_named_uint("      Left", Timestamp.unwrap(a));
@@ -145,23 +145,23 @@ contract TestBase is Test {
     }
   }
 
-  function assertEq(Timestamp a, Timestamp b, string memory err) internal {
+  function _assertEq(Timestamp a, Timestamp b, string memory err) internal {
     if (a != b) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      _assertEq(a, b);
     }
   }
 
-  function assertEq(Timestamp a, uint256 b, string memory err) internal {
+  function _assertEq(Timestamp a, uint256 b, string memory err) internal {
     if (a != Timestamp.wrap(b)) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      _assertEq(a, b);
     }
   }
 
   // Slots
 
-  function assertEq(Slot a, Slot b) internal {
+  function _assertEq(Slot a, Slot b) internal {
     if (a != b) {
       emit log("Error: a == b not satisfied [Slot]");
       emit log_named_uint("      Left", Slot.unwrap(a));
@@ -170,7 +170,7 @@ contract TestBase is Test {
     }
   }
 
-  function assertEq(uint256 a, Slot b) internal {
+  function _assertEq(uint256 a, Slot b) internal {
     if (Slot.wrap(a) != b) {
       emit log("Error: a == b not satisfied [Slot]");
       emit log_named_uint("      Left", a);
@@ -179,7 +179,7 @@ contract TestBase is Test {
     }
   }
 
-  function assertEq(Slot a, uint256 b) internal {
+  function _assertEq(Slot a, uint256 b) internal {
     if (a != Slot.wrap(b)) {
       emit log("Error: a == b not satisfied [Slot]");
       emit log_named_uint("      Left", Slot.unwrap(a));
@@ -188,30 +188,30 @@ contract TestBase is Test {
     }
   }
 
-  function assertEq(Slot a, Slot b, string memory err) internal {
+  function _assertEq(Slot a, Slot b, string memory err) internal {
     if (a != b) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      _assertEq(a, b);
     }
   }
 
-  function assertEq(uint256 a, Slot b, string memory err) internal {
+  function _assertEq(uint256 a, Slot b, string memory err) internal {
     if (Slot.wrap(a) != b) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      _assertEq(a, b);
     }
   }
 
-  function assertEq(Slot a, uint256 b, string memory err) internal {
+  function _assertEq(Slot a, uint256 b, string memory err) internal {
     if (a != Slot.wrap(b)) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      _assertEq(a, b);
     }
   }
 
   // Epochs
 
-  function assertEq(Epoch a, Epoch b) internal {
+  function _assertEq(Epoch a, Epoch b) internal {
     if (a != b) {
       emit log("Error: a == b not satisfied [Epoch]");
       emit log_named_uint("      Left", Epoch.unwrap(a));
@@ -220,7 +220,7 @@ contract TestBase is Test {
     }
   }
 
-  function assertEq(Epoch a, uint256 b) internal {
+  function _assertEq(Epoch a, uint256 b) internal {
     if (a != Epoch.wrap(b)) {
       emit log("Error: a == b not satisfied [Epoch]");
       emit log_named_uint("      Left", Epoch.unwrap(a));
@@ -229,21 +229,21 @@ contract TestBase is Test {
     }
   }
 
-  function assertEq(Epoch a, Epoch b, string memory err) internal {
+  function _assertEq(Epoch a, Epoch b, string memory err) internal {
     if (a != b) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      _assertEq(a, b);
     }
   }
 
-  function assertEq(Epoch a, uint256 b, string memory err) internal {
+  function _assertEq(Epoch a, uint256 b, string memory err) internal {
     if (a != Epoch.wrap(b)) {
       emit log_named_string("Error", err);
-      assertEq(a, b);
+      _assertEq(a, b);
     }
   }
 
-  function logStatus(Status status) internal {
+  function _logStatus(Status status) internal {
     string memory statusString;
     if (status == Status.ZOMBIE) {
       statusString = "ZOMBIE";
@@ -258,12 +258,12 @@ contract TestBase is Test {
     emit log_named_string("status", statusString);
   }
 
-  function logAttesterConfig(AttesterConfig memory config) internal {
+  function _logAttesterConfig(AttesterConfig memory config) internal {
     emit log("attester config");
     emit log_named_address("\twithdrawer", config.withdrawer);
   }
 
-  function logExit(Exit memory exit) internal {
+  function _logExit(Exit memory exit) internal {
     emit log("exit");
     emit log_named_decimal_uint("\tamount", exit.amount, 18);
     emit log_named_uint("\texitableAt", Timestamp.unwrap(exit.exitableAt));
@@ -271,18 +271,18 @@ contract TestBase is Test {
     emit log_named_string("\tisRecipient", exit.isRecipient ? "true" : "false");
   }
 
-  function logAttesterView(AttesterView memory s) internal {
-    logStatus(s.status);
-    logAttesterConfig(s.config);
+  function _logAttesterView(AttesterView memory s) internal {
+    _logStatus(s.status);
+    _logAttesterConfig(s.config);
     if (s.exit.exists) {
-      logExit(s.exit);
+      _logExit(s.exit);
     }
     emit log_named_decimal_uint("\tEffective balance", s.effectiveBalance, 18);
   }
 
   // Blobs
 
-  function skipBlobCheck(address rollup) internal {
+  function _skipBlobCheck(address rollup) internal {
     // For not entirely clear reasons, the checked_write and find in stdStore breaks with
     // under/overflow errors if using them. But we can still use them to find the slot
     // and looking in the logs. Interesting.
