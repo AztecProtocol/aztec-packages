@@ -46,17 +46,20 @@ library Errors {
   error Governance__ProposalLib__ZeroYeaVotesNeeded();
   error Governance__ProposalLib__MoreYeaVoteThanExistNeeded();
 
-  error GovernanceProposer__CanOnlySubmitRoundWinnerInPast();
   error GovernanceProposer__FailedToSubmitRoundWinner(IPayload payload);
   error GovernanceProposer__InstanceHaveNoCode(address instance);
   error GovernanceProposer__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
   error GovernanceProposer__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
   error GovernanceProposer__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
+  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(
+    uint256 lifetimeInRounds, uint256 executionDelayInRounds
+  );
   error GovernanceProposer__OnlyProposerCanSignal(address caller, address proposer);
   error GovernanceProposer__PayloadAlreadySubmitted(uint256 roundNumber);
   error GovernanceProposer__PayloadCannotBeAddressZero();
   error GovernanceProposer__PayloadHaveNoCode(IPayload payload);
   error GovernanceProposer__RoundTooOld(uint256 roundNumber, uint256 currentRoundNumber);
+  error GovernanceProposer__RoundTooNew(uint256 roundNumber, uint256 currentRoundNumber);
   error GovernanceProposer__SignalAlreadyCastForSlot(Slot slot);
   error GovernanceProposer__GSEPayloadInvalid();
 

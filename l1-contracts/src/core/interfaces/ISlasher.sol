@@ -6,4 +6,5 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 interface ISlasher {
   function slash(IPayload _payload) external returns (bool);
+  function vetoPayload(IPayload _payload) external returns (bool);
 }

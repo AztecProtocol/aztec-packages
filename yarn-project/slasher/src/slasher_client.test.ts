@@ -84,6 +84,7 @@ describe('SlasherClient', () => {
       genesisArchiveRoot: Fr.random(),
       slashingQuorum: 6,
       slashingRoundSize: 10,
+      slashingExecutionDelayInRounds: 1,
       ethereumSlotDuration,
       aztecSlotDuration,
       aztecEpochDuration: 4,
@@ -126,7 +127,7 @@ describe('SlasherClient', () => {
       new DateProvider(),
     );
 
-    slasherClient.start();
+    await slasherClient.start();
 
     rollup = new RollupContract(l1TxUtils.client, deployed.l1ContractAddresses.rollupAddress);
     slashingProposer = await rollup.getSlashingProposer();

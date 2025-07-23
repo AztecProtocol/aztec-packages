@@ -21,6 +21,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
@@ -41,7 +42,10 @@ contract SlashingTest is TestBase {
   SlashingProposer internal slashingProposer;
   TimeCheater internal timeCheater;
 
-  function _createAndExecutePayload(address[] memory _attesters, uint96 _slashAmount) internal {
+  function _createPayloadAndSignalForSlashing(address[] memory _attesters, uint96 _slashAmount)
+    internal
+    returns (uint256, IPayload)
+  {
     // Lets make a proposal to slash! For
     // We jump to perfectly land at the start of the next round
     uint256 desiredSlot = (slashingProposer.getCurrentRound() + 1) * slashingProposer.ROUND_SIZE();
@@ -64,10 +68,20 @@ contract SlashingTest is TestBase {
       timeCheater.cheat__progressSlot();
     }
 
-    slashingProposer.submitRoundWinner(round);
+    return (round, payload);
   }
 
-  function test_Slashing() public {
+  function _setupCommitteeForSlashing() internal {
+    _setupCommitteeForSlashing(
+      TestConstants.AZTEC_SLASHING_LIFETIME_IN_ROUNDS,
+      TestConstants.AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS
+    );
+  }
+
+  function _setupCommitteeForSlashing(
+    uint256 _slashingLifetimeInRounds,
+    uint256 _slashingExecutionDelayInRounds
+  ) internal {
     uint256 validatorCount = 4;
 
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](validatorCount);
@@ -79,8 +93,9 @@ contract SlashingTest is TestBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(4);
+    RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators)
+      .setTargetCommitteeSize(4).setSlashingLifetimeInRounds(_slashingLifetimeInRounds)
+      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -103,6 +118,106 @@ contract SlashingTest is TestBase {
     timeCheater.cheat__jumpForwardEpochs(2);
 
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
+  }
+
+  function test_CannotSlashBeforeDelay(
+    uint256 _lifetimeInRounds,
+    uint256 _executionDelayInRounds,
+    uint256 _jumpToSlot
+  ) public {
+    _executionDelayInRounds = bound(_executionDelayInRounds, 1, 1e3);
+    _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 1e4);
+
+    _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
+    uint96 slashAmount = 10e18;
+    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount);
+
+    uint256 firstExecutableSlot =
+      (firstSlashingRound + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
+    _jumpToSlot = bound(_jumpToSlot, timeCheater.currentSlot(), firstExecutableSlot - 1);
+
+    timeCheater.cheat__jumpToSlot(_jumpToSlot);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.GovernanceProposer__RoundTooNew.selector,
+        firstSlashingRound,
+        slashingProposer.getCurrentRound()
+      )
+    );
+    slashingProposer.submitRoundWinner(firstSlashingRound);
+  }
+
+  function test_CanSlashAfterDelay(
+    uint256 _lifetimeInRounds,
+    uint256 _executionDelayInRounds,
+    uint256 _jumpToSlot
+  ) public {
+    _executionDelayInRounds = bound(_executionDelayInRounds, 1, 1e3);
+    _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 1e4);
+
+    _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
+    uint96 slashAmount = 10e18;
+    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount);
+
+    uint256 firstExecutableSlot =
+      (firstSlashingRound + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
+    uint256 lastExecutableSlot =
+      (firstSlashingRound + _lifetimeInRounds) * slashingProposer.ROUND_SIZE();
+    _jumpToSlot = bound(_jumpToSlot, firstExecutableSlot, lastExecutableSlot);
+
+    timeCheater.cheat__jumpToSlot(_jumpToSlot);
+    uint256[] memory stakes = new uint256[](attesters.length);
+    for (uint256 i = 0; i < attesters.length; i++) {
+      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
+      stakes[i] = attesterView.effectiveBalance;
+      assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
+    }
+    slashingProposer.submitRoundWinner(firstSlashingRound);
+
+    for (uint256 i = 0; i < attesters.length; i++) {
+      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
+      assertEq(attesterView.effectiveBalance, stakes[i] - slashAmount);
+      assertEq(attesterView.exit.amount, 0, "Invalid stake");
+      assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
+    }
+  }
+
+  function test_CannotSlashIfVetoed(
+    uint256 _lifetimeInRounds,
+    uint256 _executionDelayInRounds,
+    uint256 _jumpToSlot
+  ) public {
+    _executionDelayInRounds = bound(_executionDelayInRounds, 1, 1e3);
+    _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 1e4);
+
+    _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
+    uint96 slashAmount = 10e18;
+    (uint256 firstSlashingRound, IPayload payload) =
+      _createPayloadAndSignalForSlashing(attesters, slashAmount);
+
+    vm.prank(address(slasher.VETOER()));
+    slasher.vetoPayload(payload);
+
+    uint256 firstExecutableSlot =
+      (firstSlashingRound + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
+    uint256 lastExecutableSlot =
+      (firstSlashingRound + _lifetimeInRounds) * slashingProposer.ROUND_SIZE();
+    _jumpToSlot = bound(_jumpToSlot, firstExecutableSlot, lastExecutableSlot);
+
+    timeCheater.cheat__jumpToSlot(_jumpToSlot);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Slasher.Slasher__PayloadVetoed.selector, address(payload))
+    );
+    slashingProposer.submitRoundWinner(firstSlashingRound);
+  }
+
+  function test_Slashing() public {
+    _setupCommitteeForSlashing();
 
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(2));
     uint256[] memory stakes = new uint256[](attesters.length);
@@ -114,7 +229,8 @@ contract SlashingTest is TestBase {
 
     // We slash a small amount and see that they are all still validating, but less stake
     uint96 slashAmount1 = 10e18;
-    _createAndExecutePayload(attesters, slashAmount1);
+    (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount1);
+    slashingProposer.submitRoundWinner(firstSlashingRound);
 
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
@@ -127,7 +243,8 @@ contract SlashingTest is TestBase {
     // Why we doing it in two steps explicitly here? To make sure that it is clear
     // that it works like this.
     uint96 slashAmount2 = 40e18 + 1;
-    _createAndExecutePayload(attesters, slashAmount2);
+    (uint256 secondSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount2);
+    slashingProposer.submitRoundWinner(secondSlashingRound);
 
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);

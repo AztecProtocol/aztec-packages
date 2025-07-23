@@ -182,6 +182,22 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setSlashingLifetimeInRounds(uint256 _slashingLifetimeInRounds)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.slashingLifetimeInRounds = _slashingLifetimeInRounds;
+    return this;
+  }
+
+  function setSlashingExecutionDelayInRounds(uint256 _slashingExecutionDelayInRounds)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.slashingExecutionDelayInRounds = _slashingExecutionDelayInRounds;
+    return this;
+  }
+
   function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
     return this;

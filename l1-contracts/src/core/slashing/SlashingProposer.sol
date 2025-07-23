@@ -14,9 +14,14 @@ contract SlashingProposer is IEmpire, EmpireBase {
   address public immutable INSTANCE;
   ISlasher public immutable SLASHER;
 
-  constructor(address _instance, ISlasher _slasher, uint256 _slashingQuorum, uint256 _roundSize)
-    EmpireBase(_slashingQuorum, _roundSize)
-  {
+  constructor(
+    address _instance,
+    ISlasher _slasher,
+    uint256 _slashingQuorum,
+    uint256 _roundSize,
+    uint256 _lifetimeInRounds,
+    uint256 _executionDelayInRounds
+  ) EmpireBase(_slashingQuorum, _roundSize, _lifetimeInRounds, _executionDelayInRounds) {
     INSTANCE = _instance;
     SLASHER = _slasher;
   }

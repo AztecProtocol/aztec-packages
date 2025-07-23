@@ -100,9 +100,6 @@ abstract contract EmpireBase is EIP712, IEmpire {
   using CompressedTimeMath for Slot;
   using CompressedTimeMath for CompressedSlot;
 
-  // The number of rounds that a payload can be considered submittable.
-  uint256 public constant LIFETIME_IN_ROUNDS = 5;
-
   // EIP-712 type hash for the Signal struct
   bytes32 public constant SIGNAL_TYPEHASH =
     keccak256("Signal(address payload,uint256 nonce,uint256 round)");
@@ -111,6 +108,10 @@ abstract contract EmpireBase is EIP712, IEmpire {
   uint256 public immutable QUORUM_SIZE;
   // The number of slots per round.
   uint256 public immutable ROUND_SIZE;
+  // The number of rounds that a round winner may be submitted for.
+  uint256 public immutable LIFETIME_IN_ROUNDS;
+  // The number of rounds that must elapse before a round winner may be submitted.
+  uint256 public immutable EXECUTION_DELAY_IN_ROUNDS;
 
   // Mapping of instance to round number to round accounting.
   mapping(address instance => mapping(uint256 roundNumber => CompressedRoundAccounting)) internal
@@ -118,9 +119,16 @@ abstract contract EmpireBase is EIP712, IEmpire {
   // Mapping of instance signaler to nonce. Used to prevent replay attacks.
   mapping(address signaler => uint256 nonce) public nonces;
 
-  constructor(uint256 _quorumSize, uint256 _roundSize) EIP712("EmpireBase", "1") {
+  constructor(
+    uint256 _quorumSize,
+    uint256 _roundSize,
+    uint256 _lifetimeInRounds,
+    uint256 _executionDelayInRounds
+  ) EIP712("EmpireBase", "1") {
     QUORUM_SIZE = _quorumSize;
     ROUND_SIZE = _roundSize;
+    LIFETIME_IN_ROUNDS = _lifetimeInRounds;
+    EXECUTION_DELAY_IN_ROUNDS = _executionDelayInRounds;
 
     require(
       QUORUM_SIZE > ROUND_SIZE / 2,
@@ -129,6 +137,13 @@ abstract contract EmpireBase is EIP712, IEmpire {
     require(
       QUORUM_SIZE <= ROUND_SIZE,
       Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE)
+    );
+
+    require(
+      LIFETIME_IN_ROUNDS > EXECUTION_DELAY_IN_ROUNDS,
+      Errors.GovernanceProposer__InvalidLifetimeAndExecutionDelay(
+        LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS
+      )
     );
   }
 
@@ -179,11 +194,14 @@ abstract contract EmpireBase is EIP712, IEmpire {
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
+
     require(
-      _roundNumber < currentRound, Errors.GovernanceProposer__CanOnlySubmitRoundWinnerInPast()
+      currentRound > _roundNumber + EXECUTION_DELAY_IN_ROUNDS,
+      Errors.GovernanceProposer__RoundTooNew(_roundNumber, currentRound)
     );
+
     require(
-      _roundNumber + LIFETIME_IN_ROUNDS >= currentRound,
+      currentRound <= _roundNumber + LIFETIME_IN_ROUNDS,
       Errors.GovernanceProposer__RoundTooOld(_roundNumber, currentRound)
     );
 

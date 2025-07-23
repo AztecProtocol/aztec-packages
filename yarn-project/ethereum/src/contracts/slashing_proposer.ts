@@ -47,6 +47,14 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     return this.proposer.read.ROUND_SIZE();
   }
 
+  public getLifetimeInRounds() {
+    return this.proposer.read.LIFETIME_IN_ROUNDS();
+  }
+
+  public getExecutionDelayInRounds() {
+    return this.proposer.read.EXECUTION_DELAY_IN_ROUNDS();
+  }
+
   public computeRound(slot: bigint): Promise<bigint> {
     return this.proposer.read.computeRound([slot]);
   }
