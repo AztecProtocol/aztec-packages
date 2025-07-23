@@ -113,10 +113,10 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
       const logger = createLogger(`p2p:${getNodePort(nodeIndex)}`);
-      jest.spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx').mockImplementation((async (
+      jest.spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx').mockImplementation(((
         payloadData: Buffer,
       ) => {
-        const txHash = await Tx.fromBuffer(payloadData).getTxHash();
+        const txHash = Tx.fromBuffer(payloadData).getTxHash();
         logger.info(`Skipping storage of gossiped transaction ${txHash.toString()}`);
         return Promise.resolve();
       }) as any);
@@ -129,7 +129,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
       c.txs.map(tx => {
         const node = nodes[proposerIndexes[i]];
         void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
-        return new SentTx(node, () => tx.getTxHash());
+        return new SentTx(node, () => Promise.resolve(tx.getTxHash()));
       }),
     );
 
@@ -137,9 +137,9 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     await Promise.all(
       sentTxs.flatMap((txs, i) =>
         txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j} ${await tx.getTxHash()} to be mined`);
+          t.logger.info(`Waiting for tx ${i}-${j} ${(await tx.getTxHash()).toString()} to be mined`);
           await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
-          t.logger.info(`Tx ${i}-${j} ${await tx.getTxHash()} has been mined`);
+          t.logger.info(`Tx ${i}-${j} ${(await tx.getTxHash()).toString()} has been mined`);
         }),
       ),
     );

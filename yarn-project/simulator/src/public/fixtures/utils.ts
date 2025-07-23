@@ -49,7 +49,7 @@ export type TestPrivateInsertions = {
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
-export function createTxForPublicCalls(
+export async function createTxForPublicCalls(
   privateInsertions: TestPrivateInsertions,
   setupCallRequests: PublicCallRequestWithCalldata[],
   appCallRequests: PublicCallRequestWithCalldata[],
@@ -57,7 +57,7 @@ export function createTxForPublicCalls(
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
   globals: GlobalVariables = GlobalVariables.empty(),
-): Tx {
+): Promise<Tx> {
   assert(
     setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
     "Can't create public tx with no enqueued calls",
@@ -132,10 +132,18 @@ export function createTxForPublicCalls(
     ...(teardownCallRequest ? [teardownCallRequest] : []),
   ].map(r => new HashedValues(r.calldata, r.request.calldataHash));
 
-  return new Tx(txData, ClientIvcProof.empty(), [], calldata);
+  return await Tx.create({
+    data: txData,
+    clientIvcProof: ClientIvcProof.empty(),
+    contractClassLogFields: [],
+    publicFunctionCalldata: calldata,
+  });
 }
 
-export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedByPrivate: Gas = new Gas(10, 10)): Tx {
+export async function createTxForPrivateOnly(
+  feePayer = AztecAddress.zero(),
+  gasUsedByPrivate: Gas = new Gas(10, 10),
+): Promise<Tx> {
   // use max limits
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
@@ -155,7 +163,12 @@ export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedBy
     /*forPublic=*/ undefined,
     forRollup,
   );
-  return new Tx(txData, ClientIvcProof.empty(), [], []);
+  return await Tx.create({
+    data: txData,
+    clientIvcProof: ClientIvcProof.empty(),
+    contractClassLogFields: [],
+    publicFunctionCalldata: [],
+  });
 }
 
 export async function addNewContractClassToTx(
