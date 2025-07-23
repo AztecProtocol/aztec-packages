@@ -78,6 +78,8 @@ class ClientIVC {
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
+    using StdlibFF = RecursiveFlavor::FF;
+    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
 
     // Merge commitments
     using MergeCommitments = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>::WitnessCommitments;

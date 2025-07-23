@@ -76,17 +76,16 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
         ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
         ivc->verifier_accumulator->vk->num_public_inputs = 16;
-        using FF = ClientIVC::FF;
+
         // TODO(Khashayar): it is quite annoying that we have to set the log_circuit_size here.
         // this would mean the vk of the hiding kernel depends on the log_circuit_size of the apps/kernels accumulated.
         // this is due to how max circuit size is computed,
         ivc->verifier_accumulator->vk->log_circuit_size = 18;
-        ivc->verifier_accumulator->public_inputs = std::vector<FF>(16, FF::one());
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
-    ASSERT(false && "WARNING: Invalid set of IVC recursion constraints!");
+    throw_or_abort("Invalid set of IVC recursion constraints!");
     return ivc;
 }
 

@@ -1,7 +1,7 @@
 terraform {
   backend "gcs" {
     bucket = "aztec-terraform"
-    prefix = "network-deploy/us-west1-a/aztec-gke-public/alpha-testnet/terraform.tfstate"
+    prefix = "network-deploy/us-west1-a/aztec-gke-public/testnet/terraform.tfstate"
   }
   required_providers {
     helm = {
@@ -61,7 +61,11 @@ data "google_secret_manager_secret_version" "mnemonic_latest" {
 }
 
 data "google_secret_manager_secret_version" "blockchain_node_api_key_latest" {
-  secret = "${var.RELEASE_PREFIX}-geth-api-key"
+  secret = "alpha-testnet-geth-api-key"
+}
+
+data "google_secret_manager_secret_version" "quicknode_sepolia_rpc" {
+  secret = "quicknode-url"
 }
 
 data "kubernetes_service" "reth" {
@@ -85,12 +89,14 @@ locals {
     "http://${data.kubernetes_service.reth.metadata.0.name}.${data.kubernetes_service.reth.metadata.0.namespace}.svc.cluster.local:8545",
     "https://${data.terraform_remote_state.blockchain_node_engine.outputs.sepolia_node_rpc_api_url}?key=${
       data.google_secret_manager_secret_version.blockchain_node_api_key_latest.secret_data
-    }"
+    }",
+    data.google_secret_manager_secret_version.quicknode_sepolia_rpc.secret_data
   ]
 
   consensus_hosts = [
     "https://${data.terraform_remote_state.blockchain_node_engine.outputs.sepolia_node_beacon_api_url}",
-    "http://${data.kubernetes_service.lighthouse.metadata.0.name}.${data.kubernetes_service.lighthouse.metadata.0.namespace}.svc.cluster.local:5052"
+    "http://${data.kubernetes_service.lighthouse.metadata.0.name}.${data.kubernetes_service.lighthouse.metadata.0.namespace}.svc.cluster.local:5052",
+    data.google_secret_manager_secret_version.quicknode_sepolia_rpc.secret_data
   ]
 
   consensus_api_keys = [
@@ -228,9 +234,62 @@ resource "helm_release" "prover" {
   wait_for_jobs = false
 }
 
-resource "helm_release" "nodes" {
+resource "kubernetes_manifest" "rpc_ingress_certificate" {
+  provider = kubernetes.gke-cluster
+
+  manifest = {
+    "apiVersion" = "networking.gke.io/v1"
+    "kind"       = "ManagedCertificate"
+    "metadata" = {
+      "name"      = "${var.RELEASE_PREFIX}-rpc-ingress-certificate"
+      "namespace" = var.NAMESPACE
+    }
+    "spec" = {
+      "domains" = [
+        var.RPC_HOSTNAME
+      ]
+    }
+  }
+}
+
+resource "kubernetes_manifest" "rpc_ingress_backend" {
+  provider = kubernetes.gke-cluster
+  manifest = {
+    "apiVersion" = "cloud.google.com/v1"
+    "kind"       = "BackendConfig"
+    "metadata" = {
+      "name"      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+      "namespace" = var.NAMESPACE
+    }
+    "spec" = {
+      "sessionAffinity" = {
+        "affinityType"         = "CLIENT_IP"
+        "affinityCookieTtlSec" = 10
+      }
+      "healthCheck" = {
+        "checkIntervalSec" = 15
+        "timeoutSec"       = 5
+        "type"             = "HTTP"
+        "port"             = 8080
+        "requestPath"      = "/status"
+      }
+    }
+  }
+}
+
+resource "google_compute_global_address" "rpc_ingress_ip" {
+  provider     = google
+  name         = "${var.RELEASE_PREFIX}-rpc-ingress"
+  address_type = "EXTERNAL"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "helm_release" "rpc" {
   provider         = helm.gke-cluster
-  name             = "${var.RELEASE_PREFIX}-node"
+  name             = "${var.RELEASE_PREFIX}-rpc"
   repository       = "../../"
   chart            = "aztec-node"
   namespace        = var.NAMESPACE
@@ -238,7 +297,30 @@ resource "helm_release" "nodes" {
   upgrade_install  = true
 
   values = [
-    file("./values/${var.NODE_VALUES}"),
+    file("./values/${var.NODE_RPC_VALUES}"),
+
+    # a `set` block interferes with json encoding. Use a tmp values block
+    yamlencode({
+      service = {
+        rpc = {
+          annotations = {
+            "cloud.google.com/backend-config" = jsonencode({
+              "default" = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+            })
+          }
+        }
+      }
+      ingress = {
+        rpc = {
+          host = var.RPC_HOSTNAME
+          annotations = {
+            "kubernetes.io/ingress.class"                 = "gce"
+            "kubernetes.io/ingress.global-static-ip-name" = "${var.RELEASE_PREFIX}-rpc-ingress"
+            "networking.gke.io/managed-certificates"      = "${var.RELEASE_PREFIX}-rpc-ingress-certificate"
+          }
+        }
+      }
+    })
   ]
 
   set {
@@ -286,11 +368,69 @@ resource "helm_release" "nodes" {
   wait_for_jobs = false
 }
 
-data "kubernetes_service" "node_admin_svc" {
-  depends_on = [helm_release.nodes]
+resource "helm_release" "archive_node" {
+  provider         = helm.gke-cluster
+  name             = "${var.RELEASE_PREFIX}-archive"
+  repository       = "../../"
+  chart            = "aztec-node"
+  namespace        = var.NAMESPACE
+  create_namespace = true
+  upgrade_install  = true
+
+  values = [
+    file("./values/${var.ARCHIVE_NODE_VALUES}"),
+  ]
+
+  set {
+    name  = "global.aztecImage.repository"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
+  }
+
+  set {
+    name  = "global.aztecImage.tag"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
+  }
+
+  set {
+    name  = "global.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "global.useGcloudLogging"
+    value = true
+  }
+
+  set_list {
+    name  = "global.l1ExecutionUrls"
+    value = local.ethereum_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusUrls"
+    value = local.consensus_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeys"
+    value = local.consensus_api_keys
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeyHeaders"
+    value = local.consensus_api_key_headers
+  }
+
+  timeout       = 300
+  wait          = false
+  wait_for_jobs = false
+}
+
+data "kubernetes_service" "rpc_admin_svc" {
+  depends_on = [helm_release.rpc]
   provider   = kubernetes.gke-cluster
   metadata {
-    name      = "${var.RELEASE_PREFIX}-node"
+    name      = "${var.RELEASE_PREFIX}-rpc-node-admin"
     namespace = var.NAMESPACE
   }
 }
@@ -310,10 +450,11 @@ resource "helm_release" "snapshots" {
 
   set {
     name  = "snapshots.aztecNodeAdminUrl"
-    value = "http://${data.kubernetes_service.node_admin_svc.metadata.0.name}.${data.kubernetes_service.node_admin_svc.metadata.0.namespace}.svc.cluster.local:8081"
+    value = "http://${data.kubernetes_service.rpc_admin_svc.metadata.0.name}.${data.kubernetes_service.rpc_admin_svc.metadata.0.namespace}.svc.cluster.local:8880"
   }
 
   timeout       = 300
   wait          = false
   wait_for_jobs = false
 }
+

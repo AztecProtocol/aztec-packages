@@ -37,7 +37,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
     std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment)
 {
     // Verify the final merge step
-    MergeVerifier merge_verifier{ builder, transcript };
+    MergeVerifier merge_verifier{ builder, MergeSettings::PREPEND, transcript };
     PairingPoints<Builder> merge_pairing_points =
         merge_verifier.verify_proof(proof.merge_proof, subtable_commitments, merged_table_commitment);
 

@@ -160,6 +160,11 @@ export class TXEService {
       instance.address.toField(),
     );
 
+    // Make sure the deployment nullifier gets included in a tx in a block
+    const blockNumber = await this.typedOracle.getBlockNumber();
+    await (this.typedOracle as TXE).commitState();
+    (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
+
     if (!fromSingle(secret).equals(Fr.ZERO)) {
       await this.addAccount(artifact, instance, secret);
     } else {
@@ -299,10 +304,13 @@ export class TXEService {
   }
 
   async getContractAddress() {
-    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
+    if (
+      this.contextChecksEnabled &&
+      this.context != TXEContext.TOP_LEVEL &&
+      this.context != TXEContext.UTILITY &&
+      this.context != TXEContext.PRIVATE
+    ) {
+      throw new Error(`Attempted to call getContractAddress while in context ${TXEContext[this.context]}`);
     }
 
     const contractAddress = await this.typedOracle.getContractAddress();
@@ -1257,7 +1265,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
     );
 
-    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash])]);
+    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash.hash])]);
   }
 
   async simulateUtilityFunction(
@@ -1288,7 +1296,7 @@ export class TXEService {
       fromSingle(isStaticCall).toBool(),
     );
 
-    return toForeignCallResult([toArray([result.returnsHash, result.txHash])]);
+    return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
   }
 
   async getSenderForTags() {
