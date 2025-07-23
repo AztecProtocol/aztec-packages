@@ -18,6 +18,14 @@ template <typename FF> struct WitnessOrConstant {
     bool is_constant;
     MSGPACK_FIELDS(index, value, is_constant);
     friend bool operator==(WitnessOrConstant const& lhs, WitnessOrConstant const& rhs) = default;
+    static WitnessOrConstant from_constant(FF value)
+    {
+        return WitnessOrConstant{
+            .index = UINT32_MAX,
+            .value = value,
+            .is_constant = true,
+        };
+    }
     static WitnessOrConstant from_index(uint32_t index)
     {
         return WitnessOrConstant{

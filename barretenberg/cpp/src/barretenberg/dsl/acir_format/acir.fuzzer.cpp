@@ -535,33 +535,38 @@ class AcirFuzzer {
     /**
      * @brief Create a logic constraint from buffer data
      *
+     * @param constants Constants from FieldVM state
      * @param witness_vector Current witness vector (will be modified if new witnesses are created)
      * @param buffer Buffer to use for constraint generation
      * @param buffer_size Size of the buffer
      * @param buffer_pos Current position in buffer (will be updated)
      * @return std::optional<LogicConstraint> Created constraint or nullopt if insufficient data
      */
-    static std::optional<LogicConstraint> create_logic_constraint(WitnessVector& witness_vector,
+    static std::optional<LogicConstraint> create_logic_constraint(const std::vector<fr>& constants,
+                                                                  WitnessVector& witness_vector,
                                                                   const uint8_t* buffer,
                                                                   size_t buffer_size,
                                                                   size_t& buffer_pos)
     {
         // Check if we have enough bytes to read the constraint data
-        if (buffer_pos + 4 > buffer_size) {
-            return std::nullopt; // Need 4 bytes: 2 for witness indices + 1 for operation + 1 for result
+        if (buffer_pos + 6 > buffer_size) {
+            return std::nullopt; // Need 6 bytes: 4 for input types + indices/constants + 1 for operation
         }
 
-        // Read 2 bytes for witness indices
-        uint8_t a_idx = buffer[buffer_pos];
-        uint8_t b_idx = buffer[buffer_pos + 1];
-        buffer_pos += 2;
+        // Read 4 bytes for input types and indices/constants (2 bytes each)
+        uint16_t a_type_and_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos]) << 8) |
+                                                        static_cast<uint16_t>(buffer[buffer_pos + 1]));
+        uint16_t b_type_and_idx = static_cast<uint16_t>((static_cast<uint16_t>(buffer[buffer_pos + 2]) << 8) |
+                                                        static_cast<uint16_t>(buffer[buffer_pos + 3]));
+        buffer_pos += 4;
 
-        // Validate witness indices
-        if (witness_vector.empty()) {
-            return std::nullopt;
-        }
-        uint32_t a = a_idx % witness_vector.size();
-        uint32_t b = b_idx % witness_vector.size();
+        // Determine input types (0 = witness, 1 = constant)
+        bool a_is_constant = (a_type_and_idx & 0x8000) != 0;
+        bool b_is_constant = (b_type_and_idx & 0x8000) != 0;
+
+        // Extract indices/constant indices (15 bits each)
+        uint16_t a_idx = a_type_and_idx & 0x7FFF;
+        uint16_t b_idx = b_type_and_idx & 0x7FFF;
 
         // Read 1 byte for logic operation type (0 = AND, 1 = XOR)
         uint8_t operation_type = buffer[buffer_pos] & 0x01; // 0 = AND, 1 = XOR
@@ -570,28 +575,59 @@ class AcirFuzzer {
         // Create a new witness for the result
         uint32_t result = static_cast<uint32_t>(witness_vector.size());
 
-        // Calculate the maximum bit size of the input witnesses
-        fr a_val = witness_vector[a];
-        fr b_val = witness_vector[b];
+        // Get input values and calculate bit sizes
+        fr a_val, b_val;
+        uint64_t a_bits, b_bits;
+
+        // Handle input a
+        if (a_is_constant) {
+            // Use constant from FieldVM constants
+            if (constants.empty()) {
+                return std::nullopt; // No constants available
+            }
+            a_val = constants[a_idx % constants.size()];
+        } else {
+            // Use witness
+            if (witness_vector.empty()) {
+                return std::nullopt;
+            }
+            a_val = witness_vector[a_idx % witness_vector.size()];
+        }
+
+        // Handle input b
+        if (b_is_constant) {
+            // Use constant from FieldVM constants
+            if (constants.empty()) {
+                return std::nullopt; // No constants available
+            }
+            b_val = constants[b_idx % constants.size()];
+        } else {
+            // Use witness
+            if (witness_vector.empty()) {
+                return std::nullopt;
+            }
+            b_val = witness_vector[b_idx % witness_vector.size()];
+        }
+
+        // Calculate bit sizes
         uint256_t a_uint256 = static_cast<uint256_t>(a_val);
         uint256_t b_uint256 = static_cast<uint256_t>(b_val);
 
-        // Get bit sizes
-        uint64_t a_bits = a_uint256.get_msb();
+        a_bits = a_uint256.get_msb();
         if (a_uint256 == 0) {
             a_bits = 0;
         } else {
             a_bits += 1;
         }
 
-        uint64_t b_bits = b_uint256.get_msb();
+        b_bits = b_uint256.get_msb();
         if (b_uint256 == 0) {
             b_bits = 0;
         } else {
             b_bits += 1;
         }
 
-        // Check that input witnesses are less than 252 bits
+        // Check that input values are less than 252 bits
         // This prevents issues with the underlying field operations
         if (a_bits >= 252 || b_bits >= 252) {
             return std::nullopt; // Skip logic constraint if inputs are too large
@@ -611,6 +647,7 @@ class AcirFuzzer {
             uint256_t b_uint = static_cast<uint256_t>(b_val);
             uint256_t result_uint = a_uint & b_uint;
             result_value = fr(result_uint);
+
         } else {
             // XOR operation - convert to uint256, perform XOR, convert back
             uint256_t a_uint = static_cast<uint256_t>(a_val);
@@ -619,12 +656,28 @@ class AcirFuzzer {
             result_value = fr(result_uint);
         }
 
+        // Create WitnessOrConstant objects for the inputs
+        WitnessOrConstant<bb::fr> a_input, b_input;
+
+        if (a_is_constant) {
+            // Add constant to witness vector as a fixed witness
+            a_input = WitnessOrConstant<bb::fr>::from_constant(a_val);
+        } else {
+            a_input = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(a_idx % witness_vector.size()));
+        }
+
+        if (b_is_constant) {
+            // Add constant to witness vector as a fixed witness
+            b_input = WitnessOrConstant<bb::fr>::from_constant(b_val);
+        } else {
+            b_input = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(b_idx % witness_vector.size()));
+        }
         // Add the new witness to the vector
         witness_vector.push_back(result_value);
 
         LogicConstraint constraint;
-        constraint.a = WitnessOrConstant<bb::fr>(a);
-        constraint.b = WitnessOrConstant<bb::fr>(b);
+        constraint.a = a_input;
+        constraint.b = b_input;
         constraint.result = result;
         constraint.num_bits = max_bits;
         constraint.is_xor_gate = operation_type;
@@ -686,7 +739,7 @@ class AcirFuzzer {
                 }
             } else if (constraint_type == 2) {
                 // Create logic constraint
-                auto constraint = create_logic_constraint(witness_vector, buffer, buffer_size, buffer_pos);
+                auto constraint = create_logic_constraint(constants, witness_vector, buffer, buffer_size, buffer_pos);
                 if (constraint) {
                     logic_constraints.push_back(*constraint);
                 }
@@ -795,10 +848,20 @@ class AcirFuzzer {
                 // Step 5: Check circuit satisfiability
                 bool circuit_satisfiable = bb::CircuitChecker::check(builder);
 
-                // For fuzzing purposes, we don't fail if the circuit is unsatisfiable
-                // as this could be due to random constraints. We just want to ensure
-                // the circuit construction and checking doesn't crash.
-                // The circuit_satisfiable result is used for debugging/logging purposes.
+                // If the circuit is unsatisfiable, test individual constraints to identify problematic ones
+                if (!circuit_satisfiable) {
+                    auto unsatisfiable_constraints = test_individual_constraints(
+                        poly_constraints, range_constraints, logic_constraints, witness_vector, num_witnesses);
+
+                    // Print unsatisfiable constraints for debugging
+                    if (!unsatisfiable_constraints.empty()) {
+                        fprintf(stderr, "UNSATISFIABLE CONSTRAINTS:\n");
+                        for (const auto& desc : unsatisfiable_constraints) {
+                            fprintf(stderr, "  %s\n", desc.c_str());
+                        }
+                    }
+                }
+
                 assert(circuit_satisfiable); // Suppress unused variable warning
 
             } catch (const std::exception& e) {
@@ -815,6 +878,130 @@ class AcirFuzzer {
             // Catch any other exceptions
             return 0;
         }
+    }
+
+    /**
+     * @brief Test individual constraint types to identify unsatisfiable ones
+     *
+     * @param poly_constraints Poly triple constraints to test
+     * @param range_constraints Range constraints to test
+     * @param logic_constraints Logic constraints to test
+     * @param witness_vector Witness vector for the circuit
+     * @param num_witnesses Number of witnesses
+     * @return std::vector<std::string> List of unsatisfiable constraint descriptions
+     */
+    static std::vector<std::string> test_individual_constraints(
+        const std::vector<PolyTripleConstraint>& poly_constraints,
+        const std::vector<RangeConstraint>& range_constraints,
+        const std::vector<LogicConstraint>& logic_constraints,
+        const WitnessVector& witness_vector,
+        uint32_t num_witnesses)
+    {
+        std::vector<std::string> unsatisfiable_constraints;
+
+        // Test poly_triple constraints individually
+        for (size_t i = 0; i < poly_constraints.size(); ++i) {
+            try {
+                AcirFormat single_constraint_circuit =
+                    create_mixed_constraint_circuit({ poly_constraints[i] }, {}, {}, num_witnesses);
+
+                acir_format::AcirProgram program;
+                program.constraints = single_constraint_circuit;
+                program.witness = witness_vector;
+
+                acir_format::ProgramMetadata metadata;
+                metadata.size_hint = 0;
+                metadata.recursive = false;
+                metadata.collect_gates_per_opcode = false;
+
+                bb::UltraCircuitBuilder builder =
+                    acir_format::create_circuit<bb::UltraCircuitBuilder>(program, metadata);
+
+                bool satisfiable = bb::CircuitChecker::check(builder);
+                if (!satisfiable) {
+                    std::ostringstream oss;
+                    oss << "PolyTriple[" << i << "]: a=" << poly_constraints[i].a << " b=" << poly_constraints[i].b
+                        << " c=" << poly_constraints[i].c << " q_m=" << poly_constraints[i].q_m
+                        << " q_l=" << poly_constraints[i].q_l << " q_r=" << poly_constraints[i].q_r
+                        << " q_o=" << poly_constraints[i].q_o << " q_c=" << poly_constraints[i].q_c
+                        << " (all inputs are witnesses)";
+                    unsatisfiable_constraints.push_back(oss.str());
+                }
+            } catch (...) {
+                std::string desc = "PolyTriple[" + std::to_string(i) + "]: CRASH";
+                unsatisfiable_constraints.push_back(desc);
+            }
+        }
+
+        // Test range constraints individually
+        for (size_t i = 0; i < range_constraints.size(); ++i) {
+            try {
+                AcirFormat single_constraint_circuit =
+                    create_mixed_constraint_circuit({}, { range_constraints[i] }, {}, num_witnesses);
+
+                acir_format::AcirProgram program;
+                program.constraints = single_constraint_circuit;
+                program.witness = witness_vector;
+
+                acir_format::ProgramMetadata metadata;
+                metadata.size_hint = 0;
+                metadata.recursive = false;
+                metadata.collect_gates_per_opcode = false;
+
+                bb::UltraCircuitBuilder builder =
+                    acir_format::create_circuit<bb::UltraCircuitBuilder>(program, metadata);
+
+                bool satisfiable = bb::CircuitChecker::check(builder);
+                if (!satisfiable) {
+                    std::ostringstream oss;
+                    oss << "Range[" << i << "]: witness=" << range_constraints[i].witness
+                        << " bits=" << range_constraints[i].num_bits
+                        << " value=" << witness_vector[range_constraints[i].witness] << " (input is witness)";
+                    unsatisfiable_constraints.push_back(oss.str());
+                }
+            } catch (...) {
+                std::string desc = "Range[" + std::to_string(i) + "]: CRASH";
+                unsatisfiable_constraints.push_back(desc);
+            }
+        }
+
+        // Test logic constraints individually
+        for (size_t i = 0; i < logic_constraints.size(); ++i) {
+            try {
+                AcirFormat single_constraint_circuit =
+                    create_mixed_constraint_circuit({}, {}, { logic_constraints[i] }, num_witnesses);
+
+                acir_format::AcirProgram program;
+                program.constraints = single_constraint_circuit;
+                program.witness = witness_vector;
+
+                acir_format::ProgramMetadata metadata;
+                metadata.size_hint = 0;
+                metadata.recursive = false;
+                metadata.collect_gates_per_opcode = false;
+
+                bb::UltraCircuitBuilder builder =
+                    acir_format::create_circuit<bb::UltraCircuitBuilder>(program, metadata);
+
+                bool satisfiable = bb::CircuitChecker::check(builder);
+                if (!satisfiable) {
+                    std::ostringstream oss;
+                    oss << "Logic[" << i << "]: result=" << logic_constraints[i].result
+                        << " bits=" << logic_constraints[i].num_bits << " xor=" << logic_constraints[i].is_xor_gate
+                        << " a_value=" << witness_vector[logic_constraints[i].a.index]
+                        << " b_value=" << witness_vector[logic_constraints[i].b.index]
+                        << " result_value=" << witness_vector[logic_constraints[i].result]
+                        << " a_type=" << (logic_constraints[i].a.is_constant ? "CONSTANT" : "WITNESS")
+                        << " b_type=" << (logic_constraints[i].b.is_constant ? "CONSTANT" : "WITNESS");
+                    unsatisfiable_constraints.push_back(oss.str());
+                }
+            } catch (...) {
+                std::string desc = "Logic[" + std::to_string(i) + "]: CRASH";
+                unsatisfiable_constraints.push_back(desc);
+            }
+        }
+
+        return unsatisfiable_constraints;
     }
 };
 
