@@ -11,6 +11,8 @@ import {
   Withdrawal
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+
+import {BLS} from "@aztec/governance/libraries/BLSBN254Helper.sol";
 import {BN254G1} from "@aztec/governance/libraries/BN254G1.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
@@ -222,6 +224,19 @@ contract Governance is IGovernance {
    * `keyOwners` ensures uniqueness - each BLS public key can only be registered by one address
    */
   mapping(bytes32 keyHash => address owner) internal keyOwners;
+
+  struct ValidatorPK {
+      uint256 x1;
+      uint256 y1;
+      uint256 x2_1;
+      uint256 x2_0;
+      uint256 y2_1;
+      uint256 y2_0;
+      bool    active;
+  }
+
+  ValidatorPK[] public validators;              // id == index
+  mapping(address => uint32) public idOf;       // addr -> id (for quick removal/slash)
 
   /**
    * @dev Modifier to ensure that the caller is the governance contract itself.
@@ -627,6 +642,50 @@ contract Governance is IGovernance {
     hasBlsKey[msg.sender] = false;
 
     emit BlsKeyRemoved(msg.sender);
+  }
+
+  function register(
+      uint256[2] calldata pk1,        // G1
+      uint256[4] calldata pk2,        // G2
+      uint256[2] calldata sigmaInit   // G1
+  ) external override(IGovernance) {
+    // Check points on curve
+    require(BLS.isValidG1(pk1),  Errors.Governance__BlsKeyInvalidG1Point(pk1));
+    require(BLS.isValidG2(pk2),  Errors.Governance__BlsKeyInvalidG2Point(pk2));
+    require(BLS.isValidG1(sigmaInit),  Errors.Governance__BlsKeyInvalidG1Point(sigmaInit));
+
+    // Recompute Htilde = H~1(Pk_(i,1)) with domain separator
+    // "MyProto-POP-BN254G1-v1\0…"
+    uint256[2] memory htilde = BLS.hashToPoint(pk1, BLS.DST_INIT);
+
+    // gamma = keccak(pk1, pk2, sigmaInit) mod r
+    uint256 gamma = BLS.gammaOf(pk1, pk2, sigmaInit);
+    require(gamma != 0, "gamma=0");
+
+    // Build G1 L = sigmaInit + gamma * pk1
+    G1Point memory L = ecAdd(sigmaInit, ecMul(pk1, gamma));
+
+    // Build G1 R = htilde + gamma * G1
+    G1Point memory R = ecAdd(htilde, ecMul(BLS.nG1, gamma));
+
+    // 6. Pairing: e(L, G2) * e(-R, pk2) == 1
+    require(BLS.pairingPublicKeys(L, nNEG_G2, R, pk2), "POP/dlog check failed");
+
+    // Store pk1 and pk2 as hash, since we just need this to verify
+    id = uint32(validators.length);
+    validatorsFull.push(
+        ValidatorPKFull({
+            x1: pk1[0],
+            y1: pk1[1],
+            x2_0: pk2[0],   // choose an order and stick to it
+            x2_1: pk2[1],
+            y2_0: pk2[2],
+            y2_1: pk2[3],
+            active: true
+        })
+    );
+    idOf[msg.sender] = id;
+
   }
 
   /**
