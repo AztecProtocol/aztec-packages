@@ -14,6 +14,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
                                                                        bool is_static,
                                                                        Gas gas_limit)
 {
+    merkle_db.create_checkpoint(); // Fork DB just like in TS.
     uint32_t context_id = next_context_id++;
     return std::make_unique<NestedContext>(
         context_id,
