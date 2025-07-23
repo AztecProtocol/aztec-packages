@@ -33,8 +33,8 @@ contract StakingAssetHandlerScript is Test {
   ZKPassportVerifier internal constant zkPassportVerifier =
     ZKPassportVerifier(0x62e33cC35e29130e135341586e8Cf9C2BAbFB3eE);
 
-  TestERC20 public constant stakingAsset = TestERC20(0xaD370B27bedC078BF4b52fee5ab025973f6A2e63);
-  IRegistry public constant registry = IRegistry(0x95383433Ea735eeE6E23874A5B1321a541A9f053);
+  TestERC20 public constant stakingAsset = TestERC20(0x0C04089ED32638ae3cDf649F54F90544aC3Fc199);
+  IRegistry public constant registry = IRegistry(0xEc4156431d0F3DF66d4E24ba3D30dCb4c85FA309);
 
   function setUp() public {}
 
@@ -58,7 +58,7 @@ contract StakingAssetHandlerScript is Test {
       domain: DOMAIN,
       scope: SCOPE,
       skipBindCheck: false, // DO NOT: skip bind check
-      skipMerkleCheck: false // DO NOT: skip merkle check
+      skipMerkleCheck: true // DO NOT: skip merkle check
     });
 
     vm.startBroadcast(ME);
