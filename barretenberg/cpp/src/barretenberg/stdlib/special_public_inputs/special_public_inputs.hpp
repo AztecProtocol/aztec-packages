@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -246,6 +247,18 @@ class RollupIO {
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
+
+    /**
+     * @brief Add default public inputs when they are not present
+     *
+     */
+    static void add_default(Builder& builder)
+    {
+        PairingInputs::add_default_to_public_inputs(builder);
+        auto [stdlib_opening_claim, ipa_proof] = IPA<grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+        stdlib_opening_claim.set_public();
+        builder.ipa_proof = ipa_proof;
+    };
 };
 
 } // namespace bb::stdlib::recursion::honk
