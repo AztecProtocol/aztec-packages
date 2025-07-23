@@ -222,16 +222,17 @@ struct ClientIvcCheckPrecomputedVk {
 
         /** @brief True if the precomputed VK matches the circuit */
         bool valid;
+        /** @brief The actual VK it should be. */
+        std::vector<uint8_t> actual_vk;
         MSGPACK_FIELDS(valid);
         bool operator==(const Response&) const = default;
     };
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
-    /** @brief Human-readable name for logging and error messages */
-    std::string function_name;
+
     Response execute(const BBApiRequest& request = {}) &&;
-    MSGPACK_FIELDS(circuit, function_name);
+    MSGPACK_FIELDS(circuit);
     bool operator==(const ClientIvcCheckPrecomputedVk&) const = default;
 };
 

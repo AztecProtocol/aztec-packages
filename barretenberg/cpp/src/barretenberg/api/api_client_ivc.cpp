@@ -4,7 +4,6 @@
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
-#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
@@ -170,6 +169,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     return response.valid;
 }
 
+// WORKTODO(bbapi) remove this
 bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
 
@@ -197,55 +197,30 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
 {
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
-    bool all_valid = true;
-    bool any_fixed = false;
 
+    bool check_failed = false;
     for (auto& step : raw_steps) {
-        bool needs_fix = false;
-
         if (step.vk.empty()) {
-            if (!fix) {
-                info("FAIL: Expected precomputed vk for function ", step.function_name);
+            info("FAIL: Expected precomputed vk for function ", step.function_name);
+            return false;
+        }
+        auto response = bbapi::ClientIvcCheckPrecomputedVk{
+            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
+        }.execute();
+
+        if (!response.valid) {
+            if (!flags.update_inputs) {
                 return false;
             }
-            info("Missing VK for function ", step.function_name, " - computing new VK");
-            needs_fix = true;
-        } else {
-            auto response = bbapi::ClientIvcCheckPrecomputedVk{ .circuit = { .name = step.function_name,
-                                                                             .bytecode = step.bytecode,
-                                                                             .verification_key = step.vk },
-                                                                .function_name = step.function_name }
-                                .execute();
-
-            if (!response.valid) {
-                if (!fix) {
-                    info("FAIL: Invalid precomputed vk for function ", step.function_name);
-                    return false;
-                }
-                info("Invalid VK for function ", step.function_name, " - computing new VK");
-                needs_fix = true;
-            }
-        }
-
-        if (needs_fix) {
-            // Compute the new VK
-            auto vk_response = bbapi::ClientIvcComputeStandaloneVk{
-                .circuit = { .name = step.function_name, .bytecode = step.bytecode }
-            }.execute();
-
-            step.vk = vk_response.bytes;
-            any_fixed = true;
-            info("Fixed VK for function ", step.function_name);
+            step.vk = response.actual_vk;
+            check_failed = true;
         }
     }
-
-    // If we fixed any VKs, write the updated steps back to the file
-    if (fix && any_fixed) {
+    if (check_failed) {
         PrivateExecutionStepRaw::compress_and_save(std::move(raw_steps), input_path);
-        info("Updated ivc-inputs file with fixed VKs: ", input_path);
+        return false;
     }
-
-    return fix || all_valid;
+    return true;
 }
 
 void ClientIVCAPI::write_vk(const Flags& flags,
@@ -315,7 +290,6 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
         functions_string = format(functions_string, result_string);
         i++;
     }
-
     std::cout << format(functions_string, "\n]}");
 }
 

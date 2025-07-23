@@ -45,7 +45,6 @@ class API {
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "  slow_low_memory " << flags.slow_low_memory << "\n"
-               << "  fix " << flags.fix << "\n"
                << "]" << std::endl;
             return os;
         }
