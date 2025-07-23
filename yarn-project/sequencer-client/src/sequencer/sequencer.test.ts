@@ -272,7 +272,7 @@ describe('sequencer', () => {
 
   it('builds a block out of a single tx', async () => {
     const tx = await makeTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
 
     block = await makeBlock([tx]);
     mockPendingTxs([tx]);
@@ -327,7 +327,7 @@ describe('sequencer', () => {
 
   it('builds a block when it is their turn', async () => {
     const tx = await makeTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
 
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
@@ -559,7 +559,7 @@ describe('sequencer', () => {
     publisher.enqueueProposeL2Block.mockRejectedValueOnce(new Error('Failed to enqueue propose L2 block'));
 
     await sequencer.doRealWork();
-    expectPublisherProposeL2Block([await tx.getTxHash()]);
+    expectPublisherProposeL2Block([tx.getTxHash()]);
 
     // Even though the block publish was not enqueued, we still send any requests
     expect(publisher.sendRequests).toHaveBeenCalledTimes(1);

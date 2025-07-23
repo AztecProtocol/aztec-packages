@@ -125,7 +125,9 @@ describe('e2e_block_building', () => {
       const provenTxs = await asyncMap(methods, method => method.prove());
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
-      logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
+      logger.info(`All ${TX_COUNT} txs have been sent`, {
+        txs: (await Promise.all(txs.map(tx => tx.getTxHash()))).map(h => h.toString()),
+      });
 
       // Await txs to be mined and assert they are mined across multiple different blocks.
       const receipts = await Promise.all(txs.map(tx => tx.wait()));
@@ -161,7 +163,7 @@ describe('e2e_block_building', () => {
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
-        logger.info(` ${await tx.getTxHash()}`);
+        logger.info(` ${(await tx.getTxHash()).toString()}`);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
@@ -195,7 +197,7 @@ describe('e2e_block_building', () => {
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
-        logger.info(` ${await tx.getTxHash()}`);
+        logger.info(` ${(await tx.getTxHash()).toString()}`);
       }
 
       // Await txs to be mined and assert they are all mined on the same block

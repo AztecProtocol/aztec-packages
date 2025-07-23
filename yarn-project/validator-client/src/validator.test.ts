@@ -24,7 +24,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { ContentCommitment, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError, InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -195,7 +195,7 @@ describe('ValidatorClient', () => {
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
 
-    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => Promise.resolve(txHash), txHash }) as TxWithHash;
+    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
     const enableReexecution = () => {
       (validatorClient as any).config.validatorReexecute = true;

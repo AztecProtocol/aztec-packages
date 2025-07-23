@@ -71,7 +71,7 @@ export async function deploy(
   const tx = provenTx.send();
 
   const txHash = await tx.getTxHash();
-  debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
+  debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
   if (wait) {
     const deployed = await tx.wait({ timeout });
     const { address, partialAddress, instance } = deployed.contract;

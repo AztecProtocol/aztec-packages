@@ -132,7 +132,7 @@ describe('token transfer test', () => {
 
       const chunk = txs.splice(0, TPS);
       sentTxs.push(...chunk.map(tx => tx.send()));
-      logger.info(`Sent txs: [${await Promise.all(chunk.map(tx => tx.getTxHash()))}]`);
+      logger.info(`Sent txs: [${(await Promise.all(chunk.map(tx => tx.getTxHash()))).map(h => h.toString())}]`);
 
       const end = performance.now();
       const delta = end - start;

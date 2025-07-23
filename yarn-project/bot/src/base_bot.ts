@@ -37,12 +37,12 @@ export abstract class BaseBot {
     const txHash = await tx.getTxHash();
 
     if (followChain === 'NONE') {
-      this.log.info(`Transaction ${txHash} sent, not waiting for it to be mined`);
+      this.log.info(`Transaction ${txHash.toString()} sent, not waiting for it to be mined`);
       return txHash;
     }
 
     this.log.verbose(
-      `Awaiting tx ${txHash} to be on the ${followChain} chain (timeout ${txMinedWaitSeconds}s)`,
+      `Awaiting tx ${txHash.toString()} to be on the ${followChain} chain (timeout ${txMinedWaitSeconds}s)`,
       logCtx,
     );
     const receipt = await tx.wait({

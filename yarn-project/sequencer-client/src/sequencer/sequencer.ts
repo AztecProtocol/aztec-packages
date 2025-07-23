@@ -544,7 +544,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
     const failedTxData = failedTxs.map(fail => fail.tx);
-    const failedTxHashes = await Tx.getHashes(failedTxData);
+    const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
     this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
     await this.p2pClient.deleteTxs(failedTxHashes);
   }

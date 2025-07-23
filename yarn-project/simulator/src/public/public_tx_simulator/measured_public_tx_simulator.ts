@@ -39,9 +39,9 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     return avmResult;
   }
 
-  protected override async computeTxHash(tx: Tx) {
+  protected override computeTxHash(tx: Tx) {
     const timer = new Timer();
-    const txHash = await super.computeTxHash(tx);
+    const txHash = super.computeTxHash(tx);
     this.metrics.recordTxHashComputation(timer.ms());
     return txHash;
   }

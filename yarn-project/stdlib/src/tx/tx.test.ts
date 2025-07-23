@@ -13,6 +13,6 @@ describe('Tx', () => {
   it('convert to and from json', async () => {
     const tx = await mockTx();
     const json = jsonStringify(tx);
-    expect(Tx.schema.parse(JSON.parse(json))).toEqual(tx);
+    expect(await Tx.schema.parseAsync(JSON.parse(json))).toEqual(tx);
   });
 });

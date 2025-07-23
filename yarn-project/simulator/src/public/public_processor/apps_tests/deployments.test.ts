@@ -60,7 +60,7 @@ describe('Public processor contract registration/deployment tests', () => {
     );
 
     // First transaction - deploys and initializes first token contract
-    const deployTx = createTxForPrivateOnly(/*feePayer=*/ admin);
+    const deployTx = await createTxForPrivateOnly(/*feePayer=*/ admin);
     await addNewContractClassToTx(deployTx, contractClass);
     await addNewContractInstanceToTx(deployTx, contractInstance);
 

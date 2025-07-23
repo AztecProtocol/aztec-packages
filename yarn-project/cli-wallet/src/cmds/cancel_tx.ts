@@ -46,7 +46,10 @@ export async function cancelTx(
   });
   const txSimulationResult = await wallet.simulateTx(txRequest, true);
   const txProvingResult = await wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
-  const sentTx = new SentTx(wallet, () => wallet.sendTx(txProvingResult.toTx()));
+  const sentTx = new SentTx(wallet, async () => {
+    const tx = await txProvingResult.toTx();
+    return wallet.sendTx(tx);
+  });
   try {
     await sentTx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 

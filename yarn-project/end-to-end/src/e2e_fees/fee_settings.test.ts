@@ -66,7 +66,7 @@ describe('e2e_fees fee settings', () => {
         .emit_nullifier_public(Fr.random())
         .prove({ fee: { gasSettings, paymentMethod, baseFeePadding } });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
-      t.logger.info(`Tx with hash ${await tx.getTxHash()} ready with max fees ${inspect(maxFeesPerGas)}`);
+      t.logger.info(`Tx with hash ${tx.getTxHash().toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;
     };
 

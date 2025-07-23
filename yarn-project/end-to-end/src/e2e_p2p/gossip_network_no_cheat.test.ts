@@ -207,7 +207,7 @@ describe('e2e_p2p_network', () => {
     await Promise.all(
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+          t.logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
           return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
         }),
       ),

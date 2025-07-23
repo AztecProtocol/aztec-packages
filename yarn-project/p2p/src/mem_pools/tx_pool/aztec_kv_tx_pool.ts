@@ -9,7 +9,7 @@ import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/st
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
-import { BlockHeader, Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
@@ -281,10 +281,8 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
    * @returns Empty promise.
    */
   public async addTxs(txs: Tx[], opts: { source?: string } = {}): Promise<number> {
-    const addedTxs: TxWithHash[] = [];
-    const hashesAndStats = await Promise.all(
-      txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
-    );
+    const addedTxs: Tx[] = [];
+    const hashesAndStats = txs.map(tx => ({ txHash: tx.getTxHash(), txStats: tx.getStats() }));
     await this.#store.transactionAsync(async () => {
       let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       await Promise.all(
@@ -302,7 +300,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
           } satisfies TxAddedToPoolStats);
 
           await this.#txs.set(key, tx.toBuffer());
-          addedTxs.push(tx as TxWithHash);
+          addedTxs.push(tx as Tx);
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
             pendingTxSize += tx.getSize();
@@ -484,6 +482,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
           }
 
           const archivedTx: Tx = new Tx(
+            tx.txHash,
             tx.data,
             ClientIvcProof.empty(),
             tx.contractClassLogFields,
