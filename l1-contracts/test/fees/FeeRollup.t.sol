@@ -192,7 +192,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
         Block memory b = getBlock();
-        skipBlobCheck(address(rollup));
+        _skipBlobCheck(address(rollup));
         rollup.propose(
           ProposeArgs({
             header: b.header,
@@ -286,7 +286,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         Block memory b = getBlock();
 
-        skipBlobCheck(address(rollup));
+        _skipBlobCheck(address(rollup));
         rollup.propose(
           ProposeArgs({
             header: b.header,
