@@ -343,7 +343,7 @@ template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
             // prevents an extra range table from being created
             constexpr uint256_t maximum = BASE.pow(64 % plookup::keccak_tables::Theta::TABLE_BITS);
             const field_ct target = -most_significant_slice + maximum;
-            ASSERT(((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1) > maximum);
+            BB_ASSERT_GT((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1, maximum);
             target.create_range_constraint(Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
                                            "input to KECCAK_THETA_OUTPUT too large!");
         }
