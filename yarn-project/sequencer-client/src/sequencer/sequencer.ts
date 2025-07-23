@@ -400,22 +400,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     );
 
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastSignal(
-      slot,
-      newGlobalVariables.timestamp,
-      SignalType.GOVERNANCE,
-      proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
-    );
-
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
-      slot,
-      newGlobalVariables.timestamp,
-      SignalType.SLASHING,
-      proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
-    );
-
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
@@ -467,12 +451,28 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
 
-    await enqueueGovernanceVotePromise.catch(err => {
-      this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
-    });
-    await enqueueSlashingVotePromise.catch(err => {
-      this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
-    });
+    // Enqueue governance and slashing signals
+    // Note: it is WAY less expensive to signal AFTER the block is proposed,
+    // because the "current proposer" is computed as part of the block proposal,
+    // and stored in transient storage in the contract.
+    // If we signal before the block is proposed, and the current proposer is not in transient storage,
+    // it will need to sample the validator set, which is very expensive.
+
+    await this.publisher
+      .enqueueCastSignal(slot, newGlobalVariables.timestamp, SignalType.GOVERNANCE, proposerAddress, msg =>
+        this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      )
+      .catch(err => {
+        this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
+      });
+
+    await this.publisher
+      .enqueueCastSignal(slot, newGlobalVariables.timestamp, SignalType.SLASHING, proposerAddress, msg =>
+        this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      )
+      .catch(err => {
+        this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
+      });
 
     const l1Response = await this.publisher.sendRequests();
     const proposedBlock = l1Response?.successfulActions.find(a => a === 'propose');
