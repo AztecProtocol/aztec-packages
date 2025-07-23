@@ -84,7 +84,10 @@ impl TestEnvironment {
     ///   let state_var = PublicMutable::new(context, STORAGE_SLOT);
     ///   state_var.read()
     /// });
-    pub unconstrained fn public_context<Env, T>(self, f: fn[Env](&mut PublicContext) -> T) -> T {
+    pub unconstrained fn public_context<Env, T>(
+        _self: Self,
+        f: fn[Env](&mut PublicContext) -> T,
+    ) -> T {
         txe_oracles::set_public_txe_context();
 
         let mut context = PublicContext::new(|| 0);
@@ -196,7 +199,10 @@ impl TestEnvironment {
     }
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
-    pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
+    pub unconstrained fn utility_context<Env, T>(
+        _self: &mut Self,
+        f: fn[Env](UtilityContext) -> T,
+    ) -> T {
         txe_oracles::set_utility_txe_context();
         let context = UtilityContext::new();
         let ret_value = f(context);
