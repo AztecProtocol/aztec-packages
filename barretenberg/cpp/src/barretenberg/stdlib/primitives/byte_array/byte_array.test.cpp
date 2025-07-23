@@ -184,20 +184,16 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
             uint256_t overflowing_value(fr::modulus + 100);
 
             test_val = field_ct(&builder, bb::fr(overflowing_value));
-#ifndef NDEBUG
-            EXPECT_DEATH(byte_array<Builder> failure_array(test_val, 32, overflowing_value),
-                         "byte_array: y_hi doesn't fit in 128 bits");
-#endif
+            EXPECT_THROW_OR_ABORT(byte_array<Builder> failure_array(test_val, 32, overflowing_value),
+                                  "byte_array: y_hi doesn't fit in 128 bits");
         }
 
         {
             // Test the case when (r-1).lo - x.lo + 2^128 is not a 129 bit integer, i.e. is negative.
             uint256_t random_overflowing_value("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
             test_val = field_ct(&builder, bb::fr(random_overflowing_value));
-#ifndef NDEBUG
-            EXPECT_DEATH(byte_array<Builder> failure_array(test_val, 32, random_overflowing_value),
-                         "byte_array: y_hi doesn't fit in 128 bits");
-#endif
+            EXPECT_THROW_OR_ABORT(byte_array<Builder> failure_array(test_val, 32, random_overflowing_value),
+                                  "byte_array: y_hi doesn't fit in 128 bits");
         }
         // Make sure no gates are added
         EXPECT_TRUE(gates_start == builder.get_estimated_num_finalized_gates());
