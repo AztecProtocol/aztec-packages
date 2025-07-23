@@ -45,9 +45,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
   function test_WhenRoundNotInPast() external givenCanonicalInstanceHoldCode {
     // it revert
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlySubmitRoundWinnerInPast.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__RoundTooNew.selector, 0, 0));
     governanceProposer.submitRoundWinner(0);
   }
 
@@ -239,9 +237,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     assertEq(address(r.payloadWithMostSignals), address(proposal));
 
     // As time is perceived differently, round 1 is currently in the future
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__CanOnlySubmitRoundWinnerInPast.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__RoundTooNew.selector, 1, 0));
     governanceProposer.submitRoundWinner(1);
 
     // Jump 2 rounds, since we are currently in round 0
