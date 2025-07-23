@@ -127,10 +127,6 @@ using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
 
 /**
  * @brief Manages the data that is propagated on the public inputs of a hiding kernel circuit
- *
- * @note It is important that the inputs are (ecc_op_table, pairing_inputs). This is because the output of ClientIVC
- * will be verified with an UltraVerifier, which expects the last public input to always be the pairing inputs.
- *
  */
 template <class Builder_> class HidingKernelIO {
   public:
@@ -143,9 +139,9 @@ template <class Builder_> class HidingKernelIO {
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    std::array<G1, Builder::NUM_WIRES>
-        ecc_op_tables;            // commitments to merged tables obtained from final Merge verification
     PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
+    std::array<G1, Builder::NUM_WIRES>
+        ecc_op_tables; // commitments to merged tables obtained from final Merge verification
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE =
@@ -160,11 +156,12 @@ template <class Builder_> class HidingKernelIO {
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += PairingInputs::PUBLIC_INPUTS_SIZE;
         for (auto& commitment : ecc_op_tables) {
             commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
-        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
     /**
@@ -173,10 +170,10 @@ template <class Builder_> class HidingKernelIO {
      */
     void set_public()
     {
+        pairing_inputs.set_public();
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
-        pairing_inputs.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         Builder* builder = pairing_inputs.P0.get_context();

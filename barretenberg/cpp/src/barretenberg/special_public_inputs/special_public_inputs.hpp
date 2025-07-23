@@ -43,10 +43,6 @@ class DefaultIO {
 
 /**
  * @brief Manages the data that is propagated on the public inputs of of a hiding kernel circuit
- *
- * @note It is important that the inputs are (ecc_op_table, pairing_inputs). This is because the output of ClientIVC
- * will be verified with an UltraVerifier, which expects the last public input to always be the pairing inputs.
- *
  */
 class HidingKernelIO {
   public:
@@ -62,8 +58,8 @@ class HidingKernelIO {
     static constexpr size_t G1_PUBLIC_INPUTS_SIZE = FQ_PUBLIC_INPUT_SIZE * 2;
     static constexpr size_t PUBLIC_INPUTS_SIZE = NUM_WIRES * G1_PUBLIC_INPUTS_SIZE + PAIRING_POINTS_SIZE;
 
-    std::array<G1, NUM_WIRES> ecc_op_tables;
     PairingPoints pairing_inputs;
+    std::array<G1, NUM_WIRES> ecc_op_tables;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -75,17 +71,17 @@ class HidingKernelIO {
         // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
+        const std::span<const FF, PAIRING_POINTS_SIZE> pairing_inputs_limbs(public_inputs.data() + index,
+                                                                            PAIRING_POINTS_SIZE);
+        index += PAIRING_POINTS_SIZE;
+        pairing_inputs = PairingPoints::reconstruct_from_public(pairing_inputs_limbs);
+
         for (auto& commitment : ecc_op_tables) {
             const std::span<const FF, G1_PUBLIC_INPUTS_SIZE> ecc_op_table_limbs(public_inputs.data() + index,
                                                                                 G1_PUBLIC_INPUTS_SIZE);
             commitment = G1::reconstruct_from_public(ecc_op_table_limbs);
             index += G1_PUBLIC_INPUTS_SIZE;
         }
-
-        const std::span<const FF, PAIRING_POINTS_SIZE> pairing_inputs_limbs(public_inputs.data() + index,
-                                                                            PAIRING_POINTS_SIZE);
-
-        pairing_inputs = PairingPoints::reconstruct_from_public(pairing_inputs_limbs);
     }
 };
 
