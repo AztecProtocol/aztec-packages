@@ -80,11 +80,12 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_g1(key->q_4, "q4");
     print_g1(key->q_m, "qm");
     print_g1(key->q_c, "qc");
+    print_g1(key->q_lookup, "qLookup");
     print_g1(key->q_arith, "qArith");
     print_g1(key->q_delta_range, "qDeltaRange");
     print_g1(key->q_elliptic, "qElliptic");
-    print_g1(key->q_aux, "qAux");
-    print_g1(key->q_lookup, "qLookup");
+    print_g1(key->q_memory, "qMemory");
+    print_g1(key->q_nnf, "qNnf");
     print_g1(key->q_poseidon2_external, "qPoseidon2External");
     print_g1(key->q_poseidon2_internal, "qPoseidon2Internal");
     print_g1(key->sigma_1, "s1");
@@ -95,7 +96,6 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_g1(key->table_2, "t2");
     print_g1(key->table_3, "t3");
     print_g1(key->table_4, "t4");
-    // print_g1("0x500", "0x520", key->table, "vk.TABLE_TYPE");
     print_g1(key->id_1, "id1");
     print_g1(key->id_2, "id2");
     print_g1(key->id_3, "id3");
