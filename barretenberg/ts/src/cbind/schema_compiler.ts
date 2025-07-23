@@ -599,7 +599,14 @@ ${methods}
     // For sync API, don't implement BbApiBase since methods are synchronous
     const implementsClause = this.config.mode === 'sync' ? '' : ' implements BbApiBase';
 
-    return `export class ${className}${implementsClause} {
+    const msgpackCallHelper = `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(wasm: ${this.getWasmType()}, cbind: string, input: any[]) {` +
+    `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);` +
+    `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}wasm.cbindCall(cbind, inputBuffer);` +
+    `  return new Decoder({ useRecords: false }).unpack(encodedResult);` +
+    `}\n`;
+    return (
+      msgpackCallHelper +
+      `export class ${className}${implementsClause} {
   constructor(protected wasm: ${this.getWasmType()}) {}
 
 ${methods}
@@ -607,7 +614,8 @@ ${methods}
   destroy(): Promise<void> {
     return this.wasm.destroy();
   }
-}`;
+}`
+    );
   }
 
   private getApiClassName(): string {
@@ -646,7 +654,7 @@ ${methods}
     if (this.config.mode === 'async') {
       return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    return this.wasm.msgpackCall('bbapi', [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
+    return msgpackCall(this.wasm, 'bbapi', [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
       if (variantName !== '${responseType}') {
         throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
       }
@@ -658,7 +666,7 @@ ${methods}
     // For sync mode, keep the synchronous behavior
     return `  ${name}(command: ${commandType}): ${responseType} {
     const msgpackCommand = from${commandType}(command);
-    const [variantName, result] = this.wasm.msgpackCall('bbapi', [["${capitalize(name)}", msgpackCommand]]);
+    const [variantName, result] = msgpackCall(this.wasm, 'bbapi', [["${capitalize(name)}", msgpackCommand]]);
     if (variantName !== '${responseType}') {
       throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
     }
@@ -797,7 +805,8 @@ export function createSyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'sync',
     imports: [
-      `import { BarretenbergWasmMain } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
+      `import { BarretenbergWasmMain } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`,
+      `import { Decoder, Encoder } from 'msgpackr';`,
     ],
   });
 }
@@ -806,7 +815,8 @@ export function createAsyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'async',
     imports: [
-      `import { BarretenbergWasmMainWorker } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`
+      `import { BarretenbergWasmMainWorker } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`,
+      `import { Decoder, Encoder } from 'msgpackr';`
     ],
   });
 }

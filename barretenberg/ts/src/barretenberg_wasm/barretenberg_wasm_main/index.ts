@@ -6,7 +6,6 @@ import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/i
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
 import { createDebugLogger } from '../../log/index.js';
-import { Decoder, Encoder } from 'msgpackr';
 
 /**
  * This is the "main thread" implementation of BarretenbergWasm.
@@ -138,12 +137,10 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     });
   }
 
-  msgpackCall(cbind: string, input: any[]): any {
+  cbindCall(cbind: string, inputBuffer: Uint8Array): any {
     const outputSizePtr = this.call('bbmalloc', 4);
     const outputMsgpackPtr = this.call('bbmalloc', 4);
-    console.log('msgpackCall', cbind, input);
 
-    const inputBuffer = new Encoder({ useRecords: false }).pack(input);
     const inputPtr = this.call('bbmalloc', inputBuffer.length);
     this.writeMemory(inputPtr, inputBuffer);
     this.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
@@ -157,11 +154,10 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       readPtr32(outputMsgpackPtr),
       readPtr32(outputMsgpackPtr) + readPtr32(outputSizePtr),
     );
-    const result = new Decoder({ useRecords: false }).unpack(encodedResult);
     this.call('bbfree', inputPtr);
     this.call('bbfree', outputSizePtr);
     this.call('bbfree', outputMsgpackPtr);
-    return result;
+    return encodedResult;
   }
 }
 
