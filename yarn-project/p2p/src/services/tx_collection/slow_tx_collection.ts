@@ -5,7 +5,7 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
 import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
@@ -192,7 +192,7 @@ export class SlowTxCollection {
   }
 
   /** Stop collecting the given txs since we have found them. Called whenever tx pool emits a tx-added event. */
-  public foundTxs(txs: TxWithHash[]): void {
+  public foundTxs(txs: Tx[]): void {
     for (const txHash of txs.map(tx => tx.txHash)) {
       this.missingTxs.delete(txHash.toString());
     }

@@ -180,6 +180,7 @@ describe('aztec node', () => {
 
       // We push a duplicate nullifier that was created in the same transaction
       doubleSpendTx.data.forRollup!.end.nullifiers[1] = doubleSpendTx.data.forRollup!.end.nullifiers[0];
+      await doubleSpendTx.recomputeHash();
 
       expect(await node.isValidTx(doubleSpendTx)).toEqual({
         result: 'invalid',
@@ -213,6 +214,7 @@ describe('aztec node', () => {
 
       // We make the chain id on the tx not equal to the configured chain id
       tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
+      await tx.recomputeHash();
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_L1_CHAIN_ID] });
     });
@@ -223,6 +225,7 @@ describe('aztec node', () => {
 
       // We make the chain id on the tx not equal to the configured chain id
       tx.data.constants.txContext.version = new Fr(1n + rollupVersion.toBigInt());
+      await tx.recomputeHash();
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
     });
@@ -233,8 +236,10 @@ describe('aztec node', () => {
       const validIncludeByTimestampMetadata = txs[1];
 
       invalidIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S);
+      await invalidIncludeByTimestampMetadata.recomputeHash();
 
       validIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S + 1);
+      await validIncludeByTimestampMetadata.recomputeHash();
 
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean
       // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why

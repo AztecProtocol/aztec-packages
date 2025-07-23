@@ -89,6 +89,7 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.historicalHeader = context.getBlockHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+          await tx.recomputeHash();
         }
 
         const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);

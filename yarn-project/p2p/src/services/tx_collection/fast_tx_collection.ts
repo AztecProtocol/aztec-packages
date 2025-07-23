@@ -7,7 +7,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import type { BlockInfo } from '@aztec/stdlib/block';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -66,7 +66,7 @@ export class FastTxCollection {
       ...input,
       blockInfo,
       promise,
-      foundTxs: new Map<string, TxWithHash>(),
+      foundTxs: new Map<string, Tx>(),
       missingTxHashes: new Set(txHashes.map(t => t.toString())),
       deadline: opts.deadline,
     };
@@ -284,7 +284,7 @@ export class FastTxCollection {
    * Handle txs by marking them as found for the requests that are waiting for them, and resolves the request if all its txs have been found.
    * Called internally and from the main tx collection manager whenever the tx pool emits a tx-added event.
    */
-  public foundTxs(txs: TxWithHash[]) {
+  public foundTxs(txs: Tx[]) {
     for (const request of this.requests) {
       for (const tx of txs) {
         const txHash = tx.txHash.toString();

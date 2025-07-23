@@ -392,7 +392,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
-      const foundTxHashes = await Promise.all(txs.map(async tx => await tx.getTxHash()));
+      const foundTxHashes = txs.map(tx => tx.getTxHash());
       const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.includes(txHash));
       throw new TransactionsNotAvailableError(missingTxHashes);
     }
