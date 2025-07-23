@@ -2,7 +2,7 @@
  * Generate TypeScript bindings from msgpack schema
  */
 
-import { writeFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -46,18 +46,9 @@ const GENERATORS: GeneratorConfig[] = [
   },
 ];
 
-function getCurrentDir() {
-  if (typeof __dirname !== 'undefined') {
-    return __dirname;
-  } else {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    return dirname(fileURLToPath(import.meta.url));
-  }
-}
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function generate() {
-  const __dirname = getCurrentDir();
   const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../cpp/build/bin/bb');
 
   // Get schema from bb
@@ -70,6 +61,10 @@ async function generate() {
   }
 
   console.log('Generating TypeScript bindings...\n');
+
+  // Ensure output directory exists
+  const outputDir = join(__dirname, 'generated');
+  mkdirSync(outputDir, { recursive: true });
 
   // Generate each output file
   for (const config of GENERATORS) {

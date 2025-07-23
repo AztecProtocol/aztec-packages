@@ -224,7 +224,7 @@ struct ClientIvcCheckPrecomputedVk {
         bool valid;
         /** @brief The actual VK it should be. */
         std::vector<uint8_t> actual_vk;
-        MSGPACK_FIELDS(valid);
+        MSGPACK_FIELDS(valid, actual_vk);
         bool operator==(const Response&) const = default;
     };
 
