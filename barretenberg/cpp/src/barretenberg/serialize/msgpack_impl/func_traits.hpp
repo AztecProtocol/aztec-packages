@@ -3,16 +3,6 @@
 #include <tuple>
 #include <type_traits>
 
-// Helper to forward based on the original parameter type
-template <typename OrigType, typename U> static decltype(auto) forward_as(U&& t)
-{
-    if constexpr (std::is_rvalue_reference_v<OrigType>) {
-        return std::move(t);
-    } else {
-        return std::forward<U>(t);
-    }
-}
-
 // Base template for function traits
 template <typename Func> struct func_traits;
 
