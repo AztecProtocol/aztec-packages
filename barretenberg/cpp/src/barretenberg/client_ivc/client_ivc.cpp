@@ -464,6 +464,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Extract the commitments to the subtable corresponding to the incoming circuit
     MergeVerifier::WitnessCommitments merge_commitments;
     merge_commitments.set_t_commitments(verifier.verification_key->witness_commitments.get_ecc_op_wires());
+    // merge_commitments.T_prev_commitments = T_prev_commitments;
 
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(
