@@ -3,7 +3,7 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { KeyValidationHint } from './key_validation_hint.js';
 import { type NoteHashReadRequestHints, noteHashReadRequestHintsFromBuffer } from './note_hash_read_request_hints.js';
 import { type NullifierReadRequestHints, nullifierReadRequestHintsFromBuffer } from './nullifier_read_request_hints.js';
-import { TransientDataIndexHint } from './transient_data_index_hint.js';
+import { TransientDataSquashingHint } from './transient_data_squashing_hint.js';
 
 export class PrivateKernelResetHints<
   NH_RR_PENDING extends number,
@@ -29,7 +29,7 @@ export class PrivateKernelResetHints<
     /**
      * Contains hints for the transient note hashes to locate corresponding nullifiers.
      */
-    public transientDataIndexHints: Tuple<TransientDataIndexHint, TRANSIENT_DATA_HINTS_LEN>,
+    public transientDataSquashingHints: Tuple<TransientDataSquashingHint, TRANSIENT_DATA_HINTS_LEN>,
     /**
      * The "final" minRevertibleSideEffectCounter of a tx, to split the data for squashing.
      * Not the minRevertibleSideEffectCounter at the point the reset circuit is run.
@@ -42,7 +42,7 @@ export class PrivateKernelResetHints<
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
       this.keyValidationHints,
-      this.transientDataIndexHints,
+      this.transientDataSquashingHints,
       this.validationRequestsSplitCounter,
     );
   }
@@ -53,7 +53,7 @@ export class PrivateKernelResetHints<
     numNullifierReadRequestPending: number,
     numNullifierReadRequestSettled: number,
     numKeyValidationHints: number,
-    numTransientDataIndexHints: number,
+    numTransientDataSquashingHints: number,
   ) {
     // Noir does not allow empty arrays. So we make the minimum array size 1.
     // There is a constant for each dimension, coded in the circuit that indicates how many hints should be applied.
@@ -70,7 +70,7 @@ export class PrivateKernelResetHints<
         useSize(numNullifierReadRequestSettled),
       ),
       this.keyValidationHints.slice(0, useSize(numKeyValidationHints)),
-      this.transientDataIndexHints.slice(0, useSize(numTransientDataIndexHints)),
+      this.transientDataSquashingHints.slice(0, useSize(numTransientDataSquashingHints)),
       this.validationRequestsSplitCounter,
     );
   }
@@ -93,7 +93,7 @@ export class PrivateKernelResetHints<
     numNullifierReadRequestPending: NLL_RR_PENDING,
     numNullifierReadRequestSettled: NLL_RR_SETTLED,
     numKeyValidationHints: KEY_VALIDATION_HINTS_LEN,
-    numTransientDataIndexHints: TRANSIENT_DATA_HINTS_LEN,
+    numTransientDataSquashingHints: TRANSIENT_DATA_HINTS_LEN,
   ): PrivateKernelResetHints<
     NH_RR_PENDING,
     NH_RR_SETTLED,
@@ -113,7 +113,7 @@ export class PrivateKernelResetHints<
           nullifierReadRequestHintsFromBuffer(buf, numNullifierReadRequestPending, numNullifierReadRequestSettled),
       }),
       reader.readArray(numKeyValidationHints, KeyValidationHint),
-      reader.readArray(numTransientDataIndexHints, TransientDataIndexHint),
+      reader.readArray(numTransientDataSquashingHints, TransientDataSquashingHint),
       reader.readNumber(),
     );
   }
