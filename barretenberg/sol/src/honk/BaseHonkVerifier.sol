@@ -23,6 +23,7 @@ import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
 import {Transcript, TranscriptLib} from "./Transcript.sol";
 
 import {RelationsLib} from "./Relations.sol";
+import {frMulWithG1, g1Add, convertPairingPointsToG1} from "./utils.sol";
 
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
 
@@ -405,15 +406,27 @@ abstract contract BaseHonkVerifier is IVerifier {
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
 
-        Honk.G1Point memory P_0 = batchMul(commitments, scalars);
-        Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
+        Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
+        Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
+
+        // Aggregate pairing points
+        Fr recursionSeparator = TranscriptLib.generateRecursionSeparator(proof, P_0_agg, P_1_agg);
+        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) = convertPairingPointsToG1(proof.pairingPointObject);
 
         // accumulate with aggregate points in proof
+        P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
+        P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
 
-        // P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
-        // P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
+        return pairing(P_0_agg, P_1_agg);
+    }
 
-        return pairing(P_0, P_1);
+    function mulWithSeperator(Honk.G1Point memory basePoint, Honk.G1Point memory other, Fr recursionSeperator) internal view returns (Honk.G1Point memory) {
+        Honk.G1Point memory result;
+
+        result = frMulWithG1(recursionSeperator, basePoint);
+        result = g1Add(result, other);
+
+        return result;
     }
 
     function batchMul(

@@ -9,7 +9,7 @@ import {
     PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
-import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
+import {bytesToG1ProofPoint, bytesToFr, convertG1ToPairingPoints} from "./utils.sol";
 
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
@@ -283,14 +283,31 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    function generateAggregationChallenge(Fr previousChallenge, Honk.Proof memory proof, Honk.G1 accumulatedX, Honk.G1 accumulatedY) {
-
+    function generateRecursionSeparator(Honk.Proof memory proof, Honk.G1Point memory accLhs, Honk.G1Point memory accRhs)
+        internal
+        pure
+        returns (Fr recursionSeparator)
+    {
         // hash the proof aggregated X
         // hash the proof aggregated Y
         // hash the accum X
         // hash the accum Y
 
-        // return challenge
+        uint256[PAIRING_POINTS_SIZE * 2] memory recursionSeparatorElements;
+
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            recursionSeparatorElements[i] = Fr.unwrap(proof.pairingPointObject[i]);
+        }
+        Fr[PAIRING_POINTS_SIZE] memory accumulatorPoints = convertG1ToPairingPoints(accLhs, accRhs);
+
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            recursionSeparatorElements[PAIRING_POINTS_SIZE + i] = Fr.unwrap(accumulatorPoints[i]);
+        }
+
+        // TODO rename
+        Fr nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(recursionSeparatorElements)));
+        Fr unused;
+        (recursionSeparator, unused) = splitChallenge(nextPreviousChallenge);
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1234)

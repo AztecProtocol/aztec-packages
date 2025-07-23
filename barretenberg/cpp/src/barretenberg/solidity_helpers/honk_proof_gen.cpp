@@ -25,11 +25,12 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
+    using CircuitBuilder = typename Flavor::CircuitBuilder;
 
-    typename Flavor::CircuitBuilder builder = Circuit::generate(inputs);
+    CircuitBuilder builder = Circuit::generate(inputs);
     // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
     if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
-        stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<CircuitBuilder>::add_default_to_public_inputs(builder);
     }
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);

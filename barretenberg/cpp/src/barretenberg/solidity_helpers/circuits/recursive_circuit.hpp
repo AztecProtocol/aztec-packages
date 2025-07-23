@@ -10,6 +10,7 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
+namespace bb {
 class RecursiveCircuit {
   public:
     using InnerFlavor = bb::UltraFlavor;
@@ -74,7 +75,6 @@ class RecursiveCircuit {
         if (!native_result) {
             throw std::runtime_error("Inner proof verification failed");
         }
-        info("Inner native proof verification succeeded");
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
         output.points_accumulator.set_public();
@@ -82,3 +82,4 @@ class RecursiveCircuit {
         return outer_circuit;
     }
 };
+} // namespace bb

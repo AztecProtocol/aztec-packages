@@ -1,6 +1,6 @@
 pragma solidity >=0.8.21;
 
-import {Honk} from "./HonkTypes.sol";
+import {Honk, PAIRING_POINTS_SIZE} from "./HonkTypes.sol";
 import {Transcript} from "./Transcript.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {
@@ -52,6 +52,97 @@ function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1P
 function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point memory) {
     point.y = (Q - point.y) % Q;
     return point;
+}
+
+
+function convertPairingPointsToG1(Fr[PAIRING_POINTS_SIZE] memory pairingPoints) pure returns (Honk.G1Point memory lhs, Honk.G1Point memory rhs) {
+    uint256 lhsX = Fr.unwrap(pairingPoints[0]);
+    lhsX |= Fr.unwrap(pairingPoints[1]) << 68;
+    lhsX |= Fr.unwrap(pairingPoints[2]) << 136;
+    lhsX |= Fr.unwrap(pairingPoints[3]) << 204;
+    lhs.x = lhsX;
+
+    uint256 lhsY = Fr.unwrap(pairingPoints[4]);
+    lhsY |= Fr.unwrap(pairingPoints[5]) << 68;
+    lhsY |= Fr.unwrap(pairingPoints[6]) << 136;
+    lhsY |= Fr.unwrap(pairingPoints[7]) << 204;
+    lhs.y = lhsY;
+
+    uint256 rhsX = Fr.unwrap(pairingPoints[8]);
+    rhsX |= Fr.unwrap(pairingPoints[9]) << 68;
+    rhsX |= Fr.unwrap(pairingPoints[10]) << 136;
+    rhsX |= Fr.unwrap(pairingPoints[11]) << 204;
+    rhs.x = rhsX;
+
+    uint256 rhsY = Fr.unwrap(pairingPoints[12]);
+    rhsY |= Fr.unwrap(pairingPoints[13]) << 68;
+    rhsY |= Fr.unwrap(pairingPoints[14]) << 136;
+    rhsY |= Fr.unwrap(pairingPoints[15]) << 204;
+    rhs.y = rhsY;
+}
+
+function convertG1ToPairingPoints(Honk.G1Point memory lhs, Honk.G1Point memory rhs) pure returns (Fr[PAIRING_POINTS_SIZE] memory pairingPoints) {
+    // lhs.x
+    pairingPoints[0] = Fr.wrap(uint64(lhs.x));
+    pairingPoints[1] = Fr.wrap(uint64(lhs.x >> 68));
+    pairingPoints[2] = Fr.wrap(uint64(lhs.x >> 136));
+    pairingPoints[3] = Fr.wrap(uint64(lhs.x >> 204));
+    // lhs.y
+    pairingPoints[4] = Fr.wrap(uint64(lhs.y));
+    pairingPoints[5] = Fr.wrap(uint64(lhs.y >> 68));
+    pairingPoints[6] = Fr.wrap(uint64(lhs.y >> 136));
+    pairingPoints[7] = Fr.wrap(uint64(lhs.y >> 204));
+    // rhs.x
+    pairingPoints[8] = Fr.wrap(uint64(rhs.x));
+    pairingPoints[9] = Fr.wrap(uint64(rhs.x >> 68));
+    pairingPoints[10] = Fr.wrap(uint64(rhs.x >> 136));
+    pairingPoints[11] = Fr.wrap(uint64(rhs.x >> 204));
+    // rhs.y
+    pairingPoints[12] = Fr.wrap(uint64(rhs.y));
+    pairingPoints[13] = Fr.wrap(uint64(rhs.y >> 68));
+    pairingPoints[14] = Fr.wrap(uint64(rhs.y >> 136));
+    pairingPoints[15] = Fr.wrap(uint64(rhs.y >> 204));
+}
+
+function frMulWithG1(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point memory) {
+
+    Honk.G1Point memory result;
+
+    assembly {
+        let free := mload(0x40)
+        mstore(free, mload(point))
+        mstore(add(free, 0x20), mload(add(point, 0x20)))
+        mstore(add(free, 0x40), value)
+        let success := staticcall(gas(), 0x07, free, 0x60, free, 0x40)
+        if iszero(success) {
+            // TODO: meaningful error
+            revert(0, 0)
+        }
+        mstore(result, mload(free))
+        mstore(add(result, 0x20), mload(add(free, 0x20)))
+    }
+
+    return result;
+}
+
+function g1Add(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (Honk.G1Point memory) {
+    Honk.G1Point memory result;
+
+    assembly {
+        let free := mload(0x40)
+        mstore(free, mload(lhs))
+        mstore(add(free, 0x20), mload(add(lhs, 0x20)))
+        mstore(add(free, 0x40), mload(rhs))
+        mstore(add(free, 0x60), mload(add(rhs, 0x20)))
+        let success := staticcall(gas(), 0x06, free, 0x80, free, 0x40)
+        if iszero(success) {
+            revert(0, 0)
+        }
+        mstore(result, mload(free))
+        mstore(add(result, 0x20), mload(add(free, 0x20)))
+    }
+
+    return result;
 }
 
 function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool decodedResult) {
