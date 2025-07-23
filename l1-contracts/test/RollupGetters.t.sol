@@ -78,6 +78,15 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(committeeSize, expectedSize, "invalid getCommitteeCommittmentAt size");
     assertNotEq(committeeCommitment, bytes32(0), "invalid committee commitment");
 
+    // Check for no duplicates in each committee
+    for (uint256 i = 0; i < expectedSize; i++) {
+      for (uint256 j = i + 1; j < expectedSize; j++) {
+        assertNotEq(committee[i], committee[j], "duplicate found in getEpochCommittee");
+        assertNotEq(committee2[i], committee2[j], "duplicate found in getCommitteeAt");
+        assertNotEq(committee3[i], committee3[j], "duplicate found in getCurrentEpochCommittee");
+      }
+    }
+
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
   }

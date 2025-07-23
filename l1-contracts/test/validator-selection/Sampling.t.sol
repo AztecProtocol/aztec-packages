@@ -25,6 +25,15 @@ contract Sampler {
   {
     return SampleLib.computeSampleIndex(_index, _indexCount, _seed);
   }
+
+  function computeCommitteeMemberAtIndex(
+    uint256 _index,
+    uint256 _committeeSize,
+    uint256 _indexCount,
+    uint256 _seed
+  ) public pure returns (uint256) {
+    return SampleLib.computeCommitteeMemberAtIndex(_index, _committeeSize, _indexCount, _seed);
+  }
 }
 
 contract SamplingTest is Test {
@@ -98,5 +107,63 @@ contract SamplingTest is Test {
   function testSampleIndex(uint256 _index, uint256 _seed) public view {
     // Test modulo 0 case
     assertEq(sampler.computeSampleIndex(_index, 0, _seed), 0);
+  }
+
+  function testConstantTimeCommitteeMember() public {
+    uint256 committeeSize = 48;
+    uint256 indexCount = 1000;
+    uint256 seed = 12345;
+
+    // Test that we get the same results as the original algorithm
+    uint256[] memory fullCommittee = sampler.computeCommittee(committeeSize, indexCount, seed);
+    
+    for (uint256 i = 0; i < committeeSize; i++) {
+      uint256 memberAtIndex = sampler.computeCommitteeMemberAtIndex(i, committeeSize, indexCount, seed);
+      assertEq(memberAtIndex, fullCommittee[i], "Member mismatch at index");
+    }
+  }
+
+  function testConstantTimeNoDuplicates(uint8 _committeeSize, uint16 _indexCount, uint256 _seed) public {
+    vm.assume(_committeeSize <= _indexCount);
+    vm.assume(_committeeSize > 0 && _committeeSize <= 100); // Reasonable bounds for testing
+    vm.assume(_indexCount > 0 && _indexCount <= 1000);
+    vm.assume(_seed != 0);
+
+    // Get all members using constant-time function
+    uint256[] memory members = new uint256[](_committeeSize);
+    for (uint256 i = 0; i < _committeeSize; i++) {
+      members[i] = sampler.computeCommitteeMemberAtIndex(i, _committeeSize, _indexCount, _seed);
+    }
+
+    // Check no duplicates
+    for (uint256 i = 0; i < _committeeSize; i++) {
+      for (uint256 j = i + 1; j < _committeeSize; j++) {
+        assertNotEq(members[i], members[j], "Duplicate found");
+      }
+    }
+  }
+
+  function testConstantTimeOutOfBounds() public {
+    uint256 committeeSize = 10;
+    uint256 indexCount = 100;
+    
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.SampleLib__IndexOutOfBounds.selector, 10, committeeSize
+      )
+    );
+    sampler.computeCommitteeMemberAtIndex(10, committeeSize, indexCount, 1234);
+  }
+
+  function testConstantTimeCommitteeTooLarge() public {
+    uint256 committeeSize = 101;
+    uint256 indexCount = 100;
+    
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.SampleLib__SampleLargerThanIndex.selector, committeeSize, indexCount
+      )
+    );
+    sampler.computeCommitteeMemberAtIndex(0, committeeSize, indexCount, 1234);
   }
 }

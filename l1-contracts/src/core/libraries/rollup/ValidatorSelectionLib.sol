@@ -143,10 +143,9 @@ library ValidatorSelectionLib {
       return;
     }
 
+    uint224 sampleSeed = getSampleSeed(_epochNumber);
     VerifyStack memory stack = VerifyStack({
-      proposerIndex: computeProposerIndex(
-        _epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize
-      ),
+      proposerIndex: computeProposerIndex(_epochNumber, _slot, sampleSeed, targetCommitteeSize),
       needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
       index: 0,
       signaturesRecovered: 0,
@@ -235,18 +234,30 @@ library ValidatorSelectionLib {
     }
 
     Epoch epochNumber = _slot.epochFromSlot();
+    ValidatorSelectionStorage storage store = getStorage();
 
     uint224 sampleSeed = getSampleSeed(epochNumber);
-    (uint32 ts, uint256[] memory indices) = sampleValidatorsIndices(epochNumber, sampleSeed);
-    uint256 committeeSize = indices.length;
-    if (committeeSize == 0) {
+    uint32 ts = epochToSampleTime(epochNumber);
+    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
+    uint256 targetCommitteeSize = store.targetCommitteeSize;
+
+    if (targetCommitteeSize == 0 || validatorSetSize < targetCommitteeSize) {
       return (address(0), 0);
     }
-    uint256 proposerIndex = computeProposerIndex(epochNumber, _slot, sampleSeed, committeeSize);
-    return (
-      StakingLib.getAttesterFromIndexAtTime(indices[proposerIndex], Timestamp.wrap(ts)),
-      proposerIndex
+
+    // Compute which committee position is the proposer for this slot
+    uint256 proposerIndex =
+      computeProposerIndex(epochNumber, _slot, sampleSeed, targetCommitteeSize);
+
+    // Get the validator index for that committee position in O(1) time
+    uint256 validatorIndex = SampleLib.computeCommitteeMemberAtIndex(
+      proposerIndex, targetCommitteeSize, validatorSetSize, sampleSeed
     );
+
+    address proposer = StakingLib.getAttesterFromIndexAtTime(validatorIndex, Timestamp.wrap(ts));
+    setCachedProposer(_slot, proposer, proposerIndex);
+
+    return (proposer, proposerIndex);
   }
 
   /**
