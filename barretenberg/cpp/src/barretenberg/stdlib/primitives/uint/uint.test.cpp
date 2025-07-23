@@ -1174,6 +1174,18 @@ template <typename TestType> class stdlib_uint : public testing::Test {
         EXPECT_EQ(result, false);
     }
 
+    static void check_accumulator_correctness(Builder& builder, const uint_ct& result_uint, uint_native expected_result)
+    {
+        uint_native val = expected_result;
+        const auto accumulators = result_uint.get_accumulators();
+        for (size_t i = 0; i < uint_ct::num_accumulators(); ++i) {
+            const uint64_t result = uint256_t(builder.get_variable(accumulators[i])).data[0];
+            const uint64_t expected = val & ((1ULL << uint_ct::bits_per_limb) - 1);
+            val = val >> uint_ct::bits_per_limb;
+            EXPECT_EQ(result, expected);
+        }
+    }
+
     static void test_and()
     {
         Builder builder = Builder();
@@ -1194,8 +1206,13 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             e = e.normalize();
 
             uint_native result = uint_native(e.get_value());
-
             EXPECT_EQ(result, expected);
+
+            // Check accumulators constructed from lookup tables. This needs to be checked only if
+            // either of the inputs in a witness.
+            if (!lhs_constant || !rhs_constant) {
+                check_accumulator_correctness(builder, e, expected);
+            }
         };
 
         and_integers(false, false);
@@ -1229,8 +1246,13 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             e = e.normalize();
 
             uint_native result = uint_native(e.get_value());
-
             EXPECT_EQ(result, expected);
+
+            // Check accumulators constructed from lookup tables. This needs to be checked only if
+            // either of the inputs in a witness.
+            if (!lhs_constant || !rhs_constant) {
+                check_accumulator_correctness(builder, e, expected);
+            }
         };
 
         xor_integers(false, false);
@@ -1264,8 +1286,13 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             e = e.normalize();
 
             uint_native result = uint_native(e.get_value());
-
             EXPECT_EQ(result, expected);
+
+            // Check accumulators constructed from lookup tables. This needs to be checked only if
+            // either of the inputs in a witness.
+            if (!lhs_constant || !rhs_constant) {
+                check_accumulator_correctness(builder, e, expected);
+            }
         };
 
         or_integers(false, false);
@@ -1914,34 +1941,4 @@ TYPED_TEST(stdlib_uint, test_rol)
 TYPED_TEST(stdlib_uint, test_at)
 {
     TestFixture::test_at();
-}
-
-// There was one plookup-specific test in the ./plookup/uint_plookup.test.cpp
-// TODO: either remove this test or move it to a more appropriate location
-TEST(stdlib_uint32, test_accumulators_plookup_uint32)
-{
-    using uint32_ct = stdlib::uint32<bb::UltraCircuitBuilder>;
-    using witness_ct = stdlib::witness_t<bb::UltraCircuitBuilder>;
-
-    UltraCircuitBuilder builder;
-
-    uint32_t a_val = engine.get_random_uint32();
-    uint32_t b_val = engine.get_random_uint32();
-    uint32_ct a = witness_ct(&builder, a_val);
-    uint32_ct b = witness_ct(&builder, b_val);
-    a = a ^ b;
-    uint32_t val = a_val ^ b_val;
-    uint32_t MASK = (1U << uint32_ct::bits_per_limb) - 1;
-    const auto accumulators = a.get_accumulators();
-    for (size_t i = 0; i < uint32_ct::num_accumulators(); ++i) {
-        const uint64_t result = uint256_t(builder.get_variable(accumulators[i])).data[0];
-        const uint64_t expected = val & MASK;
-        val = val >> uint32_ct::bits_per_limb;
-        EXPECT_EQ(result, expected);
-    }
-
-    info("builder gates = ", builder.get_estimated_num_finalized_gates());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
 }

@@ -5,6 +5,7 @@
 // =====================
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "uint.hpp"
 
 using namespace bb;
@@ -307,6 +308,9 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
     field_t<Builder> scaling_factor(context, bb::fr(1ULL << bits_per_limb));
 
     // N.B. THIS LOOP ONLY WORKS IF THE LOGIC TABLE SLICE SIZE IS HALF THAT OF `bits_per_limb`
+    ASSERT(num_accumulators() == (lookup[ColumnIdx::C3].size() + 1) / 2,
+           "uint::logic num of accumulators must be half of num of lookups.");
+
     for (size_t i = 0; i < num_accumulators(); ++i) {
 
         /**
