@@ -23,7 +23,7 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
     stakingAssetHandler.setDepositMerkleRoot(ROOT);
 
     // Check is disabled by default
-    enableMerkleCheck();
+    _enableMerkleCheck();
   }
 
   // 1. Read the address at that index in the tree
@@ -32,7 +32,7 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
   function test_WhenProvidingAValidMerkleProof(uint8 index) external {
     // it emits {AddedToQueue} event
 
-    (address addr, bytes32[] memory merkleProof) = getAddressAndProof(index);
+    (address addr, bytes32[] memory merkleProof) = _getAddressAndProof(index);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), addr, WITHDRAWER);
@@ -44,9 +44,9 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
   function test_WhenNotProvidingAValidMerkleProof(uint8 index) external {
     // it reverts
 
-    address addr = getAddress(index);
+    address addr = _getAddress(index);
     // Wrong proof for address
-    bytes32[] memory proof = getMerkleProof(uint16(index) + 1);
+    bytes32[] memory proof = _getMerkleProof(uint16(index) + 1);
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.MerkleProofInvalid.selector));
     vm.prank(addr);
