@@ -1,9 +1,9 @@
 use crate::utils::arrays::get_sorted_tuple::{get_sorted_tuple, SortedTuple};
 
 pub struct SortedResult<T, let N: u32> {
-    sorted_array: [T; N],
-    sorted_index_hints: [u32; N],
-    original_index_hints: [u32; N],
+    pub sorted_array: [T; N],
+    pub sorted_index_hints: [u32; N],
+    pub original_index_hints: [u32; N],
 }
 
 pub unconstrained fn get_sorted_result<let N: u32, T>(

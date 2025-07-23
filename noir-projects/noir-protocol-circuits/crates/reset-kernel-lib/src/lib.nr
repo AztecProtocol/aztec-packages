@@ -9,5 +9,7 @@ pub use nullifier_read_request_reset::NullifierReadRequestHints;
 pub use private_validation_request_processor::PrivateValidationRequestProcessor;
 pub use reset::{
     key_validation_request::KeyValidationHint,
-    transient_data::{TransientDataIndexHint, verify_squashed_transient_data},
+    transient_data::{
+        squash_transient_data, TransientDataSquashingHint, validate_squashed_transient_data,
+    },
 };
