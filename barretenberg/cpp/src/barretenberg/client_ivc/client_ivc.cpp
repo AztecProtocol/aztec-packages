@@ -443,6 +443,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         ClientIVC::RecursiveFlavor::FF::from_witness(&builder, verification_queue[0].honk_vk->hash()));
 
     PairingPoints pairing_points = complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, builder);
+    fold_output.accumulator = nullptr;
 
     stdlib::recursion::honk::HidingKernelIO hiding_output{ pairing_points };
     hiding_output.set_public();
@@ -533,7 +534,6 @@ HonkProof ClientIVC::decider_prove()
     fold_output.accumulator->commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
     decider_prover.construct_proof();
-    fold_output.accumulator = nullptr;
     return decider_prover.export_proof();
 }
 
