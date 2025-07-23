@@ -69,6 +69,8 @@ export type L2ChainConfig = {
   slashInvalidBlockEnabled: boolean;
   slashInvalidBlockPenalty: bigint;
   slashInvalidBlockMaxPenalty: bigint;
+  // control whether sentinel is enabled or not. Needed for slashing
+  sentinelEnabled: boolean;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -129,6 +131,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashPruneMaxPenalty: 0n,
   slashInvalidBlockPenalty: 0n,
   slashInvalidBlockMaxPenalty: 0n,
+  sentinelEnabled: false,
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -192,6 +195,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashInvalidBlockEnabled: true,
   slashInvalidBlockPenalty: DefaultL1ContractsConfig.depositAmount,
   slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.depositAmount,
+  sentinelEnabled: true,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -314,4 +318,5 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SLASH_INVALID_BLOCK_ENABLED', config.slashInvalidBlockEnabled.toString());
   enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashInvalidBlockPenalty.toString());
   enrichVar('SLASH_INVALID_BLOCK_MAX_PENALTY', config.slashInvalidBlockMaxPenalty.toString());
+  enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
 }

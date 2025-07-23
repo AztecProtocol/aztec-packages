@@ -49,10 +49,6 @@ BENCHMARK_CAPTURE(construct_proof_megahonk,
                   ecdsa_verification,
                   &stdlib::generate_ecdsa_verification_test_circuit<MegaCircuitBuilder>)
     ->Unit(kMillisecond);
-BENCHMARK_CAPTURE(construct_proof_megahonk,
-                  merkle_membership,
-                  &stdlib::generate_merkle_membership_test_circuit<MegaCircuitBuilder>)
-    ->Unit(kMillisecond);
 
 BENCHMARK(get_row_power_of_2)
     // 2**15 gates to 2**20 gates
