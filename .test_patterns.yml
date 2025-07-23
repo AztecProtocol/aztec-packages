@@ -84,10 +84,6 @@ tests:
       - *tom
 
   # e2e tests skipped
-  - regex: "src/e2e_sequencer/gov_proposal"
-    skip: true
-    owners:
-      - *lasse
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
@@ -212,7 +208,7 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  - regex: "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts" 
+  - regex: "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
     error_regex: "will propagate messages to peers at the same version"
     owners:
       - *palla
