@@ -65,42 +65,8 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
     exit 0
 fi
 
-# For quickly updating VKs without regenerating the entire IVC inputs
-if [[ "${1:-}" == "--update_fast" ]]; then
-    set -eu
-    echo "Fast update mode: downloading inputs and fixing VKs..."
-
-    # Download current inputs
-    curl -s -f "$pinned_civc_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/null
-
-    # Fix VKs for all folders
-    for flow_folder in "$inputs_tmp_dir"/*; do
-        if [ -d "$flow_folder" ]; then
-            echo "Fixing VKs for $(basename "$flow_folder")..."
-            ./build/bin/bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" --fix
-        fi
-    done
-
-    # Recompress with updated VKs
-    echo "Compressing updated inputs..."
-    tar -czf bb-civc-inputs-updated.tar.gz -C "$inputs_tmp_dir" .
-
-    # Compute hash
-    full_hash=$(sha256sum bb-civc-inputs-updated.tar.gz | awk '{ print $1 }')
-    short_hash=${full_hash:0:8}
-    echo "New hash is: $short_hash"
-
-    # Upload to S3
-    s3_key="bb-civc-inputs-${short_hash}.tar.gz"
-    s3_uri="s3://aztec-ci-artifacts/protocol/${s3_key}"
-    echo "Uploading updated inputs to ${s3_uri}..."
-    aws s3 cp bb-civc-inputs-updated.tar.gz "${s3_uri}"
-
-    echo "Done. Updated inputs with fixed VKs available at:"
-    echo "  ${s3_uri}"
-    echo "Update the pinned_civc_inputs_url in this script to point to the new location."
-    exit 0
-fi
+export inputs_tmp_dir=$(mktemp -d)
+trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
 
 curl -s -f "$pinned_civc_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/null
 
