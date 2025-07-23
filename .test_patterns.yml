@@ -212,6 +212,10 @@ tests:
     error_regex: "will propagate messages to peers at the same version"
     owners:
       - *palla
+  - regex: "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+    error_regex: "Expected number of calls"
+    owners:
+      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
