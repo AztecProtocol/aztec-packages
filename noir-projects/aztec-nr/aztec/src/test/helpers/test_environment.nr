@@ -1,8 +1,5 @@
 use protocol_types::{
-    abis::function_selector::FunctionSelector,
-    address::AztecAddress,
-    constants::PUBLIC_DISPATCH_SELECTOR,
-    traits::{Deserialize, FromField, ToField},
+    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize,
 };
 
 use crate::{
@@ -301,13 +298,16 @@ impl TestEnvironment {
         let test_account = txe_oracles::add_account(secret);
         let address = test_account.address;
 
-        let selector = FunctionSelector::from_signature("constructor(Field,Field)");
-
-        let mut context = self.private_at(self.last_block_number());
-        let args = [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y];
-        let _ = context.call_private_function(address, selector, args);
-
-        txe_oracles::advance_blocks_by(1);
+        let _ = self.call_private(
+            AztecAddress::zero(),
+            PrivateCallInterface::<_, ()>::new(
+                address,
+                comptime { FunctionSelector::from_signature("constructor(Field,Field)") },
+                "constructor",
+                [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y],
+                false,
+            ),
+        );
 
         address
     }
