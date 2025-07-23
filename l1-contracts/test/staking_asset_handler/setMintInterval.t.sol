@@ -58,7 +58,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     // it updates the last mint timestamp
 
     _newMintInterval = bound(_newMintInterval, mintInterval + 1, type(uint24).max);
-    setMockZKPassportVerifier();
+    _setMockZKPassportVerifier();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.IntervalUpdated(_newMintInterval);
