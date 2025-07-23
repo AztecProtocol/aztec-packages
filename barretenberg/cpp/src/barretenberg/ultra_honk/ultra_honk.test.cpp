@@ -64,17 +64,10 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
-            bool verified = verifier.verify_proof(proof, proving_key->ipa_proof);
-            EXPECT_EQ(verified, expected_result);
+            EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), expected_result);
         } else {
             Verifier verifier(verification_key);
-            bool verified = false;
-            if constexpr (IsUltraHonk<Flavor>) {
-                verified = verifier.verify_proof(proof);
-            } else {
-                verified = std::get<0>(verifier.verify_proof(proof));
-            }
-            EXPECT_EQ(verified, expected_result);
+            EXPECT_EQ(verifier.verify_proof(proof), expected_result);
         }
     };
 

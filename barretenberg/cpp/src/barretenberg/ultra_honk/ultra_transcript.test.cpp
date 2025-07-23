@@ -208,16 +208,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         prover.transcript->proof_start = 0;
         return prover.export_proof();
     }
-
-    bool verify(const std::shared_ptr<VerificationKey>& verification_key, const HonkProof& proof)
-    {
-        Verifier verifier(verification_key);
-        if constexpr (IsUltraHonk<Flavor>) {
-            return verifier.verify_proof(proof, {});
-        } else {
-            return std::get<0>(verifier.verify_proof(proof));
-        }
-    }
 };
 
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
@@ -355,7 +345,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
-    EXPECT_TRUE(TestFixture::verify(verification_key, proof));
+    EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
@@ -364,20 +354,19 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 
     proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
-    EXPECT_TRUE(TestFixture::verify(verification_key, proof)); // we have changed nothing so proof is still valid
+    EXPECT_TRUE(verifier.verify_proof(proof)); // we have changed nothing so proof is still valid
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
-    EXPECT_TRUE(TestFixture::verify(verification_key,
-                                    proof)); // we have not serialized it back to the proof so it should still be fine
+    EXPECT_TRUE(verifier.verify_proof(proof)); // we have not serialized it back to the proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
-    EXPECT_FALSE(TestFixture::verify(verification_key, proof)); // the proof is now wrong after serializing it
+    EXPECT_FALSE(verifier.verify_proof(proof)); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
