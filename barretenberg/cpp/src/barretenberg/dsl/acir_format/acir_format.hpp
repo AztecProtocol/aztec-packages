@@ -218,7 +218,9 @@ struct ProgramMetadata {
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
 template <typename Builder = bb::UltraCircuitBuilder>
-Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
+Builder create_circuit(AcirProgram& program,
+                       const ProgramMetadata& metadata = ProgramMetadata{},
+                       bool force_last_tail = false);
 
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);

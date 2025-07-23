@@ -567,7 +567,10 @@ process_avm_recursion_constraints(Builder& builder,
  * @param program constraints and optionally a witness
  * @param metadata additional data needed to construct the circuit
  */
-template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
+template <>
+UltraCircuitBuilder create_circuit(AcirProgram& program,
+                                   const ProgramMetadata& metadata,
+                                   [[maybe_unused]] bool force_last_tail)
 {
     PROFILE_THIS();
     AcirFormat& constraints = program.constraints;
@@ -588,22 +591,27 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  * @param program constraints and optionally a witness
  * @param metadata additional data needed to construct the circuit
  */
-template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
+template <>
+MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata, bool force_last_tail)
 {
     PROFILE_THIS();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
+    bool last_tail =
+        force_last_tail
+            ? true
+            : (metadata.ivc ? metadata.ivc->num_circuits_accumulated == metadata.ivc->get_num_circuits() - 1 : false);
+
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
-    auto builder = MegaCircuitBuilder{ op_queue,
-                                       witness,
-                                       constraints.public_inputs,
-                                       constraints.varnum,
-                                       { .is_kernel = !constraints.ivc_recursion_constraints.empty(),
-                                         .last_tail = metadata.ivc->num_circuits_accumulated ==
-                                                      metadata.ivc->get_num_circuits() - 1 } };
+    auto builder =
+        MegaCircuitBuilder{ op_queue,
+                            witness,
+                            constraints.public_inputs,
+                            constraints.varnum,
+                            { .is_kernel = !constraints.ivc_recursion_constraints.empty(), .last_tail = last_tail } };
 
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);

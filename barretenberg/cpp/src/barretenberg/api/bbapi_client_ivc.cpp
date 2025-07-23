@@ -92,9 +92,10 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 }
 
 static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
-    const BBApiRequest& request, acir_format::AcirProgram& program)
+    const BBApiRequest& request, acir_format::AcirProgram& program, bool force_last_tail = false)
 {
-    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
+    ClientIVC::ClientCircuit builder =
+        acir_format::create_circuit<ClientIVC::ClientCircuit>(program, {}, force_last_tail);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
@@ -129,7 +130,8 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
+    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
+        get_acir_program_decider_proving_key(request, program, circuit.force_last_tail);
     auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
 
     Response response;

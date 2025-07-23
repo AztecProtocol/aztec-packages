@@ -57,7 +57,7 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
     auto kernel_witness_data = acir_bincode_mocks::create_kernel_witness(app_vk_fields);
 
     auto kernel_vk_response = bbapi::ClientIvcComputeStandaloneVk{
-        .circuit = { .name = "kernel_circuit", .bytecode = kernel_bytecode }
+        .circuit = { .name = "kernel_circuit", .bytecode = kernel_bytecode, .force_last_tail = true }
     }.execute();
     auto kernel_vk = kernel_vk_response.bytes;
 

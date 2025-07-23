@@ -35,6 +35,8 @@ struct CircuitInputNoVK {
      * is determined by examining the first byte of the bytecode.
      */
     std::vector<uint8_t> bytecode;
+
+    bool force_last_tail = false; // Whether to force the last tail in the circuit
 };
 
 /**

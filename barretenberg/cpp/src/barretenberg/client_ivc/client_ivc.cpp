@@ -459,8 +459,11 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     merge_commitments.set_t_commitments(verifier.verification_key->witness_commitments.get_ecc_op_wires());
 
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, merge_commitments, merge_commitments.T_commitments, civc_verifier_transcript);
+    bool goblin_verified = Goblin::verify(proof.goblin_proof,
+                                          merge_commitments,
+                                          merge_commitments.T_commitments,
+                                          civc_verifier_transcript,
+                                          MergeSettings::APPEND);
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
