@@ -1,8 +1,7 @@
 use crate::Auth;
 
 use aztec::{
-    protocol_types::address::AztecAddress,
-    test::{helpers::test_environment::TestEnvironment, txe_constants::GENESIS_TIMESTAMP},
+    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
 };
 
 unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
