@@ -286,9 +286,9 @@ describe('e2e_p2p_preferred_network', () => {
     // We will setup some gossip monitors to ensure that nodes that restrict who they connect to
     // only receive messages from expected peers
 
-    const preferredNodePeerIds = await Promise.all(preferredNodeEnrs.map(x => ENR.decodeTxt(x!).peerId()));
+    const preferredNodePeerIds = await Promise.all(preferredNodeEnrs.map(x => ENR.decodeTxt(x!).peerId));
     const validatorEnrs = await Promise.all(validators.map(p => p.getEncodedEnr()));
-    const validatorPeerIds = await Promise.all(validatorEnrs.map(x => ENR.decodeTxt(x!).peerId()));
+    const validatorPeerIds = await Promise.all(validatorEnrs.map(x => ENR.decodeTxt(x!).peerId));
 
     // No-discovery validators should only receive P2P gossip from preferred nodes, as that is all they connect to
     noDiscoveryValidators.forEach(validator => {
