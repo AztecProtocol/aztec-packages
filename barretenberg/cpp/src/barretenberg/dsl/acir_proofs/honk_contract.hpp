@@ -112,7 +112,6 @@ library FrLib {
     function neg(Fr value) internal pure returns (Fr) {
         return Fr.wrap(MODULUS - Fr.unwrap(value));
     }
-
 }
 
 // Free functions
@@ -323,10 +322,6 @@ library Honk {
     }
 }
 
-// import {logFr} from "./Debug.sol";
-
-// import "forge-std/console.sol";
-
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     // Oink
@@ -350,7 +345,7 @@ library TranscriptLib {
         uint256 circuitSize,
         uint256 publicInputsSize,
         uint256 pubInputsOffset
-    ) internal view returns (Transcript memory t) {
+    ) internal pure returns (Transcript memory t) {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
             proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge
@@ -388,7 +383,7 @@ library TranscriptLib {
         uint256 publicInputsSize,
         uint256 pubInputsOffset,
         Fr previousChallenge
-    ) internal view returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
+    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
             generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
 
@@ -401,7 +396,7 @@ library TranscriptLib {
         uint256 circuitSize,
         uint256 publicInputsSize,
         uint256 pubInputsOffset
-    ) internal view returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
+    ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
         bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
@@ -409,12 +404,9 @@ library TranscriptLib {
 
         for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
-            // console.logBytes32(round0[3 + i]);
         }
-        // console.log("in pairing points ---------------");
         for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
             round0[3 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
-            // console.logBytes32(round0[3 + publicInputsSize - PAIRING_POINTS_SIZE + i]);
         }
 
         // Create the first challenge
@@ -598,7 +590,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
         Fr unused;
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
-        // logFr("shplonkZ", shplonkZ);
     }
 
     function generateRecursionSeparator(Honk.Proof memory proof, Honk.G1Point memory accLhs, Honk.G1Point memory accRhs)
@@ -1625,9 +1616,6 @@ function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns 
 
 
 
-// import {logG, logFr} from "./Debug.sol";
-
-
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
 
@@ -1997,7 +1985,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
 
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
-        // logG("quotient_commitment",0, quotient_commitment);
 
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
@@ -2005,25 +1992,13 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
 
-        // logG("P_0_agg_before_chall",0, P_0_agg);
-        // logG("P_1_agg_before_chall",1, P_1_agg);
-
         // Aggregate pairing points
         Fr recursionSeparator = TranscriptLib.generateRecursionSeparator(proof, P_0_agg, P_1_agg);
-        // logFr("recursionSeparator", recursionSeparator);
         (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) = convertPairingPointsToG1(proof.pairingPointObject);
-
-        // logG("P_0_agg",0, P_0_agg);
-        // logG("P_1_agg",1, P_1_agg);
-
-        // logG("P_0_other",0, P_0_other);
-        // logG("P_1_other",1, P_1_other);
 
         // accumulate with aggregate points in proof
         P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
         P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
-        // logG("P_0_after_mul",0, P_0_agg);
-        // logG("P_1_after_mul",1, P_1_agg);
 
         return pairing(P_0_agg, P_1_agg);
     }

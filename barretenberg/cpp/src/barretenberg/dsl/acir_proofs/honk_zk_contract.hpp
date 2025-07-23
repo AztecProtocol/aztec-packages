@@ -112,7 +112,6 @@ library FrLib {
     function neg(Fr value) internal pure returns (Fr) {
         return Fr.wrap(MODULUS - Fr.unwrap(value));
     }
-
 }
 
 // Free functions
