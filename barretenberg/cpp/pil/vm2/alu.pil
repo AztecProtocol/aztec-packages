@@ -83,7 +83,6 @@ execution.sel_execute_alu {
 
 // IS_FF CHECKING
 
-// TODO(MW): remove this and check for all (i.e. replace with sel), just being lazy for now. For add, we don't care, for lt we need to differentiate.
 pol CHECK_TAG_FF = sel_op_lt + sel_op_lte + sel_op_not;
 // We prove that sel_is_ff == 1 <==> ia_tag == MEM_TAG_FF
 pol TAG_FF_DIFF = ia_tag - constants.MEM_TAG_FF;
@@ -93,14 +92,14 @@ CHECK_TAG_FF * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_i
 
 // IS_U128 CHECKING
 
-// TODO(MW): use the same columns as sel_is_ff? IIRC we have no case where we need to check whether is_ff and is_u128 in the same op
-// TODO(MW): incorporate columns from truncate? Seems to be a lot of overlap
 pol CHECK_TAG_U128 = sel_op_mul;
 // We prove that sel_is_u128 == 1 <==> ia_tag == MEM_TAG_U128
 pol TAG_U128_DIFF = ia_tag - constants.MEM_TAG_U128;
 pol commit tag_u128_diff_inv;
 #[TAG_IS_U128]
 CHECK_TAG_U128 * (TAG_U128_DIFF * (sel_is_u128 * (1 - tag_u128_diff_inv) + tag_u128_diff_inv) + sel_is_u128 - 1) = 0;
+
+// Note: if we never need sel_is_ff and sel_is_u128 in the same op, can combine the above checks into one
 
 // TAG CHECKING
 
