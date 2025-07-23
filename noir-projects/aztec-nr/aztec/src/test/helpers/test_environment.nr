@@ -324,34 +324,6 @@ impl TestEnvironment {
         Deployer { path: "", name, secret: 0 }
     }
 
-    pub unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
-    where
-        C: CallInterface<M>,
-    {
-        // Public functions are routed through the dispatch function.
-        let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
-        let calldata =
-            &[call_interface.get_selector().to_field()].append(call_interface.get_args());
-        txe_oracles::assert_public_call_fails(
-            call_interface.get_contract_address(),
-            fn_selector,
-            calldata,
-        );
-    }
-
-    pub unconstrained fn assert_private_call_fails<C, let M: u32>(_self: Self, call_interface: C)
-    where
-        C: CallInterface<M>,
-    {
-        txe_oracles::assert_private_call_fails(
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            hash_args(call_interface.get_args()),
-            txe_oracles::get_side_effects_counter() as Field,
-            call_interface.get_is_static(),
-        );
-    }
-
     pub unconstrained fn call_private<T, let M: u32>(
         _self: Self,
         from: AztecAddress,

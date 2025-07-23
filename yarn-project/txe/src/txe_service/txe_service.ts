@@ -250,47 +250,6 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async assertPublicCallFails(
-    address: ForeignCallSingle,
-    functionSelector: ForeignCallSingle,
-    _length: ForeignCallSingle,
-    args: ForeignCallArray,
-  ) {
-    const parsedAddress = addressFromSingle(address);
-    const parsedSelector = fromSingle(functionSelector);
-    const extendedArgs = [parsedSelector, ...fromArray(args)];
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, extendedArgs, false);
-    if (result.revertCode.isOK()) {
-      throw new ExpectedFailureError('Public call did not revert');
-    }
-
-    return toForeignCallResult([]);
-  }
-
-  async assertPrivateCallFails(
-    targetContractAddress: ForeignCallSingle,
-    functionSelector: ForeignCallSingle,
-    argsHash: ForeignCallSingle,
-    sideEffectCounter: ForeignCallSingle,
-    isStaticCall: ForeignCallSingle,
-  ) {
-    try {
-      await this.typedOracle.callPrivateFunction(
-        addressFromSingle(targetContractAddress),
-        FunctionSelector.fromField(fromSingle(functionSelector)),
-        fromSingle(argsHash),
-        fromSingle(sideEffectCounter).toNumber(),
-        fromSingle(isStaticCall).toBool(),
-      );
-      throw new ExpectedFailureError('Private call did not fail');
-    } catch (e) {
-      if (e instanceof ExpectedFailureError) {
-        throw e;
-      }
-    }
-    return toForeignCallResult([]);
-  }
-
   // PXE oracles
 
   getRandomField() {
