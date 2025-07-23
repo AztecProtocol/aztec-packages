@@ -5,6 +5,7 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -26,20 +27,28 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
         MemoryValue c = a * b; // This will throw if the tags do not match.
         uint256_t a_int = static_cast<uint256_t>(a.as_ff());
         uint256_t b_int = static_cast<uint256_t>(b.as_ff());
-        uint256_t c_hi = 0;
         MemoryTag tag = a.get_tag();
-        // TODO(MW): Add (shifted) range checks for decomposition of a, b for u128 case
         // TODO(MW): Either gate the c_hi check by u128 tag, or check in all cases but use a new limb_bits column for
         // each tag (e.g. u64 => range check c_hi is in 32 bits)
         if (tag == MemoryTag::U128) {
-            // For u128, we decompose a and b into 64 bit chunks and discard the highest bits given by the product.
-            // See alu.pil and alu_trace.cpp for more documentation:
-            c_hi = (a_int * b_int - (a_int >> 64) * (b_int >> 64)) << 64 >> 192;
-        } else if (tag != MemoryTag::FF) {
+            // For u128, we decompose a and b into 64 bit chunks and discard the highest bits given by the product:
+            auto a_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
+            auto b_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
+            range_check.assert_range(a_decomp.lo, 64);
+            range_check.assert_range(a_decomp.hi, 64);
+            range_check.assert_range(b_decomp.lo, 64);
+            range_check.assert_range(b_decomp.hi, 64);
+            // 2^128 * a_h * b_h
+            auto hi_operand =
+                (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+            // Take the chunk between 128 and 192 bits of a*b - hi_operand:
+            uint256_t c_hi = (a_int * b_int - hi_operand >> 128) % (uint256_t(1) << 64);
+            range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
+        } else {
             // For other integers, we just take the 'overflowed' bits:
-            c_hi = a_int * b_int >> get_tag_bits(tag);
+            uint256_t c_hi = tag == MemoryTag::FF ? 0 : a_int * b_int >> get_tag_bits(tag);
+            range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
         }
-        range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {

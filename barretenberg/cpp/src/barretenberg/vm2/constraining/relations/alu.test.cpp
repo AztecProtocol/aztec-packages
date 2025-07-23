@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gt.hpp"
+#include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -244,6 +245,7 @@ TestTraceContainer process_mul_trace(MemoryTag input_tag)
             .alu_op_id = AVM_EXEC_OP_ID_ALU_MUL,
             .alu_sel = 1,
             .alu_sel_is_u128 = is_u128 ? 1 : 0,
+            .alu_sel_mul_u128 = is_u128 ? 1 : 0,
             .alu_sel_op_mul = 1,
             .alu_tag_u128_diff_inv = is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert(),
             .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
@@ -257,25 +259,34 @@ TestTraceContainer process_mul_trace(MemoryTag input_tag)
         },
     });
 
-    if (is_u128) {
-        auto a_lo = static_cast<uint256_t>(a.as_ff()) % (uint256_t(1) << 64);
-        auto a_hi = static_cast<uint256_t>(a.as_ff()) >> 64;
-        auto b_lo = static_cast<uint256_t>(b.as_ff()) % (uint256_t(1) << 64);
-        auto b_hi = static_cast<uint256_t>(b.as_ff()) >> 64;
-        auto hi_operand = (uint256_t(1) << 128) * (a_hi * b_hi);
-        c_hi = (c_int - hi_operand >> 128) % (uint256_t(1) << 64);
-        trace.set(0,
-                  { { { Column::alu_a_lo, a_lo },
-                      { Column::alu_a_hi, a_hi },
-                      { Column::alu_b_lo, b_lo },
-                      { Column::alu_b_hi, b_hi },
-                      { Column::alu_c_hi, c_hi },
-                      { Column::alu_cf, hi_operand == 0 ? 0 : 1 } } });
-    }
-
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
-    range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
+
+    if (is_u128) {
+        auto a_decomp = simulation::decompose(a.as<uint128_t>());
+        auto b_decomp = simulation::decompose(b.as<uint128_t>());
+        // 2^128 * a_h * b_h
+        auto hi_operand =
+            (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+        c_hi = (c_int - hi_operand >> 128) % (uint256_t(1) << 64);
+        trace.set(0,
+                  { { { Column::alu_a_lo, a_decomp.lo },
+                      { Column::alu_a_hi, a_decomp.hi },
+                      { Column::alu_b_lo, b_decomp.lo },
+                      { Column::alu_b_hi, b_decomp.hi },
+                      { Column::alu_c_hi, c_hi },
+                      { Column::alu_cf, hi_operand == 0 ? 0 : 1 } } });
+
+        range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
+                                      { .value = a_decomp.hi, .num_bits = 64 },
+                                      { .value = b_decomp.lo, .num_bits = 64 },
+                                      { .value = b_decomp.hi, .num_bits = 64 },
+                                      { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } },
+                                    trace);
+    } else {
+        range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
+    }
+
     return trace;
 }
 
@@ -288,12 +299,6 @@ TestTraceContainer process_mul_with_tracegen(MemoryTag input_tag)
     auto [_a, _b, _c] = TEST_VALUES.at(input_tag);
     auto a = MemoryValue::from_tag(input_tag, _a);
     auto b = MemoryValue::from_tag(input_tag, _b);
-    uint256_t a_int = static_cast<uint256_t>(a.as_ff());
-    uint256_t b_int = static_cast<uint256_t>(b.as_ff());
-    auto c_hi = input_tag == MemoryTag::FF ? 0 : a_int * b_int >> get_tag_bits(input_tag);
-    if (input_tag == MemoryTag::U128) {
-        c_hi = (a_int * b_int - (a_int >> 64) * (b_int >> 64)) << 64 >> 192;
-    }
 
     builder.process(
         {
@@ -301,9 +306,28 @@ TestTraceContainer process_mul_with_tracegen(MemoryTag input_tag)
         },
         trace);
 
+    uint256_t a_int = static_cast<uint256_t>(a.as_ff());
+    uint256_t b_int = static_cast<uint256_t>(b.as_ff());
+    auto c_hi = input_tag == MemoryTag::FF ? 0 : a_int * b_int >> get_tag_bits(input_tag);
+    if (input_tag == MemoryTag::U128) {
+        auto a_decomp = simulation::decompose(a.as<uint128_t>());
+        auto b_decomp = simulation::decompose(b.as<uint128_t>());
+        // 2^128 * a_h * b_h
+        auto hi_operand =
+            (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+        // Take the chunk between 128 and 192 bits of a*b - hi_operand:
+        c_hi = (a_int * b_int - hi_operand >> 128) % (uint256_t(1) << 64);
+        range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
+                                      { .value = a_decomp.hi, .num_bits = 64 },
+                                      { .value = b_decomp.lo, .num_bits = 64 },
+                                      { .value = b_decomp.hi, .num_bits = 64 },
+                                      { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } },
+                                    trace);
+    } else {
+        range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
+    }
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
-    range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
     return trace;
 }
 
@@ -680,18 +704,18 @@ TEST(AluConstrainingTest, AluMulU128Carry)
 
     auto tag = static_cast<uint8_t>(MemoryTag::U128);
 
-    auto a_lo = static_cast<uint256_t>(a.as_ff()) % (uint256_t(1) << 64);
-    auto a_hi = static_cast<uint256_t>(a.as_ff()) >> 64;
-    auto b_lo = static_cast<uint256_t>(b.as_ff()) % (uint256_t(1) << 64);
-    auto b_hi = static_cast<uint256_t>(b.as_ff()) >> 64;
-    auto hi_operand = (uint256_t(1) << 128) * (a_hi * b_hi);
+    auto a_decomp = simulation::decompose(a.as<uint128_t>());
+    auto b_decomp = simulation::decompose(b.as<uint128_t>());
+
+    // 2^128 * a_h * b_h
+    auto hi_operand = (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
     auto c_hi = (overflow_c_int - hi_operand >> 128) % (uint256_t(1) << 64);
     auto trace = TestTraceContainer::from_rows({
         {
-            .alu_a_hi = a_hi,
-            .alu_a_lo = a_lo,
-            .alu_b_hi = b_hi,
-            .alu_b_lo = b_lo,
+            .alu_a_hi = a_decomp.hi,
+            .alu_a_lo = a_decomp.lo,
+            .alu_b_hi = b_decomp.hi,
+            .alu_b_lo = b_decomp.lo,
             .alu_c_hi = c_hi,
             .alu_cf = 1, // a * b overflows
             .alu_constant_64 = 64,
@@ -706,6 +730,7 @@ TEST(AluConstrainingTest, AluMulU128Carry)
             .alu_op_id = AVM_EXEC_OP_ID_ALU_MUL,
             .alu_sel = 1,
             .alu_sel_is_u128 = 1,
+            .alu_sel_mul_u128 = 1,
             .alu_sel_op_mul = 1,
             .alu_tag_u128_diff_inv = 0,
             .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
@@ -721,7 +746,12 @@ TEST(AluConstrainingTest, AluMulU128Carry)
 
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
-    range_check_builder.process({ { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } }, trace);
+    range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
+                                  { .value = a_decomp.hi, .num_bits = 64 },
+                                  { .value = b_decomp.lo, .num_bits = 64 },
+                                  { .value = b_decomp.hi, .num_bits = 64 },
+                                  { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } },
+                                trace);
 
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
@@ -1464,7 +1494,7 @@ TEST(AluConstrainingTest, NegativeTruncateWrongLo128FromCanonDec)
     process_truncate_trace(FF::modulus - 3, MemoryTag::U64, trace);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    trace.set(Column::alu_lo_128, 0, 1234ULL);
+    trace.set(Column::alu_a_lo, 0, 1234ULL);
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<AluTraceBuilder, lookup_alu_large_trunc_canonical_dec_settings>(trace)),
         "Failed.*LARGE_TRUNC_CANONICAL_DEC. Could not find tuple in destination.");

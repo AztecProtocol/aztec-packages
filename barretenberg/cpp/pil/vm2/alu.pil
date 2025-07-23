@@ -158,6 +158,10 @@ sel_op_mul * IS_NOT_U128 * (1 - sel_tag_err)
 
 // MUL - u128
 
+pol commit sel_mul_u128;
+// sel_op_mul & sel_is_u128:
+sel_mul_u128 - sel_is_u128 * sel_op_mul = 0;
+
 // Taken from vm1:
 // We express a, b in 64-bit slices: a = a_l + a_h * 2^64
 //                                   b = b_l + b_h * 2^64
@@ -175,14 +179,12 @@ pol commit b_hi;
 pol TWO_POW_64 = 2 ** 64;
 
 #[A_MUL_DECOMPOSITION]
-sel_op_mul * sel_is_u128 * (ia - (a_lo + TWO_POW_64 * a_hi)) = 0;
+sel_mul_u128 * (ia - (a_lo + TWO_POW_64 * a_hi)) = 0;
 #[B_MUL_DECOMPOSITION]
-sel_op_mul * sel_is_u128 * (ib - (b_lo + TWO_POW_64 * b_hi)) = 0;
-
-// TODO(MW): range check of a and b using shifts
+sel_mul_u128 * (ib - (b_lo + TWO_POW_64 * b_hi)) = 0;
 
 #[ALU_MUL_U128]
-sel_op_mul * sel_is_u128 * (1 - sel_tag_err)
+sel_mul_u128 * (1 - sel_tag_err)
     * (
         ia * b_lo + a_lo * b_hi * TWO_POW_64            // a * b without the hi bits
         - ic                                            // c_lo
@@ -194,10 +196,21 @@ sel_op_mul * sel_is_u128 * (1 - sel_tag_err)
 pol commit constant_64;
 sel_op_mul * (64 - constant_64) = 0;
 
+#[RANGE_CHECK_MUL_U128_A_LO]
+sel_mul_u128 { a_lo, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+#[RANGE_CHECK_MUL_U128_A_HI]
+sel_mul_u128 { a_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+#[RANGE_CHECK_MUL_U128_B_LO]
+sel_mul_u128 { b_lo, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+#[RANGE_CHECK_MUL_U128_B_HI]
+sel_mul_u128 { b_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
 // TODO(MW): range check c_hi for non 128 cases?
-// Being lazy for now rather than defining a mul_u128 column and just checking for all MUL c_hi.
 // Each c_hi should pass because it is either from u1-u64 inputs, represent a 64 bit limb of a u128 number, or
-// = 0 for a field.
+// = 0 for a field, but do we need to check it?
 // No need to range_check c_lo = ic because the memory write will ensure ic <= max_value.
 #[RANGE_CHECK_MUL_U128_C_HI]
 sel_op_mul { c_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
@@ -359,24 +372,21 @@ sel_op_truncate = sel_trunc_non_trivial + sel_trunc_trivial;
 #[TRUNC_TRIVIAL_CASE]
 sel_trunc_trivial * (ia - ic) = 0;
 
-// TODO(MW): reuse these columns for mul? There are also prob clever ways to reuse the decomposition code
-// for u128 mul.
-
-pol commit lo_128; // 128-bit low limb of ia.
-pol commit hi_128; // 128-bit high limb of ia.
+// NOTE: reusing a_lo and a_hi columns from MUL in TRUNC:
+// For truncate, a_lo = 128-bit low limb of ia and a_hi = 128-bit high limb of ia.
 pol commit mid;
 
 #[LARGE_TRUNC_CANONICAL_DEC]
-sel_trunc_gte_128 { ia, lo_128, hi_128 }
+sel_trunc_gte_128 { ia, a_lo, a_hi }
 in
 ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo, ff_gt.a_hi };
 
 #[SMALL_TRUNC_VAL_IS_LO]
-sel_trunc_lt_128 * (lo_128 - ia) = 0;
+sel_trunc_lt_128 * (a_lo - ia) = 0;
 
-// lo_128 = ic + mid * 2^ia_tag_bits, where 2^ia_tag_bits is max_value + 1.
+// a_lo = ic + mid * 2^ia_tag_bits, where 2^ia_tag_bits is max_value + 1.
 #[TRUNC_LO_128_DECOMPOSITION]
-sel_trunc_non_trivial * (ic + mid * (max_value + 1) - lo_128) = 0;
+sel_trunc_non_trivial * (ic + mid * (max_value + 1) - a_lo) = 0;
 
 // TODO: Once lookups support expression in tuple, we can inline mid_bits into the lookup.
 pol commit mid_bits;

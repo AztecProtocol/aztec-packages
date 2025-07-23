@@ -116,6 +116,7 @@ TEST(AvmSimulationAluTest, MulOverflow)
     auto a = MemoryValue::from<uint32_t>(static_cast<uint32_t>(get_tag_max_value(ValueTag::U32)));
     auto b = MemoryValue::from<uint32_t>(2);
 
+    // For non u128s, we range check c_hi:
     EXPECT_CALL(range_check, assert_range(1, 64)).Times(1);
 
     auto c = alu.mul(a, b);
@@ -139,7 +140,8 @@ TEST(AvmSimulationAluTest, MulOverflowU128)
     auto a = MemoryValue::from<uint128_t>(max);
     auto b = MemoryValue::from<uint128_t>(max - 3);
 
-    EXPECT_CALL(range_check, assert_range((uint128_t(1) << 64) - 6, 64)).Times(1);
+    // For u128s, we range check a_lo, a_hi, b_lo, b_hi, and c_hi:
+    EXPECT_CALL(range_check, assert_range(_, 64)).Times(5);
 
     auto c = alu.mul(a, b);
 
