@@ -16,7 +16,7 @@ This guide assumes you have an Aztec app on sandbox and you wish to deploy it on
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.87.8`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `1.1.2`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 

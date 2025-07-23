@@ -182,7 +182,7 @@ To bootstrap first use, a sponsored fee paying contract (the canonical sponsored
 In the case of the canonical sponsored FPC, the only criteria is an upper bound on how much it sponsors an account's transactions. This will be enough to at least deploy an account.
 
 The PXE can be queried for the canonical sponsored FPC address, and then specified as the payment method.
-For testnet this is `0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047`, which can be verified with the command: `aztec get-canonical-sponsored-fpc-address`
+For testnet this can be retrieved with the command: `aztec get-canonical-sponsored-fpc-address`
 
 Via the CLI:
 
