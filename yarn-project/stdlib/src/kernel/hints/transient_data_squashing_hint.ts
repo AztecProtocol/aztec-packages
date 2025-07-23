@@ -3,7 +3,7 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { inspect } from 'util';
 
-export class TransientDataIndexHint {
+export class TransientDataSquashingHint {
   constructor(
     public nullifierIndex: number,
     public noteHashIndex: number,
@@ -15,7 +15,7 @@ export class TransientDataIndexHint {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new TransientDataIndexHint(reader.readU32(), reader.readU32());
+    return new TransientDataSquashingHint(reader.readU32(), reader.readU32());
   }
 
   isEmpty() {
@@ -23,7 +23,7 @@ export class TransientDataIndexHint {
   }
 
   static empty() {
-    return new TransientDataIndexHint(0, 0);
+    return new TransientDataSquashingHint(0, 0);
   }
 
   toBuffer(): Buffer {
@@ -32,7 +32,7 @@ export class TransientDataIndexHint {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new TransientDataIndexHint(reader.readNumber(), reader.readNumber());
+    return new TransientDataSquashingHint(reader.readNumber(), reader.readNumber());
   }
 
   toString(): string {
@@ -40,6 +40,6 @@ export class TransientDataIndexHint {
   }
 
   [inspect.custom](): string {
-    return `TransientDataIndexHint { ${this.toString()} }`;
+    return `TransientDataSquashingHint { ${this.toString()} }`;
   }
 }
