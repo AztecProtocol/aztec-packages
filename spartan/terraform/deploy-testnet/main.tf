@@ -430,7 +430,7 @@ resource "helm_release" "bot" {
   provider         = helm.gke-cluster
   name             = "${var.RELEASE_PREFIX}-bot"
   repository       = "../../"
-  chart            = "aztec-node"
+  chart            = "aztec-bot"
   namespace        = var.NAMESPACE
   create_namespace = true
   upgrade_install  = true
