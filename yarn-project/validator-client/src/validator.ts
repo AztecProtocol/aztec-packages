@@ -129,8 +129,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         const committeeSet = new Set(committee.map(v => v.toString()));
         const inCommittee = me.filter(a => committeeSet.has(a.toString()));
         if (inCommittee.length > 0) {
-          inCommittee.forEach(a =>
-            this.log.info(`Validator ${a.toString()} is on the validator committee for epoch ${epoch}`),
+          this.log.info(
+            `Validators ${inCommittee.map(a => a.toString()).join(',')} are on the validator committee for epoch ${epoch}`,
           );
         } else {
           this.log.verbose(
