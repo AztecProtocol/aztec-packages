@@ -164,10 +164,11 @@ sel_mul_u128 - sel_is_u128 * sel_op_mul = 0;
 // Taken from vm1:
 // We express a, b in 64-bit slices: a = a_l + a_h * 2^64
 //                                   b = b_l + b_h * 2^64
-// => a * b = a_l * b_l + (a_h * b_l + a_l * b_h) * 2^64 + (a_h * b_h) * 2^128 = c_hi * 2^128 + c
-// We can 'discard' the top bits given by a_h * b_h, so we can show for a new 64 bit c_hi:
+// => a * b = a_l * b_l + (a_h * b_l + a_l * b_h) * 2^64 + (a_h * b_h) * 2^128 = c_hi_full * 2^128 + c
+// => the 'top bits' are given by (c_hi_full - (a_h * b_h)) * 2^128
+// We can show for a 64 bit c_hi = c_hi_full - (a_h * b_h) % 2^64 that:
 // a_l * b_l + (a_h * b_l + a_l * b_h) * 2^64 = c_hi * 2^128 + c
-// Equivalently:
+// Equivalently (cf = 0 if a_h & b_h = 0):
 // a * b_l + a_l * b_h * 2^64 = (cf * 2^64 + c_hi) * 2^128 + c
 // => no need for a_h in final relation
 

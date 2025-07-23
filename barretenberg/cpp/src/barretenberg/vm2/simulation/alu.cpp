@@ -38,11 +38,9 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
             range_check.assert_range(a_decomp.hi, 64);
             range_check.assert_range(b_decomp.lo, 64);
             range_check.assert_range(b_decomp.hi, 64);
-            // 2^128 * a_h * b_h
-            auto hi_operand =
-                (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            // Take the chunk between 128 and 192 bits of a*b - hi_operand:
-            uint256_t c_hi = (a_int * b_int - hi_operand >> 128) % (uint256_t(1) << 64);
+            auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+            // c_hi = old_c_hi - a_hi * b_hi % 2^64
+            uint256_t c_hi = ((a_int * b_int >> 128) - hi_operand) % (uint256_t(1) << 64);
             range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
         } else {
             // For other integers, we just take the 'overflowed' bits:

@@ -50,11 +50,8 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             // For u128s, we decompose a and b into 64 bit chunks:
             auto a_decomp = simulation::decompose(static_cast<uint128_t>(event.a.as_ff()));
             auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
-            // TODO(MW): We don't really need to do op = a_hi * b_hi * 2^128, then (a * b - op) >> 128 % 2^64, but kept
-            // the calculation to clarify we're removing the a_hi * b_hi operand from a * b, simplify?
-            // We discard the top bits (given by a_hi * b_hi * 2^128) from c_hi:
-            auto hi_operand =
-                (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+            // c_hi = old_c_hi - a_hi * b_hi % 2^64
+            auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             res.insert(res.end(),
                        {
                            { Column::alu_sel_mul_u128, 1 },
@@ -62,7 +59,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                            { Column::alu_a_hi, a_decomp.hi },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
-                           { Column::alu_c_hi, (a_int * b_int - hi_operand >> 128) % (uint256_t(1) << 64) },
+                           { Column::alu_c_hi, (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64) },
                            { Column::alu_cf, hi_operand == 0 ? 0 : 1 },
                        });
         } else {

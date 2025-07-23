@@ -265,10 +265,9 @@ TestTraceContainer process_mul_trace(MemoryTag input_tag)
     if (is_u128) {
         auto a_decomp = simulation::decompose(a.as<uint128_t>());
         auto b_decomp = simulation::decompose(b.as<uint128_t>());
-        // 2^128 * a_h * b_h
-        auto hi_operand =
-            (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-        c_hi = (c_int - hi_operand >> 128) % (uint256_t(1) << 64);
+        // c_hi = old_c_hi - a_hi * b_hi % 2^64
+        auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+        c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
         trace.set(0,
                   { { { Column::alu_a_lo, a_decomp.lo },
                       { Column::alu_a_hi, a_decomp.hi },
@@ -312,11 +311,9 @@ TestTraceContainer process_mul_with_tracegen(MemoryTag input_tag)
     if (input_tag == MemoryTag::U128) {
         auto a_decomp = simulation::decompose(a.as<uint128_t>());
         auto b_decomp = simulation::decompose(b.as<uint128_t>());
-        // 2^128 * a_h * b_h
-        auto hi_operand =
-            (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-        // Take the chunk between 128 and 192 bits of a*b - hi_operand:
-        c_hi = (a_int * b_int - hi_operand >> 128) % (uint256_t(1) << 64);
+        // c_hi = old_c_hi - a_hi * b_hi % 2^64
+        auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+        c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
         range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
                                       { .value = a_decomp.hi, .num_bits = 64 },
                                       { .value = b_decomp.lo, .num_bits = 64 },
@@ -707,9 +704,9 @@ TEST(AluConstrainingTest, AluMulU128Carry)
     auto a_decomp = simulation::decompose(a.as<uint128_t>());
     auto b_decomp = simulation::decompose(b.as<uint128_t>());
 
-    // 2^128 * a_h * b_h
-    auto hi_operand = (uint256_t(1) << 128) * static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-    auto c_hi = (overflow_c_int - hi_operand >> 128) % (uint256_t(1) << 64);
+    // c_hi = old_c_hi - a_hi * b_hi % 2^64
+    auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+    auto c_hi = ((overflow_c_int >> 128) - hi_operand) % (uint256_t(1) << 64);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_a_hi = a_decomp.hi,
