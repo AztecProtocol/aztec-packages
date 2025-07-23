@@ -23,6 +23,8 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // =========== VALIDATION ===========
 
+    // TODO(dbanks12): error if in static context
+
     pol commit max_data_writes_reached;
     max_data_writes_reached * (1 - max_data_writes_reached) = 0;
 

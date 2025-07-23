@@ -13,7 +13,7 @@ template <typename FF_> class ecc_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 6, 5, 6, 5, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -31,6 +31,12 @@ template <typename FF_> class ecc_memImpl {
         using C = ColumnAndShifts;
 
         const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+        const auto ecc_add_mem_P_X3 =
+            in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x);
+        const auto ecc_add_mem_P_Y2 = in.get(C::ecc_add_mem_p_y) * in.get(C::ecc_add_mem_p_y);
+        const auto ecc_add_mem_Q_X3 =
+            in.get(C::ecc_add_mem_q_x) * in.get(C::ecc_add_mem_q_x) * in.get(C::ecc_add_mem_q_x);
+        const auto ecc_add_mem_Q_Y2 = in.get(C::ecc_add_mem_q_y) * in.get(C::ecc_add_mem_q_y);
 
         { // WRITE_INCR_DST_ADDR
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -62,10 +68,69 @@ template <typename FF_> class ecc_memImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::ecc_add_mem_sel_should_exec) -
-                        in.get(C::ecc_add_mem_sel) * (FF(1) - in.get(C::ecc_add_mem_sel_dst_out_of_range_err)));
+            auto tmp =
+                in.get(C::ecc_add_mem_sel_p_not_on_curve_err) * (FF(1) - in.get(C::ecc_add_mem_sel_p_not_on_curve_err));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::ecc_add_mem_sel_q_not_on_curve_err) * (FF(1) - in.get(C::ecc_add_mem_sel_q_not_on_curve_err));
+            tmp *= scaling_factor;
+            std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        { // P_CURVE_EQN
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::ecc_add_mem_p_is_on_curve_eqn) -
+                        in.get(C::ecc_add_mem_sel) * (ecc_add_mem_P_Y2 - (ecc_add_mem_P_X3 - FF(17))) *
+                            (FF(1) - in.get(C::ecc_add_mem_p_is_inf)));
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        { // P_ON_CURVE_CHECK
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp = in.get(C::ecc_add_mem_sel) * (in.get(C::ecc_add_mem_p_is_on_curve_eqn) *
+                                                         ((FF(1) - in.get(C::ecc_add_mem_sel_p_not_on_curve_err)) *
+                                                              (FF(1) - in.get(C::ecc_add_mem_p_is_on_curve_eqn_inv)) +
+                                                          in.get(C::ecc_add_mem_p_is_on_curve_eqn_inv)) -
+                                                     in.get(C::ecc_add_mem_sel_p_not_on_curve_err));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
+        }
+        { // Q_CURVE_EQN
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::ecc_add_mem_q_is_on_curve_eqn) -
+                        in.get(C::ecc_add_mem_sel) * (ecc_add_mem_Q_Y2 - (ecc_add_mem_Q_X3 - FF(17))) *
+                            (FF(1) - in.get(C::ecc_add_mem_q_is_inf)));
+            tmp *= scaling_factor;
+            std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
+        { // Q_ON_CURVE_CHECK
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = in.get(C::ecc_add_mem_sel) * (in.get(C::ecc_add_mem_q_is_on_curve_eqn) *
+                                                         ((FF(1) - in.get(C::ecc_add_mem_sel_q_not_on_curve_err)) *
+                                                              (FF(1) - in.get(C::ecc_add_mem_q_is_on_curve_eqn_inv)) +
+                                                          in.get(C::ecc_add_mem_q_is_on_curve_eqn_inv)) -
+                                                     in.get(C::ecc_add_mem_sel_q_not_on_curve_err));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::ecc_add_mem_err) - (FF(1) - (FF(1) - in.get(C::ecc_add_mem_sel_dst_out_of_range_err)) *
+                                                           (FF(1) - in.get(C::ecc_add_mem_sel_p_not_on_curve_err)) *
+                                                           (FF(1) - in.get(C::ecc_add_mem_sel_q_not_on_curve_err))));
+            tmp *= scaling_factor;
+            std::get<10>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::ecc_add_mem_sel_should_exec) -
+                        in.get(C::ecc_add_mem_sel) * (FF(1) - in.get(C::ecc_add_mem_err)));
+            tmp *= scaling_factor;
+            std::get<11>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -79,12 +144,24 @@ template <typename FF> class ecc_mem : public Relation<ecc_memImpl<FF>> {
         switch (index) {
         case 0:
             return "WRITE_INCR_DST_ADDR";
+        case 6:
+            return "P_CURVE_EQN";
+        case 7:
+            return "P_ON_CURVE_CHECK";
+        case 8:
+            return "Q_CURVE_EQN";
+        case 9:
+            return "Q_ON_CURVE_CHECK";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_WRITE_INCR_DST_ADDR = 0;
+    static constexpr size_t SR_P_CURVE_EQN = 6;
+    static constexpr size_t SR_P_ON_CURVE_CHECK = 7;
+    static constexpr size_t SR_Q_CURVE_EQN = 8;
+    static constexpr size_t SR_Q_ON_CURVE_CHECK = 9;
 };
 
 } // namespace bb::avm2

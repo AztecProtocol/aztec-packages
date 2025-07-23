@@ -12,6 +12,8 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX -
         prev_num_note_hashes_emitted;
 
+    // TODO(dbanks12): error if in static context
+
     pol commit remaining_note_hashes_inv;
     // Opcode errors if REMAINING_NOTE_HASH_WRITES is 0
     #[EMIT_NOTEHASH_MAX_NOTE_HASH_WRITES_REACHED]

@@ -25,7 +25,7 @@ class EccInterface {
 class Ecc : public EccInterface {
   public:
     Ecc(ExecutionIdManagerInterface& execution_id_manager,
-        GreaterThanInterface& cmp,
+        GreaterThanInterface& gt,
         ToRadixInterface& to_radix,
         EventEmitterInterface<EccAddEvent>& ecadd_event_emitter,
         EventEmitterInterface<ScalarMulEvent>& scalar_mul_event_emitter,
@@ -33,7 +33,7 @@ class Ecc : public EccInterface {
         : add_events(ecadd_event_emitter)
         , scalar_mul_events(scalar_mul_event_emitter)
         , add_memory_events(add_memory_event_emitter)
-        , cmp(cmp)
+        , gt(gt)
         , to_radix(to_radix)
         , execution_id_manager(execution_id_manager)
     {}
@@ -49,7 +49,7 @@ class Ecc : public EccInterface {
     EventEmitterInterface<EccAddEvent>& add_events;
     EventEmitterInterface<ScalarMulEvent>& scalar_mul_events;
     EventEmitterInterface<EccAddMemoryEvent>& add_memory_events;
-    GreaterThanInterface& cmp;
+    GreaterThanInterface& gt;
     ToRadixInterface& to_radix;
     ExecutionIdManagerInterface& execution_id_manager;
 };

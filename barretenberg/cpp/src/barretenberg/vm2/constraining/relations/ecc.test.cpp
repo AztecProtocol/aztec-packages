@@ -938,14 +938,13 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryEmptyRow)
 
 TEST(EccAddMemoryConstrainingTest, EccAddMemory)
 {
-
     TestTraceContainer trace;
     EccTraceBuilder builder;
     MemoryStore memory;
 
-    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
-    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
@@ -1097,7 +1096,71 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
     EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(memory, p, q, dst_address), "EccException.* dst address out of range");
 
     builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
-    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    EXPECT_EQ(ecc_add_event_emitter.get_events().size(), 0); // Expect 0 add events since error in ecc_mem
+
+    check_all_interactions<EccTraceBuilder>(trace);
+    check_relation<mem_aware_ecc>(trace);
+}
+
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
+{
+
+    EccTraceBuilder builder;
+    MemoryStore memory;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
+    FakeGreaterThan gt;
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    // Point P is not on the curve
+    FF p_x("0x0000000000063d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
+    FF p_y("0x00000000000c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    EmbeddedCurvePoint p(p_x, p_y, false);
+
+    uint32_t dst_address = 0x1000;
+
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(::testing::Return(0));
+    // Set the execution and gt traces
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            // Execution
+            { C::execution_sel, 1 },
+            { C::execution_sel_execute_ecc_add, 1 },
+            { C::execution_rop_6_, dst_address },
+            { C::execution_register_0_, p.x() },
+            { C::execution_register_1_, p.y() },
+            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
+            { C::execution_register_3_, q.x() },
+            { C::execution_register_4_, q.y() },
+            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_sel_opcode_error, 1 }, // Indicate an error in the operation
+            // GT - dst out of range check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_res, 0 },
+        },
+    });
+
+    EXPECT_THROW(ecc_simulator.add(memory, p, q, dst_address), simulation::EccException);
+
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+    // Expect no events to be emitted since the operation failed
+    EXPECT_EQ(ecc_add_event_emitter.get_events().size(), 0);
 
     check_all_interactions<EccTraceBuilder>(trace);
     check_relation<mem_aware_ecc>(trace);

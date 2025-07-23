@@ -54,7 +54,7 @@ TEST(NullifierExistsConstrainingTest, PositiveTest)
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_sel_opcode_error, 0 },
-                                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIEREXISTS } } });
+                                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
 }
 
@@ -70,7 +70,7 @@ TEST(NullifierExistsConstrainingTest, PositiveNullifierNotExists)
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_sel_opcode_error, 0 },
-                                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIEREXISTS } } });
+                                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
 }
 
@@ -86,7 +86,7 @@ TEST(NullifierExistsConstrainingTest, NegativeInvalidOutputTag)
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U8) }, // WRONG!
                                  { C::execution_sel_opcode_error, 0 },
-                                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIEREXISTS } } });
+                                 { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<nullifier_exists>(trace, nullifier_exists::SR_NULLIFIER_EXISTS_U1_OUTPUT_TAG),
         "NULLIFIER_EXISTS_U1_OUTPUT_TAG");
@@ -135,7 +135,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
         { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
         { C::execution_prev_nullifier_tree_root, nullifier_tree_snapshot.root },
         { C::execution_sel_opcode_error, 0 },
-        { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIEREXISTS },
+        { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS },
     } });
 
     NullifierTreeCheckTraceBuilder nullifier_tree_check_trace_builder;
