@@ -1,6 +1,5 @@
 FROM ubuntu:noble AS base-build
 
-# Install dependencies
 RUN apt-get update && \
     apt-get install -y build-essential python3 wget unzip git cmake clang ninja-build curl && \
     apt-get -y autoremove && \
@@ -24,7 +23,7 @@ RUN git clone https://github.com/AztecProtocol/aztec-packages.git && \
         git checkout $COMMIT; \
     fi
 
-# Download CRS
+# Download crs
 WORKDIR /home/fuzzer/aztec-packages/barretenberg
 RUN ./scripts/download_bb_crs.sh
 
@@ -42,5 +41,4 @@ RUN cmake --build build-fuzzing-asan
 RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset fuzzing-coverage
 RUN cmake --build build-fuzzing-cov
 
-# Copy entrypoint
 COPY entrypoint.sh .

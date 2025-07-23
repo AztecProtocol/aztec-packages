@@ -86,6 +86,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // subtable when sending a merge proof to the rollup.
     const size_t shift_size = left_table[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove generation of commitment to T_prev
     // Compute commitments [T_prev], [m_j], [g_j], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -143,6 +144,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     // KZG prover
     PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
+
     return transcript->export_proof();
 }
 } // namespace bb
