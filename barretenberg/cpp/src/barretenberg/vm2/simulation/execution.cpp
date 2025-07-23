@@ -846,39 +846,27 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             vinfo("Bytecode not found: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
             ex_event.bytecode_id = e.bytecode_id;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
             ex_event.error = ExecutionError::ADDRESSING;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
             ex_event.error = ExecutionError::REGISTER_READ;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const OutOfGasException& e) {
             vinfo("Out of gas exception: ", e.what());
             ex_event.error = ExecutionError::GAS;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
             ex_event.error = ExecutionError::OPCODE_EXECUTION;
-            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
-            context.halt();
-            set_execution_result({ .success = false });
+            handle_exceptional_halt(context);
         } catch (const std::exception& e) {
             // This is a coding error, we should not get here.
             // All exceptions should fall in the above catch blocks.
@@ -933,7 +921,17 @@ void Execution::handle_exit_call()
     external_call_stack.pop();
     ExecutionResult result = get_execution_result();
 
+    // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {
+        // Note: committing or reverting the db here also commits or reverts the
+        // tracked nullifiers, public writes dictionary, etc. These structures
+        // "listen" to the db changes.
+        if (result.success) {
+            merkle_db.commit_checkpoint();
+        } else {
+            merkle_db.revert_checkpoint();
+        }
+
         auto& parent_context = *external_call_stack.top();
         // was not top level, communicate with parent
         parent_context.set_last_rd_addr(result.rd_offset);
@@ -942,8 +940,24 @@ void Execution::handle_exit_call()
         parent_context.set_child_context(std::move(child_context));
         // Safe since the nested context gas limit should be clamped to the available gas.
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
+
+        // TODO(fcarreiro): move somewhere else.
+        if (parent_context.get_checkpoint_id_at_creation() != merkle_db.get_checkpoint_id()) {
+            throw std::runtime_error(format("Checkpoint id mismatch: ",
+                                            parent_context.get_checkpoint_id_at_creation(),
+                                            " != ",
+                                            merkle_db.get_checkpoint_id(),
+                                            " (gone back to the wrong db/context)"));
+        }
     }
     // Else: was top level. ExecutionResult is already set and that will be returned.
+}
+
+void Execution::handle_exceptional_halt(ContextInterface& context)
+{
+    context.set_gas_used(context.get_gas_limit()); // Consume all gas.
+    context.halt();
+    set_execution_result({ .rd_offset = 0, .rd_size = 0, .gas_used = context.get_gas_used(), .success = false });
 }
 
 void Execution::dispatch_opcode(ExecutionOpCode opcode,
