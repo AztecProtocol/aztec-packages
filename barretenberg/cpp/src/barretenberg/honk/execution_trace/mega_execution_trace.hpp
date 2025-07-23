@@ -255,7 +255,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
 static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
                                                      .busread = 3,
                                                      .lookup = 2,
-                                                     .pub_inputs = 20,
+                                                     .pub_inputs = 52, // Accomodate 4 + HidingKernelIO = 4 + 48
                                                      .arithmetic = 1 << 14,
                                                      .delta_range = 5,
                                                      .elliptic = 2,
