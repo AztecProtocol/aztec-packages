@@ -7,18 +7,9 @@ use protocol_types::{
 
 use crate::{
     context::{
-        call_interfaces::{
-            CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
-        },
-        PrivateCallInterface,
-        PrivateContext,
-        PrivateStaticCallInterface,
-        PublicCallInterface,
-        PublicContext,
-        PublicStaticCallInterface,
-        ReturnsHash,
-        UtilityCallInterface,
-        UtilityContext,
+        call_interfaces::CallInterface, PrivateCallInterface, PrivateContext,
+        PrivateStaticCallInterface, PublicCallInterface, PublicContext, PublicStaticCallInterface,
+        ReturnsHash, UtilityCallInterface, UtilityContext,
     },
     hash::hash_args,
     note::note_interface::{NoteHash, NoteType},
@@ -492,47 +483,6 @@ impl TestEnvironment {
         // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
         returns
-    }
-
-    pub unconstrained fn call_private_test<T, let M: u32, X>(
-        _self: Self,
-        from: AztecAddress,
-        call_interface: X,
-    ) -> CallResult<T>
-    where
-        X: TXEPrivateCallInterface<T>,
-        X: CallInterface<M>,
-    {
-        let (returns, tx_hash) = call_interface.call_with_txe(from);
-
-        CallResult { return_value: returns, tx_hash }
-    }
-
-    pub unconstrained fn simulate_utility_test<T, let M: u32, X>(
-        _self: Self,
-        call_interface: X,
-    ) -> T
-    where
-        X: TXEUtilityCallInterface<T>,
-        X: CallInterface<M>,
-    {
-        let returns = call_interface.call_with_txe();
-
-        returns
-    }
-
-    pub unconstrained fn call_public_test<T, let M: u32, X>(
-        _self: Self,
-        from: AztecAddress,
-        call_interface: X,
-    ) -> CallResult<T>
-    where
-        X: TXEPublicCallInterface<T>,
-        X: CallInterface<M>,
-    {
-        let (returns, tx_hash) = call_interface.call_with_txe(from);
-
-        CallResult { return_value: returns, tx_hash }
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
