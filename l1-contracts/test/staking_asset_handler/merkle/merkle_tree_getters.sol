@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 
 contract MerkleTreeGetters is Test {
-  function getRoot() internal returns (bytes32) {
+  function _getRoot() internal returns (bytes32) {
     string[] memory inputs = new string[](2);
     inputs[0] = "node";
     inputs[1] = "test/staking_asset_handler/merkle/get-root.js";
@@ -14,7 +14,7 @@ contract MerkleTreeGetters is Test {
     return bytes32(result);
   }
 
-  function getAddress(uint256 index) internal returns (address) {
+  function _getAddress(uint256 index) internal returns (address) {
     string[] memory inputs = new string[](3);
     inputs[0] = "node";
     inputs[1] = "test/staking_asset_handler/merkle/get-address.js";
@@ -25,7 +25,7 @@ contract MerkleTreeGetters is Test {
     return address(uint160(uint256(bytes32(result))));
   }
 
-  function getMerkleProof(uint256 index) internal returns (bytes32[] memory) {
+  function _getMerkleProof(uint256 index) internal returns (bytes32[] memory) {
     string[] memory inputs = new string[](3);
     inputs[0] = "node";
     inputs[1] = "test/staking_asset_handler/merkle/get-proof.js";
@@ -37,7 +37,7 @@ contract MerkleTreeGetters is Test {
     return proof;
   }
 
-  function getAddressAndProof(uint256 index)
+  function _getAddressAndProof(uint256 index)
     internal
     returns (address addr, bytes32[] memory proof)
   {
