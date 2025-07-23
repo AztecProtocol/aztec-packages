@@ -89,7 +89,9 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::NOTEHASHEXISTS,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NOTEHASH_EXISTS } },
     { ExecutionOpCode::NULLIFIEREXISTS,
-      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NULLIFIEREXISTS } },
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_NULLIFIER_EXISTS } },
+    { ExecutionOpCode::EMITNULLIFIER,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_EMIT_NULLIFIER } },
     // Misc
     { ExecutionOpCode::GETCONTRACTINSTANCE,
       { .subtrace_selector = SubtraceSel::GETCONTRACTINSTANCE, .subtrace_operation_id = 0 } },
