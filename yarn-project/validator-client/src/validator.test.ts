@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
@@ -463,7 +463,7 @@ describe('ValidatorClient', () => {
       // We should have used the first address to sign
       const payloadToSign = request.getPayloadToSign();
       const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.validatorPrivateKeys!.getValue()[0]));
-      const signature = firstSigner.sign(payloadToSign);
+      const signature = firstSigner.sign(makeEthSignDigest(payloadToSign));
       expect(authResponse.signature.equals(signature)).toBeTruthy();
     });
 
@@ -485,7 +485,7 @@ describe('ValidatorClient', () => {
       // We should have used the second address to sign as this is the only one registered
       const payloadToSign = request.getPayloadToSign();
       const firstSigner = new Secp256k1Signer(Buffer32.fromString(validatorPrivateKey));
-      const signature = firstSigner.sign(payloadToSign);
+      const signature = firstSigner.sign(makeEthSignDigest(payloadToSign));
       expect(authResponse.signature.equals(signature)).toBeTruthy();
     });
   });
