@@ -272,6 +272,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         op_queue->mul_accumulate(a, x);
         op_queue->mul_accumulate(b, x);
         op_queue->mul_accumulate(c, x);
+        op_queue->merge();
+
         ECCVMCircuitBuilder builder{ op_queue };
         return builder;
     }
