@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: master
+      funding_amount:
+        description: The amount of ETH to fund each account with
+        required: false
+        type: number
+        default: 5
     secrets:
       GCP_SA_KEY:
         required: true
@@ -43,6 +48,11 @@ on:
         required: false
         type: string
         default: master
+      funding_amount:
+        description: The amount of ETH to fund each account with
+        required: false
+        type: number
+        default: 5
 
 jobs:
   fund-sepolia-accounts:
@@ -79,7 +89,7 @@ jobs:
           if [[ "${{ steps.get-mnemonic.outputs.new_mnemonic }}" == "true" ]]; then
             echo "Generating new mnemonic"
           else
-            MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
+            export MNEMONIC="${{ steps.get-mnemonic.outputs.mnemonic }}"
             echo "Using mnemonic from GCP"
           fi
 
@@ -89,7 +99,7 @@ jobs:
           export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
 
           echo "Funding accounts..."
-          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ inputs.values_file }} 30 "$MNEMONIC_FILE"
+          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ inputs.values_file }} ${{ inputs.funding_amount }} "$MNEMONIC_FILE"
           mnemonic=$(cat "$MNEMONIC_FILE")
           rm "$MNEMONIC_FILE"
           echo "::add-mask::$mnemonic"
