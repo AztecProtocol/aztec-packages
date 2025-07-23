@@ -16,10 +16,12 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_emit_notehash.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_emit_nullifier.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
@@ -190,6 +192,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_execute_l1_to_l2_message_exists;
     case ExecutionOpCode::NULLIFIEREXISTS:
         return C::execution_sel_execute_nullifier_exists;
+    case ExecutionOpCode::EMITNULLIFIER:
+        return C::execution_sel_execute_emit_nullifier;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -381,9 +385,12 @@ void ExecutionTraceBuilder::process(
                   ex_event.before_context_event.tree_states.nullifierTree.tree.root },
                 { C::execution_prev_nullifier_tree_size,
                   ex_event.before_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
+                { C::execution_prev_num_nullifiers_emitted,
+                  ex_event.before_context_event.tree_states.nullifierTree.counter },
                 { C::execution_nullifier_tree_root, ex_event.after_context_event.tree_states.nullifierTree.tree.root },
                 { C::execution_nullifier_tree_size,
                   ex_event.after_context_event.tree_states.nullifierTree.tree.nextAvailableLeafIndex },
+                { C::execution_num_nullifiers_emitted, ex_event.after_context_event.tree_states.nullifierTree.counter },
                 // Context - tree states - Public data tree
                 { C::execution_public_data_tree_root,
                   ex_event.after_context_event.tree_states.publicDataTree.tree.root },
@@ -626,6 +633,16 @@ void ExecutionTraceBuilder::process(
                           } });
                 //} else if (exec_opcode == ExecutionOpCode::NULLIFIEREXISTS) {
                 // no custom columns!
+            } else if (exec_opcode == ExecutionOpCode::EMITNULLIFIER) {
+                uint32_t remaining_nullifiers =
+                    MAX_NULLIFIERS_PER_TX - ex_event.before_context_event.tree_states.nullifierTree.counter;
+
+                trace.set(row,
+                          { {
+                              { C::execution_sel_write_nullifier, remaining_nullifiers != 0 ? 1 : 0 },
+                              { C::execution_remaining_nullifiers_inv,
+                                remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+                          } });
             }
         }
 
@@ -1134,6 +1151,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
         // NullifierExists opcode
         .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
+        // EmitNullifier
+        .add<lookup_emit_nullifier_write_nullifier_settings, InteractionType::LookupSequential>()
         // GetContractInstance opcode
         .add<perm_execution_dispatch_get_contract_instance_settings, InteractionType::Permutation>()
         // EmitNoteHash

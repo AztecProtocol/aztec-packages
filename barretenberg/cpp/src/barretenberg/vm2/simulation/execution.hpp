@@ -136,6 +136,7 @@ class Execution : public ExecutionInterface {
                           MemoryAddress nullifier_offset,
                           MemoryAddress address_offset,
                           MemoryAddress exists_offset);
+    void emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr);
     void get_contract_instance(ContextInterface& context,
                                MemoryAddress address_offset,
                                MemoryAddress dst_offset,
