@@ -1,0 +1,64 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: "alpha-testnet"
+
+  aztecImage:
+    repository: aztecprotocol/aztec
+    tag: latest
+    pullPolicy: Always
+
+bot:
+  hostNetwork: true
+  replicaCount: 1
+  txIntervalSeconds: 1
+  privateTransfersPerTx: 0
+  publicTransfersPerTx: 1
+  # Do not wait for transactions
+  followChain: "NONE"
+  botNoStart: false
+  feePaymentMethod: "fee_juice"
+  ammTxs: false
+  maxErrors: 3
+  stopIfUnhealthy: true
+  nodeUrl: ""
+
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - node
+          topologyKey: "kubernetes.io/hostname"
+          namespaceSelector: {}
+
+  node:
+    env:
+      L1_FIXED_PRIORITY_FEE_PER_GAS: 3
+      L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT: false
+    resources:
+      requests:
+        cpu: "3"
+        memory: "12Gi"
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 16Gi
+
+  service:
+    headless:
+      enabled: true
