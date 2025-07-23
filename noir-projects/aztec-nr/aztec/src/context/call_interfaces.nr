@@ -259,6 +259,17 @@ where
             true,
         )
     }
+
+    pub fn set_as_teardown(self, context: &mut PrivateContext) {
+        let calldata = self.args.push_front(self.selector.to_field());
+        let calldata_hash = hash_calldata(calldata);
+        execution_cache::store(calldata, calldata_hash);
+        context.set_public_teardown_function_with_calldata_hash(
+            self.target_contract,
+            calldata_hash,
+            false,
+        )
+    }
 }
 
 impl<let M: u32, T> CallInterface<M> for PublicCallInterface<M, T> {
