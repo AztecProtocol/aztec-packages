@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
@@ -139,6 +140,7 @@ class AvmGoblinRecursiveVerifier {
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         MergeCommitments merge_commitments;
         merge_commitments.set_t_commitments(mega_verifier.key->witness_commitments.get_ecc_op_wires());
+        // merge_commitments.T_prev_commitments = mega_verifier_output.ecc_op_tables;
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
         GoblinRecursiveVerifierOutput goblin_verifier_output =
             goblin_verifier.verify(inner_output.goblin_proof, merge_commitments, merge_commitments.T_commitments);
@@ -172,6 +174,7 @@ class AvmGoblinRecursiveVerifier {
         using TranslatorVK = Goblin::TranslatorVerificationKey;
         using MegaVerificationKey = MegaFlavor::VerificationKey;
         using FF = AvmRecursiveFlavor::FF;
+        using IO = stdlib::recursion::honk::HidingKernelIO<MegaBuilder>;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         Goblin goblin;
@@ -208,7 +211,15 @@ class AvmGoblinRecursiveVerifier {
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
         AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key };
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs);
-        points_accumulator.set_public();
+
+        // Public inputs
+        IO inputs;
+        inputs.pairing_inputs = points_accumulator;
+        // There is only one layer of Goblin, so T_prev is the empty table
+        for (auto& commitment : inputs.ecc_op_tables) {
+            commitment = stdlib::bn254<MegaBuilder>::Group::point_at_infinity(&mega_builder);
+        }
+        inputs.set_public();
 
         // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
