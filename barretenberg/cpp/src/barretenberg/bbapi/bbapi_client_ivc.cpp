@@ -180,7 +180,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
 
     if (circuit.verification_key.empty()) {
-        info("FAIL: Expected precomputed vk for function ", function_name);
+        info("FAIL: Expected precomputed vk for function ", circuit.name);
         throw_or_abort("Missing precomputed VK");
     }
 
@@ -188,7 +188,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
 
     Response response;
     response.valid = true;
-    std::string error_message = "Precomputed vk does not match computed vk for function " + function_name;
+    std::string error_message = "Precomputed vk does not match computed vk for function " + circuit.name;
     if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
         response.valid = false;
     }
@@ -199,26 +199,7 @@ ClientIvcGates::Response ClientIvcGates::execute(BBApiRequest& request) &&
 {
     Response response;
 
-    // Try to parse as a single circuit first
-    std::vector<acir_format::AcirFormat> constraint_systems;
-    try {
-        // Try single circuit format
-        std::vector<uint8_t> bytecode_copy(circuit.bytecode.begin(), circuit.bytecode.end());
-        const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode_copy));
-        constraint_systems.push_back(constraint_system);
-    } catch (...) {
-        // If that fails, try program format (multiple circuits)
-        std::vector<uint8_t> bytecode_copy(circuit.bytecode.begin(), circuit.bytecode.end());
-        constraint_systems = acir_format::program_buf_to_acir_format(std::move(bytecode_copy));
-    }
-
-    // For now, we only process the first circuit
-    // TODO: Handle multiple circuits properly
-    if (constraint_systems.empty()) {
-        throw_or_abort("No circuits found in bytecode");
-    }
-
-    const auto& constraint_system = constraint_systems[0];
+    const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     acir_format::AcirProgram program{ constraint_system };
 
     // Get IVC constraints if any

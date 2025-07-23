@@ -15,7 +15,7 @@ template <typename R, typename... Vs> struct func_traits_base {
 
     template <typename Func, typename Tuple> static R apply(Func&& f, Tuple&& t)
     {
-        return std::apply([&f](auto&&... args) { return f(forward_as<Vs>(std::forward<decltype(args)>(args))...); },
+        return std::apply([&f](auto&&... args) { return f(std::forward<Vs>(std::forward<decltype(args)>(args))...); },
                           std::forward<Tuple>(t));
     }
 };
