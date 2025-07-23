@@ -87,7 +87,7 @@ impl TestEnvironment {
     pub unconstrained fn public_context<Env, T>(self, f: fn[Env](&mut PublicContext) -> T) -> T {
         txe_oracles::set_public_txe_context();
 
-        let mut context = self.public();
+        let mut context = PublicContext::new(|| 0);
         let ret_value = f(&mut context);
 
         // merge calls below into 'exit public txe context' -> this mines a block
@@ -128,7 +128,10 @@ impl TestEnvironment {
         // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
         // now we have them in this order because creating the private context requires reading the latest block number,
         // which we only allow for top level and utility
-        let mut context = self.private();
+        let mut context = PrivateContext::new(
+            txe_oracles::get_private_context_inputs(Option::some(self.last_block_number())),
+            0,
+        );
         txe_oracles::set_private_txe_context();
 
         let ret_value = f(&mut context);
@@ -171,11 +174,12 @@ impl TestEnvironment {
         // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
         // now we have them in this order because creating the private context requires reading the latest block number,
         // which we only allow for top level and utility
-        let mut context = if opts.historical_block_number.is_some() {
-            self.private_at(opts.historical_block_number.unwrap())
-        } else {
-            self.private()
-        };
+        let mut context = PrivateContext::new(
+            txe_oracles::get_private_context_inputs(opts.historical_block_number.or_else(|| {
+                Option::some(self.last_block_number())
+            })),
+            0,
+        );
 
         txe_oracles::set_private_txe_context();
 
@@ -194,7 +198,7 @@ impl TestEnvironment {
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
     pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
         txe_oracles::set_utility_txe_context();
-        let context = self.utility();
+        let context = UtilityContext::new();
         let ret_value = f(context);
         txe_oracles::set_top_level_txe_context();
 
@@ -253,40 +257,6 @@ impl TestEnvironment {
     /// Advances the internal TXe timestamp by the specified duration in seconds.
     pub unconstrained fn advance_next_block_timestamp_by(_self: &mut Self, duration: u64) {
         txe_oracles::advance_timestamp_by(duration);
-    }
-
-    /// Instantiates a public context. The block number returned from public_context.block_number() will be the
-    /// block number of the block currently being built (same as the one returned by self.next_block_number()).
-    pub unconstrained fn public(_self: Self) -> PublicContext {
-        PublicContext::new(|| 0)
-    }
-
-    pub unconstrained fn public_with_args_hash(_self: Self, args: [Field]) -> PublicContext {
-        let mut context = PublicContext::new(|| panic(f"Provide args hash manually"));
-        context.args_hash = Option::some(hash_args(args));
-        context
-    }
-
-    /// Instantiates a private context at the latest committed block number - this is the block number that gets used
-    /// in production to build transactions when your PXE managed to successfully sync to the tip of the chain.
-    pub unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(self.last_block_number())
-    }
-
-    pub unconstrained fn utility(_self: Self) -> UtilityContext {
-        UtilityContext::new()
-    }
-
-    /// Instantiates a private context at a specific historical block number.
-    pub unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
-        if historical_block_number > self.next_block_number() {
-            txe_oracles::advance_blocks_by(1 + historical_block_number - self.next_block_number())
-        }
-
-        let mut inputs =
-            txe_oracles::get_private_context_inputs(Option::some(historical_block_number));
-
-        PrivateContext::new(inputs, 0)
     }
 
     pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
