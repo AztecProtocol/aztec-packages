@@ -113,7 +113,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     }
 
     // unconstrained
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
+    const size_t log_circuit_size = static_cast<size_t>(key->log_circuit_size.get_value());
     const auto padding_indicator_array =
         stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
 
