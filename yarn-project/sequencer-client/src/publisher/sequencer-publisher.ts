@@ -63,13 +63,11 @@ export enum SignalType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-export type Action = 'propose' | 'governance-signal' | 'slashing-signal';
+const Actions = ['propose', 'governance-signal', 'slashing-signal'] as const;
+export type Action = (typeof Actions)[number];
 
 // Sorting for actions such that proposals always go first
-const compareActions = (a: Action, b: Action) => {
-  const order: Action[] = ['propose', 'governance-signal', 'slashing-signal'];
-  return order.indexOf(b) - order.indexOf(a);
-};
+const compareActions = (a: Action, b: Action) => Actions.indexOf(b) - Actions.indexOf(a);
 
 interface RequestWithExpiry {
   action: Action;
