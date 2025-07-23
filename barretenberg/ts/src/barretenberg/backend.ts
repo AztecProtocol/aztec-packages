@@ -17,7 +17,6 @@ export class AztecClientBackendError extends Error {
   }
 }
 
-
 /**
  * Options for the UltraHonkBackend.
  */
