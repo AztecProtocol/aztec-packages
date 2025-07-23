@@ -228,10 +228,13 @@ export const l1Artifacts = {
     contractAbi: MultiAdderAbi,
     contractBytecode: MultiAdderBytecode as Hex,
   },
-  gse: {
-    contractAbi: GSEAbi,
-    contractBytecode: GSEBytecode as Hex,
-  },
+};
+
+// Moving this out to avoid "type too big" error.
+// Palla has a proper fix for this.
+export const gseArtifact = {
+  contractAbi: GSEAbi,
+  contractBytecode: GSEBytecode as Hex,
 };
 
 export const l1ArtifactsVerifiers = {
@@ -310,7 +313,7 @@ export const deploySharedContracts = async (
 
   const gseConfiguration = getGSEConfiguration(networkName);
 
-  const gseAddress = await deployer.deploy(l1Artifacts.gse, [
+  const gseAddress = await deployer.deploy(gseArtifact, [
     l1Client.account.address.toString(),
     stakingAssetAddress.toString(),
     gseConfiguration.depositAmount,
@@ -350,7 +353,7 @@ export const deploySharedContracts = async (
   } else {
     const gseContract = getContract({
       address: getAddress(gseAddress.toString()),
-      abi: l1Artifacts.gse.contractAbi,
+      abi: gseArtifact.contractAbi,
       client: l1Client,
     });
     const existingGovernance = await gseContract.read.getGovernance();
@@ -364,7 +367,7 @@ export const deploySharedContracts = async (
       {
         to: gseAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.gse.contractAbi,
+          abi: gseArtifact.contractAbi,
           functionName: 'setGovernance',
           args: [governanceAddress.toString()],
         }),
@@ -749,7 +752,7 @@ export const deployRollup = async (
   // We need to call a function on the registry to set the various contract addresses.
   const gseContract = getContract({
     address: getAddress(addresses.gseAddress.toString()),
-    abi: l1Artifacts.gse.contractAbi,
+    abi: gseArtifact.contractAbi,
     client: extendedClient,
   });
   if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
@@ -757,7 +760,7 @@ export const deployRollup = async (
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.gseAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.gse.contractAbi,
+          abi: gseArtifact.contractAbi,
           functionName: 'addRollup',
           args: [getAddress(rollupContract.address)],
         }),
@@ -810,7 +813,7 @@ export const handoverToGovernance = async (
 
   const gseContract = getContract({
     address: getAddress(gseAddress.toString()),
-    abi: l1Artifacts.gse.contractAbi,
+    abi: gseArtifact.contractAbi,
     client: extendedClient,
   });
 
@@ -842,7 +845,7 @@ export const handoverToGovernance = async (
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: gseContract.address,
       data: encodeFunctionData({
-        abi: l1Artifacts.gse.contractAbi,
+        abi: gseArtifact.contractAbi,
         functionName: 'transferOwnership',
         args: [getAddress(governanceAddress.toString())],
       }),
