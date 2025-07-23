@@ -47,7 +47,7 @@ class ClientIVCTests : public ::testing::Test {
     {
         // Tamper with the commitment in the proof
         Commitment commitment = bb::field_conversion::convert_from_bn254_frs<Commitment>(
-            std::span{ proof }.subspan(public_inputs_offset, 4));
+            std::span{ proof }.subspan(public_inputs_offset, bb::field_conversion::calc_num_bn254_frs<Commitment>()));
         commitment = commitment + Commitment::one();
         auto commitment_frs = bb::field_conversion::convert_to_bn254_frs<Commitment>(commitment);
         for (size_t idx = 0; idx < 4; ++idx) {

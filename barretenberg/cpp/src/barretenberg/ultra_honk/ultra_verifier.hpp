@@ -25,7 +25,7 @@ template <typename Flavor> class UltraVerifier_ {
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using PublicInputs = std::vector<FF>;
 
-    std::pair<PublicInputs, typename DeciderVerifier::Output> decider_verification(const HonkProof& proof);
+    std::pair<PublicInputs, typename DeciderVerifier::Output> verify_internal(const HonkProof& proof);
 
   public:
     explicit UltraVerifier_(

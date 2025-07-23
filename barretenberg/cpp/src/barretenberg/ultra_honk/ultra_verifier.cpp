@@ -15,12 +15,12 @@
 namespace bb {
 
 /**
- * @brief This function perfoms the decider verification of an Ultra Honk proof for a given Flavor.
+ * @brief This function performs the decider verification of an Ultra Honk proof for a given Flavor.
  *
  */
 template <typename Flavor>
 std::pair<typename UltraVerifier_<Flavor>::PublicInputs, typename UltraVerifier_<Flavor>::DeciderVerifier::Output>
-UltraVerifier_<Flavor>::decider_verification(const HonkProof& proof)
+UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
 
@@ -50,7 +50,7 @@ bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProo
     using RollUpIO = bb::RollupIO;
     using DefaultIO = bb::DefaultIO;
 
-    auto [public_inputs, decider_output] = decider_verification(proof);
+    auto [public_inputs, decider_output] = verify_internal(proof);
     if (!decider_output.sumcheck_verified) {
         info("Sumcheck failed!");
         return false;
@@ -96,12 +96,10 @@ std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::
     Flavor>::verify_proof(const HonkProof& proof)
     requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>)
 {
-    using DefaultIO = bb::DefaultIO; // Will be HidingKernelIO
-
-    auto [public_inputs, decider_output] = decider_verification(proof);
+    auto [public_inputs, decider_output] = verify_internal(proof);
 
     // Reconstruct the public inputs
-    DefaultIO inputs;
+    DefaultIO inputs; // Will be HidingKernelIO
     inputs.reconstruct_from_public(public_inputs);
 
     decider_output.pairing_points.aggregate(inputs.pairing_inputs);
