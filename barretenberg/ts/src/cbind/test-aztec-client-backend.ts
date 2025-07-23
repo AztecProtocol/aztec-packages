@@ -5,6 +5,16 @@ import { IvcInputs } from './ivc-inputs.js';
 import { existsSync } from 'fs';
 import { dirname } from 'path';
 
+function getCurrentDir() {
+  if (typeof __dirname !== 'undefined') {
+    return __dirname;
+  } else {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return dirname(fileURLToPath(import.meta.url));
+  }
+}
+
 /**
  * Simple test specifically for AztecClientBackend
  */
@@ -41,10 +51,9 @@ async function testAztecClientBackend() {
 
     // Create AztecClientBackend
     console.log('\nCreating AztecClientBackend...');
-    const backend = new AztecClientBackend(bytecodes, {
-      wasmPath:
-        dirname(fileURLToPath(import.meta.url)) + '/../../../cpp/build-wasm-threads/bin/barretenberg-debug.wasm.gz',
-    });
+    const __dirname = getCurrentDir();
+    const wasmPath = __dirname + '/../../../cpp/build-wasm-threads/bin/barretenberg-debug.wasm.gz';
+    const backend = new AztecClientBackend(bytecodes, { wasmPath });
 
     // Generate proof
     console.log('Generating ClientIVC proof...');

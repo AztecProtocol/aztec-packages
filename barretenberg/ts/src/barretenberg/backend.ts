@@ -9,7 +9,7 @@ import {
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
 import { ungzip } from 'pako';
-import { Decoder, Encoder } from 'msgpackr/pack';
+import { Decoder, Encoder } from 'msgpackr';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {

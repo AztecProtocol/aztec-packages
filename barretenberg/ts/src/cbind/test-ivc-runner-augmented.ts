@@ -8,6 +8,16 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 
+function getCurrentDir() {
+  if (typeof __dirname !== 'undefined') {
+    return __dirname;
+  } else {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return dirname(fileURLToPath(import.meta.url));
+  }
+}
+
 // Test with NativeApi
 async function testWithNativeApi(inputsPath: string) {
   console.log('\n=== Testing with NativeApi ===');
@@ -15,7 +25,7 @@ async function testWithNativeApi(inputsPath: string) {
   const inputs = IvcInputs.fromFile(inputsPath);
   console.log('✓ Successfully loaded', inputs.getStepCount(), 'steps');
 
-  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const __dirname = getCurrentDir();
   const bbPath = join(__dirname, '..', '..', '..', 'cpp', 'build', 'bin', 'bb');
   console.log('Using Barretenberg binary at:', bbPath);
 

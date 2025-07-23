@@ -46,8 +46,18 @@ const GENERATORS: GeneratorConfig[] = [
   },
 ];
 
+function getCurrentDir() {
+  if (typeof __dirname !== 'undefined') {
+    return __dirname;
+  } else {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return dirname(fileURLToPath(import.meta.url));
+  }
+}
+
 async function generate() {
-  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const __dirname = getCurrentDir();
   const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../cpp/build/bin/bb');
 
   // Get schema from bb
