@@ -1,4 +1,3 @@
-import { Buffer } from 'buffer';
 import { Encoder, decode } from 'msgpackr';
 import { readFileSync, writeFileSync } from 'fs';
 import { gzipSync, gunzipSync } from 'zlib';

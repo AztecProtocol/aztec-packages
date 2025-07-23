@@ -138,22 +138,6 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     });
   }
 
-  private recursiveUint8ArrayToBuffer(data: any): any {
-    if (Array.isArray(data)) {
-      return data.map(item => this.recursiveUint8ArrayToBuffer(item));
-    } else if (data instanceof Uint8Array) {
-      return Buffer.from(data);
-    } else if (data && typeof data === 'object') {
-      const fixed: any = {};
-      for (const key in data) {
-        fixed[key] = this.recursiveUint8ArrayToBuffer(data[key]);
-      }
-      return fixed;
-    } else {
-      return data;
-    }
-  }
-
   msgpackCall(cbind: string, input: any[]): any {
     const outputSizePtr = this.call('bbmalloc', 4);
     const outputMsgpackPtr = this.call('bbmalloc', 4);
@@ -173,7 +157,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       readPtr32(outputMsgpackPtr),
       readPtr32(outputMsgpackPtr) + readPtr32(outputSizePtr),
     );
-    const result = this.recursiveUint8ArrayToBuffer(new Decoder({ useRecords: false }).unpack(encodedResult));
+    const result = new Decoder({ useRecords: false }).unpack(encodedResult);
     this.call('bbfree', inputPtr);
     this.call('bbfree', outputSizePtr);
     this.call('bbfree', outputMsgpackPtr);

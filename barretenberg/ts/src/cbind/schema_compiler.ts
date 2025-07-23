@@ -58,6 +58,7 @@ function pascalCase(s: string): string {
 export class SchemaCompiler {
   private typeCache = new Map<string, TypeInfo>();
   private functionMetadata: FunctionMetadata[] = [];
+  // WORKTODO(bbapi): AI slop fixup - redundant with typeCache, remove
   private referencedTypes = new Set<string>();
 
   constructor(private config: CompilerConfig) {}
@@ -226,7 +227,7 @@ export class SchemaCompiler {
 
     for (const type of baseTypes) {
       // Skip built-in types
-      if (['string', 'number', 'boolean', 'Buffer', 'Uint8Array'].includes(type)) {
+      if (['string', 'number', 'boolean', 'Uint8Array'].includes(type)) {
         continue;
       }
 
