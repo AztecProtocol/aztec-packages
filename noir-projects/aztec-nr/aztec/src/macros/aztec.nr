@@ -119,17 +119,15 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 /// discovery (to create the `aztec::messages::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
 comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
-    let notes = NOTES.entries();
-
-    if notes.len() > 0 {
+    if NOTES.len() > 0 {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
         // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the note hash (non-siloed) and inner nullifier (also non-siloed).
 
         let mut if_note_type_id_match_statements_list = &[];
-        for i in 0..notes.len() {
-            let (typ, packed_note_length) = notes[i];
+        for i in 0..NOTES.len() {
+            let typ = NOTES.get(i);
 
             let get_note_type_id = get_trait_impl_method(
                 typ,
@@ -166,7 +164,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // As an extra safety check we make sure that the packed_note BoundedVec has the expected
                         // length, since we're about to interpret its raw storage as a fixed-size array by calling the
                         // unpack function on it.
-                        let expected_len = $packed_note_length;
+                        let expected_len = <$typ as $crate::protocol_types::traits::Packable>::N;
                         let actual_len = packed_note.len();
                         assert(
                             actual_len == expected_len,

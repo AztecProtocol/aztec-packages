@@ -579,6 +579,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .register_info = RegisterInfo()
                              .add_inputs({ /*unique_note_hash*/ ValueTag::FF, /*leaf_index*/ ValueTag::U64 })
                              .add_output(/*exists*/) } },
+    { ExecutionOpCode::NULLIFIEREXISTS,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_NULLIFIEREXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*nullifier*/ ValueTag::FF,
+                                           /*address*/ ValueTag::FF })
+                             .add_output(/*exists*/) } },
     { ExecutionOpCode::GETCONTRACTINSTANCE,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -599,6 +606,16 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
     { ExecutionOpCode::POSEIDON2PERM,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_POSEIDON2_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::ECADD,
+      { .num_addresses = 7,
+        .gas_cost = { .opcode_gas = AVM_ECADD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /*p_x=*/ValueTag::FF,
+                                                     /*p_y=*/ValueTag::FF,
+                                                     /*p_inf*/ ValueTag::U1,
+                                                     /*q_x*/ ValueTag::FF,
+                                                     /*q_y*/ ValueTag::FF,
+                                                     /*q_inf*/ ValueTag::U1 }) } },
+
 };
 
 } // namespace bb::avm2

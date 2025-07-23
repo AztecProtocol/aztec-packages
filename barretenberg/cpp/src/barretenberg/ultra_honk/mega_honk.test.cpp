@@ -45,7 +45,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+        bool verified = std::get<0>(verifier.verify_proof(proof));
 
         return verified;
     }
@@ -67,7 +67,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+        bool verified = std::get<0>(verifier.verify_proof(proof));
 
         return verified;
     }
@@ -76,11 +76,10 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
      */
-    bool construct_and_verify_merge_proof(auto& op_queue)
+    bool construct_and_verify_merge_proof(auto& op_queue, MergeSettings settings = MergeSettings::PREPEND)
     {
-        MergeProver merge_prover{ op_queue };
-        MergeVerifier merge_verifier;
-        merge_verifier.settings = op_queue->get_current_settings();
+        MergeProver merge_prover{ op_queue, settings };
+        MergeVerifier merge_verifier{ settings };
         auto merge_proof = merge_prover.construct_proof();
 
         // Construct Merge commitments
@@ -192,7 +191,7 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
 
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
 }
 
 /**
@@ -244,13 +243,13 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto proof = prover.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
-    EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
+    EXPECT_TRUE(std::get<0>(verifier_copy.verify_proof(proof_copy)));
 }
 
 /**
@@ -317,12 +316,12 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnlyPrependThenAppend)
     }
 
     // Construct a final circuit and append its ecc ops to the op queue
-    auto builder = typename Flavor::CircuitBuilder{ op_queue, MergeSettings::APPEND };
+    auto builder = typename Flavor::CircuitBuilder{ op_queue };
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+    auto merge_verified = this->construct_and_verify_merge_proof(op_queue, MergeSettings::APPEND);
     EXPECT_TRUE(merge_verified);
 }
 
@@ -341,12 +340,12 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkOnly)
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
         auto builder = typename Flavor::CircuitBuilder{ op_queue };
-
         GoblinMockCircuits::construct_simple_circuit(builder);
-
         // Construct and verify Honk proof
         bool honk_verified = this->construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
+        // Artificially merge the op queue sincer we're not running the merge protocol in this test
+        builder.op_queue->merge();
     }
 }
 
@@ -378,7 +377,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
     }
 
     // Construct a final circuit whose ecc ops will be appended rather than prepended to the op queue
-    auto builder = typename Flavor::CircuitBuilder{ op_queue, MergeSettings::APPEND };
+    auto builder = typename Flavor::CircuitBuilder{ op_queue };
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
@@ -387,7 +386,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+    auto merge_verified = this->construct_and_verify_merge_proof(op_queue, MergeSettings::APPEND);
     EXPECT_TRUE(merge_verified);
 }
 
@@ -504,7 +503,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(proving_key_1, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        EXPECT_TRUE(verifier.verify_proof(proof));
+        EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
     }
 
     { // Verification based on pkey 2 should fail
@@ -513,6 +512,6 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(proving_key_2, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        EXPECT_FALSE(verifier.verify_proof(proof));
+        EXPECT_FALSE(std::get<0>(verifier.verify_proof(proof)));
     }
 }

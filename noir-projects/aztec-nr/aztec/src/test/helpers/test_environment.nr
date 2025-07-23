@@ -13,11 +13,9 @@ use crate::{
         PrivateCallInterface,
         PrivateContext,
         PrivateStaticCallInterface,
-        PrivateVoidCallInterface,
         PublicCallInterface,
         PublicContext,
         PublicStaticCallInterface,
-        PublicVoidCallInterface,
         ReturnsHash,
         UtilityCallInterface,
         UtilityContext,
@@ -41,6 +39,27 @@ pub struct TestEnvironment {}
 pub struct CallResult<T> {
     pub return_value: T,
     pub tx_hash: Field,
+}
+
+pub struct PrivateContextOptions {
+    contract_address: Option<AztecAddress>,
+    historical_block_number: Option<u32>,
+}
+
+impl PrivateContextOptions {
+    pub fn new() -> Self {
+        Self { contract_address: Option::none(), historical_block_number: Option::none() }
+    }
+
+    pub fn at_historical_block_number(&mut self, historical_block_number: u32) -> Self {
+        self.historical_block_number = Option::some(historical_block_number);
+        *self
+    }
+
+    pub fn at_contract_address(&mut self, contract_address: AztecAddress) -> Self {
+        self.contract_address = Option::some(contract_address);
+        *self
+    }
 }
 
 impl TestEnvironment {
@@ -135,6 +154,56 @@ impl TestEnvironment {
         // todo: should commit the context to mine a block with the side effects of the context. we should have an
         // oracle that receives the context we produced probably
         self.mine_block();
+
+        ret_value
+    }
+
+    pub unconstrained fn private_context_at<Env, T>(
+        &mut self,
+        addr: AztecAddress,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.private_context(f);
+        txe_oracles::set_contract_address(pre);
+
+        ret
+    }
+
+    pub unconstrained fn private_context_opts<Env, T>(
+        &mut self,
+        opts: PrivateContextOptions,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the public context oracle and have it take this as a param
+
+        let pre_contract_address = txe_oracles::get_contract_address();
+
+        if opts.contract_address.is_some() {
+            txe_oracles::set_contract_address(opts.contract_address.unwrap());
+        }
+
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
+        let mut context = if opts.historical_block_number.is_some() {
+            self.private_at(opts.historical_block_number.unwrap())
+        } else {
+            self.private()
+        };
+
+        txe_oracles::set_private_txe_context();
+
+        let ret_value = f(&mut context);
+        txe_oracles::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context. we should have an
+        // oracle that receives the context we produced probably
+        self.mine_block();
+
+        txe_oracles::set_contract_address(pre_contract_address);
 
         ret_value
     }
@@ -358,29 +427,6 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_private_void<let M: u32, T>(
-        _self: Self,
-        from: AztecAddress,
-        call_interface: PrivateVoidCallInterface<M, T>,
-    ) -> CallResult<()> {
-        let args = call_interface.get_args();
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-
-        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
-            from,
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            args,
-            args_hash,
-            call_interface.get_is_static(),
-        );
-
-        ReturnsHash::new(returns_hash).assert_empty();
-
-        CallResult { return_value: (), tx_hash }
-    }
-
     pub unconstrained fn view_private<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
@@ -426,23 +472,6 @@ impl TestEnvironment {
         returns
     }
 
-    pub unconstrained fn simulate_void_utility<T, let M: u32>(
-        _self: Self,
-        call_interface: UtilityCallInterface<M, T>,
-    ) {
-        let args = call_interface.get_args();
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-
-        let returns_hash = crate::oracle::simulate_utility_function::simulate_utility_function(
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            args_hash,
-        );
-
-        ReturnsHash::new(returns_hash).assert_empty();
-    }
-
     pub unconstrained fn call_public<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
@@ -462,24 +491,6 @@ impl TestEnvironment {
         // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
         CallResult { return_value: returns, tx_hash }
-    }
-
-    pub unconstrained fn call_public_void<T, let M: u32>(
-        _self: Self,
-        from: AztecAddress,
-        call_interface: PublicVoidCallInterface<M, T>,
-    ) -> CallResult<()> {
-        let (returns_hash, tx_hash) = public_call_new_flow(
-            from,
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
-            false,
-        );
-
-        ReturnsHash::new(returns_hash).assert_empty();
-
-        CallResult { return_value: (), tx_hash }
     }
 
     pub unconstrained fn view_public<T, let M: u32>(

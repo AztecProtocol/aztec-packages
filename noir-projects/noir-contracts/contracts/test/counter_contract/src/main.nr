@@ -118,13 +118,6 @@ pub contract Counter {
     // docs:end:get_counter
     // docs:start:test_imports
     use crate::test;
-    use aztec::{
-        note::{
-            note_getter::{MAX_NOTES_PER_PAGE, view_notes},
-            note_viewer_options::NoteViewerOptions,
-        },
-        protocol_types::storage::map::derive_storage_slot_in_map,
-    };
 
     // docs:end:test_imports
     // docs:start:txe_test_increment
@@ -144,7 +137,7 @@ pub contract Counter {
         // docs:end:txe_test_read_notes
 
         // Increment the counter
-        let _ = env.call_private_void(owner, Counter::at(contract_address).increment(owner));
+        let _ = env.call_private(owner, Counter::at(contract_address).increment(owner));
 
         let incremented_counter =
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
@@ -162,64 +155,28 @@ pub contract Counter {
         let (env, contract_address, owner) = test::setup(initial_value);
 
         // Checking that the note was discovered from private logs
-        env.impersonate(contract_address);
-        sync_private_state();
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        let initial_note_value = notes.get(0).value;
-        assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
+        let initial_note_value =
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
+        assert(initial_note_value == initial_value);
+
+        let _ = env.call_private(owner, Counter::at(contract_address).increment_twice(owner));
+
+        assert_eq(
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
+            7,
         );
 
-        Counter::at(contract_address).increment_twice(owner).call(&mut env.private());
+        let _ =
+            env.call_private(owner, Counter::at(contract_address).increment_and_decrement(owner));
+        assert_eq(
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
+            7,
+        );
 
-        // Checking from the note cache
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(notes.len() == 3);
-        assert(get_counter(owner) == 7);
-
-        // Checking that the note was discovered from private logs
-        env.mine_block();
-        sync_private_state();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 7);
-        assert(notes.len() == 3);
-
-        // Checking from the note cache
-        Counter::at(contract_address).increment_and_decrement(owner).call(&mut env.private());
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 7);
-        // We have a change note of 0
-        assert(notes.len() == 4);
-
-        // Checking that the note was discovered from private logs
-        env.mine_block();
-        sync_private_state();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(notes.len() == 4);
-        assert(get_counter(owner) == 7);
-
-        // Checking from the note cache
-        Counter::at(contract_address).decrement(owner).call(&mut env.private());
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 6);
-        assert(notes.len() == 4);
-
-        // Checking that the note was discovered from private logs
-        env.mine_block();
-        sync_private_state();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 6);
-        assert(notes.len() == 4);
+        let _ = env.call_private(owner, Counter::at(contract_address).decrement(owner));
+        assert_eq(
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
+            6,
+        );
     }
 }

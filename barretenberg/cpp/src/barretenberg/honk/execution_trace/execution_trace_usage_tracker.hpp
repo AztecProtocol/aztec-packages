@@ -42,14 +42,15 @@ struct ExecutionTraceUsageTracker {
 
     // For printing only. Must match the order of the members in the arithmetization
 
-    static constexpr std::array<std::string_view, 13> block_labels{ "ecc_op",
+    static constexpr std::array<std::string_view, 14> block_labels{ "ecc_op",
                                                                     "busread",
                                                                     "lookup",
                                                                     "pub_inputs",
                                                                     "arithmetic",
                                                                     "delta_range",
                                                                     "elliptic",
-                                                                    "aux",
+                                                                    "memory",
+                                                                    "nnf",
                                                                     "poseidon2_external",
                                                                     "poseidon2_internal",
                                                                     "overflow",
