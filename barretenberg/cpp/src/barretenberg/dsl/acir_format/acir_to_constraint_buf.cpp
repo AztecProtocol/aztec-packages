@@ -738,7 +738,11 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 auto input_key = get_witness_from_function_input(arg.key_hash);
 
                 auto proof_type_in = arg.proof_type;
-
+                auto predicate = parse_input(arg.predicate);
+                if (predicate.is_constant && predicate.value.is_zero()) {
+                    // No constraint if the recursion is disabled
+                    return;
+                }
                 auto c = RecursionConstraint{
                     .key = transform::map(arg.verification_key,
                                           [](auto& e) { return get_witness_from_function_input(e); }),
@@ -747,6 +751,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                         transform::map(arg.public_inputs, [](auto& e) { return get_witness_from_function_input(e); }),
                     .key_hash = input_key,
                     .proof_type = proof_type_in,
+                    .predicate = predicate,
                 };
 
                 // Add the recursion constraint to the appropriate container based on proof type
