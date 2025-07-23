@@ -157,8 +157,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     /**
      * @brief Generate an acir program {constraints, witness} for a mock kernel
      * @details The IVC contains and internal verification queue that contains proofs to be recursively verified.
-     * Construct an AcirProgram with a RecursionConstraint for each entry in the ivc verification queue. (In
-     * practice these constraints would come directly from calls to verify_proof in noir).
+     * Construct an AcirProgram with a RecursionConstraint for each entry in the ivc verification queue. (In practice
+     * these constraints would come directly from calls to verify_proof in noir).
      * @note This method needs the number of public inputs in each proof-to-be-verified so they can be extracted and
      * provided separately as is required in the acir constraint system.
      *
@@ -174,7 +174,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         // Construct recursion constraints based on the ivc verification queue; populate the witness along the way
         std::vector<RecursionConstraint> ivc_recursion_constraints;
         ivc_recursion_constraints.reserve(verification_queue.size());
-        info("verification_queue size in construct_mock_kernel_program: ", verification_queue.size());
         for (const auto& queue_entry : verification_queue) {
             ivc_recursion_constraints.push_back(create_recursion_constraint(queue_entry, program.witness));
         }
@@ -222,8 +221,8 @@ TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
 }
 
 /**
- * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for
- * the app, specified via an ACIR RecursionConstraint.
+ * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the
+ * app, specified via an ACIR RecursionConstraint.
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 {
@@ -249,8 +248,8 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 }
 
 /**
- * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification
- * and the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
+ * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
+ * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
@@ -272,8 +271,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     Builder app_circuit_1 = construct_mock_app_circuit(ivc);
     ivc->accumulate(app_circuit_1);
 
-    // Construct kernel_1; consists of two PG recursive verifications for kernel_0 and app_1 (plus databus/merge
-    // logic)
+    // Construct kernel_1; consists of two PG recursive verifications for kernel_0 and app_1 (plus databus/merge logic)
     AcirProgram program_1 = construct_mock_kernel_program(ivc->verification_queue);
     Builder kernel_1 = acir_format::create_circuit<Builder>(program_1, metadata);
 
