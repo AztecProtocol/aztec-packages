@@ -18,6 +18,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -253,13 +254,17 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINTS_SIZE;
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= bb::IPA_CLAIM_SIZE;
-        }
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINTS_SIZE;
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            total_num_public_inputs += bb::IPA_CLAIM_SIZE;
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size();
+        size_t total_num_public_inputs = input.public_inputs.size();
+        if constexpr (IsMegaFlavor<Flavor>) {
+            size_of_proof_with_no_pub_inputs -= HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
+        } else if constexpr (HasIPAAccumulator<Flavor>) {
+            size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
+        } else {
+            size_of_proof_with_no_pub_inputs -= DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
         }
 
         create_dummy_vkey_and_proof<Flavor>(
