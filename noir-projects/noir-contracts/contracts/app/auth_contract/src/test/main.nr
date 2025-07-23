@@ -25,10 +25,8 @@ unconstrained fn main() {
     let expected_timestamp_of_first_change = GENESIS_TIMESTAMP + Auth::CHANGE_AUTHORIZED_DELAY;
 
     let admin_sets_authorized = || {
-        let _ = env.call_public_void(
-            admin,
-            Auth::at(auth_contract_address).set_authorized(to_authorize),
-        );
+        let _ =
+            env.call_public(admin, Auth::at(auth_contract_address).set_authorized(to_authorize));
 
         let (scheduled_authorized, timestamp_of_change) =
             env.view_public(Auth::at(auth_contract_address).get_scheduled_authorized());
@@ -58,7 +56,7 @@ unconstrained fn main() {
         );
         assert_eq(authorized_in_private_again, to_authorize);
 
-        let _ = env.call_private_void(
+        let _ = env.call_private(
             to_authorize,
             Auth::at(auth_contract_address).do_private_authorized_thing(),
         );
@@ -69,7 +67,7 @@ unconstrained fn main() {
         expected_timestamp_of_first_change + Auth::CHANGE_AUTHORIZED_DELAY;
 
     let authorize_other = || {
-        let _ = env.call_public_void(admin, Auth::at(auth_contract_address).set_authorized(other));
+        let _ = env.call_public(admin, Auth::at(auth_contract_address).set_authorized(other));
 
         let (scheduled_authorized, timestamp_of_change) =
             env.view_public(Auth::at(auth_contract_address).get_scheduled_authorized());
@@ -82,7 +80,7 @@ unconstrained fn main() {
             env.view_public(Auth::at(auth_contract_address).get_authorized());
         assert_eq(authorized, to_authorize);
 
-        let _ = env.call_private_void(
+        let _ = env.call_private(
             to_authorize,
             Auth::at(auth_contract_address).do_private_authorized_thing(),
         );
@@ -110,10 +108,8 @@ unconstrained fn main() {
 
         env.assert_private_call_fails(Auth::at(auth_contract_address).do_private_authorized_thing());
 
-        let _ = env.call_private_void(
-            other,
-            Auth::at(auth_contract_address).do_private_authorized_thing(),
-        );
+        let _ =
+            env.call_private(other, Auth::at(auth_contract_address).do_private_authorized_thing());
     };
     authorized_becomes_effective_after_delay_again();
 }
