@@ -209,6 +209,12 @@ class ClientIVC {
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
+    // Complete the logic of the hiding circuit, which includes PG, decider and merge recursive verification
+    ClientIVC::PairingPoints complete_hiding_circuit_logic(
+        const StdlibProof& stdlib_proof,
+        const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
+        ClientCircuit& circuit);
+
     /**
      * @brief Perform prover work for accumulation (e.g. PG folding, merge proving)
      *
@@ -236,11 +242,6 @@ class ClientIVC {
     HonkProof decider_prove();
 
     VerificationKey get_vk() const;
-    void hiding_circuit_recursive_verification(ClientCircuit& circuit);
-    ClientIVC::PairingPoints complete_hiding_circuit_logic(
-        const StdlibProof& stdlib_proof,
-        const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
-        ClientCircuit& circuit);
 };
 
 } // namespace bb

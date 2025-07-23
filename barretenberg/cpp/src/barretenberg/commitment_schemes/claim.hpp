@@ -28,23 +28,6 @@ template <typename Curve> class OpeningPair {
 };
 
 /**
- * @brief Opening vector \f$(r,\{a_1, \dots, a_m\}, {v_1, \dots, v_m})\f$ for some witness polynomials \f$\{p_1(X),
- * p_m(X)\}\f$ such that \f$\sum_i a_i p_i(r) = \sum_i a_i v_i\f$.
- *
- * @tparam Params for the given commitment scheme
- */
-template <typename Curve> class OpeningVector {
-    using Fr = typename Curve::ScalarField;
-
-  public:
-    Fr challenge;                 // r
-    std::vector<Fr> coefficients; // (a_1, \dots, a_m)
-    std::vector<Fr> evaluations;  // \sum_i a_i p_i(r) = \sum_i a_i v_i
-
-    bool operator==(const OpeningVector& other) const = default;
-};
-
-/**
  * @brief Polynomial p and an opening pair (r,v) such that p(r) = v
  *
  * @tparam Params for the given commitment scheme

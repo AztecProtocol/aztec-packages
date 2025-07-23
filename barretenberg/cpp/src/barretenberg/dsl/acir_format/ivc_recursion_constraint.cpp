@@ -48,7 +48,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     uint32_t pg_final_type = static_cast<uint32_t>(PROOF_TYPE::PG_FINAL);
 
     // There is a fixed set of valid combinations of IVC recursion constraints for Aztec kernel circuits:
-    info("constraints size: ", constraints.size());
+
     // Case: INIT kernel; single Oink recursive verification of an app
     if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK, /*is_kernel=*/false);
@@ -75,11 +75,10 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
         ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
-        ivc->verifier_accumulator->vk->num_public_inputs = 16;
 
-        // TODO(Khashayar): it is quite annoying that we have to set the log_circuit_size here.
-        // this would mean the vk of the hiding kernel depends on the log_circuit_size of the apps/kernels accumulated.
-        // this is due to how max circuit size is computed,
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): We need to set the log circuit size here due
+        // to an invalid out of circuit max operation in the PG recursive verifier. Once that is resolved this should
+        // not be necessary.
         ivc->verifier_accumulator->vk->log_circuit_size = 18;
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
