@@ -12,7 +12,7 @@ unconstrained fn transfer_in_private() {
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT to the recipient
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         sender,
         NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 0),
     );
@@ -28,7 +28,7 @@ unconstrained fn transfer_in_private_to_self() {
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT back to the owner
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         owner,
         NFT::at(nft_contract_address).transfer_in_private(owner, owner, token_id, 0),
     );
@@ -45,7 +45,7 @@ unconstrained fn transfer_in_private_to_non_deployed_account() {
     let not_deployed = txe_oracles::create_account(999);
 
     // Transfer the NFT to the recipient
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         sender,
         NFT::at(nft_contract_address).transfer_in_private(sender, not_deployed.address, token_id, 0),
     );
@@ -66,7 +66,7 @@ unconstrained fn transfer_in_private_on_behalf_of_other() {
     add_private_authwit_from_call_interface(sender, recipient, transfer_in_private_call_interface);
 
     // Transfer the NFT to the recipient
-    let _ = env.call_private_void(recipient, transfer_in_private_call_interface);
+    let _ = env.call_private(recipient, transfer_in_private_call_interface);
 
     // Recipient should be the private NFT owner
     utils::assert_owns_private_nft(env, nft_contract_address, recipient, token_id);
@@ -78,7 +78,7 @@ unconstrained fn transfer_in_private_failure_not_an_owner() {
     let (env, nft_contract_address, owner, not_owner, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         not_owner,
         NFT::at(nft_contract_address).transfer_in_private(not_owner, owner, token_id, 0),
     );
@@ -96,7 +96,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() 
     let token_id = random();
 
     // Try transferring the NFT
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         sender,
         NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1),
     );
@@ -114,7 +114,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_without_approval
     let token_id = random();
 
     // Try transferring the NFT
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         recipient,
         NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1),
     );
@@ -140,5 +140,5 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_wrong_caller() {
     );
 
     // Try transferring the NFT
-    let _ = env.call_private_void(recipient, transfer_in_private_from_call_interface);
+    let _ = env.call_private(recipient, transfer_in_private_from_call_interface);
 }

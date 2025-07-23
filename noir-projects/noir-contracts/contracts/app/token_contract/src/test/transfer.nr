@@ -10,7 +10,7 @@ unconstrained fn transfer_private() {
     // docs:start:txe_test_transfer_private
     // Transfer tokens
     let transfer_amount = 1000 as u128;
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         owner,
         Token::at(token_contract_address).transfer(recipient, transfer_amount),
     );
@@ -32,10 +32,8 @@ unconstrained fn transfer_private_to_self() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = 1000 as u128;
-    let _ = env.call_private_void(
-        owner,
-        Token::at(token_contract_address).transfer(owner, transfer_amount),
-    );
+    let _ =
+        env.call_private(owner, Token::at(token_contract_address).transfer(owner, transfer_amount));
 
     // Check balances
     utils::check_private_balance(env, token_contract_address, owner, mint_amount);
@@ -50,7 +48,7 @@ unconstrained fn transfer_private_to_non_deployed_account() {
 
     // Transfer tokens
     let transfer_amount = 1000 as u128;
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         owner,
         Token::at(token_contract_address).transfer(not_deployed, transfer_amount),
     );
@@ -72,7 +70,7 @@ unconstrained fn transfer_private_failure_more_than_balance() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount + (1 as u128);
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         owner,
         Token::at(token_contract_address).transfer(recipient, transfer_amount),
     );

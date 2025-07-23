@@ -9,7 +9,7 @@ unconstrained fn transfer_in_public() {
         utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer the NFT
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         sender,
         NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0),
     );
@@ -24,7 +24,7 @@ unconstrained fn transfer_in_public_to_self() {
         utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer the NFT
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         user,
         NFT::at(nft_contract_address).transfer_in_public(user, user, token_id, 0),
     );
@@ -49,7 +49,7 @@ unconstrained fn transfer_in_public_on_behalf_of_other() {
     );
 
     // Transfer the NFT
-    let _ = env.call_public_void(recipient, transfer_in_public_from_call_interface);
+    let _ = env.call_public(recipient, transfer_in_public_from_call_interface);
 
     // Check the is recipient is the new public owner
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
@@ -64,7 +64,7 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup(/* with_account_contracts */ false);
 
     let token_id = 1;
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         sender,
         NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1),
     );
@@ -77,7 +77,7 @@ unconstrained fn transfer_in_public_non_existent_nft() {
         utils::setup(/* with_account_contracts */ false);
 
     let token_id = 1;
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         sender,
         NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0),
     );
@@ -89,7 +89,7 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_without_approval(
     let (env, nft_contract_address, sender, recipient, token_id) =
         utils::setup_and_mint(/* with_account_contracts */ true);
 
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         recipient,
         NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0),
     );
@@ -110,5 +110,5 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_wrong_caller() {
     );
 
     // Try to transfer tokens
-    let _ = env.call_public_void(recipient, transfer_in_public_from_call_interface);
+    let _ = env.call_public(recipient, transfer_in_public_from_call_interface);
 }

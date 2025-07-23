@@ -137,7 +137,7 @@ pub contract Counter {
         // docs:end:txe_test_read_notes
 
         // Increment the counter
-        let _ = env.call_private_void(owner, Counter::at(contract_address).increment(owner));
+        let _ = env.call_private(owner, Counter::at(contract_address).increment(owner));
 
         let incremented_counter =
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
@@ -159,23 +159,21 @@ pub contract Counter {
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
         assert(initial_note_value == initial_value);
 
-        let _ = env.call_private_void(owner, Counter::at(contract_address).increment_twice(owner));
+        let _ = env.call_private(owner, Counter::at(contract_address).increment_twice(owner));
 
         assert_eq(
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
             7,
         );
 
-        let _ = env.call_private_void(
-            owner,
-            Counter::at(contract_address).increment_and_decrement(owner),
-        );
+        let _ =
+            env.call_private(owner, Counter::at(contract_address).increment_and_decrement(owner));
         assert_eq(
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
             7,
         );
 
-        let _ = env.call_private_void(owner, Counter::at(contract_address).decrement(owner));
+        let _ = env.call_private(owner, Counter::at(contract_address).decrement(owner));
         assert_eq(
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner)),
             6,

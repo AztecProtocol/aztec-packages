@@ -10,9 +10,8 @@ pub mod call_interfaces;
 pub mod gas;
 
 pub use call_interfaces::{
-    PrivateCallInterface, PrivateStaticCallInterface, PrivateStaticVoidCallInterface,
-    PrivateVoidCallInterface, PublicCallInterface, PublicStaticCallInterface,
-    PublicStaticVoidCallInterface, PublicVoidCallInterface, UtilityCallInterface,
+    PrivateCallInterface, PrivateStaticCallInterface, PublicCallInterface,
+    PublicStaticCallInterface, UtilityCallInterface,
 };
 pub use private_context::PrivateContext;
 pub use public_context::PublicContext;

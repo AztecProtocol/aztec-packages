@@ -50,7 +50,7 @@ mod tests {
 
         // set x to 10
         let x = 10;
-        let _ = env.call_public_void(contract_address, test_contract.initialize_value(x));
+        let _ = env.call_public(contract_address, test_contract.initialize_value(x));
 
         // We advance block to commit state and have the nullifier available for reading.
         env.mine_block();

@@ -1,6 +1,6 @@
 use crate::{
     authwit::auth::{compute_authwit_message_hash, compute_inner_authwit_hash},
-    context::call_interfaces::{CallInterface, PublicVoidCallInterface},
+    context::call_interfaces::{CallInterface, PublicCallInterface},
     hash::hash_args,
     oracle::execution::{get_chain_id, get_version},
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
@@ -48,9 +48,9 @@ where
         compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     let message_hash = compute_authwit_message_hash(target, chain_id, version, inner_hash);
 
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         on_behalf_of,
-        PublicVoidCallInterface::<_, ()>::new(
+        PublicCallInterface::<_, ()>::new(
             CANONICAL_AUTH_REGISTRY_ADDRESS,
             comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
             "set_authorized",

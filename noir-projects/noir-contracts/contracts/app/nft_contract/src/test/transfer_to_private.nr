@@ -37,7 +37,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         .return_value;
 
     // Finalize the transfer of the NFT (message sender owns the NFT in public)
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );
@@ -59,7 +59,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     let partial_note = PartialNFTNote { commitment: random() };
 
     // Try finalizing the transfer without preparing it
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );
@@ -82,7 +82,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
         .return_value;
 
     // Try transferring someone else's public NFT
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         not_owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );
@@ -107,7 +107,7 @@ unconstrained fn incorrect_completer_cannot_complete_partial_note() {
 
     // Now we try to complete the partial note as another completer. Note that the caller here is the owner of the token
     // we're transferring - this is so that we pass the owner check and fail on the partial note completer check.
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         owner,
         NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, partial_note),
     );
