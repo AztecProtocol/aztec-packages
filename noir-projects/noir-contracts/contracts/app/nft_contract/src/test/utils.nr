@@ -46,7 +46,7 @@ pub unconstrained fn setup_and_mint(
     let (env, nft_contract_address, owner, recipient) = setup(with_account_contracts);
     let minted_token_id = 615;
 
-    let _ = env.call_public_void(owner, NFT::at(nft_contract_address).mint(owner, minted_token_id));
+    let _ = env.call_public(owner, NFT::at(nft_contract_address).mint(owner, minted_token_id));
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -58,7 +58,7 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
         setup_and_mint(with_account_contracts);
 
     // We transfer the public NFT to private.
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         owner,
         NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id),
     );
