@@ -22,7 +22,7 @@ class ECCVMPointTablePrecomputationBuilder {
     static constexpr size_t WNAF_DIGITS_PER_ROW = bb::eccvm::WNAF_DIGITS_PER_ROW;
     static constexpr size_t NUM_WNAF_DIGIT_BITS = bb::eccvm::NUM_WNAF_DIGIT_BITS;
 
-    struct PointTablePrecoputationRow {
+    struct PointTablePrecomputationRow {
         int s1 = 0;
         int s2 = 0;
         int s3 = 0;
@@ -40,15 +40,15 @@ class ECCVMPointTablePrecomputationBuilder {
         AffineElement precompute_double{ 0, 0 };
     };
 
-    static std::vector<PointTablePrecoputationRow> compute_rows(
+    static std::vector<PointTablePrecomputationRow> compute_rows(
         const std::vector<bb::eccvm::ScalarMul<CycleGroup>>& ecc_muls)
     {
         static constexpr size_t num_rows_per_scalar = NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW;
         const size_t num_precompute_rows = num_rows_per_scalar * ecc_muls.size() + 1;
-        std::vector<PointTablePrecoputationRow> precompute_state(num_precompute_rows);
+        std::vector<PointTablePrecomputationRow> precompute_state(num_precompute_rows);
 
         // start with empty row (shiftable polynomials must have 0 as first coefficient)
-        precompute_state[0] = PointTablePrecoputationRow{};
+        precompute_state[0] = PointTablePrecomputationRow{};
 
         // current impl doesn't work if not 4
         static_assert(WNAF_DIGITS_PER_ROW == 4);
@@ -60,12 +60,13 @@ class ECCVMPointTablePrecomputationBuilder {
                 uint256_t scalar_sum = 0;
 
                 for (size_t i = 0; i < num_rows_per_scalar; ++i) {
-                    PointTablePrecoputationRow row;
+                    PointTablePrecomputationRow row;
                     const int slice0 = slices[i * WNAF_DIGITS_PER_ROW];
                     const int slice1 = slices[i * WNAF_DIGITS_PER_ROW + 1];
                     const int slice2 = slices[i * WNAF_DIGITS_PER_ROW + 2];
                     const int slice3 = slices[i * WNAF_DIGITS_PER_ROW + 3];
 
+                    // {-15, -13. ..., 13, 15} --> {0, 1, ..., 15}
                     const int slice0base2 = (slice0 + 15) / 2;
                     const int slice1base2 = (slice1 + 15) / 2;
                     const int slice2base2 = (slice2 + 15) / 2;

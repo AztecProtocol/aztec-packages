@@ -23,7 +23,11 @@ template <typename CycleGroup> struct ScalarMul {
     uint32_t pc;
     uint256_t scalar;
     typename CycleGroup::affine_element base_point;
-    std::array<int, NUM_WNAF_DIGITS_PER_SCALAR> wnaf_digits;
+    std::array<int, NUM_WNAF_DIGITS_PER_SCALAR>
+        wnaf_digits; // [a_{n-1}, a_{n-1}, ..., a_{0}], where each a_i ∈ {-2ʷ⁻¹ + 1, -2ʷ⁻¹ + 3, ..., 2ʷ⁻¹ - 3, 2ʷ⁻¹ -
+                     // 1} ∪ {0}. (here, w = `NUM_WNAF_DIGIT_BITS`). in particular, a_i is either an odd number with
+                     // absolute value less than 2ʷ or 0. `wnaf_digits` has the following guarantee: no two consecutive
+                     // elements are both non-zero. Represents the number `scalar` = ∑ᵢ aᵢ 2⁴ⁱ - `wnaf_skew`.
     bool wnaf_skew;
     // size bumped by 1 to record base_point.dbl()
     std::array<typename CycleGroup::affine_element, POINT_TABLE_SIZE + 1> precomputed_table;
