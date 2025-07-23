@@ -8,6 +8,7 @@ import {
   splitHonkProof,
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
+import { fromClientIVCProof, toClientIVCProof } from '../cbind/index.js';
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';
@@ -265,7 +266,7 @@ export class AztecClientBackend {
     const proveResult = await this.api.clientIvcProve({});
 
     // The API currently expects a msgpack-encoded API.
-    const proof = new Encoder({useRecords: false}).encode(proveResult.proof);
+    const proof = new Encoder({useRecords: false}).encode(fromClientIVCProof(proveResult.proof));
     // Generate the VK
     const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
       name: 'tail',
@@ -282,7 +283,7 @@ export class AztecClientBackend {
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
     const result = await this.api.clientIvcVerify({
-      proof: new Decoder({useRecords: false}).decode(proof),
+      proof: toClientIVCProof(new Decoder({useRecords: false}).decode(proof)),
       vk: Buffer.from(vk),
     });
     return result.valid;

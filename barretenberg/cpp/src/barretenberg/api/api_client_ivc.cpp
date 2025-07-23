@@ -164,9 +164,9 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
-    const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
+    auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk_buffer = read_file(vk_path);
-    auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = vk_buffer }.execute();
+    auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
 }
 

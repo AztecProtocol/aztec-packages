@@ -1,4 +1,5 @@
 // Export all generated APIs
+export * from './generated/api_types.js';
 export * from './generated/sync.js';
 export * from './generated/async.js';
 export * from './generated/native.js';

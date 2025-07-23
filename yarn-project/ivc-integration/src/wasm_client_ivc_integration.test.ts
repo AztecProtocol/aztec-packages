@@ -67,7 +67,7 @@ describe('Client IVC Integration', () => {
       bbBinaryPath,
       clientIVCWorkingDirectory.concat('/proof'),
       clientIVCWorkingDirectory.concat('/vk'),
-      logger.info,
+      console.log,
     );
     expect(verifyWasmResultInNative.status).toEqual(BB_RESULT.SUCCESS);
   });
