@@ -32,7 +32,13 @@ id: try_testnet
 
 **Rollup Version**: `3924331020`
 
-**Node ENR**: `enr:-M24QDZDoyfM7Ys5Y7M0kSmwarvlywtVmciWA-cT8qw6RTgqDnJDtUjULKQKNVOutHhrsHDwo0lFNtRLM_Q1zAVa3n4HhWF6dGVjsTAwLTExMTU1MTExLTIxNmYwNzE2LTM5MjQzMzEwMjAtMDBkMDk4MDYtMWE1MDc5YjWCaWSCdjSCaXCEJRuLyIlzZWNwMjU2azGhA1k50LogNpVrOJ5Gc3jxHWCN7KillKXv_LaWVCvYP8nJg3RjcIKeNIN1ZHCCnjSDdmVyhTEuMS4y`
+**Node ENR**:
+
+<!-- cspell:disable -->
+
+`enr:-M24QDZDoyfM7Ys5Y7M0kSmwarvlywtVmciWA-cT8qw6RTgqDnJDtUjULKQKNVOutHhrsHDwo0lFNtRLM_Q1zAVa3n4HhWF6dGVjsTAwLTExMTU1MTExLTIxNmYwNzE2LTM5MjQzMzEwMjAtMDBkMDk4MDYtMWE1MDc5YjWCaWSCdjSCaXCEJRuLyIlzZWNwMjU2azGhA1k50LogNpVrOJ5Gc3jxHWCN7KillKXv_LaWVCvYP8nJg3RjcIKeNIN1ZHCCnjSDdmVyhTEuMS4y`
+
+<!-- cspell:enable -->
 
 ## Core L1 and L2 Precompiles and Contracts
 
