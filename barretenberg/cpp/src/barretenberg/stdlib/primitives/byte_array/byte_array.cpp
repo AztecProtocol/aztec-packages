@@ -194,8 +194,13 @@ byte_array<Builder>::byte_array(const field_t<Builder>& input,
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, bytes_t const& input)
     : context(parent_context)
-    , values(input)
-{}
+    , values(input.size())
+{
+    for (size_t idx = 0; idx < input.size(); idx++) {
+        values[idx] = input[idx];
+        values[idx].create_range_constraint(8, "byte_array: input is not a byte");
+    }
+}
 
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, bytes_t&& input)

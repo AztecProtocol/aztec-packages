@@ -16,7 +16,8 @@ auto& engine = numeric::get_debug_randomness();
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Builder = TypeParam;                                                                                         \
     using packed_byte_array_ct = stdlib::packed_byte_array<Builder>;                                                   \
-    using byte_array_ct = stdlib::byte_array<Builder>;
+    using byte_array_ct = stdlib::byte_array<Builder>;                                                                 \
+    using field_ct = stdlib::field_t<Builder>;
 
 template <class Builder> class PackedByteArrayTest : public ::testing::Test {};
 
@@ -99,6 +100,7 @@ TYPED_TEST(PackedByteArrayTest, TestUnverifiedByteSlices)
 TYPED_TEST(PackedByteArrayTest, TestAppendUint8)
 {
     STDLIB_TYPE_ALIASES
+
     auto builder = Builder();
     std::vector<uint8_t> bytes;
     const size_t initial_size = 100;

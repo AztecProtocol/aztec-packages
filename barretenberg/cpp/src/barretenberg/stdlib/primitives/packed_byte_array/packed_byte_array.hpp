@@ -19,7 +19,29 @@ template <typename Builder> class packed_byte_array {
     using bool_ct = bool_t<Builder>;
     using byte_array_ct = byte_array<Builder>;
 
+    Builder* context;
+    size_t num_bytes;
+    size_t num_limbs;
+    std::vector<field_ct> limbs; // 16 bytes per field_ct element
+
+    field_ct compute_limb_from_bytes(const std::vector<field_ct>& input,
+                                     size_t start_idx,
+                                     size_t count = BYTES_PER_ELEMENT,
+                                     size_t bytes_per_input = 1) const;
+
+    field_t<Builder> slice_byte_from_limb_value(const uint256_t& limb_value, size_t j) const;
+
   public:
+    static constexpr uint64_t BYTES_PER_ELEMENT = 16;
+
+    static constexpr std::array<uint64_t, BYTES_PER_ELEMENT> BYTE_BIT_SHIFTS = []() {
+        std::array<uint64_t, BYTES_PER_ELEMENT> shifts{};
+        for (size_t j = 0; j < BYTES_PER_ELEMENT; ++j) {
+            shifts[j] = (BYTES_PER_ELEMENT - 1 - j) * 8;
+        }
+        return shifts;
+    }();
+
     packed_byte_array(Builder* parent_context, size_t const num_bytes = 0);
 
     // THIS CTOR ASSUMES INPUT ELEMENTS HAVE ALREADY BEEN REDUCED TO <16 BYTES PER ELEMENT
@@ -48,11 +70,12 @@ template <typename Builder> class packed_byte_array {
 
     std::string get_value() const;
 
-  private:
-    static constexpr uint64_t BYTES_PER_ELEMENT = 16;
-    Builder* context;
-    size_t num_bytes;
-    std::vector<field_ct> limbs;
+    static constexpr size_t compute_num_limbs(size_t num_bytes)
+    {
+        return num_bytes / BYTES_PER_ELEMENT + (num_bytes % BYTES_PER_ELEMENT != 0);
+    }
+
+    size_t get_num_limbs() const { return num_limbs; }
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, packed_byte_array<Builder> const& arr)

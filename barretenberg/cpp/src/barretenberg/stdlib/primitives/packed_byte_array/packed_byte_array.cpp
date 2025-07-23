@@ -12,8 +12,8 @@
 using namespace bb;
 
 namespace bb::stdlib {
-
 namespace {
+
 template <typename Builder> Builder* get_context_from_fields(const std::vector<field_t<Builder>>& input)
 {
     for (const auto& element : input) {
@@ -26,61 +26,88 @@ template <typename Builder> Builder* get_context_from_fields(const std::vector<f
 } // namespace
 
 template <typename Builder>
+field_t<Builder> packed_byte_array<Builder>::compute_limb_from_bytes(const std::vector<field_ct>& input,
+                                                                     size_t start_idx,
+                                                                     size_t count,
+                                                                     size_t bytes_per_input) const
+{
+    std::vector<field_ct> limb;
+    for (size_t j = 0; j < count; ++j) {
+        const uint64_t limb_shift = (BYTES_PER_ELEMENT - ((j + 1) * bytes_per_input)) << 3;
+        limb.push_back(input[start_idx + j] * fr(uint256_t(1) << limb_shift));
+    }
+    return field_ct::accumulate(limb);
+}
+
+template <typename Builder>
+field_t<Builder> packed_byte_array<Builder>::slice_byte_from_limb_value(const uint256_t& limb_value, size_t j) const
+{
+    const uint64_t bit_shift = BYTE_BIT_SHIFTS[j];
+    const uint64_t byte_val = (limb_value >> bit_shift).data[0] & 0xff;
+
+    return witness_t(context, byte_val);
+};
+
+// Construct an empty packed byte array of size
+template <typename Builder>
 packed_byte_array<Builder>::packed_byte_array(Builder* parent_context, const size_t n)
     : context(parent_context)
     , num_bytes(n)
-{
-    const size_t num_elements = num_bytes / BYTES_PER_ELEMENT + (num_bytes % BYTES_PER_ELEMENT != 0);
-    limbs = std::vector<field_ct>(num_elements);
-}
+    , num_limbs(compute_num_limbs(num_bytes))
+    , limbs(std::vector<field_ct>(num_limbs))
+{}
 
+// Given a vector of fields, construct a packed byte array containing the limbs of size `bytes_per_input` that is not
+// allowed to exceedd 16
+// Any unsafe usage?
 template <typename Builder>
 packed_byte_array<Builder>::packed_byte_array(const std::vector<field_ct>& input, const size_t bytes_per_input)
     : context(get_context_from_fields(input))
     , num_bytes(bytes_per_input * input.size())
+    , num_limbs(compute_num_limbs(num_bytes))
+    , limbs(num_limbs)
 {
     BB_ASSERT_LTE(bytes_per_input, BYTES_PER_ELEMENT);
     if (bytes_per_input > BYTES_PER_ELEMENT) {
-        context->failure("packed_byte_array: called `packed_byte_array` constructor with `bytes_per_input > 16 bytes");
+        context->failure("packed_byte_array: called with `bytes_per_input > 16`");
     }
 
-    // TODO HANDLE CASE WHERE bytes_per_input > BYTES_PER_ELEMENT (and not 32)
     const size_t inputs_per_limb = BYTES_PER_ELEMENT / bytes_per_input;
+    const size_t full_limbs = num_limbs - 1;
+    const size_t final_limb_inputs = input.size() - full_limbs * inputs_per_limb;
 
-    const size_t num_elements = num_bytes / BYTES_PER_ELEMENT + (num_bytes % BYTES_PER_ELEMENT != 0);
-    for (size_t i = 0; i < num_elements; ++i) {
-        field_ct limb(context, 0);
-        if (uint256_t(limb.get_value()).get_msb() >= 128) {
-            context->failure("packed_byte_array: input field element to `packed_byte_array` is >16 bytes!");
-        }
-        const size_t num_inputs = (i == num_elements - 1) ? (input.size() - (i * inputs_per_limb)) : inputs_per_limb;
-        for (size_t j = 0; j < num_inputs; ++j) {
-            const uint64_t limb_shift = (BYTES_PER_ELEMENT - ((j + 1) * bytes_per_input)) << 3;
-            limb += input[i * inputs_per_limb + j] * field_ct(context, uint256_t(1) << limb_shift);
-        }
-        limbs.push_back(limb);
+    // Process full limbs.
+    for (size_t limb_idx = 0; limb_idx < full_limbs; ++limb_idx) {
+        const size_t start = limb_idx * inputs_per_limb;
+        limbs[limb_idx] = compute_limb_from_bytes(input, start, inputs_per_limb, bytes_per_input);
     }
+
+    // Process final limb that might be incomplete.
+    const size_t start = full_limbs * inputs_per_limb;
+    limbs[num_limbs - 1] = compute_limb_from_bytes(input, start, final_limb_inputs, bytes_per_input);
 }
 
+// Given a vector of bytes, create a packed_byte_array combining bytes into limbs of size 16.
 template <typename Builder>
 packed_byte_array<Builder>::packed_byte_array(Builder* parent_context, const std::vector<uint8_t>& input)
     : context(parent_context)
     , num_bytes(input.size())
+    , num_limbs(compute_num_limbs(num_bytes))
+
 {
-    const size_t num_elements = num_bytes / BYTES_PER_ELEMENT + (num_bytes % BYTES_PER_ELEMENT != 0);
-    std::vector<uint256_t> data(num_elements);
-    for (size_t i = 0; i < num_elements; ++i) {
+    std::vector<uint256_t> data(num_limbs);
+    for (size_t i = 0; i < num_limbs; ++i) {
         data[i] = 0;
     }
     for (size_t i = 0; i < input.size(); ++i) {
         const size_t limb = i / BYTES_PER_ELEMENT;
         const size_t limb_byte = i % BYTES_PER_ELEMENT;
-        const uint64_t limb_shift = (BYTES_PER_ELEMENT - 1U - static_cast<uint64_t>(limb_byte)) << 3;
 
-        data[limb] += uint256_t(input[i]) << limb_shift;
+        data[limb] += uint256_t(input[i]) << BYTE_BIT_SHIFTS[limb_byte];
     }
 
-    for (size_t i = 0; i < num_elements; ++i) {
+    for (size_t i = 0; i < num_limbs; ++i) {
+        // No range constraints?
         limbs.push_back(witness_t(context, fr(data[i])));
     }
 }
@@ -89,20 +116,19 @@ template <typename Builder>
 packed_byte_array<Builder>::packed_byte_array(const byte_array_ct& input)
     : context(input.get_context())
     , num_bytes(input.size())
+    , num_limbs(compute_num_limbs(num_bytes))
+    , limbs(num_limbs)
 {
-    const size_t num_elements = num_bytes / BYTES_PER_ELEMENT + (num_bytes % BYTES_PER_ELEMENT != 0);
-
     const auto& bytes = input.bytes();
 
-    for (size_t i = 0; i < num_elements; ++i) {
-        const size_t bytes_in_element = (i == num_elements - 1) ? num_bytes - i * BYTES_PER_ELEMENT : BYTES_PER_ELEMENT;
-        field_ct limb(context, 0);
-        for (size_t j = 0; j < bytes_in_element; ++j) {
-            const uint64_t shift = static_cast<uint64_t>(BYTES_PER_ELEMENT - 1 - j) * 8;
-            limb += field_ct(bytes[i * BYTES_PER_ELEMENT + j]) * field_ct(context, uint256_t(1) << shift);
-        }
-        limbs.push_back(limb);
+    // Process full 16-byte limbs
+    for (size_t i = 0; i < num_limbs - 1; ++i) {
+        limbs[i] = compute_limb_from_bytes(bytes, i * BYTES_PER_ELEMENT);
     }
+
+    // Process the final limb that may be smaller than 16 bytes
+    limbs[num_limbs - 1] = compute_limb_from_bytes(
+        bytes, (num_limbs - 1) * BYTES_PER_ELEMENT, num_bytes - (num_limbs - 1) * BYTES_PER_ELEMENT);
 }
 
 template <typename Builder>
@@ -141,24 +167,33 @@ template <typename Builder> packed_byte_array<Builder>& packed_byte_array<Builde
     return *this;
 }
 
+// Convert to `byte_array`
 template <typename Builder> packed_byte_array<Builder>::operator byte_array_ct() const
 {
     std::vector<field_ct> bytes;
+    const size_t num_limbs = limbs.size();
 
-    for (size_t i = 0; i < limbs.size(); ++i) {
-        const size_t bytes_in_limb = (i == limbs.size() - 1) ? num_bytes - (i * BYTES_PER_ELEMENT) : BYTES_PER_ELEMENT;
-        field_ct accumulator(context, 0);
-        uint256_t limb_value(limbs[i].get_value());
-        for (size_t j = 0; j < bytes_in_limb; ++j) {
-            const uint64_t bit_shift = (BYTES_PER_ELEMENT - 1 - j) * 8;
-            uint64_t byte_val = (limb_value >> bit_shift).data[0] & (uint64_t)(255);
-            field_ct byte(witness_t(context, fr(byte_val)));
-            byte.create_range_constraint(8);
-            accumulator += (field_ct(byte) * field_ct(context, uint256_t(1) << bit_shift));
+    // Lambda to extract bytes, constrain them, and assert reconstruction
+    auto process_limb = [&](const field_ct& limb, size_t num_bytes_in_limb = BYTES_PER_ELEMENT) {
+        const uint256_t limb_value(limb.get_value());
+        std::vector<field_ct> accumulator;
+        for (size_t j = 0; j < num_bytes_in_limb; ++j) {
+            field_ct byte = slice_byte_from_limb_value(limb_value, j);
             bytes.emplace_back(byte);
+            accumulator.push_back(byte * fr(uint256_t(1) << BYTE_BIT_SHIFTS[j]));
         }
-        accumulator.assert_equal(limbs[i]);
+        limb.assert_equal(field_ct::accumulate(accumulator));
+    };
+
+    // Process all full limbs
+    for (size_t i = 0; i < num_limbs - 1; ++i) {
+        process_limb(limbs[i]);
     }
+
+    // Process final limb that may contain less than 16 bytes.
+    const size_t bytes_in_last_limb = num_bytes - (num_limbs - 1) * BYTES_PER_ELEMENT;
+    process_limb(limbs[num_limbs - 1], bytes_in_last_limb);
+
     return byte_array_ct(context, bytes);
 }
 
@@ -184,28 +219,30 @@ void packed_byte_array<Builder>::append(const field_ct& to_append, const size_t 
 
     const uint64_t current_padding = (current_limb_space - num_bytes_for_current_limb) << 3;
     const uint64_t next_padding = (BYTES_PER_ELEMENT - num_bytes_for_new_limb) << 3;
-    bool is_constant = to_append.witness_index == IS_CONSTANT;
+    const bool is_constant = to_append.is_constant();
 
-    field_ct to_current;
-    to_current = is_constant ? field_ct(context, append_current) : witness_t(context, append_current);
+    field_ct to_current = is_constant ? field_ct(context, append_current) : witness_t(context, append_current);
+
     limbs[limbs.size() - 1] += (to_current * field_ct(context, uint256_t(1) << current_padding));
 
     field_ct reconstructed = to_current;
     if (num_bytes_for_new_limb > 0) {
-        field_ct to_add;
-        to_add = is_constant ? field_ct(context, append_next) : witness_t(context, append_next);
+        field_ct to_add = is_constant ? field_ct(context, append_next) : witness_t(context, append_next);
         limbs.emplace_back(to_add * field_ct(context, uint256_t(1) << next_padding));
 
-        reconstructed += to_add * field_ct(context, uint256_t(1) << uint256_t(num_bytes_for_current_limb * 8));
+        reconstructed += to_add * field_ct(context, uint256_t(1) << (num_bytes_for_current_limb * 8));
     }
 
     if (!is_constant) {
+        // Is it enough without range constraints? Both summands are created out-of-circuit!
         reconstructed.assert_equal(to_append);
     }
 
     num_bytes += bytes_to_append;
 }
 
+// Is only called with bytes_per_slice = 4
+// BYTES_PER_ELEMENT = 16
 template <typename Builder>
 std::vector<field_t<Builder>> packed_byte_array<Builder>::to_unverified_byte_slices(const size_t bytes_per_slice) const
 {
@@ -215,24 +252,22 @@ std::vector<field_t<Builder>> packed_byte_array<Builder>::to_unverified_byte_sli
         const size_t bytes_in_limb = (i == limbs.size() - 1) ? num_bytes - (i * BYTES_PER_ELEMENT) : BYTES_PER_ELEMENT;
         const size_t num_slices = (bytes_in_limb / bytes_per_slice) + (bytes_in_limb % bytes_per_slice != 0);
 
-        field_ct accumulator(context, 0);
+        std::vector<field_ct> accumulator;
         for (size_t j = 0; j < num_slices; ++j) {
             const size_t bytes_in_slice =
                 (j == num_slices - 1) ? bytes_in_limb - (j * bytes_per_slice) : bytes_per_slice;
             const uint64_t end = (BYTES_PER_ELEMENT - (j * bytes_in_slice)) << 3;
             const uint64_t start = (BYTES_PER_ELEMENT - ((j + 1) * bytes_in_slice)) << 3;
 
-            const uint256_t slice = limb_value.slice(start, end);
+            const uint256_t slice_value = limb_value.slice(start, end);
 
-            if (limbs[i].witness_index != IS_CONSTANT) {
-                slices.push_back(witness_t(context, fr(slice)));
-            } else {
-                slices.push_back(field_ct(context, fr(slice)));
-            }
-            accumulator += (slices.back() * field_ct(context, uint256_t(1) << start));
+            field_ct slice = !limbs[i].is_constant() ? witness_t(context, slice_value) : field_ct(context, slice_value);
+            slices.push_back(slice);
+
+            accumulator.push_back(slice * field_ct(uint256_t(1) << start));
         }
 
-        limbs[i].assert_equal(accumulator);
+        limbs[i].assert_equal(field_ct::accumulate(accumulator));
     }
     return slices;
 }
