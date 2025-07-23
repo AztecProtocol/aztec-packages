@@ -271,7 +271,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // loop through to make sure we create an attestation for the proposer
       for (uint256 i = 0; i < validators.length; i++) {
         if (validators[i] == proposer) {
-          attestations[i] = createAttestation(validators[i], digest);
+          attestations[i] = _createAttestation(validators[i], digest);
         }
       }
 
@@ -282,10 +282,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         if (validators[i] == proposer) {
           continue;
         } else if (sigCount < needed) {
-          attestations[i] = createAttestation(validators[i], digest);
+          attestations[i] = _createAttestation(validators[i], digest);
           sigCount++;
         } else {
-          attestations[i] = createEmptyAttestation(validators[i]);
+          attestations[i] = _createEmptyAttestation(validators[i]);
         }
       }
     }
@@ -297,7 +297,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     });
   }
 
-  function createAttestation(address _signer, bytes32 _digest)
+  function _createAttestation(address _signer, bytes32 _digest)
     internal
     view
     returns (CommitteeAttestation memory)
@@ -313,7 +313,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   // This is used for attestations that are not signed - we include their address to help reconstruct the committee commitment
-  function createEmptyAttestation(address _signer)
+  function _createEmptyAttestation(address _signer)
     internal
     pure
     returns (CommitteeAttestation memory)
@@ -328,7 +328,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @param _payload The payload to signal
    * @return The EIP-712 signature
    */
-  function createSignalSignature(address _signer, IPayload _payload, uint256 _round)
+  function _createSignalSignature(address _signer, IPayload _payload, uint256 _round)
     internal
     view
     returns (Signature memory)
@@ -358,7 +358,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
         address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createSignalSignature(proposer, slashPayload, round);
+        Signature memory sig = _createSignalSignature(proposer, slashPayload, round);
         slashingProposer.signalWithSig(slashPayload, sig);
         warmedUp = true;
       }
@@ -372,10 +372,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         Block memory b = getBlock();
         address proposer = rollup.getCurrentProposer();
 
-        skipBlobCheck(address(rollup));
+        _skipBlobCheck(address(rollup));
 
         if (_slashing) {
-          Signature memory sig = createSignalSignature(proposer, slashPayload, round);
+          Signature memory sig = _createSignalSignature(proposer, slashPayload, round);
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),
