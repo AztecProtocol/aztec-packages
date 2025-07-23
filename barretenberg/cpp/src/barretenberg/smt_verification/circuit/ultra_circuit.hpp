@@ -13,7 +13,8 @@ struct BlockType {
     static const size_t ARITHMETIC = 2;
     static const size_t DELTA_RANGE = 3;
     static const size_t ELLIPTIC = 4;
-    static const size_t AUX = 5;
+    static const size_t MEMORY = 5;
+    static const size_t NNF = 6;
 };
 
 /**
@@ -30,7 +31,8 @@ class UltraCircuit : public CircuitBase {
                                                                 // 2nd entry are arithmetic selectors
                                                                 // 3rd entry are delta_range selectors
                                                                 // 4th entry are elliptic selectors
-                                                                // 5th entry are aux selectors
+                                                                // 5th entry are memory selectors
+                                                                // 6th entry are nnf selectors
     std::vector<std::vector<std::vector<uint32_t>>> wires_idxs; // values of the gates' wires idxs
 
     std::vector<std::vector<std::vector<bb::fr>>> lookup_tables;
@@ -73,7 +75,7 @@ class UltraCircuit : public CircuitBase {
     inline size_t get_num_gates() const
     {
         return selectors[0].size() + selectors[1].size() + selectors[2].size() + selectors[3].size() +
-               selectors[4].size() + selectors[5].size();
+               selectors[4].size() + selectors[5].size() + selectors[6].size();
     };
 
     bool simulate_circuit_eval(std::vector<bb::fr>& witness) const override;
@@ -83,7 +85,8 @@ class UltraCircuit : public CircuitBase {
     size_t handle_lookup_relation(size_t cursor);
     size_t handle_elliptic_relation(size_t cursor);
     size_t handle_delta_range_relation(size_t cursor);
-    size_t handle_aux_relation(size_t cursor);
+    size_t handle_memory_relation(size_t cursor);
+    size_t handle_nnf_relation(size_t cursor);
 
     void handle_range_constraints();
 

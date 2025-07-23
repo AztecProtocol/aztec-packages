@@ -1140,7 +1140,49 @@ TEST(ExecutionTraceGenTest, NullifierExists)
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),
                           ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF),
                           ROW_FIELD_EQ(execution_mem_tag_reg_2_, MEM_TAG_U1),
-                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIEREXISTS))));
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS))));
+}
+
+TEST(ExecutionTraceGenTest, EmitNullifier)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t nullifier_offset = 100;
+    FF nullifier = 0x123456;
+    uint32_t prev_num_nullifiers_emitted = MAX_NULLIFIERS_PER_TX - 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::EMITNULLIFIER).operand<uint16_t>(nullifier_offset).build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { TaggedValue::from_tag(ValueTag::FF, nullifier) },
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) } } },
+        .before_context_event = {
+            .tree_states = {
+                .nullifierTree = {
+                    .counter = prev_num_nullifiers_emitted,
+                },
+            }
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the emit_nullifier
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_emit_nullifier, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, nullifier),
+                          ROW_FIELD_EQ(execution_register_0_, nullifier),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),
+                          ROW_FIELD_EQ(execution_remaining_nullifiers_inv,
+                                       FF(MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted).invert()),
+                          ROW_FIELD_EQ(execution_sel_write_nullifier, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMIT_NULLIFIER))));
 }
 
 } // namespace
