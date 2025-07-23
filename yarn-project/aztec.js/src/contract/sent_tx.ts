@@ -92,7 +92,7 @@ export class SentTx {
     const receipt = await this.waitForReceipt(opts);
     if (receipt.status !== TxStatus.SUCCESS && !opts?.dontThrowOnRevert) {
       throw new Error(
-        `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
+        `Transaction ${(await this.getTxHash()).toString()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
       );
     }
     return receipt;

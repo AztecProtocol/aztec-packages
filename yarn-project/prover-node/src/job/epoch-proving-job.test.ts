@@ -95,7 +95,7 @@ describe('epoch-proving-job', () => {
     blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
     txs = times(NUM_TXS, i =>
       mock<Tx>({
-        getTxHash: () => Promise.resolve(blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash),
+        getTxHash: () => blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash,
       }),
     );
 
@@ -110,9 +110,7 @@ describe('epoch-proving-job', () => {
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
-      const processedTxs = await Promise.all(
-        txsArray.map(async tx => mock<ProcessedTx>({ hash: await tx.getTxHash() })),
-      );
+      const processedTxs = await Promise.all(txsArray.map(tx => mock<ProcessedTx>({ hash: tx.getTxHash() })));
       return [processedTxs, [], txsArray, []];
     });
   });
