@@ -19,7 +19,7 @@ on:
         default: master
       funding_amount:
         description: The amount of ETH to fund each account with
-        required: false
+        required: true
         type: number
         default: 5
     secrets:
@@ -50,7 +50,7 @@ on:
         default: master
       funding_amount:
         description: The amount of ETH to fund each account with
-        required: false
+        required: true
         type: number
         default: 5
 
