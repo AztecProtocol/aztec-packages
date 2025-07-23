@@ -2,7 +2,7 @@ use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::PUBLIC_DISPATCH_SELECTOR,
-    traits::{Deserialize, FromField, Packable, ToField},
+    traits::{Deserialize, FromField, ToField},
 };
 
 use crate::{
@@ -12,12 +12,7 @@ use crate::{
         ReturnsHash, UtilityCallInterface, UtilityContext,
     },
     hash::hash_args,
-    note::note_interface::{NoteHash, NoteType},
-    oracle::{
-        execution::{get_block_number, get_contract_address, get_timestamp},
-        execution_cache,
-        notes::notify_created_note,
-    },
+    oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
     test::helpers::{txe_oracles, utils::Deployer},
 };
 
@@ -329,24 +324,6 @@ impl TestEnvironment {
         Deployer { path: "", name, secret: 0 }
     }
 
-    // Deploying with public keys assumes secret != 0
-    pub unconstrained fn deploy_with_public_keys<let N: u32, let M: u32>(
-        _self: Self,
-        path: str<N>,
-        name: str<M>,
-        secret: Field,
-    ) -> Deployer<N, M> {
-        Deployer { path, name, secret }
-    }
-
-    pub unconstrained fn deploy_self_with_public_keys<let M: u32>(
-        _self: Self,
-        name: str<M>,
-        secret: Field,
-    ) -> Deployer<0, M> {
-        Deployer { path: "", name, secret }
-    }
-
     pub unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
     where
         C: CallInterface<M>,
@@ -401,7 +378,6 @@ impl TestEnvironment {
 
     pub unconstrained fn view_private<T, let M: u32>(
         _self: Self,
-        from: AztecAddress,
         call_interface: PrivateStaticCallInterface<M, T>,
     ) -> T
     where
@@ -411,7 +387,7 @@ impl TestEnvironment {
         let args_hash = hash_args(args);
 
         let (_end_side_effect_counter, returns_hash, _) = txe_oracles::private_call_new_flow(
-            from,
+            std::mem::zeroed(), // The 'from' address is currently not manually set
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             args,
@@ -483,32 +459,5 @@ impl TestEnvironment {
         // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
         returns
-    }
-
-    /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
-    /// not having an encrypted log emitted.
-    pub unconstrained fn add_note<Note>(
-        _self: Self,
-        note: Note,
-        storage_slot: Field,
-        contract_address: AztecAddress,
-    )
-    where
-        Note: NoteType + NoteHash + Packable,
-    {
-        let original_contract_address = get_contract_address();
-        txe_oracles::set_contract_address(contract_address);
-        let note_hash_counter = txe_oracles::get_side_effects_counter();
-
-        let note_hash = note.compute_note_hash(storage_slot);
-        let packed_note = Note::pack(note);
-        notify_created_note(
-            storage_slot,
-            Note::get_id(),
-            packed_note,
-            note_hash,
-            note_hash_counter,
-        );
-        txe_oracles::set_contract_address(original_contract_address);
     }
 }
