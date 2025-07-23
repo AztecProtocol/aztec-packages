@@ -32,5 +32,4 @@ members = [
     "crates/rollup-block-root-empty",
     "crates/rollup-block-root-padding",
     "crates/rollup-root",
-    "crates/hiding-kernel",
 ]
