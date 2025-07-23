@@ -72,11 +72,11 @@ export class PublicTxSimulator {
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
     try {
-      const txHash = await this.computeTxHash(tx);
+      const txHash = this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
       // Create hinting DBs.
-      const hints = new AvmExecutionHints(this.globalVariables, await AvmTxHint.fromTx(tx));
+      const hints = new AvmExecutionHints(this.globalVariables, AvmTxHint.fromTx(tx));
       const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
       const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
       const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
@@ -149,8 +149,8 @@ export class PublicTxSimulator {
     }
   }
 
-  protected async computeTxHash(tx: Tx) {
-    return await tx.getTxHash();
+  protected computeTxHash(tx: Tx) {
+    return tx.getTxHash();
   }
 
   /**
