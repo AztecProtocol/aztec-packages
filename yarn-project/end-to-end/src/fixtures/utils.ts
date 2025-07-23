@@ -306,6 +306,8 @@ export type SetupOptions = {
   disableAnvilTestWatcher?: boolean;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
   automineL1Setup?: boolean;
+  /** How many accounts to seed and unlock in anvil. */
+  anvilAccounts?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -397,7 +399,7 @@ export async function setup(
         );
       }
 
-      const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
+      const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration, accounts: opts.anvilAccounts });
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
     }
