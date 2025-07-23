@@ -953,6 +953,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::MUL:
+        call_with_operands(&Execution::mul, context, resolved_operands);
+        break;
     case ExecutionOpCode::EQ:
         call_with_operands(&Execution::eq, context, resolved_operands);
         break;
