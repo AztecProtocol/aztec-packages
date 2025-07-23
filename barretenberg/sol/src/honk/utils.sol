@@ -55,6 +55,7 @@ function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point mem
 }
 
 function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool decodedResult) {
+
     bytes memory input = abi.encodePacked(
         rhs.x,
         rhs.y,

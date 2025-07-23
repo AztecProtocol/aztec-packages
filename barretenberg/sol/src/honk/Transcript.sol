@@ -283,6 +283,16 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
+    function generateAggregationChallenge(Fr previousChallenge, Honk.Proof memory proof, Honk.G1 accumulatedX, Honk.G1 accumulatedY) {
+
+        // hash the proof aggregated X
+        // hash the proof aggregated Y
+        // hash the accum X
+        // hash the accum Y
+
+        // return challenge
+    }
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1234)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1235)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1236)

@@ -408,6 +408,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.G1Point memory P_0 = batchMul(commitments, scalars);
         Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
 
+        // accumulate with aggregate points in proof
+
+        // P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
+        // P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
+
         return pairing(P_0, P_1);
     }
 
