@@ -5,8 +5,6 @@ import {TestBase} from "../base/TestBase.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";
 
-import "forge-std/console.sol";
-
 contract TestBaseHonk is TestBase {
     IVerifier public verifier;
     DifferentialFuzzer public fuzzer;
@@ -19,11 +17,6 @@ contract TestBaseHonk is TestBase {
     function testValidProof() public {
         bytes memory proofData = fuzzer.generate_proof();
         (bytes32[] memory publicInputs, bytes memory proof) = splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
-        console.logBytes(proof);
-        console.log("publicInputs:");
-        for (uint256 i = 0; i < publicInputs.length; i++) {
-            console.logBytes32(publicInputs[i]);
-        }
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
     }
 }
