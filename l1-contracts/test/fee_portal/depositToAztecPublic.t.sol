@@ -83,6 +83,7 @@ contract DepositToAztecPublic is Test {
 
     bytes32 expectedKey = message.sha256ToField();
 
+    vm.prank(token.owner());
     token.mint(address(this), amount);
     token.approve(address(feeJuicePortal), amount);
 

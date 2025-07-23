@@ -124,7 +124,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     CommitteeAttestation[] attestations;
   }
 
-  DecoderBase.Full full = load("empty_block_1");
+  DecoderBase.Full full = load("single_tx_block_1");
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
@@ -323,19 +323,19 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   /**
-   * @notice Creates an EIP-712 signature for voteWithSig
+   * @notice Creates an EIP-712 signature for signalWithSig
    * @param _signer The address that should sign (must match a proposer)
-   * @param _proposal The proposal to vote on
+   * @param _payload The payload to signal
    * @return The EIP-712 signature
    */
-  function createVoteSignature(address _signer, IPayload _proposal, uint256 _round)
+  function createSignalSignature(address _signer, IPayload _payload, uint256 _round)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer, _round);
+    bytes32 digest = slashingProposer.getSignalSignatureDigest(_payload, _signer, _round);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
@@ -358,8 +358,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
         address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createVoteSignature(proposer, slashPayload, round);
-        slashingProposer.voteWithSig(slashPayload, sig);
+        Signature memory sig = createSignalSignature(proposer, slashPayload, round);
+        slashingProposer.signalWithSig(slashPayload, sig);
         warmedUp = true;
       }
 
@@ -375,7 +375,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         skipBlobCheck(address(rollup));
 
         if (_slashing) {
-          Signature memory sig = createVoteSignature(proposer, slashPayload, round);
+          Signature memory sig = createSignalSignature(proposer, slashPayload, round);
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),
@@ -387,7 +387,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           });
           calls[1] = Multicall3.Call3({
             target: address(slashingProposer),
-            callData: abi.encodeCall(slashingProposer.voteWithSig, (slashPayload, sig)),
+            callData: abi.encodeCall(slashingProposer.signalWithSig, (slashPayload, sig)),
             allowFailure: false
           });
           multicall.aggregate3(calls);

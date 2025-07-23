@@ -1,5 +1,6 @@
 use crate::test::helpers::test_environment::TestEnvironment;
 
+mod private_context;
 mod public_context;
 
 #[test(should_fail_with = "cannot be before next timestamp")]
@@ -125,12 +126,74 @@ unconstrained fn public_context_does_not_advance_the_timestamp() {
 }
 
 #[test]
-unconstrained fn private_context_uses_previous_block_number() {
+unconstrained fn private_context_uses_last_block_number() {
     let mut env = TestEnvironment::_new();
 
-    let pending = env.next_block_number();
+    let last_block_number = env.last_block_number();
 
     env.private_context(|context| {
-        assert_eq(pending - 1, context.get_block_header().global_variables.block_number);
+        assert_eq(last_block_number, context.get_block_header().global_variables.block_number);
     });
+}
+
+#[test]
+unconstrained fn private_context_advances_block_number() {
+    let mut env = TestEnvironment::_new();
+
+    let first_block_number =
+        env.private_context(|context| context.get_block_header().global_variables.block_number);
+    let second_block_number =
+        env.private_context(|context| context.get_block_header().global_variables.block_number);
+
+    assert_eq(second_block_number, first_block_number + 1);
+}
+
+#[test]
+unconstrained fn private_context_repeats_contract_address() {
+    let mut env = TestEnvironment::new();
+
+    let first_address = env.private_context(|context| context.this_address());
+    let second_address = env.private_context(|context| context.this_address());
+
+    assert_eq(first_address, second_address);
+}
+
+#[test]
+unconstrained fn public_context_repeats_contract_address() {
+    let mut env = TestEnvironment::new();
+
+    let first_address = env.public_context(|context| context.this_address());
+    let second_address = env.public_context(|context| context.this_address());
+
+    assert_eq(first_address, second_address);
+}
+
+#[test]
+unconstrained fn private_and_public_context_share_contract_address() {
+    let mut env = TestEnvironment::new();
+
+    let private_address = env.private_context(|context| context.this_address());
+    let public_address = env.public_context(|context| context.this_address());
+
+    assert_eq(private_address, public_address);
+}
+
+#[test]
+unconstrained fn private_and_public_context_share_version() {
+    let mut env = TestEnvironment::new();
+
+    let private_version = env.private_context(|context| context.version());
+    let public_version = env.public_context(|context| context.version());
+
+    assert_eq(private_version, public_version);
+}
+
+#[test]
+unconstrained fn private_and_public_context_share_chain_id() {
+    let mut env = TestEnvironment::new();
+
+    let private_chain_id = env.private_context(|context| context.chain_id());
+    let public_chain_id = env.public_context(|context| context.chain_id());
+
+    assert_eq(private_chain_id, public_chain_id);
 }

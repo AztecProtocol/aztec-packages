@@ -6,6 +6,8 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 
 using ::testing::AllOf;
@@ -21,9 +23,14 @@ TEST(AvmSimulationEccTest, Add)
 {
     EventEmitter<EccAddEvent> ecc_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     StrictMock<MockToRadix> to_radix;
 
-    Ecc ecc(to_radix, ecc_event_emitter, scalar_mul_event_emitter);
+    Ecc ecc(
+        execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
@@ -53,9 +60,14 @@ TEST(AvmSimulationEccTest, ScalarMul)
 {
     EventEmitter<EccAddEvent> ecc_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockGreaterThan> gt;
     StrictMock<MockToRadix> to_radix;
 
-    Ecc ecc(to_radix, ecc_event_emitter, scalar_mul_event_emitter);
+    Ecc ecc(
+        execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
 
     FF scalar("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
     uint256_t scalar_num = scalar;

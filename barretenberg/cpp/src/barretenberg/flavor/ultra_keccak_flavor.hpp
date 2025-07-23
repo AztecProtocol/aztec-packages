@@ -16,7 +16,6 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
@@ -104,7 +103,8 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
                        q_arith,
                        q_delta_range,
                        q_elliptic,
-                       q_aux,
+                       q_memory,
+                       q_nnf,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
