@@ -46,6 +46,7 @@ const GENERATORS: GeneratorConfig[] = [
   },
 ];
 
+// @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function generate() {

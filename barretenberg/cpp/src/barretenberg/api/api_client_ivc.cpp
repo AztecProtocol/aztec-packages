@@ -253,43 +253,30 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 
     bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
-    // Load private execution steps from the file
-    auto raw_steps = PrivateExecutionStepRaw::load(bytecode_path);
+    auto bytecode = get_bytecode(bytecode_path);
+    auto response = bbapi::ClientIvcGates{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+                                           .include_gates_per_opcode = include_gates_per_opcode }
+                        .execute(request);
 
-    size_t i = 0;
-    for (const auto& step : raw_steps) {
-        // Use the new ClientIvcGates API for each circuit
-        auto response = bbapi::ClientIvcGates{ .circuit = { .name = step.function_name, .bytecode = step.bytecode },
-                                               .include_gates_per_opcode = include_gates_per_opcode }
-                            .execute(request);
-
-        // Build individual circuit report
-        std::string gates_per_opcode_str;
-        if (include_gates_per_opcode && !response.gates_per_opcode.empty()) {
-            for (size_t j = 0; j < response.gates_per_opcode.size(); j++) {
-                gates_per_opcode_str += std::to_string(response.gates_per_opcode[j]);
-                if (j != response.gates_per_opcode.size() - 1) {
-                    gates_per_opcode_str += ",";
-                }
+    // Build the circuit report. It always has one function, corresponding to the ACIR constraint systems.
+    // NOTE: can be reconsidered
+    std::string gates_per_opcode_str;
+    if (include_gates_per_opcode && !response.gates_per_opcode.empty()) {
+        for (size_t j = 0; j < response.gates_per_opcode.size(); j++) {
+            gates_per_opcode_str += std::to_string(response.gates_per_opcode[j]);
+            if (j != response.gates_per_opcode.size() - 1) {
+                gates_per_opcode_str += ",";
             }
         }
-
-        auto result_string = format(
-            "{\n        \"acir_opcodes\": ",
-            response.acir_opcodes,
-            ",\n        \"circuit_size\": ",
-            response.circuit_size,
-            (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
-            "\n  }");
-
-        // Attach a comma if there are more circuit reports to generate
-        if (i != (raw_steps.size() - 1)) {
-            result_string = format(result_string, ",");
-        }
-
-        functions_string = format(functions_string, result_string);
-        i++;
     }
+    auto result_string = format(
+        "{\n        \"acir_opcodes\": ",
+        response.acir_opcodes,
+        ",\n        \"circuit_size\": ",
+        response.circuit_size,
+        (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+        "\n  }");
+    functions_string = format(functions_string, result_string);
     std::cout << format(functions_string, "\n]}");
 }
 
