@@ -18,14 +18,14 @@ import {
 import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
+import {ONE, ZERO, Fr, FrLib} from "./Fr.sol";
 
 import {Transcript, TranscriptLib} from "./Transcript.sol";
 
 import {RelationsLib} from "./Relations.sol";
-import {frMulWithG1, g1Add, convertPairingPointsToG1} from "./utils.sol";
 
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
+import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator} from "./utils.sol";
 
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
@@ -410,23 +410,15 @@ abstract contract BaseHonkVerifier is IVerifier {
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
 
         // Aggregate pairing points
-        Fr recursionSeparator = TranscriptLib.generateRecursionSeparator(proof, P_0_agg, P_1_agg);
-        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) = convertPairingPointsToG1(proof.pairingPointObject);
+        Fr recursionSeparator = generateRecursionSeparator(proof, P_0_agg, P_1_agg);
+        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
+            convertPairingPointsToG1(proof.pairingPointObject);
 
         // accumulate with aggregate points in proof
         P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
         P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
 
         return pairing(P_0_agg, P_1_agg);
-    }
-
-    function mulWithSeperator(Honk.G1Point memory basePoint, Honk.G1Point memory other, Fr recursionSeperator) internal view returns (Honk.G1Point memory) {
-        Honk.G1Point memory result;
-
-        result = frMulWithG1(recursionSeperator, basePoint);
-        result = g1Add(result, other);
-
-        return result;
     }
 
     function batchMul(

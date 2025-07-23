@@ -18,15 +18,14 @@ import {
 import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {
-    MODULUS as P, MINUS_ONE, SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib
-} from "./Fr.sol";
+import {SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib} from "./Fr.sol";
 
 import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 
 import {RelationsLib} from "./Relations.sol";
 
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
+import {generateRecursionSeparator, convertPairingPointsToG1, frMulWithG1, g1Add, mulWithSeperator} from "./utils.sol";
 
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
@@ -432,10 +431,19 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = quotient_commitment;
         scalars[boundary] = tp.shplonkZ; // evaluation challenge
 
-        Honk.G1Point memory P_0 = batchMul(commitments, scalars);
-        Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
+        Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
+        Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
 
-        return pairing(P_0, P_1);
+        // Aggregate pairing points
+        Fr recursionSeparator = generateRecursionSeparator(proof, P_0_agg, P_1_agg);
+        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
+            convertPairingPointsToG1(proof.pairingPointObject);
+
+        // accumulate with aggregate points in proof
+        P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
+        P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
+
+        return pairing(P_0_agg, P_1_agg);
     }
 
     struct SmallSubgroupIpaIntermediates {

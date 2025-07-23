@@ -44,4 +44,3 @@ contract RecursiveHonkTest is TestBaseHonk {
         console.log("Proof verified");
     }
 }
-

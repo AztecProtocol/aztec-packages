@@ -3,7 +3,12 @@
 pragma solidity >=0.8.21;
 
 import {IVerifier} from "../../interfaces/IVerifier.sol";
-import {RecursiveHonkVerificationKey as VK, N, LOG_N, NUMBER_OF_PUBLIC_INPUTS} from "../keys/RecursiveHonkVerificationKey.sol";
+import {
+    RecursiveHonkVerificationKey as VK,
+    N,
+    LOG_N,
+    NUMBER_OF_PUBLIC_INPUTS
+} from "../keys/RecursiveHonkVerificationKey.sol";
 
 import {Honk} from "../HonkTypes.sol";
 import {BaseHonkVerifier as BASE} from "../BaseHonkVerifier.sol";
