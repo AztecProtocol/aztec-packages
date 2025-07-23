@@ -50,13 +50,13 @@ pub unconstrained fn build_note_log_linked_source_indices<let LOGS_LEN: u32, let
                     |note_hash| note_hash.counter() == log_note_hash_counter,
                 );
 
-                // Find the index of the `transient_data_index_hint` that points to this note hash.
-                let transient_data_index_hint_index = find_first_index(
+                // Find the index of the `transient_data_squashing_hint` that points to this note hash.
+                let transient_data_squashing_hint_index = find_first_index(
                     transient_data_squashing_hints,
                     |hint| hint.note_hash_index == squashed_note_hash_index,
                 );
 
-                linked_source_indices[i] = transient_data_index_hint_index;
+                linked_source_indices[i] = transient_data_squashing_hint_index;
             }
         }
     }

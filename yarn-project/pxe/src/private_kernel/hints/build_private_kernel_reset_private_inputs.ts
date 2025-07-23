@@ -31,7 +31,7 @@ import {
   ScopedNoteHash,
   ScopedNullifier,
   ScopedReadRequest,
-  TransientDataIndexHint,
+  TransientDataSquashingHint,
   buildNoteHashReadRequestHintsFromResetActions,
   buildNullifierReadRequestHintsFromResetActions,
   buildTransientDataHints,
@@ -97,7 +97,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
   private noteHashResetActions: ReadRequestResetActions<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
   private nullifierResetActions: ReadRequestResetActions<typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>;
   private numTransientData?: number;
-  private transientDataIndexHints: Tuple<TransientDataIndexHint, typeof MAX_NULLIFIERS_PER_TX>;
+  private transientDataSquashingHints: Tuple<TransientDataSquashingHint, typeof MAX_NULLIFIERS_PER_TX>;
   private requestedDimensions: PrivateKernelResetDimensions;
 
   constructor(
@@ -110,9 +110,9 @@ export class PrivateKernelResetPrivateInputsBuilder {
     this.requestedDimensions = PrivateKernelResetDimensions.empty();
     this.noteHashResetActions = ReadRequestResetActions.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
     this.nullifierResetActions = ReadRequestResetActions.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
-    this.transientDataIndexHints = makeTuple(
+    this.transientDataSquashingHints = makeTuple(
       MAX_NULLIFIERS_PER_TX,
-      () => new TransientDataIndexHint(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX),
+      () => new TransientDataSquashingHint(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX),
     );
     this.nextIteration = executionStack[this.executionStack.length - 1]?.publicInputs;
   }
@@ -205,7 +205,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
           dimensions.KEY_VALIDATION,
           oracle,
         ),
-        this.transientDataIndexHints,
+        this.transientDataSquashingHints,
         this.validationRequestsSplitCounter,
       ),
       dimensions,
@@ -388,6 +388,8 @@ export class PrivateKernelResetPrivateInputsBuilder {
       this.executionStack,
       executionResult => executionResult.publicInputs.nullifierReadRequests,
     );
+    // TODO(#15902): Collect future logs and only allow squashing a note hash when all its logs have been emitted
+    // (i.e. non of the future logs are linked to the to-be-squashed note hashes).
     if (this.nextIteration) {
       // If it's not the final reset, only one dimension will be reset at a time.
       // The note hashes and nullifiers for the remaining read requests can't be squashed.
@@ -395,7 +397,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       futureNullifierReads.push(...this.previousKernel.validationRequests.nullifierReadRequests.getActiveItems());
     }
 
-    const { numTransientData, hints: transientDataIndexHints } = buildTransientDataHints(
+    const { numTransientData, hints: transientDataSquashingHints } = buildTransientDataHints(
       this.previousKernel.end.noteHashes,
       this.previousKernel.end.nullifiers,
       futureNoteHashReads,
@@ -424,7 +426,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
 
     this.numTransientData = numTransientData;
-    this.transientDataIndexHints = transientDataIndexHints;
+    this.transientDataSquashingHints = transientDataSquashingHints;
     this.requestedDimensions.TRANSIENT_DATA_SQUASHING = numTransientData;
 
     return numTransientData > 0;
@@ -471,7 +473,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     const numLogs = privateLogs.getActiveItems().filter(l => !l.contractAddress.isZero()).length;
 
     const noteHashes = this.previousKernel.end.noteHashes;
-    const squashedNoteHashCounters = this.transientDataIndexHints
+    const squashedNoteHashCounters = this.transientDataSquashingHints
       .filter(h => h.noteHashIndex < noteHashes.claimedLength)
       .map(h => noteHashes.array[h.noteHashIndex].counter);
     const numSquashedLogs = privateLogs
