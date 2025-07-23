@@ -63,6 +63,9 @@ struct RollupConfigInput {
   uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
+  uint256 slashingLifetimeInRounds;
+  uint256 slashingExecutionDelayInRounds;
+  address slashingVetoer;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
   EthValue provingCostPerMana;

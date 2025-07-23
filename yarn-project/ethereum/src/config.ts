@@ -32,10 +32,16 @@ export type L1ContractsConfig = {
   depositAmount: bigint;
   /** The minimum stake for a validator. */
   minimumStake: bigint;
-  /** The slashing quorum */
+  /** The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher */
   slashingQuorum: number;
-  /** The slashing round size */
+  /** The slashing round size, i.e. how many slots are in a round */
   slashingRoundSize: number;
+  /** The slashing lifetime in rounds. I.e., if 1, round N must be submitted before round N + 2 */
+  slashingLifetimeInRounds: number;
+  /** The slashing execution delay in rounds. I.e., if 1, round N may not be submitted until round N + 2 */
+  slashingExecutionDelayInRounds: number;
+  /** The slashing vetoer. May blacklist a payload from being submitted. */
+  slashingVetoer: EthAddress;
   /** Governance proposing quorum */
   governanceProposerQuorum: number;
   /** Governance proposing round size */
@@ -58,6 +64,9 @@ export const DefaultL1ContractsConfig = {
   minimumStake: BigInt(50e18),
   slashingQuorum: 101,
   slashingRoundSize: 200,
+  slashingLifetimeInRounds: 5,
+  slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
+  slashingVetoer: EthAddress.ZERO,
   governanceProposerQuorum: 151,
   governanceProposerRoundSize: 300,
   manaTarget: BigInt(1e10),
@@ -229,6 +238,22 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_SLASHING_ROUND_SIZE',
     description: 'The slashing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.slashingRoundSize),
+  },
+  slashingLifetimeInRounds: {
+    env: 'AZTEC_SLASHING_LIFETIME_IN_ROUNDS',
+    description: 'The slashing lifetime in rounds',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingLifetimeInRounds),
+  },
+  slashingExecutionDelayInRounds: {
+    env: 'AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS',
+    description: 'The slashing execution delay in rounds',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingExecutionDelayInRounds),
+  },
+  slashingVetoer: {
+    env: 'AZTEC_SLASHING_VETOER',
+    description: 'The slashing vetoer',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: DefaultL1ContractsConfig.slashingVetoer,
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
