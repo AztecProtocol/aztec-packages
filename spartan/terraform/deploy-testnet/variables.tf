@@ -45,6 +45,12 @@ variable "VALIDATOR_VALUES" {
   default     = "testnet-validator.yaml"
 }
 
+variable "ARCHIVE_NODE_VALUES" {
+  description = "The values file to apply"
+  type        = string
+  default     = "testnet-archive-node.yaml"
+}
+
 variable "PROVER_VALUES" {
   description = "The values file to apply"
   type        = string
@@ -66,11 +72,5 @@ variable "SNAPSHOT_VALUES" {
 variable "RPC_HOSTNAME" {
   description = "The public hostname for the ingress"
   type        = string
-  default     = "full-node.alpha-testnet.aztec.network"
-}
-
-variable "RPC_IP_NAME" {
-  description = "The global ip address for the ingress"
-  type        = string
-  default     = "alpha-testnet-full-node-ip"
+  default     = "rpc.testnet.aztec.network"
 }

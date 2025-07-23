@@ -637,7 +637,10 @@ export class TXE implements TypedOracle {
 
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const [index] = await snap.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
-    return index !== undefined;
+
+    const inPendingCache = this.noteCache.getNullifiers(this.contractAddress).has(nullifier.toBigInt());
+
+    return index !== undefined || inPendingCache;
   }
 
   getL1ToL2MembershipWitness(
@@ -785,6 +788,8 @@ export class TXE implements TypedOracle {
 
     header.globalVariables.blockNumber = blockNumber;
     header.globalVariables.timestamp = await this.getTimestamp();
+    header.globalVariables.version = new Fr(this.ROLLUP_VERSION);
+    header.globalVariables.chainId = new Fr(this.CHAIN_ID);
 
     this.logger.info(`Created block ${blockNumber} with timestamp ${header.globalVariables.timestamp}`);
 
@@ -1437,6 +1442,8 @@ export class TXE implements TypedOracle {
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
     globals.timestamp = this.timestamp;
+    globals.chainId = new Fr(this.CHAIN_ID);
+    globals.version = new Fr(this.ROLLUP_VERSION);
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1550,6 +1557,8 @@ export class TXE implements TypedOracle {
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
     globals.timestamp = this.timestamp;
+    globals.chainId = new Fr(this.CHAIN_ID);
+    globals.version = new Fr(this.ROLLUP_VERSION);
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
