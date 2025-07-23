@@ -20,9 +20,14 @@
 namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct UltraRecursiveVerifierOutput {
+    using Curve = bn254<Builder>;
+    using G1 = Curve::Group;
+
     PairingPoints<Builder> points_accumulator;
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
+    std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
+                                                      // of the HidingKernel, only for MegaFlavor
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {
   public:
