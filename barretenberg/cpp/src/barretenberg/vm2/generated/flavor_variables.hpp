@@ -54,6 +54,7 @@
 #include "relations/scalar_mul.hpp"
 #include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
+#include "relations/sha256_mem.hpp"
 #include "relations/sload.hpp"
 #include "relations/sstore.hpp"
 #include "relations/to_radix.hpp"
@@ -106,6 +107,7 @@
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
+#include "relations/lookups_sha256_mem.hpp"
 #include "relations/lookups_sload.hpp"
 #include "relations/lookups_sstore.hpp"
 #include "relations/lookups_to_radix.hpp"
@@ -123,11 +125,55 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 131;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2681;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 300;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 3112;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 3111;
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 3102;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2658;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3071;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2656;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3069;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2649;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3049;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2640;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3040;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2659;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 261;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3046;
+>>>>>>> db25bd772e (feat!(avm): mem aware and err handling sha256)
+>>>>>>> 7fb3d9ba15 (feat!(avm): mem aware and err handling sha256)
+>>>>>>> 2d1cb79a43 (feat!(avm): mem aware and err handling sha256)
+>>>>>>> f18b5163ac (feat!(avm): mem aware and err handling sha256)
+>>>>>>> 960a085475 (feat!(avm): mem aware and err handling sha256)
+>>>>>>> 02c6294445 (feat!(avm): mem aware and err handling sha256)
+>>>>>>> 0fde829ef8 (feat!(avm): mem aware and err handling sha256)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -183,6 +229,7 @@ struct AvmFlavorVariables {
         avm2::scalar_mul<FF_>,
         avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
+        avm2::sha256_mem<FF_>,
         avm2::sload<FF_>,
         avm2::sstore<FF_>,
         avm2::to_radix<FF_>,
@@ -503,7 +550,22 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
+<<<<<<< HEAD
         lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation<FF_>,
+=======
+        lookup_sha256_mem_check_dst_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_mem_input_read_relation<FF_>,
+        lookup_sha256_mem_mem_op_0_relation<FF_>,
+        lookup_sha256_mem_mem_op_1_relation<FF_>,
+        lookup_sha256_mem_mem_op_2_relation<FF_>,
+        lookup_sha256_mem_mem_op_3_relation<FF_>,
+        lookup_sha256_mem_mem_op_4_relation<FF_>,
+        lookup_sha256_mem_mem_op_5_relation<FF_>,
+        lookup_sha256_mem_mem_op_6_relation<FF_>,
+        lookup_sha256_mem_mem_op_7_relation<FF_>,
+>>>>>>> 7fb3d9ba15 (feat!(avm): mem aware and err handling sha256)
         lookup_sha256_round_constant_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,

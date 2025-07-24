@@ -35,6 +35,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_sha256.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
@@ -92,12 +93,14 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockToRadix> to_radix;
     StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
     StrictMock<MockBytecodeManager> bytecode_manager;
+    StrictMock<MockSha256> sha256;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
                                                   poseidon2,
                                                   ecc,
                                                   to_radix,
+                                                  sha256,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,

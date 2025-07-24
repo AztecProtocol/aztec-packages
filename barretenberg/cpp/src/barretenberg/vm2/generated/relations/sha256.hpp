@@ -15,16 +15,9 @@ template <typename FF_> class sha256Impl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 71> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 2, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 2, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4
     };
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        using C = ColumnAndShifts;
-
-        return (in.get(C::sha256_sel)).is_zero();
-    }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -34,8 +27,12 @@ template <typename FF_> class sha256Impl {
     {
         using C = ColumnAndShifts;
 
+<<<<<<< HEAD
         PROFILE_THIS_NAME("accumulate/sha256");
 
+=======
+        const auto sha256_LATCH_CONDITION = in.get(C::sha256_latch) + in.get(C::precomputed_first_row);
+>>>>>>> 62f96754ae (feat!(avm): mem aware and err handling sha256)
         const auto sha256_LAST = in.get(C::sha256_sel) * in.get(C::sha256_latch);
         const auto sha256_NUM_ROUNDS = FF(64);
         const auto sha256_COMPUTED_W = in.get(C::sha256_helper_w0) + in.get(C::sha256_w_s_0) +
@@ -55,38 +52,37 @@ template <typename FF_> class sha256Impl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_sel));
+            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_xor_sel) - FF(2));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_perform_round) * (in.get(C::sha256_xor_sel) - FF(2));
+            auto tmp = in.get(C::sha256_and_sel);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_and_sel);
+            auto tmp = in.get(C::sha256_start) * (FF(1) - in.get(C::sha256_start));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_AFTER_LAST
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_start) * (FF(1) - in.get(C::sha256_start));
+            auto tmp = in.get(C::sha256_sel_shift) * (in.get(C::sha256_start_shift) - sha256_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::sha256_start_shift) -
-                        (in.get(C::sha256_latch) + in.get(C::precomputed_first_row)) * in.get(C::sha256_sel_shift));
+            auto tmp = in.get(C::sha256_latch) * (FF(1) - in.get(C::sha256_latch));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // LATCH_HAS_SEL_ON
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_latch) * (FF(1) - in.get(C::sha256_latch));
+            auto tmp = in.get(C::sha256_latch) * (FF(1) - in.get(C::sha256_sel));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
@@ -575,9 +571,18 @@ template <typename FF> class sha256 : public Relation<sha256Impl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case 3:
+            return "START_AFTER_LAST";
+        case 5:
+            return "LATCH_HAS_SEL_ON";
+        }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_START_AFTER_LAST = 3;
+    static constexpr size_t SR_LATCH_HAS_SEL_ON = 5;
 };
 
 } // namespace bb::avm2
