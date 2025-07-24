@@ -129,8 +129,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         const committeeSet = new Set(committee.map(v => v.toString()));
         const inCommittee = me.filter(a => committeeSet.has(a.toString()));
         if (inCommittee.length > 0) {
-          inCommittee.forEach(a =>
-            this.log.info(`Validator ${a.toString()} is on the validator committee for epoch ${epoch}`),
+          this.log.info(
+            `Validators ${inCommittee.map(a => a.toString()).join(',')} are on the validator committee for epoch ${epoch}`,
           );
         } else {
           this.log.verbose(
@@ -392,7 +392,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
-      const foundTxHashes = await Promise.all(txs.map(async tx => await tx.getTxHash()));
+      const foundTxHashes = txs.map(tx => tx.getTxHash());
       const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.includes(txHash));
       throw new TransactionsNotAvailableError(missingTxHashes);
     }

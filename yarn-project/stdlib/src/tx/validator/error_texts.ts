@@ -28,6 +28,7 @@ export const TX_ERROR_CONTRACT_CLASS_LOG_COUNT = 'Mismatched number of contract 
 export const TX_ERROR_CONTRACT_CLASS_LOG_LENGTH = 'Incorrect contract class logs length';
 export const TX_ERROR_CONTRACT_CLASS_LOGS = 'Mismatched contract class logs';
 export const TX_ERROR_CONTRACT_CLASS_LOG_SORTING = 'Incorrectly sorted contract class logs';
+export const TX_ERROR_INCORRECT_HASH = 'Incorrect tx hash';
 
 // Block header
 export const TX_ERROR_BLOCK_HEADER = 'Block header not found';

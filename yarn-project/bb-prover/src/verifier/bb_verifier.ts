@@ -137,7 +137,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };
     } catch (err) {
-      this.logger.warn(`Failed to verify ClientIVC proof for tx ${await Tx.getHash(tx)}: ${String(err)}`);
+      this.logger.warn(`Failed to verify ClientIVC proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
       return { valid: false, durationMs: 0, totalDurationMs: 0 };
     }
   }

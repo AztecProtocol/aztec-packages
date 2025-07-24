@@ -50,7 +50,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     // --> this should send the `change_amount` from AMM's public balance to liquidity provider's private balance
     let change_amount = deposit_amount / (2 as u128);
 
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         amm_contract,
         Token::at(token_contract_address).finalize_transfer_to_private(change_amount, partial_note),
     );
