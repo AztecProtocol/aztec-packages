@@ -1,6 +1,7 @@
 import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
 import { BatchedBlob } from '@aztec/blob-lib';
-import type { ViemClient } from '@aztec/ethereum';
+import type { InboxContract, ViemClient } from '@aztec/ethereum';
+import { L1TxUtils } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -20,12 +21,13 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let context: EndToEndContext;
   let l1Client: ViemClient;
   let rollup: RollupContract;
+  let inbox: InboxContract;
   let constants: L1RollupConstants;
   let logger: Logger;
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
   let monitor: ChainMonitor;
-
+  let l1TxUtils!: L1TxUtils;
   let L1_BLOCK_TIME_IN_S: number;
   let L2_SLOT_DURATION_IN_S: number;
 
@@ -35,8 +37,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Bumping the epoch duration to 5 because otherwise it takes a full epoch before the actual test starts,
     // which means the prover node is attempting to prove before we setup the mocks.
     test = await EpochsTestContext.setup({ aztecEpochDuration: 5 });
-    ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
+    ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, inbox, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
+
+    const { client } = await test.createL1Client();
+    l1TxUtils = new L1TxUtils(client, logger, context.dateProvider, context.config);
   });
 
   afterEach(async () => {
@@ -52,6 +57,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const [epoch2Start] = getTimestampRangeForEpoch(2n, constants);
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
+
+    // We abuse that the blok can land early and that inbox hashes are prepared ahead of time
+    // to lower the anchor as soon as possible
+    await test.waitUntilL2BlockNumber(1);
+    await inbox.lowerAnchorForcefully(l1TxUtils);
 
     // Wait until the start of epoch 1 and grab the block number
     await test.waitUntilEpochStarts(1);

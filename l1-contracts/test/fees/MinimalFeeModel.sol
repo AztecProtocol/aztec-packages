@@ -118,6 +118,7 @@ contract MinimalFeeModel {
     STFLib.setTempBlockLog(
       blockNumber,
       TempBlockLog({
+        inHash: bytes32(0),
         headerHash: bytes32(0),
         blobCommitmentsHash: bytes32(0),
         slotNumber: Slot.wrap(0),

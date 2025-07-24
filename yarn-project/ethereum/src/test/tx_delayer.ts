@@ -152,7 +152,12 @@ export function withDelayer<T extends ViemClient>(
         if (delayer.nextWait !== undefined) {
           // Check if we have been instructed to delay the next tx.
           const waitUntil = delayer.nextWait;
-          delayer.nextWait = undefined;
+
+          // We only clear if indefinitely, as the other pauses will work weirdly if multiple
+          // transactions are being sent using
+          if ('indefinitely' in delayer.nextWait) {
+            delayer.nextWait = undefined;
+          }
 
           // Compute the tx hash manually so we emulate sendRawTransaction response
           txHash = computeTxHash(serializedTransaction);

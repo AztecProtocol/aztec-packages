@@ -150,18 +150,12 @@ library ProposeLib {
     STFLib.setTempBlockLog(
       blockNumber,
       TempBlockLog({
+        inHash: header.contentCommitment.inHash,
         headerHash: v.headerHash,
         blobCommitmentsHash: blobCommitmentsHash,
         slotNumber: header.slotNumber,
         feeHeader: feeHeader
       })
-    );
-
-    // @note  The block number here will always be >=1 as the genesis block is at 0
-    v.inHash = rollupStore.config.inbox.consume(blockNumber);
-    require(
-      header.contentCommitment.inHash == v.inHash,
-      Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
     );
 
     rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
