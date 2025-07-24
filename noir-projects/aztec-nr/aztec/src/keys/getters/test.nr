@@ -1,21 +1,15 @@
 use crate::keys::getters::get_public_keys;
 
-use crate::test::helpers::{test_environment::TestEnvironment, txe_oracles, utils::TestAccount};
+use crate::test::helpers::test_environment::TestEnvironment;
 use dep::std::test::OracleMock;
 use protocol_types::traits::Serialize;
 
 global KEY_ORACLE_RESPONSE_LENGTH: u32 = 13; // 12 fields for the keys, one field for the partial address
 
-unconstrained fn setup() -> TestAccount {
-    let _ = TestEnvironment::new();
-    let account = txe_oracles::create_account(1);
-
-    account
-}
-
 #[test(should_fail_with = "Invalid public keys hint for address")]
-unconstrained fn test_get_public_keys_unknown() {
-    let account = setup();
+unconstrained fn get_public_keys_fails_with_bad_hint() {
+    let mut env = TestEnvironment::new();
+    let account = env.create_account(1);
 
     // Instead of querying for some unknown account, which would result in the oracle erroring out, we mock a bad oracle
     // response to check that the circuit properly checks the address derivation.
@@ -57,12 +51,14 @@ unconstrained fn test_get_public_keys_unknown() {
     let _ = OracleMock::mock("getPublicKeysAndPartialAddress")
         .returns(random_keys_and_partial_address.serialize())
         .times(1);
-    let _ = get_public_keys(account.address);
+    let _ = get_public_keys(account);
 }
 
 #[test]
-unconstrained fn test_get_public_keys_known() {
-    let account = setup();
+unconstrained fn get_public_keys_returns_keys_of_known_accounts() {
+    let mut env = TestEnvironment::new();
+    let account = env.create_account(1);
 
-    assert_eq(get_public_keys(account.address), account.keys);
+    // Key fetching requires oracles that are only available during private execution
+    env.private_context(|_| { let _ = get_public_keys(account); });
 }

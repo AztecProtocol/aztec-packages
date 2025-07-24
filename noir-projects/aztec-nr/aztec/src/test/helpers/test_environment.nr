@@ -47,10 +47,6 @@ impl PrivateContextOptions {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        Self {}
-    }
-
-    pub unconstrained fn _new() -> Self {
         txe_oracles::enable_context_checks();
         Self {}
     }
