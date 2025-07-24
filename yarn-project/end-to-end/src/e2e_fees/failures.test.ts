@@ -230,7 +230,7 @@ describe('e2e_fees failures', () => {
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
         }),
-    ).rejects.toThrow(/unauthorized/);
+    ).rejects.toThrow(/Setup phase reverted/);
 
     // so does the sequencer
     await expect(

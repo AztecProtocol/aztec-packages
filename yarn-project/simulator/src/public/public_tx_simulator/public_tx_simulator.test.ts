@@ -442,7 +442,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
@@ -610,7 +609,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
@@ -747,7 +745,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: appLogicFailure }),
@@ -988,7 +985,6 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.processedPhases).toHaveLength(3);
     expect(txResult.processedPhases).toEqual([
       expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
       expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: appLogicFailure }),

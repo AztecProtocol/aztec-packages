@@ -143,10 +143,8 @@ export class PublicTxContext {
    * All phases have been processed.
    * Actual transaction fee and actual total consumed gas can now be queried.
    */
-  async halt() {
-    if (this.state.isForked()) {
-      await this.state.mergeForkedState();
-    }
+  halt() {
+    assert(!this.state.isForked(), 'Cannot halt when state is forked');
     this.halted = true;
   }
 
@@ -165,11 +163,6 @@ export class PublicTxContext {
     }
     if (phase === TxExecutionPhase.SETUP) {
       this.log.warn(`Setup phase reverted! The transaction will be thrown out.`);
-      if (revertReason) {
-        throw revertReason;
-      } else {
-        throw new Error(`Setup phase reverted! The transaction will be thrown out. ${culprit} failed`);
-      }
     } else if (phase === TxExecutionPhase.APP_LOGIC) {
       this.revertCode = RevertCode.APP_LOGIC_REVERTED;
     } else if (phase === TxExecutionPhase.TEARDOWN) {

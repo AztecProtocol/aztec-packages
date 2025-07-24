@@ -41,7 +41,9 @@ class TxExecution final {
     Poseidon2Interface& poseidon2;
     EventEmitterInterface<TxEvent>& events;
 
+    // This function can throw if there is a nullifier collision.
     void insert_non_revertibles(const Tx& tx);
+    // This function can throw if there is a nullifier collision.
     void insert_revertibles(const Tx& tx);
     void emit_public_call_request(const PublicCallRequestWithCalldata& call,
                                   TransactionPhase phase,

@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
@@ -61,14 +62,41 @@ void TxExecution::simulate(const Tx& tx)
          " app logic enqueued calls, and ",
          tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
 
-    // TODO: Checkpointing is not yet correctly implemented.
-    try {
-        // Insert non-revertibles.
-        insert_non_revertibles(tx);
+    // Insert non-revertibles. This can throw if there is a nullifier collision.
+    insert_non_revertibles(tx);
 
-        // Setup.
-        for (const auto& call : tx.setupEnqueuedCalls) {
-            info("[SETUP] Executing enqueued call to ", call.request.contractAddress);
+    // Setup.
+    for (const auto& call : tx.setupEnqueuedCalls) {
+        info("[SETUP] Executing enqueued call to ", call.request.contractAddress);
+        TreeStates prev_tree_state = merkle_db.get_tree_state();
+        auto context = context_provider.make_enqueued_context(call.request.contractAddress,
+                                                              call.request.msgSender,
+                                                              /*transaction_fee=*/FF(0),
+                                                              call.calldata,
+                                                              call.request.isStaticCall,
+                                                              gas_limit,
+                                                              gas_used);
+        ExecutionResult result = call_execution.execute(std::move(context));
+        emit_public_call_request(call,
+                                 TransactionPhase::SETUP,
+                                 /*transaction_fee=*/FF(0),
+                                 result,
+                                 std::move(prev_tree_state),
+                                 gas_used,
+                                 gas_limit);
+        gas_used = result.gas_used;
+    }
+
+    // The checkpoint we should go back to if anything from now on reverts.
+    merkle_db.create_checkpoint();
+
+    try {
+        // Insert revertibles. This can throw if there is a nullifier collision.
+        insert_revertibles(tx);
+
+        // App logic.
+        for (const auto& call : tx.appLogicEnqueuedCalls) {
+            info("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
             TreeStates prev_tree_state = merkle_db.get_tree_state();
             auto context = context_provider.make_enqueued_context(call.request.contractAddress,
                                                                   call.request.msgSender,
@@ -79,113 +107,103 @@ void TxExecution::simulate(const Tx& tx)
                                                                   gas_used);
             ExecutionResult result = call_execution.execute(std::move(context));
             emit_public_call_request(call,
-                                     TransactionPhase::SETUP,
+                                     TransactionPhase::APP_LOGIC,
                                      /*transaction_fee=*/FF(0),
                                      result,
                                      std::move(prev_tree_state),
                                      gas_used,
                                      gas_limit);
             gas_used = result.gas_used;
-        }
 
-        try {
-            merkle_db.create_checkpoint();
-
-            // Insert revertibles.
-            insert_revertibles(tx);
-
-            // App logic.
-            for (const auto& call : tx.appLogicEnqueuedCalls) {
-                info("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
-                TreeStates prev_tree_state = merkle_db.get_tree_state();
-                auto context = context_provider.make_enqueued_context(call.request.contractAddress,
-                                                                      call.request.msgSender,
-                                                                      /*transaction_fee=*/FF(0),
-                                                                      call.calldata,
-                                                                      call.request.isStaticCall,
-                                                                      gas_limit,
-                                                                      gas_used);
-                ExecutionResult result = call_execution.execute(std::move(context));
-                emit_public_call_request(call,
-                                         TransactionPhase::APP_LOGIC,
-                                         /*transaction_fee=*/FF(0),
-                                         result,
-                                         std::move(prev_tree_state),
-                                         gas_used,
-                                         gas_limit);
-                gas_used = result.gas_used;
-            }
-        } catch (const std::exception& e) {
-            // TODO: revert the checkpoint.
-            info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
-        }
-
-        // Compute the transaction fee here so it can be passed to teardown
-        uint128_t fee_per_da_gas = tx.effectiveGasFees.feePerDaGas;
-        uint128_t fee_per_l2_gas = tx.effectiveGasFees.feePerL2Gas;
-        FF fee = FF(fee_per_da_gas) * FF(gas_used.daGas) + FF(fee_per_l2_gas) * FF(gas_used.l2Gas);
-
-        // Teardown.
-        if (tx.teardownEnqueuedCall) {
-            try {
-                info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
-                TreeStates prev_tree_state = merkle_db.get_tree_state();
-                auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->request.contractAddress,
-                                                                      tx.teardownEnqueuedCall->request.msgSender,
-                                                                      fee,
-                                                                      tx.teardownEnqueuedCall->calldata,
-                                                                      tx.teardownEnqueuedCall->request.isStaticCall,
-                                                                      tx.gasSettings.teardownGasLimits,
-                                                                      Gas{ 0, 0 });
-                ExecutionResult result = call_execution.execute(std::move(context));
-                // Check what to do here for GAS
-                emit_public_call_request(*tx.teardownEnqueuedCall,
-                                         TransactionPhase::APP_LOGIC,
-                                         fee,
-                                         result,
-                                         std::move(prev_tree_state),
-                                         Gas{ 0, 0 }, // Reset for teardown since it is tracked separately
-                                         tx.gasSettings.teardownGasLimits);
-            } catch (const std::exception& e) {
-                info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
+            if (!result.success) {
+                throw std::runtime_error(
+                    format("[APP_LOGIC] Enqueued call to ", call.request.contractAddress, " failed"));
             }
         }
+    } catch (const std::runtime_error& e) {
+        info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
+        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
+        // We can't execute this code because TS will not fail here, and therefore not revert and create a checkpoint.
 
-        // Fee payment
-        TreeStates prev_tree_state = merkle_db.get_tree_state();
-
-        FF fee_payer = tx.feePayer;
-
-        FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
-
-        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
-        FF fee_payer_balance = FF::neg_one();
-
-        if (field_gt.ff_gt(fee, fee_payer_balance)) {
-            // Unrecoverable error.
-            throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
-        }
-
-        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
-
-        events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
-                                  .prev_tree_state = prev_tree_state,
-                                  .next_tree_state = merkle_db.get_tree_state(),
-                                  .event = CollectGasFeeEvent{
-                                      .effective_fee_per_da_gas = fee_per_da_gas,
-                                      .effective_fee_per_l2_gas = fee_per_l2_gas,
-                                      .fee_payer = fee_payer,
-                                      .fee_payer_balance = fee_payer_balance,
-                                      .fee_juice_balance_slot = fee_juice_balance_slot,
-                                      .fee = fee,
-                                  } });
-    } catch (const std::exception& e) {
-        // Catastrophic failure.
-        info("Error while simulating tx ", tx.hash, ": ", e.what());
-        throw e;
+        // We revert to the post-setup state.
+        // merkle_db.revert_checkpoint();
+        // But we also create a new fork so that the teardown phase can transparently
+        // commit or rollback to the end of teardown.
+        // merkle_db.create_checkpoint();
     }
+
+    // Compute the transaction fee here so it can be passed to teardown
+    uint128_t fee_per_da_gas = tx.effectiveGasFees.feePerDaGas;
+    uint128_t fee_per_l2_gas = tx.effectiveGasFees.feePerL2Gas;
+    FF fee = FF(fee_per_da_gas) * FF(gas_used.daGas) + FF(fee_per_l2_gas) * FF(gas_used.l2Gas);
+
+    // Teardown.
+    try {
+        if (tx.teardownEnqueuedCall) {
+            info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
+            TreeStates prev_tree_state = merkle_db.get_tree_state();
+            auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->request.contractAddress,
+                                                                  tx.teardownEnqueuedCall->request.msgSender,
+                                                                  fee,
+                                                                  tx.teardownEnqueuedCall->calldata,
+                                                                  tx.teardownEnqueuedCall->request.isStaticCall,
+                                                                  tx.gasSettings.teardownGasLimits,
+                                                                  Gas{ 0, 0 });
+            ExecutionResult result = call_execution.execute(std::move(context));
+            // Check what to do here for GAS
+            emit_public_call_request(*tx.teardownEnqueuedCall,
+                                     TransactionPhase::APP_LOGIC,
+                                     fee,
+                                     result,
+                                     std::move(prev_tree_state),
+                                     Gas{ 0, 0 }, // Reset for teardown since it is tracked separately
+                                     tx.gasSettings.teardownGasLimits);
+            if (!result.success) {
+                throw std::runtime_error(format(
+                    "[TEARDOWN] Enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress, " failed"));
+            }
+        }
+
+        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
+        // We commit the forked state and we are done.
+        // merkle_db.commit_checkpoint();
+    } catch (const std::runtime_error& e) {
+        info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
+        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
+        // We rollback to the post-setup state.
+        // merkle_db.revert_checkpoint();
+    }
+
+    // Fee payment
+    TreeStates prev_tree_state = merkle_db.get_tree_state();
+
+    FF fee_payer = tx.feePayer;
+
+    FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
+    FF fee_payer_balance = FF::neg_one();
+
+    if (field_gt.ff_gt(fee, fee_payer_balance)) {
+        // Unrecoverable error.
+        throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+    }
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
+
+    events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
+                              .prev_tree_state = prev_tree_state,
+                              .next_tree_state = merkle_db.get_tree_state(),
+                              .event = CollectGasFeeEvent{
+                                  .effective_fee_per_da_gas = fee_per_da_gas,
+                                  .effective_fee_per_l2_gas = fee_per_l2_gas,
+                                  .fee_payer = fee_payer,
+                                  .fee_payer_balance = fee_payer_balance,
+                                  .fee_juice_balance_slot = fee_juice_balance_slot,
+                                  .fee = fee,
+                              } });
 }
 
 // TODO: How to increment the context id here?
