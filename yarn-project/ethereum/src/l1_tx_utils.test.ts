@@ -505,12 +505,12 @@ describe('L1TxUtils', () => {
       const tx = await gasUtils.sendTransaction(txRequest);
       const monitorPromise = gasUtils.monitorTransaction(txRequest, tx.txHash, tx, { txTimeoutAt });
 
-      await sleep(1000);
+      await sleep(100);
       await cheatCodes.dropTransaction(tx.txHash);
       await cheatCodes.setNextBlockTimestamp(txTimeoutAt);
       await cheatCodes.mine();
       await expect(monitorPromise).rejects.toThrow(/timed out/);
-      expect(dateProvider.now() - now).toBeGreaterThanOrEqual(990);
+      expect(dateProvider.now() - now).toBeGreaterThanOrEqual(90);
     }, 20_000);
 
     it('attempts to cancel timed out transactions', async () => {
