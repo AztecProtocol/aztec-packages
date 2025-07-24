@@ -8,7 +8,7 @@ import { isValidNoteHashReadRequest } from './build_note_hash_read_request_hints
 import { isValidNullifierReadRequest } from './build_nullifier_read_request_hints.js';
 import type { ScopedReadRequest } from './read_request.js';
 import { ScopedValueCache } from './scoped_value_cache.js';
-import { TransientDataIndexHint } from './transient_data_index_hint.js';
+import { TransientDataSquashingHint } from './transient_data_squashing_hint.js';
 
 export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIERS_LEN extends number>(
   noteHashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
@@ -17,7 +17,7 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
   futureNullifierReads: ScopedReadRequest[],
   noteHashNullifierCounterMap: Map<number, number>,
   validationRequestsSplitCounter: number,
-): { numTransientData: number; hints: Tuple<TransientDataIndexHint, NULLIFIERS_LEN> } {
+): { numTransientData: number; hints: Tuple<TransientDataSquashingHint, NULLIFIERS_LEN> } {
   const futureNoteHashReadsMap = new ScopedValueCache(futureNoteHashReads);
   const futureNullifierReadsMap = new ScopedValueCache(futureNullifierReads);
 
@@ -68,10 +68,10 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
       continue;
     }
 
-    hints.push(new TransientDataIndexHint(nullifierIndex, noteHashIndex));
+    hints.push(new TransientDataSquashingHint(nullifierIndex, noteHashIndex));
   }
 
-  const noActionHint = new TransientDataIndexHint(nullifiers.array.length, noteHashes.array.length);
+  const noActionHint = new TransientDataSquashingHint(nullifiers.array.length, noteHashes.array.length);
   return {
     numTransientData: hints.length,
     hints: padArrayEnd(hints, noActionHint, nullifiers.array.length as NULLIFIERS_LEN),

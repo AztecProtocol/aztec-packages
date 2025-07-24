@@ -10,6 +10,6 @@ export * from './key_validation_request_and_generator.js';
 export * from './read_request.js';
 export * from './key_validation_request.js';
 export * from './scoped_key_validation_request_and_generator.js';
-export * from './transient_data_index_hint.js';
+export * from './transient_data_squashing_hint.js';
 export * from './private_kernel_reset_hints.js';
 export * from './tree_leaf_read_request.js';
