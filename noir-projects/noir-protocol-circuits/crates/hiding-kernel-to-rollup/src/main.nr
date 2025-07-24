@@ -36,8 +36,6 @@ impl HidingKernelToRollupPrivateInputs {
 }
 
 fn main(
-    // TODO: Change this to regular private inputs.
-    // previous_kernel_public_inputs: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel_public_inputs: call_data(0) PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel_vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
 ) -> pub PrivateToRollupKernelCircuitPublicInputs {

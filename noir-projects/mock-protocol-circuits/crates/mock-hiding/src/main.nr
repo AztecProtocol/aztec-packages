@@ -3,8 +3,6 @@ use dep::mock_types::{
 };
 
 fn main(
-    // TODO: Change this to regular private inputs.
-    // prev_kernel_public_inputs: KernelPublicInputs,
     prev_kernel_public_inputs: call_data(0) KernelPublicInputs,
     kernel_vk: VerificationKey<MEGA_VK_LENGTH_IN_FIELDS>,
 ) -> pub KernelPublicInputs {

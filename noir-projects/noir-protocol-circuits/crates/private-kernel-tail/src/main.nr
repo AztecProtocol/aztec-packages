@@ -7,8 +7,6 @@ fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs,
     include_by_timestamp_upper_bound: u64,
-    // TODO: Change this back to regular public inputs.
-    // ) -> pub PrivateToRollupKernelCircuitPublicInputs {
 ) -> return_data PrivateToRollupKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelTailCircuitPrivateInputs::new(
         previous_kernel,
