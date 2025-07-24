@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export const EvictionEvent = {
@@ -22,7 +23,8 @@ export type EvictionContext =
   | {
       event: typeof EvictionEvent.BLOCK_MINED;
       block: BlockHeader;
-      newNullifiers: Set<string>;
+      newNullifiers: Fr[];
+      minedFeePayers: AztecAddress[];
     };
 
 /**
@@ -60,7 +62,8 @@ export interface TxBlockReference {
 export interface TxPoolOperations {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
   getPendingTxs(): Promise<PendingTxInfo[]>;
-  getTxsReferencingBlocks(blockHashes: Fr[]): Promise<TxBlockReference[]>;
+  getPendingTxsReferencingBlocks(blockHashes: Fr[]): Promise<TxBlockReference[]>;
+  getPendingTxsWithFeePayer(feePayer: AztecAddress[]): Promise<PendingTxInfo[]>;
   deleteTxs(txHashes: TxHash[]): Promise<void>;
 }
 

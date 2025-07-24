@@ -1,5 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type EvictionContext, EvictionEvent, type EvictionRule, type TxPoolOperations } from './eviction_strategy.js';
@@ -21,11 +22,16 @@ export class EvictionManager {
     await this.runEvictionRules(ctx);
   }
 
-  public async evictAfterNewBlock(block: BlockHeader, newNullifiers: Set<string>): Promise<void> {
+  public async evictAfterNewBlock(
+    block: BlockHeader,
+    newNullifiers: Fr[],
+    minedFeePayers: AztecAddress[],
+  ): Promise<void> {
     const ctx: EvictionContext = {
       event: EvictionEvent.BLOCK_MINED,
       block,
       newNullifiers,
+      minedFeePayers,
     };
 
     await this.runEvictionRules(ctx);

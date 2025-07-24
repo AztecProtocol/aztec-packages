@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -41,8 +41,9 @@ describe('InvalidTxsAfterReorgRule', () => {
       it('returns empty result for BLOCK_MINED event', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.BLOCK_MINED,
-          block: {} as any,
-          newNullifiers: new Set(),
+          block: BlockHeader.empty(),
+          newNullifiers: [],
+          minedFeePayers: [],
         };
 
         const result = await rule.evict(context, txPool);
@@ -102,7 +103,7 @@ describe('InvalidTxsAfterReorgRule', () => {
           { txHash: TxHash.fromString(tx2Hash), blockHash: headerHash2, isEvictable: true },
         ];
 
-        txPool.getTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
+        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
 
         const result = await rule.evict(context, txPool);
 
@@ -127,7 +128,7 @@ describe('InvalidTxsAfterReorgRule', () => {
           { txHash: TxHash.fromString(nonEvictableTxHash), blockHash: headerHash2, isEvictable: false },
         ];
 
-        txPool.getTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
+        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
 
         const result = await rule.evict(context, txPool);
 
@@ -152,7 +153,7 @@ describe('InvalidTxsAfterReorgRule', () => {
           { txHash: TxHash.fromString(tx2Hash), blockHash: headerHash2, isEvictable: true },
         ];
 
-        txPool.getTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
+        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(txBlockRefs);
 
         const result = await rule.evict(context, txPool);
 
@@ -168,7 +169,7 @@ describe('InvalidTxsAfterReorgRule', () => {
           prunedBlockHashes: [Fr.random()],
         };
 
-        txPool.getTxsReferencingBlocks.mockResolvedValue([]);
+        txPool.getPendingTxsReferencingBlocks.mockResolvedValue([]);
 
         const result = await rule.evict(context, txPool);
 
@@ -195,7 +196,7 @@ describe('InvalidTxsAfterReorgRule', () => {
           largeTxBlockRefs.push({ txHash, blockHash: headerHash, isEvictable: true });
         }
 
-        txPool.getTxsReferencingBlocks.mockResolvedValue(largeTxBlockRefs);
+        txPool.getPendingTxsReferencingBlocks.mockResolvedValue(largeTxBlockRefs);
 
         const result = await rule.evict(context, txPool);
 
@@ -214,7 +215,7 @@ describe('InvalidTxsAfterReorgRule', () => {
         const headerHash = Fr.random().toString();
         const error = new Error('Delete failed');
 
-        txPool.getTxsReferencingBlocks.mockResolvedValue([
+        txPool.getPendingTxsReferencingBlocks.mockResolvedValue([
           { txHash: TxHash.fromString(txHash), blockHash: headerHash, isEvictable: true },
         ]);
         txPool.deleteTxs.mockRejectedValue(error);
@@ -236,7 +237,7 @@ describe('InvalidTxsAfterReorgRule', () => {
         const txHash = TxHash.random().toString();
         const headerHashStr = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
 
-        txPool.getTxsReferencingBlocks.mockResolvedValue([
+        txPool.getPendingTxsReferencingBlocks.mockResolvedValue([
           { txHash: TxHash.fromString(txHash), blockHash: headerHashStr, isEvictable: true },
         ]);
 

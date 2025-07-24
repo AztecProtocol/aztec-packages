@@ -34,7 +34,7 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
     try {
       // Efficiently get all transactions that reference the pruned block hashes
       // These transactions are invalid by definition since they reference pruned blocks
-      const candidateTxs = await txPool.getTxsReferencingBlocks(context.prunedBlockHashes);
+      const candidateTxs = await txPool.getPendingTxsReferencingBlocks(context.prunedBlockHashes);
       const txsToEvict = candidateTxs.filter(({ isEvictable }) => isEvictable).map(({ txHash }) => txHash);
 
       if (txsToEvict.length > 0) {

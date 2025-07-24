@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -93,7 +94,6 @@ describe('EvictionManager', () => {
   describe('evictAfterNewBlock', () => {
     it('calls evict on registered rules with correct context', async () => {
       const block = BlockHeader.empty();
-      const newNullifiers = new Set(['nullifier1', 'nullifier2']);
 
       mockRule1.evict.mockResolvedValue({
         txsEvicted: [],
@@ -102,13 +102,16 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterNewBlock(block, newNullifiers);
+      const nullifier = Fr.random();
+      const feePayer = await AztecAddress.random();
+      await evictionManager.evictAfterNewBlock(block, [nullifier], [feePayer]);
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.BLOCK_MINED,
           block,
-          newNullifiers,
+          newNullifiers: [nullifier],
+          minedFeePayer: [feePayer],
         },
         txPool,
       );
@@ -116,7 +119,6 @@ describe('EvictionManager', () => {
 
     it('handles empty nullifiers and fee payers sets', async () => {
       const block = BlockHeader.empty();
-      const newNullifiers = new Set<string>();
 
       mockRule1.evict.mockResolvedValue({
         txsEvicted: [],
@@ -125,13 +127,14 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterNewBlock(block, newNullifiers);
+      await evictionManager.evictAfterNewBlock(block, [], []);
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.BLOCK_MINED,
           block,
-          newNullifiers,
+          newNullifiers: [],
+          minedFeePayers: [],
         },
         txPool,
       );
@@ -275,9 +278,7 @@ describe('EvictionManager', () => {
 
     it('handles evictAfterNewBlock with no rules gracefully', async () => {
       const block = BlockHeader.empty();
-      const newNullifiers = new Set(['nullifier1']);
-
-      await expect(evictionManager.evictAfterNewBlock(block, newNullifiers)).resolves.not.toThrow();
+      await expect(evictionManager.evictAfterNewBlock(block, [], [])).resolves.not.toThrow();
     });
 
     it('handles evictAfterChainPrune with no rules gracefully', async () => {

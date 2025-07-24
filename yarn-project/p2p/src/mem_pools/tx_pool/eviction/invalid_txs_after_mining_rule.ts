@@ -40,6 +40,7 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
 
       const txsToEvict: TxHash[] = [];
       const pendingTxs = await txPool.getPendingTxs();
+      const minedNullifiers = new Set(context.newNullifiers.map(n => n.toString()));
 
       for (const { txHash, isEvictable } of pendingTxs) {
         const tx = await txPool.getTxByHash(txHash);
@@ -54,7 +55,7 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
 
         // Evict pending txs that share nullifiers with mined txs
         const txNullifiers = tx.data.getNonEmptyNullifiers();
-        if (txNullifiers.some(nullifier => context.newNullifiers!.has(nullifier.toString()))) {
+        if (txNullifiers.some(nullifier => minedNullifiers.has(nullifier.toString()))) {
           this.log.verbose(`Evicting tx ${txHash} from pool due to a duplicate nullifier with a mined tx`);
           txsToEvict.push(txHash);
           continue;

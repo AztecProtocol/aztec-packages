@@ -1,19 +1,32 @@
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type EvictionContext, EvictionEvent, type PendingTxInfo, type TxPoolOperations } from './eviction_strategy.js';
-import { InvalidTxsAfterMiningRule } from './invalid_txs_after_mining_rule.js';
+import { OutOfBalanceTxsAfterMining } from './out_of_balance_tx_rule.js';
 
 describe('InvalidTxsAfterMiningRule', () => {
   let txPool: MockProxy<TxPoolOperations>;
-  let rule: InvalidTxsAfterMiningRule;
+  let worldState: MockProxy<MerkleTreeReadOperations>;
+  let rule: OutOfBalanceTxsAfterMining;
 
   beforeEach(() => {
     txPool = mock<TxPoolOperations>();
-    rule = new InvalidTxsAfterMiningRule();
+    worldState = mock<MerkleTreeReadOperations>();
+    worldState.getPreviousValueIndex.mockResolvedValue(undefined),
+      worldState.getLeafPreimage.mockResolvedValue(
+        new PublicDataTreeLeafPreimage(PublicDataTreeLeaf.empty(), Fr.ONE, 1n),
+      );
+
+    rule = new OutOfBalanceTxsAfterMining({
+      getSnapshot: () => worldState,
+      getCommitted: () => worldState,
+    });
   });
 
   describe('evict method', () => {
@@ -28,7 +41,7 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, txPool);
 
         expect(result).toEqual({
-          reason: 'block_mined_invalid_txs',
+          reason: 'insufficient_fee_juice',
           success: true,
           txsEvicted: [],
         });
@@ -43,7 +56,7 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, txPool);
 
         expect(result).toEqual({
-          reason: 'block_mined_invalid_txs',
+          reason: 'insufficient_fee_juice',
           success: true,
           txsEvicted: [],
         });
@@ -53,23 +66,23 @@ describe('InvalidTxsAfterMiningRule', () => {
     describe('BLOCK_MINED events', () => {
       let context: EvictionContext;
       let blockHeader: BlockHeader;
-      let newNullifiers: Fr[];
+      let feePayers: AztecAddress[];
 
-      beforeEach(() => {
+      beforeEach(async () => {
         blockHeader = BlockHeader.empty();
         blockHeader.globalVariables.blockNumber = 100;
         blockHeader.globalVariables.timestamp = 1000n;
 
-        newNullifiers = [Fr.random(), Fr.random()];
+        feePayers = [await AztecAddress.random(), await AztecAddress.random()];
         context = {
           event: EvictionEvent.BLOCK_MINED,
           block: blockHeader,
-          newNullifiers,
-          minedFeePayers: [],
+          newNullifiers: [Fr.random(), Fr.random()],
+          minedFeePayers: feePayers,
         };
       });
 
-      it('evicts transactions with duplicate nullifiers', async () => {
+      it('evicts transaction that can not pay for gas', async () => {
         const tx1 = TxHash.random();
         const tx2 = TxHash.random();
 
@@ -83,14 +96,11 @@ describe('InvalidTxsAfterMiningRule', () => {
           numberOfRevertiblePublicCallRequests: 0,
         });
 
-        // Mock the nullifiers - tx1 has a duplicate
-        mockTx1.data.forRollup!.end.nullifiers[0] = newNullifiers[0];
-
         const pendingTxs: PendingTxInfo[] = [
           { txHash: tx1, size: 100, isEvictable: true },
           { txHash: tx2, size: 100, isEvictable: true },
         ];
-        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
+        txPool.getPendingTxsWithFeePayer.mockResolvedValue(pendingTxs);
         txPool.getTxByHash.mockImplementation(txHash => {
           if (txHash.equals(tx1)) {
             return Promise.resolve(mockTx1);
@@ -100,49 +110,22 @@ describe('InvalidTxsAfterMiningRule', () => {
           }
           return Promise.resolve(undefined);
         });
+
+        worldState.getPreviousValueIndex
+          .mockResolvedValueOnce({ index: 42n, alreadyPresent: true })
+          .mockResolvedValueOnce({ index: 123n, alreadyPresent: true })
+          .mockResolvedValue(undefined);
+
+        worldState.getLeafPreimage
+          .mockResolvedValueOnce(new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(Fr.ZERO, new Fr(1)), Fr.ONE, 1n))
+          .mockResolvedValueOnce(
+            new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(Fr.ONE, new Fr(1e18)), Fr.ONE, 1n),
+          );
 
         const result = await rule.evict(context, txPool);
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toEqual([tx1]); // Only tx1 has duplicate nullifier
-        expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1]);
-      });
-
-      it('evicts transactions with expired timestamps', async () => {
-        const tx1 = TxHash.random();
-        const tx2 = TxHash.random();
-
-        const mockTx1 = await mockTx(1, {
-          numberOfNonRevertiblePublicCallRequests: 0,
-          numberOfRevertiblePublicCallRequests: 0,
-        });
-        const mockTx2 = await mockTx(2, {
-          numberOfNonRevertiblePublicCallRequests: 0,
-          numberOfRevertiblePublicCallRequests: 0,
-        });
-
-        mockTx1.data.includeByTimestamp = 500n;
-        mockTx2.data.includeByTimestamp = 1500n;
-
-        const pendingTxs: PendingTxInfo[] = [
-          { txHash: tx1, size: 100, isEvictable: true },
-          { txHash: tx2, size: 100, isEvictable: true },
-        ];
-        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
-        txPool.getTxByHash.mockImplementation(txHash => {
-          if (txHash.equals(tx1)) {
-            return Promise.resolve(mockTx1);
-          }
-          if (txHash.equals(tx2)) {
-            return Promise.resolve(mockTx2);
-          }
-          return Promise.resolve(undefined);
-        });
-
-        const result = await rule.evict(context, txPool);
-
-        expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual([tx1]); // Only tx1 is expired
         expect(txPool.deleteTxs).toHaveBeenCalledWith([tx1]);
       });
 
@@ -160,15 +143,14 @@ describe('InvalidTxsAfterMiningRule', () => {
           numberOfRevertiblePublicCallRequests: 0,
         });
 
-        // Both transactions have duplicate nullifiers, but only one is evictable
-        mockEvictableTx.data.forRollup!.end.nullifiers[0] = newNullifiers[0];
-        mockNonEvictableTx.data.forRollup!.end.nullifiers[0] = newNullifiers[0];
+        mockEvictableTx.data.feePayer = feePayers[0];
+        mockNonEvictableTx.data.feePayer = feePayers[1];
 
         const pendingTxs: PendingTxInfo[] = [
           { txHash: evictableTx, size: 100, isEvictable: true },
           { txHash: nonEvictableTx, size: 100, isEvictable: false },
         ];
-        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
+        txPool.getPendingTxsWithFeePayer.mockResolvedValue(pendingTxs);
         txPool.getTxByHash.mockImplementation(txHash => {
           if (txHash.equals(evictableTx)) {
             return Promise.resolve(mockEvictableTx);
@@ -187,12 +169,12 @@ describe('InvalidTxsAfterMiningRule', () => {
       });
 
       it('handles empty pending transactions list', async () => {
-        txPool.getPendingTxs.mockResolvedValue([]);
+        txPool.getPendingTxsWithFeePayer.mockResolvedValue([]);
 
         const result = await rule.evict(context, txPool);
 
         expect(result).toEqual({
-          reason: 'block_mined_invalid_txs',
+          reason: 'insufficient_fee_juice',
           success: true,
           txsEvicted: [],
         });

@@ -1,4 +1,4 @@
-import { TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -47,8 +47,9 @@ describe('LowPriorityEvictionRule', () => {
       it('returns empty result for BLOCK_MINED event', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.BLOCK_MINED,
-          block: {} as any,
-          newNullifiers: new Set(),
+          block: BlockHeader.empty(),
+          newNullifiers: [],
+          minedFeePayers: [],
         };
 
         const result = await rule.evict(context, txPool);

@@ -51,8 +51,16 @@ export interface ForkMerkleTreeOperations {
   backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>>;
 }
 
+export interface ReadonlyWorldStateAccess {
+  /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
+  getCommitted(): MerkleTreeReadOperations;
+
+  /** Gets a handle that allows reading the state as it was at the given block number. */
+  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+}
+
 /** Defines the interface for a world state synchronizer. */
-export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
+export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMerkleTreeOperations {
   /** Starts the synchronizer. */
   start(): Promise<void | PromiseWithResolvers<void>>;
 
@@ -75,9 +83,6 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
    * @returns A promise that resolves with the block number the world state was synced to
    */
   syncImmediate(minBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number>;
-
-  /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
-  getCommitted(): MerkleTreeReadOperations;
 
   /** Deletes the db */
   clear(): Promise<void>;
