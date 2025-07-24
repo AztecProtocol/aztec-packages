@@ -96,7 +96,7 @@ where
     // assert(original_array_length <= capped_size, "capped_size does not cover all non-empty items");
     // We need the padding_length, so instead of doing the above assertion, we do this:
     // This will fail if original_array_length > capped_size, because u32 cannot underflow.
-    // let padding_length = capped_size - original_array_length;
+    let _padding_length = capped_size - original_array_length;
 
     let mut should_be_padded = false;
     for i in 0..N {
