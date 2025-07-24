@@ -85,7 +85,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        if constexpr (IsMegaFlavor<RecursiveFlavor>) {
+        if constexpr (IsMegaBuilder<InnerBuilder>) {
             HidingKernelIO<InnerBuilder>::add_default(builder);
         } else if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             RollupIO::add_default(builder);
@@ -212,19 +212,21 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         verifier.transcript->enable_manifest();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
-        output.points_accumulator.set_public();
 
-        // Add public inputs based on Flavor
+        // IO
         if constexpr (IsMegaFlavor<OuterFlavor>) {
-            // MegaFlavor required HidingKernelIO
-            for (size_t idx = 0; idx < OuterBuilder::NUM_WIRES; idx++) {
-                for (auto& commitment : HidingKernelIO<OuterBuilder>::default_ecc_op_tables(outer_circuit)) {
-                    commitment.set_public();
-                }
-            }
+            HidingKernelIO<OuterBuilder> inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.ecc_op_tables = HidingKernelIO<OuterBuilder>::default_ecc_op_tables(outer_circuit);
+            inputs.set_public();
         } else if constexpr (HasIPAAccumulator<OuterFlavor>) {
             // HasIPAAccumulator requires RollUpIO
-            output.ipa_claim.set_public();
+            RollupIO inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.ipa_claim = output.ipa_claim;
+            inputs.set_public();
+
+            // Store ipa_proof
             outer_circuit.ipa_proof = output.ipa_proof.get_value();
         }
 
