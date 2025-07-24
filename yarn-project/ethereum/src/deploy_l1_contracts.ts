@@ -88,7 +88,7 @@ import {
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
-import { ZK_PASSPORT_SCOPE, ZK_PASSPORT_SUB_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
+import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -275,10 +275,10 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
 export interface ZKPassportArgs {
   /** Whether to use the mock zk passport verifier */
   mockZkPassportVerifier?: boolean;
-  /** The scope of the zk passport - domain (url) */
+  /** The domain of the zk passport (url) */
+  zkPassportDomain?: string;
+  /** The scope of the zk passport (personhood, etc) */
   zkPassportScope?: string;
-  /** The sub-scope of the zk passport - domain seperator (personhood, etc) */
-  zkPassportSubScope?: string;
 }
 
 export const deploySharedContracts = async (
@@ -445,7 +445,7 @@ export const deploySharedContracts = async (
     if ([11155111, foundry.id].includes(l1Client.chain.id)) {
       const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
       zkPassportVerifierAddress = await getZkPassportVerifierAddress(deployer, args);
-      const [scope, subscope] = getZkPassportScopes(args);
+      const [domain, scope] = getZkPassportScopes(args);
 
       const stakingAssetHandlerDeployArgs = {
         owner: l1Client.account.address,
@@ -458,8 +458,8 @@ export const deploySharedContracts = async (
         zkPassportVerifier: zkPassportVerifierAddress.toString(),
         unhinged: [AMIN.toString()], // isUnhinged,
         // Scopes
+        domain: domain,
         scope: scope,
-        subscope: subscope,
         // Skip checks
         skipBindCheck: args.zkPassportArgs?.mockZkPassportVerifier ?? false,
         skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
@@ -555,9 +555,9 @@ const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1
  * @returns The zk passport scopes
  */
 const getZkPassportScopes = (args: DeployL1ContractsArgs): [string, string] => {
+  const domain = args.zkPassportArgs?.zkPassportDomain ?? ZK_PASSPORT_DOMAIN;
   const scope = args.zkPassportArgs?.zkPassportScope ?? ZK_PASSPORT_SCOPE;
-  const subscope = args.zkPassportArgs?.zkPassportSubScope ?? ZK_PASSPORT_SUB_SCOPE;
-  return [scope, subscope];
+  return [domain, scope];
 };
 
 /**
