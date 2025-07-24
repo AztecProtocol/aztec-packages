@@ -39,24 +39,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
 
     // Remaining data: per-block config + input data
     size_t data_offset = 33;
-    size_t input_bytes = Size > data_offset ? Size - data_offset : 0;
-    if (input_bytes == 0) {
-        input_bytes = 16; // At least one block
-    }
-    // Pad input to multiple of 16
-    size_t padded_input_bytes = input_bytes;
-    if (padded_input_bytes % 16 != 0) {
-        padded_input_bytes += 16 - (padded_input_bytes % 16);
-    }
-    size_t num_blocks = padded_input_bytes / 16;
-    // Need at least num_blocks bytes for per-block config
-    if (Size < data_offset + num_blocks + num_blocks * 16) {
-        // Not enough data for config + input, pad input as needed
-        num_blocks = (Size > data_offset) ? (Size - data_offset) / 17 : 1;
-        if (num_blocks == 0)
-            num_blocks = 1;
-        padded_input_bytes = num_blocks * 16;
-    }
+    size_t num_blocks = (Size > data_offset) ? (Size - data_offset) / 17 : 1;
+    if (num_blocks == 0)
+        num_blocks = 1;
     // Per-block config (num_blocks bytes)
     std::vector<uint8_t> block_config;
     for (size_t i = 0; i < num_blocks; ++i) {
