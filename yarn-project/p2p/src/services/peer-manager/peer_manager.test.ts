@@ -806,7 +806,7 @@ describe('PeerManager', () => {
 
       const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [enr]);
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       const isPrivatePeer = (newPeerManager as any).isPrivatePeer.bind(newPeerManager);
 
@@ -917,7 +917,7 @@ describe('PeerManager', () => {
 
       const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [enr]);
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       const isPreferredPeer = (newPeerManager as any).isPreferredPeer.bind(newPeerManager);
 
@@ -958,7 +958,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // We should return a valid status message as this is a preferred peer
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
@@ -988,7 +988,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       const someOtherPeer = await createSecp256k1PeerId();
 
@@ -1019,7 +1019,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1077,7 +1077,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1135,7 +1135,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1192,7 +1192,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       let receivedAuth: AuthRequest | undefined;
 
@@ -1246,7 +1246,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // Mock the auth request to fail
       mockReqResp.sendRequestToPeer.mockImplementation(
@@ -1299,7 +1299,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1371,7 +1371,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1442,7 +1442,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1522,7 +1522,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1621,7 +1621,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
