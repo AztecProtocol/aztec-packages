@@ -234,7 +234,7 @@ describe('SequencerPublisher', () => {
         1n,
         SignalType.GOVERNANCE,
         EthAddress.fromString(testHarnessPrivateKey.address),
-        hash => testHarnessPrivateKey.sign({ hash }),
+        msg => testHarnessPrivateKey.signTypedData(msg),
       ),
     ).toEqual(true);
 

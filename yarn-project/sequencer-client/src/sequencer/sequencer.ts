@@ -1,7 +1,6 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -403,7 +402,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       newGlobalVariables.timestamp,
       SignalType.GOVERNANCE,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
 
     const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
@@ -411,7 +410,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       newGlobalVariables.timestamp,
       SignalType.SLASHING,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);

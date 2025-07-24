@@ -234,7 +234,7 @@ describe('SlasherClient', () => {
           round,
           slasherL1Client.chain.id,
           slasherPrivateKey.address,
-          msg => slasherPrivateKey.sign({ hash: msg }),
+          msg => slasherPrivateKey.signTypedData(msg),
         );
 
         // Have the test harness send the vote request to avoid nonce conflicts

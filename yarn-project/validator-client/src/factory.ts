@@ -29,7 +29,10 @@ export function createValidatorClient(
   if (config.disableValidator) {
     return undefined;
   }
-  if (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys.getValue().length) {
+  if (
+    (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys.getValue().length) &&
+    !config.web3SignerUrl
+  ) {
     config.validatorPrivateKeys = new SecretValue([generatePrivateKey()]);
   }
 
