@@ -168,8 +168,18 @@ async function bridgeL1FeeJuice(
 
 async function advanceL2Block(node: AztecNode, nodeAdmin?: AztecNodeAdmin) {
   const initialBlockNumber = await node.getBlockNumber();
-  await nodeAdmin?.flushTxs();
+
+  let minTxsPerBlock = undefined;
+  if (nodeAdmin) {
+    ({ minTxsPerBlock } = await nodeAdmin.getConfig());
+    await nodeAdmin.setConfig({ minTxsPerBlock: 0 }); // Set to 0 to ensure we can advance the block
+  }
+
   await retryUntil(async () => (await node.getBlockNumber()) >= initialBlockNumber + 1);
+
+  if (nodeAdmin && minTxsPerBlock !== undefined) {
+    await nodeAdmin.setConfig({ minTxsPerBlock });
+  }
 }
 
 async function deployTokenAndMint(
