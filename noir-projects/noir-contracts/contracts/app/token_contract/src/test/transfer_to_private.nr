@@ -1,6 +1,6 @@
 use crate::{test::utils, Token};
-use aztec::oracle::random::random;
-use uint_note::uint_note::PartialUintNote;
+use dep::aztec::oracle::random::random;
+use dep::uint_note::uint_note::PartialUintNote;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the TOKEN contract itself.
