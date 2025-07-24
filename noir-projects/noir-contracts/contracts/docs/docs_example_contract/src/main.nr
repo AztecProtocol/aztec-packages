@@ -163,7 +163,7 @@ pub contract DocsExample {
     // contract library method to avoid compilation error.
     #[contract_library_method]
     // docs:start:simple_macro_example_expanded
-    fn simple_macro_example_expanded(
+    pub fn simple_macro_example_expanded(
         // ************************************************************
         // The private context inputs are made available to the circuit by the kernel
         // docs:start:context-example-inputs

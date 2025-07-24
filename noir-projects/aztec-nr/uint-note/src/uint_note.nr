@@ -212,7 +212,7 @@ impl NoteType for PrivateUintPartialNotePrivateLogContent {
 /// of course that its value is known).
 #[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
-    commitment: Field,
+    pub commitment: Field,
 }
 
 global NOTE_COMPLETION_LOG_LENGTH: u32 = 2;
