@@ -40,10 +40,10 @@ contract Test15123 is GovernanceProposerBase {
     signature = Signature({v: 4, r: bytes32(0), s: bytes32(0)});
 
     vm.expectRevert();
-    governanceProposer.voteWithSig(proposal, signature);
+    governanceProposer.signalWithSig(proposal, signature);
 
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), 0, proposal),
+      governanceProposer.signalCount(address(validatorSelection), 0, proposal),
       0,
       "invalid number of votes"
     );
@@ -58,12 +58,13 @@ contract Test15123 is GovernanceProposerBase {
     registry.addRollup(IRollup(address(validatorSelection)));
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
 
-    signature = createSignature(privateKey, address(proposal), 0);
+    uint256 round = governanceProposer.getCurrentRound();
+    signature = createSignature(privateKey, address(proposal), 0, round);
 
-    governanceProposer.voteWithSig(proposal, signature);
+    governanceProposer.signalWithSig(proposal, signature);
 
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), 0, proposal),
+      governanceProposer.signalCount(address(validatorSelection), 0, proposal),
       1,
       "invalid number of votes"
     );
@@ -71,16 +72,16 @@ contract Test15123 is GovernanceProposerBase {
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(2))));
 
     vm.expectRevert();
-    governanceProposer.voteWithSig(proposal, signature);
+    governanceProposer.signalWithSig(proposal, signature);
 
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), 0, proposal),
+      governanceProposer.signalCount(address(validatorSelection), 0, proposal),
       1,
       "invalid number of votes"
     );
   }
 
-  function createSignature(uint256 _privateKey, address _payload, uint256 _nonce)
+  function createSignature(uint256 _privateKey, address _payload, uint256 _nonce, uint256 _round)
     internal
     view
     returns (Signature memory)
@@ -94,7 +95,8 @@ contract Test15123 is GovernanceProposerBase {
       abi.encode(TYPE_HASH, hashedName, hashedVersion, block.chainid, address(governanceProposer))
     );
     bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload, _nonce))
+      domainSeparator,
+      keccak256(abi.encode(governanceProposer.SIGNAL_TYPEHASH(), _payload, _nonce, _round))
     );
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);

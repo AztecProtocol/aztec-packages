@@ -16,6 +16,8 @@
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -35,10 +37,13 @@ using ::testing::TestWithParam;
 using testing::TestMemoryTree;
 
 using simulation::EventEmitter;
+using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
 using simulation::MockRangeCheck;
 using simulation::NoopEventEmitter;
 using simulation::NullifierTreeCheck;
@@ -47,7 +52,8 @@ using simulation::NullifierTreeLeafPreimage;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
-using simulation::root_from_path;
+using simulation::Poseidon2PermutationMemoryEvent;
+using simulation::unconstrained_root_from_path;
 
 using tracegen::NullifierTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
@@ -89,8 +95,11 @@ TEST_P(NullifierReadPositiveTests, Positive)
 
     NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
 
+    NiceMock<MockGreaterThan> mock_gt;
+    NiceMock<MockExecutionIdManager> mock_exec_id_manager;
+    Poseidon2 poseidon2(mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
@@ -113,7 +122,7 @@ TEST_P(NullifierReadPositiveTests, Positive)
     for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.assert_read(param.nullifier,
                                                /*contract_address*/ std::nullopt,
@@ -137,8 +146,11 @@ TEST(NullifierTreeCheckConstrainingTest, PositiveWriteAppend)
 {
     NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
 
+    NiceMock<MockGreaterThan> mock_gt;
+    NiceMock<MockExecutionIdManager> mock_exec_id_manager;
+    Poseidon2 poseidon2(mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
@@ -203,8 +215,11 @@ TEST(NullifierTreeCheckConstrainingTest, PositiveWriteMembership)
     auto low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(42), 0, 0);
     NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
 
+    NiceMock<MockGreaterThan> mock_gt;
+    NiceMock<MockExecutionIdManager> mock_exec_id_manager;
+    Poseidon2 poseidon2(mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
@@ -227,7 +242,7 @@ TEST(NullifierTreeCheckConstrainingTest, PositiveWriteMembership)
     for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.write(nullifier,
                                          std::nullopt,
@@ -248,12 +263,15 @@ TEST(NullifierTreeCheckConstrainingTest, Siloing)
 {
     AztecAddress contract_address = 1;
     FF nullifier = 42;
-    FF siloed_nullifier = simulation::silo_nullifier(contract_address, nullifier);
+    FF siloed_nullifier = simulation::unconstrained_silo_nullifier(contract_address, nullifier);
     auto low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), 0, 0);
     NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
 
+    NiceMock<MockGreaterThan> mock_gt;
+    NiceMock<MockExecutionIdManager> mock_exec_id_manager;
+    Poseidon2 poseidon2(mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
@@ -276,7 +294,7 @@ TEST(NullifierTreeCheckConstrainingTest, Siloing)
     for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.write(nullifier,
                                          contract_address,

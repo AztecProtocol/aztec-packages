@@ -13,15 +13,21 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct UltraRecursiveVerifierOutput {
+    using Curve = bn254<Builder>;
+    using G1 = Curve::Group;
+
     PairingPoints<Builder> points_accumulator;
     OpeningClaim<grumpkin<Builder>> ipa_claim;
-    StdlibProof<Builder> ipa_proof;
+    stdlib::Proof<Builder> ipa_proof;
+    std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
+                                                      // of the HidingKernel, only for MegaFlavor
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {
   public:
@@ -30,25 +36,21 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using GroupElement = typename Flavor::GroupElement;
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingObject = PairingPoints<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
     using Output = UltraRecursiveVerifierOutput<Builder>;
+    using StdlibProof = stdlib::Proof<Builder>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<VerificationKey>& vkey,
+                                     const std::shared_ptr<VKAndHash>& vk_and_hash,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(
-        const StdlibProof<Builder>& proof);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const StdlibProof& proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
     // RecursiveDeciderVK here. Seems unnecessary.

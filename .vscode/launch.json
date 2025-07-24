@@ -36,7 +36,7 @@
       "name": "Debug CIVC transaction",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/bb",
       "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack"],
       "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
@@ -44,11 +44,43 @@
       ],
     },
     {
-      "name": "Debug Test",
+      "name": "Debug Commitment Schemes Tests",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/vm2_tests",
-      "args": ["--gtest_filter=AvmRecursiveTests.GoblinRecursion"],
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/commitment_schemes_tests",
+      "args": [],
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB API Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/api_tests",
+      "args": ["--gtest_filter=ClientIVCAPITests.ProveAndVerifyFileBasedFlow"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB ClientIVC Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/client_ivc_tests",
+      "args": ["--gtest_filter=ClientIVCTests.ProveAndVerifyFileBasedFlow"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB DSL Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/dsl_tests",
+      "args": ["--gtest_filter=IvcRecursionConstraintTest.AccumulateTwo"],
       "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"

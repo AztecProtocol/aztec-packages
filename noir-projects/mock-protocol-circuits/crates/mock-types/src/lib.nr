@@ -7,10 +7,9 @@ pub use protocol_types::{
     abis::avm_circuit_public_inputs::AvmCircuitPublicInputs,
     constants::{
         AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        PROOF_TYPE_AVM, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROOF_TYPE_ROLLUP_HONK,
-        PROOF_TYPE_ROOT_ROLLUP_HONK, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        TUBE_PROOF_LENGTH,
+        MEGA_VK_LENGTH_IN_FIELDS, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, PROOF_TYPE_AVM,
+        PROOF_TYPE_OINK, PROOF_TYPE_PG, PROOF_TYPE_ROLLUP_HONK, PROOF_TYPE_ROOT_ROLLUP_HONK,
+        TUBE_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS,
     },
     proof::verification_key::{RollupHonkVerificationKey, VerificationKey},
     traits::Serialize,
@@ -109,6 +108,7 @@ impl PrivateKernelPublicInputsBuilder {
     }
 }
 
+#[derive(Serialize)]
 pub struct KernelPublicInputs {
     pub commitments: [Field; MAX_COMMITMENTS_PER_TX],
 }
@@ -119,12 +119,7 @@ impl Default for KernelPublicInputs {
     }
 }
 
-impl Serialize<MAX_COMMITMENTS_PER_TX> for KernelPublicInputs {
-    fn serialize(self) -> [Field; MAX_COMMITMENTS_PER_TX] {
-        self.commitments
-    }
-}
-
+#[derive(Serialize)]
 pub struct RollupPublicInputs {
     accumulated: u32,
 }
@@ -136,12 +131,6 @@ impl RollupPublicInputs {
 
     pub fn merge(self, other: Self) -> Self {
         Self { accumulated: self.accumulated + other.accumulated }
-    }
-}
-
-impl Serialize<1> for RollupPublicInputs {
-    fn serialize(self) -> [Field; 1] {
-        [self.accumulated as Field]
     }
 }
 
@@ -176,7 +165,7 @@ impl PreviousRollupData {
 pub struct TubeData {
     pub public_inputs: KernelPublicInputs,
     pub proof: [Field; TUBE_PROOF_LENGTH],
-    pub vk_data: VerificationKey<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VerificationKey<ULTRA_VK_LENGTH_IN_FIELDS>,
 }
 
 impl TubeData {

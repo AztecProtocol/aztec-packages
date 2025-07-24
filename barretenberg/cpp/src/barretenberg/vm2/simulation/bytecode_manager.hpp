@@ -10,9 +10,9 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
-#include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
+#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
@@ -59,8 +59,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       Poseidon2Interface& poseidon2,
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
-                      UpdateCheckInterface& update_check,
-                      uint64_t current_timestamp,
+                      ContractInstanceManagerInterface& contract_instance_manager,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
@@ -69,8 +68,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , poseidon2(poseidon2)
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
-        , update_check(update_check)
-        , current_timestamp(current_timestamp)
+        , contract_instance_manager(contract_instance_manager)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -85,20 +83,12 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     Poseidon2Interface& poseidon2;
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
-    UpdateCheckInterface& update_check;
-    // We need the current timestamp for the update check interaction
-    uint64_t current_timestamp;
+    ContractInstanceManagerInterface& contract_instance_manager;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
     BytecodeId next_bytecode_id = 0;
-
-    struct ResolvedAddress {
-        BytecodeId bytecode_id;
-        bool not_found = false;
-    };
-    unordered_flat_map<AztecAddress, ResolvedAddress> resolved_addresses;
 };
 
 // Manages the bytecode of a single nested call.

@@ -19,9 +19,9 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
+import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -32,6 +32,11 @@ import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
 /**
  * Execute a private function and return the execution result.
+ * This does not execute any kernel circuits; only the user functions.
+ *
+ * If this private function execution results in any nested private function calls,
+ * those nested calls are made via oracle calls to the `callPrivateFunction` oracle,
+ * which in turn makes corresponding further calls to this function.
  */
 export async function executePrivateFunction(
   simulator: CircuitSimulator,
@@ -83,15 +88,15 @@ export async function executePrivateFunction(
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
-  const nestedExecutions = privateExecutionOracle.getNestedExecutions();
+  const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
-  let timerSubtractionList = nestedExecutions;
+  let timerSubtractionList = nestedExecutionResults;
   let witgenTime = duration;
 
   // Due to the recursive nature of execution, we have to subtract the time taken by nested calls
   while (timerSubtractionList.length > 0) {
     witgenTime -= timerSubtractionList.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0);
-    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutions ?? []);
+    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutionResults ?? []);
   }
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
@@ -106,7 +111,7 @@ export async function executePrivateFunction(
     noteHashNullifierCounterMap,
     rawReturnValues,
     offchainEffects,
-    nestedExecutions,
+    nestedExecutionResults,
     contractClassLogs,
     {
       timings: {
@@ -147,8 +152,8 @@ export function extractPrivateCircuitPublicInputs(
  * @param contractAddress - The address of the contract to read the class id for.
  * @param instance - The instance of the contract.
  * @param executionDataProvider - The execution data provider.
- * @param blockNumber - The block number at which to load the SharedMutable storing the class id.
- * @param timestamp - The timestamp at which to obtain the class id from the SharedMutable.
+ * @param blockNumber - The block number at which to load the DelayedPublicMutable storing the class id.
+ * @param timestamp - The timestamp at which to obtain the class id from the DelayedPublicMutable.
  * @returns The current class id.
  */
 export async function readCurrentClassId(
@@ -158,11 +163,11 @@ export async function readCurrentClassId(
   blockNumber: number,
   timestamp: UInt64,
 ) {
-  const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
-  const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
-    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceDeployer, slot),
+  const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
+  const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot =>
+    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot),
   );
-  let currentClassId = sharedMutableValues.svc.getCurrentAt(timestamp)[0];
+  let currentClassId = delayedPublicMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }

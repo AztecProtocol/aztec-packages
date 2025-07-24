@@ -12,6 +12,8 @@
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -21,13 +23,19 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::NiceMock;
+
 using simulation::EventEmitter;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
-using simulation::root_from_path;
+using simulation::Poseidon2PermutationMemoryEvent;
+using simulation::unconstrained_root_from_path;
 
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
@@ -499,7 +507,7 @@ TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
     std::vector<FF> sibling_path = { FF(456), FF(789), FF(3333) };
 
     // Compute expected root
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
 
     MerkleCheckEvent event = {
         .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
@@ -534,9 +542,9 @@ TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
     std::vector<FF> sibling_path = { FF(456), FF(789), FF(3333) };
 
     // Compute read root
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
     // Compute new root
-    FF new_root = root_from_path(new_leaf_value, leaf_index, sibling_path);
+    FF new_root = unconstrained_root_from_path(new_leaf_value, leaf_index, sibling_path);
 
     MerkleCheckEvent event = { .leaf_value = leaf_value,
                                .new_leaf_value = new_leaf_value,
@@ -551,12 +559,22 @@ TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
     check_relation<merkle_check>(trace);
 }
 
-TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
-{
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+class MerkleCheckPoseidon2Test : public ::testing::Test {
+  protected:
+    MerkleCheckPoseidon2Test() = default;
 
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    NiceMock<MockExecutionIdManager> execution_id_manager;
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2 =
+        Poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+};
+
+TEST_F(MerkleCheckPoseidon2Test, ReadWithInteractions)
+{
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
@@ -567,7 +585,7 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
@@ -588,12 +606,8 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 }
 
-TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
+TEST_F(MerkleCheckPoseidon2Test, WriteWithInteractions)
 {
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
-
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
@@ -605,8 +619,8 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     FF new_leaf_value = 444;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
-    FF expected_new_root = root_from_path(new_leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF expected_new_root = unconstrained_root_from_path(new_leaf_value, leaf_index, sibling_path);
 
     FF new_root = merkle_check_sim.write(leaf_value, new_leaf_value, leaf_index, sibling_path, root);
 
@@ -635,7 +649,7 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
         "destination");
 }
 
-TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
+TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
 {
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -645,7 +659,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
     MerkleCheckEvent event = {
         .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
     };
@@ -654,8 +668,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     FF new_leaf_value2 = 555;
     uint64_t leaf_index2 = 40;
     std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
-    FF root2 = root_from_path(leaf_value2, leaf_index2, sibling_path2);
-    FF new_root2 = root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
+    FF root2 = unconstrained_root_from_path(leaf_value2, leaf_index2, sibling_path2);
+    FF new_root2 = unconstrained_root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
     MerkleCheckEvent event2 = { .leaf_value = leaf_value2,
                                 .new_leaf_value = new_leaf_value2,
                                 .leaf_index = leaf_index2,
@@ -691,12 +705,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     check_relation<merkle_check>(trace);
 }
 
-TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
+TEST_F(MerkleCheckPoseidon2Test, MultipleWithInteractions)
 {
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
-
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
@@ -707,7 +717,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
 
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
@@ -715,8 +725,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     FF new_leaf_value2 = 555;
     uint64_t leaf_index2 = 40;
     std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
-    FF root2 = root_from_path(leaf_value2, leaf_index2, sibling_path2);
-    FF expected_new_root2 = root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
+    FF root2 = unconstrained_root_from_path(leaf_value2, leaf_index2, sibling_path2);
+    FF expected_new_root2 = unconstrained_root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
 
     FF new_root2 = merkle_check_sim.write(leaf_value2, new_leaf_value2, leaf_index2, sibling_path2, root2);
     EXPECT_EQ(new_root2, expected_new_root2);

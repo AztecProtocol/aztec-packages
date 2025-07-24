@@ -37,7 +37,9 @@ contract OffchainEffect {
         if effects.len() > 0 {
             let mut effects = effects;
             let payload = effects.pop();
-            emit_offchain_effect(payload.data);
+            // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+            // which we don't use for anything besides its side effects, therefore this is safe to call.
+            unsafe { emit_offchain_effect(payload.data) };
 
             if effects.len() > 0 {
                 OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(
@@ -59,7 +61,6 @@ contract OffchainEffect {
         storage.balances.at(owner).insert(note).emit(
             encode_and_encrypt_note_and_emit_as_offchain_message(
                 &mut context,
-                context.msg_sender(),
                 context.msg_sender(),
             ),
         );

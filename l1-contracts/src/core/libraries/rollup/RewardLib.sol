@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {CompressedFeeHeader, FeeHeaderLib, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -130,7 +130,8 @@ library RewardLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
-    bool isRewardDistributorCanonical =
+    // Determine if this rollup is canonical according to its RewardDistributor.
+    bool isCanonicalToRewardDistributor =
       address(this) == rewardStorage.config.rewardDistributor.canonicalRollup();
 
     uint256 length = _args.end - _args.start + 1;
@@ -156,7 +157,7 @@ library RewardLib {
 
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 blockRewardsAvailable = isRewardDistributorCanonical
+        uint256 blockRewardsAvailable = isCanonicalToRewardDistributor
           ? rewardStorage.config.rewardDistributor.claimBlockRewards(address(this), added)
           : 0;
         uint256 sequencerShare =
@@ -167,7 +168,7 @@ library RewardLib {
       }
 
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader feeHeader = FeeLib.getFeeHeader(_args.start + i);
+        CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
         v.manaUsed = feeHeader.getManaUsed();
 

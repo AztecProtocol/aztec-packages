@@ -10,33 +10,32 @@ TEST(Flavor, Getters)
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     using Flavor = UltraFlavor;
     using FF = Flavor::FF;
-    using ProvingKey = typename Flavor::ProvingKey;
+    using ProverPolynomials = Flavor::ProverPolynomials;
 
-    ProvingKey proving_key = []() { return Flavor::ProvingKey(/*circuit_size=*/4, /*num_public_inputs=*/0); }();
+    const size_t circuit_size = 4;
+    ProverPolynomials polynomials{ circuit_size };
 
     // set
     size_t coset_idx = 0;
-    for (auto& id_poly : proving_key.polynomials.get_ids()) {
-        id_poly = typename Flavor::Polynomial(proving_key.circuit_size);
-        for (size_t i = 0; i < proving_key.circuit_size; ++i) {
-            id_poly.at(i) = coset_idx * proving_key.circuit_size + i;
+    for (auto& id_poly : polynomials.get_ids()) {
+        id_poly = typename Flavor::Polynomial(circuit_size);
+        for (size_t i = 0; i < circuit_size; ++i) {
+            id_poly.at(i) = coset_idx * circuit_size + i;
         }
         ++coset_idx;
     }
 
     // Polynomials in the proving key can be set through loops over subsets produced by the getters
-    EXPECT_EQ(proving_key.polynomials.id_1[0], FF(0));
-    EXPECT_EQ(proving_key.polynomials.id_2[0], FF(4));
-    EXPECT_EQ(proving_key.polynomials.id_3[0], FF(8));
+    EXPECT_EQ(polynomials.id_1[0], FF(0));
+    EXPECT_EQ(polynomials.id_2[0], FF(4));
+    EXPECT_EQ(polynomials.id_3[0], FF(8));
 
-    Flavor::ProverPolynomials prover_polynomials;
     Flavor::CommitmentLabels commitment_labels;
 
     // Globals are also available through STL container sizes
-    EXPECT_EQ(prover_polynomials.get_all().size(), Flavor::NUM_ALL_ENTITIES);
+    EXPECT_EQ(polynomials.get_all().size(), Flavor::NUM_ALL_ENTITIES);
     // Shited polynomials have the righ tsize
-    EXPECT_EQ(prover_polynomials.get_all().size(),
-              prover_polynomials.get_shifted().size() + prover_polynomials.get_unshifted().size());
+    EXPECT_EQ(polynomials.get_all().size(), polynomials.get_shifted().size() + polynomials.get_unshifted().size());
     // Commitment lables are stored in the flavor.
     EXPECT_EQ(commitment_labels.w_r, "W_R");
 }

@@ -393,8 +393,8 @@ export function Landing() {
           paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
         },
         universalDeploy: true,
-        skipClassRegistration: true,
-        skipPublicDeployment: true,
+        skipClassPublication: true,
+        skipInstancePublication: true,
       };
 
       const txReceipt = await sendTx(`Deploy Account`, deployMethod, accountWallet.getAddress(), opts);

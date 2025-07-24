@@ -15,16 +15,14 @@ use blob::{
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
-        epoch_constant_data::EpochConstantData,
+        block_header::BlockHeader, epoch_constant_data::EpochConstantData,
+        partial_state_reference::PartialStateReference, state_reference::StateReference,
     },
-    block_header::BlockHeader,
     constants::{AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT},
     content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
-    partial_state_reference::PartialStateReference,
     proposed_block_header::ProposedBlockHeader,
-    state_reference::StateReference,
-    traits::{Empty, Hash, is_empty},
+    traits::{Empty, Hash},
 };
 
 pub struct BlockRootRollupOutputComposer {
@@ -93,7 +91,7 @@ impl BlockRootRollupOutputComposer {
         let new_archive = self.update_archive(constants.last_archive, new_block_hash);
         let proposed_block_header_hash = self.create_proposed_block_header(new_block_header).hash();
 
-        let end_blob_accumulator = if is_empty(self.data.start_blob_accumulator) {
+        let end_blob_accumulator = if self.data.start_blob_accumulator.is_empty() {
             BlobAccumulatorPublicInputs::init(
                 empty_effect_blob_accumulation_input,
                 self.data.final_blob_challenges.gamma,

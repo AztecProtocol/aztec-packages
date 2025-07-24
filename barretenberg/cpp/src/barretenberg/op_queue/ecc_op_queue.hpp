@@ -48,14 +48,25 @@ class ECCOpQueue {
     EccvmRowTracker eccvm_row_tracker;
 
   public:
-    // Constructor that instantiates an initial ECC op subtable
+    /**
+     * @brief Instantiate an initial ECC op subtable.
+     */
     ECCOpQueue() { initialize_new_subtable(); }
 
-    // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
+    /**
+     * @brief Initialize a new subtable for eccvm and ultra ops with the given merge settings.
+     *
+     */
     void initialize_new_subtable()
     {
         eccvm_ops_table.create_new_subtable();
         ultra_ops_table.create_new_subtable();
+    }
+
+    void merge(MergeSettings settings = MergeSettings::PREPEND)
+    {
+        eccvm_ops_table.merge(settings);
+        ultra_ops_table.merge(settings);
     }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
@@ -84,6 +95,7 @@ class ECCOpQueue {
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
+    size_t get_previous_ultra_ops_table_num_rows() const { return ultra_ops_table.previous_ultra_table_size(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops getters
     // more memory efficient
@@ -145,7 +157,11 @@ class ECCOpQueue {
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing() { append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity }); }
+    void empty_row_for_testing()
+    {
+        append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
+        accumulator.self_set_infinity();
+    }
 
     Point get_accumulator() { return accumulator; }
 

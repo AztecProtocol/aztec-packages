@@ -8,6 +8,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
@@ -40,7 +41,9 @@ contract GovernanceBase is TestBase {
     registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance = new Governance(token, address(governanceProposer), address(this));
+    governance = new Governance(
+      token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration()
+    );
 
     vm.prank(address(governance));
     governance.openFloodgates();
@@ -99,11 +102,12 @@ contract GovernanceBase is TestBase {
     assertTrue(governance.getProposalState(proposalId) == ProposalState.Active);
   }
 
-  function _stateDropped(bytes32 _proposalName, address _proposer) internal {
+  function _stateDroppable(bytes32 _proposalName, address _proposer) internal {
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 
     vm.assume(_proposer != proposal.proposer);
+    vm.assume(_proposer != address(governance));
 
     vm.prank(address(governance));
     governance.updateGovernanceProposer(_proposer);
@@ -135,7 +139,7 @@ contract GovernanceBase is TestBase {
     uint256 votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
     uint256 votesCast = bound(_votesCast, votesNeeded, totalPower);
 
-    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.voteDifferential, 2);
+    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.requiredYeaMargin, 2);
     uint256 yeaLimit = Math.mulDiv(votesCast, yeaLimitFraction, 1e18, Math.Rounding.Ceil);
 
     uint256 yeas = yeaLimit == votesCast ? votesCast : bound(_yeas, yeaLimit + 1, votesCast);

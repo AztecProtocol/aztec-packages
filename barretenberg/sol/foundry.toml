@@ -9,10 +9,8 @@ bytecode_hash = "none"
 evm_version = "cancun"
 
 [fuzz]
-runs = 1
-
+runs = 2
 
 solc = "0.8.29"
-
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

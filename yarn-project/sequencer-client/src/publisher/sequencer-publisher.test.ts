@@ -17,6 +17,7 @@ import {
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block, Signature } from '@aztec/stdlib/block';
 import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
@@ -25,10 +26,17 @@ import { jest } from '@jest/globals';
 import express, { json } from 'express';
 import type { Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
+import {
+  type GetTransactionReceiptReturnType,
+  type PrivateKeyAccount,
+  type TransactionReceipt,
+  encodeFunctionData,
+  toHex,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
-import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
+import { SequencerPublisher, SignalType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -57,6 +65,8 @@ describe('SequencerPublisher', () => {
   // An l1 publisher with some private methods exposed
   let publisher: SequencerPublisher;
 
+  let testHarnessPrivateKey: PrivateKeyAccount;
+
   const GAS_GUESS = 300_000n;
 
   beforeEach(async () => {
@@ -83,11 +93,13 @@ describe('SequencerPublisher', () => {
     l1TxUtils = mock<L1TxUtilsWithBlobs>();
     l1TxUtils.getBlock.mockResolvedValue({ timestamp: 12n } as any);
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
+    const publisherPrivateKey = `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`;
+    testHarnessPrivateKey = privateKeyToAccount(publisherPrivateKey);
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
       l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
-      publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
+      publisherPrivateKey,
       l1Contracts: {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
@@ -120,6 +132,7 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
+      dateProvider: new TestDateProvider(),
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;
@@ -202,20 +215,28 @@ describe('SequencerPublisher', () => {
     const voteSig = Signature.random();
     publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
-      lastVote: 1n,
-      leader: govPayload.toString(),
+      lastSignalSlot: 1n,
+      payloadWithMostSignals: govPayload.toString(),
       executed: false,
     });
-    governanceProposerContract.createVoteRequestWithSignature.mockResolvedValue({
+    governanceProposerContract.createSignalRequestWithSignature.mockResolvedValue({
       to: mockGovernanceProposerAddress,
       data: encodeFunctionData({
         abi: EmpireBaseAbi,
-        functionName: 'voteWithSig',
+        functionName: 'signalWithSig',
         args: [govPayload.toString(), voteSig.toViemSignature()],
       }),
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
-    expect(await publisher.enqueueCastVote(2n, 1n, VoteType.GOVERNANCE)).toEqual(true);
+    expect(
+      await publisher.enqueueCastSignal(
+        2n,
+        1n,
+        SignalType.GOVERNANCE,
+        EthAddress.fromString(testHarnessPrivateKey.address),
+        msg => testHarnessPrivateKey.signTypedData(msg),
+      ),
+    ).toEqual(true);
 
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
@@ -244,28 +265,29 @@ describe('SequencerPublisher', () => {
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {
-          to: mockRollupAddress,
-          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
-        },
-        {
           to: mockGovernanceProposerAddress,
           data: encodeFunctionData({
             abi: EmpireBaseAbi,
-            functionName: 'voteWithSig',
+            functionName: 'signalWithSig',
             args: [govPayload.toString(), voteSig.toViemSignature()],
           }),
         },
+        {
+          to: mockRollupAddress,
+          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
+        },
       ],
       l1TxUtils,
-      // vote + val + (val * 20n) / 100n
       {
-        gasLimit: SequencerPublisher.VOTE_GAS_GUESS + 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n,
+        gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
       },
       { blobs: expectedBlobs.map(b => b.data), kzg },
       mockRollupAddress,
       expect.anything(), // the logger
     );
+
+    expect(forwardSpy.mock.calls[0][2]?.gasLimit).toBeGreaterThan(2_000_000n);
   });
 
   it('errors if forwarder tx fails', async () => {
@@ -337,9 +359,14 @@ describe('SequencerPublisher', () => {
       action: 'propose',
       request: {
         to: mockRollupAddress,
-        data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [EthAddress.random().toString()] }),
+        data: encodeFunctionData({
+          abi: EmpireBaseAbi,
+          functionName: 'signal',
+          args: [EthAddress.random().toString()],
+        }),
       },
       lastValidL2Slot: 1n,
+      checkSuccess: () => true,
     });
 
     const resultPromise = publisher.sendRequests();

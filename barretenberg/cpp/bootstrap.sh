@@ -9,7 +9,10 @@ export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  export DISABLE_AZTEC_VM=1
+  # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
+  if ! semver check "${REF_NAME:-}"; then
+    export DISABLE_AZTEC_VM=1
+  fi
 fi
 
 if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
@@ -295,14 +298,21 @@ case "$cmd" in
     commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
     # Build both native and wasm benchmark binaries
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
-      "build_preset wasm-threads --target bb_cli_bench"
+    builds=(
+      "build_preset $native_preset --target bb_cli_bench --target bb"
+    )
+    if [[ "${NO_WASM:-}" != "1" ]]; then
+      builds+=("build_preset wasm-threads --target bb_cli_bench")
+    fi
+    parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
     # Download cached flow inputs from the specified commit
     export AZTEC_CACHE_COMMIT=$commit_hash
-    export DOWNLOAD_ONLY=1
-    yarn --cwd ../../yarn-project/bb-prover generate
+    # TODO currently does nothing! to reinstate in cache_download
+    export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
+    USE_CIRCUITS_CACHE=1 BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+
+    rm -rf bench-out
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench

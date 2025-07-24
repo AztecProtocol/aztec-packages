@@ -11,6 +11,7 @@
 #include "circuits/add_2_circuit.hpp"
 #include "circuits/blake_circuit.hpp"
 #include "circuits/ecdsa_circuit.hpp"
+#include "circuits/recursive_circuit.hpp"
 
 using namespace bb;
 
@@ -21,10 +22,13 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
 {
     uint256_t public_inputs[4] = { 0, 0, 0, 0 };
     UltraCircuitBuilder builder = Circuit::generate(public_inputs);
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+
+    if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
+        stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+    }
 
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     UltraKeccakProver prover(proving_key, verification_key);
 
     // Make verification key file upper case
@@ -79,6 +83,8 @@ int main(int argc, char** argv)
         generate_keys_honk<BlakeCircuit>(output_path, circuit_flavor);
     } else if (circuit_flavor == "ecdsa") {
         generate_keys_honk<bb::EcdsaCircuit>(output_path, circuit_flavor);
+    } else if (circuit_flavor == "recursive") {
+        generate_keys_honk<bb::RecursiveCircuit>(output_path, circuit_flavor);
     } else {
         info("Unsupported circuit");
         return 1;

@@ -29,11 +29,8 @@ template <typename Builder> class safe_uint_t {
         : value(value)
         , current_max(current_max)
     {
-        ASSERT(safety == IS_UNSAFE);
-        if (current_max > MAX_VALUE) // For optimal efficiency this should only be checked while testing a circuit
-        {
-            throw_or_abort("exceeded modulus in safe_uint class");
-        }
+        BB_ASSERT_EQ(safety, IS_UNSAFE);
+        BB_ASSERT_LTE(current_max, MAX_VALUE, "exceeded modulus in safe_uint class");
     }
 
   public:
@@ -52,7 +49,7 @@ template <typename Builder> class safe_uint_t {
     safe_uint_t(field_ct const& value, size_t bit_num, std::string const& description = "unknown")
         : value(value)
     {
-        ASSERT(bit_num <= MAX_BIT_NUM);
+        BB_ASSERT_LTE(bit_num, MAX_BIT_NUM);
         this->value.create_range_constraint(bit_num, format("safe_uint_t range constraint failure: ", description));
         current_max = ((uint256_t)1 << bit_num) - 1;
     }
@@ -123,7 +120,7 @@ template <typename Builder> class safe_uint_t {
 
     safe_uint_t add_two(const safe_uint_t& add_a, const safe_uint_t& add_b) const
     {
-        ASSERT(current_max + add_a.current_max + add_b.current_max <= MAX_VALUE && "Exceeded modulus in add_two");
+        BB_ASSERT_LTE(current_max + add_a.current_max + add_b.current_max, MAX_VALUE, "Exceeded modulus in add_two");
         auto new_val = value.add_two(add_a.value, add_b.value);
         auto new_max = current_max + add_a.current_max + add_b.current_max;
         return safe_uint_t(new_val, new_max, IS_UNSAFE);
@@ -131,8 +128,9 @@ template <typename Builder> class safe_uint_t {
 
     safe_uint_t madd(const safe_uint_t& to_mul, const safe_uint_t& to_add) const
     {
-        ASSERT((uint512_t)current_max * (uint512_t)to_mul.current_max + (uint512_t)to_add.current_max <= MAX_VALUE &&
-               "Exceeded modulus in madd");
+        BB_ASSERT_LTE((uint512_t)current_max * (uint512_t)to_mul.current_max + (uint512_t)to_add.current_max,
+                      MAX_VALUE,
+                      "Exceeded modulus in madd");
         auto new_val = value.madd(to_mul.value, to_add.value);
         auto new_max = current_max * to_mul.current_max + to_add.current_max;
         return safe_uint_t(new_val, new_max, IS_UNSAFE);

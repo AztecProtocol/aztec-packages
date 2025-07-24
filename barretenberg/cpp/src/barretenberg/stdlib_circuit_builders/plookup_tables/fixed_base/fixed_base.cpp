@@ -6,6 +6,7 @@
 
 #include "./fixed_base.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
@@ -191,9 +192,9 @@ template <size_t multitable_index>
 BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_table_index, size_t table_index)
 {
     static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
-    ASSERT(table_index < MAX_NUM_TABLES_IN_MULTITABLE);
+    BB_ASSERT_LT(table_index, MAX_NUM_TABLES_IN_MULTITABLE);
 
-    const size_t multitable_bits = get_num_bits_of_multi_table(multitable_index);
+    const size_t multitable_bits = get_num_bits_of_multi_table<multitable_index>();
     const size_t bits_covered_by_previous_tables_in_multitable = BITS_PER_TABLE * table_index;
     const bool is_small_table = (multitable_bits - bits_covered_by_previous_tables_in_multitable) < BITS_PER_TABLE;
     const size_t table_bits =

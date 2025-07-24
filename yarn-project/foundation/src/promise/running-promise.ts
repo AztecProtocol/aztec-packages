@@ -82,7 +82,6 @@ export class RunningPromise {
    */
   async stop(): Promise<void> {
     if (!this.running) {
-      this.logger.warn(`Running promise was not started`);
       return;
     }
     this.running = false;

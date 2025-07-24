@@ -52,7 +52,8 @@ if (process.argv.length < 4) {
 const abi = JSON.parse(fs.readFileSync(process.argv[2]));
 const targetShortName = process.argv[3];
 
-const rootParam = abi.abi.parameters.find((p) => {
+// TODO: traverse the abi beyond just the params and return values.
+let struct = abi.abi.parameters.find(p => {
   return (
     p.type.kind === "struct" &&
     p.type.path &&
@@ -60,11 +61,23 @@ const rootParam = abi.abi.parameters.find((p) => {
   );
 });
 
-if (!rootParam) {
+if (!struct) {
+  struct = [abi.abi.return_type].find(r => {
+    return (
+      r.abi_type.kind === "struct" &&
+      r.abi_type.path &&
+      r.abi_type.path.split("::").pop() === targetShortName
+    );
+  });
+}
+
+console.log(struct);
+
+if (!struct) {
   console.error(`Struct '${targetShortName}' not found in ABI parameters.`);
   process.exit(1);
 }
 
 // Include the outer struct in the output
-const result = `${rootParam.name}: ${unravelStruct(rootParam.type)};`;
+const result = `${struct.name}: ${unravelStruct(struct.type ?? struct.abi_type)};`;
 console.log(result);

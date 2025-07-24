@@ -12,7 +12,7 @@ import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {console} from "forge-std/console.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
 contract MoveTest is StakingBase {
@@ -63,7 +63,7 @@ contract MoveTest is StakingBase {
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
 
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT * n);
+    mint(address(this), DEPOSIT_AMOUNT * n);
     stakingAsset.approve(address(oldRollup), DEPOSIT_AMOUNT * n);
 
     for (uint256 i = 0; i < n; i++) {
