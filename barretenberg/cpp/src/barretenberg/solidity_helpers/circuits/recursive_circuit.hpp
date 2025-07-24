@@ -1,7 +1,5 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-// #include "barretenberg/flavor/ultra_flavor.hpp"
-// #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -21,8 +19,6 @@ class RecursiveCircuit {
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
 
-    // Types for outer circuit
-
     using RecursiveFlavor = bb::UltraRecursiveFlavor_<bb::UltraCircuitBuilder>;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
@@ -33,6 +29,12 @@ class RecursiveCircuit {
     using field_ct = bb::stdlib::field_t<OuterBuilder>;
     using public_witness_ct = bb::stdlib::public_witness_t<OuterBuilder>;
 
+    /**
+     * @brief Create a inner circuit object. In this case an extremely simple circuit that just adds two numbers.
+     *
+     * @param inputs
+     * @return InnerBuilder
+     */
     static InnerBuilder create_inner_circuit(uint256_t inputs[])
     {
         InnerBuilder builder;
@@ -48,6 +50,14 @@ class RecursiveCircuit {
         return builder;
     }
 
+    /**
+     * @brief Generate a recursive circuit.
+     *
+     * Wraps the simple inner circuit in a recursive verifier - this returns the builder to be proven by the caller
+     *
+     * @param inputs
+     * @return OuterBuilder
+     */
     static OuterBuilder generate(uint256_t inputs[])
     {
         // Create the initial inner circuit - it is just a simple multiplication gate!

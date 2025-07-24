@@ -214,7 +214,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     uint256 constant LIBRA_EVALUATIONS = 4;
     uint256 constant LIBRA_UNIVARIATES_LENGTH = 9;
 
-    struct Pairing {
+    struct PairingInputs {
         Honk.G1Point P_0;
         Honk.G1Point P_1;
     }
@@ -436,7 +436,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = quotient_commitment;
         scalars[boundary] = tp.shplonkZ; // evaluation challenge
 
-        Pairing memory pair;
+        PairingInputs memory pair;
         pair.P_0 = batchMul(commitments, scalars);
         pair.P_1 = negateInplace(quotient_commitment);
 

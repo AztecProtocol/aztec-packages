@@ -283,7 +283,6 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1234)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1235)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1236)
