@@ -129,7 +129,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
         loaded_circuit_public_inputs_size = request.loaded_circuit_constraints->public_inputs.size();
-        info("ClientIVC: accumulating " + step.function_name);
+        info("ClieeentIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
 

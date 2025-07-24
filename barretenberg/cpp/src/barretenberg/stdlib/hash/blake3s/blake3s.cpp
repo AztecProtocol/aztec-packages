@@ -131,11 +131,7 @@ template <typename Builder> void Blake3s<Builder>::hasher_init(blake3_hasher* se
     }
     self->buf = byte_array_ct(self->context, BLAKE3_BLOCK_LEN);
     for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
-<<<<<<< HEAD
-        self->buf.set_byte(i, field_ct(self->context, 0));
-=======
         self->buf[i] = field_t<Builder>(self->context, 0);
->>>>>>> origin/merge-train/barretenberg
     }
     self->buf_len = 0;
     self->blocks_compressed = 0;
