@@ -267,7 +267,7 @@ struct lookup_execution_get_p_limbs_settings_ {
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_lookup_num_p_limbs;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_safe_limbs;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_p_limb_counts;
     static constexpr Column COUNTS = Column::lookup_execution_get_p_limbs_counts;
     static constexpr Column INVERSES = Column::lookup_execution_get_p_limbs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

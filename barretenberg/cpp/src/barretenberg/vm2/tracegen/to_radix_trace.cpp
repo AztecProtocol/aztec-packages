@@ -98,6 +98,12 @@ void ToRadixTraceBuilder::process_with_memory(
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
 
+        // Helpers
+        uint8_t num_limbs_is_zero = event.limbs.empty() ? 1 : 0;
+        FF num_limbs_inv = event.limbs.empty() ? FF(0) : FF(event.limbs.size()).invert();
+        uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
+        FF value_inv = event.value == FF(0) ? FF(0) : event.value.invert();
+
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr);
         uint64_t max_write_addr = dst_addr + event.limbs.size() - 1;
@@ -105,6 +111,10 @@ void ToRadixTraceBuilder::process_with_memory(
 
         // Error Handling - Radix Range
         bool invalid_radix = (event.radix < 2 || event.radix > 256);
+        bool invalid_bitwise_radix = event.is_output_bits && event.radix != 2;
+
+        // Error Handling - Num Limbs and Value
+        bool invalid_num_limbs = event.limbs.empty() && !(event.value == FF(0));
 
         if (write_out_of_range || invalid_radix) {
             trace.set(row,
@@ -125,10 +135,16 @@ void ToRadixTraceBuilder::process_with_memory(
                           { C::to_radix_mem_max_write_addr, max_write_addr },
                           { C::to_radix_mem_two, 2 },
                           { C::to_radix_mem_two_five_six, 256 },
+                          { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },
+                          { C::to_radix_mem_num_limbs_inv, num_limbs_inv },
+                          { C::to_radix_mem_sel_value_is_zero, value_is_zero },
+                          { C::to_radix_mem_value_inv, value_inv },
                           // Error Handling
                           { C::to_radix_mem_sel_dst_out_of_range_err, write_out_of_range },
                           { C::to_radix_mem_sel_radix_lt_2_err, event.radix < 2 },
                           { C::to_radix_mem_sel_radix_gt_256_err, event.radix > 256 },
+                          { C::to_radix_mem_sel_invalid_bitwise_radix, invalid_bitwise_radix ? 1 : 0 },
+                          { C::to_radix_mem_sel_invalid_num_limbs_err, invalid_num_limbs ? 1 : 0 },
                           { C::to_radix_mem_err, 1 },
                       } });
             row++;
@@ -162,8 +178,12 @@ void ToRadixTraceBuilder::process_with_memory(
                     { C::to_radix_mem_max_write_addr, max_write_addr },
                     { C::to_radix_mem_two, start ? 2 : 0 },
                     { C::to_radix_mem_two_five_six, start ? 256 : 0 },
+                    { C::to_radix_mem_sel_num_limbs_is_zero, start ? num_limbs_is_zero : 0 },
+                    { C::to_radix_mem_num_limbs_inv, num_limbs_inv },
+                    { C::to_radix_mem_sel_value_is_zero, start ? value_is_zero : 0 },
+                    { C::to_radix_mem_value_inv, value_inv },
                     // Output
-                    { C::to_radix_mem_sel_should_exec, 1 },
+                    { C::to_radix_mem_sel_should_exec, !event.limbs.empty() ? 1 : 0 },
                     { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
                     { C::to_radix_mem_output_limb_value, limb_value.as_ff() },
                     { C::to_radix_mem_output_tag, static_cast<uint8_t>(limb_value.get_tag()) },

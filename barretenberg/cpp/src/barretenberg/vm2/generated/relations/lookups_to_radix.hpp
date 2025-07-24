@@ -58,7 +58,7 @@ struct lookup_to_radix_fetch_safe_limbs_settings_ {
     static constexpr std::string_view RELATION_NAME = "to_radix";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::to_radix_start;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_safe_limbs;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_p_limb_counts;
     static constexpr Column COUNTS = Column::lookup_to_radix_fetch_safe_limbs_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_fetch_safe_limbs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

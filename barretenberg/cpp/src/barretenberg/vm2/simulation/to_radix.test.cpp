@@ -214,8 +214,7 @@ TEST(AvmSimulationToRadixMemoryTest, DstOutOfRange)
     MemoryAddress dst_addr =
         AVM_HIGHEST_MEM_ADDRESS - num_writes + 1; // This will cause an out-of-bounds at the last write
 
-    EXPECT_THROW_WITH_MESSAGE(to_radix.to_be_radix(memory, value, radix, num_limbs, is_output_bits, dst_addr),
-                              "ToRadix Exception:.* Memory write out of bounds.*");
+    EXPECT_THROW(to_radix.to_be_radix(memory, value, radix, num_limbs, is_output_bits, dst_addr), ToRadixException);
 }
 
 TEST(AvmSimulationToRadixMemoryTest, InvalidRadixValue)
@@ -235,8 +234,7 @@ TEST(AvmSimulationToRadixMemoryTest, InvalidRadixValue)
     bool is_output_bits = false; // Output is U8, not U1
     MemoryAddress dst_addr = 0xdeadbeef;
 
-    EXPECT_THROW_WITH_MESSAGE(to_radix.to_be_radix(memory, value, radix, num_limbs, is_output_bits, dst_addr),
-                              "ToRadix Exception:.* Radix must be between 2 and 256.*");
+    EXPECT_THROW(to_radix.to_be_radix(memory, value, radix, num_limbs, is_output_bits, dst_addr), ToRadixException);
 }
 
 } // namespace

@@ -439,6 +439,11 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
             // Control Flow
             { C::to_radix_mem_start, 1 },
             { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
+            // Helpers
+            { C::to_radix_mem_sel_num_limbs_is_zero, 0 },
+            { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
+            { C::to_radix_mem_sel_value_is_zero, 0 },
+            { C::to_radix_mem_value_inv, value.invert() },
             // Output
             { C::to_radix_mem_output_limb_value, 1 },
             { C::to_radix_mem_sel_should_exec, 1 },
@@ -625,6 +630,11 @@ TEST(ToRadixMemoryConstrainingTest, DstOutOfRange)
             { C::to_radix_mem_start, 1 },
             { C::to_radix_mem_last, 1 },
             { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
+            // Helpers
+            { C::to_radix_mem_sel_num_limbs_is_zero, 0 },
+            { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
+            { C::to_radix_mem_sel_value_is_zero, 0 },
+            { C::to_radix_mem_value_inv, value.invert() },
             // Output
             { C::to_radix_mem_sel_should_exec, 0 },
         },
@@ -677,8 +687,175 @@ TEST(ToRadixMemoryConstrainingTest, InvalidRadix)
             { C::to_radix_mem_start, 1 },
             { C::to_radix_mem_last, 1 },
             { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
+            // Helpers
+            { C::to_radix_mem_sel_num_limbs_is_zero, 0 },
+            { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
+            { C::to_radix_mem_sel_value_is_zero, 0 },
+            { C::to_radix_mem_value_inv, value.invert() },
             // Output
             { C::to_radix_mem_sel_should_exec, 0 },
+        },
+    });
+    check_relation<to_radix_mem>(trace);
+    check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_radix_lt_2_settings>(trace);
+}
+
+TEST(ToRadixMemoryConstrainingTest, InvalidBitwiseRadix)
+{
+    // Values
+    FF value = FF(1337);
+    uint32_t radix = 3; // Invalid radix since is_output_bits is true
+    uint32_t num_limbs = 2;
+    uint32_t dst_addr = 10;
+    bool is_output_bits = true;
+
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            { C::precomputed_first_row, 1 },
+            // GT check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, 2 },
+            { C::gt_input_b, radix },
+            { C::gt_res, 0 }, // GT should return false
+        },
+        // Row 1
+        {
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_two, 2 },
+            { C::to_radix_mem_two_five_six, 256 },
+            // Memory Inputs
+            { C::to_radix_mem_execution_clk, 0 },
+            { C::to_radix_mem_space_id, 0 },
+            { C::to_radix_mem_dst_addr, dst_addr },
+            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            // To Radix Inputs
+            { C::to_radix_mem_value_to_decompose, value },
+            { C::to_radix_mem_radix, radix },
+            { C::to_radix_mem_num_limbs, num_limbs },
+            { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
+            // Errors
+            { C::to_radix_mem_sel_invalid_bitwise_radix, 1 }, // Invalid bitwise radix
+            { C::to_radix_mem_err, 1 },
+            // Control Flow
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_last, 1 },
+            { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
+            // Helpers
+            { C::to_radix_mem_sel_num_limbs_is_zero, 0 },
+            { C::to_radix_mem_num_limbs_inv, FF(num_limbs).invert() },
+            { C::to_radix_mem_sel_value_is_zero, 0 },
+            { C::to_radix_mem_value_inv, value.invert() },
+            // Output
+            { C::to_radix_mem_sel_should_exec, 0 },
+        },
+    });
+    check_relation<to_radix_mem>(trace);
+    check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_radix_lt_2_settings>(trace);
+}
+
+TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
+{
+    // Values
+    FF value = FF(1337);
+    uint32_t radix = 3;
+    uint32_t num_limbs = 0; // num limbs should not be 0 if value != 0
+    uint32_t dst_addr = 10;
+    bool is_output_bits = false;
+
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            { C::precomputed_first_row, 1 },
+            // GT check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, 2 },
+            { C::gt_input_b, radix },
+            { C::gt_res, 0 }, // GT should return false
+        },
+        // Row 1
+        {
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_two, 2 },
+            { C::to_radix_mem_two_five_six, 256 },
+            // Memory Inputs
+            { C::to_radix_mem_execution_clk, 0 },
+            { C::to_radix_mem_space_id, 0 },
+            { C::to_radix_mem_dst_addr, dst_addr },
+            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            // To Radix Inputs
+            { C::to_radix_mem_value_to_decompose, value },
+            { C::to_radix_mem_radix, radix },
+            { C::to_radix_mem_num_limbs, num_limbs },
+            { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
+            // Errors
+            { C::to_radix_mem_sel_invalid_num_limbs_err, 1 }, // num_limbs should not be 0 if value != 0
+            { C::to_radix_mem_err, 1 },
+            // Control Flow
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_last, 1 },
+            { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
+            // Helpers
+            { C::to_radix_mem_sel_num_limbs_is_zero, 1 }, // num limbs is zero
+            { C::to_radix_mem_num_limbs_inv, 0 },
+            { C::to_radix_mem_sel_value_is_zero, 0 },
+            { C::to_radix_mem_value_inv, value.invert() },
+            // Output
+            { C::to_radix_mem_sel_should_exec, 0 },
+        },
+    });
+    check_relation<to_radix_mem>(trace);
+    check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_radix_lt_2_settings>(trace);
+}
+
+TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)
+{
+    // Values
+    FF value = FF(0);
+    uint32_t radix = 3;
+    uint32_t num_limbs = 0; // num limbs can be zero since value is zero
+    uint32_t dst_addr = 10;
+    bool is_output_bits = false;
+
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            { C::precomputed_first_row, 1 },
+            // GT check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, 2 },
+            { C::gt_input_b, radix },
+            { C::gt_res, 0 }, // GT should return false
+        },
+        // Row 1
+        {
+            { C::to_radix_mem_sel, 1 },
+            { C::to_radix_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+            { C::to_radix_mem_two, 2 },
+            { C::to_radix_mem_two_five_six, 256 },
+            // Memory Inputs
+            { C::to_radix_mem_execution_clk, 0 },
+            { C::to_radix_mem_space_id, 0 },
+            { C::to_radix_mem_dst_addr, dst_addr },
+            { C::to_radix_mem_max_write_addr, dst_addr + num_limbs - 1 },
+            // To Radix Inputs
+            { C::to_radix_mem_value_to_decompose, value },
+            { C::to_radix_mem_radix, radix },
+            { C::to_radix_mem_num_limbs, num_limbs },
+            { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
+            // Control Flow
+            { C::to_radix_mem_start, 1 },
+            { C::to_radix_mem_last, 1 },
+            { C::to_radix_mem_num_limbs_minus_one_inv, num_limbs - 1 == 0 ? 0 : FF(num_limbs - 1).invert() },
+            // Helpers
+            { C::to_radix_mem_sel_num_limbs_is_zero, 1 }, // num limbs is zero
+            { C::to_radix_mem_num_limbs_inv, 0 },
+            { C::to_radix_mem_sel_value_is_zero, 1 },
+            { C::to_radix_mem_value_inv, 0 },
+            // Output
+            { C::to_radix_mem_sel_should_exec, 0 }, // Should still not_exec since num_limbs == 0
         },
     });
     check_relation<to_radix_mem>(trace);

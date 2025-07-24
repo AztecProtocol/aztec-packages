@@ -139,7 +139,7 @@ namespace to_radix;
     #[FETCH_SAFE_LIMBS]
     start { radix, safe_limbs }
     in
-    precomputed.sel_to_radix_safe_limbs
+    precomputed.sel_to_radix_p_limb_counts
         { precomputed.clk, precomputed.to_radix_safe_limbs };
 
     pol commit is_unsafe_limb;
