@@ -119,10 +119,13 @@ library SignatureLib {
     uint256 _length
   ) internal pure returns (address[] memory) {
     bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    bytes memory signatureIndices = _attestations.signatureIndices;
     address[] memory addresses = new address[](_length);
 
     uint256 signersIndex;
     uint256 dataPtr;
+    uint256 currentByte;
+    uint256 bitMask;
 
     assembly {
       // Skip length
@@ -130,7 +133,17 @@ library SignatureLib {
     }
 
     for (uint256 i = 0; i < _length; ++i) {
-      if (isSignature(_attestations, i)) {
+      // Load new byte every 8 iterations
+      if (i % 8 == 0) {
+        uint256 byteIndex = i / 8;
+        currentByte = uint8(signatureIndices[byteIndex]);
+        bitMask = 128; // 0b10000000
+      }
+
+      bool isSignatureFlag = (currentByte & bitMask) != 0;
+      bitMask >>= 1;
+
+      if (isSignatureFlag) {
         dataPtr += 65;
         addresses[i] = _signers[signersIndex];
         signersIndex++;
