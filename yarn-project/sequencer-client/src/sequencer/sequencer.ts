@@ -1,6 +1,7 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -47,7 +48,7 @@ import type { ValidatorClient } from '@aztec/validator-client';
 import EventEmitter from 'node:events';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type Action, type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
+import { type Action, type SequencerPublisher, SignalType } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
@@ -67,7 +68,12 @@ export type SequencerEvents = {
   ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
   ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
   ['block-build-failed']: (args: { reason: string }) => void;
-  ['block-publish-failed']: (args: { validActions?: Action[]; expiredActions?: Action[] }) => void;
+  ['block-publish-failed']: (args: {
+    successfulActions?: Action[];
+    failedActions?: Action[];
+    sentActions?: Action[];
+    expiredActions?: Action[];
+  }) => void;
   ['block-published']: (args: { blockNumber: number; slot: number }) => void;
 };
 
@@ -228,7 +234,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Stops the sequencer from processing txs and moves to STOPPED state.
    */
   public async stop(): Promise<void> {
-    this.log.debug(`Stopping sequencer`);
+    this.log.info(`Stopping sequencer`);
     this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
@@ -355,6 +361,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Double check we are good for proposing at the next block before we start operations.
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
+
     const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
     if (canProposeCheck === undefined) {
       this.log.warn(
@@ -380,7 +387,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.debug(
-      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'} propose block ${newBlockNumber} at slot ${slot}`,
+      `${
+        proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'
+      } propose block ${newBlockNumber} at slot ${slot}`,
       { ...syncLogData, validatorAddresses },
     );
 
@@ -391,16 +400,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     );
 
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastVote(
+    const enqueueGovernanceVotePromise = this.publisher.enqueueCastSignal(
       slot,
       newGlobalVariables.timestamp,
-      VoteType.GOVERNANCE,
+      SignalType.GOVERNANCE,
+      proposerAddress,
+      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
+    const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
       slot,
       newGlobalVariables.timestamp,
-      VoteType.SLASHING,
+      SignalType.SLASHING,
+      proposerAddress,
+      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
@@ -462,7 +475,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     const l1Response = await this.publisher.sendRequests();
-    const proposedBlock = l1Response?.validActions.find(a => a === 'propose');
+    const proposedBlock = l1Response?.successfulActions.find(a => a === 'propose');
     if (proposedBlock) {
       this.lastBlockPublished = block;
       this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
@@ -471,10 +484,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.isFlushing = false;
       }
     } else if (block) {
-      this.emit('block-publish-failed', {
-        validActions: l1Response?.validActions,
-        expiredActions: l1Response?.expiredActions,
-      });
+      this.emit('block-publish-failed', l1Response ?? {});
     }
 
     this.setState(SequencerState.IDLE, undefined);
@@ -534,7 +544,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
     const failedTxData = failedTxs.map(fail => fail.tx);
-    const failedTxHashes = await Tx.getHashes(failedTxData);
+    const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
     this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
     await this.p2pClient.deleteTxs(failedTxHashes);
   }
@@ -661,8 +671,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
   ): Promise<CommitteeAttestation[] | undefined> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
-    const committee = await this.publisher.getCurrentEpochCommittee();
+    const { committee } = await this.publisher.epochCache.getCommittee(block.header.getSlot());
 
     // We checked above that the committee is defined, so this should never happen.
     if (!committee) {

@@ -27,12 +27,19 @@ pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N], emptyItem: T) -> [T; M]
     output
 }
 
-pub fn make_fixture<T, let N: u32>(seed: Field) -> T
+pub fn pad_end_with_empty<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
 where
-    T: Deserialize<N>,
+    T: Empty,
 {
-    let mut fields = [0; N];
-    for i in 0..N {
+    pad_end(items, T::empty())
+}
+
+pub fn make_fixture<T>(seed: Field) -> T
+where
+    T: Deserialize,
+{
+    let mut fields = [0; <T as Deserialize>::N];
+    for i in 0..<T as Deserialize>::N {
         fields[i] = seed + i as Field;
     }
     T::deserialize(fields)

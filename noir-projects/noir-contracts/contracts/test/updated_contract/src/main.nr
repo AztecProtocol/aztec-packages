@@ -7,8 +7,8 @@ contract Updated {
     use aztec::messages::logs::note::encode_and_encrypt_note;
     use aztec::state_vars::{PrivateMutable, PublicMutable};
 
-    use aztec::protocol_types::constants::DEPLOYER_CONTRACT_ADDRESS;
-    use contract_instance_deployer::ContractInstanceDeployer;
+    use aztec::protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS;
+    use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
     #[storage]
@@ -26,16 +26,14 @@ contract Updated {
     fn set_private_value() {
         let owner = context.msg_sender();
         let new_note = ValueNote::new(27, owner);
-        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            owner,
-        ));
+        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     #[public]
     fn get_update_delay() -> u64 {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay()
+            .view(&mut context)
     }
 
     #[utility]

@@ -26,6 +26,8 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
         memory_provider.make_memory(context_id),
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
+        merkle_db,
+        written_public_data_slots_tree,
         parent_context,
         cd_offset_address,
         cd_size_address);
@@ -55,6 +57,8 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
         memory_provider.make_memory(context_id),
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
+        merkle_db,
+        written_public_data_slots_tree,
         calldata);
 }
 

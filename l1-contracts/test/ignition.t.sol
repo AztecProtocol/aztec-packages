@@ -79,7 +79,6 @@ contract IgnitionTest is RollupBase {
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
     rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     _;
   }

@@ -6,6 +6,7 @@ import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
   type EnvVar,
+  SecretValue,
   booleanConfigHelper,
   isBooleanConfigValue,
   omitConfigMappings,
@@ -30,12 +31,15 @@ export interface AztecStartOption {
   defaultValue: any;
   printDefault?: (val: any) => string;
   envVar: EnvVar | undefined;
+  fallback?: EnvVar[];
   parseVal?: (val: string) => any;
 }
 
 export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping>) => {
   const options: AztecStartOption[] = [];
-  for (const [key, { env, defaultValue: def, parseEnv, description, printDefault }] of Object.entries(configMappings)) {
+  for (const [key, { env, defaultValue: def, parseEnv, description, printDefault, fallback }] of Object.entries(
+    configMappings,
+  )) {
     if (universalOptions.includes(key)) {
       continue;
     }
@@ -46,6 +50,7 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
       defaultValue: def,
       printDefault,
       envVar: env,
+      fallback,
       parseVal: parseEnv,
     });
   }
@@ -158,7 +163,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'List of API keys for the corresponding Ethereum consensus nodes',
       defaultValue: [],
       envVar: 'L1_CONSENSUS_HOST_API_KEYS',
-      parseVal: (val: string) => val.split(',').map(url => url.trim()),
+      parseVal: (val: string) => val.split(',').map(key => new SecretValue(key)),
     },
     {
       flag: '--l1-consensus-host-api-key-headers <value>',

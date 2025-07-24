@@ -22,14 +22,11 @@ import {
   TxExecutionPhase,
 } from '@aztec/stdlib/tx';
 
-import { strict as assert } from 'assert';
-
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmSimulator } from '../avm/index.js';
 import { getPublicFunctionDebugName } from '../debug_fn_name.js';
 import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
 import { type PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { NullifierCollisionError } from '../state_manager/nullifiers.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
 
@@ -72,11 +69,11 @@ export class PublicTxSimulator {
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
     try {
-      const txHash = await this.computeTxHash(tx);
+      const txHash = this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
       // Create hinting DBs.
-      const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
+      const hints = new AvmExecutionHints(this.globalVariables, AvmTxHint.fromTx(tx));
       const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
       const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
       const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
@@ -89,31 +86,64 @@ export class PublicTxSimulator {
         this.doMerkleOperations,
       );
 
+      // This will throw if there is a nullifier collision.
+      // In that case the transaction will be thrown out.
       await this.insertNonRevertiblesFromPrivate(context, tx);
 
       const processedPhases: ProcessedPhase[] = [];
       if (context.hasPhase(TxExecutionPhase.SETUP)) {
-        const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
+        // This will throw if the setup phase reverts.
+        // In that case the transaction will be thrown out.
+        const setupResult = await this.simulatePhase(TxExecutionPhase.SETUP, context);
+        if (setupResult.reverted) {
+          throw new Error(
+            `Setup phase reverted! The transaction will be thrown out. ${setupResult.revertReason?.message}`,
+          );
+        }
         processedPhases.push(setupResult);
       }
 
-      const success = await this.insertRevertiblesFromPrivate(context, tx);
-      if (success) {
-        // Only proceed with app logic if there was no revert during revertible insertion
+      // The checkpoint we should go back to if anything from now on reverts.
+      await context.state.fork();
+
+      try {
+        // This will throw if there is a nullifier collision.
+        await this.insertRevertiblesFromPrivate(context, tx);
+        // Only proceed with app logic if there was no revert during revertible insertion.
         if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
-          const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
+          const appLogicResult = await this.simulatePhase(TxExecutionPhase.APP_LOGIC, context);
           processedPhases.push(appLogicResult);
+          if (appLogicResult.reverted) {
+            throw new Error(`App logic phase reverted! ${appLogicResult.revertReason?.message}`);
+          }
         }
-      } else {
-        this.log.debug(`Revertible insertions failed. Skipping app logic.`);
+      } catch (e) {
+        this.log.debug(String(e));
+        // We revert to the post-setup state.
+        await context.state.discardForkedState();
+        // But we also create a new fork so that the teardown phase can transparently
+        // commit or rollback at the end of teardown.
+        await context.state.fork();
       }
 
-      if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
-        const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
-        processedPhases.push(teardownResult);
+      try {
+        if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
+          const teardownResult = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
+          processedPhases.push(teardownResult);
+          if (teardownResult.reverted) {
+            throw new Error(`Teardown phase reverted! ${teardownResult.revertReason?.message}`);
+          }
+        }
+
+        // We commit the forked state and we are done.
+        await context.state.mergeForkedState();
+      } catch (e) {
+        this.log.debug(String(e));
+        // We rollback to the post-setup state.
+        await context.state.discardForkedState();
       }
 
-      await context.halt();
+      context.halt();
       await this.payFee(context);
 
       const publicInputs = await context.generateAvmCircuitPublicInputs();
@@ -149,70 +179,12 @@ export class PublicTxSimulator {
     }
   }
 
-  protected async computeTxHash(tx: Tx) {
-    return await tx.getTxHash();
+  protected computeTxHash(tx: Tx) {
+    return tx.getTxHash();
   }
 
   /**
    * Simulate the setup phase of a transaction's public execution.
-   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
-   * @returns The phase result.
-   */
-  private async simulateSetupPhase(context: PublicTxContext): Promise<ProcessedPhase> {
-    return await this.simulatePhase(TxExecutionPhase.SETUP, context);
-  }
-
-  /**
-   * Simulate the app logic phase of a transaction's public execution.
-   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
-   * @returns The phase result.
-   */
-  private async simulateAppLogicPhase(context: PublicTxContext): Promise<ProcessedPhase> {
-    assert(context.state.isForked(), 'App logic phase should operate with forked state.');
-
-    const result = await this.simulatePhase(TxExecutionPhase.APP_LOGIC, context);
-
-    if (result.reverted) {
-      // Drop the currently active forked state manager and rollback to end of setup.
-      await context.state.discardForkedState();
-    } else {
-      if (!context.hasPhase(TxExecutionPhase.TEARDOWN)) {
-        // Nothing to do after this (no teardown), so merge state updates now instead of letting teardown handle it.
-        await context.state.mergeForkedState();
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Simulate the teardown phase of a transaction's public execution.
-   * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
-   * @returns The phase result.
-   */
-  private async simulateTeardownPhase(context: PublicTxContext): Promise<ProcessedPhase> {
-    if (!context.state.isForked()) {
-      // If state isn't forked (app logic reverted), fork now
-      // so we can rollback to the end of setup if teardown reverts.
-      await context.state.fork();
-    }
-
-    const result = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
-
-    if (result.reverted) {
-      // Drop the currently active forked state manager and rollback to end of setup.
-      await context.state.discardForkedState();
-    } else {
-      // Merge state updates from teardown,
-      await context.state.mergeForkedState();
-    }
-
-    return result;
-  }
-
-  /**
-   * Simulate a phase of a transaction's public execution.
-   * @param phase - The current phase
    * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
    * @returns The phase result.
    */
@@ -287,7 +259,7 @@ export class PublicTxSimulator {
 
     if (result.reverted) {
       const culprit = `${contractAddress}:${callRequest.functionSelector}`;
-      context.revert(phase, result.revertReason, culprit); // throws if in setup (non-revertible) phase
+      context.revert(phase, result.revertReason, culprit);
     }
 
     return result;
@@ -340,18 +312,11 @@ export class PublicTxSimulator {
    */
   protected async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const stateManager = context.state.getActiveStateManager();
-    try {
-      for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
-        n => !n.isEmpty(),
-      )) {
-        await stateManager.writeSiloedNullifier(siloedNullifier);
-      }
-    } catch (e) {
-      if (e instanceof NullifierCollisionError) {
-        throw new NullifierCollisionError(
-          `Nullifier collision encountered when inserting non-revertible nullifiers from private.\nDetails: ${e.message}\nStack:${e.stack}`,
-        );
-      }
+
+    for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
+      n => !n.isEmpty(),
+    )) {
+      await stateManager.writeSiloedNullifier(siloedNullifier);
     }
     for (const noteHash of context.nonRevertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
@@ -376,28 +341,21 @@ export class PublicTxSimulator {
    * Start by forking state so we can rollback to the end of setup if app logic or teardown reverts.
    */
   protected async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx): /*success=*/ Promise<boolean> {
-    // Fork the state manager so we can rollback to end of setup if app logic reverts.
-    await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
+
     try {
       for (const siloedNullifier of context.revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty())) {
         await stateManager.writeSiloedNullifier(siloedNullifier);
       }
     } catch (e) {
-      if (e instanceof NullifierCollisionError) {
-        // Instead of throwing, revert the app_logic phase
-        context.revert(
-          TxExecutionPhase.APP_LOGIC,
-          new SimulationError(
-            `Nullifier collision encountered when inserting revertible nullifiers from private\nDetails: ${e.message}\nError stack: ${e.stack}`,
-            [],
-          ),
-          /*culprit=*/ 'insertRevertiblesFromPrivate',
-        );
-        return /*success=*/ false;
-      } else {
-        throw e;
-      }
+      context.revert(
+        TxExecutionPhase.APP_LOGIC,
+        new SimulationError(
+          `Nullifier collision encountered when inserting revertible nullifiers from private.\nDetails: ${String(e)}`,
+          [],
+        ),
+      );
+      throw e;
     }
     for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {

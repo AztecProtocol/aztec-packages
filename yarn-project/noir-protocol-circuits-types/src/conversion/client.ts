@@ -1,14 +1,14 @@
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  MEGA_VK_LENGTH_IN_FIELDS,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  UPDATES_SHARED_MUTABLE_VALUES_LEN,
+  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
@@ -46,7 +46,7 @@ import {
   ScopedPrivateLogData,
   ScopedReadRequest,
   SettledReadHint,
-  TransientDataIndexHint,
+  TransientDataSquashingHint,
 } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
@@ -92,7 +92,7 @@ import type {
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
   ScopedReadRequest as ScopedReadRequestNoir,
-  TransientDataIndexHint as TransientDataIndexHintNoir,
+  TransientDataSquashingHint as TransientDataSquashingHintNoir,
   TxConstantData as TxConstantDataNoir,
   TxRequest as TxRequestNoir,
 } from '../types/index.js';
@@ -546,9 +546,9 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateVerificationKeyHintsToNoir(
   privateVerificationKeyHints: PrivateVerificationKeyHints,
 ): PrivateVerificationKeyHintsNoir {
-  const updatedClassIdSharedMutableValuesFields = assertLength(
+  const updatedClassIdDelayedPublicMutableValuesFields = assertLength(
     privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValues.toFields(),
-    UPDATES_SHARED_MUTABLE_VALUES_LEN,
+    UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
   );
 
   return {
@@ -571,7 +571,10 @@ export function mapPrivateVerificationKeyHintsToNoir(
     updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
     ),
-    updated_class_id_shared_mutable_values: mapTuple(updatedClassIdSharedMutableValuesFields, mapFieldToNoir),
+    updated_class_id_delayed_public_mutable_values: mapTuple(
+      updatedClassIdDelayedPublicMutableValuesFields,
+      mapFieldToNoir,
+    ),
   };
 }
 
@@ -582,7 +585,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
  */
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(privateCallData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_VK_LENGTH_IN_FIELDS),
     verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
   };
 }
@@ -646,7 +649,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -713,7 +716,7 @@ export function mapPaddedSideEffectAmountsToNoir(
   };
 }
 
-function mapTransientDataIndexHintToNoir(indexHint: TransientDataIndexHint): TransientDataIndexHintNoir {
+function mapTransientDataSquashingHintToNoir(indexHint: TransientDataSquashingHint): TransientDataSquashingHintNoir {
   return {
     nullifier_index: mapNumberToNoir(indexHint.nullifierIndex),
     note_hash_index: mapNumberToNoir(indexHint.noteHashIndex),
@@ -835,10 +838,9 @@ export function mapPrivateKernelResetHintsToNoir<
       KeyValidationHintNoir,
       KEY_VALIDATION_HINTS_LEN
     >,
-    transient_data_index_hints: inputs.transientDataIndexHints.map(mapTransientDataIndexHintToNoir) as FixedLengthArray<
-      TransientDataIndexHintNoir,
-      TRANSIENT_DATA_HINTS_LEN
-    >,
+    transient_data_squashing_hints: inputs.transientDataSquashingHints.map(
+      mapTransientDataSquashingHintToNoir,
+    ) as FixedLengthArray<TransientDataSquashingHintNoir, TRANSIENT_DATA_HINTS_LEN>,
     validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
 }

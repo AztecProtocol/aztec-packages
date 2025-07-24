@@ -54,7 +54,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> poseidon2_constraints;
     std::vector<size_t> multi_scalar_mul_constraints;
     std::vector<size_t> ec_add_constraints;
-    std::vector<size_t> recursion_constraints;
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> ivc_recursion_constraints;
@@ -97,7 +96,6 @@ struct AcirFormat {
     std::vector<Poseidon2Constraint> poseidon2_constraints;
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
-    std::vector<RecursionConstraint> recursion_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> ivc_recursion_constraints;
@@ -145,7 +143,6 @@ struct AcirFormat {
                    poseidon2_constraints,
                    multi_scalar_mul_constraints,
                    ec_add_constraints,
-                   recursion_constraints,
                    honk_recursion_constraints,
                    avm_recursion_constraints,
                    ivc_recursion_constraints,

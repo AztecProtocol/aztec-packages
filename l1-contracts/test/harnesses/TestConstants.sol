@@ -25,12 +25,19 @@ library TestConstants {
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
+  uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
+  uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
+  address internal constant AZTEC_SLASHING_VETOER = address(0);
   uint256 internal constant AZTEC_MANA_TARGET = 100000000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE = 0;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE = 0;
+  uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
+
+  uint256 internal constant DEPOSIT_AMOUNT = 100e18;
+  uint256 internal constant MINIMUM_STAKE = 50e18;
 
   // Genesis state
   bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
@@ -48,7 +55,7 @@ library TestConstants {
       executionDelay: Timestamp.wrap(60),
       gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
-      voteDifferential: 0.04e18,
+      requiredYeaMargin: 0.04e18,
       minimumVotes: 400e18
     });
   }
@@ -96,7 +103,11 @@ library TestConstants {
       targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
+      slashingLifetimeInRounds: AZTEC_SLASHING_LIFETIME_IN_ROUNDS,
+      slashingExecutionDelayInRounds: AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS,
+      slashingVetoer: AZTEC_SLASHING_VETOER,
       manaTarget: AZTEC_MANA_TARGET,
+      exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
       rewardConfig: getRewardConfig(),
       rewardBoostConfig: getRewardBoostConfig(),

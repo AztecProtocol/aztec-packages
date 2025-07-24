@@ -131,7 +131,7 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // First real row
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_alu, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_alu, 1),
                           ROW_FIELD_EQ(execution_register_0_, 5),
                           ROW_FIELD_EQ(execution_register_1_, 3),
                           ROW_FIELD_EQ(execution_register_2_, 8),
@@ -202,7 +202,7 @@ TEST(ExecutionTraceGenTest, Call)
             AllOf(ROW_FIELD_EQ(execution_sel, 0)),
             // First real row
             AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                  ROW_FIELD_EQ(execution_sel_call, 1),
+                  ROW_FIELD_EQ(execution_sel_execute_call, 1),
                   ROW_FIELD_EQ(execution_sel_enter_call, 1),
                   ROW_FIELD_EQ(execution_rop_3_, 10),
                   ROW_FIELD_EQ(execution_rop_4_, 20),
@@ -262,7 +262,7 @@ TEST(ExecutionTraceGenTest, Return)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // First real row
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_return, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_return, 1),
                           ROW_FIELD_EQ(execution_sel_exit_call, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 4),
                           ROW_FIELD_EQ(execution_rop_1_, 5),
@@ -281,7 +281,7 @@ TEST(ExecutionTraceGenTest, Gas)
     ExecutionTraceBuilder builder;
 
     // Use the instruction builder - we can make the operands more complex
-    const auto instr = InstructionBuilder(WireOpCode::ADD_8)
+    const auto instr = InstructionBuilder(WireOpCode::AND_8)
                            // All operands are direct - for simplicity
                            .operand<uint8_t>(0)
                            .operand<uint8_t>(0)
@@ -530,7 +530,7 @@ TEST(ExecutionTraceGenTest, InternalCall)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the internal call
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_internal_call, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_internal_call, 1),
                           ROW_FIELD_EQ(execution_next_internal_call_id, 2),
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
@@ -565,7 +565,7 @@ TEST(ExecutionTraceGenTest, InternalRetError)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the internal call
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_internal_return, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_internal_return, 1),
                           ROW_FIELD_EQ(execution_next_internal_call_id, 2),
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
@@ -598,7 +598,7 @@ TEST(ExecutionTraceGenTest, Jump)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the jump
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_jump, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_jump, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 120),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMP))));
 }
@@ -633,7 +633,7 @@ TEST(ExecutionTraceGenTest, JumpI)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the jumpi
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_jumpi, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 654),
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
@@ -675,7 +675,7 @@ TEST(ExecutionTraceGenTest, JumpiWrongTag)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the jumpi
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_jumpi, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 654),
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
@@ -720,7 +720,7 @@ TEST(ExecutionTraceGenTest, Mov16)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the mov
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_mov, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 1000),
                           ROW_FIELD_EQ(execution_rop_1_, 1001),
                           ROW_FIELD_EQ(execution_register_0_, 100),
@@ -765,7 +765,7 @@ TEST(ExecutionTraceGenTest, Mov8)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the mov
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_mov, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 10),
                           ROW_FIELD_EQ(execution_rop_1_, 11),
                           ROW_FIELD_EQ(execution_register_0_, 100),
@@ -805,7 +805,7 @@ TEST(ExecutionTraceGenTest, SuccessCopy)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the success copy
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_success_copy, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_success_copy, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 45), // Dst Offset
                           ROW_FIELD_EQ(execution_register_0_, 1),
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U1=*/1), // Memory tag for dst
@@ -828,6 +828,7 @@ TEST(ExecutionTraceGenTest, RdSize)
             .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
         },
+
         .after_context_event = { .last_child_rd_size = 100 }
     };
     // clang-format on
@@ -839,12 +840,349 @@ TEST(ExecutionTraceGenTest, RdSize)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the rd_size
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_returndata_size, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_returndata_size, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 1234),                    // Dst Offset
                           ROW_FIELD_EQ(execution_register_0_, 100),                // RdSize output
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U32=*/4),       // Memory tag for dst
                           ROW_FIELD_EQ(execution_last_child_returndata_size, 100), // last_child_returndata_size = 100
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_RETURNDATASIZE))));
+}
+
+TEST(ExecutionTraceGenTest, SLoad)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t slot_offset = 1234;
+    uint16_t dst_offset = 4567;
+
+    FF slot = 42;
+    FF dst_value = 27;
+
+    const auto instr =
+        InstructionBuilder(WireOpCode::SLOAD).operand<uint16_t>(slot_offset).operand<uint16_t>(dst_offset).build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(slot) },
+        .output = MemoryValue::from<FF>(dst_value),
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(slot_offset) },
+                                                   { .resolved_operand = MemoryValue::from<uint16_t>(dst_offset) } } },
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the sload
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_sload, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, slot_offset),
+                          ROW_FIELD_EQ(execution_rop_1_, dst_offset),
+                          ROW_FIELD_EQ(execution_register_0_, slot),
+                          ROW_FIELD_EQ(execution_register_1_, dst_value),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF), // Memory tag for slot
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF), // Memory tag for dst
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD))));
+}
+
+TEST(ExecutionTraceGenTest, SStore)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t slot_offset = 1234;
+    uint16_t value_offset = 4567;
+
+    FF slot = 42;
+    FF value = 27;
+
+    const auto instr =
+        InstructionBuilder(WireOpCode::SSTORE).operand<uint16_t>(value_offset).operand<uint16_t>(slot_offset).build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(value), MemoryValue::from<FF>(slot) },
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = {
+                                  { .resolved_operand = MemoryValue::from<uint16_t>(value_offset) },
+                                  { .resolved_operand = MemoryValue::from<uint16_t>(slot_offset) },
+                              } },
+        .before_context_event = {
+            .tree_states = {
+                .publicDataTree = {
+                    .counter = 5,
+                },
+            }
+        },
+        .gas_event = {
+            .dynamic_gas_factor = { .daGas = 1 },
+        },
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the sstore
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_sstore, 1),
+                          ROW_FIELD_EQ(execution_sel_gas_sstore, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, value_offset),
+                          ROW_FIELD_EQ(execution_rop_1_, slot_offset),
+                          ROW_FIELD_EQ(execution_register_0_, value),
+                          ROW_FIELD_EQ(execution_register_1_, slot),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF), // Memory tag for value
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF), // Memory tag for slot
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE),
+                          ROW_FIELD_EQ(execution_max_data_writes_reached, 0),
+                          ROW_FIELD_EQ(execution_remaining_data_writes_inv,
+                                       FF(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX - 5).invert()),
+                          ROW_FIELD_EQ(execution_sel_write_public_data, 1))));
+}
+
+TEST(ExecutionTraceGenTest, NoteHashExists)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t unique_note_hash_offset = 1234;
+    uint16_t leaf_index_offset = 4567;
+    uint16_t dst_offset = 8901;
+
+    FF unique_note_hash = 42;
+    uint64_t leaf_index = 27;
+    uint1_t dst_value = 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::NOTEHASHEXISTS)
+                           .operand<uint16_t>(unique_note_hash_offset)
+                           .operand<uint16_t>(leaf_index_offset)
+                           .operand<uint16_t>(dst_offset)
+                           .build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(unique_note_hash), MemoryValue::from<uint64_t>(leaf_index) },
+        .output = MemoryValue::from<uint1_t>(dst_value),
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(unique_note_hash_offset) },
+                                                   { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(leaf_index_offset) },
+                                                   { .resolved_operand = MemoryValue::from<uint16_t>(dst_offset) } } },
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(
+        trace.as_rows(),
+        ElementsAre(
+            // First row is empty
+            AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+            // Second row is the note_hash_exists
+            AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                  ROW_FIELD_EQ(execution_sel_execute_notehash_exists, 1),
+                  ROW_FIELD_EQ(execution_rop_0_, unique_note_hash_offset),
+                  ROW_FIELD_EQ(execution_rop_1_, leaf_index_offset),
+                  ROW_FIELD_EQ(execution_rop_2_, dst_offset),
+                  ROW_FIELD_EQ(execution_register_0_, unique_note_hash),
+                  ROW_FIELD_EQ(execution_register_1_, leaf_index),
+                  ROW_FIELD_EQ(execution_register_2_, FF(dst_value)),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),  // Memory tag for unique_note_hash
+                  ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_U64), // Memory tag for leaf_index
+                  ROW_FIELD_EQ(execution_mem_tag_reg_2_, MEM_TAG_U1),  // Memory tag for dst
+                  ROW_FIELD_EQ(execution_note_hash_leaf_in_range, 1),
+                  ROW_FIELD_EQ(execution_note_hash_tree_leaf_count, static_cast<uint64_t>(NOTE_HASH_TREE_LEAF_COUNT)),
+                  ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NOTEHASH_EXISTS))));
+}
+
+TEST(ExecutionTraceGenTest, EmitNoteHash)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t note_hash_offset = 1234;
+
+    FF note_hash = 42;
+    uint32_t prev_num_note_hashes_emitted = MAX_NOTE_HASHES_PER_TX - 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::EMITNOTEHASH).operand<uint16_t>(note_hash_offset).build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(note_hash) },
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(note_hash_offset) } } },
+        .before_context_event = {
+            .tree_states = {
+                .noteHashTree = {
+                    .counter = prev_num_note_hashes_emitted,
+                },
+            }
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the emit_note_hash
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_emit_notehash, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, note_hash_offset),
+                          ROW_FIELD_EQ(execution_register_0_, note_hash),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF), // Memory tag for note_hash
+                          ROW_FIELD_EQ(execution_remaining_note_hashes_inv,
+                                       FF(MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted).invert()),
+                          ROW_FIELD_EQ(execution_sel_write_note_hash, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMIT_NOTEHASH))));
+}
+
+TEST(ExecutionTraceGenTest, L1ToL2MessageExists)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t msg_hash_offset = 1234;
+    uint16_t leaf_index_offset = 4567;
+    uint16_t dst_offset = 8901;
+
+    FF msg_hash = 42;
+    uint64_t leaf_index = 27;
+    uint1_t dst_value = 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::L1TOL2MSGEXISTS)
+                           .operand<uint16_t>(msg_hash_offset)
+                           .operand<uint16_t>(leaf_index_offset)
+                           .operand<uint16_t>(dst_offset)
+                           .build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(msg_hash), MemoryValue::from<uint64_t>(leaf_index) },
+        .output = MemoryValue::from<uint1_t>(dst_value),
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(msg_hash_offset) },
+                                                   { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(leaf_index_offset) },
+                                                   { .resolved_operand = MemoryValue::from<uint16_t>(dst_offset) } } },
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the l1_to_l2_msg_exists
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_l1_to_l2_message_exists, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, msg_hash_offset),
+                          ROW_FIELD_EQ(execution_rop_1_, leaf_index_offset),
+                          ROW_FIELD_EQ(execution_rop_2_, dst_offset),
+                          ROW_FIELD_EQ(execution_register_0_, msg_hash),
+                          ROW_FIELD_EQ(execution_register_1_, leaf_index),
+                          ROW_FIELD_EQ(execution_register_2_, FF(dst_value)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),  // Memory tag for msg_hash
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_U64), // Memory tag for leaf_index
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, MEM_TAG_U1),  // Memory tag for dst
+                          ROW_FIELD_EQ(execution_l1_to_l2_msg_leaf_in_range, 1),
+                          ROW_FIELD_EQ(execution_l1_to_l2_msg_tree_leaf_count,
+                                       static_cast<uint64_t>(L1_TO_L2_MSG_TREE_LEAF_COUNT)),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS))));
+}
+
+TEST(ExecutionTraceGenTest, NullifierExists)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    // constants
+    uint16_t nullifier_offset = 100;
+    uint16_t address_offset = 200;
+    uint16_t exists_offset = 300;
+    FF nullifier = 0x123456;
+    FF address = 0xdeadbeef;
+    bool exists = true;
+
+    const auto instr = InstructionBuilder(WireOpCode::NULLIFIEREXISTS)
+                           .operand<uint16_t>(nullifier_offset)
+                           .operand<uint16_t>(address_offset)
+                           .operand<uint16_t>(exists_offset)
+                           .build();
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { TaggedValue::from_tag(ValueTag::FF, nullifier), TaggedValue::from_tag(ValueTag::FF, address) },
+        .output = { TaggedValue::from_tag(ValueTag::U1, exists ? 1 : 0) }, // exists = true
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) },
+                                                   { .resolved_operand = MemoryValue::from<FF>(address) },
+                                                   { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(exists_offset) } } }
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the nullifier_exists
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_nullifier_exists, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, nullifier),
+                          ROW_FIELD_EQ(execution_rop_1_, address),
+                          ROW_FIELD_EQ(execution_rop_2_, exists_offset),
+                          ROW_FIELD_EQ(execution_register_0_, nullifier),
+                          ROW_FIELD_EQ(execution_register_1_, address),
+                          ROW_FIELD_EQ(execution_register_2_, exists ? 1 : 0),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, MEM_TAG_U1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS))));
+}
+
+TEST(ExecutionTraceGenTest, EmitNullifier)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t nullifier_offset = 100;
+    FF nullifier = 0x123456;
+    uint32_t prev_num_nullifiers_emitted = MAX_NULLIFIERS_PER_TX - 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::EMITNULLIFIER).operand<uint16_t>(nullifier_offset).build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { TaggedValue::from_tag(ValueTag::FF, nullifier) },
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand = MemoryValue::from<FF>(nullifier) } } },
+        .before_context_event = {
+            .tree_states = {
+                .nullifierTree = {
+                    .counter = prev_num_nullifiers_emitted,
+                },
+            }
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the emit_nullifier
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_emit_nullifier, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, nullifier),
+                          ROW_FIELD_EQ(execution_register_0_, nullifier),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),
+                          ROW_FIELD_EQ(execution_remaining_nullifiers_inv,
+                                       FF(MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted).invert()),
+                          ROW_FIELD_EQ(execution_sel_write_nullifier, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMIT_NULLIFIER))));
 }
 
 } // namespace

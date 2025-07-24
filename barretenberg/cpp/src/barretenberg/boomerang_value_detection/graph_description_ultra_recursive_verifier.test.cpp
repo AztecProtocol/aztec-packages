@@ -102,7 +102,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
         // Generate a proof over the inner circuit
         auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
         InnerProver inner_prover(proving_key, verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
@@ -132,7 +132,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         outer_circuit.finalize_circuit(false);
         auto graph = cdg::StaticAnalyzer(outer_circuit);
         auto connected_components = graph.find_connected_components();
-        EXPECT_EQ(connected_components.size(), 3);
+        EXPECT_EQ(connected_components.size(), 2);
         info("Connected components: ", connected_components.size());
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 2);

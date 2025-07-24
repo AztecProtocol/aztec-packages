@@ -5,9 +5,10 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
+import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
 import type { FastTxCollection } from './fast_tx_collection.js';
 import type { MissingTxInfo } from './tx_collection.js';
@@ -149,18 +150,20 @@ export class SlowTxCollection {
     const timeoutMs = this.config.txCollectionSlowReqRespTimeoutMs;
     const maxPeers = boundInclusive(Math.ceil(missingTxs.length / 3), 4, 16);
     const maxRetryAttempts = 3;
-
     // Send a batch request via reqresp for the missing txs
     await this.txCollectionSink.collect(
-      txHashes =>
-        this.reqResp.sendBatchRequest(
+      async txHashes => {
+        const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
           ReqRespSubProtocol.TX,
-          txHashes,
+          chunkTxHashesRequest(txHashes),
           pinnedPeer,
           timeoutMs,
           maxPeers,
           maxRetryAttempts,
-        ),
+        );
+
+        return txs.flat();
+      },
       missingTxs.map(([txHash]) => TxHash.fromString(txHash)),
       { description: 'slow reqresp', timeoutMs, method: 'slow-req-resp' },
     );
@@ -189,7 +192,7 @@ export class SlowTxCollection {
   }
 
   /** Stop collecting the given txs since we have found them. Called whenever tx pool emits a tx-added event. */
-  public foundTxs(txs: TxWithHash[]): void {
+  public foundTxs(txs: Tx[]): void {
     for (const txHash of txs.map(tx => tx.txHash)) {
       this.missingTxs.delete(txHash.toString());
     }

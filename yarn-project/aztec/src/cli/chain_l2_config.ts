@@ -65,9 +65,12 @@ export type L2ChainConfig = {
   slashInactivityCreateTargetPercentage: number;
   slashInactivitySignalTargetPercentage: number;
   slashInactivityCreatePenalty: bigint;
+  slashInactivityMaxPenalty: bigint;
   slashInvalidBlockEnabled: boolean;
   slashInvalidBlockPenalty: bigint;
   slashInvalidBlockMaxPenalty: bigint;
+  // control whether sentinel is enabled or not. Needed for slashing
+  sentinelEnabled: boolean;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -120,6 +123,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashInactivityCreateTargetPercentage: 0,
   slashInactivitySignalTargetPercentage: 0,
   slashInactivityCreatePenalty: 0n,
+  slashInactivityMaxPenalty: 0n,
   slashInvalidBlockEnabled: false,
   slashPayloadTtlSeconds: 0,
   slashPruneEnabled: false,
@@ -127,6 +131,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashPruneMaxPenalty: 0n,
   slashInvalidBlockPenalty: 0n,
   slashInvalidBlockMaxPenalty: 0n,
+  sentinelEnabled: false,
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -135,9 +140,9 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e',
-  slashFactoryAddress: '0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be',
-  feeAssetHandlerAddress: '0x80d848dc9f52df56789e2d62ce66f19555ff1019',
+  registryAddress: '0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309',
+  slashFactoryAddress: '0x8b1566249dc8fb47234037538ce491f9500480b1',
+  feeAssetHandlerAddress: '0x4f0376b8bcbdf72ddb38c38f48317c00e9c9aec3',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
@@ -146,7 +151,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
-  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
 
   // Deployment stuff
@@ -186,9 +191,11 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashInactivityCreateTargetPercentage: 1,
   slashInactivitySignalTargetPercentage: 1,
   slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
+  slashInactivityMaxPenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
   slashInvalidBlockEnabled: true,
   slashInvalidBlockPenalty: DefaultL1ContractsConfig.depositAmount,
   slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.depositAmount,
+  sentinelEnabled: true,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -307,7 +314,9 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE', config.slashInactivityCreateTargetPercentage.toString());
   enrichVar('SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE', config.slashInactivitySignalTargetPercentage.toString());
   enrichVar('SLASH_INACTIVITY_CREATE_PENALTY', config.slashInactivityCreatePenalty.toString());
+  enrichVar('SLASH_INACTIVITY_MAX_PENALTY', config.slashInactivityMaxPenalty.toString());
   enrichVar('SLASH_INVALID_BLOCK_ENABLED', config.slashInvalidBlockEnabled.toString());
   enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashInvalidBlockPenalty.toString());
   enrichVar('SLASH_INVALID_BLOCK_MAX_PENALTY', config.slashInvalidBlockMaxPenalty.toString());
+  enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
 }

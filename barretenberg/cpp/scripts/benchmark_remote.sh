@@ -9,7 +9,7 @@ set -eu
 
 BENCHMARK=${1:-client_ivc_bench}
 COMMAND=${2:-./$BENCHMARK}
-PRESET=${3:-clang16}
+PRESET=${3:-clang16-no-avm}
 BUILD_DIR=${4:-build}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 

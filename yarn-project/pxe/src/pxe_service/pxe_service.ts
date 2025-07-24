@@ -318,7 +318,7 @@ export class PXEService implements PXE {
     return !!(await this.node.getContractClass(id));
   }
 
-  async #isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+  async #isContractPublished(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
   }
 
@@ -367,6 +367,9 @@ export class PXEService implements PXE {
         contractAddress,
         functionSelector,
         msgSender,
+        // The sender for tags is set by contracts, typically by an account
+        // contract entrypoint
+        undefined, // senderForTags
         scopes,
       );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
@@ -498,7 +501,7 @@ export class PXEService implements PXE {
   public async getContractMetadata(address: AztecAddress): Promise<{
     contractInstance: ContractInstanceWithAddress | undefined;
     isContractInitialized: boolean;
-    isContractPubliclyDeployed: boolean;
+    isContractPublished: boolean;
   }> {
     let instance;
     try {
@@ -509,7 +512,7 @@ export class PXEService implements PXE {
     return {
       contractInstance: instance,
       isContractInitialized: await this.#isContractInitialized(address),
-      isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
+      isContractPublished: await this.#isContractPublished(address),
     };
   }
 
@@ -658,6 +661,9 @@ export class PXEService implements PXE {
   }
 
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    // We need to manually trigger private state sync to have a guarantee that all the events are available.
+    await this.simulateUtility('sync_private_state', [], filter.contractAddress);
+
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
@@ -897,7 +903,7 @@ export class PXEService implements PXE {
         }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-        const simulatedTx = privateSimulationResult.toSimulatedTx();
+        const simulatedTx = await privateSimulationResult.toSimulatedTx();
         let publicSimulationTime: number | undefined;
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
@@ -916,7 +922,7 @@ export class PXEService implements PXE {
           }
         }
 
-        const txHash = await simulatedTx.getTxHash();
+        const txHash = simulatedTx.getTxHash();
 
         const totalTime = totalTimer.ms();
 
@@ -971,7 +977,7 @@ export class PXEService implements PXE {
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
@@ -1068,9 +1074,9 @@ export class PXEService implements PXE {
     return Promise.resolve({
       pxeVersion: this.packageVersion,
       protocolContractAddresses: {
-        classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+        classRegistry: ProtocolContractAddress.ContractClassRegistry,
         feeJuice: ProtocolContractAddress.FeeJuice,
-        instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+        instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
         multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
       },
     });

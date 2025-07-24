@@ -7,9 +7,9 @@ import {
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INCORRECT_VK_TREE_ROOT,
   TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
-  Tx,
   type TxValidationResult,
   type TxValidator,
+  getTxHash,
 } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -30,33 +30,31 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     },
   ) {}
 
-  async validateTx(tx: T): Promise<TxValidationResult> {
+  validateTx(tx: T): Promise<TxValidationResult> {
     const errors = [];
-    if (!(await this.#hasCorrectL1ChainId(tx))) {
+    if (!this.#hasCorrectL1ChainId(tx)) {
       errors.push(TX_ERROR_INCORRECT_L1_CHAIN_ID);
     }
-    if (!(await this.#hasCorrectRollupVersion(tx))) {
+    if (!this.#hasCorrectRollupVersion(tx)) {
       errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
     }
-    if (!(await this.#isValidForTimestamp(tx))) {
+    if (!this.#isValidForTimestamp(tx)) {
       errors.push(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
     }
-    if (!(await this.#hasCorrectVkTreeRoot(tx))) {
+    if (!this.#hasCorrectVkTreeRoot(tx)) {
       errors.push(TX_ERROR_INCORRECT_VK_TREE_ROOT);
     }
-    if (!(await this.#hasCorrectProtocolContractTreeRoot(tx))) {
+    if (!this.#hasCorrectProtocolContractTreeRoot(tx)) {
       errors.push(TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT);
     }
-    return errors.length > 0 ? { result: 'invalid', reason: errors } : { result: 'valid' };
+    return Promise.resolve(errors.length > 0 ? { result: 'invalid', reason: errors } : { result: 'valid' });
   }
 
-  async #hasCorrectVkTreeRoot(tx: T): Promise<boolean> {
+  #hasCorrectVkTreeRoot(tx: T): boolean {
     // This gets implicitly tested in the proof validator, but we can get a much cheaper check here by looking early at the vk.
     if (!tx.data.constants.vkTreeRoot.equals(this.values.vkTreeRoot)) {
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(
-          tx,
-        )} because of incorrect vk tree root ${tx.data.constants.vkTreeRoot.toString()} != ${this.values.vkTreeRoot.toString()}`,
+        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect vk tree root ${tx.data.constants.vkTreeRoot.toString()} != ${this.values.vkTreeRoot.toString()}`,
       );
       return false;
     } else {
@@ -64,24 +62,20 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     }
   }
 
-  async #hasCorrectProtocolContractTreeRoot(tx: T): Promise<boolean> {
+  #hasCorrectProtocolContractTreeRoot(tx: T): boolean {
     if (!tx.data.constants.protocolContractTreeRoot.equals(this.values.protocolContractTreeRoot)) {
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(
-          tx,
-        )} because of incorrect protocol contract tree root ${tx.data.constants.protocolContractTreeRoot.toString()} != ${this.values.protocolContractTreeRoot.toString()}`,
+        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect protocol contract tree root ${tx.data.constants.protocolContractTreeRoot.toString()} != ${this.values.protocolContractTreeRoot.toString()}`,
       );
       return false;
     }
     return true;
   }
 
-  async #hasCorrectL1ChainId(tx: T): Promise<boolean> {
+  #hasCorrectL1ChainId(tx: T): boolean {
     if (!tx.data.constants.txContext.chainId.equals(this.values.l1ChainId)) {
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(
-          tx,
-        )} because of incorrect L1 chain ${tx.data.constants.txContext.chainId.toNumber()} != ${this.values.l1ChainId.toNumber()}`,
+        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect L1 chain ${tx.data.constants.txContext.chainId.toNumber()} != ${this.values.l1ChainId.toNumber()}`,
       );
       return false;
     } else {
@@ -89,7 +83,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     }
   }
 
-  async #isValidForTimestamp(tx: T): Promise<boolean> {
+  #isValidForTimestamp(tx: T): boolean {
     const includeByTimestamp = tx.data.includeByTimestamp;
     // If building block 1, we skip the expiration check. For details on why see the `validate_include_by_timestamp`
     // function in `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
@@ -102,7 +96,9 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
         );
       }
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${this.values.timestamp}.`,
+        `Rejecting tx ${getTxHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${
+          this.values.timestamp
+        }.`,
       );
       return false;
     } else {
@@ -110,12 +106,10 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     }
   }
 
-  async #hasCorrectRollupVersion(tx: T): Promise<boolean> {
+  #hasCorrectRollupVersion(tx: T): boolean {
     if (!tx.data.constants.txContext.version.equals(this.values.rollupVersion)) {
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(
-          tx,
-        )} because of incorrect rollup version ${tx.data.constants.txContext.version.toNumber()} != ${this.values.rollupVersion.toNumber()}`,
+        `Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} because of incorrect rollup version ${tx.data.constants.txContext.version.toNumber()} != ${this.values.rollupVersion.toNumber()}`,
       );
       return false;
     } else {

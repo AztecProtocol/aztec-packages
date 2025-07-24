@@ -15,12 +15,17 @@ Inspired by [rust rollups](https://forge.rust-lang.org/release/rollups.html), bu
 
 ## Using the Merge Train
 
+### Creating a New Merge-Train
+
+1. **Create Branch**: Fork from `next` with naming pattern `merge-train/{team}`
+2. **Enable Auto-Sync**: Add your branch to `.github/workflows/merge-train-next-to-branches.yml`
+3. **Open PR**: Create a PR from your merge-train branch to `next` - automation handles the rest
+
 ### Adding Your PR to the Merge Train
 
 1. Create your feature branch and make your changes
 2. Instead of targeting `master` or `next` directly, target the appropriate merge train branch (e.g., `merge-train/barretenberg`)
-3. Open your PR against the merge train branch
-4. Your changes will be included in the next merge train cycle
+3. When your PR merges the changes will be included in the next merge train cycle
 
 ### Merge Train Lifecycle
 
@@ -29,33 +34,44 @@ Inspired by [rust rollups](https://forge.rust-lang.org/release/rollups.html), bu
 3. **Auto-merge**: After 4 hours of inactivity (with meaningful commits), the train is automatically merged
 4. **Recreation**: The cycle starts again with a new empty merge train
 
-### Benefits
+## Handling Merge Failures
 
-- **Conflict Prevention**: Changes are tested together before merging to the base branch
-- **Batch Integration**: Multiple related changes can be merged as a group
-- **Automated Management**: No manual intervention needed for most operations
-- **Clear Visibility**: The merge train PR body shows all included commits
+When a merge-train fails due to issues from `next`:
 
-## Workflow Files
+### Option 1: Direct Fix
+- Push a fix directly to the merge-train branch
+- Use bypass merge to expedite (all users have this permission)
+- Best for small, quick fixes
 
-- `merge-train-recreate.yml`: Recreates the merge train branch after it's merged
-- `merge-train-update-pr-body.yml`: Updates the PR body with commit list
-- `merge-train-auto-merge.yml`: Auto-merges inactive PRs after 4 hours
-- `merge-train-next-to-branches.yml`: Merges changes from `next` to merge train branches
+### Option 2: Fix in Next
+- Merge a revert or workaround into `next`
+- The fix will auto-propagate to merge-train via automation
+- Best when key assumptions are broken or multiple trains affected
 
-## Important Notes
+## Resolving Merge Conflicts
 
-- Only PRs with meaningful commits (non-empty, non-merge commits) will trigger auto-merge
-- The 4-hour inactivity timer is based on the last commit timestamp
-- Merge conflicts with the `next` branch will be reported as commit comments
+When merge conflicts arise in the merge-train branch:
+
+1. Pull the latest merge-train branch locally
+2. Resolve conflicts in your editor
+3. Push the merge commit directly to the merge-train branch
+
+**Note**: Keep the merge commit when resolving conflicts - squashing won't help with the history divergence issues that occur after merge-train recreation.
 
 ## RECOVERING FROM MERGE TRAIN RECREATION
 
-If you have a PR open into a merge-train that merged and was recreated, it will attempt the following to get around the fact that it has squashed with technically now has completely divergent history:
+When a merge-train is recreated after squashing, PRs with commits from the old merge-train need rebasing.
 
-```
-git merge (final commit of last merge-train)
-git merge -X ours origin/next
-```
-If your PR fails to update due to a conflict, you should do the above manually, fixing the conflicts (should only happen in first merge).
-NOTE: If you want to be precise, instead of origin/next it should the commit corresponding to the merge-train merge. This minimizes the effect of conflicts. Failure to do this may cause you to overwrite changes in next - check your diff afterwards for unexpected changes.
+### Three Recovery Options:
+
+1. **Automatic (Recommended)**: Add the `auto-rebase` label to your PR
+2. **Script**: Run `./scripts/auto_rebase_pr.sh` locally
+3. **Manual**: Follow the git instructions posted as a comment on your PR
+
+The automation will detect if your PR contains commits from the old merge-train and post specific rebase instructions as a comment. These instructions use `git rebase --onto` to cleanly move your commits to the new base, preserving your work while avoiding the squashed history.
+
+**Important**: 
+- PRs without commits from the old merge-train need no action
+- The recreation process automatically checks each PR and only comments on affected ones
+- The posted git commands help you merge the old PR head and then rebase onto the new base
+- Always check your diff afterwards for unexpected changes

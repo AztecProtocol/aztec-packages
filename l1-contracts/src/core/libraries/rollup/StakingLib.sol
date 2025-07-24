@@ -130,10 +130,10 @@ library StakingLib {
     store.gse.vote(_proposalId, vp, true);
 
     // If we are the canonical at the time of the proposal we also cast those votes.
-    if (store.gse.getCanonicalAt(ts) == address(this)) {
-      address magic = store.gse.getCanonicalMagicAddress();
-      vp = store.gse.getVotingPowerAt(magic, ts);
-      store.gse.voteWithCanonical(_proposalId, vp, true);
+    if (store.gse.getLatestRollupAt(ts) == address(this)) {
+      address bonusInstance = store.gse.getBonusInstanceAddress();
+      vp = store.gse.getVotingPowerAt(bonusInstance, ts);
+      store.gse.voteWithBonus(_proposalId, vp, true);
     }
   }
 

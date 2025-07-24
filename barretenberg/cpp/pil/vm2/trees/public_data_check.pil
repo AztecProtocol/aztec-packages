@@ -79,6 +79,8 @@ namespace public_data_check;
     sel' * (1 - sel) * (1 - precomputed.first_row) = 0;
     pol commit not_end;
     not_end = sel * sel';
+    pol commit end;
+    end = sel * (1 - sel');
 
     // Inputs to the gadget
     pol commit value;
@@ -289,3 +291,25 @@ namespace public_data_check;
 
     // TODO: On end, lookup the length of public data writes in public inputs.
     // Consider not doing it here if we implement the solution for accurate write counting during execution.
+
+    // ========= ASSERT FINAL LENGTH =========
+    // Every transaction we prove must have at least one public data write, the fee one.
+    // Thanks to that, we can assert here that the length of the public data writes vector in public inputs
+    // is the correct length, when this trace has end=1
+    pol commit public_data_writes_length;
+    // public_data_writes_length = (write_idx - AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + should_write_to_public_inputs)
+    sel * (write_idx - constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + should_write_to_public_inputs - public_data_writes_length) = 0;
+
+    // TODO: Commited because lookups don't support constants
+    pol commit length_pi_idx;
+    sel * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX - length_pi_idx) = 0;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[WRITE_WRITES_LENGTH_TO_PUBLIC_INPUTS]
+    // end {
+    //     length_pi_idx,
+    //     public_data_writes_length
+    // }in public_inputs.sel {
+    //     precomputed.clk,
+    //     public_inputs.cols[0]
+    // };

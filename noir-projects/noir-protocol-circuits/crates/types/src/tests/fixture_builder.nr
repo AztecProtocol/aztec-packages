@@ -13,6 +13,7 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::{AvmCircuitPublicInputs, AvmProofData},
         block_constant_data::BlockConstantData,
+        block_header::BlockHeader,
         call_context::CallContext,
         function_data::FunctionData,
         gas::Gas,
@@ -27,6 +28,7 @@ use crate::{
         log_hash::LogHash,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
+        partial_state_reference::PartialStateReference,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
@@ -38,6 +40,7 @@ use crate::{
         public_log::PublicLog,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::{Counted, Ordered, scoped::Scoped},
+        transaction::{tx_context::TxContext, tx_request::TxRequest},
         tree_snapshots::TreeSnapshots,
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
@@ -47,24 +50,27 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
-    block_header::BlockHeader,
     constants::{
-        ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
-        DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        ARCHIVE_HEIGHT, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, DEFAULT_UPDATE_DELAY,
+        FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
+        MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, PRIVATE_CALL_REQUEST_LENGTH,
-        PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS, SIDE_EFFECT_MASKING_ADDRESS,
-        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
+        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
+        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS,
+        SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
         hash::compute_public_data_tree_index,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    },
+    delayed_public_mutable::{
+        delayed_public_mutable_values::DelayedPublicMutableValues,
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        with_hash::compute_with_hash_hash_storage_slot,
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_note_hash, compute_siloed_nullifier,
@@ -72,7 +78,6 @@ use crate::{
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::L2ToL1Message,
-    partial_state_reference::PartialStateReference,
     point::Point,
     proof::{
         recursive_proof::NestedRecursiveProof,
@@ -80,10 +85,6 @@ use crate::{
         vk_data::VkData,
     },
     public_keys::PublicKeys,
-    shared_mutable::{
-        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
-        shared_mutable_values::SharedMutableValues, with_hash::compute_with_hash_hash_storage_slot,
-    },
     storage::map::derive_storage_slot_in_map,
     tests::{
         fixtures::{
@@ -93,7 +94,6 @@ use crate::{
         merkle_tree_utils::NonEmptyMerkleTree,
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
-    transaction::{tx_context::TxContext, tx_request::TxRequest},
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -343,7 +343,7 @@ impl FixtureBuilder {
     pub fn use_function(
         &mut self,
         function_data: ContractFunction,
-        vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS],
+        vk: [Field; MEGA_VK_LENGTH_IN_FIELDS],
     ) -> Self {
         self.function_data = function_data.data;
         self.function_leaf_membership_witness = function_data.membership_witness;
@@ -518,7 +518,7 @@ impl FixtureBuilder {
             protocol_contract_leaf: self.protocol_contract_leaf,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
-            updated_class_id_shared_mutable_values: SharedMutableValues::new(
+            updated_class_id_delayed_public_mutable_values: DelayedPublicMutableValues::new(
                 self.updated_class_id_value_change,
                 self.updated_class_id_delay_change,
             )
@@ -548,18 +548,20 @@ impl FixtureBuilder {
                 next_index: 0,
             };
         } else {
-            let hashed_update = SharedMutableValues::new(
+            let hashed_update = DelayedPublicMutableValues::new(
                 self.updated_class_id_value_change,
                 self.updated_class_id_delay_change,
             )
                 .hash();
-            let shared_mutable_slot =
+            let delayed_public_mutable_slot =
                 derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, self.contract_address);
-            let hash_slot = compute_with_hash_hash_storage_slot::<SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>, _>(
-                shared_mutable_slot,
+            let hash_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>>(
+                delayed_public_mutable_slot,
             );
-            let hash_leaf_slot =
-                compute_public_data_tree_index(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
+            let hash_leaf_slot = compute_public_data_tree_index(
+                CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                hash_slot,
+            );
             public_data_tree.update_leaf(
                 public_data_prefill - 1,
                 PublicDataTreeLeafPreimage {

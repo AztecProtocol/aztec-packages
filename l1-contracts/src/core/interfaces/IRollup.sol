@@ -63,7 +63,11 @@ struct RollupConfigInput {
   uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
+  uint256 slashingLifetimeInRounds;
+  uint256 slashingExecutionDelayInRounds;
+  address slashingVetoer;
   uint256 manaTarget;
+  uint256 exitDelaySeconds;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
@@ -71,16 +75,15 @@ struct RollupConfigInput {
 }
 
 struct RollupConfig {
-  uint256 aztecProofSubmissionEpochs;
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  uint32 version;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;
   IRewardDistributor rewardDistributor;
-  bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
   IVerifier epochProofVerifier;
   IInbox inbox;
   IOutbox outbox;
-  uint256 version;
 }
 
 struct RollupStore {

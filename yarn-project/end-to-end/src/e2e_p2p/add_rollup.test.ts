@@ -43,7 +43,7 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-old-'));
@@ -66,7 +66,8 @@ describe('e2e_p2p_add_rollup', () => {
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_add_rollup',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
@@ -88,7 +89,7 @@ describe('e2e_p2p_add_rollup', () => {
   afterAll(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -111,7 +112,7 @@ describe('e2e_p2p_add_rollup', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const roundSize = await governanceProposer.read.M();
+    const roundSize = await governanceProposer.read.ROUND_SIZE();
 
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
@@ -138,26 +139,6 @@ describe('e2e_p2p_add_rollup', () => {
     );
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
-    // Hand over the registry to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: registry.address,
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
-
-    // Hand over the GSE to the governance
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.gseAddress!.toString()),
-      data: encodeFunctionData({
-        abi: RegistryAbi,
-        functionName: 'transferOwnership',
-        args: [governance.address],
-      }),
-    });
-
     // Now that we have passed on the registry, we can deploy the new rollup.
     const initialTestAccounts = await getInitialTestAccounts();
     const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
@@ -177,10 +158,14 @@ describe('e2e_p2p_add_rollup', () => {
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSize: t.ctx.aztecNodeConfig.slashingRoundSize,
+        slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
+        slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
+        slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
+        exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
@@ -203,13 +188,13 @@ describe('e2e_p2p_add_rollup', () => {
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
-      const leaderVotes = await governanceProposer.read.yeaCount([
+      const leaderVotes = await governanceProposer.read.signalCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info.leader,
+        info.payloadWithMostSignals,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.leader} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -221,7 +206,7 @@ describe('e2e_p2p_add_rollup', () => {
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -231,8 +216,8 @@ describe('e2e_p2p_add_rollup', () => {
     await sleep(4000);
 
     t.logger.info('Start progressing time to cast votes');
-    const quorumSize = await governanceProposer.read.N();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
+    const quorumSize = await governanceProposer.read.QUORUM_SIZE();
+    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     const bridging = async (
       node: AztecNodeService,
@@ -409,11 +394,11 @@ describe('e2e_p2p_add_rollup', () => {
       to: governanceProposer.address,
       data: encodeFunctionData({
         abi: GovernanceProposerAbi,
-        functionName: 'executeProposal',
+        functionName: 'submitRoundWinner',
         args: [govData.round],
       }),
     });
-    t.logger.info(`Executed proposal ${govData.round}`);
+    t.logger.info(`Submitted winner for round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
 
@@ -470,7 +455,7 @@ describe('e2e_p2p_add_rollup', () => {
     );
 
     // stop all nodes
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       const node = nodes[i];
       await node.stop();
       t.logger.info(`Node ${i} stopped`);
@@ -528,7 +513,7 @@ describe('e2e_p2p_add_rollup', () => {
       newConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       prefilledPublicData,
       DATA_DIR_NEW,

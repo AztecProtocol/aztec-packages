@@ -17,7 +17,7 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { submitComplexTxsTo } from './shared.js';
 
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 1;
 const BASE_BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
@@ -32,7 +32,8 @@ describe('e2e_p2p_reex', () => {
 
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_reex',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BASE_BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
@@ -67,7 +68,7 @@ describe('e2e_p2p_reex', () => {
       },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BASE_BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -95,7 +96,7 @@ describe('e2e_p2p_reex', () => {
     // shutdown all nodes.
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -160,8 +161,8 @@ describe('e2e_p2p_reex', () => {
           const originalSimulate = simulator.simulate.bind(simulator);
           // We only stub the simulate method if it's NOT the first time we see the tx
           // so the proposer works fine, but we cause the failure in the validators.
-          jest.spyOn(simulator, 'simulate').mockImplementation(async (tx: Tx) => {
-            const txHash = (await tx.getTxHash()).toString();
+          jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => {
+            const txHash = tx.getTxHash().toString();
             if (seenTxs.has(txHash)) {
               t.logger.warn('Calling stubbed simulate for tx', { txHash });
               return stub(tx, originalSimulate);
@@ -178,7 +179,7 @@ describe('e2e_p2p_reex', () => {
     // Have the public tx processor take an extra long time to process the tx, so the validator times out
     const interceptTxProcessorWithTimeout = (node: AztecNodeService) => {
       interceptTxProcessorSimulate(node, async (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
-        t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout', { txHash: await tx.getTxHash() });
+        t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout', { txHash: tx.getTxHash() });
         await sleep(40_000);
         return originalSimulate(tx);
       });
@@ -188,7 +189,7 @@ describe('e2e_p2p_reex', () => {
     const interceptTxProcessorWithFailure = (node: AztecNodeService) => {
       interceptTxProcessorSimulate(node, async (tx: Tx, _originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
         await sleep(1);
-        t.logger.warn('Public tx simulator failing', { txHash: await tx.getTxHash() });
+        t.logger.warn('Public tx simulator failing', { txHash: tx.getTxHash() });
         throw new Error(`Fake tx failure`);
       });
     };
@@ -225,8 +226,8 @@ describe('e2e_p2p_reex', () => {
         // We ensure that the transactions are NOT mined in the next slot
         const txResults = await Promise.allSettled(
           txs.map(async (tx: SentTx, i: number) => {
-            t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
-            return tx.wait({ timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
+            t.logger.info(`Waiting for tx ${i}: ${(await tx.getTxHash()).toString()} to be mined`);
+            return await tx.wait({ timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
           }),
         );
 

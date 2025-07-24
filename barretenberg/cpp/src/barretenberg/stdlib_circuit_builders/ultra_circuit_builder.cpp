@@ -12,6 +12,7 @@
  *
  */
 #include "ultra_circuit_builder.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "rom_ram_logic.hpp"
 
@@ -92,7 +93,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.arithmetic.q_arith().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -113,7 +115,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.delta_range.q_arith().emplace_back(0);
     blocks.delta_range.q_lookup_type().emplace_back(0);
     blocks.delta_range.q_elliptic().emplace_back(0);
-    blocks.delta_range.q_aux().emplace_back(0);
+    blocks.delta_range.q_memory().emplace_back(0);
+    blocks.delta_range.q_nnf().emplace_back(0);
     blocks.delta_range.q_poseidon2_external().emplace_back(0);
     blocks.delta_range.q_poseidon2_internal().emplace_back(0);
 
@@ -136,7 +139,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.elliptic.q_arith().emplace_back(0);
     blocks.elliptic.q_lookup_type().emplace_back(0);
     blocks.elliptic.q_elliptic().emplace_back(1);
-    blocks.elliptic.q_aux().emplace_back(0);
+    blocks.elliptic.q_memory().emplace_back(0);
+    blocks.elliptic.q_nnf().emplace_back(0);
     blocks.elliptic.q_poseidon2_external().emplace_back(0);
     blocks.elliptic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -146,27 +150,51 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     ++this->num_gates;
     create_dummy_gate(blocks.elliptic, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
-    // q_aux
-    blocks.aux.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.aux.q_m().emplace_back(0);
-    blocks.aux.q_1().emplace_back(0);
-    blocks.aux.q_2().emplace_back(0);
-    blocks.aux.q_3().emplace_back(0);
-    blocks.aux.q_4().emplace_back(0);
-    blocks.aux.q_c().emplace_back(0);
-    blocks.aux.q_delta_range().emplace_back(0);
-    blocks.aux.q_arith().emplace_back(0);
-    blocks.aux.q_lookup_type().emplace_back(0);
-    blocks.aux.q_elliptic().emplace_back(0);
-    blocks.aux.q_aux().emplace_back(1);
-    blocks.aux.q_poseidon2_external().emplace_back(0);
-    blocks.aux.q_poseidon2_internal().emplace_back(0);
+    // q_memory
+    blocks.memory.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.memory.q_m().emplace_back(0);
+    blocks.memory.q_1().emplace_back(0);
+    blocks.memory.q_2().emplace_back(0);
+    blocks.memory.q_3().emplace_back(0);
+    blocks.memory.q_4().emplace_back(0);
+    blocks.memory.q_c().emplace_back(0);
+    blocks.memory.q_delta_range().emplace_back(0);
+    blocks.memory.q_arith().emplace_back(0);
+    blocks.memory.q_lookup_type().emplace_back(0);
+    blocks.memory.q_elliptic().emplace_back(0);
+    blocks.memory.q_memory().emplace_back(1);
+    blocks.memory.q_nnf().emplace_back(0);
+    blocks.memory.q_poseidon2_external().emplace_back(0);
+    blocks.memory.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        blocks.aux.pad_additional();
+        blocks.memory.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    create_dummy_gate(blocks.aux, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_dummy_gate(blocks.memory, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+
+    // q_nnf
+    blocks.nnf.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.nnf.q_m().emplace_back(0);
+    blocks.nnf.q_1().emplace_back(0);
+    blocks.nnf.q_2().emplace_back(0);
+    blocks.nnf.q_3().emplace_back(0);
+    blocks.nnf.q_4().emplace_back(0);
+    blocks.nnf.q_c().emplace_back(0);
+    blocks.nnf.q_delta_range().emplace_back(0);
+    blocks.nnf.q_arith().emplace_back(0);
+    blocks.nnf.q_lookup_type().emplace_back(0);
+    blocks.nnf.q_elliptic().emplace_back(0);
+    blocks.nnf.q_memory().emplace_back(0);
+    blocks.nnf.q_nnf().emplace_back(1);
+    blocks.nnf.q_poseidon2_external().emplace_back(0);
+    blocks.nnf.q_poseidon2_internal().emplace_back(0);
+    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+        blocks.nnf.pad_additional();
+    }
+    check_selector_length_consistency();
+    ++this->num_gates;
+    create_dummy_gate(blocks.nnf, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
     this->one_idx = put_constant_variable(FF::one());
@@ -215,7 +243,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.poseidon2_external.q_delta_range().emplace_back(0);
     blocks.poseidon2_external.q_lookup_type().emplace_back(0);
     blocks.poseidon2_external.q_elliptic().emplace_back(0);
-    blocks.poseidon2_external.q_aux().emplace_back(0);
+    blocks.poseidon2_external.q_memory().emplace_back(0);
+    blocks.poseidon2_external.q_nnf().emplace_back(0);
     blocks.poseidon2_external.q_poseidon2_external().emplace_back(1);
     blocks.poseidon2_external.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -239,7 +268,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.poseidon2_internal.q_delta_range().emplace_back(0);
     blocks.poseidon2_internal.q_lookup_type().emplace_back(0);
     blocks.poseidon2_internal.q_elliptic().emplace_back(0);
-    blocks.poseidon2_internal.q_aux().emplace_back(0);
+    blocks.poseidon2_internal.q_memory().emplace_back(0);
+    blocks.poseidon2_internal.q_nnf().emplace_back(0);
     blocks.poseidon2_internal.q_poseidon2_external().emplace_back(0);
     blocks.poseidon2_internal.q_poseidon2_internal().emplace_back(1);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -275,7 +305,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
     blocks.arithmetic.q_delta_range().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -309,7 +340,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
     blocks.arithmetic.q_delta_range().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -343,7 +375,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
     blocks.arithmetic.q_delta_range().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -439,7 +472,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<F
     blocks.arithmetic.q_delta_range().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -467,7 +501,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_qu
     blocks.arithmetic.q_delta_range().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -510,7 +545,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
     blocks.arithmetic.q_delta_range().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -541,7 +577,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -574,7 +611,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<F
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -609,6 +647,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
 
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1482): scrutinize and clean up this logic
     if (can_fuse_into_previous_gate) {
         can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_r()[block.size() - 1] == in.x1);
         can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_o()[block.size() - 1] == in.y1);
@@ -635,7 +674,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.q_delta_range().emplace_back(0);
         block.q_lookup_type().emplace_back(0);
         block.q_elliptic().emplace_back(1);
-        block.q_aux().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -669,12 +709,14 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1482): scrutinize and clean up this logic
     if (can_fuse_into_previous_gate) {
         can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_r()[block.size() - 1] == in.x1);
         can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_o()[block.size() - 1] == in.y1);
         can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_arith()[block.size() - 1] == 0);
         can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_lookup_type()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_aux()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_memory()[block.size() - 1] == 0);
+        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_nnf()[block.size() - 1] == 0);
     }
 
     if (can_fuse_into_previous_gate) {
@@ -692,7 +734,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         block.q_4().emplace_back(0);
         block.q_delta_range().emplace_back(0);
         block.q_lookup_type().emplace_back(0);
-        block.q_aux().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -726,7 +769,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     blocks.arithmetic.q_delta_range().emplace_back(0);
     blocks.arithmetic.q_lookup_type().emplace_back(0);
     blocks.arithmetic.q_elliptic().emplace_back(0);
-    blocks.arithmetic.q_aux().emplace_back(0);
+    blocks.arithmetic.q_memory().emplace_back(0);
+    blocks.arithmetic.q_nnf().emplace_back(0);
     blocks.arithmetic.q_poseidon2_external().emplace_back(0);
     blocks.arithmetic.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -812,7 +856,8 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         blocks.lookup.q_4().emplace_back(0);
         blocks.lookup.q_delta_range().emplace_back(0);
         blocks.lookup.q_elliptic().emplace_back(0);
-        blocks.lookup.q_aux().emplace_back(0);
+        blocks.lookup.q_memory().emplace_back(0);
+        blocks.lookup.q_nnf().emplace_back(0);
         blocks.lookup.q_poseidon2_external().emplace_back(0);
         blocks.lookup.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -867,7 +912,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 {
     this->assert_valid_variables({ variable_index });
 
-    ASSERT(num_bits > 0);
+    BB_ASSERT_GT(num_bits, 0U);
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
@@ -1023,7 +1068,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                     }
                 }
             }
-            ASSERT(found_tag == true);
+            ASSERT(found_tag);
         }
         assign_tag(variable_index, list.range_tag);
         list.variable_indices.emplace_back(variable_index);
@@ -1034,7 +1079,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 {
     this->assert_valid_variables(list.variable_indices);
 
-    ASSERT(list.variable_indices.size() > 0);
+    BB_ASSERT_GT(list.variable_indices.size(), 0U);
 
     // replace witness index in variable_indices with the real variable index i.e. if a copy constraint has been
     // applied on a variable after it was range constrained, this makes sure the indices in list point to the updated
@@ -1108,7 +1153,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
 {
     constexpr size_t gate_width = NUM_WIRES;
-    ASSERT(variable_index.size() % gate_width == 0);
+    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
     this->assert_valid_variables(variable_index);
 
     for (size_t i = 0; i < variable_index.size(); i += gate_width) {
@@ -1126,7 +1171,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         blocks.delta_range.q_delta_range().emplace_back(1);
         blocks.delta_range.q_elliptic().emplace_back(0);
         blocks.delta_range.q_lookup_type().emplace_back(0);
-        blocks.delta_range.q_aux().emplace_back(0);
+        blocks.delta_range.q_memory().emplace_back(0);
+        blocks.delta_range.q_nnf().emplace_back(0);
         blocks.delta_range.q_poseidon2_external().emplace_back(0);
         blocks.delta_range.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -1162,7 +1208,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_gate(
     block.q_delta_range().emplace_back(0);
     block.q_elliptic().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
-    block.q_aux().emplace_back(0);
+    block.q_memory().emplace_back(0);
+    block.q_nnf().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(0);
 
@@ -1200,7 +1247,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
 {
     // Convenient to assume size is at least 8 (gate_width = 4) for separate gates for start and end conditions
     constexpr size_t gate_width = NUM_WIRES;
-    ASSERT(variable_index.size() % gate_width == 0 && variable_index.size() > gate_width);
+    BB_ASSERT_EQ(variable_index.size() % gate_width, 0U);
+    BB_ASSERT_GT(variable_index.size(), gate_width);
     this->assert_valid_variables(variable_index);
 
     auto& block = blocks.delta_range;
@@ -1223,7 +1271,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         block.q_delta_range().emplace_back(1);
         block.q_elliptic().emplace_back(0);
         block.q_lookup_type().emplace_back(0);
-        block.q_aux().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -1248,7 +1297,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         block.q_delta_range().emplace_back(1);
         block.q_elliptic().emplace_back(0);
         block.q_lookup_type().emplace_back(0);
-        block.q_aux().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -1336,115 +1386,41 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 }
 
 /**
- * @brief Enable the auxilary gate of particular type
+ * @brief Enable the memory gate of particular type
  *
  * @details If we have several operations being performed do not require parametrization
  * (if we put each of them into a separate widget they would not require any selectors other than the ones enabling the
  * operation itself, for example q_special*(w_l-2*w_r)), we can group them all into one widget, by using a special
- * selector q_aux for all of them and enabling each in particular, depending on the combination of standard selector
+ * selector q_memory for all of them and enabling each in particular, depending on the combination of standard selector
  * values. So you can do:
- * q_aux * (q_1 * q_2 * statement_1 + q_3 * q_4 * statement_2). q_1=q_2=1 would activate statement_1, while q_3=q_4=1
+ * q_memory * (q_1 * q_2 * statement_1 + q_3 * q_4 * statement_2). q_1=q_2=1 would activate statement_1, while q_3=q_4=1
  * would activate statement_2
  *
- * * Multiple selectors are used to 'switch' aux gates on/off according to the following pattern:
+ * Multiple selectors are used to 'switch' memory gates on/off according to the following pattern:
  *
- * | gate type                    | q_aux | q_1 | q_2 | q_3 | q_4 | q_m | q_c | q_arith |
- * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- | ------  |
- * | Bigfield Limb Accumulation 1 | 1     | 0   | 0   | 1   | 1   | 0   | --- | 0       |
- * | Bigfield Limb Accumulation 2 | 1     | 0   | 0   | 1   | 0   | 1   | --- | 0       |
- * | Bigfield Product 1           | 1     | 0   | 1   | 1   | 0   | 0   | --- | 0       |
- * | Bigfield Product 2           | 1     | 0   | 1   | 0   | 1   | 0   | --- | 0       |
- * | Bigfield Product 3           | 1     | 0   | 1   | 0   | 0   | 1   | --- | 0       |
- * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- | 0       |
- * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- | 0       |
- * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- | 0       |
- * | RAM consistency check        | 1     | 0   | 0   | 0   | 0   | 0   | 0   | 1       |
+ * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
+ * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
+ * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
+ * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
+ * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
+ * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
  *
  * @param type
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTORS type)
+void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_SELECTORS type)
 {
-    auto& block = blocks.aux;
-    block.q_aux().emplace_back(type == AUX_SELECTORS::NONE ? 0 : 1);
+    auto& block = blocks.memory;
+    block.q_memory().emplace_back(type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1);
     // Set to zero the selectors that are not enabled for this gate
     block.q_delta_range().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
+    block.q_nnf().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(0);
     switch (type) {
-    case AUX_SELECTORS::LIMB_ACCUMULATE_1: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        block.q_4().emplace_back(1);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
-        check_selector_length_consistency();
-        break;
-    }
-    case AUX_SELECTORS::LIMB_ACCUMULATE_2: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        block.q_4().emplace_back(0);
-        block.q_m().emplace_back(1);
-        block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
-        check_selector_length_consistency();
-        break;
-    }
-    case AUX_SELECTORS::NON_NATIVE_FIELD_1: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(1);
-        block.q_4().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
-        check_selector_length_consistency();
-        break;
-    }
-    case AUX_SELECTORS::NON_NATIVE_FIELD_2: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(1);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
-        check_selector_length_consistency();
-        break;
-    }
-    case AUX_SELECTORS::NON_NATIVE_FIELD_3: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_m().emplace_back(1);
-        block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
-        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-            block.pad_additional();
-        }
-        check_selector_length_consistency();
-        break;
-    }
-    case AUX_SELECTORS::ROM_CONSISTENCY_CHECK: {
+    case MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK: {
         // Memory read gate used with the sorted list of memory reads.
         // Apply sorted memory read checks with the following additional check:
         // 1. Assert that if index field across two gates does not change, the value field does not change.
@@ -1462,7 +1438,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTO
         check_selector_length_consistency();
         break;
     }
-    case AUX_SELECTORS::RAM_CONSISTENCY_CHECK: {
+    case MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK: {
         // Memory read gate used with the sorted list of memory reads.
         // 1. Validate adjacent index values across 2 gates increases by 0 or 1
         // 2. Validate record computation (r = read_write_flag + index * \eta + \timestamp * \eta^2 + value * \eta^3)
@@ -1481,7 +1457,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTO
         check_selector_length_consistency();
         break;
     }
-    case AUX_SELECTORS::RAM_TIMESTAMP_CHECK: {
+    case MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK: {
         // For two adjacent RAM entries that share the same index, validate the timestamp value is monotonically
         // increasing
         block.q_1().emplace_back(1);
@@ -1497,7 +1473,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTO
         check_selector_length_consistency();
         break;
     }
-    case AUX_SELECTORS::ROM_READ: {
+    case MEMORY_SELECTORS::ROM_READ: {
         // Memory read gate for reading memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
@@ -1514,7 +1490,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTO
         check_selector_length_consistency();
         break;
     }
-    case AUX_SELECTORS::RAM_READ: {
+    case MEMORY_SELECTORS::RAM_READ: {
         // Memory read gate for reading memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
@@ -1531,7 +1507,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTO
         check_selector_length_consistency();
         break;
     }
-    case AUX_SELECTORS::RAM_WRITE: {
+    case MEMORY_SELECTORS::RAM_WRITE: {
         // Memory read gate for writing memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
@@ -1566,6 +1542,129 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTO
 }
 
 /**
+ * @brief Enable the nnf gate of particular type
+ *
+ * @details If we have several operations being performed do not require parametrization
+ * (if we put each of them into a separate widget they would not require any selectors other than the ones enabling the
+ * operation itself, for example q_special*(w_l-2*w_r)), we can group them all into one widget, by using a special
+ * selector q_nnf for all of them and enabling each in particular, depending on the combination of standard selector
+ * values. So you can do:
+ * q_nnf * (q_1 * q_2 * statement_1 + q_3 * q_4 * statement_2). q_1=q_2=1 would activate statement_1, while q_3=q_4=1
+ * would activate statement_2
+ *
+ * Multiple selectors are used to 'switch' nnf gates on/off according to the following pattern:
+ *
+ * | gate type                    | q_nnf | q_1 | q_2 | q_3 | q_4 | q_m |
+ * | ---------------------------- | ----- | --- | --- | --- | --- | --- |
+ * | Bigfield Limb Accumulation 1 | 1     | 0   | 0   | 1   | 1   | 0   |
+ * | Bigfield Limb Accumulation 2 | 1     | 0   | 0   | 1   | 0   | 1   |
+ * | Bigfield Product 1           | 1     | 0   | 1   | 1   | 0   | 0   |
+ * | Bigfield Product 2           | 1     | 0   | 1   | 0   | 1   | 0   |
+ * | Bigfield Product 3           | 1     | 0   | 1   | 0   | 0   | 1   |
+ *
+ * @param type
+ */
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTORS type)
+{
+    auto& block = blocks.nnf;
+    block.q_nnf().emplace_back(type == NNF_SELECTORS::NNF_NONE ? 0 : 1);
+    // Set to zero the selectors that are not enabled for this gate
+    block.q_delta_range().emplace_back(0);
+    block.q_lookup_type().emplace_back(0);
+    block.q_elliptic().emplace_back(0);
+    block.q_memory().emplace_back(0);
+    block.q_poseidon2_external().emplace_back(0);
+    block.q_poseidon2_internal().emplace_back(0);
+    switch (type) {
+    case NNF_SELECTORS::LIMB_ACCUMULATE_1: {
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(1);
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        break;
+    }
+    case NNF_SELECTORS::LIMB_ACCUMULATE_2: {
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(1);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(1);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        break;
+    }
+    case NNF_SELECTORS::NON_NATIVE_FIELD_1: {
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(1);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        break;
+    }
+    case NNF_SELECTORS::NON_NATIVE_FIELD_2: {
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(1);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        break;
+    }
+    case NNF_SELECTORS::NON_NATIVE_FIELD_3: {
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(1);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        break;
+    }
+    default: {
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        break;
+    }
+    }
+}
+
+/**
  * NON NATIVE FIELD METHODS
  *
  * Methods to efficiently apply constraints that evaluate non-native field multiplications
@@ -1573,7 +1672,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_aux_selectors(const AUX_SELECTO
 
 /**
  * Applies range constraints to two 70-bit limbs, splititng each into 5 14-bit sublimbs.
- * We can efficiently chain together two 70-bit limb checks in 3 gates, using auxiliary gates
+ * We can efficiently chain together two 70-bit limb checks in 3 gates, using nnf gates
  **/
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint32_t lo_idx,
@@ -1583,8 +1682,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
-    ASSERT(lo_limb_bits <= (14 * 5));
-    ASSERT(hi_limb_bits <= (14 * 5));
+    BB_ASSERT_LTE(lo_limb_bits, 14U * 5U);
+    BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
     // Sometimes we try to use limbs that are too large. It's easier to catch this issue here
     const auto get_sublimbs = [&](const uint32_t& limb_idx, const std::array<uint64_t, 5>& sublimb_masks) {
@@ -1625,13 +1724,13 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_idx, lo_masks);
     const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_idx, hi_masks);
 
-    blocks.aux.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
-    blocks.aux.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
-    blocks.aux.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
+    blocks.nnf.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
+    blocks.nnf.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
+    blocks.nnf.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
 
-    apply_aux_selectors(AUX_SELECTORS::LIMB_ACCUMULATE_1);
-    apply_aux_selectors(AUX_SELECTORS::LIMB_ACCUMULATE_2);
-    apply_aux_selectors(AUX_SELECTORS::NONE);
+    apply_nnf_selectors(NNF_SELECTORS::LIMB_ACCUMULATE_1);
+    apply_nnf_selectors(NNF_SELECTORS::LIMB_ACCUMULATE_2);
+    apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
     this->num_gates += 3;
 
     for (size_t i = 0; i < 5; i++) {
@@ -1658,17 +1757,17 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
 {
-    ASSERT(uint256_t(this->get_variable_reference(limb_idx)) < (uint256_t(1) << num_limb_bits));
+    BB_ASSERT_LT(uint256_t(this->get_variable_reference(limb_idx)), (uint256_t(1) << num_limb_bits));
     constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
     const uint256_t value = this->get_variable(limb_idx);
     const uint256_t low = value & LIMB_MASK;
     const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    ASSERT(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) == value);
+    BB_ASSERT_EQ(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS), value);
 
     const uint32_t low_idx = this->add_variable(low);
     const uint32_t hi_idx = this->add_variable(hi);
 
-    ASSERT(num_limb_bits > DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
+    BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     const size_t hi_bits = num_limb_bits - DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     range_constrain_two_limbs(low_idx, hi_idx, lo_bits, hi_bits);
@@ -1746,7 +1845,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     const uint32_t hi_3_idx = this->add_variable(hi_3);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): Originally this was a single arithmetic gate.
-    // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an aux gate that
+    // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an nnf gate that
     // has been sorted out of sequence.
     // product gate 1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
@@ -1766,7 +1865,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)
     //
     // Check if lo_0 was computed correctly.
-    // The gate structure for the auxiliary gates is as follows:
+    // The gate structure for the nnf gates is as follows:
     //
     // | a1 | b1 | r0 | lo_0 | <-- product gate 1: check lo_0
     // | a0 | b0 | a3 | b3   |
@@ -1776,8 +1875,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // Constaint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
     //              w4 = (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w3
     //
-    blocks.aux.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
-    apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
+    blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
+    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
     ++this->num_gates;
 
     //
@@ -1791,8 +1890,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // Constaint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0) - r2
     //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2) - w'3
     //
-    blocks.aux.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
-    apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
+    blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
+    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
     ++this->num_gates;
 
     //
@@ -1806,15 +1905,15 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // Constaint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1)
     //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2)
     //
-    blocks.aux.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
-    apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
+    blocks.nnf.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
+    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
     ++this->num_gates;
 
     //
     // Does nothing, but is used by the previous gate to read the hi_1 limb.
     //
-    blocks.aux.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
-    apply_aux_selectors(AUX_SELECTORS::NONE);
+    blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
+    apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
     ++this->num_gates;
 
     /**
@@ -1866,7 +1965,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     PROFILE_THIS_NAME("populate_public_inputs_block");
 
     // Update the public inputs block
-    for (const auto& idx : this->public_inputs) {
+    for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
         blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
         for (auto& selector : this->blocks.pub_inputs.selectors) {
@@ -1894,20 +1993,20 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
 
-        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, input.lo_0);
-        apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
+        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx, input.lo_0);
+        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
         ++this->num_gates;
 
-        blocks.aux.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
-        apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
+        blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
+        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
         ++this->num_gates;
 
-        blocks.aux.populate_wires(input.a[2], input.b[2], this->zero_idx, input.hi_0);
-        apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
+        blocks.nnf.populate_wires(input.a[2], input.b[2], this->zero_idx, input.hi_0);
+        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
         ++this->num_gates;
 
-        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, input.hi_1);
-        apply_aux_selectors(AUX_SELECTORS::NONE);
+        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx, input.hi_1);
+        apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
         ++this->num_gates;
     }
 }
@@ -2078,7 +2177,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         block.q_delta_range().emplace_back(0);
         block.q_lookup_type().emplace_back(0);
         block.q_elliptic().emplace_back(0);
-        block.q_aux().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -2200,7 +2300,8 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
         block.q_delta_range().emplace_back(0);
         block.q_lookup_type().emplace_back(0);
         block.q_elliptic().emplace_back(0);
-        block.q_aux().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
         block.q_poseidon2_external().emplace_back(0);
         block.q_poseidon2_internal().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -2358,7 +2459,8 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.q_delta_range().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
-    block.q_aux().emplace_back(0);
+    block.q_memory().emplace_back(0);
+    block.q_nnf().emplace_back(0);
     block.q_poseidon2_external().emplace_back(1);
     block.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -2386,7 +2488,8 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     block.q_delta_range().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
-    block.q_aux().emplace_back(0);
+    block.q_memory().emplace_back(0);
+    block.q_nnf().emplace_back(0);
     block.q_poseidon2_external().emplace_back(0);
     block.q_poseidon2_internal().emplace_back(1);
     if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
@@ -2456,8 +2559,8 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     cir.modulus = buf.str();
 
-    for (uint32_t i = 0; i < this->get_num_public_inputs(); i++) {
-        cir.public_inps.push_back(this->real_variable_index[this->public_inputs[i]]);
+    for (uint32_t i = 0; i < this->num_public_inputs(); i++) {
+        cir.public_inps.push_back(this->real_variable_index[this->public_inputs()[i]]);
     }
 
     for (auto& tup : base::variable_names) {
@@ -2481,10 +2584,19 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
         std::vector<std::vector<FF>> block_selectors;
         std::vector<std::vector<uint32_t>> block_wires;
         for (size_t idx = 0; idx < block.size(); ++idx) {
-            std::vector<FF> tmp_sel = { block.q_m()[idx],     block.q_1()[idx],           block.q_2()[idx],
-                                        block.q_3()[idx],     block.q_4()[idx],           block.q_c()[idx],
-                                        block.q_arith()[idx], block.q_delta_range()[idx], block.q_elliptic()[idx],
-                                        block.q_aux()[idx],   block.q_lookup_type()[idx], curve_b };
+            std::vector<FF> tmp_sel = { block.q_m()[idx],
+                                        block.q_1()[idx],
+                                        block.q_2()[idx],
+                                        block.q_3()[idx],
+                                        block.q_4()[idx],
+                                        block.q_c()[idx],
+                                        block.q_arith()[idx],
+                                        block.q_delta_range()[idx],
+                                        block.q_elliptic()[idx],
+                                        block.q_memory()[idx],
+                                        block.q_nnf()[idx],
+                                        block.q_lookup_type()[idx],
+                                        curve_b };
 
             std::vector<uint32_t> tmp_w = {
                 this->real_variable_index[block.w_l()[idx]],

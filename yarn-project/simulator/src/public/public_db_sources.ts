@@ -2,8 +2,8 @@ import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT } from '@aztec/con
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
-import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
+import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -143,12 +143,12 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     cacheType: string,
   ) {
     const contractClassEvents = siloedContractClassLogs
-      .filter((log: ContractClassLog) => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
-      .map((log: ContractClassLog) => ContractClassRegisteredEvent.fromLog(log));
+      .filter((log: ContractClassLog) => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
+      .map((log: ContractClassLog) => ContractClassPublishedEvent.fromLog(log));
 
     // Cache contract classes
     await Promise.all(
-      contractClassEvents.map(async (event: ContractClassRegisteredEvent) => {
+      contractClassEvents.map(async (event: ContractClassPublishedEvent) => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to contract's ${cacheType} tx cache`);
         const contractClass = await event.toContractClassPublic();
 
@@ -165,8 +165,8 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    */
   private addContractInstancesFromLogs(contractInstanceLogs: PrivateLog[], cache: TxContractCache, cacheType: string) {
     const contractInstanceEvents = contractInstanceLogs
-      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
-      .map(log => ContractInstanceDeployedEvent.fromLog(log));
+      .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
+      .map(log => ContractInstancePublishedEvent.fromLog(log));
 
     // Cache contract instances
     contractInstanceEvents.forEach(e => {

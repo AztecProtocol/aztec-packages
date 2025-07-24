@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
@@ -66,19 +67,23 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    enum AUX_SELECTORS {
-        NONE,
-        LIMB_ACCUMULATE_1,
-        LIMB_ACCUMULATE_2,
-        NON_NATIVE_FIELD_1,
-        NON_NATIVE_FIELD_2,
-        NON_NATIVE_FIELD_3,
+    enum MEMORY_SELECTORS {
+        MEM_NONE,
         RAM_CONSISTENCY_CHECK,
         ROM_CONSISTENCY_CHECK,
         RAM_TIMESTAMP_CHECK,
         ROM_READ,
         RAM_READ,
         RAM_WRITE,
+    };
+
+    enum NNF_SELECTORS {
+        NNF_NONE,
+        LIMB_ACCUMULATE_1,
+        LIMB_ACCUMULATE_2,
+        NON_NATIVE_FIELD_1,
+        NON_NATIVE_FIELD_2,
+        NON_NATIVE_FIELD_3,
     };
 
     struct RangeList {
@@ -260,8 +265,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             this->add_variable(value);
         }
 
-        // Add the public_inputs from acir
-        this->public_inputs = public_inputs;
+        // Initialize the builder public_inputs directly from the acir public inputs.
+        this->initialize_public_inputs(public_inputs);
 
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
@@ -329,7 +334,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         for (auto& block : blocks.get()) {
             size_t nominal_size = block.selectors[0].size();
             for (size_t idx = 1; idx < block.selectors.size(); ++idx) {
-                ASSERT(block.selectors[idx].size() == nominal_size);
+                ASSERT_DEBUG(block.selectors[idx].size() == nominal_size);
             }
         }
 
@@ -593,7 +598,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     size_t get_finalized_total_circuit_size() const
     {
         ASSERT(circuit_finalized);
-        auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
 
@@ -608,7 +613,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_estimated_total_circuit_size() const
     {
-        auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
+        auto num_filled_gates = get_estimated_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
 
@@ -632,7 +637,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount
-                  << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << "), pubinp = " << this->num_public_inputs() << std::endl;
     }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
@@ -678,13 +683,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
     {
-        ASSERT(tag <= this->current_tag);
+        BB_ASSERT_LTE(tag, this->current_tag);
         // If we've already assigned this tag to this variable, return (can happen due to copy constraints)
         if (this->real_variable_tags[this->real_variable_index[variable_index]] == tag) {
             return;
         }
 
-        ASSERT(this->real_variable_tags[this->real_variable_index[variable_index]] == DUMMY_TAG);
+        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DUMMY_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
 
@@ -708,7 +713,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Custom Gate Selectors
      **/
-    void apply_aux_selectors(const AUX_SELECTORS type);
+    void apply_memory_selectors(const MEMORY_SELECTORS type);
+    void apply_nnf_selectors(const NNF_SELECTORS type);
 
     /**
      * Non Native Field Arithmetic

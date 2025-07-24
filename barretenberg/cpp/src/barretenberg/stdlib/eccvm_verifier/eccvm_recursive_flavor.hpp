@@ -10,7 +10,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
@@ -34,7 +33,6 @@ class ECCVMRecursiveFlavor {
     using GroupElement = Curve::Element;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using RelationSeparator = FF;
     using NativeFlavor = ECCVMFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using PCS = IPA<Curve>;
@@ -62,6 +60,9 @@ class ECCVMRecursiveFlavor {
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;
+
+    static constexpr size_t NUM_SUBRELATIONS = ECCVMFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = ECCVMFlavor::MAX_PARTIAL_RELATION_LENGTH;
 
@@ -111,10 +112,8 @@ class ECCVMRecursiveFlavor {
             : pcs_verification_key(builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key)
         {
 
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
-            // `log_circuit_size` from MSGPACK and the verification key.
-            this->circuit_size = BF{ 1UL << CONST_ECCVM_LOG_N };
-            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `log_circuit_size` from MSGPACK
+            // and the verification key.
             this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
@@ -122,6 +121,50 @@ class ECCVMRecursiveFlavor {
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
+            }
+        }
+
+        /**
+         * @brief Serialize verification key to field elements.
+         *
+         * @return std::vector<BF>
+         */
+        std::vector<BF> to_field_elements() const override
+        {
+            using namespace bb::stdlib::field_conversion;
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        /**
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
+
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
             }
         }
     };

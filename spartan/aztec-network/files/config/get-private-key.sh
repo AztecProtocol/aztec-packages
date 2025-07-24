@@ -35,6 +35,15 @@ validator_private_keys=$(
   echo "${private_keys[*]}"
 )
 
+# Compute slasher private key if SLASHER_KEY_INDEX_START is set
+slasher_private_key=""
+if [[ -n "${SLASHER_KEY_INDEX_START:-}" ]]; then
+  SLASHER_PRIVATE_KEY_INDEX=$((SLASHER_KEY_INDEX_START + POD_INDEX))
+  echo "SLASHER_KEY_INDEX_START: $SLASHER_KEY_INDEX_START"
+  echo "SLASHER_PRIVATE_KEY_INDEX: $SLASHER_PRIVATE_KEY_INDEX"
+  slasher_private_key=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $SLASHER_PRIVATE_KEY_INDEX)
+fi
+
 # Note, currently writing keys for all services for convenience
 cat <<EOF >/shared/config/keys.env
 export VALIDATOR_PRIVATE_KEYS=$validator_private_keys
@@ -43,6 +52,11 @@ export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 export PROVER_PUBLISHER_PRIVATE_KEY=$private_key
 export BOT_L1_PRIVATE_KEY=$private_key
 EOF
+
+# Only add SLASHER_PRIVATE_KEY if it was computed
+if [[ -n "$slasher_private_key" ]]; then
+  echo "export SLASHER_PRIVATE_KEY=$slasher_private_key" >>/shared/config/keys.env
+fi
 
 if [[ -f "/shared/config/otel-resource" ]]; then
   # rewrite the resource attributes

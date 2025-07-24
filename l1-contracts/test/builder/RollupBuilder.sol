@@ -16,6 +16,7 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -33,6 +34,7 @@ struct ConfigValues {
 
 struct Config {
   address deployer;
+  CoinIssuer coinIssuer;
   TestERC20 testERC20;
   Registry registry;
   Governance governance;
@@ -180,6 +182,22 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setSlashingLifetimeInRounds(uint256 _slashingLifetimeInRounds)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.slashingLifetimeInRounds = _slashingLifetimeInRounds;
+    return this;
+  }
+
+  function setSlashingExecutionDelayInRounds(uint256 _slashingExecutionDelayInRounds)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.slashingExecutionDelayInRounds = _slashingExecutionDelayInRounds;
+    return this;
+  }
+
   function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
     return this;
@@ -209,8 +227,14 @@ contract RollupBuilder is Test {
       config.testERC20 = new TestERC20("test", "TEST", address(this));
     }
 
+    if (address(config.coinIssuer) == address(0)) {
+      config.coinIssuer = new CoinIssuer(config.testERC20, 1e18, address(this));
+    }
+
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(address(this), config.testERC20);
+      config.gse = new GSE(
+        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      );
     }
 
     if (address(config.registry) == address(0)) {
@@ -243,7 +267,7 @@ contract RollupBuilder is Test {
         vm.prank(address(config.governance));
         config.governance.openFloodgates();
 
-        assertEq(config.governance.isAllDepositsAllowed(), true);
+        assertEq(config.governance.isAllBeneficiariesAllowed(), true);
       }
     }
 
@@ -283,9 +307,10 @@ contract RollupBuilder is Test {
     }
 
     if (config.flags.updateOwnerships) {
-      if (config.deployer != config.testERC20.owner()) {
+      if (address(config.coinIssuer) != config.testERC20.owner()) {
         vm.prank(config.testERC20.owner());
-        config.testERC20.transferOwnership(config.deployer);
+        config.testERC20.transferOwnership(address(config.coinIssuer));
+        config.coinIssuer.acceptTokenOwnership();
       }
 
       if (config.deployer != config.registry.owner()) {
@@ -302,6 +327,11 @@ contract RollupBuilder is Test {
       if (expGov != config.gse.owner()) {
         vm.prank(config.gse.owner());
         config.gse.transferOwnership(expGov);
+      }
+
+      if (expGov != config.coinIssuer.owner()) {
+        vm.prank(config.coinIssuer.owner());
+        config.coinIssuer.transferOwnership(expGov);
       }
     }
 

@@ -19,7 +19,7 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 // Note: these ports must be distinct from the other e2e tests, else the tests will
 // interfere with each other.
 const BOOT_NODE_UDP_PORT = 4500;
@@ -40,7 +40,8 @@ describe('e2e_p2p_governance_proposer', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_gerousia',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
@@ -63,7 +64,7 @@ describe('e2e_p2p_governance_proposer', () => {
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -80,7 +81,7 @@ describe('e2e_p2p_governance_proposer', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const roundSize = await governanceProposer.read.M();
+    const roundSize = await governanceProposer.read.ROUND_SIZE();
 
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
@@ -127,13 +128,13 @@ describe('e2e_p2p_governance_proposer', () => {
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
-      const leaderVotes = await governanceProposer.read.yeaCount([
+      const leaderVotes = await governanceProposer.read.signalCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info.leader,
+        info.payloadWithMostSignals,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.leader} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -147,7 +148,7 @@ describe('e2e_p2p_governance_proposer', () => {
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -156,9 +157,9 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await sleep(4000);
 
-    t.logger.info('Start progressing time to cast votes');
-    const quorumSize = await governanceProposer.read.N();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
+    t.logger.info('Start progressing time to cast signals');
+    const quorumSize = await governanceProposer.read.QUORUM_SIZE();
+    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     let govData;
     while (true) {
@@ -179,13 +180,13 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await waitL1Block();
 
-    t.logger.info(`Executing proposal ${govData.round}`);
-    const txHash = await governanceProposer.write.executeProposal([govData.round], {
+    t.logger.info(`Submitting winner of round ${govData.round}`);
+    const txHash = await governanceProposer.write.submitRoundWinner([govData.round], {
       account: emperor,
       gas: 1_000_000n,
     });
     await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash });
-    t.logger.info(`Executed proposal ${govData.round}`);
+    t.logger.info(`Submitted winner of round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
 

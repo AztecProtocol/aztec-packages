@@ -84,10 +84,6 @@ tests:
       - *tom
 
   # e2e tests skipped
-  - regex: "src/e2e_sequencer/gov_proposal"
-    skip: true
-    owners:
-      - *lasse
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
@@ -127,11 +123,18 @@ tests:
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "Received: 49999999999999999999n"
+    owners:
+      - *mitch
+  - regex: "e2e_p2p/validators_sentinel"
     error_regex: "Expected: >= 2"
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
     error_regex: "ContractFunctionExecutionError.*execution failed"
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p/preferred_gossip_network.test.ts"
     owners:
       - *palla
   - regex: "src/e2e_fees/private_payments"
@@ -182,6 +185,11 @@ tests:
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/a1d8b4d360d6d658
+  - regex: "src/e2e_epochs/epochs_first_slot.test.ts"
+    error_regex: "expect\\(received\\).toContain\\(expected\\)"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -200,7 +208,12 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
+  - regex: "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
+    error_regex: "will propagate messages to peers at the same version"
+    owners:
+      - *palla
+  - regex: "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+    error_regex: "Expected number of calls"
     owners:
       - *palla
   - regex: "yarn-project/kv-store"

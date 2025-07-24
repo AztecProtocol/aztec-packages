@@ -58,6 +58,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
+        op_queue->merge();
         return op_queue;
     }
 
@@ -115,7 +116,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
-        EXPECT_EQ(static_cast<uint64_t>(verifier.key->circuit_size.get_value()), verification_key->circuit_size);
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()),
                   verification_key->log_circuit_size);
         EXPECT_EQ(static_cast<uint64_t>(verifier.key->num_public_inputs.get_value()),
@@ -126,13 +126,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(proving_key->proving_key);
+            auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(proving_key->get_precomputed());
             OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
-            ASSERT(verified);
+            ASSERT_TRUE(verified);
         }
     }
 
@@ -180,7 +180,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =
-                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->proving_key);
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
 
             return { outer_circuit.blocks, outer_verification_key };
         };

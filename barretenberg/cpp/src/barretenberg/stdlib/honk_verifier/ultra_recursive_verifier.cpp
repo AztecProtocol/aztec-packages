@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -51,7 +52,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using PublicPairingPoints = PublicInputComponent<PairingPoints<Builder>>;
 
     const size_t num_public_inputs = static_cast<uint32_t>(key->vk_and_hash->vk->num_public_inputs.get_value());
     BB_ASSERT_EQ(proof.size(), Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs);
@@ -74,6 +74,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     transcript->load_proof(honk_proof);
     OinkVerifier oink_verifier{ builder, key, transcript };
     oink_verifier.verify();
+    const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
 
     VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
 
@@ -82,19 +83,30 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // Extract the aggregation object from the public inputs
-    PairingPoints nested_points_accumulator =
-        PublicPairingPoints::reconstruct(key->public_inputs, key->vk_and_hash->vk->pairing_inputs_public_input_key);
-    output.points_accumulator = nested_points_accumulator;
+    // Extract the data carried on the public inputs of the proof
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        RollupIO inputs; // pairing points, IPA claim
+        inputs.reconstruct_from_public(public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+        output.ipa_claim = inputs.ipa_claim;
+    } else if constexpr (IsMegaFlavor<Flavor>) {
+        DefaultIO<Builder> inputs; // will be HidingKernelIO
+        inputs.reconstruct_from_public(public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+        // output.ecc_op_tables = inputs.ecc_op_tables;
+    } else {
+        DefaultIO<Builder> inputs; // pairing points
+        inputs.reconstruct_from_public(public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+    }
+
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
 
-    constrain_log_circuit_size(padding_indicator_array, key->vk_and_hash->vk->circuit_size);
-
-    auto sumcheck = Sumcheck(transcript);
+    Sumcheck sumcheck(transcript, key->alphas);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -102,7 +114,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(key->relation_parameters, key->alphas, gate_challenges, padding_indicator_array);
+        sumcheck.verify(key->relation_parameters, gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
@@ -129,13 +141,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     output.points_accumulator.aggregate(pairing_points);
-
-    // Extract the IPA claim from the public inputs
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
-        output.ipa_claim =
-            PublicIpaClaim::reconstruct(key->public_inputs, key->vk_and_hash->vk->ipa_claim_public_input_key);
-    }
 
     return output;
 }

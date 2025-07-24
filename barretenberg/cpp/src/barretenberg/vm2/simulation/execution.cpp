@@ -5,9 +5,15 @@
 #include <cstdint>
 #include <functional>
 #include <stdexcept>
+#include <string>
 
+#include "barretenberg/common/log.hpp"
+
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
@@ -49,9 +55,97 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         MemoryValue c = alu.add(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu add operation failed");
     }
+}
+
+void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EQ;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.eq(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu eq operation failed");
+    }
+}
+
+void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::LT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.lt(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu lt operation failed");
+    }
+}
+
+void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::LT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.lte(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu lte operation failed");
+    }
+}
+
+void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NOT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { a });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue b = alu.op_not(a);
+        memory.set(dst_addr, b);
+        set_output(opcode, b);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu not operation failed");
+    }
+}
+
+void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
+{
+    constexpr auto opcode = ExecutionOpCode::CAST;
+    auto& memory = context.get_memory();
+    auto val = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { val });
+
+    get_gas_tracker().consume_gas();
+    MemoryValue truncated = alu.truncate(val.as_ff(), static_cast<MemoryTag>(dst_tag));
+    memory.set(dst_addr, truncated);
+    set_output(opcode, truncated);
 }
 
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
@@ -110,14 +204,14 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, const FF& value)
 {
     get_gas_tracker().consume_gas();
 
     constexpr auto opcode = ExecutionOpCode::SET;
-    TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
-    context.get_memory().set(dst_addr, tagged_value);
-    set_output(opcode, tagged_value);
+    MemoryValue truncated = alu.truncate(value, static_cast<MemoryTag>(tag));
+    context.get_memory().set(dst_addr, truncated);
+    set_output(opcode, truncated);
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
@@ -314,6 +408,53 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
     }
 }
 
+void Execution::debug_log(ContextInterface& context,
+                          MemoryAddress message_offset,
+                          MemoryAddress fields_offset,
+                          MemoryAddress fields_size_offset,
+                          uint16_t message_size,
+                          bool is_debug_logging_enabled)
+{
+    get_gas_tracker().consume_gas();
+
+    // DebugLog is a no-op on the prover side. If it was compiled with assertions and ran in debug mode,
+    // we will print part of the log. However, for this opcode, we give priority to never failing and
+    // never griefing the prover. Some safety checks are done, but if a failure happens, we will just
+    // silently continue.
+    if (is_debug_logging_enabled) {
+        try {
+            auto& memory = context.get_memory();
+
+            // Get the fields size and validate its tag
+            const auto fields_size_value = memory.get(fields_size_offset);
+            const uint32_t fields_size = fields_size_value.as<uint32_t>();
+
+            // Read message and fields from memory
+            std::string message_as_str;
+            uint16_t truncated_message_size = std::min<uint16_t>(message_size, 100);
+            for (uint32_t i = 0; i < truncated_message_size; ++i) {
+                const auto message_field = memory.get(message_offset + i);
+                message_as_str += static_cast<char>(static_cast<uint8_t>(message_field.as_ff()));
+            }
+            message_as_str += ": [";
+
+            // Read fields
+            for (uint32_t i = 0; i < fields_size; ++i) {
+                const auto field = memory.get(fields_offset + i);
+                message_as_str += field_to_string(field);
+                if (i < fields_size - 1) {
+                    message_as_str += ", ";
+                }
+            }
+            message_as_str += "]";
+
+            debug("DEBUGLOG: ", message_as_str);
+        } catch (const std::exception& e) {
+            debug("DEBUGLOG: Error: ", e.what());
+        }
+    }
+}
+
 void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
 {
     constexpr auto opcode = ExecutionOpCode::SUCCESSCOPY;
@@ -324,6 +465,316 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     MemoryValue success = MemoryValue::from<uint1_t>(context.get_last_success());
     memory.set(dst_addr, success);
     set_output(opcode, success);
+}
+
+void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::AND;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.and_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise AND Exeception");
+    }
+}
+
+void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::OR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.or_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise OR Exception");
+    }
+}
+
+void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::XOR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.xor_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise XOR Exception");
+    }
+}
+
+void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SLOAD;
+
+    auto& memory = context.get_memory();
+
+    auto slot = memory.get(slot_addr);
+    set_and_validate_inputs(opcode, { slot });
+
+    get_gas_tracker().consume_gas();
+
+    auto value = MemoryValue::from<FF>(merkle_db.storage_read(context.get_address(), slot.as<FF>()));
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
+}
+
+void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SSTORE;
+
+    auto& memory = context.get_memory();
+
+    auto slot = memory.get(slot_addr);
+    auto value = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { value, slot });
+
+    bool was_slot_written_before = merkle_db.was_storage_written(context.get_address(), slot.as_ff());
+    uint32_t da_gas_factor = static_cast<uint32_t>(!was_slot_written_before);
+    get_gas_tracker().consume_gas({ .l2Gas = 0, .daGas = da_gas_factor });
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("SSTORE: Cannot write to storage in static context");
+    }
+
+    if (!was_slot_written_before &&
+        merkle_db.get_tree_state().publicDataTree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        throw OpcodeExecutionException("SSTORE: Maximum number of data writes reached");
+    }
+
+    merkle_db.storage_write(context.get_address(), slot.as_ff(), value.as_ff(), false);
+}
+
+void Execution::note_hash_exists(ContextInterface& context,
+                                 MemoryAddress unique_note_hash_addr,
+                                 MemoryAddress leaf_index_addr,
+                                 MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NOTEHASHEXISTS;
+
+    auto& memory = context.get_memory();
+    auto unique_note_hash = memory.get(unique_note_hash_addr);
+    auto leaf_index = memory.get(leaf_index_addr);
+    set_and_validate_inputs(opcode, { unique_note_hash, leaf_index });
+
+    get_gas_tracker().consume_gas();
+
+    uint64_t leaf_index_value = leaf_index.as<uint64_t>();
+
+    bool index_in_range = greater_than.gt(NOTE_HASH_TREE_LEAF_COUNT, leaf_index_value);
+
+    MemoryValue value;
+
+    if (index_in_range) {
+        value = MemoryValue::from<uint1_t>(merkle_db.note_hash_exists(leaf_index_value, unique_note_hash.as<FF>()));
+    } else {
+        value = MemoryValue::from<uint1_t>(0);
+    }
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
+}
+
+void Execution::nullifier_exists(ContextInterface& context,
+                                 MemoryAddress nullifier_offset,
+                                 MemoryAddress address_offset,
+                                 MemoryAddress exists_offset)
+{
+    constexpr auto opcode = ExecutionOpCode::NULLIFIEREXISTS;
+    auto& memory = context.get_memory();
+
+    auto nullifier = memory.get(nullifier_offset);
+    auto address = memory.get(address_offset);
+    set_and_validate_inputs(opcode, { nullifier, address });
+
+    get_gas_tracker().consume_gas();
+
+    // Check nullifier existence via MerkleDB
+    // (this also tag checks address and nullifier as FFs)
+    auto exists = merkle_db.nullifier_exists(nullifier.as_ff(), address.as_ff());
+
+    // Write result to memory
+    // (assigns tag u1 to result)
+    TaggedValue result = TaggedValue::from<uint1_t>(exists ? 1 : 0);
+    memory.set(exists_offset, result);
+    set_output(opcode, result);
+}
+
+void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITNULLIFIER;
+
+    auto& memory = context.get_memory();
+    MemoryValue nullifier = memory.get(nullifier_addr);
+    set_and_validate_inputs(opcode, { nullifier });
+
+    get_gas_tracker().consume_gas();
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Cannot emit nullifier in static context");
+    }
+
+    if (merkle_db.get_tree_state().nullifierTree.counter == MAX_NULLIFIERS_PER_TX) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Maximum number of nullifiers reached");
+    }
+
+    // Emit nullifier via MerkleDB
+    // (and tag check nullifier as FF)
+    bool success = merkle_db.nullifier_write(context.get_address(), nullifier.as<FF>());
+    if (!success) {
+        throw OpcodeExecutionException("EMITNULLIFIER: Nullifier collision");
+    }
+}
+
+void Execution::get_contract_instance(ContextInterface& context,
+                                      MemoryAddress address_offset,
+                                      MemoryAddress dst_offset,
+                                      uint8_t member_enum)
+{
+    constexpr auto opcode = ExecutionOpCode::GETCONTRACTINSTANCE;
+    auto& memory = context.get_memory();
+
+    // Execution can still handle address memory read and tag checking
+    auto address_value = memory.get(address_offset);
+    AztecAddress contract_address = address_value.as<AztecAddress>();
+    set_and_validate_inputs(opcode, { address_value });
+
+    get_gas_tracker().consume_gas();
+
+    // Call the dedicated opcode component to get the contract instance, validate the enum,
+    // handle other errors, and perform the memory writes.
+    try {
+        get_contract_instance_component.get_contract_instance(memory, contract_address, dst_offset, member_enum);
+    } catch (const GetContractInstanceException& e) {
+        throw OpcodeExecutionException("GetContractInstance Exception");
+    }
+
+    // No `set_output` here since the dedicated component handles memory writes.
+}
+
+void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_hash_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITNOTEHASH;
+
+    auto& memory = context.get_memory();
+    auto note_hash = memory.get(note_hash_addr);
+    set_and_validate_inputs(opcode, { note_hash });
+
+    get_gas_tracker().consume_gas();
+
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("EMITNOTEHASH: Cannot emit note hash in static context");
+    }
+
+    if (merkle_db.get_tree_state().noteHashTree.counter == MAX_NOTE_HASHES_PER_TX) {
+        throw OpcodeExecutionException("EMITNOTEHASH: Maximum number of note hashes reached");
+    }
+
+    merkle_db.note_hash_write(context.get_address(), note_hash.as<FF>());
+}
+
+void Execution::l1_to_l2_message_exists(ContextInterface& context,
+                                        MemoryAddress msg_hash_addr,
+                                        MemoryAddress leaf_index_addr,
+                                        MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NOTEHASHEXISTS;
+
+    auto& memory = context.get_memory();
+    auto msg_hash = memory.get(msg_hash_addr);
+    auto leaf_index = memory.get(leaf_index_addr);
+    set_and_validate_inputs(opcode, { msg_hash, leaf_index });
+
+    get_gas_tracker().consume_gas();
+
+    uint64_t leaf_index_value = leaf_index.as<uint64_t>();
+
+    bool index_in_range = greater_than.gt(L1_TO_L2_MSG_TREE_LEAF_COUNT, leaf_index_value);
+
+    MemoryValue value;
+
+    if (index_in_range) {
+        value = MemoryValue::from<uint1_t>(merkle_db.l1_to_l2_msg_exists(leaf_index_value, msg_hash.as<FF>()));
+    } else {
+        value = MemoryValue::from<uint1_t>(0);
+    }
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
+}
+
+void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+{
+    get_gas_tracker().consume_gas();
+    try {
+        poseidon2.permutation(context.get_memory(), src_addr, dst_addr);
+    } catch (const Poseidon2Exception& e) {
+        throw OpcodeExecutionException("Poseidon2 permutation failed: " + std::string(e.what()));
+    }
+}
+
+void Execution::ecc_add(ContextInterface& context,
+                        MemoryAddress p_x_addr,
+                        MemoryAddress p_y_addr,
+                        MemoryAddress p_inf_addr,
+                        MemoryAddress q_x_addr,
+                        MemoryAddress q_y_addr,
+                        MemoryAddress q_inf_addr,
+                        MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::ECADD;
+    auto& memory = context.get_memory();
+
+    // Read the points from memory.
+    MemoryValue p_x = memory.get(p_x_addr);
+    MemoryValue p_y = memory.get(p_y_addr);
+    MemoryValue p_inf = memory.get(p_inf_addr);
+
+    MemoryValue q_x = memory.get(q_x_addr);
+    MemoryValue q_y = memory.get(q_y_addr);
+    MemoryValue q_inf = memory.get(q_inf_addr);
+
+    set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
+    get_gas_tracker().consume_gas();
+
+    // Once inputs are tag checked the conversion to EmbeddedCurvePoint is safe, on curve checks are done in the add
+    // method.
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff(), p_inf == MemoryValue::from<uint1_t>(1));
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff(), q_inf == MemoryValue::from<uint1_t>(1));
+
+    try {
+        embedded_curve.add(memory, p, q, dst_addr);
+    } catch (const EccException& e) {
+        throw OpcodeExecutionException("Embedded curve add failed: " + std::string(e.what()));
+    }
 }
 
 // This context interface is a top-level enqueued one.
@@ -483,6 +934,21 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::EQ:
+        call_with_operands(&Execution::eq, context, resolved_operands);
+        break;
+    case ExecutionOpCode::LT:
+        call_with_operands(&Execution::lt, context, resolved_operands);
+        break;
+    case ExecutionOpCode::LTE:
+        call_with_operands(&Execution::lte, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NOT:
+        call_with_operands(&Execution::op_not, context, resolved_operands);
+        break;
+    case ExecutionOpCode::CAST:
+        call_with_operands(&Execution::cast, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
@@ -524,6 +990,53 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURNDATASIZE:
         call_with_operands(&Execution::rd_size, context, resolved_operands);
+        break;
+    case ExecutionOpCode::DEBUGLOG:
+        debug_log(context,
+                  resolved_operands.at(0).as<MemoryAddress>(),
+                  resolved_operands.at(1).as<MemoryAddress>(),
+                  resolved_operands.at(2).as<MemoryAddress>(),
+                  resolved_operands.at(3).as<uint16_t>(),
+                  debug_logging);
+        break;
+    case ExecutionOpCode::AND:
+        call_with_operands(&Execution::and_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::OR:
+        call_with_operands(&Execution::or_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::XOR:
+        call_with_operands(&Execution::xor_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SLOAD:
+        call_with_operands(&Execution::sload, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SSTORE:
+        call_with_operands(&Execution::sstore, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NOTEHASHEXISTS:
+        call_with_operands(&Execution::note_hash_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        call_with_operands(&Execution::nullifier_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITNULLIFIER:
+        call_with_operands(&Execution::emit_nullifier, context, resolved_operands);
+        break;
+    case ExecutionOpCode::GETCONTRACTINSTANCE:
+        call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITNOTEHASH:
+        call_with_operands(&Execution::emit_note_hash, context, resolved_operands);
+        break;
+    case ExecutionOpCode::L1TOL2MSGEXISTS:
+        call_with_operands(&Execution::l1_to_l2_message_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::POSEIDON2PERM:
+        call_with_operands(&Execution::poseidon2_permutation, context, resolved_operands);
+        break;
+    case ExecutionOpCode::ECADD:
+        call_with_operands(&Execution::ecc_add, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

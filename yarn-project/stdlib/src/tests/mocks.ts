@@ -166,7 +166,12 @@ export const mockTx = async (
       .build();
   }
 
-  return new Tx(data, clientIvcProof, [], publicFunctionCalldata);
+  return await Tx.create({
+    data,
+    clientIvcProof,
+    contractClassLogFields: [],
+    publicFunctionCalldata,
+  });
 };
 
 export const mockTxForRollup = (seed = 1, opts: Parameters<typeof mockTx>[1] = {}) =>
@@ -217,7 +222,6 @@ export const randomContractArtifact = (): ContractArtifact => ({
   },
   fileMap: {},
   storageLayout: {},
-  notes: {},
 });
 
 export const randomContractInstanceWithAddress = async (

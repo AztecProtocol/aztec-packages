@@ -9,11 +9,13 @@ use crate::components::{
     private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
 };
 use dep::types::{
-    abis::{private_call_request::PrivateCallRequest, side_effect::OrderedValue},
+    abis::{
+        private_call_request::PrivateCallRequest, side_effect::OrderedValue,
+        transaction::tx_request::TxRequest,
+    },
     constants::PRIVATE_KERNEL_INIT_INDEX,
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
-    transaction::tx_request::TxRequest,
 };
 
 pub struct PrivateKernelCircuitOutputValidatorBuilder {

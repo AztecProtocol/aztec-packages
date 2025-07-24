@@ -26,12 +26,12 @@ import { TxHash } from './tx_hash.js';
  */
 export class Tx extends Gossipable {
   static override p2pTopic = TopicType.tx;
-  // For memoization
-  protected txHash: TxHash | undefined;
 
   private calldataMap: Map<string, Fr[]> | undefined;
 
   constructor(
+    /** Identifier of the tx */
+    public readonly txHash: TxHash,
     /**
      * Output of the private kernel circuit for this tx.
      */
@@ -46,18 +46,18 @@ export class Tx extends Gossipable {
      * Their order should match the order of the log hashes returned from `this.data.getNonEmptyContractClassLogsHashes`.
      * It's checked in data_validator.ts
      */
-    public contractClassLogFields: ContractClassLogFields[],
+    public readonly contractClassLogFields: ContractClassLogFields[],
     /**
      * An array of calldata for the enqueued public function calls and the teardown function call.
      */
-    public publicFunctionCalldata: HashedValues[],
+    public readonly publicFunctionCalldata: HashedValues[],
   ) {
     super();
   }
 
   // Gossipable method
-  override async generateP2PMessageIdentifier(): Promise<Buffer32> {
-    return new Buffer32((await this.getTxHash()).toBuffer());
+  override generateP2PMessageIdentifier(): Promise<Buffer32> {
+    return Promise.resolve(new Buffer32(this.getTxHash().toBuffer()));
   }
 
   hasPublicCalls() {
@@ -107,6 +107,7 @@ export class Tx extends Gossipable {
   static fromBuffer(buffer: Buffer | BufferReader): Tx {
     const reader = BufferReader.asReader(buffer);
     return new Tx(
+      reader.readObject(TxHash),
       reader.readObject(PrivateKernelTailCircuitPublicInputs),
       reader.readObject(ClientIvcProof),
       reader.readVectorUint8Prefix(ContractClassLogFields),
@@ -120,6 +121,7 @@ export class Tx extends Gossipable {
    */
   toBuffer() {
     return serializeToBuffer([
+      this.txHash,
       this.data,
       this.clientIvcProof,
       serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
@@ -135,11 +137,29 @@ export class Tx extends Gossipable {
         contractClassLogFields: z.array(ContractClassLogFields.schema),
         publicFunctionCalldata: z.array(HashedValues.schema),
       })
-      .transform(Tx.from);
+      .transform(Tx.create);
+  }
+
+  static async computeTxHash(fields: Pick<FieldsOf<Tx>, 'data'>) {
+    const hash = fields.data.forPublic
+      ? await fields.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
+      : await fields.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
+    return new TxHash(hash);
+  }
+
+  static async create(fields: Omit<FieldsOf<Tx>, 'txHash'>): Promise<Tx> {
+    const txHash = await Tx.computeTxHash(fields);
+    return Tx.from({ ...fields, txHash });
   }
 
   static from(fields: FieldsOf<Tx>) {
-    return new Tx(fields.data, fields.clientIvcProof, fields.contractClassLogFields, fields.publicFunctionCalldata);
+    return new Tx(
+      fields.txHash,
+      fields.data,
+      fields.clientIvcProof,
+      fields.contractClassLogFields,
+      fields.publicFunctionCalldata,
+    );
   }
 
   /**
@@ -147,8 +167,8 @@ export class Tx extends Gossipable {
    * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
    * @returns The requested logs.
    */
-  public async getPublicLogs(logsSource: L2LogsSource): Promise<GetPublicLogsResponse> {
-    return logsSource.getPublicLogs({ txHash: await this.getTxHash() });
+  public getPublicLogs(logsSource: L2LogsSource): Promise<GetPublicLogsResponse> {
+    return logsSource.getPublicLogs({ txHash: this.getTxHash() });
   }
 
   getContractClassLogs(): ContractClassLog[] {
@@ -180,17 +200,11 @@ export class Tx extends Gossipable {
   }
 
   /**
-   * Computes (if necessary) & return transaction hash.
+   * Return transaction hash.
    * @returns The hash of the public inputs of the private kernel tail circuit.
    */
-  async getTxHash(forceRecompute = false): Promise<TxHash> {
-    if (!this.txHash || forceRecompute) {
-      const hash = this.data.forPublic
-        ? await this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
-        : await this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
-      this.txHash = new TxHash(hash);
-    }
-    return this.txHash!;
+  getTxHash(): TxHash {
+    return this.txHash;
   }
 
   /**
@@ -199,9 +213,8 @@ export class Tx extends Gossipable {
    * Don't set a Tx hash received from an untrusted source.
    * @param hash - The hash to set.
    */
-  setTxHash(hash: TxHash) {
-    this.txHash = hash;
-    return this as unknown as TxWithHash;
+  setTxHash(_hash: TxHash) {
+    return this;
   }
 
   getCalldataMap(): Map<string, Fr[]> {
@@ -215,14 +228,14 @@ export class Tx extends Gossipable {
   }
 
   /** Returns stats about this tx. */
-  async getStats(): Promise<TxStats> {
+  getStats(): TxStats {
     return {
-      txHash: (await this.getTxHash()).toString(),
+      txHash: this.txHash.toString(),
 
       noteHashCount: this.data.getNonEmptyNoteHashes().length,
       nullifierCount: this.data.getNonEmptyNullifiers().length,
       privateLogCount: this.data.getNonEmptyPrivateLogs().length,
-      classRegisteredCount: this.data.getNonEmptyContractClassLogsHashes().length,
+      classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.clientIvcProof.clientIvcProofBuffer.length,
@@ -257,24 +270,6 @@ export class Tx extends Gossipable {
   }
 
   /**
-   * Convenience function to get a hash out of a tx or a tx-like.
-   * @param tx - Tx-like object.
-   * @returns - The hash.
-   */
-  static async getHash(tx: Tx | HasHash): Promise<TxHash> {
-    return hasHash(tx) ? tx.hash : await tx.getTxHash();
-  }
-
-  /**
-   * Convenience function to get array of hashes for an array of txs.
-   * @param txs - The txs to get the hashes from.
-   * @returns The corresponding array of hashes.
-   */
-  static async getHashes(txs: (Tx | HasHash)[]): Promise<TxHash[]> {
-    return await Promise.all(txs.map(Tx.getHash));
-  }
-
-  /**
    * Clones a tx, making a deep copy of all fields.
    * @param tx - The transaction to be cloned.
    * @returns The cloned transaction.
@@ -284,10 +279,7 @@ export class Tx extends Gossipable {
     const clientIvcProof = ClientIvcProof.fromBuffer(tx.clientIvcProof.toBuffer());
     const contractClassLogFields = tx.contractClassLogFields.map(p => p.clone());
     const publicFunctionCalldata = tx.publicFunctionCalldata.map(cd => HashedValues.fromBuffer(cd.toBuffer()));
-    const clonedTx = new Tx(publicInputs, clientIvcProof, contractClassLogFields, publicFunctionCalldata);
-    if (tx.txHash) {
-      clonedTx.setTxHash(TxHash.fromBuffer(tx.txHash.toBuffer()));
-    }
+    const clonedTx = new Tx(tx.txHash, publicInputs, clientIvcProof, contractClassLogFields, publicFunctionCalldata);
 
     return clonedTx;
   }
@@ -297,13 +289,19 @@ export class Tx extends Gossipable {
    * @param randomProof - Whether to create a random proof - this will be random bytes of the full size.
    * @returns A random tx.
    */
-  static random(randomProof = false) {
-    return new Tx(
-      PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
-      randomProof ? ClientIvcProof.random() : ClientIvcProof.empty(),
-      [ContractClassLogFields.random()],
-      [HashedValues.random()],
-    );
+  static random(args: { randomProof?: boolean; txHash?: string | TxHash } = {}): Tx {
+    return Tx.from({
+      txHash: (typeof args.txHash === 'string' ? TxHash.fromString(args.txHash) : args.txHash) ?? TxHash.random(),
+      data: PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
+      clientIvcProof: args.randomProof ? ClientIvcProof.random() : ClientIvcProof.empty(),
+      contractClassLogFields: [ContractClassLogFields.random()],
+      publicFunctionCalldata: [HashedValues.random()],
+    });
+  }
+
+  /** Recomputes the tx hash. Used for testing purposes only when a property of the tx was mutated. */
+  public async recomputeHash() {
+    (this as any).txHash = await Tx.computeTxHash(this);
   }
 
   #combinePublicCallRequestWithCallData(request: PublicCallRequest) {
@@ -313,22 +311,24 @@ export class Tx extends Gossipable {
     const calldata = calldataMap.get(request.calldataHash.toString()) ?? [];
     return new PublicCallRequestWithCalldata(request, calldata);
   }
-
-  public async toTxWithHash() {
-    await this.getTxHash();
-    return this as unknown as TxWithHash;
-  }
-
-  public static toTxsWithHashes(txs: Tx[]): Promise<TxWithHash[]> {
-    return Promise.all(txs.map(tx => tx.toTxWithHash()));
-  }
 }
 
-/** Utility type for an entity that has a hash property for a txhash */
-type HasHash = { /** The tx hash */ hash: TxHash };
+/**
+ * Helper class to handle Serialization and Deserialization of Txs array.
+ */
+export class TxArray extends Array<Tx> {
+  static fromBuffer(buffer: Buffer | BufferReader): TxArray {
+    try {
+      const reader = BufferReader.asReader(buffer);
+      const txs = reader.readVector(Tx);
 
-function hasHash(tx: Tx | HasHash): tx is HasHash {
-  return (tx as HasHash).hash !== undefined;
+      return new TxArray(...txs);
+    } catch {
+      return new TxArray();
+    }
+  }
+
+  public toBuffer(): Buffer {
+    return serializeArrayOfBufferableToVector(this);
+  }
 }
-
-export type TxWithHash = Tx & { txHash: TxHash };

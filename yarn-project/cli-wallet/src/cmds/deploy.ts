@@ -16,8 +16,8 @@ export async function deploy(
   rawArgs: any[],
   salt: Fr | undefined,
   initializer: string | undefined,
-  skipPublicDeployment: boolean,
-  skipClassRegistration: boolean,
+  skipInstancePublication: boolean,
+  skipClassPublication: boolean,
   skipInitialization: boolean | undefined,
   universalDeploy: boolean | undefined,
   wait: boolean,
@@ -52,9 +52,9 @@ export async function deploy(
     ...(await feeOpts.toDeployAccountOpts(wallet)),
     contractAddressSalt: salt,
     universalDeploy,
-    skipClassRegistration,
+    skipClassPublication,
     skipInitialization,
-    skipPublicDeployment,
+    skipInstancePublication,
   };
 
   if (feeOpts.estimateOnly) {
@@ -71,7 +71,7 @@ export async function deploy(
   const tx = provenTx.send();
 
   const txHash = await tx.getTxHash();
-  debugLogger.debug(`Deploy tx sent with hash ${txHash}`);
+  debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
   if (wait) {
     const deployed = await tx.wait({ timeout });
     const { address, partialAddress, instance } = deployed.contract;

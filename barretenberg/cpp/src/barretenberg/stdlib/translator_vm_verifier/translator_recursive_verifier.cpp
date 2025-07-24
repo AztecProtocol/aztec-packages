@@ -21,9 +21,13 @@ TranslatorRecursiveVerifier::TranslatorRecursiveVerifier(
     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
     const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    , vk_hash(stdlib::witness_t<Builder>(builder, native_verifier_key->hash()))
     , transcript(transcript)
     , builder(builder)
-{}
+{
+    key->fix_witness();    // fixed to a constant
+    vk_hash.fix_witness(); // fixed to a constant
+}
 
 // Relation params used in sumcheck which is done over FF but the received data is from BF
 void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
@@ -99,6 +103,11 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
 
     transcript->load_proof(proof);
 
+    // Fiat-Shamir the vk hash
+    // We do not need to hash the vk in-circuit because both the vk and vk hash are hardcoded as constants.
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("Translator vk hash in recursive verifier: ", vk_hash);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -127,8 +136,12 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript);
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    Sumcheck sumcheck(transcript, alpha);
+
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -143,7 +156,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, one);
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");

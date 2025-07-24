@@ -54,14 +54,14 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->target_sum);
+    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> sumcheck_output =
+        sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {

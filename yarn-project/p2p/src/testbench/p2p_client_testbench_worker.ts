@@ -68,6 +68,8 @@ function mockAttestationPool(): AttestationPool {
     deleteAttestationsForSlotAndProposal: () => Promise.resolve(),
     getAttestationsForSlot: () => Promise.resolve([]),
     getAttestationsForSlotAndProposal: () => Promise.resolve([]),
+    addBlockProposal: () => Promise.resolve(),
+    getBlockProposal: () => Promise.resolve(undefined),
   };
 }
 
@@ -86,6 +88,7 @@ function mockEpochCache(): EpochCacheInterface {
       }),
     getEpochAndSlotInNextL1Slot: () => ({ epoch: 0n, slot: 0n, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),
+    getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
   };
 }
@@ -157,7 +160,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       const tx = Tx.fromBuffer(p2pMessage.payload);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Accept);
 
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
       await this.mempools.txPool.addTxs([tx]);

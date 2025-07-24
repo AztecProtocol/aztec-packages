@@ -78,12 +78,13 @@ function test_cmds {
 }
 
 function start_env {
-  if [ "$CI_NIGHTLY" -eq 1 ]; then
+  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
     export MONITOR_DEPLOYMENT=false
     export WAIT_FOR_DEPLOYMENT=false
     export CLUSTER_NAME=aztec-gke-private
     export ZONE=us-west1-a
+    export GCP_PROJECT_ID=${GCP_PROJECT_ID:-"testnet-440309"}
     echo "Installing test network in namespace $NIGHTLY_NS"
     ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS" "$GCP_PROJECT_ID"
   fi
@@ -114,6 +115,9 @@ case "$cmd" in
       flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster --config scripts/kind-config.yaml"
       # Patch the kubeconfig to replace any invalid API server address (0.0.0.0) with 127.0.0.1
       sed -i 's/https:\/\/0\.0\.0\.0:/https:\/\/127.0.0.1:/' "$HOME/.kube/config"
+
+      # Patch DNS if KIND_FIX_DNS=true
+      ./scripts/patch_dns.sh
     fi
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane >/dev/null || true
@@ -177,6 +181,21 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
       ./scripts/test_k8s.sh kind src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
+  "test-kind-10tps-10%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.1" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
+  "test-kind-10tps-30%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.3" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
+  "test-kind-10tps-50%-drop")
+    OVERRIDES="telemetry.enabled=false,blobSink.enabled=true,bot.enabled=false,validator.p2p.dropTransactions=true,validator.p2p.dropTransactionsProbability=0.5" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+    ./scripts/test_k8s.sh kind src/spartan/n_tps.test.ts ci-tx-drop.yaml ten-tps${NAME_POSTFIX:-}
+  ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \

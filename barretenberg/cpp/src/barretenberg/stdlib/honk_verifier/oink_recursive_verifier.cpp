@@ -50,14 +50,14 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    decider_vk->vk_and_hash->vk->add_to_transcript(domain_separator, *transcript);
-    auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vk_hash");
+    FF vkey_hash = decider_vk->vk_and_hash->vk->add_hash_to_transcript(domain_separator, *transcript);
     vinfo("vk hash in Oink recursive verifier: ", vkey_hash);
     vinfo("expected vk hash: ", decider_vk->vk_and_hash->hash);
+    // Check that the vk hash matches the hash of the verification key
+    decider_vk->vk_and_hash->hash.assert_equal(vkey_hash);
 
     size_t num_public_inputs =
         static_cast<size_t>(static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));
-    std::vector<FF> public_inputs;
     for (size_t i = 0; i < num_public_inputs; ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
@@ -105,28 +105,27 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-    const FF public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs,
-        beta,
-        gamma,
-        decider_vk->vk_and_hash->vk->circuit_size,
-        static_cast<uint32_t>(decider_vk->vk_and_hash->vk->pub_inputs_offset.get_value()));
+    const FF public_input_delta = compute_public_input_delta<Flavor>(public_inputs,
+                                                                     beta,
+                                                                     gamma,
+                                                                     decider_vk->vk_and_hash->vk->log_circuit_size,
+                                                                     decider_vk->vk_and_hash->vk->pub_inputs_offset);
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
-    RelationSeparator alphas;
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
-    for (size_t idx = 0; idx < alphas.size(); ++idx) {
-        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
+    // Get the subrelation separation challenges for sumcheck/combiner computation
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
+
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
+        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    alphas = transcript->template get_challenges<FF>(args);
+    // It is more efficient to generate an array of challenges than to generate them individually.
+    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
 
     decider_vk->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     decider_vk->witness_commitments = std::move(commitments);
-    decider_vk->public_inputs = std::move(public_inputs);
     decider_vk->alphas = std::move(alphas);
 }
 

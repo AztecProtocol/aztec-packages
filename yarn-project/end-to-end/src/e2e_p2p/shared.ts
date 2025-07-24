@@ -7,7 +7,7 @@ import {
   ProvenTx,
   type SentTx,
   TxStatus,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   retryUntil,
 } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
@@ -40,7 +40,7 @@ export const submitComplexTxsTo = async (
     const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic).send();
     const txHash = await tx.getTxHash();
 
-    logger.info(`Tx sent with hash ${txHash}`);
+    logger.info(`Tx sent with hash ${txHash.toString()}`);
     const receipt = await tx.getReceipt();
     expect(receipt).toEqual(
       expect.objectContaining({
@@ -48,7 +48,7 @@ export const submitComplexTxsTo = async (
         error: '',
       }),
     );
-    logger.info(`Receipt received for ${txHash}`);
+    logger.info(`Receipt received for ${txHash.toString()}`);
     txs.push(tx);
   }
   return txs;
@@ -92,13 +92,13 @@ export async function createPXEServiceAndPrepareTransactions(
   await account.register();
   const wallet = await account.getWallet();
 
-  const testContractInstance = await getContractInstanceFromDeployParams(TestContractArtifact, {});
+  const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {});
   await wallet.registerContract({ instance: testContractInstance, artifact: TestContractArtifact });
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   const txs = await timesAsync(numTxs, async () => {
     const tx = await contract.methods.emit_nullifier(Fr.random()).prove();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;
   });
@@ -112,16 +112,16 @@ export async function awaitProposalExecution(
 ) {
   await retryUntil(
     async () => {
-      const events = await slashingProposer.getEvents.ProposalExecuted();
+      const events = await slashingProposer.getEvents.PayloadSubmitted();
       if (events.length === 0) {
         return false;
       }
       const event = events[0];
       const roundNumber = event.args.round;
-      const proposal = event.args.proposal;
-      return roundNumber && proposal;
+      const payload = event.args.payload;
+      return roundNumber && payload;
     },
-    'proposal executed',
+    'payload submitted',
     timeoutSeconds,
     1,
   );

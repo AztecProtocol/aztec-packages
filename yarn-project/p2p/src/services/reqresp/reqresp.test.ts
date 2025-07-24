@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -125,7 +125,7 @@ describe('ReqResp', () => {
   describe('Tx req protocol', () => {
     it('can request a Tx from TxHash', async () => {
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, message: Buffer): Promise<Buffer> => {
@@ -148,14 +148,70 @@ describe('ReqResp', () => {
 
       // Set tx hash since expect will compare private properties
       const resTx = Tx.fromBuffer(resp.data);
-      await resTx.getTxHash();
+      resTx.getTxHash();
 
       expect(resTx).toEqual(tx);
     });
 
+    it('can request a batch of  Txs from TxHashes', async () => {
+      const txs = [await mockTx(), await mockTx(), await mockTx()];
+      const txHashes = new TxHashArray(...(await Promise.all(txs.map(t => t.getTxHash()))));
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, message: Buffer): Promise<Buffer> => {
+        const receivedHashes = TxHashArray.fromBuffer(message);
+        const toReturn = new TxArray(...txs.filter(t => receivedHashes.includes(t.txHash)));
+        return Promise.resolve(toReturn.toBuffer());
+      };
+
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const resp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        txHashes.toBuffer(),
+      );
+      expectSuccess(resp);
+
+      const resTx = TxArray.fromBuffer(resp.data);
+      resTx.forEach((tx, i) => expect(tx).toEqual(txs[i]));
+    });
+
+    it('Requesting batch of txs should handle empty buffer', async () => {
+      const txs = [await mockTx(), await mockTx(), await mockTx()];
+      const txHashes = new TxHashArray(...(await Promise.all(txs.map(t => t.getTxHash()))));
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {
+        return Promise.resolve(Buffer.alloc(0));
+      };
+
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const resp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        txHashes.toBuffer(),
+      );
+      expectSuccess(resp);
+
+      const resTx = TxArray.fromBuffer(resp.data);
+      expect(resTx.length).toEqual(0);
+    });
+
     it('handles returning empty buffers', async () => {
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {

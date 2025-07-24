@@ -116,6 +116,7 @@ class AvmGoblinRecursiveVerifier {
         using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
         using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
         using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
+        using MergeCommitments = GoblinRecursiveVerifier::MergeVerifier::WitnessCommitments;
         using FF = MegaRecursiveFlavor::FF;
 
         // Construct hash buffer containing the AVM proof, public inputs, and VK
@@ -136,9 +137,11 @@ class AvmGoblinRecursiveVerifier {
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
+        MergeCommitments merge_commitments;
+        merge_commitments.set_t_commitments(mega_verifier.key->witness_commitments.get_ecc_op_wires());
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
-        GoblinRecursiveVerifierOutput goblin_verifier_output = goblin_verifier.verify(
-            inner_output.goblin_proof, mega_verifier.key->witness_commitments.get_ecc_op_wires());
+        GoblinRecursiveVerifierOutput goblin_verifier_output =
+            goblin_verifier.verify(inner_output.goblin_proof, merge_commitments, merge_commitments.T_commitments);
         goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
@@ -198,7 +201,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Compute the hash and set it public
         const FF mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
-        const size_t mega_hash_public_input_index = mega_builder.public_inputs.size();
+        const size_t mega_hash_public_input_index = mega_builder.num_public_inputs();
         mega_input_hash.set_public(); // Add the hash result to the public inputs
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
@@ -211,7 +214,7 @@ class AvmGoblinRecursiveVerifier {
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         auto mega_proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(mega_builder);
-        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->proving_key);
+        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->get_precomputed());
         MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;

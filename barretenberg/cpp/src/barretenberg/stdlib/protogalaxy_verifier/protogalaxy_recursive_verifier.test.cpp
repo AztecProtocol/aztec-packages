@@ -3,13 +3,10 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
-#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
-#include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -98,7 +95,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         }
         pedersen_hash<InnerBuilder>::hash({ a, b });
         byte_array_ct to_hash(&builder, "nonsense test data");
-        blake3s(to_hash);
+        stdlib::Blake3s<InnerBuilder>::hash(to_hash);
 
         fr bigfield_data = fr::random_element(&engine);
         fr bigfield_data_a{ bigfield_data.data[0], bigfield_data.data[1], 0, 0 };
@@ -122,10 +119,10 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->get_precomputed());
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->get_precomputed());
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
                                           { decider_vk_1, decider_vk_2 },
@@ -192,10 +189,10 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->get_precomputed());
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->get_precomputed());
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
         InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
@@ -252,7 +249,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
-        ASSERT(recursive_folding_manifest.size() > 0);
+        ASSERT_GT(recursive_folding_manifest.size(), 0);
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
@@ -265,14 +262,14 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
-            info("Dyadic size of verifier circuit: ", decider_pk->proving_key.circuit_size);
-            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
+            info("Dyadic size of verifier circuit: ", decider_pk->dyadic_size());
+            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->get_precomputed());
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
+            bool verified = std::get<0>(verifier.verify_proof(proof));
 
-            ASSERT(verified);
+            ASSERT_TRUE(verified);
         }
     };
 
@@ -293,10 +290,10 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->get_precomputed());
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->get_precomputed());
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
         InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
@@ -335,7 +332,7 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
-        ASSERT(recursive_folding_manifest.size() > 0);
+        ASSERT_GT(recursive_folding_manifest.size(), 0);
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
@@ -364,13 +361,13 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         {
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(decider_circuit);
-            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
+            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->get_precomputed());
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
+            bool verified = std::get<0>(verifier.verify_proof(proof));
 
-            ASSERT(verified);
+            ASSERT_TRUE(verified);
         }
     };
 
@@ -406,11 +403,11 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         InnerBuilder builder;
         create_function_circuit(builder);
         auto prover_inst = std::make_shared<InnerDeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->proving_key);
+        auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->get_precomputed());
         auto verifier_inst = std::make_shared<InnerDeciderVerificationKey>(verification_key);
 
         // Corrupt a wire value in the accumulator
-        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element(&engine);
+        prover_accumulator->polynomials.w_l.at(1) = FF::random_element(&engine);
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum
@@ -455,9 +452,9 @@ class ProtogalaxyRecursiveTests : public testing::Test {
             // Generate a folding proof
             auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
             auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-            auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+            auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->get_precomputed());
             auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
-            auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+            auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->get_precomputed());
             auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
             InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
                                               { decider_vk_1, decider_vk_2 },

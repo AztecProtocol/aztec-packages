@@ -5,6 +5,7 @@
 // =====================
 
 #include "honk_recursion_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
@@ -84,16 +85,6 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINTS_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
-    }
-
-    // We are making the assumption that the pairing point object is behind all the inner public inputs
-    builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs);
-    offset++;
-
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        builder.set_variable(key_fields[offset].witness_index, num_inner_public_inputs + PAIRING_POINTS_SIZE);
-        offset++;
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
@@ -183,12 +174,6 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     }
     // IPA Proof
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Poly length
-        curve::Grumpkin::ScalarField poly_length(1UL << CONST_ECCVM_LOG_N);
-        auto frs = field_conversion::convert_to_bn254_frs(poly_length);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        offset += 2;
 
         // Ls and Rs
         for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
@@ -238,7 +223,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
-    ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK) == HasIPAAccumulator<Flavor>);
+    BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.

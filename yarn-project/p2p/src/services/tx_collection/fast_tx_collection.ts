@@ -7,11 +7,12 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import type { BlockInfo } from '@aztec/stdlib/block';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
+import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
 import type { TxCollectionSink } from './tx_collection_sink.js';
@@ -65,7 +66,7 @@ export class FastTxCollection {
       ...input,
       blockInfo,
       promise,
-      foundTxs: new Map<string, TxWithHash>(),
+      foundTxs: new Map<string, Tx>(),
       missingTxHashes: new Set(txHashes.map(t => t.toString())),
       deadline: opts.deadline,
     };
@@ -241,7 +242,6 @@ export class FastTxCollection {
     const maxRetryAttempts = 5;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;
-
     if (timeoutMs < 100) {
       this.log.warn(
         `Not initiating fast reqresp for txs for ${request.type} at slot ${blockInfo.slotNumber} due to timeout`,
@@ -257,15 +257,18 @@ export class FastTxCollection {
 
     try {
       await this.txCollectionSink.collect(
-        txHashes =>
-          this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
+        async txHashes => {
+          const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
             ReqRespSubProtocol.TX,
-            txHashes,
+            chunkTxHashesRequest(txHashes),
             pinnedPeer,
             timeoutMs,
             maxPeers,
             maxRetryAttempts,
-          ),
+          );
+
+          return txs.flat();
+        },
         Array.from(request.missingTxHashes).map(txHash => TxHash.fromString(txHash)),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },
       );
@@ -281,7 +284,7 @@ export class FastTxCollection {
    * Handle txs by marking them as found for the requests that are waiting for them, and resolves the request if all its txs have been found.
    * Called internally and from the main tx collection manager whenever the tx pool emits a tx-added event.
    */
-  public foundTxs(txs: TxWithHash[]) {
+  public foundTxs(txs: Tx[]) {
     for (const request of this.requests) {
       for (const tx of txs) {
         const txHash = tx.txHash.toString();

@@ -9,10 +9,127 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec.nr]
+
+### Notes require you to manually implement or derive Packable
+
+We have decided to drop auto-derivation of `Packable` from the `#[note]` macro because we want to make the macros less magical.
+With this change you will be forced to either apply `#[derive(Packable)` on your notes:
+
+```diff
++use aztec::protocol_types::traits::Packable;
+
++#[derive(Packable)]
+#[note]
+pub struct UintNote {
+    owner: AztecAddress,
+    randomness: Field,
+    value: u128,
+}
+```
+
+or to implement it manually yourself:
+
+```rust
+impl Packable for UintNote {
+    let N: u32 = 3;
+
+    fn pack(self) -> [Field; Self::N] {
+        [self.owner.to_field(), randomness, value as Field]
+    }
+
+    fn unpack(fields: [Field; Self::N]) -> Self {
+        let owner = AztecAddress::from_field(fields[0]);
+        let randomness = fields[1];
+        let value = fields[2] as u128;
+        UintNote { owner, randomness, value }
+    }
+}
+```
+
+### Tagging sender now managed via oracle functions
+
+Now, instead of manually needing to pass a tagging sender as an argument to log emission functions (e.g. `encode_and_encrypt_note`, `encode_and_encrypt_note_unconstrained`, `emit_event_in_private_log`, ...) we automatically load the sender via the `get_sender_for_tags()` oracle.
+This value is expected to be populated by account contracts that should call `set_sender_for_tags()` in their entry point functions.
+
+The changes you need to do in your contracts are quite straightforward.
+You simply need to drop the `sender` arg from the callsites of the log emission functions.
+E.g. note emission:
+
+```diff
+storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+    &mut context,
+    from,
+-    tagging_sender,
+));
+```
+
+E.g. private event emission:
+
+```diff
+emit_event_in_private_log(
+    Transfer { from, to, amount },
+    &mut context,
+-    tagging_sender,
+    to,
+    PrivateLogContent.NO_CONSTRAINTS,
+);
+```
+
+This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
+Drop the `from` argument when calling these.
+
+Example n TypeScript test:
+
+```diff
+- await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
++ await token.methods.mint_to_private(alice, mintAmount).send().wait();
+```
+
+Example when
+
+```diff
+let token_out_partial_note = Token::at(token_out).prepare_private_balance_increase(
+    sender,
+-    tagging_sender
+).call(&mut context);
+```
+
+### SharedMutable -> DelayedPublicMutable
+
+The `SharedMutable` state variable has been renamed to `DelayedPublicMutable`. It is a public mutable with a delay before state changes take effect. It can be read in private during the delay period. The name "shared" confuses developers who actually wish to work with so-called "shared private state". Also, we're working on a `DelayedPrivateMutable` which will have similar properties, except writes will be scheduled from private instead. With this new state variable in mind, the new name works nicely.
+
+## [TXE]
+
+### API overhaul
+
+As part of a broader effort to make TXE easier to use and reason about, large parts of it are being changed or adapted.
+
+- `committed_timestamp` removed: this function did not work correctly
+- `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamps
+- `pending_block_number` was renamed to `next_block_number`. `pending_timestamp` was removed since it was confusing and not useful
+- `committed_block_number` was renamed to `last_block_number`
+- `advance_timestamp_to` and `advance_timestamp_by` were renamed to `set_next_block_timestamp` and `advance_next_block_timestamp_by` respectively
+- `advance_block_to` was renamed to `mine_block_at`, which takes a timestamp instead of a target block number
+- `advance_block_by` was renamed to `mine_block`, which now mines a single block
+
 ## [Aztec.js]
+
+### Cheatcodes
 
 Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
 While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
+
+### Note exports dropped from artifact
+
+Notes are no longer exported in the contract artifact.
+Exporting notes was technical debt from when we needed to interpret notes in TypeScript.
+
+The following code will no longer work since `notes` is no longer available on the artifact:
+
+```rust
+const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
+```
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 

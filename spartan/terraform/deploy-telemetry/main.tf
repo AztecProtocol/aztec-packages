@@ -92,8 +92,13 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
 }
 
 locals {
-  prefixes       = jsondecode(file("../../../yarn-project/aztec/public_include_metric_prefixes.json"))
-  otel_allowlist = join(" or ", formatlist("HasPrefix(name, \"%s\")", local.prefixes))
+  prefixes   = jsondecode(file("../../../yarn-project/aztec/public_include_metric_prefixes.json"))
+  registries = ["0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309"]
+  roles      = ["sequencer"]
+
+  otel_metric_allowlist   = join(" or ", formatlist("HasPrefix(name, %q)", local.prefixes))
+  otel_registry_allowlist = join(" or ", formatlist("resource.attributes[\"aztec.registry_address\"] == %q", local.registries))
+  otel_role_allowlist     = join(" or ", formatlist("resource.attributes[\"aztec.node_role\"] == %q", local.roles))
 }
 
 resource "helm_release" "otel_collector" {
@@ -109,10 +114,22 @@ resource "helm_release" "otel_collector" {
   force_update      = true
   reuse_values      = false
   reset_values      = true
-  depends_on        = [kubernetes_manifest.otel_ingress_backend]
 
   # base values file
-  values = [file("./values/public-otel-collector.yaml")]
+  values = [
+    file("./values/public-otel-collector.yaml"),
+    # have to use a heredoc because of quotation issues with OTTL
+    <<-EOF
+config:
+  processors:
+    filter:
+      metrics:
+        metric:
+        - 'not (${local.otel_registry_allowlist})'
+        - 'not (${local.otel_role_allowlist})'
+        - 'not (${local.otel_metric_allowlist})'
+EOF
+  ]
 
   set {
     name  = "ingress.annotations.kubernetes\\.io\\/ingress\\.global-static-ip-name"
@@ -127,11 +144,6 @@ resource "helm_release" "otel_collector" {
   set {
     name  = "ingress.hosts[0].host"
     value = var.HOSTNAME
-  }
-
-  set {
-    name  = "config.processors.filter.metrics.metric[0]"
-    value = "not (${local.otel_allowlist})" # flip the condition around 
   }
 
   timeout         = 300
