@@ -15,7 +15,7 @@ import {
     PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 
-import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
+import {negateInplace, convertProofPoint, pairing, validateOnCurve} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {ONE, ZERO, Fr, FrLib} from "./Fr.sol";
@@ -414,6 +414,10 @@ abstract contract BaseHonkVerifier is IVerifier {
         (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
             convertPairingPointsToG1(proof.pairingPointObject);
 
+        // Validate the points from the proof are on the curve
+        validateOnCurve(P_0_other);
+        validateOnCurve(P_1_other);
+
         // accumulate with aggregate points in proof
         P_0_agg = mulWithSeperator(P_0_agg, P_0_other, recursionSeparator);
         P_1_agg = mulWithSeperator(P_1_agg, P_1_other, recursionSeparator);
@@ -426,6 +430,12 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
     ) internal view returns (Honk.G1Point memory result) {
         uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
+
+        // Validate all points are on the curve
+        for (uint256 i = 0; i < limit; ++i) {
+            validateOnCurve(base[i]);
+        }
+
         assembly {
             let success := 0x01
             let free := mload(0x40)

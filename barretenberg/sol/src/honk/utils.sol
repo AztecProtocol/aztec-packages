@@ -1,7 +1,6 @@
 pragma solidity >=0.8.21;
 
 import {Honk, PAIRING_POINTS_SIZE} from "./HonkTypes.sol";
-import {Transcript} from "./Transcript.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {
     Honk,
@@ -54,6 +53,18 @@ function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point mem
     return point;
 }
 
+/**
+ * Convert the pairing points to G1 points.
+ *
+ * The pairing points are serialised as an array of 68 bit limbs representing two points
+ * The lhs of a pairing operation and the rhs of a pairing operation
+ *
+ * There are 4 fields for each group element, leaving 8 fields for each side of the pairing.
+ *
+ * @param pairingPoints The pairing points to convert.
+ * @return lhs
+ * @return rhs
+ */
 function convertPairingPointsToG1(Fr[PAIRING_POINTS_SIZE] memory pairingPoints)
     pure
     returns (Honk.G1Point memory lhs, Honk.G1Point memory rhs)
@@ -83,32 +94,14 @@ function convertPairingPointsToG1(Fr[PAIRING_POINTS_SIZE] memory pairingPoints)
     rhs.y = rhsY;
 }
 
-function convertG1ToPairingPoints(Honk.G1Point memory lhs, Honk.G1Point memory rhs)
-    pure
-    returns (Fr[PAIRING_POINTS_SIZE] memory pairingPoints)
-{
-    // lhs.x
-    pairingPoints[0] = Fr.wrap(uint64(lhs.x));
-    pairingPoints[1] = Fr.wrap(uint64(lhs.x >> 68));
-    pairingPoints[2] = Fr.wrap(uint64(lhs.x >> 136));
-    pairingPoints[3] = Fr.wrap(uint64(lhs.x >> 204));
-    // lhs.y
-    pairingPoints[4] = Fr.wrap(uint64(lhs.y));
-    pairingPoints[5] = Fr.wrap(uint64(lhs.y >> 68));
-    pairingPoints[6] = Fr.wrap(uint64(lhs.y >> 136));
-    pairingPoints[7] = Fr.wrap(uint64(lhs.y >> 204));
-    // rhs.x
-    pairingPoints[8] = Fr.wrap(uint64(rhs.x));
-    pairingPoints[9] = Fr.wrap(uint64(rhs.x >> 68));
-    pairingPoints[10] = Fr.wrap(uint64(rhs.x >> 136));
-    pairingPoints[11] = Fr.wrap(uint64(rhs.x >> 204));
-    // rhs.y
-    pairingPoints[12] = Fr.wrap(uint64(rhs.y));
-    pairingPoints[13] = Fr.wrap(uint64(rhs.y >> 68));
-    pairingPoints[14] = Fr.wrap(uint64(rhs.y >> 136));
-    pairingPoints[15] = Fr.wrap(uint64(rhs.y >> 204));
-}
-
+/**
+ * Hash the pairing inputs from the present verification context with those extracted from the public inputs.
+ *
+ * @param proofPairingPoints Pairing points from the proof - (public inputs).
+ * @param accLhs Accumulator point for the left side - result of shplemini.
+ * @param accRhs Accumulator point for the right side - result of shplemini.
+ * @return recursionSeparator The recursion separator - generated from hashing the above.
+ */
 function generateRecursionSeparator(
     Fr[PAIRING_POINTS_SIZE] memory proofPairingPoints,
     Honk.G1Point memory accLhs,
@@ -119,45 +112,84 @@ function generateRecursionSeparator(
     // hash the accum X
     // hash the accum Y
 
-    uint256[PAIRING_POINTS_SIZE * 2] memory recursionSeparatorElements;
+    (Honk.G1Point memory proofLhs, Honk.G1Point memory proofRhs) = convertPairingPointsToG1(proofPairingPoints);
 
-    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-        recursionSeparatorElements[i] = Fr.unwrap(proofPairingPoints[i]);
-    }
-    Fr[PAIRING_POINTS_SIZE] memory accumulatorPoints = convertG1ToPairingPoints(accLhs, accRhs);
+    uint256[8] memory recursionSeparatorElements;
 
-    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
-        recursionSeparatorElements[PAIRING_POINTS_SIZE + i] = Fr.unwrap(accumulatorPoints[i]);
-    }
+    // Proof points
+    recursionSeparatorElements[0] = proofLhs.x;
+    recursionSeparatorElements[1] = proofLhs.y;
+    recursionSeparatorElements[2] = proofRhs.x;
+    recursionSeparatorElements[3] = proofRhs.y;
+
+    // Accumulator points
+    recursionSeparatorElements[4] = accLhs.x;
+    recursionSeparatorElements[5] = accLhs.y;
+    recursionSeparatorElements[6] = accRhs.x;
+    recursionSeparatorElements[7] = accRhs.y;
 
     recursionSeparator = FrLib.fromBytes32(keccak256(abi.encodePacked(recursionSeparatorElements)));
 }
 
+/**
+ * G1 Mul with Separator
+ * Using the ecAdd and ecMul precompiles
+ *
+ * @param basePoint The point to multiply.
+ * @param other The other point to add.
+ * @param recursionSeperator The separator to use for the multiplication.
+ * @return `(recursionSeperator * basePoint) + other`.
+ */
 function mulWithSeperator(Honk.G1Point memory basePoint, Honk.G1Point memory other, Fr recursionSeperator)
     view
     returns (Honk.G1Point memory)
 {
     Honk.G1Point memory result;
 
-    result = frMulWithG1(recursionSeperator, basePoint);
-    result = g1Add(result, other);
+    result = ecMul(recursionSeperator, basePoint);
+    result = ecAdd(result, other);
 
     return result;
 }
 
-function frMulWithG1(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point memory) {
+/**
+ * G1 Mul
+ * Takes a Fr value and a G1 point and uses the ecMul precompile to return the result.
+ *
+ * @param value The value to multiply the point by.
+ * @param point The point to multiply.
+ * @return result The result of the multiplication.
+ */
+function ecMul(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point memory) {
     Honk.G1Point memory result;
 
     assembly {
         let free := mload(0x40)
+        // Write the point into memory (two 32 byte words)
+        // Memory layout:
+        // Address    |  value
+        // free       |  point.x
+        // free + 0x20|  point.y
         mstore(free, mload(point))
         mstore(add(free, 0x20), mload(add(point, 0x20)))
+        // Write the scalar into memory (one 32 byte word)
+        // Memory layout:
+        // Address    |  value
+        // free + 0x40|  value
         mstore(add(free, 0x40), value)
+
+        // Call the ecMul precompile, it takes in the following
+        // [point.x, point.y, scalar], and returns the result back into the free memory location.
         let success := staticcall(gas(), 0x07, free, 0x60, free, 0x40)
         if iszero(success) {
             // TODO: meaningful error
             revert(0, 0)
         }
+        // Copy the result of the multiplication back into the result memory location.
+        // Memory layout:
+        // Address    |  value
+        // result     |  result.x
+        // result + 0x20|  result.y
         mstore(result, mload(free))
         mstore(add(result, 0x20), mload(add(free, 0x20)))
     }
@@ -165,22 +197,63 @@ function frMulWithG1(Fr value, Honk.G1Point memory point) view returns (Honk.G1P
     return result;
 }
 
-function g1Add(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (Honk.G1Point memory) {
+/**
+ * G1 Add
+ * Takes two G1 points and uses the ecAdd precompile to return the result.
+ *
+ * @param lhs The left hand side of the addition.
+ * @param rhs The right hand side of the addition.
+ * @return result The result of the addition.
+ */
+function ecAdd(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (Honk.G1Point memory) {
     Honk.G1Point memory result;
 
     assembly {
         let free := mload(0x40)
+        // Write lhs into memory (two 32 byte words)
+        // Memory layout:
+        // Address    |  value
+        // free       |  lhs.x
+        // free + 0x20|  lhs.y
         mstore(free, mload(lhs))
         mstore(add(free, 0x20), mload(add(lhs, 0x20)))
+
+        // Write rhs into memory (two 32 byte words)
+        // Memory layout:
+        // Address    |  value
+        // free + 0x40|  rhs.x
+        // free + 0x60|  rhs.y
         mstore(add(free, 0x40), mload(rhs))
         mstore(add(free, 0x60), mload(add(rhs, 0x20)))
+
+        // Call the ecAdd precompile, it takes in the following
+        // [lhs.x, lhs.y, rhs.x, rhs.y], and returns their addition back into the free memory location.
         let success := staticcall(gas(), 0x06, free, 0x80, free, 0x40)
         if iszero(success) { revert(0, 0) }
+
+        // Copy the result of the addition back into the result memory location.
+        // Memory layout:
+        // Address    |  value
+        // result     |  result.x
+        // result + 0x20|  result.y
         mstore(result, mload(free))
         mstore(add(result, 0x20), mload(add(free, 0x20)))
     }
 
     return result;
+}
+
+function validateOnCurve(Honk.G1Point memory point) pure {
+    uint256 x = point.x;
+    uint256 y = point.y;
+
+    bool success = false;
+    assembly {
+        let xx := mulmod(x, x, Q)
+        success := eq(mulmod(y, y, Q), addmod(mulmod(x, xx, Q), 3, Q))
+    }
+
+    require(success, "point is not on the curve");
 }
 
 function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool decodedResult) {

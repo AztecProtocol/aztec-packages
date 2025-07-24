@@ -25,7 +25,7 @@ import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 import {RelationsLib} from "./Relations.sol";
 
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
-import {generateRecursionSeparator, convertPairingPointsToG1, frMulWithG1, g1Add, mulWithSeperator} from "./utils.sol";
+import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator, validateOnCurve} from "./utils.sol";
 
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
@@ -445,6 +445,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
             convertPairingPointsToG1(proof.pairingPointObject);
 
+        // Validate the points from the proof are on the curve
+        validateOnCurve(P_0_other);
+        validateOnCurve(P_1_other);
+
         // accumulate with aggregate points in proof
         pair.P_0 = mulWithSeperator(pair.P_0, P_0_other, recursionSeparator);
         pair.P_1 = mulWithSeperator(pair.P_1, P_1_other, recursionSeparator);
@@ -514,6 +518,12 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars
     ) internal view returns (Honk.G1Point memory result) {
         uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3;
+
+        // Validate all points are on the curve
+        for (uint256 i = 0; i < limit; ++i) {
+            validateOnCurve(base[i]);
+        }
+
         assembly {
             let success := 0x01
             let free := mload(0x40)
