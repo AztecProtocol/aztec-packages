@@ -116,6 +116,21 @@ template <typename T, std::size_t N> class RefArray {
     T** get_storage() { return storage; }
     T* const* get_storage() const { return storage; }
 
+    /**
+     * @brief Get underlying data. Use carefully, as it allocates new data for the data pointed to by the elements in
+     * the RefArray
+     *
+     */
+    std::array<T, N> get_data()
+    {
+        std::array<T, N> data;
+        for (size_t idx = 0; idx < N; idx++) {
+            data[idx] = this[idx];
+        }
+
+        return data;
+    }
+
   private:
     // We are making a high-level array, for simplicity having a C array as backing makes sense.
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)

@@ -82,7 +82,7 @@ class ClientIVC {
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
 
     // Merge commitments
-    using MergeCommitments = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>::WitnessCommitments;
+    using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -199,18 +199,17 @@ class ClientIVC {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] PairingPoints
+    [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments>
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
-        MergeCommitments& merge_commitments,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     // Complete the logic of the hiding circuit, which includes PG, decider and merge recursive verification
-    ClientIVC::PairingPoints complete_hiding_circuit_logic(
+    std::pair<PairingPoints, TableCommitments> complete_hiding_circuit_logic(
         const StdlibProof& stdlib_proof,
         const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
         ClientCircuit& circuit);
