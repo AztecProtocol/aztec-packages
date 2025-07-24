@@ -15,19 +15,19 @@
 namespace bb {
 
 /**
- * @brief This function verifies an Ultra Honk proof for a given Flavor.
+ * @brief This function performs the decider verification of an Ultra Honk proof for a given Flavor.
  *
  */
-template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
+template <typename Flavor>
+std::pair<typename UltraVerifier_<Flavor>::PublicInputs, typename UltraVerifier_<Flavor>::DeciderVerifier::Output>
+UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
-    using RollUpIO = bb::RollupIO;
-    using DefaultIO = bb::DefaultIO;
 
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
-    const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
+    const PublicInputs& public_inputs = oink_verifier.public_inputs;
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         verification_key->gate_challenges.emplace_back(
@@ -35,7 +35,22 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
-    auto decider_output = decider_verifier.verify();
+
+    return std::make_pair(public_inputs, decider_verifier.verify());
+}
+
+/**
+ * @brief This function verifies an Ultra Honk proof for a given UltraHonk Flavor.
+ *
+ */
+template <typename Flavor>
+bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
+    requires IsUltraHonk<Flavor>
+{
+    using RollUpIO = bb::RollupIO;
+    using DefaultIO = bb::DefaultIO;
+
+    auto [public_inputs, decider_output] = verify_internal(proof);
     if (!decider_output.sumcheck_verified) {
         info("Sumcheck failed!");
         return false;
@@ -66,6 +81,35 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     return decider_output.check();
+}
+
+/**
+ * @brief This function verifies an Ultra Honk proof for a Mega Flavor.
+ *
+ * @details This function returns a boolean whose meaning is whether the decider proof is valid or not, and an array of
+ * commitments, corresponding to the commitments to the merged table that is the output of the merge verification
+ * performed in the Hiding kernel.
+ *
+ */
+template <typename Flavor>
+std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::NUM_WIRES>> UltraVerifier_<
+    Flavor>::verify_proof(const HonkProof& proof)
+    requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>)
+{
+    auto [public_inputs, decider_output] = verify_internal(proof);
+
+    // Reconstruct the public inputs
+    DefaultIO inputs; // Will be HidingKernelIO
+    inputs.reconstruct_from_public(public_inputs);
+
+    decider_output.pairing_points.aggregate(inputs.pairing_inputs);
+
+    // Dummy vector, will be fetched from inputs once we have HidingKernelIO
+    std::array<Commitment, Flavor::NUM_WIRES> dummy;
+    for (auto& commitment : dummy) {
+        commitment = Commitment::one();
+    }
+    return std::make_pair(decider_output.check(), dummy);
 }
 
 template class UltraVerifier_<UltraFlavor>;
