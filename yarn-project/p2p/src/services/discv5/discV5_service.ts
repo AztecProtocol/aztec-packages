@@ -156,7 +156,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Add bootnode ENR if provided
     if (this.bootstrapNodeEnrs?.length) {
       // Do this conversion once since it involves an async function call
-      this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodeEnrs.map(enr => enr.peerId));
+      this.bootstrapNodePeerIds = this.bootstrapNodeEnrs.map(enr => enr.peerId);
       this.logger.info(
         `Adding ${this.bootstrapNodeEnrs.length} bootstrap nodes ENRs: ${this.bootstrapNodeEnrs
           .map(enr => enr.encodeTxt())

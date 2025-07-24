@@ -418,7 +418,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
 
-    await this.peerManager.initializePeers();
+    this.peerManager.initializePeers();
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
     }
