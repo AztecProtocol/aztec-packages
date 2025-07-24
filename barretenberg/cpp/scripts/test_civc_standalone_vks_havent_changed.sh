@@ -11,7 +11,7 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-73c73907.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-e6e7da09.tar.gz"
 
 function compress_and_upload {
     # 1) Compress the results
@@ -73,7 +73,7 @@ export -f check_circuit_vks
 ls "$inputs_tmp_dir"
 
 if [[ "${1:-}" == "--update_fast" ]]; then
-  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") ||  compress_and_upload $inputs_tmp_dir
+  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") && compress_and_upload $inputs_tmp_dir
 else
   parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir")
 fi
