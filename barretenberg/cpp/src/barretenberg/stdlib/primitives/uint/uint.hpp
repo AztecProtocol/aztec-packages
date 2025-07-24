@@ -151,10 +151,7 @@ template <typename Builder, typename Native> class uint {
   protected:
     Builder* context;
 
-    enum WitnessStatus { OK, NOT_NORMALIZED, WEAK_NORMALIZED };
-
     mutable uint256_t additive_constant;
-    mutable WitnessStatus witness_status;
 
     // N.B. Not an accumulator! Contains 6-bit slices of input
     mutable std::vector<uint32_t> accumulators;

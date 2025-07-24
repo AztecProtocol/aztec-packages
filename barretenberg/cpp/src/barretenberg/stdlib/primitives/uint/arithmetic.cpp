@@ -48,7 +48,7 @@ uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
 
     uint<Builder, Native> result(ctx);
     result.witness_index = gate.c;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
 
     return result;
 }
@@ -94,7 +94,7 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
 
     uint<Builder, Native> result(ctx);
     result.witness_index = gate.c;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
 
     return result;
 }
@@ -139,9 +139,8 @@ uint<Builder, Native> uint<Builder, Native>::operator*(const uint& other) const
     ctx->decompose_into_default_range(gate.d, width);
 
     uint<Builder, Native> result(ctx);
-    result.accumulators = constrain_accumulators(ctx, gate.c);
     result.witness_index = gate.c;
-    result.witness_status = WitnessStatus::OK;
+    result.normalize();
 
     return result;
 }
@@ -248,13 +247,11 @@ std::pair<uint<Builder, Native>, uint<Builder, Native>> uint<Builder, Native>::d
     ctx->decompose_into_default_range(delta_idx, width);
     uint<Builder, Native> quotient(ctx);
     quotient.witness_index = quotient_idx;
-    quotient.accumulators = constrain_accumulators(ctx, quotient.witness_index);
-    quotient.witness_status = WitnessStatus::OK;
+    quotient.normalize();
 
     uint<Builder, Native> remainder(ctx);
     remainder.witness_index = remainder_idx;
-    remainder.accumulators = constrain_accumulators(ctx, remainder.witness_index);
-    remainder.witness_status = WitnessStatus::OK;
+    remainder.normalize();
 
     return std::make_pair(quotient, remainder);
 }
