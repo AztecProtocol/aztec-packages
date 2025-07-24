@@ -200,7 +200,7 @@ describe('p2p client integration message propagation', () => {
       client3AttestationPromise.promise,
     ];
 
-    const messages = await retryUntil(() => collectIfReady(messagesPromise), 'all gossiped messages received', 20, 1);
+    const messages = await retryUntil(() => collectIfReady(messagesPromise), 'all gossiped messages received', 10, 1);
 
     expect(messages).toBeDefined();
     expect(client2HandleGossipedTxSpy).toHaveBeenCalled();
@@ -252,10 +252,6 @@ describe('p2p client integration message propagation', () => {
       };
 
       const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
-      //Disable handshake because it makes this test flaky
-      for (const c of clientsAndConfig) {
-        (c as any).client.p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
-      }
       const [client1, client2, client3] = clientsAndConfig;
 
       // Give the nodes time to discover each other
