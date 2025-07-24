@@ -7,7 +7,9 @@ use dep::mock_types::{
 fn main(
     prev_kernel_public_inputs: call_data(0) PrivateKernelPublicInputs,
     kernel_vk: VerificationKey<MEGA_VK_LENGTH_IN_FIELDS>,
-) -> pub KernelPublicInputs {
+    // TODO: Change this back to regular public inputs.
+    // ) -> pub KernelPublicInputs {
+) -> return_data KernelPublicInputs {
     std::verify_proof_with_type(kernel_vk.key, [], [], kernel_vk.hash, PROOF_TYPE_PG);
 
     assert_eq(prev_kernel_public_inputs.remaining_calls, 0);
