@@ -1,12 +1,13 @@
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 
+#include <algorithm>
+#include <cstdint>
+#include <stdexcept>
+#include <vector>
+
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
-
-#include <algorithm>
-#include <cstdint>
-#include <vector>
 
 namespace bb::avm2::simulation {
 
@@ -63,20 +64,27 @@ void ToRadix::to_be_radix(MemoryInterface& memory,
     uint32_t space_id = memory.get_space_id();
 
     try {
+        // todo(ilyas): there must be a nicer way to do this in the simulator. See if it's fine to provide
+        // a hierarchy of errors so that we can throw on the first error we encounter
+
         // Error handling - check that the maximum write address does not exceed the highest memory address
         // This subtrace writes in the range { dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1 }
         uint64_t max_write_address = static_cast<uint64_t>(dst_addr) + num_limbs - 1;
-        if (gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
-            throw std::runtime_error("Memory write out of bounds: " + std::to_string(max_write_address));
-        }
+        bool dst_out_of_range = gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS);
 
         // Error handling - check that the radix value is within the valid range
         // The valid range is [2, 256]. Therefore, the radix is invalid if (2 > radix) or (radix > 256)
         // We need to perform both checks explicitly since that is what the circuit would do
         bool radix_is_lt_2 = gt.gt(2, radix);
         bool radix_is_gt_256 = gt.gt(radix, 256);
-        if (radix_is_lt_2 || radix_is_gt_256) {
-            throw std::runtime_error("Radix must be between 2 and 256.");
+
+        // Error handling - check that if is_output_bits is true, the radix has to be 2
+        bool invalid_bitwise_radix = is_output_bits && (radix != 2);
+        // Error handling - if num_limbs is zero, value needs to be zero
+        bool invalid_num_limbs = (num_limbs == 0) && (value != FF(0));
+
+        if (dst_out_of_range || radix_is_lt_2 || radix_is_gt_256 || invalid_bitwise_radix || invalid_num_limbs) {
+            throw std::runtime_error("Invalid parameters for ToRadix");
         }
 
         // If we get to this point, we are error free.

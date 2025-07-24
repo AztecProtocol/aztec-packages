@@ -335,7 +335,7 @@ sel_gas_to_radix * (sel_radix_gt_256 * (num_p_limbs - 32)) = 0;
 #[GET_P_LIMBS]
 sel_lookup_num_p_limbs { /*radix=*/register[1], num_p_limbs }
 in
-precomputed.sel_to_radix_safe_limbs
+precomputed.sel_to_radix_p_limb_counts
     { precomputed.clk, precomputed.to_radix_num_limbs_for_p };
 
 // We now compute the dynamic l2 gas factor as max(num_limbs, num_p_limbs)

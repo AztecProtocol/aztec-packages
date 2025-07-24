@@ -36,12 +36,14 @@ include "precomputed.pil";
  *
  * ERROR HANDLING:
  * Two errors needs to be handled as part of this trace,
- * (1) INVALID_RADIX_VALUE: The radix must be in the range [2, 256]
- * (2) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
+ * (1) INVALID_RADIX_VALUE: The radix must be in the range [2, 256], if is_output_bits = 1, radix must be 2
+ * (2) INVALID_NUM_LIMBS: If num_limbs = 0 while value_to_decompose != 0.
+ * (3) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
  *
  * N.B The radix is checked to be <= 256 in the execution trace (for dynamic gas computation)
  *     we do not currently take advantage of any partial checks done but is a future optimisation
+ *     Finally, if is num_limbs = 0 && value_to_decompose = 0 (which are valid inputs), then no memory writes are performed
  *
  * This subtrace is connected to the TORADIX subtrace via a lookup. TORADIX is used by
  * other subtraces internally (e.g., scalar mul ).
@@ -132,6 +134,9 @@ namespace to_radix_mem;
     pol commit sel_radix_gt_256_err; // Radix is > 256
     sel_radix_gt_256_err * (1 - sel_radix_gt_256_err) = 0;
 
+    pol commit sel_invalid_bitwise_radix; // Radix != 2 if output_bits = 1
+    sel_invalid_bitwise_radix * (1 - sel_invalid_bitwise_radix) = 0;
+
     pol commit two; // While we do not have constants in lookups
     start * (two - 2) = 0;
     pol commit two_five_six; // While we do not have constants in lookups
@@ -147,9 +152,33 @@ namespace to_radix_mem;
     in
     gt.sel { gt.input_a, gt.input_b, gt.res };
 
+    // is_output_bits already guaranteed to be boolean by execution trace tag validation
+    #[IS_OUTPUT_BITS_IMPLY_RADIX_2]
+    start * is_output_bits * (1 - sel_invalid_bitwise_radix) * (radix - 2) = 0;
+
+    /////////////////////////////////////////////////////////
+    // Error Handling - Check Num Limbs and Value are valid
+    /////////////////////////////////////////////////////////
+    // If num_limbs = 0, and value_to_decompose != 0, we throw an error
+    pol commit sel_num_limbs_is_zero; // We will re-use this later when gating dispatch to the to_radix gadget
+    sel_num_limbs_is_zero * (1 - sel_num_limbs_is_zero) = 0;
+    pol commit num_limbs_inv;
+    #[ZERO_CHECK_NUM_LIMBS] // sel_num_limbs_is_zero = 1 if num_limbs = 0
+    start * (num_limbs * (sel_num_limbs_is_zero * (1 - num_limbs_inv) + num_limbs_inv) - 1 + sel_num_limbs_is_zero) = 0;
+
+    pol commit sel_value_is_zero;
+    sel_value_is_zero * (1 - sel_value_is_zero) = 0;
+    pol commit value_inv;
+    #[ZERO_CHECK_VALUE] // sel_value_is_zero = 1 if value_to_decompose = 0
+    start * (value_to_decompose * (sel_value_is_zero * (1 - value_inv) + value_inv) - 1 + sel_value_is_zero) =0;
+
+    pol commit sel_invalid_num_limbs_err; // err = 1 if num_limbs == 0 while value != 0
+    sel_invalid_num_limbs_err = sel_num_limbs_is_zero * (1 - sel_value_is_zero);
+
     pol commit err; // Consolidated error flag
     err = 1 - (1 - sel_dst_out_of_range_err) * (1 - sel_radix_lt_2_err)
-        * (1 - sel_radix_gt_256_err);
+        * (1 - sel_radix_gt_256_err) * (1 - sel_invalid_bitwise_radix)
+        * (1 - sel_invalid_num_limbs_err);
 
     /////////////////////////////////////////////////////
     // Control flow management and terminating trace
@@ -166,11 +195,19 @@ namespace to_radix_mem;
     pol NUM_LIMBS_MINUS_ONE = num_limbs - 1;
     pol commit num_limbs_minus_one_inv;
 
-    #[LAST_ROW_VALID_COMPUTATION] // last = 1 if num_limbs = 1 && err = 0
-    SEL_NO_ERR * (NUM_LIMBS_MINUS_ONE * (last * (1 - num_limbs_minus_one_inv) + num_limbs_minus_one_inv) - 1 + last) = 0;
 
-    #[LAST_ROW_ERR_COMPUTATION] // last = 1 if err = 1
-    sel * err * (last - 1) = 0;
+    // todo(ilyas); there must be a nicer way to make these relations cleaner. Last needs to be set based on:
+    // 1) num_limbs - 1 = 0; part of a normal computation
+    // 2) num_limbs = 0; if the user-supplied num_limbs = 0 && value_to_decompose = 0
+    // 3) err = 1;
+    #[LAST_ROW_VALID_COMPUTATION] // last = 1 if num_limbs = 1 && err = 0 && num_limbs != 0
+    SEL_NO_ERR * (1 - sel_num_limbs_is_zero) * (NUM_LIMBS_MINUS_ONE * (last * (1 - num_limbs_minus_one_inv) + num_limbs_minus_one_inv) - 1 + last) = 0;
+
+    #[LAST_ROW_NUM_LIMBS_ZERO] // last = 1 if num_limbs = 0
+    sel * sel_num_limbs_is_zero * (last - 1) = 0;
+
+    #[LAST_ROW_ERR_COMPUTATION] // last = 1 if err = 1 && num_limbs != 0
+    sel * err * (1 - sel_num_limbs_is_zero) * (last - 1) = 0;
     // The implication of the above condition is that LATCH_CONDITION = 1 if there is an error
 
     /////////////////////////////////////////////////////
@@ -178,7 +215,8 @@ namespace to_radix_mem;
     /////////////////////////////////////////////////////
     pol commit output_limb_value;
     pol commit sel_should_exec;
-    sel_should_exec = sel * (1 - err);
+    // If the num limbs are zero, we don't dispatch to the gadget or write to memory.
+    sel_should_exec = sel * (1 - err) * (1 - sel_num_limbs_is_zero);
 
     pol commit limb_index_to_lookup; // Need this since we want Big-Endian but the gadget is Little-Endian
     limb_index_to_lookup = sel_should_exec * (num_limbs - 1);

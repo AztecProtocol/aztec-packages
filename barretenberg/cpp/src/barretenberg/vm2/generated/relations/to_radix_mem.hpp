@@ -13,8 +13,9 @@ template <typename FF_> class to_radix_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3, 3, 3,
-                                                                            3, 3, 3, 3, 4, 4, 4, 6, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 5, 3, 5, 3,
+                                                                            5, 3, 6, 4, 4, 7, 4, 5, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -143,79 +144,147 @@ template <typename FF_> class to_radix_memImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = in.get(C::to_radix_mem_start) * (in.get(C::to_radix_mem_two) - FF(2));
+            auto tmp = in.get(C::to_radix_mem_sel_invalid_bitwise_radix) *
+                       (FF(1) - in.get(C::to_radix_mem_sel_invalid_bitwise_radix));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = in.get(C::to_radix_mem_start) * (in.get(C::to_radix_mem_two_five_six) - FF(256));
+            auto tmp = in.get(C::to_radix_mem_start) * (in.get(C::to_radix_mem_two) - FF(2));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::to_radix_mem_err) - (FF(1) - (FF(1) - in.get(C::to_radix_mem_sel_dst_out_of_range_err)) *
-                                                            (FF(1) - in.get(C::to_radix_mem_sel_radix_lt_2_err)) *
-                                                            (FF(1) - in.get(C::to_radix_mem_sel_radix_gt_256_err))));
+            auto tmp = in.get(C::to_radix_mem_start) * (in.get(C::to_radix_mem_two_five_six) - FF(256));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        { // DECR_NUM_LIMBS
+        { // IS_OUTPUT_BITS_IMPLY_RADIX_2
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = to_radix_mem_NOT_LAST *
-                       (in.get(C::to_radix_mem_num_limbs_shift) - (in.get(C::to_radix_mem_num_limbs) - FF(1)));
+            auto tmp = in.get(C::to_radix_mem_start) * in.get(C::to_radix_mem_is_output_bits) *
+                       (FF(1) - in.get(C::to_radix_mem_sel_invalid_bitwise_radix)) *
+                       (in.get(C::to_radix_mem_radix) - FF(2));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
-        { // INCR_DST_ADDRESS
+        {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = to_radix_mem_NOT_LAST *
-                       (in.get(C::to_radix_mem_dst_addr_shift) - (in.get(C::to_radix_mem_dst_addr) + FF(1)));
+            auto tmp =
+                in.get(C::to_radix_mem_sel_num_limbs_is_zero) * (FF(1) - in.get(C::to_radix_mem_sel_num_limbs_is_zero));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
-        { // LAST_ROW_VALID_COMPUTATION
+        { // ZERO_CHECK_NUM_LIMBS
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = to_radix_mem_SEL_NO_ERR *
+            auto tmp = in.get(C::to_radix_mem_start) *
+                       ((in.get(C::to_radix_mem_num_limbs) * (in.get(C::to_radix_mem_sel_num_limbs_is_zero) *
+                                                                  (FF(1) - in.get(C::to_radix_mem_num_limbs_inv)) +
+                                                              in.get(C::to_radix_mem_num_limbs_inv)) -
+                         FF(1)) +
+                        in.get(C::to_radix_mem_sel_num_limbs_is_zero));
+            tmp *= scaling_factor;
+            std::get<20>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
+            auto tmp = in.get(C::to_radix_mem_sel_value_is_zero) * (FF(1) - in.get(C::to_radix_mem_sel_value_is_zero));
+            tmp *= scaling_factor;
+            std::get<21>(evals) += typename Accumulator::View(tmp);
+        }
+        { // ZERO_CHECK_VALUE
+            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
+            auto tmp = in.get(C::to_radix_mem_start) *
+                       ((in.get(C::to_radix_mem_value_to_decompose) *
+                             (in.get(C::to_radix_mem_sel_value_is_zero) * (FF(1) - in.get(C::to_radix_mem_value_inv)) +
+                              in.get(C::to_radix_mem_value_inv)) -
+                         FF(1)) +
+                        in.get(C::to_radix_mem_sel_value_is_zero));
+            tmp *= scaling_factor;
+            std::get<22>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::to_radix_mem_sel_invalid_num_limbs_err) -
+                 in.get(C::to_radix_mem_sel_num_limbs_is_zero) * (FF(1) - in.get(C::to_radix_mem_sel_value_is_zero)));
+            tmp *= scaling_factor;
+            std::get<23>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::to_radix_mem_err) -
+                        (FF(1) - (FF(1) - in.get(C::to_radix_mem_sel_dst_out_of_range_err)) *
+                                     (FF(1) - in.get(C::to_radix_mem_sel_radix_lt_2_err)) *
+                                     (FF(1) - in.get(C::to_radix_mem_sel_radix_gt_256_err)) *
+                                     (FF(1) - in.get(C::to_radix_mem_sel_invalid_bitwise_radix)) *
+                                     (FF(1) - in.get(C::to_radix_mem_sel_invalid_num_limbs_err))));
+            tmp *= scaling_factor;
+            std::get<24>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DECR_NUM_LIMBS
+            using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
+            auto tmp = to_radix_mem_NOT_LAST *
+                       (in.get(C::to_radix_mem_num_limbs_shift) - (in.get(C::to_radix_mem_num_limbs) - FF(1)));
+            tmp *= scaling_factor;
+            std::get<25>(evals) += typename Accumulator::View(tmp);
+        }
+        { // INCR_DST_ADDRESS
+            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
+            auto tmp = to_radix_mem_NOT_LAST *
+                       (in.get(C::to_radix_mem_dst_addr_shift) - (in.get(C::to_radix_mem_dst_addr) + FF(1)));
+            tmp *= scaling_factor;
+            std::get<26>(evals) += typename Accumulator::View(tmp);
+        }
+        { // LAST_ROW_VALID_COMPUTATION
+            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
+            auto tmp = to_radix_mem_SEL_NO_ERR * (FF(1) - in.get(C::to_radix_mem_sel_num_limbs_is_zero)) *
                        ((to_radix_mem_NUM_LIMBS_MINUS_ONE *
                              (in.get(C::to_radix_mem_last) * (FF(1) - in.get(C::to_radix_mem_num_limbs_minus_one_inv)) +
                               in.get(C::to_radix_mem_num_limbs_minus_one_inv)) -
                          FF(1)) +
                         in.get(C::to_radix_mem_last));
             tmp *= scaling_factor;
-            std::get<20>(evals) += typename Accumulator::View(tmp);
+            std::get<27>(evals) += typename Accumulator::View(tmp);
+        }
+        { // LAST_ROW_NUM_LIMBS_ZERO
+            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            auto tmp = in.get(C::to_radix_mem_sel) * in.get(C::to_radix_mem_sel_num_limbs_is_zero) *
+                       (in.get(C::to_radix_mem_last) - FF(1));
+            tmp *= scaling_factor;
+            std::get<28>(evals) += typename Accumulator::View(tmp);
         }
         { // LAST_ROW_ERR_COMPUTATION
-            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::to_radix_mem_sel) * in.get(C::to_radix_mem_err) * (in.get(C::to_radix_mem_last) - FF(1));
+            using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
+            auto tmp = in.get(C::to_radix_mem_sel) * in.get(C::to_radix_mem_err) *
+                       (FF(1) - in.get(C::to_radix_mem_sel_num_limbs_is_zero)) * (in.get(C::to_radix_mem_last) - FF(1));
             tmp *= scaling_factor;
-            std::get<21>(evals) += typename Accumulator::View(tmp);
+            std::get<29>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
             auto tmp = (in.get(C::to_radix_mem_sel_should_exec) -
-                        in.get(C::to_radix_mem_sel) * (FF(1) - in.get(C::to_radix_mem_err)));
+                        in.get(C::to_radix_mem_sel) * (FF(1) - in.get(C::to_radix_mem_err)) *
+                            (FF(1) - in.get(C::to_radix_mem_sel_num_limbs_is_zero)));
             tmp *= scaling_factor;
-            std::get<22>(evals) += typename Accumulator::View(tmp);
+            std::get<30>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
             auto tmp = (in.get(C::to_radix_mem_limb_index_to_lookup) -
                         in.get(C::to_radix_mem_sel_should_exec) * (in.get(C::to_radix_mem_num_limbs) - FF(1)));
             tmp *= scaling_factor;
-            std::get<23>(evals) += typename Accumulator::View(tmp);
+            std::get<31>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
             auto tmp = (in.get(C::to_radix_mem_output_tag) -
                         in.get(C::to_radix_mem_sel_should_exec) *
                             ((constants_MEM_TAG_U1 - constants_MEM_TAG_U8) * in.get(C::to_radix_mem_is_output_bits) +
                              constants_MEM_TAG_U8));
             tmp *= scaling_factor;
-            std::get<24>(evals) += typename Accumulator::View(tmp);
+            std::get<32>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -244,12 +313,20 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
         case 9:
             return "IS_OUTPUT_BITS_CONTINUITY";
         case 18:
-            return "DECR_NUM_LIMBS";
-        case 19:
-            return "INCR_DST_ADDRESS";
+            return "IS_OUTPUT_BITS_IMPLY_RADIX_2";
         case 20:
+            return "ZERO_CHECK_NUM_LIMBS";
+        case 22:
+            return "ZERO_CHECK_VALUE";
+        case 25:
+            return "DECR_NUM_LIMBS";
+        case 26:
+            return "INCR_DST_ADDRESS";
+        case 27:
             return "LAST_ROW_VALID_COMPUTATION";
-        case 21:
+        case 28:
+            return "LAST_ROW_NUM_LIMBS_ZERO";
+        case 29:
             return "LAST_ROW_ERR_COMPUTATION";
         }
         return std::to_string(index);
@@ -264,10 +341,14 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     static constexpr size_t SR_VALUE_CONTNUITY = 7;
     static constexpr size_t SR_RADIX_CONTINUITY = 8;
     static constexpr size_t SR_IS_OUTPUT_BITS_CONTINUITY = 9;
-    static constexpr size_t SR_DECR_NUM_LIMBS = 18;
-    static constexpr size_t SR_INCR_DST_ADDRESS = 19;
-    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 20;
-    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 21;
+    static constexpr size_t SR_IS_OUTPUT_BITS_IMPLY_RADIX_2 = 18;
+    static constexpr size_t SR_ZERO_CHECK_NUM_LIMBS = 20;
+    static constexpr size_t SR_ZERO_CHECK_VALUE = 22;
+    static constexpr size_t SR_DECR_NUM_LIMBS = 25;
+    static constexpr size_t SR_INCR_DST_ADDRESS = 26;
+    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 27;
+    static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 28;
+    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 29;
 };
 
 } // namespace bb::avm2
