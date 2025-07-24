@@ -2,12 +2,13 @@ import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
-import { type Abi, createPublicClient, http } from 'viem';
+import { type Abi, TransactionNotFoundError, createPublicClient, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -605,15 +606,22 @@ describe('L1TxUtils', () => {
       await expect(monitorPromise).rejects.toThrow('timed out');
 
       // Wait for cancellation tx to be sent
-      await sleep(100);
+      await sleep(500);
 
       // Get the nonce that was used
       const nonce = initialTx.nonce;
 
       // Get pending transactions
-      const pendingBlock = await l1Client.getBlock({ blockTag: 'pending' });
-      const pendingTxHash = pendingBlock.transactions[0];
-      const cancelTx = await l1Client.getTransaction({ hash: pendingTxHash });
+      const cancelTx = await retryUntil(
+        async () => {
+          const pendingBlock = await l1Client.getBlock({ blockTag: 'pending' });
+          const pendingTxHash = pendingBlock.transactions[0];
+          return pendingTxHash && l1Client.getTransaction({ hash: pendingTxHash }).catch(() => undefined);
+        },
+        'get cancel tx',
+        5,
+        0.1,
+      );
 
       // Verify cancellation tx
       expect(cancelTx).toBeDefined();
@@ -630,8 +638,8 @@ describe('L1TxUtils', () => {
       await cheatCodes.evmMine();
 
       // Verify the original transaction is no longer present
-      await expect(l1Client.getTransaction({ hash: txHash })).rejects.toThrow();
-    }, 10_000);
+      await expect(l1Client.getTransaction({ hash: txHash })).rejects.toThrow(TransactionNotFoundError);
+    }, 20_000);
 
     it('does not attempt to cancel a timed out tx when cancelTxOnTimeout is false', async () => {
       const request = {
