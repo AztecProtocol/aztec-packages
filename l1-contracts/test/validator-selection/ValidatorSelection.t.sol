@@ -3,6 +3,7 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
+import {Strings} from "@oz/utils/Strings.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
   Signature,
@@ -36,6 +37,10 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
+
+import {
+  BlockLog, PublicInputArgs, SubmitEpochRootProofArgs
+} from "@aztec/core/interfaces/IRollup.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -207,6 +212,34 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function testHappyPath() public setup(4, 4) progressEpochs(2) {
     _testBlock("mixed_block_1", NO_REVERT, 3, 4, NO_FLAGS);
     _testBlock("mixed_block_2", NO_REVERT, 3, 4, NO_FLAGS);
+  }
+
+  function testProveWithAttestations() public setup(4, 4) progressEpochs(2) {
+    _testBlock("mixed_block_1", NO_REVERT, 3, 4, NO_FLAGS);
+    ProposeTestData memory ree2 = _testBlock("mixed_block_2", NO_REVERT, 3, 4, NO_FLAGS);
+    uint256 blockNumber = rollup.getPendingBlockNumber();
+
+    _proveBlocks(
+      "mixed_block_",
+      blockNumber - 1,
+      blockNumber,
+      SignatureLib.packAttestations(ree2.attestations),
+      NO_REVERT
+    );
+  }
+
+  function testProveFailWithoutCorrectAttestations() public setup(4, 4) progressEpochs(2) {
+    ProposeTestData memory ree1 = _testBlock("mixed_block_1", NO_REVERT, 3, 4, NO_FLAGS);
+    _testBlock("mixed_block_2", NO_REVERT, 3, 4, NO_FLAGS);
+    uint256 blockNumber = rollup.getPendingBlockNumber();
+
+    _proveBlocks(
+      "mixed_block_",
+      blockNumber - 1,
+      blockNumber,
+      SignatureLib.packAttestations(ree1.attestations),
+      Errors.Rollup__InvalidAttestations.selector
+    );
   }
 
   function testCannotInvalidateProperProposal() public setup(4, 4) progressEpochs(2) {
@@ -565,6 +598,51 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
       );
     }
+  }
+
+  function _proveBlocks(
+    string memory _name,
+    uint256 _start,
+    uint256 _end,
+    CommitteeAttestations memory _attestations,
+    bytes4 _revertData
+  ) internal {
+    // Logic is mostly duplicated from RollupBase._proveBlocks
+    DecoderBase.Full memory startFull = load(string.concat(_name, Strings.toString(_start)));
+    DecoderBase.Full memory endFull = load(string.concat(_name, Strings.toString(_end)));
+
+    uint256 startBlockNumber = uint256(startFull.block.blockNumber);
+    uint256 endBlockNumber = uint256(endFull.block.blockNumber);
+
+    assertEq(startBlockNumber, _start, "Invalid start block number");
+    assertEq(endBlockNumber, _end, "Invalid end block number");
+
+    BlockLog memory parentBlockLog = rollup.getBlock(startBlockNumber - 1);
+    address prover = address(0xcafe);
+
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: parentBlockLog.archive,
+      endArchive: endFull.block.archive,
+      proverId: prover
+    });
+
+    bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+
+    if (_revertData != NO_REVERT) {
+      vm.expectPartialRevert(_revertData);
+    }
+
+    rollup.submitEpochRootProof(
+      SubmitEpochRootProofArgs({
+        start: startBlockNumber,
+        end: endBlockNumber,
+        args: args,
+        fees: fees,
+        attestations: _attestations,
+        blobInputs: endFull.block.batchedBlobInputs,
+        proof: ""
+      })
+    );
   }
 
   function _createAttestation(address _signer, bytes32 _digest)
