@@ -87,7 +87,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  *
- * @return Pair of PairingPoints for final verification and commitments to the merged table as read from the proof by
+ * @return Pair of PairingPoints for final verification and commitments to the merged tables as read from the proof by
  * the Merge verifier
  */
 std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::

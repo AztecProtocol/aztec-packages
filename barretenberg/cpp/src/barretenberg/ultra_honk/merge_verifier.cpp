@@ -57,8 +57,8 @@ MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr
  * @param proof
  * @param t_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
  * by the PG verifier with which the Merge verifier shares a transcript
- * @return std::pair<bool, TableCommitments> Pair of verification result and the commitment to the merged table as read
- * from the proof
+ * @return std::pair<bool, TableCommitments> Pair of verification result and the commitments to the merged tables as
+ * read from the proof
  */
 std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_proof(
     const HonkProof& proof, const TableCommitments& t_commitments)

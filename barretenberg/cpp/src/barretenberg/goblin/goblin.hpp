@@ -97,7 +97,7 @@ class Goblin {
      * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the
      * transcript by the PG verifier with which the Merge verifier shares a transcript
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
-     * @return Pair of PairingPoints and commitments to the merged table as read from the proof by the Merge verifier
+     * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
     std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
         MegaBuilder& builder,
@@ -113,7 +113,7 @@ class Goblin {
      * @param merged_table_commitment The commitment to the merged table as read from the proof
      * @param transcript
      *
-     * @return Pair of verification result and commitments to the merged table as read from the proof by the Merge
+     * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
      * verifier
      */
     static std::pair<bool, TableCommitments> verify(const GoblinProof& proof,

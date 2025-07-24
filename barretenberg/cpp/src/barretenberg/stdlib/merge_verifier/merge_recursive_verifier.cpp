@@ -65,7 +65,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @param t_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
  * by the PG verifier with which the Merge verifier shares a transcript
  * @return std::pair<PairingPoints, TableCommitments> Pair of the pairing inputs for final verification and the
- * commitment to the merged table as read from the proof
+ * commitments to the merged tables as read from the proof
  */
 template <typename CircuitBuilder>
 std::pair<typename MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints,

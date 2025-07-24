@@ -85,11 +85,11 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
     MergeRecursiveVerifier merge_verifier{ &builder, MergeSettings::PREPEND, transcript };
-    auto [pairing_points, merge_table_commitments] = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
+    auto [pairing_points, merged_table_commitments] = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
-    return { pairing_points, merge_table_commitments };
+    return { pairing_points, merged_table_commitments };
 }
 
 std::pair<bool, Goblin::TableCommitments> Goblin::verify(const GoblinProof& proof,

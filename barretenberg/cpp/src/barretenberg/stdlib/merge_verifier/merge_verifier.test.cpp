@@ -99,7 +99,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         RecursiveMergeVerifier verifier{ &outer_circuit, settings };
         verifier.transcript->enable_manifest();
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        auto [pairing_points, recursive_T_commitments] =
+        auto [pairing_points, recursive_merged_table_commitments] =
             verifier.verify_proof(stdlib_merge_proof, recursive_t_commitments);
 
         // Check for a failure flag in the recursive verifier circuit
@@ -109,7 +109,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         // verifier and check that the result agrees.
         MergeVerifier native_verifier{ settings };
         native_verifier.transcript->enable_manifest();
-        auto [verified_native, T_commitments] = native_verifier.verify_proof(merge_proof, t_commitments);
+        auto [verified_native, merged_table_commitments] = native_verifier.verify_proof(merge_proof, t_commitments);
         VerifierCommitmentKey pcs_verification_key;
         bool verified_recursive =
             pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
