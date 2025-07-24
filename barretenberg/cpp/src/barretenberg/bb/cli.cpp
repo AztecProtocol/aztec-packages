@@ -325,7 +325,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(check);
     add_witness_path_option(check);
     add_ivc_inputs_path_options(check);
-    check->add_flag("--fix", flags.fix, "Fix precomputed VKs by overwriting them in the ivc-inputs file");
+    add_update_inputs_flag(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -728,7 +728,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-                return api.check_precomputed_vks(ivc_inputs_path, flags.fix) ? 0 : 1;
+                return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {

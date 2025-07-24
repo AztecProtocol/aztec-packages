@@ -14,21 +14,8 @@ cd ..
 pinned_short_hash="20e6f0d0"
 pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-${pinned_short_hash}.tar.gz"
 
-export inputs_tmp_dir=$(mktemp -d)
-trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
-
-# For easily rerunning the inputs generation
-if [[ "${1:-}" == "--update_inputs" ]]; then
-    set -eu
-    echo "Updating pinned IVC inputs..."
-
-    # 1) Generate new inputs
-    echo "Running bootstrap to generate new IVC inputs..."
-
-    ../../bootstrap.sh # bootstrap aztec-packages from root
-    ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
-
-    # 2) Compress the results
+function compress_and_upload {
+    # 1) Compress the results
     echo "Compressing the generated inputs..."
     tar -czf bb-civc-inputs.tar.gz -C $1 .
 

@@ -5,8 +5,8 @@ on:
     branches:
       - next
   workflow_dispatch:
-    inputs:
-      commit:
+    inputs: 
+      commit: 
         description: "Git commit SHA to build (leave empty for latest)"
         required: false
         default: ""
@@ -32,6 +32,8 @@ jobs:
         with:
           context: container-builds/fuzzing-container/src/
           push: true
-          tags: ghcr.io/aztecprotocol/fuzzing-container:latest
+          tags: |
+            ghcr.io/aztecprotocol/fuzzing-container:latest
+            ghcr.io/aztecprotocol/fuzzing-container:${{ github.sha }}
           build-args: |
-            COMMIT=${{ github.event.inputs.commit || 'latest' }}
+            COMMIT=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit || github.sha }}

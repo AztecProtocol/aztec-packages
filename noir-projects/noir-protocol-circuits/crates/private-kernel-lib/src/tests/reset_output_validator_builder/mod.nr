@@ -69,7 +69,7 @@ impl ResetOutputValidatorBuilder {
             note_hash_read_request_hints_builder,
             nullifier_read_request_hints_builder,
             key_validation_hints,
-            transient_data_index_hints,
+            transient_data_squashing_hints,
             pending_note_hash_read_amount: 0,
             settled_note_hash_read_amount: 0,
             pending_nullifier_read_amount: 0,

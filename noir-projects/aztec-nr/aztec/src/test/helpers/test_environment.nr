@@ -211,6 +211,20 @@ impl TestEnvironment {
         ret_value
     }
 
+    pub unconstrained fn utility_context_at<Env, T>(
+        &mut self,
+        addr: AztecAddress,
+        f: fn[Env](UtilityContext) -> T,
+    ) -> T {
+        // temporary hack until we reimplement the utility context oracle and have it take this as a param
+        let pre = txe_oracles::get_contract_address();
+        txe_oracles::set_contract_address(addr);
+        let ret = self.utility_context(f);
+        txe_oracles::set_contract_address(pre);
+
+        ret
+    }
+
     /// Returns the number of the next block to be built.
     pub unconstrained fn next_block_number(_self: Self) -> u32 {
         get_block_number()

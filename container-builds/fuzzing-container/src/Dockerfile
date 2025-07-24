@@ -6,21 +6,16 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Create user
-RUN userdel -r ubuntu && useradd -m fuzzer -G sudo
+RUN useradd -m fuzzer -G sudo
 WORKDIR /home/fuzzer
 
-# Build argument for commit
+# Build arguemnt to avoid layer caching
 ARG COMMIT=latest
 
-# Check whether the version of barretenberg is fresh
-ADD https://api.github.com/repos/AztecProtocol/aztec-packages/commits?path=barretenberg version.json
-
-# Clone repo
 RUN git clone https://github.com/AztecProtocol/aztec-packages.git && \
-    cd aztec-packages && \
-    if [ "$COMMIT" != "latest" ]; then \
-        git checkout $COMMIT; \
+    cd aztec-packages &&                                             \
+    if [ "$COMMIT" != "latest" ]; then                               \
+        git checkout $COMMIT || exit 1;                              \
     fi
 
 # Download crs
