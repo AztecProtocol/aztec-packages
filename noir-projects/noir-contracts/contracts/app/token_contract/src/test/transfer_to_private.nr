@@ -35,7 +35,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         .return_value;
 
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         owner,
         Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
     );
@@ -60,7 +60,7 @@ unconstrained fn transfer_to_private_from_private_external_orchestration() {
         )
         .return_value;
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         owner,
         Token::at(token_contract_address).finalize_transfer_to_private_from_private(
             owner,
@@ -85,7 +85,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     let partial_uint_note = PartialUintNote { commitment: random() };
 
     // Try finalizing the transfer without preparing it
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         owner,
         Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
     );
@@ -108,7 +108,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
         .return_value;
 
     // Try transferring someone else's token balance
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         not_owner,
         Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
     );
@@ -133,7 +133,7 @@ unconstrained fn incorrect_completer_cannot_complete_partial_note() {
 
     // Now we try to complete the partial note as another completer. Note that the caller here owns the tokens - this is
     // so that we pass the balance check and fail on the partial note completer check.
-    let _ = env.call_public_void(
+    let _ = env.call_public(
         owner,
         Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
     );

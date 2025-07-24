@@ -65,7 +65,7 @@ export abstract class BaseContractInteraction {
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
       this.wallet,
-      txProvingResult.toTx(),
+      await txProvingResult.toTx(),
       txProvingResult.getOffchainEffects(),
       txProvingResult.stats,
     );
@@ -85,7 +85,7 @@ export abstract class BaseContractInteraction {
     // docs:end:send
     const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
-      return this.wallet.sendTx(txProvingResult.toTx());
+      return this.wallet.sendTx(await txProvingResult.toTx());
     };
     return new SentTx(this.wallet, sendTx);
   }

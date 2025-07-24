@@ -45,8 +45,9 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
+    uint32_t pg_final_type = static_cast<uint32_t>(PROOF_TYPE::PG_FINAL);
 
-    // There are only three valid combinations of IVC recursion constraints for Aztec kernel circuits:
+    // There is a fixed set of valid combinations of IVC recursion constraints for Aztec kernel circuits:
 
     // Case: INIT kernel; single Oink recursive verification of an app
     if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
@@ -68,6 +69,18 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
         ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
+        return ivc;
+    }
+
+    // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
+    if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
+        ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): We need to set the log circuit size here due
+        // to an invalid out of circuit max operation in the PG recursive verifier. Once that is resolved this should
+        // not be necessary.
+        ivc->verifier_accumulator->vk->log_circuit_size = 18;
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -103,8 +116,10 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     std::vector<FF> proof;
     if (verification_type == ClientIVC::QUEUE_TYPE::OINK) {
         proof = create_mock_oink_proof<ClientIVC::Flavor>(num_public_inputs);
-    } else { // ClientIVC::QUEUE_TYPE::PG)
+    } else if (verification_type == ClientIVC::QUEUE_TYPE::PG || verification_type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
         proof = create_mock_pg_proof<ClientIVC::Flavor>(num_public_inputs);
+    } else {
+        throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
     }
 
     // Construct a mock MegaHonk verification key
@@ -127,6 +142,12 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
+    // If the type is PG_FINAL, we also need to populate the ivc instance with a mock decider proof
+    if (type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
+        // we have to create a mock honk vk
+        ivc->honk_vk = entry.honk_vk;
+        ivc->decider_proof = acir_format::create_mock_decider_proof<ClientIVC::Flavor>();
+    }
     ivc->num_circuits_accumulated++;
 }
 

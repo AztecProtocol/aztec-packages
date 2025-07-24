@@ -269,7 +269,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {
     const txProvingResult = await this.proveInternal(options);
-    return new DeployProvenTx(
+    return await DeployProvenTx.fromProvingResult(
       this.wallet,
       txProvingResult,
       this.postDeployCtor,

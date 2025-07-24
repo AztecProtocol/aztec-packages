@@ -27,7 +27,7 @@ import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {Slasher} from "@aztec/core/slashing/Slasher.sol";
+import {ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -86,7 +86,14 @@ contract RollupCore is
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-    Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
+    ISlasher slasher = ExtRollupLib2.deploySlasher(
+      _config.slashingQuorum,
+      _config.slashingRoundSize,
+      _config.slashingLifetimeInRounds,
+      _config.slashingExecutionDelayInRounds,
+      _config.slashingVetoer
+    );
+
     StakingLib.initialize(
       _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig
     );

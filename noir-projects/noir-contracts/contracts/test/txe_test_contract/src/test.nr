@@ -42,7 +42,7 @@ unconstrained fn new_calling_flow_increment_self_and_other() {
         env.deploy_self("TXETest").with_private_initializer(owner, initializer2);
     let contract_address2 = counter_contract2.to_address();
 
-    let _ = env.call_private_void(
+    let _ = env.call_private(
         owner,
         TXETest::at(contract_address).increment_self_and_other(contract_address2, owner),
     );
@@ -80,7 +80,7 @@ unconstrained fn new_calling_flow_increment_with_new_call_flow() {
     let initial_value: u64 = 2;
     let (mut env, contract_address, owner) = setup(initial_value);
 
-    let _ = env.call_private_void(owner, TXETest::at(contract_address).increment(owner));
+    let _ = env.call_private(owner, TXETest::at(contract_address).increment(owner));
 
     env.impersonate(contract_address);
 

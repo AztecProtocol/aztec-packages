@@ -340,7 +340,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       watchers,
       dateProvider,
     );
-    slasherClient.start();
+    await slasherClient.start();
 
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
@@ -587,7 +587,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   async #sendTx(tx: Tx) {
     const timer = new Timer();
-    const txHash = (await tx.getTxHash()).toString();
+    const txHash = tx.getTxHash().toString();
 
     const valid = await this.isValidTx(tx);
     if (valid.result !== 'valid') {
@@ -978,8 +978,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
-  @trackSpan('AztecNodeService.simulatePublicCalls', async (tx: Tx) => ({
-    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
+  @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
     // Check total gas limit for simulation
@@ -996,7 +996,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
     }
 
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
