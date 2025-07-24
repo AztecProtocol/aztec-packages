@@ -73,7 +73,7 @@ export -f check_circuit_vks
 ls "$inputs_tmp_dir"
 
 if [[ "${1:-}" == "--update_fast" ]]; then
-  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") ||  compress_and_upload $inputs_tmp_dir
+  parallel -v --line-buffer --tag check_circuit_vks {} --update_inputs ::: $(ls "$inputs_tmp_dir") && echo "No VK changes detected" || compress_and_upload $inputs_tmp_dir
 else
-  parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir")
+  parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir") && echo "No VK changes detected"
 fi
