@@ -4,16 +4,18 @@ pragma solidity ^0.8.27;
 // WORKTODO: could we have two versions of the verifier, one which has rolled loops and one which
 // unrolls loops?? - analogous with aggressive inlining
 
-import {IVerifier} from "../../interfaces/IVerifier.sol";
-import {
-    CONST_PROOF_SIZE_LOG_N,
-    NUMBER_OF_SUBRELATIONS,
-    BATCHED_RELATION_PARTIAL_LENGTH,
-    NUMBER_OF_ENTITIES,
-    NUMBER_UNSHIFTED,
-    NUMBER_TO_BE_SHIFTED,
-    NUMBER_OF_ALPHAS
-} from "../HonkTypes.sol";
+
+interface IVerifier {
+    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
+}
+
+uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
+uint256 constant NUMBER_OF_SUBRELATIONS = 27;
+uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
+uint256 constant NUMBER_OF_ENTITIES = 40;
+uint256 constant NUMBER_UNSHIFTED = 35;
+uint256 constant NUMBER_TO_BE_SHIFTED = 5;
+uint256 constant NUMBER_OF_ALPHAS = 26;
 
 // Log_N for this particular circuit is 15, used in sumcheck
 uint256 constant LOG_N = 15;
@@ -2957,10 +2959,9 @@ contract BlakeOptHonkVerifier is IVerifier {
 
             let accumulator := mload(GEMINI_R_CHALLENGE)
             // Add series of challenge power to accumulator
-            let amount := 16
             let temp := LATER_SCRATCH_SPACE // store intermediates in scratch space - using 0x00-0xa0 for result of modexp precompile
             let challenge_power_loc := sub(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC, 0x20) // should be constant
-            for {let i := 0} lt(i, sub(amount, 1)) {i := add(i,1)} {
+            for {let i := 0} lt(i, LOG_N) {i := add(i,1)} {
 
                 // Clean up the presetting of these values
                 temp := add(temp, 0x20) // add immediately
@@ -3025,7 +3026,7 @@ contract BlakeOptHonkVerifier is IVerifier {
             }
 
             // Accumulate results
-            for {let i := sub(amount, 1)} gt(i, 0) {i := sub(i, 1)} {
+            for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
                 let tmp := mulmod(accumulator, mload(temp), p)
                 accumulator := mulmod(accumulator, mload(challenge_power_loc), p)
                 mstore(challenge_power_loc, tmp)
