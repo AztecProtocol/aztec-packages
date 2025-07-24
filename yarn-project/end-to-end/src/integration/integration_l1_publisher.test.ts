@@ -568,7 +568,7 @@ describe('L1Publisher integration', () => {
         block.header.globalVariables.timestamp,
         SignalType.SLASHING,
         EthAddress.random(),
-        (_payload: `0x${string}`) => Promise.resolve(Signature.random().toString()),
+        _payload => Promise.resolve(Signature.random().toString()),
       );
 
       const result = await publisher.sendRequests();
