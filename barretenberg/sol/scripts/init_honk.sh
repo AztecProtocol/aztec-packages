@@ -8,3 +8,4 @@ mkdir -p './src/honk/keys'
 ../cpp/build/bin/honk_solidity_key_gen add2 $OUTPUT_PATH $SRS_PATH
 ../cpp/build/bin/honk_solidity_key_gen blake $OUTPUT_PATH $SRS_PATH
 ../cpp/build/bin/honk_solidity_key_gen ecdsa $OUTPUT_PATH $SRS_PATH
+../cpp/build/bin/honk_solidity_key_gen recursive $OUTPUT_PATH $SRS_PATH
