@@ -178,6 +178,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Invalid out of circuit max operation
     FF accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
     accumulator->vk_and_hash->vk->log_circuit_size = accumulator_log_circuit_size;
 
