@@ -89,6 +89,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         inputs.reconstruct_from_public(public_inputs);
         output.points_accumulator = inputs.pairing_inputs;
         output.ipa_claim = inputs.ipa_claim;
+    } else if constexpr (IsMegaFlavor<Flavor>) {
+        DefaultIO<Builder> inputs; // will be HidingKernelIO
+        inputs.reconstruct_from_public(public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+        // output.ecc_op_tables = inputs.ecc_op_tables;
     } else {
         DefaultIO<Builder> inputs; // pairing points
         inputs.reconstruct_from_public(public_inputs);

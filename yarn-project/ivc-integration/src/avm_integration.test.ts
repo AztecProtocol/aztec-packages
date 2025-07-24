@@ -1,8 +1,8 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import {
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   TUBE_PROOF_LENGTH,
+  ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -56,10 +56,7 @@ async function proveMockPublicBaseRollup(
     tube_data: {
       public_inputs: clientIVCPublicInputs,
       proof: mapRecursiveProofToNoir(tubeProof.proof),
-      vk_data: mapVerificationKeyToNoir(
-        tubeProof.verificationKey.keyAsFields,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-      ),
+      vk_data: mapVerificationKeyToNoir(tubeProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
     },
     verification_key: mapVerificationKeyToNoir(vk, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
     proof: mapAvmProofToNoir(proof),

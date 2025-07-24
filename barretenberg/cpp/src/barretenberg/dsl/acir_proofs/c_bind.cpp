@@ -76,7 +76,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
 
     MegaVerifier verifier{ verification_key };
 
-    *result = verifier.verify_proof(proof);
+    *result = std::get<0>(verifier.verify_proof(proof));
 }
 
 WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)

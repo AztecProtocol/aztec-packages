@@ -317,17 +317,17 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
 /**
  * @brief Structuring tailored to the full e2e TS test (Currently optimized for five key testnet transactions)
  */
-static constexpr TraceStructure AZTEC_TRACE_STRUCTURE{ .ecc_op = 1 << 10,
-                                                       .busread = 6000,
-                                                       .lookup = 15000,
-                                                       .pub_inputs = 5000,
-                                                       .arithmetic = 56000,
+static constexpr TraceStructure AZTEC_TRACE_STRUCTURE{ .ecc_op = 1000,
+                                                       .busread = 3000,
+                                                       .lookup = 13000,
+                                                       .pub_inputs = 2000,
+                                                       .arithmetic = 59000,
                                                        .delta_range = 18000,
-                                                       .elliptic = 6000,
-                                                       .memory = 26000,
-                                                       .nnf = 20000,
+                                                       .elliptic = 6500,
+                                                       .memory = 25000,
+                                                       .nnf = 19000,
                                                        .poseidon2_external = 17000,
-                                                       .poseidon2_internal = 92000,
+                                                       .poseidon2_internal = 96500,
                                                        .overflow = 0 };
 
 template <typename T>

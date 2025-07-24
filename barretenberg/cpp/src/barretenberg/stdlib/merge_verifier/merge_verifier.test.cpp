@@ -56,8 +56,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
             break;
         case TamperProofMode::MCommitment: {
             // Tamper with the commitment in the proof
-            Commitment m_commitment = bb::field_conversion::convert_from_bn254_frs<Commitment>(
-                std::span{ merge_proof }.subspan(m_commitment_idx, 4));
+            Commitment m_commitment =
+                bb::field_conversion::convert_from_bn254_frs<Commitment>(std::span{ merge_proof }.subspan(
+                    m_commitment_idx, bb::field_conversion::calc_num_bn254_frs<Commitment>()));
             m_commitment = m_commitment + Commitment::one();
             auto m_commitment_frs = bb::field_conversion::convert_to_bn254_frs<Commitment>(m_commitment);
             for (size_t idx = 0; idx < 4; ++idx) {

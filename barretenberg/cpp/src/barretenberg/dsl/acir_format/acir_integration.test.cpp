@@ -75,7 +75,11 @@ class AcirIntegrationTest : public ::testing::Test {
 
         // Verify Honk proof
         Verifier verifier{ verification_key };
-        return verifier.verify_proof(proof);
+        if constexpr (IsUltraHonk<Flavor>) {
+            return verifier.verify_proof(proof);
+        } else {
+            return std::get<0>(verifier.verify_proof(proof));
+        }
     }
 
     void add_some_simple_RAM_gates(auto& circuit)

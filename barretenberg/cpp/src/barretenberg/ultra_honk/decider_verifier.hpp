@@ -22,6 +22,7 @@ template <typename Flavor> class DeciderVerifier_ {
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using DeciderProof = std::vector<FF>;
 
+  public:
     struct Output {
         bool sumcheck_verified;
         bool libra_evals_verified;
@@ -37,7 +38,6 @@ template <typename Flavor> class DeciderVerifier_ {
         }
     };
 
-  public:
     explicit DeciderVerifier_();
     /**
      * @brief Constructor from a verification key and a transcript assumed to be initialized with a full Honk proof

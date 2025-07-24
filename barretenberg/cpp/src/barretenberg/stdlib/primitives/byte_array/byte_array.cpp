@@ -6,16 +6,12 @@
 
 #include "byte_array.hpp"
 
-#include <bitset>
-
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/common/assert.hpp"
 
 using namespace bb;
 
 namespace bb::stdlib {
-
-// ULTRA: Further merging with
 
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context)
@@ -26,11 +22,6 @@ template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, const size_t n)
     : context(parent_context)
     , values(std::vector<field_t<Builder>>(n))
-{}
-
-template <typename Builder>
-byte_array<Builder>::byte_array(Builder* parent_context, const std::string& input)
-    : byte_array(parent_context, std::vector<uint8_t>(input.begin(), input.end()))
 {}
 
 /**
@@ -44,133 +35,160 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
     : context(parent_context)
     , values(input.size())
 {
+    ASSERT(context);
     for (size_t i = 0; i < input.size(); ++i) {
         uint8_t c = input[i];
-        field_t<Builder> value(witness_t(context, (uint64_t)c));
+        field_t<Builder> value(witness_t(context, c));
         value.create_range_constraint(8, "byte_array: vector entry larger than 1 byte.");
         values[i] = value;
     }
     set_free_witness_tag();
 }
+/**
+ * @brief Create a byte array out of a std::string object by decomposing the latter into a vector of bytes and feeding
+ * it into the constructor above.
+ * @warning This constructor will instantiate each byte as a circuit witness, NOT a circuit constant.
+ * Do not use this method if the input needs to be hardcoded for a specific circuit
+ */
+template <typename Builder>
+byte_array<Builder>::byte_array(Builder* parent_context, const std::string& input)
+    : byte_array(parent_context, std::vector<uint8_t>(input.begin(), input.end()))
+{}
 
 /**
- * @brief Create a byte_array out of a field element.
+ * @brief Create a byte_array of length `num_bytes` out of a field element.
  *
  * @details The length of the byte array will default to 32 bytes, but shorter lengths can be specified.
  * If a shorter length is used, the circuit will NOT truncate the input to fit the reduced length.
  * Instead, the circuit adds constraints that VALIDATE the input is smaller than the specified length
- *
  * e.g. if this constructor is used on a 16-bit input witness, where `num_bytes` is 1, the resulting proof will fail.
  *
  *
  * # Description of circuit
  *
  * Our field element is `input`. Say the byte vector provided by the prover consists of bits b0,...,b255. These bits
- * are used to construct the corresponding uint256_t validator := \sum_{i=0}^{8num_bytes-1} 2^{i}b_{i}, and `validator`
- * is copy constrained to be equal to `input`. However, more constraints are needed in general.
+ * are used to construct the corresponding `reconstructed`value
+ *      `reconstructed` = `reconstructed_lo` + `reconstructed_hi`:= \sum_{i=0}^{8num_bytes-1} 2^{i}b_{i},
+ * where `reconstructed_lo` is a field element representing the low 16 bytes of `input`, and `reconstructed_hi` is the
+ * high 16-bit limb shifted by 2^128.
+ * `reconstructed` is copy constrained to be equal to `input`. However, more constraints are needed
+ * in general.
  *
  * Let r = bb::fr::modulus. For later applications, we want to ensure that the prover must pass the bit
  * decomposition of the standard representative of the mod r residue class containing `input`, which is to say that we
- * want to show `validator` lies in [0, ..., r-1]. By the formula for `validator`, we do not have to worry about it
- * wrapping the modulus if num_bytes < 32 or, in the default case, if the `input` fits into 31 bytes.
+ * want to show that the actual integer value of `reconstructed` lies in [0, ..., r-1].
+ * By the formula for `reconstructed`, we do not have to worry about wrapping the modulus if num_bytes < 32 or, in the
+ * default case, if the `input` fits into 31 bytes.
  *
- * Suppose now that num_bytes is 32. We would like to show that r - validator lies > 0 as integers, but this
- * cannot be done inside of uint256_t since `validator` can be any uint256_t, hence its negative is not constrained to
- * lie in any proper subset. We therefore split it and `r-1` into two smaller limbs and make comparisons using range
- * constraints in uint256_t (shifting r to turn a `>` into a `>=`).
+ * Suppose now that num_bytes is 32. We would like to show that r - 1 -  reconstructed >= 0 as integers, but this
+ * cannot be done inside of uint256_t since `reconstructed` value can be any uint256_t, hence its negative is not
+ * constrained to lie in any proper subset. We therefore split it and `r-1` into two smaller limbs and make comparisons
+ * using range constraints in uint256_t.
  *
- * By the construction of `validator`, it is easy to extract its top 16 bytes shifted_high_limb = 2^{128}v_hi, so that
- * one gets a decomposition by computing v_lo := validator - 2^{128}v_hi.  We separate the problem of imposing that
- * validator <= r - 1 into two cases.
+ *  We separate the problem of imposing that reconstructed <= r - 1 into two cases.
  *
- *      Case 0: When s_lo < v_lo, we must impose that v_hi < s_hi, i.e., s_hi - v_hi - 1 >= 0.
- *      Case 1:           >=                               =<            s_hi - v_hi     >= 0.
+ *      Case 0: When s_lo <  reconstructed_lo, we must impose that reconstructed_hi <  s_hi, i.e., s_hi -
+ * reconstructed_hi - 2 > 0. Case 1:      s_lo >= reconstructed_lo, we must impose that reconstructed_hi =< s_hi, i.e.
+ *      s_hi - reconstructed_hi - 1 > 0.
  *
- * To unify these cases, we need a predicate that distinguishes them, and we need to use this to effect a shift of 1 or
- * 0 in v_hi, as the case may be. We build this now. Consider the expression s_lo - v_lo. As an integer, this lies in
- * [-2^128+1, 2^128-1], with Case 0 corresponding to the numbers < 0. Shifting to
- *      y_lo :=  s_lo - v_lo + 2^128,
- * Case 0 corresponds to the range [1, 2^128-1]. We see that the 129th bit of y_lo exactly indicates the case.
- * Extracting this (and the 130th bit, which is always 0, for convenience) and adding it to v_hi, we have a uniform
- * constraint to apply. Namely, setting
- *      y_overlap := 1 - (top quad of y_lo regarded as a 130-bit integer)
- * and
- *      y_hi := s_hi - v_hi - y_overlap,
- * range constrianing y_hi to 128 bits imposes validator < r.
+ * To unify these cases, we introduce a predicate that distinguishes them. Consider the expression
+ *      s_lo - reconstructed_lo
+ * As an integer, it lies in [-2^128+1, 2^128-1], with Case 0 corresponding to the numbers < 0.
+ * Shifting to diff_lo :=  s_lo - reconstructed_lo + 2^128, Case 0 corresponds to the range [1, 2^128-1]. We see that
+ * the 129th bit of diff_lo exactly indicates Case 1. Extracting the 129th bit denoted `diff_lo_hi` and adding it to
+ * reconstructed_hi, we have a uniform constraint to apply. Namely, setting overlap := 1 - diff_overlap_lo_hi and
+ *      diff_hi := s_hi - reconstructed_hi - overlap,
+ * range constraining y_hi to 128 bits imposes validator < r.
  */
-template <typename Builder> byte_array<Builder>::byte_array(const field_t<Builder>& input, const size_t num_bytes)
+template <typename Builder>
+byte_array<Builder>::byte_array(const field_t<Builder>& input,
+                                const size_t num_bytes,
+                                std::optional<uint256_t> test_val)
 {
-    BB_ASSERT_LTE(num_bytes, 32U);
-    uint256_t value = input.get_value();
+    using field_t = field_t<Builder>;
+
+    static constexpr size_t max_num_bytes = 32;
+    static constexpr size_t midpoint = max_num_bytes / 2;
+    constexpr uint256_t one(1);
+
+    BB_ASSERT_LTE(num_bytes, max_num_bytes);
+    // If a test 256-bit is injected, use it to create a byte decomposition.
+    const uint256_t value = test_val.has_value() ? *test_val : static_cast<uint256_t>(input.get_value());
+
     values.resize(num_bytes);
+
+    // To optimize the computation of the reconstructed_hi  and reconstructed_lo, we use the `field_t::accumulate`
+    // method.
+    std::vector<field_t> accumulator_lo;
+    std::vector<field_t> accumulator_hi;
+
     context = input.get_context();
-    if (input.is_constant()) {
-        for (size_t i = 0; i < num_bytes; ++i) {
-            values[i] = bb::fr(value.slice((num_bytes - i - 1) * 8, (num_bytes - i) * 8));
-        }
-    } else {
-        constexpr bb::fr byte_shift(256);
-        field_t<Builder> validator(context, 0);
 
-        field_t<Builder> shifted_high_limb(context, 0); // will be set to 2^128v_hi if `i` reaches 15.
-        for (size_t i = 0; i < num_bytes; ++i) {
-            bb::fr byte_val = value.slice((num_bytes - i - 1) * 8, (num_bytes - i) * 8);
-            field_t<Builder> byte = witness_t(context, byte_val);
-            byte.create_range_constraint(8, "byte_array: byte extraction failed.");
-            bb::fr scaling_factor_value = byte_shift.pow(static_cast<uint64_t>(num_bytes - 1 - i));
-            field_t<Builder> scaling_factor(context, scaling_factor_value);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1082): Addition could be optimized
-            validator = validator + (scaling_factor * byte);
-            values[i] = byte;
-            if (i == 15) {
-                shifted_high_limb = field_t<Builder>(validator);
-            }
-        }
-        validator.assert_equal(input);
+    for (size_t i = 0; i < num_bytes; ++i) {
 
-        // constrain validator to be < r
-        if (num_bytes == 32) {
-            constexpr uint256_t modulus_minus_one = fr::modulus - 1;
-            const fr s_lo = modulus_minus_one.slice(0, 128);
-            const fr s_hi = modulus_minus_one.slice(128, 256);
-            const fr shift = fr(uint256_t(1) << 128);
-            field_t<Builder> y_lo = (-validator) + (s_lo + shift);
+        size_t bit_start = (num_bytes - i - 1) * 8;
+        size_t bit_end = bit_start + 8;
+        const field_t scaling_factor = one << bit_start;
 
-            field_t<Builder> y_overlap;
-            if constexpr (HasPlookup<Builder>) {
-                // carve out the 2 high bits from (y_lo + shifted_high_limb) and instantiate as y_overlap
-                const uint256_t y_lo_value = y_lo.get_value() + shifted_high_limb.get_value();
-                const uint256_t y_overlap_value = y_lo_value >> 128;
-                y_overlap = witness_t<Builder>(context, y_overlap_value);
-                y_overlap.create_range_constraint(2, "byte_array: y_overlap is not a quad");
-                field_t<Builder> y_remainder =
-                    y_lo.add_two(shifted_high_limb, -(y_overlap * field_t<Builder>(uint256_t(1ULL) << 128)));
-                y_remainder.create_range_constraint(128, "byte_array: y_remainder doesn't fit in 128 bits.");
-                y_overlap = -(y_overlap - 1);
-            } else {
-                // defining input_lo = validator - shifted_high_limb, we're checking s_lo + shift - input_lo is
-                // non-negative.
-                y_lo += shifted_high_limb;
-                // The range constraint imposed here already holds implicitly. We only do this to get the top quad.
-                const auto low_accumulators = context->decompose_into_base4_accumulators(
-                    y_lo.normalize().witness_index, 130, "byte_array: normalized y_lo too large.");
-                y_overlap = -(field_t<Builder>::from_witness_index(context, low_accumulators[0]) - 1);
-            }
-            // define input_hi = shifted_high_limb/shift. We know input_hi is max 128 bits, and we're checking
-            // s_hi - (input_hi + borrow) is non-negative
-            field_t<Builder> y_hi = -(shifted_high_limb / shift) + (s_hi);
-            y_hi -= y_overlap;
-            y_hi.create_range_constraint(128, "byte_array: y_hi doesn't fit in 128 bits.");
+        // Extract the current byte
+        const uint256_t byte_val = value.slice(bit_start, bit_end);
+        // Ensure that current `byte_array` element is a witness iff input is a witness and that it is range
+        // constrained.
+        field_t byte = input.is_constant() ? field_t(byte_val) : witness_t(context, byte_val);
+        byte.create_range_constraint(8, "byte_array: byte extraction failed.");
+        values[i] = byte;
+
+        if (i < midpoint) {
+            accumulator_hi.push_back(scaling_factor * byte);
+        } else {
+            accumulator_lo.push_back(scaling_factor * byte);
         }
     }
-    set_origin_tag(input.tag);
-}
 
-template <typename Builder>
-byte_array<Builder>::byte_array(const safe_uint_t<Builder>& input, const size_t num_bytes)
-    : byte_array(input.value, num_bytes)
-{
-    set_origin_tag(input.get_origin_tag());
+    // Reconstruct the high and low limbs of input from the byte decomposition
+    const field_t reconstructed_lo = field_t::accumulate(accumulator_lo);
+    const field_t reconstructed_hi = field_t::accumulate(accumulator_hi);
+    const field_t reconstructed = reconstructed_hi + reconstructed_lo;
+
+    // Ensure that the reconstruction succeeded
+    input.assert_equal(reconstructed);
+
+    // Handle the case when the decomposition is not unique
+    if (num_bytes == 32) {
+        // For a modulus `r`, split `r - 1` into limbs
+        constexpr uint256_t modulus_minus_one = fr::modulus - 1;
+        constexpr uint256_t s_lo = modulus_minus_one.slice(0, 128);
+        constexpr uint256_t s_hi = modulus_minus_one.slice(128, 256);
+        const uint256_t shift = uint256_t(1) << 128;
+
+        // Ensure that `(r - 1).lo + 2 ^ 128 - reconstructed_lo` is a 129 bit integer by slicing it into a 128- and 1-
+        // bit chunks.
+        const field_t diff_lo = -reconstructed_lo + s_lo + shift;
+        const uint256_t diff_lo_value = diff_lo.get_value();
+
+        // Extract the "borrow" bit
+        const uint256_t diff_lo_hi_value = (diff_lo_value >> 128);
+        const field_t diff_lo_hi =
+            input.is_constant() ? field_t(diff_lo_hi_value) : witness_t<Builder>(context, diff_lo_hi_value);
+        diff_lo_hi.create_range_constraint(1, "byte_array: y_overlap is not a bit");
+
+        // Extract first 128 bits of `diff_lo`
+        const uint256_t lo_mask = shift - 1;
+        const uint256_t lo = diff_lo_value & lo_mask;
+        const field_t diff_lo_lo = input.is_constant() ? field_t(lo) : witness_t(context, lo);
+        diff_lo_lo.create_range_constraint(128, "byte_array: y_remainder doesn't fit in 128 bits.");
+
+        // Both chunks were computed out-of-circuit - need to constrain. The range constraints above ensure that
+        // they are not overlapping.
+        diff_lo.assert_equal(diff_lo_lo + diff_lo_hi * shift);
+
+        const field_t overlap = -diff_lo_hi + 1;
+        // Ensure that (r - 1).hi  - reconstructed_hi/shift - overlap is positive.
+        const field_t diff_hi = (-reconstructed_hi / shift).add_two(s_hi, -overlap);
+        diff_hi.create_range_constraint(128, "byte_array: y_hi doesn't fit in 128 bits.");
+    }
+
+    set_origin_tag(input.tag);
 }
 
 template <typename Builder>
@@ -185,17 +203,18 @@ byte_array<Builder>::byte_array(Builder* parent_context, bytes_t&& input)
     , values(input)
 {}
 
-template <typename Builder> byte_array<Builder>::byte_array(const byte_array& other)
+template <typename Builder>
+byte_array<Builder>::byte_array(const byte_array& other)
+    : context(other.context)
 {
-    context = other.context;
     std::copy(other.values.begin(), other.values.end(), std::back_inserter(values));
 }
 
-template <typename Builder> byte_array<Builder>::byte_array(byte_array&& other)
-{
-    context = other.context;
-    values = std::move(other.values);
-}
+template <typename Builder>
+byte_array<Builder>::byte_array(byte_array&& other)
+    : context(other.context)
+    , values(std::move(other.values))
+{}
 
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(const byte_array& other)
 {
@@ -215,32 +234,35 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
 /**
  * @brief Convert a byte array into a field element.
  *
- * @details The byte array is represented as a big integer, that is then converted into a field element.
- * The transformation is only injective if the byte array is < 32 bytes.
- * Larger byte arrays can still be cast to a single field element, but the value will wrap around the circuit
- *modulus
+ * @details The transformation is injective when the size of the byte array is < 32, which covers all the use cases.
  **/
 template <typename Builder> byte_array<Builder>::operator field_t<Builder>() const
 {
     const size_t bytes = values.size();
-    bb::fr shift(256);
-    field_t<Builder> result(context, bb::fr(0));
-    for (size_t i = 0; i < values.size(); ++i) {
-        field_t<Builder> temp(values[i]);
-        bb::fr scaling_factor_value = shift.pow(static_cast<uint64_t>(bytes - 1 - i));
-        field_t<Builder> scaling_factor(values[i].context, scaling_factor_value);
-        result = result + (scaling_factor * temp);
-    }
-    result.set_origin_tag(get_origin_tag());
-    return result.normalize();
-}
+    ASSERT(bytes < 32);
+    static constexpr uint256_t one(1);
+    std::vector<field_t<Builder>> scaled_values;
 
+    for (size_t i = 0; i < bytes; ++i) {
+        const field_t<Builder> scaling_factor(one << (8 * (bytes - i - 1)));
+        scaled_values.push_back(values[i] * scaling_factor);
+    }
+
+    return field_t<Builder>::accumulate(scaled_values);
+}
+/**
+ * @brief Appends the contents of another `byte_array` (`other`) to the end of this one.
+ */
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::write(byte_array const& other)
 {
     values.insert(values.end(), other.bytes().begin(), other.bytes().end());
     return *this;
 }
 
+/**
+ * @brief Overwrites this byte_array starting at index with the contents of other. Asserts that the write does not
+ * exceed the current size.
+ */
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(byte_array const& other, size_t index)
 {
     BB_ASSERT_LTE(index + other.values.size(), values.size());
@@ -250,10 +272,13 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(b
     return *this;
 }
 
+/**
+ * @brief Slice bytes from the byte array starting at `offset`. Does not add any constraints
+ */
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset) const
 {
     BB_ASSERT_LT(offset, values.size());
-    return byte_array(context, bytes_t(values.begin() + (long)(offset), values.end()));
+    return byte_array(context, bytes_t(values.begin() + static_cast<ptrdiff_t>(offset), values.end()));
 }
 
 /**
@@ -265,8 +290,8 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
     BB_ASSERT_LT(offset, values.size());
     // it's <= cause vector constructor doesn't include end point
     BB_ASSERT_LTE(length, values.size() - offset);
-    auto start = values.begin() + (long)(offset);
-    auto end = values.begin() + (long)((offset + length));
+    auto start = values.begin() + static_cast<ptrdiff_t>(offset);
+    auto end = values.begin() + static_cast<ptrdiff_t>((offset + length));
     return byte_array(context, bytes_t(start, end));
 }
 
@@ -283,127 +308,28 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::reverse() c
     return byte_array(context, bytes);
 }
 
+/**
+ * @brief A helper converting a `byte_array` into the vector of its uint8_t values.
+ * @note Used only in tests.
+ */
 template <typename Builder> std::vector<uint8_t> byte_array<Builder>::get_value() const
 {
-    size_t length = values.size();
-    size_t num = (length);
-    std::vector<uint8_t> bytes(num, 0);
+    const size_t length = values.size();
+    std::vector<uint8_t> bytes(length, 0);
     for (size_t i = 0; i < length; ++i) {
-        bytes[i] = static_cast<uint8_t>(uint256_t(values[i].get_value()).data[0]);
+        bytes[i] = static_cast<uint8_t>(values[i].get_value());
     }
     return bytes;
 }
 
+/**
+ * @brief Given a `byte_array`, compute a vector containing the values of its entries and convert it to a string.
+ * @note Used only in tests.
+ */
 template <typename Builder> std::string byte_array<Builder>::get_string() const
 {
     auto v = get_value();
     return std::string(v.begin(), v.end());
-}
-
-/**
- * @brief Extract a bit from the byte array.
- *
- * @details get_bit treats the array as a little-endian integer
- * e.g. get_bit(1) corresponds to the second bit in the last, 'least significant' byte in the array.
- *
- **/
-template <typename Builder> bool_t<Builder> byte_array<Builder>::get_bit(size_t index_reversed) const
-{
-    const size_t index = (values.size() * 8) - index_reversed - 1;
-    const auto slice = split_byte(index);
-
-    return slice.bit;
-}
-
-/**
- * @brief Set a bit in the byte array
- *
- * @details set_bit treats the array as a little-endian integer
- * e.g. set_bit(0) will set the first bit in the last, 'least significant' byte in the array
- *
- * For example, if we have a 64-byte array filled with zeroes, `set_bit(0, true)` will set `values[63]` to 1,
- *              and set_bit(511, true) will set `values[0]` to 128
- *
- * Previously we did not reverse the bit index, but we have modified the behavior to be consistent with `get_bit`
- *
- * The rationale behind reversing the bit index is so that we can more naturally contain integers inside byte arrays
- *and perform bit manipulation
- **/
-template <typename Builder> void byte_array<Builder>::set_bit(size_t index_reversed, bool_t<Builder> const& new_bit)
-{
-    const size_t index = (values.size() * 8) - index_reversed - 1;
-    const auto slice = split_byte(index);
-    const size_t byte_index = index / 8UL;
-    const size_t bit_index = 7UL - (index % 8UL);
-
-    field_t<Builder> scaled_new_bit = field_t<Builder>(new_bit) * bb::fr(uint256_t(1) << bit_index);
-    scaled_new_bit.set_origin_tag(new_bit.get_origin_tag());
-    const auto new_value = slice.low.add_two(slice.high, scaled_new_bit).normalize();
-    values[byte_index] = new_value;
-}
-
-/**
- * @brief Split a byte at the target bit index, return [low slice, high slice, isolated bit]
- *
- * @details This is a private method used by `get_bit` and `set_bit`
- **/
-template <typename Builder>
-typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const size_t index) const
-{
-    const size_t byte_index = index / 8UL;
-    const auto byte = values[byte_index];
-    const size_t bit_index = 7UL - (index % 8UL);
-
-    const uint64_t value = uint256_t(byte.get_value()).data[0];
-    const uint64_t bit_value = (value >> static_cast<uint64_t>(bit_index)) & 1ULL;
-
-    const uint64_t num_low_bits = static_cast<uint64_t>(bit_index);
-    const uint64_t num_high_bits = 7ULL - num_low_bits;
-    const uint64_t low_value = value & ((1ULL << num_low_bits) - 1ULL);
-    const uint64_t high_value = (bit_index == 7) ? 0ULL : (value >> (8 - num_high_bits));
-
-    if (byte.is_constant()) {
-        field_t<Builder> low(context, low_value);
-        field_t<Builder> shifted_high(context, high_value * (uint64_t(1) << (8ULL - num_high_bits)));
-        bool_t<Builder> bit(context, static_cast<bool>(bit_value));
-        auto tag = values[byte_index].get_origin_tag();
-        low.set_origin_tag(tag);
-        shifted_high.set_origin_tag(tag);
-        bit.set_origin_tag(tag);
-        return { low, shifted_high, bit };
-    }
-    field_t<Builder> low = witness_t<Builder>(context, low_value);
-    field_t<Builder> high = witness_t<Builder>(context, high_value);
-    bool_t<Builder> bit = witness_t<Builder>(context, static_cast<bool>(bit_value));
-
-    low.set_origin_tag(values[byte_index].get_origin_tag());
-    high.set_origin_tag(values[byte_index].get_origin_tag());
-    bit.set_origin_tag(values[byte_index].get_origin_tag());
-
-    if (num_low_bits > 0) {
-        low.create_range_constraint(static_cast<size_t>(num_low_bits), "byte_array: low bits split off incorrectly.");
-    } else {
-        low.assert_equal(0);
-    }
-
-    if (num_high_bits > 0) {
-        high.create_range_constraint(static_cast<size_t>(num_high_bits),
-                                     "byte_array: high bits split off incorrectly.");
-    } else {
-        high.assert_equal(0);
-    }
-
-    field_t<Builder> scaled_high = high * bb::fr(uint256_t(1) << (8ULL - num_high_bits));
-    field_t<Builder> scaled_bit = field_t<Builder>(bit) * bb::fr(uint256_t(1) << bit_index);
-    field_t<Builder> result = low.add_two(scaled_high, scaled_bit);
-    result.assert_equal(byte);
-
-    auto tag = values[byte_index].get_origin_tag();
-    low.set_origin_tag(tag);
-    scaled_high.set_origin_tag(tag);
-    bit.set_origin_tag(tag);
-
-    return { low, scaled_high, bit };
 }
 
 template class byte_array<bb::UltraCircuitBuilder>;

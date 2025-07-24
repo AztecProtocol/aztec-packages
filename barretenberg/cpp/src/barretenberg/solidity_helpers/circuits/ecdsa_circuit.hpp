@@ -32,7 +32,7 @@ class EcdsaCircuit {
         // Create an input buffer the same size as our inputs
         typename curve::byte_array_ct input_buffer(&builder, NUM_PUBLIC_INPUTS);
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
-            input_buffer.set_byte(i, public_witness_ct(&builder, public_inputs[i]));
+            input_buffer[i] = public_witness_ct(&builder, public_inputs[i]);
         }
 
         // This is the message that we would like to confirm

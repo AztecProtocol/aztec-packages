@@ -49,7 +49,6 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->vk_and_hash->vk->log_circuit_size);
 
     Sumcheck sumcheck(transcript, accumulator->alphas, accumulator->target_sum);
-
     SumcheckOutput<Flavor> output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
 

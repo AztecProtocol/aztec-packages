@@ -4,15 +4,16 @@
 #include <sstream>
 
 // NOLINTBEGIN
-#if NDEBUG
 // Compiler should optimize this out in release builds, without triggering unused-variable warnings.
 #define DONT_EVALUATE(expression)                                                                                      \
     {                                                                                                                  \
         true ? static_cast<void>(0) : static_cast<void>((expression));                                                 \
     }
 
+#if NDEBUG
+
 // All assertion macros accept an optional message but do nothing in release.
-#define ASSERT_DEBUG_ONLY(expression, ...) DONT_EVALUATE((expression))
+#define ASSERT_DEBUG(expression, ...) DONT_EVALUATE((expression))
 
 #else
 #include "barretenberg/common/log.hpp"
@@ -25,6 +26,16 @@
 #define ASSERT_DEBUG(expression, ...) ASSERT(expression, __VA_ARGS__)
 #endif // NDEBUG
 
+#ifdef __wasm__
+#define ASSERT_IN_CONSTEXPR(expression, ...) DONT_EVALUATE((expression))
+#define ASSERT(expression, ...) DONT_EVALUATE((expression))
+
+#define BB_ASSERT_EQ(actual, expected, ...) DONT_EVALUATE((actual) == (expected))
+#define BB_ASSERT_GT(left, right, ...) DONT_EVALUATE((left) > (right))
+#define BB_ASSERT_GTE(left, right, ...) DONT_EVALUATE((left) >= (right))
+#define BB_ASSERT_LT(left, right, ...) DONT_EVALUATE((left) < (right))
+#define BB_ASSERT_LTE(left, right, ...) DONT_EVALUATE((left) <= (right))
+#else
 #define ASSERT_IN_CONSTEXPR(expression, ...)                                                                           \
     do {                                                                                                               \
         if (!(expression)) {                                                                                           \
@@ -113,6 +124,7 @@
             throw_or_abort(oss.str());                                                                                 \
         }                                                                                                              \
     } while (0)
+#endif // __wasm__
 
 // These are used in tests.
 #ifdef BB_NO_EXCEPTIONS
@@ -121,6 +133,5 @@
 #else
 #define ASSERT_THROW_OR_ABORT(statement, matcher) ASSERT_THROW(statement, std::runtime_error)
 #define EXPECT_THROW_OR_ABORT(statement, matcher) EXPECT_THROW(statement, std::runtime_error)
-#endif
-
+#endif // BB_NO_EXCEPTIONS
 // NOLINTEND

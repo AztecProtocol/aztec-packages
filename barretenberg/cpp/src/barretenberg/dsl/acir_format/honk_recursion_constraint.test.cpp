@@ -219,6 +219,25 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         return outer_circuit;
     }
 
+    bool verify_proof(const std::shared_ptr<OuterDeciderProvingKey>& proving_key,
+                      const std::shared_ptr<OuterVerificationKey>& verification_key,
+                      const HonkProof& proof)
+    {
+        if constexpr (IsUltraHonk<OuterFlavor>) {
+            if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
+                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
+                OuterVerifier verifier(verification_key, ipa_verification_key);
+                return verifier.verify_proof(proof, proving_key->ipa_proof);
+            } else {
+                OuterVerifier verifier(verification_key);
+                return verifier.verify_proof(proof);
+            }
+        } else {
+            OuterVerifier verifier(verification_key);
+            return std::get<0>(verifier.verify_proof(proof));
+        }
+    }
+
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -273,14 +292,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
 
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), true);
-    } else {
-        typename TestFixture::OuterVerifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
+    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
@@ -301,14 +313,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), true);
-    } else {
-        typename TestFixture::OuterVerifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
+
+    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
 }
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
@@ -369,14 +375,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), true);
-    } else {
-        typename TestFixture::OuterVerifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
+
+    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
 }
 
 /**
@@ -426,12 +426,6 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->ipa_proof), true);
-    } else {
-        typename TestFixture::OuterVerifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
+
+    EXPECT_EQ(TestFixture::verify_proof(proving_key, verification_key, proof), true);
 }

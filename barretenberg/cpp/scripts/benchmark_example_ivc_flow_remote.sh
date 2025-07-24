@@ -2,7 +2,11 @@
 set -eu
 
 TARGET=${1:-"bb_cli_bench"}
-FLOW=${2:-"deploy_ecdsar1+sponsored_fpc"}
+#FLOW=${2:-"ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc"}
+#FLOW=${2:-"ecdsar1+transfer_1_recursions+private_fpc"}
+#FLOW=${2:-"ecdsar1+transfer_1_recursions+sponsored_fpc"}
+#FLOW=${2:-"ecdsar1+transfer_1_recursions+sponsored_fpc"}
+FLOW=${2:-"schnorr+deploy_tokenContract_with_registration+sponsored_fpc"}
 BUILD_DIR="build-op-count-time"
 
 # Move above script dir.
