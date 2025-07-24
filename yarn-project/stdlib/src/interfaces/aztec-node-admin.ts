@@ -12,16 +12,15 @@ import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
  */
 export interface AztecNodeAdmin {
   /**
+   * Retrieves the configuration of this node.
+   */
+  getConfig(): Promise<AztecNodeAdminConfig>;
+
+  /**
    * Updates the configuration of this node.
    * @param config - Updated configuration to be merged with the current one.
    */
-  setConfig(config: Partial<SequencerConfig & ProverConfig & { maxTxPoolSize: number }>): Promise<void>;
-
-  /**
-   * Forces the next block to be built bypassing all time and pending checks.
-   * Useful for testing.
-   */
-  flushTxs(): Promise<void>;
+  setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void>;
 
   /**
    * Pauses syncing, creates a backup of archiver and world-state databases, and uploads them. Returns immediately.
@@ -43,16 +42,15 @@ export interface AztecNodeAdmin {
   resumeSync(): Promise<void>;
 }
 
+export type AztecNodeAdminConfig = SequencerConfig & ProverConfig & { maxTxPoolSize: number };
+
+export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema).merge(
+  z.object({ maxTxPoolSize: z.number() }),
+);
+
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
-  setConfig: z
-    .function()
-    .args(
-      SequencerConfigSchema.merge(ProverConfigSchema)
-        .merge(z.object({ maxTxPoolSize: z.number() }))
-        .partial(),
-    )
-    .returns(z.void()),
-  flushTxs: z.function().returns(z.void()),
+  getConfig: z.function().returns(AztecNodeAdminConfigSchema),
+  setConfig: z.function().args(AztecNodeAdminConfigSchema.partial()).returns(z.void()),
   startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
   rollbackTo: z.function().args(z.number()).returns(z.void()),
   pauseSync: z.function().returns(z.void()),

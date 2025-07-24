@@ -51,6 +51,11 @@ export function omit<T extends object>(object: T, ...props: string[]): Partial<T
   return obj;
 }
 
+/** Equivalent to Object.keys but preserves types. */
+export function getKeys<T extends object>(obj: T): (keyof T)[] {
+  return Object.keys(obj) as (keyof T)[];
+}
+
 /** Equivalent to Object.entries but preserves types. */
 export function getEntries<T extends Record<PropertyKey, unknown>>(obj: T): { [K in keyof T]: [K, T[K]] }[keyof T][] {
   // See https://stackoverflow.com/a/76176570

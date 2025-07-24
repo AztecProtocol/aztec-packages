@@ -26,12 +26,16 @@ describe('AztecNodeAdminApiSchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('setConfig', async () => {
-    await context.client.setConfig({ coinbase: EthAddress.random() });
+  it('getConfig', async () => {
+    const config = await context.client.getConfig();
+    expect(config).toMatchObject({
+      coinbase: expect.any(EthAddress),
+      maxTxPoolSize: expect.any(Number),
+    });
   });
 
-  it('flushTxs', async () => {
-    await context.client.flushTxs();
+  it('setConfig', async () => {
+    await context.client.setConfig({ coinbase: EthAddress.random() });
   });
 
   it('startSnapshotUpload', async () => {
@@ -57,8 +61,16 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
     return Promise.resolve();
   }
-  flushTxs(): Promise<void> {
-    return Promise.resolve();
+  getConfig(): Promise<SequencerConfig & ProverConfig & { maxTxPoolSize: number }> {
+    return Promise.resolve({
+      realProofs: false,
+      proverTestDelayType: 'fixed',
+      proverTestDelayMs: 100,
+      proverTestDelayFactor: 1,
+      proverAgentCount: 1,
+      coinbase: EthAddress.random(),
+      maxTxPoolSize: 1000,
+    });
   }
   startSnapshotUpload(_location: string): Promise<void> {
     return Promise.resolve();
