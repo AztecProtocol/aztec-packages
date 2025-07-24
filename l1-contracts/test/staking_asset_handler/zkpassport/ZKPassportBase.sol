@@ -28,8 +28,8 @@ contract ZKPassportBase is Test {
     bytes32(uint256(0x130b5775fe59204b0490bdfcdd02bd7cc2bbf5fe3f3fee34cee13c3a3f9b7bbb));
 
   // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
-  string constant CORRECT_SCOPE = "zkpassport.id";
-  string constant CORRECT_SUBSCOPE = "bigproof";
+  string constant CORRECT_DOMAIN = "zkpassport.id";
+  string constant CORRECT_SCOPE = "bigproof";
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
@@ -52,8 +52,8 @@ contract ZKPassportBase is Test {
     zkPassportVerifier.addCertificateRegistryRoot(CERTIFICATE_REGISTRY_ROOT);
 
     // ( When the proof was made )
-    // Set the timestamp to 2025-06-05 15:34:45 UTC
-    vm.warp(1749137685);
+    // Set the timestamp to 2025-07-16 20:26:48 UTC
+    vm.warp(1752697608);
     realProof = makeValidProof();
     fakeProof = makeFakeProof();
 
@@ -78,8 +78,8 @@ contract ZKPassportBase is Test {
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
       validityPeriodInDays: 7,
-      scope: "zkpassport.id",
-      subscope: "bigproof",
+      domain: "zkpassport.id",
+      scope: "bigproof",
       devMode: false
     });
   }
@@ -107,8 +107,8 @@ contract ZKPassportBase is Test {
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
       validityPeriodInDays: 7,
-      scope: "zkpassport.id",
-      subscope: "bigproof",
+      domain: "zkpassport.id",
+      scope: "bigproof",
       devMode: true
     });
   }
