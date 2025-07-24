@@ -294,12 +294,17 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
         throw_or_abort("unsupported native type for stdlib uint operation.");
     }
 
-    // We allow the uint types to contain unbounded values (for example, uint32_t can hold values > 2^32),
-    // so when looking them up in the lookup tables, we need to ensure that the values are range-constrained
-    // to the appropriate bit-size. This is done by using the `field_t<Builder>` operator, which normalizes
-    // (i.e., creates range constraint on the accumulators) before looking them up in the tables.
-    const field_t<Builder> key_left = field_t<Builder>(*this);
-    const field_t<Builder> key_right = field_t<Builder>(other);
+    // We allow the uint types to contain unbounded values (for example, uint32_t can hold values > 2^32).
+    // When looking them up in the lookup tables though, we don't need to range-constrain them because the lookup
+    // operation itself acts as an implicit range-check. If the inputs are out of range, the lookup constraint will
+    // fail, i.e., the values in lookup gates don't match the values in the actual lookup table.
+    // Construct the lookup keys from the uints.
+    field_t<Builder> key_left = field_t<Builder>::from_witness_index(context, witness_index);
+    key_left.additive_constant = is_constant() ? fr(additive_constant) : fr::zero();
+    field_t<Builder> key_right = field_t<Builder>::from_witness_index(context, other.witness_index);
+    key_right.additive_constant = other.is_constant() ? fr(other.additive_constant) : fr::zero();
+
+    // Perform the lookup to get the accumulators.
     ReadData<field_t<Builder>> lookup =
         plookup_read<Builder>::get_lookup_accumulators(multi_table_id, key_left, key_right, true);
 
