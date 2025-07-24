@@ -54,14 +54,12 @@ export class LowPriorityEvictionRule implements EvictionRule {
       let currentSize = context.mempoolSize;
       const targetSize = this.config.maxPoolSize;
 
-      const pendingTxHashes = await txPool.getPendingTxHashes();
+      const pendingTxs = await txPool.getPendingTxs();
 
-      for (const txHash of pendingTxHashes) {
-        if (!txPool.isEvictable(txHash)) {
+      for (const { txHash, size: txSize, isEvictable } of pendingTxs) {
+        if (!isEvictable) {
           continue;
         }
-
-        const txSize = await txPool.getTxSize(txHash);
 
         this.log.verbose(`Evicting tx ${txHash} from pool due to low priority to satisfy max tx size limit`, {
           txHash: txHash.toString(),

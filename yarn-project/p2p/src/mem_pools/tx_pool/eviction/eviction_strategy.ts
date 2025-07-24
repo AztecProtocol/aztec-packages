@@ -23,7 +23,6 @@ export type EvictionContext =
       event: typeof EvictionEvent.BLOCK_MINED;
       block: BlockHeader;
       newNullifiers: Set<string>;
-      feePayers: Set<string>;
     };
 
 /**
@@ -37,15 +36,32 @@ export interface EvictionResult {
 }
 
 /**
+ * Information about a pending transaction
+ */
+export interface PendingTxInfo {
+  txHash: TxHash;
+  size: number;
+  blockHash?: string;
+  isEvictable: boolean;
+}
+
+/**
  * Operations that eviction strategies can perform on the pool
  */
+/**
+ * Information about a transaction that references a specific block
+ */
+export interface TxBlockReference {
+  txHash: TxHash;
+  blockHash: string;
+  isEvictable: boolean;
+}
+
 export interface TxPoolOperations {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
-  getTxSize(txHash: TxHash): Promise<number>;
-  getPendingTxHashes(): Promise<TxHash[]>;
-  getTxReferencingBlock(blockHash: Fr): Promise<TxHash[]>;
+  getPendingTxs(): Promise<PendingTxInfo[]>;
+  getTxsReferencingBlocks(blockHashes: Fr[]): Promise<TxBlockReference[]>;
   deleteTxs(txHashes: TxHash[]): Promise<void>;
-  isEvictable(txHash: TxHash): boolean;
 }
 
 /**

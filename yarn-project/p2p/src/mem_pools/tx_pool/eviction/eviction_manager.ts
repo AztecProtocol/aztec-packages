@@ -21,16 +21,11 @@ export class EvictionManager {
     await this.runEvictionRules(ctx);
   }
 
-  public async evictAfterNewBlock(
-    block: BlockHeader,
-    newNullifiers: Set<string>,
-    feePayers: Set<string>,
-  ): Promise<void> {
+  public async evictAfterNewBlock(block: BlockHeader, newNullifiers: Set<string>): Promise<void> {
     const ctx: EvictionContext = {
       event: EvictionEvent.BLOCK_MINED,
       block,
       newNullifiers,
-      feePayers,
     };
 
     await this.runEvictionRules(ctx);

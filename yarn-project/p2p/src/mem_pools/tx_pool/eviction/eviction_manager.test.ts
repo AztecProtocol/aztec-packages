@@ -12,7 +12,7 @@ describe('EvictionManager', () => {
   let mockRule1: MockProxy<EvictionRule>;
   let mockRule2: MockProxy<EvictionRule>;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     txPool = mock();
     evictionManager = new EvictionManager(txPool);
     mockRule1 = mock<EvictionRule>({ name: 'rule1' });
@@ -94,7 +94,6 @@ describe('EvictionManager', () => {
     it('calls evict on registered rules with correct context', async () => {
       const block = BlockHeader.empty();
       const newNullifiers = new Set(['nullifier1', 'nullifier2']);
-      const feePayers = new Set(['payer1', 'payer2']);
 
       mockRule1.evict.mockResolvedValue({
         txsEvicted: [],
@@ -103,14 +102,13 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterNewBlock(block, newNullifiers, feePayers);
+      await evictionManager.evictAfterNewBlock(block, newNullifiers);
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.BLOCK_MINED,
           block,
           newNullifiers,
-          feePayers,
         },
         txPool,
       );
@@ -119,7 +117,6 @@ describe('EvictionManager', () => {
     it('handles empty nullifiers and fee payers sets', async () => {
       const block = BlockHeader.empty();
       const newNullifiers = new Set<string>();
-      const feePayers = new Set<string>();
 
       mockRule1.evict.mockResolvedValue({
         txsEvicted: [],
@@ -128,14 +125,13 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterNewBlock(block, newNullifiers, feePayers);
+      await evictionManager.evictAfterNewBlock(block, newNullifiers);
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.BLOCK_MINED,
           block,
           newNullifiers,
-          feePayers,
         },
         txPool,
       );
@@ -214,22 +210,22 @@ describe('EvictionManager', () => {
       const mempoolSize = 100;
       const callOrder: string[] = [];
 
-      mockRule1.evict.mockImplementation(async () => {
+      mockRule1.evict.mockImplementation(() => {
         callOrder.push('rule1');
-        return {
+        return Promise.resolve({
           txsEvicted: [],
           reason: 'test1',
           success: true,
-        };
+        });
       });
 
-      mockRule2.evict.mockImplementation(async () => {
+      mockRule2.evict.mockImplementation(() => {
         callOrder.push('rule2');
-        return {
+        return Promise.resolve({
           txsEvicted: [],
           reason: 'test2',
           success: true,
-        };
+        });
       });
 
       evictionManager.registerRule(mockRule1);
@@ -243,25 +239,23 @@ describe('EvictionManager', () => {
     it('waits for each rule to complete before starting the next', async () => {
       const newTxs = [TxHash.random()];
       const mempoolSize = 100;
-      let rule1Completed = false;
 
-      mockRule1.evict.mockImplementation(async () => {
-        await new Promise(resolve => setTimeout(resolve, 10));
-        rule1Completed = true;
-        return {
+      mockRule1.evict.mockImplementation(() => {
+        expect(mockRule2.evict).not.toHaveBeenCalled();
+        return Promise.resolve({
           txsEvicted: [],
           reason: 'test1',
           success: true,
-        };
+        });
       });
 
-      mockRule2.evict.mockImplementation(async () => {
-        expect(rule1Completed).toBe(true);
-        return {
+      mockRule2.evict.mockImplementation(() => {
+        expect(mockRule1.evict).toHaveBeenCalled();
+        return Promise.resolve({
           txsEvicted: [],
           reason: 'test2',
           success: true,
-        };
+        });
       });
 
       evictionManager.registerRule(mockRule1);
@@ -282,9 +276,8 @@ describe('EvictionManager', () => {
     it('handles evictAfterNewBlock with no rules gracefully', async () => {
       const block = BlockHeader.empty();
       const newNullifiers = new Set(['nullifier1']);
-      const feePayers = new Set(['payer1']);
 
-      await expect(evictionManager.evictAfterNewBlock(block, newNullifiers, feePayers)).resolves.not.toThrow();
+      await expect(evictionManager.evictAfterNewBlock(block, newNullifiers)).resolves.not.toThrow();
     });
 
     it('handles evictAfterChainPrune with no rules gracefully', async () => {

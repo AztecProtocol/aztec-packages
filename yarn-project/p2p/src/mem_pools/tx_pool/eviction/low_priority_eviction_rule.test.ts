@@ -2,7 +2,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type EvictionContext, EvictionEvent, type TxPoolOperations } from './eviction_strategy.js';
+import { type EvictionContext, EvictionEvent, type PendingTxInfo, type TxPoolOperations } from './eviction_strategy.js';
 import { type LowPriorityEvictionConfig, LowPriorityEvictionRule } from './low_priority_eviction_rule.js';
 
 describe('LowPriorityEvictionRule', () => {
@@ -49,7 +49,6 @@ describe('LowPriorityEvictionRule', () => {
           event: EvictionEvent.BLOCK_MINED,
           block: {} as any,
           newNullifiers: new Set(),
-          feePayers: new Set(),
         };
 
         const result = await rule.evict(context, txPool);
@@ -59,7 +58,7 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxHashes).not.toHaveBeenCalled();
+        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
 
       it('returns empty result for CHAIN_PRUNED event', async () => {
@@ -75,7 +74,7 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxHashes).not.toHaveBeenCalled();
+        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
     });
 
@@ -100,7 +99,7 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxHashes).not.toHaveBeenCalled();
+        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
 
       it('returns empty result when mempool size is below threshold', async () => {
@@ -113,7 +112,7 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxHashes).not.toHaveBeenCalled();
+        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
 
       it('returns empty result when mempool size equals threshold', async () => {
@@ -126,7 +125,7 @@ describe('LowPriorityEvictionRule', () => {
           success: true,
           txsEvicted: [],
         });
-        expect(txPool.getPendingTxHashes).not.toHaveBeenCalled();
+        expect(txPool.getPendingTxs).not.toHaveBeenCalled();
       });
 
       it('evicts transactions when mempool size exceeds threshold', async () => {
@@ -134,20 +133,12 @@ describe('LowPriorityEvictionRule', () => {
         const tx2 = TxHash.random();
         const tx3 = TxHash.random();
 
-        txPool.getPendingTxHashes.mockResolvedValue([tx1, tx2, tx3]);
-        txPool.isEvictable.mockReturnValue(true);
-        txPool.getTxSize.mockImplementation(async txHash => {
-          if (txHash.equals(tx1)) {
-            return 200;
-          }
-          if (txHash.equals(tx2)) {
-            return 300;
-          }
-          if (txHash.equals(tx3)) {
-            return 100;
-          }
-          return 0;
-        });
+        const pendingTxs: PendingTxInfo[] = [
+          { txHash: tx1, size: 200, isEvictable: true },
+          { txHash: tx2, size: 300, isEvictable: true },
+          { txHash: tx3, size: 100, isEvictable: true },
+        ];
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
@@ -160,9 +151,11 @@ describe('LowPriorityEvictionRule', () => {
         const evictableTx = TxHash.random();
         const nonEvictableTx = TxHash.random();
 
-        txPool.getPendingTxHashes.mockResolvedValue([nonEvictableTx, evictableTx]);
-        txPool.isEvictable.mockImplementation(txHash => !txHash.equals(nonEvictableTx));
-        txPool.getTxSize.mockResolvedValue(300);
+        const pendingTxs: PendingTxInfo[] = [
+          { txHash: nonEvictableTx, size: 300, isEvictable: false },
+          { txHash: evictableTx, size: 300, isEvictable: true },
+        ];
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
@@ -178,20 +171,12 @@ describe('LowPriorityEvictionRule', () => {
 
         (context as any).mempoolSize = 1300; // Target is 1000, so need to evict 300
 
-        txPool.getPendingTxHashes.mockResolvedValue([tx1, tx2, tx3]);
-        txPool.isEvictable.mockReturnValue(true);
-        txPool.getTxSize.mockImplementation(async txHash => {
-          if (txHash.equals(tx1)) {
-            return 200;
-          }
-          if (txHash.equals(tx2)) {
-            return 150; // This should bring us to exactly 950, below target
-          }
-          if (txHash.equals(tx3)) {
-            return 100;
-          }
-          return 0;
-        });
+        const pendingTxs: PendingTxInfo[] = [
+          { txHash: tx1, size: 200, isEvictable: true },
+          { txHash: tx2, size: 150, isEvictable: true }, // This should bring us to exactly 950, below target
+          { txHash: tx3, size: 100, isEvictable: true },
+        ];
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
@@ -207,9 +192,12 @@ describe('LowPriorityEvictionRule', () => {
 
         (context as any).newTxs = [newTx1, newTx2];
 
-        txPool.getPendingTxHashes.mockResolvedValue([oldTx, newTx1, newTx2]);
-        txPool.isEvictable.mockReturnValue(true);
-        txPool.getTxSize.mockResolvedValue(200);
+        const pendingTxs: PendingTxInfo[] = [
+          { txHash: oldTx, size: 200, isEvictable: true },
+          { txHash: newTx1, size: 200, isEvictable: true },
+          { txHash: newTx2, size: 200, isEvictable: true },
+        ];
+        txPool.getPendingTxs.mockResolvedValue(pendingTxs);
 
         const result = await rule.evict(context, txPool);
 
@@ -219,7 +207,7 @@ describe('LowPriorityEvictionRule', () => {
       });
 
       it('handles empty pending transactions list', async () => {
-        txPool.getPendingTxHashes.mockResolvedValue([]);
+        txPool.getPendingTxs.mockResolvedValue([]);
 
         const result = await rule.evict(context, txPool);
 
@@ -235,8 +223,10 @@ describe('LowPriorityEvictionRule', () => {
         const tx1 = TxHash.random();
         const tx2 = TxHash.random();
 
-        txPool.getPendingTxHashes.mockResolvedValue([tx1, tx2]);
-        txPool.isEvictable.mockReturnValue(false);
+        txPool.getPendingTxs.mockResolvedValue([
+          { txHash: tx1, size: 0, isEvictable: false },
+          { txHash: tx2, size: 0, isEvictable: false },
+        ]);
 
         const result = await rule.evict(context, txPool);
 
@@ -250,7 +240,7 @@ describe('LowPriorityEvictionRule', () => {
 
       it('handles error from txPool operations', async () => {
         const error = new Error('TxPool error');
-        txPool.getPendingTxHashes.mockRejectedValue(error);
+        txPool.getPendingTxs.mockRejectedValue(error);
 
         const result = await rule.evict(context, txPool);
 
@@ -265,9 +255,7 @@ describe('LowPriorityEvictionRule', () => {
         const tx1 = TxHash.random();
         const error = new Error('Delete error');
 
-        txPool.getPendingTxHashes.mockResolvedValue([tx1]);
-        txPool.isEvictable.mockReturnValue(true);
-        txPool.getTxSize.mockResolvedValue(200);
+        txPool.getPendingTxs.mockResolvedValue([{ txHash: tx1, size: 200, isEvictable: true }]);
         txPool.deleteTxs.mockRejectedValue(error);
 
         const result = await rule.evict(context, txPool);
@@ -299,9 +287,7 @@ describe('LowPriorityEvictionRule', () => {
           };
 
           const tx1 = TxHash.random();
-          txPool.getPendingTxHashes.mockResolvedValue([tx1]);
-          txPool.isEvictable.mockReturnValue(true);
-          txPool.getTxSize.mockResolvedValue(100);
+          txPool.getPendingTxs.mockResolvedValue([{ txHash: tx1, size: 100, isEvictable: true }]);
 
           const result = await rule.evict(context, txPool);
 
@@ -324,9 +310,7 @@ describe('LowPriorityEvictionRule', () => {
           newTxs: [],
         };
 
-        txPool.getPendingTxHashes.mockResolvedValue([tx1]);
-        txPool.isEvictable.mockReturnValue(true);
-        txPool.getTxSize.mockResolvedValue(0);
+        txPool.getPendingTxs.mockResolvedValue([{ txHash: tx1, size: 0, isEvictable: true }]);
 
         const result = await rule.evict(context, txPool);
 
@@ -342,9 +326,7 @@ describe('LowPriorityEvictionRule', () => {
           newTxs: [],
         };
 
-        txPool.getPendingTxHashes.mockResolvedValue([tx1]);
-        txPool.isEvictable.mockReturnValue(true);
-        txPool.getTxSize.mockResolvedValue(1000);
+        txPool.getPendingTxs.mockResolvedValue([{ txHash: tx1, size: 1000, isEvictable: true }]);
 
         const result = await rule.evict(context, txPool);
 
@@ -362,9 +344,7 @@ describe('LowPriorityEvictionRule', () => {
         };
 
         const tx1 = TxHash.random();
-        txPool.getPendingTxHashes.mockResolvedValue([tx1]);
-        txPool.isEvictable.mockReturnValue(true);
-        txPool.getTxSize.mockResolvedValue(331);
+        txPool.getPendingTxs.mockResolvedValue([{ txHash: tx1, size: 331, isEvictable: true }]);
 
         const result = await rule.evict(context, txPool);
 
