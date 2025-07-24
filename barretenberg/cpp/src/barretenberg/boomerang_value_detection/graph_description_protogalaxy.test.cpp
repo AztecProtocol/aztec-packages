@@ -105,7 +105,6 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
 
     static void test_recursive_folding(const size_t num_verifiers = 1)
     {
-
         // Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
         create_function_circuit(builder1);
@@ -131,6 +130,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         auto recursive_decider_vk_1 = std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, decider_vk_1);
         auto recursive_vk_and_hash_2 = std::make_shared<RecursiveVKAndHash>(folding_circuit, decider_vk_2->vk);
         stdlib::Proof<OuterBuilder> stdlib_proof(folding_circuit, folding_proof.proof);
+
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_decider_vk_1,
                                                   { recursive_vk_and_hash_2 },
@@ -150,22 +150,40 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         }
         info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
-        accumulator->target_sum.fix_witness();
-        for (auto& chal : accumulator->gate_challenges) {
-            chal.fix_witness();
+
+        // Perform native folding verification and ensure it returns the same result (either true or false) as
+        // calling check_circuit on the recursive folding verifier
+        InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 },
+                                                     std::make_shared<typename InnerFoldingVerifier::Transcript>());
+        native_folding_verifier.transcript->enable_manifest();
+        std::shared_ptr<InnerDeciderVerificationKey> native_accumulator;
+        native_folding_verifier.verify_folding_proof(folding_proof.proof);
+        for (size_t idx = 0; idx < num_verifiers; idx++) {
+            native_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
+            if (idx < num_verifiers - 1) { // else the transcript is null in the test below
+                native_folding_verifier =
+                    InnerFoldingVerifier{ { native_accumulator, decider_vk_1 },
+                                          std::make_shared<typename InnerFoldingVerifier::Transcript>() };
+                native_folding_verifier.transcript->enable_manifest();
+            }
         }
-        for (auto& alpha : accumulator->alphas) {
-            alpha.fix_witness();
-        }
-        for (auto& relation : accumulator->relation_parameters.get_to_fold()) {
-            relation.fix_witness();
+
+        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
+        // manifests produced by each agree.
+        auto recursive_folding_manifest = verifier.transcript->get_manifest();
+        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
+
+        ASSERT(recursive_folding_manifest.size() > 0);
+        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
+                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
         // Check for a failure flag in the recursive verifier circuit
         {
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(folding_circuit);
             // inefficiently check finalized size
-            // folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
+            folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->dyadic_size());
@@ -174,11 +192,10 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
+
             ASSERT(verified);
         }
-        /*         recursive_decider_vk_1->verification_key->pub_inputs_offset.fix_witness();
-                recursive_decider_vk_1->verification_key->num_public_inputs.fix_witness();
-        */
+
         auto graph = cdg::MegaStaticAnalyzer(folding_circuit, false);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
