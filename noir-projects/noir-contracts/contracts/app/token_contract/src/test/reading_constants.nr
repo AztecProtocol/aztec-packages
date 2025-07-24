@@ -6,10 +6,9 @@ use crate::Token;
 #[test]
 unconstrained fn check_decimals_private() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
 
-    // Check decimals - the 'from' parameter is irrelevant
-    let result = env.view_private(owner, Token::at(token_contract_address).private_get_decimals());
+    let result = env.view_private(Token::at(token_contract_address).private_get_decimals());
 
     assert(result == 18);
 }
