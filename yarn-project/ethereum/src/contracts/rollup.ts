@@ -387,6 +387,7 @@ export class RollupContract {
     args: readonly [
       ViemHeader,
       ViemCommitteeAttestations,
+      `0x${string}`[],
       `0x${string}`,
       `0x${string}`,
       {

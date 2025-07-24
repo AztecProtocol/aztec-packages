@@ -260,6 +260,7 @@ describe('SequencerPublisher', () => {
         txHashes: [],
       },
       RollupContract.packAttestations([]),
+      [],
       blobInput,
     ] as const;
     expect(forwardSpy).toHaveBeenCalledWith(

@@ -480,6 +480,7 @@ describe('L1Publisher integration', () => {
               },
             },
             RollupContract.packAttestations([]),
+            [],
             Blob.getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });
