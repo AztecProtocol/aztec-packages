@@ -450,24 +450,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_non_native_field_gate_conn
     return gate_variables;
 }
 
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_connected_component(
-    [[maybe_unused]] size_t index, [[maybe_unused]] size_t block_idx, [[maybe_unused]] auto& blk)
-{
-    std::vector<uint32_t> gate_variables;
-    // TODO: Implement databus connected component logic
-    return gate_variables;
-}
-
-template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_connected_component(
-    [[maybe_unused]] size_t index, [[maybe_unused]] size_t block_idx, [[maybe_unused]] auto& blk)
-{
-    std::vector<uint32_t> gate_variables;
-    // TODO: Implement eccop connected component logic
-    return gate_variables;
-}
-
 /**
  * @brief this method gets the ROM table connected component by processing ROM transcript records
  * @tparam FF field type
@@ -577,6 +559,29 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
         ram_table_variables.insert(ram_table_variables.end(), gate_variables.begin(), gate_variables.end());
     }
     return ram_table_variables;
+}
+
+template <typename FF, typename CircuitBuilder>
+inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_connected_component(size_t index,
+                                                                                                  size_t block_idx,
+                                                                                                  auto& blk)
+{
+    std::vector<uint32_t> gate_variables;
+    if (!blk.q_busread()[index].is_zero()) {
+        gate_variables.insert(gate_variables.end(), { blk.w_l()[index], blk.w_r()[index] });
+        gate_variables = this->to_real(gate_variables);
+        this->process_gate_variables(gate_variables, index, block_idx);
+    }
+    return gate_variables;
+}
+
+template <typename FF, typename CircuitBuilder>
+inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_connected_component(
+    [[maybe_unused]] size_t index, [[maybe_unused]] size_t block_idx, [[maybe_unused]] auto& blk)
+{
+    std::vector<uint32_t> gate_variables;
+    // TODO: Implement eccop connected component logic
+    return gate_variables;
 }
 
 template <typename FF, typename CircuitBuilder>
