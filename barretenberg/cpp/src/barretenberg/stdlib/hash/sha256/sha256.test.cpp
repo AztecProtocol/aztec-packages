@@ -194,7 +194,7 @@ TEST(stdlib_sha256, test_55_bytes)
     EXPECT_EQ(proof_result, true);
 }
 
-TEST(stdlib_sha256, test_NIST_vector_one_packed_byte_array)
+TEST(stdlib_sha256, test_NIST_vector_one_byte_array)
 {
 
     auto builder = UltraCircuitBuilder();
