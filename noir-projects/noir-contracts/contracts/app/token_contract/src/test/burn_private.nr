@@ -79,7 +79,7 @@ unconstrained fn burn_private_failure_on_behalf_of_other_more_than_balance() {
     let burn_call_interface =
         Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call_interface(owner, recipient, burn_call_interface);
-    // Impersonate recipient to perform the call
+
     let _ = env.call_private(recipient, burn_call_interface);
 }
 
@@ -93,7 +93,7 @@ unconstrained fn burn_private_failure_on_behalf_of_other_without_approval() {
     // Burn on behalf of other
     let burn_call_interface =
         Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
-    // Impersonate recipient to perform the call
+
     let _ = env.call_private(recipient, burn_call_interface);
 }
 
@@ -108,6 +108,6 @@ unconstrained fn burn_private_failure_on_behalf_of_other_wrong_designated_caller
     let burn_call_interface =
         Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call_interface(owner, owner, burn_call_interface);
-    // Impersonate recipient to perform the call
+
     let _ = env.call_private(recipient, burn_call_interface);
 }

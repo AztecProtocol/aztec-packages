@@ -72,13 +72,13 @@ describe('p2p client integration', () => {
   });
 
   afterEach(async () => {
-    jest.restoreAllMocks();
-    jest.resetAllMocks();
-    jest.clearAllMocks();
-
     logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
     await shutdown(clients);
     logger.info('Shut down p2p clients');
+
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    jest.clearAllMocks();
 
     clients = [];
   });
@@ -109,7 +109,7 @@ describe('p2p client integration', () => {
 
     // Perform a get tx request from client 1
     const tx = await mockTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
 
     const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
     expect(requestedTxs).toEqual([]);
@@ -135,7 +135,7 @@ describe('p2p client integration', () => {
 
     // Perform a get tx request from client 1
     const tx = await mockTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     // Mock the tx pool to return the tx we are looking for
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
@@ -173,7 +173,6 @@ describe('p2p client integration', () => {
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     // Mock the tx pool to return the tx we are looking for
-    //@ts-expect-error - txHash is protected and should not be accessed directly outside of the test env.
     txPool.getTxByHash.mockImplementation((hash: TxHash) => Promise.resolve(txs.find(t => t.txHash?.equals(hash))));
     //@ts-expect-error - we want to spy on the sendBatchRequest method
     const sendBatchSpy = jest.spyOn(client1.p2pService, 'sendBatchRequest');
@@ -230,7 +229,6 @@ describe('p2p client integration', () => {
 
     // Mock the tx pool to return every other tx we are looking for
     txPool.getTxByHash.mockImplementation((hash: TxHash) => {
-      //@ts-expect-error - txHash is protected and should not be accessed directly outside of the test env.
       const idx = txs.findIndex(t => t.txHash.equals(hash));
       return idx % 2 === 0 ? Promise.resolve(txs[idx]) : Promise.resolve(undefined);
     });
@@ -288,7 +286,7 @@ describe('p2p client integration', () => {
 
     // Perform a get tx request from client 1
     const tx = await mockTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
 
     // Return the correct tx with an invalid proof -> active attack
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
@@ -325,7 +323,7 @@ describe('p2p client integration', () => {
 
     // Perform a get tx request from client 1
     const tx = await mockTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const tx2 = await mockTx(420);
 
     // Return an invalid tx

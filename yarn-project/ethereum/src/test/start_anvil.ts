@@ -14,6 +14,7 @@ export async function startAnvil(
     l1BlockTime?: number;
     log?: boolean;
     captureMethodCalls?: boolean;
+    accounts?: number;
   } = {},
 ): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
@@ -32,7 +33,7 @@ export async function startAnvil(
         port: opts.port ?? 8545,
         blockTime: opts.l1BlockTime,
         stopTimeout: 1000,
-        accounts: 20,
+        accounts: opts.accounts ?? 20,
       });
 
       // Listen to the anvil output to get the port.
