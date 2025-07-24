@@ -36,6 +36,10 @@ fi
 git fetch origin "$HEAD_COMMIT" || exit 1
 git fetch origin "$MERGE_COMMIT" || exit 1
 
+# Create backup of the branch before recreating it
+echo "Creating backup of branch '$MT' as '${MT}-previous'"
+git push --force origin "refs/remotes/origin/$MT:refs/heads/${MT}-previous" 2>/dev/null || echo "Warning: Failed to create backup (branch may not exist)"
+
 # Rebuild merge-train branch
 git checkout -B "$MT" "$MERGE_COMMIT"
 git commit --allow-empty -m "[empty] Start merge-train. Choo choo."

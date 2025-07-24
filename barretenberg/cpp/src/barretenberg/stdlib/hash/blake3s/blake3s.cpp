@@ -112,7 +112,7 @@ Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_t<Builder> 
 
     ret.block = byte_array_ct(block.get_context(), BLAKE3_BLOCK_LEN);
     for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
-        ret.block.set_byte(i, block[i]);
+        ret.block[i] = block[i];
     }
     ret.block_len = block_len;
     ret.flags = flags;
@@ -131,7 +131,7 @@ template <typename Builder> void Blake3s<Builder>::hasher_init(blake3_hasher* se
     }
     self->buf = byte_array_ct(self->context, BLAKE3_BLOCK_LEN);
     for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
-        self->buf.set_byte(i, field_ct(self->context, 0));
+        self->buf[i] = field_t<Builder>(self->context, 0);
     }
     self->buf_len = 0;
     self->blocks_compressed = 0;
@@ -161,7 +161,7 @@ void Blake3s<Builder>::hasher_update(blake3_hasher* self, const byte_array<Build
         take = input_len;
     }
     for (size_t i = 0; i < take; i++) {
-        self->buf.set_byte(self->buf_len + i, input[i + start_counter]);
+        self->buf[self->buf_len + i] = input[i + start_counter];
     }
 
     self->buf_len = static_cast<uint8_t>(self->buf_len + (uint8_t)take);
@@ -176,7 +176,7 @@ template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_
     byte_array_ct wide_buf(out.get_context(), BLAKE3_BLOCK_LEN);
     compress_xof(output.input_cv, output.block, output.block_len, output.flags | ROOT, wide_buf);
     for (size_t i = 0; i < BLAKE3_OUT_LEN; i++) {
-        out.set_byte(i, wide_buf[i]);
+        out[i] = wide_buf[i];
     }
 }
 

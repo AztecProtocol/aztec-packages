@@ -1018,7 +1018,7 @@ export class TXE implements TypedOracle {
       // When setting up a teardown call, we tell it that
       // private execution used Gas(1, 1) so it can compute a tx fee.
       const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
-      const tx = createTxForPublicCalls(
+      const tx = await createTxForPublicCalls(
         {
           nonRevertible: {
             nullifiers: [firstNullifier],
@@ -1451,7 +1451,12 @@ export class TXE implements TypedOracle {
     const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
     const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
-    const tx = new Tx(publicInputs, ClientIvcProof.empty(), [], result.publicFunctionCalldata);
+    const tx = await Tx.create({
+      data: publicInputs,
+      clientIvcProof: ClientIvcProof.empty(),
+      contractClassLogFields: [],
+      publicFunctionCalldata: result.publicFunctionCalldata,
+    });
 
     let checkpoint;
     if (isStaticCall) {
@@ -1473,7 +1478,7 @@ export class TXE implements TypedOracle {
       return {
         endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
         returnsHash: result.entrypoint.publicInputs.returnsHash,
-        txHash: await tx.getTxHash(),
+        txHash: tx.getTxHash(),
       };
     }
 
@@ -1524,7 +1529,7 @@ export class TXE implements TypedOracle {
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
-      txHash: await tx.getTxHash(),
+      txHash: tx.getTxHash(),
     };
   }
 
@@ -1602,7 +1607,12 @@ export class TXE implements TypedOracle {
       undefined,
     );
 
-    const tx = new Tx(txData, ClientIvcProof.empty(), [], [calldataHashedValues]);
+    const tx = await Tx.create({
+      data: txData,
+      clientIvcProof: ClientIvcProof.empty(),
+      contractClassLogFields: [],
+      publicFunctionCalldata: [calldataHashedValues],
+    });
 
     let checkpoint;
     if (isStaticCall) {
@@ -1633,7 +1643,7 @@ export class TXE implements TypedOracle {
 
       return {
         returnsHash: returnValuesHash ?? Fr.ZERO,
-        txHash: await tx.getTxHash(),
+        txHash: tx.getTxHash(),
       };
     }
 
@@ -1684,7 +1694,7 @@ export class TXE implements TypedOracle {
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,
-      txHash: await tx.getTxHash(),
+      txHash: tx.getTxHash(),
     };
   }
 
