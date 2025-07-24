@@ -222,15 +222,21 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
-        bool native_result;
+        bool native_result = false;
         InnerVerifier native_verifier(verification_key);
         native_verifier.transcript->enable_manifest();
-        if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
-            native_result = native_verifier.verify_proof(inner_proof, output.ipa_proof.get_value());
+        // Check inner flavor because the native_verifier operates on the inner_proof
+        if constexpr (IsUltraHonk<InnerFlavor>) {
+            if constexpr (HasIPAAccumulator<OuterFlavor>) {
+                native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
+                native_result = native_verifier.verify_proof(inner_proof, output.ipa_proof.get_value());
+            } else {
+                native_result = native_verifier.verify_proof(inner_proof);
+            }
         } else {
-            native_result = native_verifier.verify_proof(inner_proof);
+            native_result = std::get<0>(native_verifier.verify_proof(inner_proof));
         }
+
         NativeVerifierCommitmentKey pcs_vkey{};
         bool result =
             pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
@@ -255,13 +261,18 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
             OuterProver prover(proving_key, verification_key);
             auto proof = prover.construct_proof();
-            if constexpr (HasIPAAccumulator<OuterFlavor>) {
-                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
-                OuterVerifier verifier(verification_key, ipa_verification_key);
-                ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
+            if constexpr (IsUltraHonk<OuterFlavor>) {
+                if constexpr (HasIPAAccumulator<OuterFlavor>) {
+                    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
+                    OuterVerifier verifier(verification_key, ipa_verification_key);
+                    ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
+                } else {
+                    OuterVerifier verifier(verification_key);
+                    ASSERT_TRUE(verifier.verify_proof(proof));
+                }
             } else {
                 OuterVerifier verifier(verification_key);
-                ASSERT_TRUE(verifier.verify_proof(proof));
+                ASSERT_TRUE(std::get<0>(verifier.verify_proof(proof)));
             }
         }
         // Check the size of the recursive verifier
