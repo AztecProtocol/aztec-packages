@@ -108,11 +108,12 @@ The following packages are required for building from source:
 - clang-format
 - libstdc++ >= 12
 - libomp (if multithreading is required. Multithreading can be disabled using the compiler flag `-DMULTITHREADING 0`)
+- zlib
 
 To install these on Ubuntu, run:
 
 ```bash
-sudo apt-get install cmake clang clang-format ninja-build libstdc++-12-dev
+sudo apt-get install cmake clang clang-format ninja-build libstdc++-12-dev zlib
 ```
 
 The default cmake version on 22.04 is 3.22.1, so it must be updated. You can get the latest version [here](https://cmake.org/download).
