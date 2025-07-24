@@ -331,6 +331,7 @@ export class SequencerPublisher {
     const args = [
       header.toViem(),
       RollupContract.packAttestations([]),
+      [], // no signers
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       header.contentCommitment.blobsHash.toString(),
       flags,
@@ -394,6 +395,9 @@ export class SequencerPublisher {
     const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
 
     const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
+    const signers = attestationData.attestations
+      .filter(attest => !attest.signature.isEmpty())
+      .map(attest => attest.address.toString());
 
     const args = [
       {
@@ -406,6 +410,7 @@ export class SequencerPublisher {
         },
       },
       RollupContract.packAttestations(formattedAttestations),
+      signers,
       blobInput,
     ] as const;
 
@@ -645,6 +650,11 @@ export class SequencerPublisher {
 
     const attestations = encodedData.attestations ? encodedData.attestations.map(attest => attest.toViem()) : [];
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
+
+    const signers = encodedData.attestations
+      ?.filter(attest => !attest.signature.isEmpty())
+      .map(attest => attest.address.toString());
+
     const args = [
       {
         header: encodedData.header.toViem(),
@@ -657,6 +667,7 @@ export class SequencerPublisher {
         txHashes,
       },
       RollupContract.packAttestations(attestations),
+      signers ?? [],
       blobInput,
     ] as const;
 
@@ -683,6 +694,7 @@ export class SequencerPublisher {
         };
       },
       ViemCommitteeAttestations,
+      `0x${string}`[],
       `0x${string}`,
     ],
     timestamp: bigint,
