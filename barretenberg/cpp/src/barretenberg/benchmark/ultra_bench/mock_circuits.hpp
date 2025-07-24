@@ -25,7 +25,7 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     stdlib::field_t c(&builder);
     // Ensure the circuit is filled but finalisation doesn't make the circuit size go to the next power of two
     size_t target_gate_count = (1UL << log2_num_gates);
-    const size_t GATE_COUNT_BUFFER = 1000; // Since we're using an estimate, let's add an error term in case.
+    const size_t GATE_COUNT_BUFFER = 50; // Since we're using an estimate, let's add an error term in case.
     size_t passes = (target_gate_count - builder.get_estimated_num_finalized_gates() - GATE_COUNT_BUFFER) / 4;
     if (static_cast<int>(passes) <= 0) {
         throw_or_abort("We don't support low values of log2_num_gates.");
