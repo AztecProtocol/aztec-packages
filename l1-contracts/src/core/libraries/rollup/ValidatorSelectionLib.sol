@@ -441,7 +441,7 @@ library ValidatorSelectionLib {
    * @return  The sample time and the indices of the validators for the given epoch
    */
   function sampleValidatorsIndices(Epoch _epoch, uint224 _seed)
-    internal
+    private
     returns (uint32, uint256[] memory)
   {
     ValidatorSelectionStorage storage store = getStorage();
