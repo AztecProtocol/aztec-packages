@@ -65,7 +65,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
         } else {
             // For non-u128s, we just take the top bits of a*b:
             res.insert(res.end(),
-                       { { Column::alu_c_hi, is_ff ? 0 : a_int * b_int >> get_tag_bits(event.a.get_tag()) } });
+                       { { Column::alu_c_hi, is_ff ? 0 : (a_int * b_int) >> get_tag_bits(event.a.get_tag()) } });
         }
         return res;
     }

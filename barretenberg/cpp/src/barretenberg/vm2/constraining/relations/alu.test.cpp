@@ -307,7 +307,7 @@ TestTraceContainer process_mul_with_tracegen(MemoryTag input_tag)
 
     uint256_t a_int = static_cast<uint256_t>(a.as_ff());
     uint256_t b_int = static_cast<uint256_t>(b.as_ff());
-    auto c_hi = input_tag == MemoryTag::FF ? 0 : a_int * b_int >> get_tag_bits(input_tag);
+    auto c_hi = input_tag == MemoryTag::FF ? 0 : (a_int * b_int) >> get_tag_bits(input_tag);
     if (input_tag == MemoryTag::U128) {
         auto a_decomp = simulation::decompose(a.as<uint128_t>());
         auto b_decomp = simulation::decompose(b.as<uint128_t>());
