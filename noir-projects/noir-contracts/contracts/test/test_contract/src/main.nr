@@ -46,7 +46,6 @@ pub contract Test {
             retrieved_note::RetrievedNote,
         },
         publish_contract_instance::publish_contract_instance_for_public_execution,
-        test::mocks::mock_struct::MockStruct,
     };
     use dep::token_portal_content_hash_lib::get_mint_to_private_content_hash;
     use std::meta::derive;
@@ -428,8 +427,8 @@ pub contract Test {
 
     #[derive(Serialize)]
     pub struct DummyNote {
-        amount: Field,
-        secret_hash: Field,
+        pub amount: Field,
+        pub secret_hash: Field,
     }
 
     impl DummyNote {
@@ -443,10 +442,10 @@ pub contract Test {
     }
 
     pub struct DeepStruct {
-        a_field: Field,
-        a_bool: bool,
-        a_note: DummyNote,
-        many_notes: [DummyNote; 3],
+        pub a_field: Field,
+        pub a_bool: bool,
+        pub a_note: DummyNote,
+        pub many_notes: [DummyNote; 3],
     }
 
     // Serializing using "canonical" form.

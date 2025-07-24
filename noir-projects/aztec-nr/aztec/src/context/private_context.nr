@@ -550,7 +550,9 @@ impl PrivateContext {
         };
     }
 
-    fn next_counter(&mut self) -> u32 {
+    // This function got exposed publicly to be able to access it in ContractClassRegistry.
+    // TODO: Should we introduce an abstraction such that accessing this externally is not needed?
+    pub fn next_counter(&mut self) -> u32 {
         let counter = self.side_effect_counter;
         self.side_effect_counter += 1;
         counter

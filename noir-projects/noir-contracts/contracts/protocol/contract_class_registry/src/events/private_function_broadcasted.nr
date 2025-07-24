@@ -40,7 +40,7 @@ pub struct ClassPrivateFunctionBroadcasted {
 }
 
 impl ClassPrivateFunctionBroadcasted {
-    fn serialize_non_standard(
+    pub fn serialize_non_standard(
         self: Self,
     ) -> [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS + CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS] {
         let mut packed = [

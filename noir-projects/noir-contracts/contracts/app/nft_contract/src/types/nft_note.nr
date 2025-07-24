@@ -208,7 +208,7 @@ impl NoteType for PrivateNFTPartialNotePrivateLogContent {
 /// of course that its token id is known).
 #[derive(Packable, Serialize, Deserialize)]
 pub struct PartialNFTNote {
-    commitment: Field,
+    pub commitment: Field,
 }
 
 impl PartialNFTNote {

@@ -1,6 +1,8 @@
 pub(crate) mod abi_export;
 pub(crate) mod call_interface_stubs;
-pub(crate) mod initialization_utils;
+// Note: The following was exported out of the crate only because it's tested by the StatefulTest contract. This is not
+// great and ideally we would just test it within this crate.
+pub mod initialization_utils;
 pub(crate) mod stub_registry;
 pub(crate) mod auth_registry;
 pub(crate) mod utils;

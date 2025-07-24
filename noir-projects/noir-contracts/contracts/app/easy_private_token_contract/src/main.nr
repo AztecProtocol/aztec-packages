@@ -43,7 +43,7 @@ pub contract EasyPrivateToken {
     // Helper function to get the balance of a user.
     #[utility]
     unconstrained fn get_balance(owner: AztecAddress) -> Field {
-        storage.balances.at(owner).value()
+        storage.balances.at(owner).get_value()
     }
 }
 // docs:end:easy_private_token_contract

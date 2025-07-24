@@ -253,7 +253,7 @@ pub contract AvmTest {
 
     #[public]
     fn external_call_to_divide_by_zero() {
-        AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+        let _ = AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
     }
 
     #[public]
@@ -618,7 +618,7 @@ pub contract AvmTest {
 
     // function with large array as calldata (for benchmarking call interface macros)
     #[public]
-    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+    fn fn_w_large_calldata(_arr: [Field; 300]) -> pub Field {
         // do nothing and return...
         5
     }

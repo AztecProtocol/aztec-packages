@@ -63,7 +63,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
 }
 
 impl EasyPrivateUint<UtilityContext> {
-    pub unconstrained fn value(self) -> Field {
+    pub unconstrained fn get_value(self) -> Field {
         balance_utils::get_balance(self.set)
     }
 }
