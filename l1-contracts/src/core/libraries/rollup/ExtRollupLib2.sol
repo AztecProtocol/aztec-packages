@@ -9,38 +9,9 @@ import {StakingLib} from "./StakingLib.sol";
 import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
-import {
-  RewardBooster,
-  RewardBoostConfig,
-  IBoosterCore,
-  IValidatorSelection
-} from "@aztec/core/reward-boost/RewardBooster.sol";
-import {Slasher, ISlasher} from "@aztec/core/slashing/Slasher.sol";
 
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
-
-  function deployRewardBooster(RewardBoostConfig memory _config) external returns (IBoosterCore) {
-    RewardBooster booster = new RewardBooster(IValidatorSelection(address(this)), _config);
-    return IBoosterCore(address(booster));
-  }
-
-  function deploySlasher(
-    uint256 _slashingQuorum,
-    uint256 _slashingRoundSize,
-    uint256 _slashingLifetimeInRounds,
-    uint256 _slashingExecutionDelayInRounds,
-    address _slashingVetoer
-  ) external returns (ISlasher) {
-    Slasher slasher = new Slasher(
-      _slashingQuorum,
-      _slashingRoundSize,
-      _slashingLifetimeInRounds,
-      _slashingExecutionDelayInRounds,
-      _slashingVetoer
-    );
-    return ISlasher(address(slasher));
-  }
 
   function setSlasher(address _slasher) external {
     StakingLib.setSlasher(_slasher);

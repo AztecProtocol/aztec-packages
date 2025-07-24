@@ -20,6 +20,7 @@ import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
+import {ExtRollupLib3} from "@aztec/core/libraries/rollup/ExtRollupLib3.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -86,7 +87,7 @@ contract RollupCore is
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-    ISlasher slasher = ExtRollupLib2.deploySlasher(
+    ISlasher slasher = ExtRollupLib3.deploySlasher(
       _config.slashingQuorum,
       _config.slashingRoundSize,
       _config.slashingLifetimeInRounds,
@@ -101,7 +102,7 @@ contract RollupCore is
 
     // If no booster specifically provided deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
-      _config.rewardConfig.booster = ExtRollupLib2.deployRewardBooster(_config.rewardBoostConfig);
+      _config.rewardConfig.booster = ExtRollupLib3.deployRewardBooster(_config.rewardBoostConfig);
     }
 
     RewardLib.setConfig(_config.rewardConfig);
