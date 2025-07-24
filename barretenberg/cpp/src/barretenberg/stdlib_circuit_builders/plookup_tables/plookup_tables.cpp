@@ -322,22 +322,28 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
         return sparse_tables::generate_sparse_table_with_rotation<16, 11, 2>(SHA256_BASE16_ROTATE2, index);
     }
     case UINT_XOR_SLICE_6_ROTATE_0: {
-        return uint_tables::generate_xor_rotate_table<6, 0>(UINT_XOR_SLICE_6_ROTATE_0, index);
+        return uint_tables::generate_xor_rotate_table</*bits_per_slice=*/6, /*num_rotated_output_bits=*/0>(
+            UINT_XOR_SLICE_6_ROTATE_0, index);
     }
     case UINT_XOR_SLICE_4_ROTATE_0: {
-        return uint_tables::generate_xor_rotate_table<4, 0>(UINT_XOR_SLICE_4_ROTATE_0, index);
+        return uint_tables::generate_xor_rotate_table</*bits_per_slice=*/4, /*num_rotated_output_bits=*/0>(
+            UINT_XOR_SLICE_4_ROTATE_0, index);
     }
     case UINT_XOR_SLICE_2_ROTATE_0: {
-        return uint_tables::generate_xor_rotate_table<2, 0>(UINT_XOR_SLICE_2_ROTATE_0, index);
+        return uint_tables::generate_xor_rotate_table</*bits_per_slice=*/2, /*num_rotated_output_bits=*/0>(
+            UINT_XOR_SLICE_2_ROTATE_0, index);
     }
     case UINT_AND_SLICE_6_ROTATE_0: {
-        return uint_tables::generate_and_rotate_table<6, 0>(UINT_AND_SLICE_6_ROTATE_0, index);
+        return uint_tables::generate_and_rotate_table</*bits_per_slice=*/6, /*num_rotated_output_bits=*/0>(
+            UINT_AND_SLICE_6_ROTATE_0, index);
     }
     case UINT_AND_SLICE_4_ROTATE_0: {
-        return uint_tables::generate_and_rotate_table<4, 0>(UINT_AND_SLICE_4_ROTATE_0, index);
+        return uint_tables::generate_and_rotate_table</*bits_per_slice=*/4, /*num_rotated_output_bits=*/0>(
+            UINT_AND_SLICE_4_ROTATE_0, index);
     }
     case UINT_AND_SLICE_2_ROTATE_0: {
-        return uint_tables::generate_and_rotate_table<2, 0>(UINT_AND_SLICE_2_ROTATE_0, index);
+        return uint_tables::generate_and_rotate_table</*bits_per_slice=*/2, /*num_rotated_output_bits=*/0>(
+            UINT_AND_SLICE_2_ROTATE_0, index);
     }
     case BN254_XLO_BASIC: {
         return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xlo_table(BN254_XLO_BASIC, index);
