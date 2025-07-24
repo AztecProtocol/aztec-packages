@@ -216,7 +216,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
     typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input, bool has_valid_witness_assignments)
-    requires IsRecursiveFlavor<Flavor>
+    requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
     using Builder = typename Flavor::CircuitBuilder;
     using RecursiveVerificationKey = Flavor::VerificationKey;
@@ -256,10 +256,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
         size_t size_of_proof_with_no_pub_inputs = input.proof.size();
         size_t total_num_public_inputs = input.public_inputs.size();
-        if constexpr (IsMegaFlavor<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE;
-        } else if constexpr (HasIPAAccumulator<Flavor>) {
+        if constexpr (HasIPAAccumulator<Flavor>) {
             size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
             total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
         } else {

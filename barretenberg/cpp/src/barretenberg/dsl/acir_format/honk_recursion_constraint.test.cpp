@@ -174,14 +174,19 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             fr key_hash_witness = verification_key->hash();
             std::vector<fr> proof_witnesses = inner_proof;
-            size_t num_public_inputs_to_extract = inner_circuit.num_public_inputs();
-            acir_format::PROOF_TYPE proof_type = acir_format::HONK;
-            if constexpr (HasIPAAccumulator<InnerFlavor>) {
-                num_public_inputs_to_extract -= RollupIO::PUBLIC_INPUTS_SIZE;
-                proof_type = ROLLUP_HONK;
-            } else if constexpr (InnerFlavor::HasZK) {
-                proof_type = HONK_ZK;
-            }
+
+            // Compute the number of public inputs to extract (the ones from the circuit) and the proof type based on
+            // the Flavor
+            auto [num_public_inputs_to_extract, proof_type] = [&]() -> std::pair<size_t, acir_format::PROOF_TYPE> {
+                size_t num_public_inputs_to_extract = inner_circuit.num_public_inputs();
+                if constexpr (HasIPAAccumulator<InnerFlavor>) {
+                    return { num_public_inputs_to_extract - RollupIO::PUBLIC_INPUTS_SIZE, ROLLUP_HONK };
+                } else if constexpr (InnerFlavor::HasZK) {
+                    return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK_ZK };
+                } else {
+                    return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK };
+                }
+            }();
 
             auto [key_indices, key_hash_index, proof_indices, inner_public_inputs] =
                 ProofSurgeon::populate_recursion_witness_data(
@@ -217,10 +222,10 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         AcirProgram program{ constraint_system, witness };
         BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
 
-        // If OuterBuilder = Mega, then the proof of outer_circuit will be a Mega proof, and thus will be verified with
+        // If BuilderType = Mega, then the proof of outer_circuit will be a Mega proof, and thus will be verified with
         // a MegaVerifier = UltraVerifier<MegaFlavor>. By design, the MegaVerifier expects the public inputs to be the
         // ones of the HidingKernel, so we mock the missing part: ecc_op_tables
-        if constexpr (IsMegaFlavor<OuterFlavor>) {
+        if constexpr (IsMegaBuilder<BuilderType>) {
             for (size_t idx = 0; idx < BuilderType::NUM_WIRES; idx++) {
                 typename stdlib::bn254<BuilderType>::Group point =
                     stdlib::bn254<BuilderType>::Group::point_at_infinity(&outer_circuit);
