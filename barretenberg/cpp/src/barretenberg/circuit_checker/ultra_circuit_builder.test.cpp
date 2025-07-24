@@ -632,7 +632,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplication)
 }
 
 /**
- * @brief Test that the aux block only contains aux gates.
+ * @brief Test that the nnf block only contains nnf gates.
  *
  */
 TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
@@ -689,14 +689,14 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
     EXPECT_EQ(result, true);
 
     // Everything above was copied from the previous test.
-    // Check that in the aux blocks, the other selectors besides the aux selector are zero
-    for (size_t i = 0; i < builder.blocks.aux.size(); ++i) {
-        EXPECT_EQ(builder.blocks.aux.q_arith()[i], 0);
-        EXPECT_EQ(builder.blocks.aux.q_delta_range()[i], 0);
-        EXPECT_EQ(builder.blocks.aux.q_elliptic()[i], 0);
-        EXPECT_EQ(builder.blocks.aux.q_lookup_type()[i], 0);
-        EXPECT_EQ(builder.blocks.aux.q_poseidon2_external()[i], 0);
-        EXPECT_EQ(builder.blocks.aux.q_poseidon2_internal()[i], 0);
+    // Check that in the nnf blocks, the other selectors besides the nnf selector are zero
+    for (size_t i = 0; i < builder.blocks.nnf.size(); ++i) {
+        EXPECT_EQ(builder.blocks.nnf.q_arith()[i], 0);
+        EXPECT_EQ(builder.blocks.nnf.q_delta_range()[i], 0);
+        EXPECT_EQ(builder.blocks.nnf.q_elliptic()[i], 0);
+        EXPECT_EQ(builder.blocks.nnf.q_lookup_type()[i], 0);
+        EXPECT_EQ(builder.blocks.nnf.q_poseidon2_external()[i], 0);
+        EXPECT_EQ(builder.blocks.nnf.q_poseidon2_internal()[i], 0);
     }
 }
 

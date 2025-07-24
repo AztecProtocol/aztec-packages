@@ -123,22 +123,6 @@ pub unconstrained fn derive_keys(secret: Field) -> PublicKeys {}
 #[oracle(addAuthWitness)]
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
-#[oracle(assertPublicCallFails)]
-pub unconstrained fn assert_public_call_fails(
-    target_address: AztecAddress,
-    function_selector: FunctionSelector,
-    args: [Field],
-) {}
-
-#[oracle(assertPrivateCallFails)]
-pub unconstrained fn assert_private_call_fails(
-    target_address: AztecAddress,
-    function_selector: FunctionSelector,
-    argsHash: Field,
-    sideEffectsCounter: Field,
-    isStaticCall: bool,
-) {}
-
 #[oracle(privateCallNewFlow)]
 unconstrained fn private_call_new_flow_oracle(
     _from: AztecAddress,

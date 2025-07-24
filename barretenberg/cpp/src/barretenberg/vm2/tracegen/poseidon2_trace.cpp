@@ -530,6 +530,5 @@ const InteractionDefinition Poseidon2TraceBuilder::interactions =
         .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
         // Dispatch from Execution Trace
         .add<perm_poseidon2_mem_dispatch_exec_pos2_settings, InteractionType::Permutation>();
-//
 
 } // namespace bb::avm2::tracegen

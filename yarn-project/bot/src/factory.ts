@@ -223,7 +223,7 @@ export class BotFactory {
 
     this.log.info(`AMM deployed at ${amm.address}`);
     const minterTx = lpToken.methods.set_minter(amm.address, true).send();
-    this.log.info(`Set LP token minter to AMM txHash=${await minterTx.getTxHash()}`);
+    this.log.info(`Set LP token minter to AMM txHash=${(await minterTx.getTxHash()).toString()}`);
     await minterTx.wait({ timeout: this.config.txMinedWaitSeconds });
     this.log.info(`Liquidity token initialized`);
 
@@ -283,7 +283,7 @@ export class BotFactory {
       token1.methods.mint_to_private(wallet.getAddress(), MINT_BALANCE),
     ]).send();
 
-    this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
+    this.log.info(`Sent mint tx: ${(await mintTx.getTxHash()).toString()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
     const addLiquidityTx = amm.methods
@@ -292,7 +292,7 @@ export class BotFactory {
         authWitnesses: [token0Authwit, token1Authwit],
       });
 
-    this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
+    this.log.info(`Sent tx to add liquidity to the AMM: ${(await addLiquidityTx.getTxHash()).toString()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });
     this.log.info(`Liquidity added`);
 
