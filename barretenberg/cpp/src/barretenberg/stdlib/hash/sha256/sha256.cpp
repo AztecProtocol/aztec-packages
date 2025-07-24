@@ -305,45 +305,69 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     return output;
 }
 
-template <typename Builder> packed_byte_array<Builder> SHA256<Builder>::hash(const packed_byte_array<Builder>& input)
+// The input is assumed to be a vector of 4-byte field elements.
+// The output in the only application - ECDSA is cast into byte_array
+// The input there is a byte_array!
+template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte_array_ct& input)
 {
-    typedef field_t<Builder> field_pt;
+    Builder* ctx = input[0].get_context();
+    // nothing constrained?
+    info("entering sha256: ", ctx->get_estimated_num_finalized_gates());
+    std::vector<field_ct> message_schedule;
+    const size_t message_length_bytes = input.size();
 
-    Builder* ctx = input.get_context();
+    for (size_t idx = 0; idx < message_length_bytes; idx++) {
+        message_schedule.push_back(input[idx]);
+    }
+    info("packed byte array created: ", ctx->get_estimated_num_finalized_gates());
 
-    packed_byte_array<Builder> message_schedule(input);
-
-    const size_t message_bits = message_schedule.size() * 8;
-
-    message_schedule.append(field_t(ctx, 128), 1);
+    // It's a constant, no need to constrain
+    message_schedule.push_back(field_ct(ctx, 128));
 
     constexpr size_t bytes_per_block = 64;
     const size_t num_bytes = message_schedule.size() + 8;
     const size_t num_blocks = num_bytes / bytes_per_block + (num_bytes % bytes_per_block != 0);
 
     const size_t num_total_bytes = num_blocks * bytes_per_block;
+    // Pad with zeroes to make the number divisible by 64
     for (size_t i = num_bytes; i < num_total_bytes; ++i) {
-        message_schedule.append(field_t(ctx, 0), 1);
+        message_schedule.push_back(field_ct(ctx, 0));
     }
 
-    message_schedule.append(field_t(ctx, message_bits), 8);
+    // Append the message length bits represented as a byte array of length 8.
+    const size_t message_bits = message_length_bytes * 8;
+    byte_array_ct message_length_byte_decomposition(field_ct(message_bits), 8);
 
-    const std::vector<field_pt> slices = message_schedule.to_unverified_byte_slices(4);
+    for (size_t idx = 0; idx < 8; idx++) {
+        message_schedule.push_back(message_length_byte_decomposition[idx]);
+    }
+
+    // Compute 4-byte slices
+    std::vector<field_ct> slices;
+
+    for (size_t i = 0; i < message_schedule.size(); i += 4) {
+        std::vector<field_ct> chunk;
+        for (size_t j = 0; j < 4; ++j) {
+            const size_t shift = 8 * (3 - j);
+            chunk.push_back(message_schedule[i + j] * field_ct(ctx, uint256_t(1) << shift));
+        }
+        slices.push_back(field_ct::accumulate(chunk));
+    }
 
     constexpr size_t slices_per_block = 16;
 
-    std::array<field_pt, 8> rolling_hash;
+    std::array<field_ct, 8> rolling_hash;
     prepare_constants(rolling_hash);
     for (size_t i = 0; i < num_blocks; ++i) {
-        std::array<field_pt, 16> hash_input;
+        std::array<field_ct, 16> hash_input;
         for (size_t j = 0; j < 16; ++j) {
             hash_input[j] = slices[i * slices_per_block + j];
         }
         rolling_hash = sha256_block(rolling_hash, hash_input);
     }
 
-    std::vector<field_pt> output(rolling_hash.begin(), rolling_hash.end());
-    return packed_byte_array<Builder>(output, 4);
+    std::vector<field_ct> output_vector(rolling_hash.begin(), rolling_hash.end());
+    return byte_array<Builder>(ctx, output_vector);
 }
 
 template class SHA256<bb::UltraCircuitBuilder>;
