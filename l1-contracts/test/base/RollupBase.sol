@@ -36,6 +36,7 @@ contract RollupBase is DecoderBase {
   MerkleTestUtil internal merkleTestUtil = new MerkleTestUtil();
 
   CommitteeAttestation[] internal attestations;
+  address[] internal signers;
 
   mapping(uint256 => uint256) internal blockFees;
 
@@ -204,7 +205,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, SignatureLib.packAttestations(attestations), blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;

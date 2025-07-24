@@ -45,6 +45,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
     uint256 attestationsCount;
     address[] committee;
     CommitteeAttestation[] attestations;
+    address[] signers;
     ProposePayload proposePayload;
     ProposeArgs proposeArgs;
   }

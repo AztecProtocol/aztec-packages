@@ -108,6 +108,46 @@ library SignatureLib {
   }
 
   /**
+   * Returns the addresses from the CommitteeAttestations, using the array of signers to populate where there are signatures.
+   * Indices with signatures will have a zero address.
+   * @param _attestations - The committee attestations
+   * @param _length - The number of addresses to return, should match the number of committee members
+   */
+  function reconstructCommitteeFromSigners(
+    CommitteeAttestations memory _attestations,
+    address[] memory _signers,
+    uint256 _length
+  ) internal pure returns (address[] memory) {
+    bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    address[] memory addresses = new address[](_length);
+
+    uint256 signersIndex;
+    uint256 dataPtr;
+
+    assembly {
+      // Skip length
+      dataPtr := add(signaturesOrAddresses, 0x20)
+    }
+
+    for (uint256 i = 0; i < _length; ++i) {
+      if (isSignature(_attestations, i)) {
+        dataPtr += 65;
+        addresses[i] = _signers[signersIndex];
+        signersIndex++;
+      } else {
+        address addr;
+        assembly {
+          addr := shr(96, mload(dataPtr))
+          dataPtr := add(dataPtr, 20)
+        }
+        addresses[i] = addr;
+      }
+    }
+
+    return addresses;
+  }
+
+  /**
    * @notice Verifies a signature, throws if the signature is invalid or empty
    *
    * @param _signature - The signature to verify

@@ -31,7 +31,8 @@ library ExtRollupLib {
 
   function validateHeader(
     ValidateHeaderArgs calldata _args,
-    CommitteeAttestations calldata _attestations
+    CommitteeAttestations calldata _attestations,
+    address[] calldata _signers
   ) external {
     ProposeLib.validateHeader(_args);
     if (_attestations.isEmpty()) {
@@ -41,16 +42,17 @@ library ExtRollupLib {
     Slot slot = _args.header.slotNumber;
     Epoch epoch = slot.epochFromSlot();
     ValidatorSelectionLib.verify(slot, epoch, _attestations, _args.digest);
-    ValidatorSelectionLib.verifyProposer(slot, _attestations, _args.digest);
+    ValidatorSelectionLib.verifyProposer(slot, epoch, _attestations, _signers, _args.digest);
   }
 
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
+    address[] calldata _signers,
     bytes calldata _blobInput,
     bool _checkBlob
   ) external {
-    ProposeLib.propose(_args, _attestations, _blobInput, _checkBlob);
+    ProposeLib.propose(_args, _attestations, _signers, _blobInput, _checkBlob);
   }
 
   function prune() external {

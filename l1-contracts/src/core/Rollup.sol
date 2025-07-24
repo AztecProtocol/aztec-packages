@@ -105,6 +105,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   function validateHeader(
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
+    address[] calldata _signers,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
@@ -118,7 +119,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       }),
-      _attestations
+      _attestations,
+      _signers
     );
   }
 
