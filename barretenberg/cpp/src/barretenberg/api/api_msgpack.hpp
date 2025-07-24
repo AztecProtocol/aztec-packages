@@ -47,7 +47,7 @@ inline int process_msgpack_commands(std::istream& input_stream)
 
         // Read the msgpack buffer
         std::vector<uint8_t> buffer(length);
-        input_stream.read(reinterpret_cast<char*>(buffer.data()), length);
+        input_stream.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(length));
 
         if (input_stream.gcount() != static_cast<std::streamsize>(length)) {
             std::cerr << "Error: Incomplete msgpack buffer read" << std::endl;
@@ -56,44 +56,36 @@ inline int process_msgpack_commands(std::istream& input_stream)
             return 1;
         }
 
-        try {
-            // Deserialize the msgpack buffer
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-            auto obj = unpacked.get();
-            // access object assuming it is an array of size 2
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
-                throw_or_abort("Expected an array of size 2 [command-name, payload] for bbapi command deserialization");
-            }
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& arr = obj.via.array;
-            if (arr.ptr[0].type != msgpack::type::STR) {
-                throw_or_abort("Expected first element to be a string (type name) in bbapi command deserialization");
-            }
-
-            // Convert to Command (which is a NamedUnion)
-            bb::bbapi::Command command;
-            obj.convert(command);
-
-            // Execute the command
-            auto response = bbapi::bbapi(std::move(command));
-
-            // Serialize the response
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-
-            // Write length-encoded response directly to stdout
-            uint32_t response_length = static_cast<uint32_t>(response_buffer.size());
-            stdout_stream.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
-            stdout_stream.write(response_buffer.data(), static_cast<std::streamsize>(response_buffer.size()));
-            stdout_stream.flush();
-
-        } catch (const std::exception& e) {
-            std::cerr << "Error processing msgpack command: " << e.what() << std::endl;
-            // Restore original cout buffer before returning
-            std::cout.rdbuf(original_cout_buf);
-            return 1;
+        // Deserialize the msgpack buffer
+        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+        auto obj = unpacked.get();
+        // access object assuming it is an array of size 2
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
+            throw_or_abort("Expected an array of size 2 [command-name, payload] for bbapi command deserialization");
         }
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
+        auto& arr = obj.via.array;
+        if (arr.ptr[0].type != msgpack::type::STR) {
+            throw_or_abort("Expected first element to be a string (type name) in bbapi command deserialization");
+        }
+
+        // Convert to Command (which is a NamedUnion)
+        bb::bbapi::Command command;
+        obj.convert(command);
+
+        // Execute the command
+        auto response = bbapi::bbapi(std::move(command));
+
+        // Serialize the response
+        msgpack::sbuffer response_buffer;
+        msgpack::pack(response_buffer, response);
+
+        // Write length-encoded response directly to stdout
+        uint32_t response_length = static_cast<uint32_t>(response_buffer.size());
+        stdout_stream.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
+        stdout_stream.write(response_buffer.data(), static_cast<std::streamsize>(response_buffer.size()));
+        stdout_stream.flush();
     }
 
     // Restore original cout buffer
