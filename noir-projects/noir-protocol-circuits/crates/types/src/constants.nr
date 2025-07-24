@@ -524,9 +524,8 @@ pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
 pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH; // in the future these can differ
 
-pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
-pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra Rollup verification key
-pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
+pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
+pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -662,7 +661,8 @@ pub global AVM_EXEC_OP_ID_SSTORE: u32 = 2 * AVM_EXEC_OP_ID_SLOAD;
 pub global AVM_EXEC_OP_ID_NOTEHASH_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_SSTORE;
 pub global AVM_EXEC_OP_ID_EMIT_NOTEHASH: u32 = 2 * AVM_EXEC_OP_ID_NOTEHASH_EXISTS;
 pub global AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_EMIT_NOTEHASH;
-pub global AVM_EXEC_OP_ID_NULLIFIEREXISTS: u32 = 2 * AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS;
+pub global AVM_EXEC_OP_ID_NULLIFIER_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS;
+pub global AVM_EXEC_OP_ID_EMIT_NULLIFIER: u32 = 2 * AVM_EXEC_OP_ID_NULLIFIER_EXISTS;
 
 // Execution Opcode IDs for the ALU subtrace
 // Note: these are all powers of 2 to allow for binary decomposition.
@@ -1074,6 +1074,7 @@ pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
+pub global PROOF_TYPE_PG_FINAL: u32 = 7;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
 // AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)

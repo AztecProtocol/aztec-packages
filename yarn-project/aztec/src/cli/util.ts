@@ -142,18 +142,32 @@ export function formatHelpLine(
 
 const getDefaultOrEnvValue = (opt: AztecStartOption) => {
   let val;
-  // if the option is set in the environment, use that & parse it
-  if (opt.envVar && process.env[opt.envVar]) {
+
+  // if the option is set in the environment, use that
+  if (opt.envVar) {
     val = process.env[opt.envVar];
-    if (val && opt.parseVal) {
-      return opt.parseVal(val);
-    }
-    // if no env variable, use the default value
-  } else if (opt.defaultValue) {
-    val = opt.defaultValue;
   }
 
-  return val;
+  // if we have fallback env vars, check those
+  if (!val && opt.fallback && opt.fallback.length > 0) {
+    for (const fallback of opt.fallback) {
+      val = process.env[fallback];
+      if (val) {
+        break;
+      }
+    }
+  }
+
+  // if we have a value, optionally parse it and return
+  if (val) {
+    if (opt.parseVal) {
+      return opt.parseVal(val);
+    }
+    return val;
+  } else if (opt.defaultValue) {
+    return opt.defaultValue;
+  }
+  return undefined;
 };
 
 // Function to add options dynamically

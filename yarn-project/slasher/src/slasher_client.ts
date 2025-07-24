@@ -67,6 +67,7 @@ export class SlasherClient {
   private monitoredPayloads: MonitoredSlashPayload[] = [];
   private unwatchCallbacks: (() => void)[] = [];
   private overridePayloadActive = false;
+  private slashingExecutionDelayInRounds = 0n;
 
   static async new(
     config: Omit<SlasherConfig, 'slasherPrivateKey'>,
@@ -108,8 +109,9 @@ export class SlasherClient {
 
   //////////////////// Public methods ////////////////////
 
-  public start() {
+  public async start() {
     this.log.debug('Starting Slasher client...');
+    this.slashingExecutionDelayInRounds = await this.slashingProposer.getExecutionDelayInRounds();
 
     // detect when new payloads are created
     this.unwatchCallbacks.push(this.watchSlashFactoryEvents());
@@ -473,10 +475,10 @@ export class SlasherClient {
       return;
     }
 
-    const nextRound = round + 1n;
-    this.log.info(`Waiting for round ${nextRound} to be reached`);
+    const executableRound = round + BigInt(this.slashingExecutionDelayInRounds) + 1n;
+    this.log.info(`Waiting for round ${executableRound} to be reached`);
     const reached = await this.slashingProposer.waitForRound(
-      nextRound,
+      executableRound,
       this.config.slashProposerRoundPollingIntervalSeconds,
     );
     if (!reached) {

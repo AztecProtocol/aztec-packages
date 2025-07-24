@@ -412,9 +412,31 @@ TEST_F(ExecutionSimulationTest, SStore)
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
 
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+
     EXPECT_CALL(merkle_db, storage_write(address, slot.as<FF>(), value.as<FF>(), false));
 
     execution.sstore(context, value_addr, slot_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SStoreDuringStaticCall)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress value_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+    auto value = MemoryValue::from<FF>(7);
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+    EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(false));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+    EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr),
+                              "SSTORE: Cannot write to storage in static context");
 }
 
 TEST_F(ExecutionSimulationTest, SStoreLimitReached)
@@ -434,6 +456,8 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReached)
     EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 
     EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr),
                               "SSTORE: Maximum number of data writes reached");
@@ -456,6 +480,8 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReachedSquashed)
     // has been written before, so it does not count against the limit.
     EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(true));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 
     EXPECT_CALL(merkle_db, storage_write(address, slot.as<FF>(), value.as<FF>(), false));
 
@@ -523,10 +549,29 @@ TEST_F(ExecutionSimulationTest, EmitNoteHash)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
     EXPECT_CALL(merkle_db, note_hash_write(address, note_hash.as<FF>()));
 
     execution.emit_note_hash(context, note_hash_addr);
+}
+
+TEST_F(ExecutionSimulationTest, EmitNoteHashDuringStaticCall)
+{
+    MemoryAddress note_hash_addr = 10;
+
+    auto note_hash = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(note_hash_addr)).WillOnce(ReturnRef(note_hash));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr),
+                              "EMITNOTEHASH: Cannot emit note hash in static context");
 }
 
 TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
@@ -544,6 +589,7 @@ TEST_F(ExecutionSimulationTest, EmitNoteHashLimitReached)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
 
     EXPECT_THROW_WITH_MESSAGE(execution.emit_note_hash(context, note_hash_addr),
@@ -616,6 +662,88 @@ TEST_F(ExecutionSimulationTest, NullifierExists)
     EXPECT_CALL(memory, set(exists_offset, MemoryValue::from<uint1_t>(1)));
 
     execution.nullifier_exists(context, nullifier_offset, address_offset, exists_offset);
+}
+
+TEST_F(ExecutionSimulationTest, EmitNullifier)
+{
+    MemoryAddress nullifier_addr = 10;
+
+    auto nullifier = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+    TreeStates tree_state = {};
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as<FF>())).WillOnce(Return(true)); // success
+
+    execution.emit_nullifier(context, nullifier_addr);
+}
+
+TEST_F(ExecutionSimulationTest, EmitNullifierDuringStaticCall)
+{
+    MemoryAddress nullifier_addr = 10;
+
+    auto nullifier = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr),
+                              "EMITNULLIFIER: Cannot emit nullifier in static context");
+}
+
+TEST_F(ExecutionSimulationTest, EmitNullifierLimitReached)
+{
+    MemoryAddress nullifier_addr = 10;
+
+    auto nullifier = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+    TreeStates tree_state = {};
+    tree_state.nullifierTree.counter = MAX_NULLIFIERS_PER_TX;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr),
+                              "EMITNULLIFIER: Maximum number of nullifiers reached");
+}
+
+TEST_F(ExecutionSimulationTest, EmitNullifierCollision)
+{
+    MemoryAddress nullifier_addr = 10;
+
+    auto nullifier = MemoryValue::from<FF>(42);
+    AztecAddress address = 0xdeadbeef;
+    TreeStates tree_state = {};
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(nullifier_addr)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(merkle_db, nullifier_write(address, nullifier.as<FF>())).WillOnce(Return(false)); // collision
+
+    EXPECT_THROW_WITH_MESSAGE(execution.emit_nullifier(context, nullifier_addr), "EMITNULLIFIER: Nullifier collision");
 }
 
 TEST_F(ExecutionSimulationTest, Set)
@@ -693,7 +821,6 @@ TEST_F(ExecutionSimulationTest, EccAdd)
     EXPECT_CALL(gas_tracker, consume_gas);
 
     // Mock the ECC add operation
-    // EXPECT_CALL(ecc, add(context.get_memory(), _, _, dst_addr));
     EXPECT_CALL(ecc, add(_, _, _, dst_addr));
 
     // Execute the ECC add operation

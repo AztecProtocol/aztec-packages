@@ -281,7 +281,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
             } else {
                 OuterVerifier verifier(verification_key);
-                ASSERT_TRUE(verifier.verify_proof(proof));
+                ASSERT_TRUE(std::get<0>(verifier.verify_proof(proof)));
             }
         }
         // Check the size of the recursive verifier

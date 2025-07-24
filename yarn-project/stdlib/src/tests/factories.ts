@@ -1653,6 +1653,7 @@ export async function makeBloatedProcessedTx({
 
     tx.data.forRollup!.end = data;
 
+    await tx.recomputeHash();
     return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
     const dataFromPrivate = tx.data.forPublic!;
@@ -1718,6 +1719,7 @@ export async function makeBloatedProcessedTx({
       billedGas: Gas.empty(),
     } satisfies GasUsed;
 
+    await tx.recomputeHash();
     return makeProcessedTxFromTxWithPublicCalls(
       tx,
       {
