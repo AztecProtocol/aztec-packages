@@ -218,7 +218,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         if constexpr (IsMegaFlavor<OuterFlavor>) {
             // MegaFlavor required HidingKernelIO
             for (size_t idx = 0; idx < OuterBuilder::NUM_WIRES; idx++) {
-                for (auto& commitment : HidingKernelIO<OuterBuilder>::default_ecc_op_tables(&outer_circuit)) {
+                for (auto& commitment : HidingKernelIO<OuterBuilder>::default_ecc_op_tables(outer_circuit)) {
                     commitment.set_public();
                 }
             }
@@ -281,7 +281,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
             } else {
                 OuterVerifier verifier(verification_key);
-                ASSERT_TRUE(std::get<0>(verifier.verify_proof(proof)));
+                ASSERT_TRUE(verifier.verify_proof(proof));
             }
         }
         // Check the size of the recursive verifier

@@ -227,7 +227,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         // ones of the HidingKernel, so we mock the missing part: ecc_op_tables
         if constexpr (IsMegaBuilder<BuilderType>) {
             for (auto& commitment :
-                 stdlib::recursion::honk::HidingKernelIO<BuilderType>::default_ecc_op_tables(&outer_circuit)) {
+                 stdlib::recursion::honk::HidingKernelIO<BuilderType>::default_ecc_op_tables(outer_circuit)) {
                 commitment.set_public();
             }
         }
