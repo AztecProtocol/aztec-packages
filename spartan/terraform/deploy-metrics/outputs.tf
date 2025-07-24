@@ -9,7 +9,3 @@ output "otel_collector_ip" {
   value       = google_compute_address.otel_collector_ip.address
 }
 
-output "public_otel_ingress" {
-  description = "Public otel ingress"
-  value       = "https://${local.public_otel_ingress_host}:4318"
-}

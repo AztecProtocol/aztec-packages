@@ -25,6 +25,7 @@ import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
+import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 
 contract GovScript is Test {
   using ProposalLib for Proposal;
@@ -88,7 +89,7 @@ contract GovScript is Test {
     emit log_named_address("# Governance", address(governance));
     Configuration memory config = governance.getConfiguration();
     emit log_named_decimal_uint("\tquorum           ", config.quorum, 18);
-    emit log_named_decimal_uint("\tvote Differential", config.voteDifferential, 18);
+    emit log_named_decimal_uint("\trequiredYeaMargin", config.requiredYeaMargin, 18);
     emit log_named_decimal_uint("\tminimum Votes    ", config.minimumVotes, 18);
     emit log_named_uint("\tvotingDelay      ", Timestamp.unwrap(config.votingDelay));
     emit log_named_uint("\tvotingDuration   ", Timestamp.unwrap(config.votingDuration));
@@ -99,18 +100,18 @@ contract GovScript is Test {
 
     emit log_named_address("# Governance proposer", address(governanceProposer));
     emit log_named_uint("\tLifetime in rounds", governanceProposer.LIFETIME_IN_ROUNDS());
-    emit log_named_uint("\tN", governanceProposer.N());
-    emit log_named_uint("\tM", governanceProposer.M());
+    emit log_named_uint("\tQuorum size", governanceProposer.QUORUM_SIZE());
+    emit log_named_uint("\tRound size", governanceProposer.ROUND_SIZE());
   }
 
   function lookAtRounds() public {
     uint256 lifetime = governanceProposer.LIFETIME_IN_ROUNDS();
-    uint256 n = governanceProposer.N();
-    uint256 m = governanceProposer.M();
+    uint256 n = governanceProposer.QUORUM_SIZE();
+    uint256 m = governanceProposer.ROUND_SIZE();
 
     emit log_named_uint("lifetime", lifetime);
-    emit log_named_uint("n       ", n);
-    emit log_named_uint("m       ", m);
+    emit log_named_uint("quorum size", n);
+    emit log_named_uint("round size  ", m);
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 currentRound = governanceProposer.computeRound(currentSlot);
@@ -122,14 +123,15 @@ contract GovScript is Test {
     bool found = false;
 
     for (uint256 i = lowerLimit; i <= currentRound; i++) {
-      (, IPayload leader, bool executed) = governanceProposer.rounds(address(rollup), i);
-      uint256 yeaCount = governanceProposer.yeaCount(address(rollup), i, leader);
+      RoundAccounting memory r = governanceProposer.getRoundData(address(rollup), i);
+      uint256 signalCount =
+        governanceProposer.signalCount(address(rollup), i, r.payloadWithMostSignals);
 
       emit log_named_uint("Proposal at round", i);
-      emit log_named_uint("\tyeaCount", yeaCount);
-      emit log_named_address("\tleader", address(leader));
+      emit log_named_uint("\tsignalCount", signalCount);
+      emit log_named_address("\tpayloadWithMostSignals", address(r.payloadWithMostSignals));
 
-      if (!executed && yeaCount >= n) {
+      if (!r.executed && signalCount >= n) {
         emit log_named_uint("\tGood proposal at round", i);
         found = true;
       }
@@ -154,7 +156,7 @@ contract GovScript is Test {
     emit log_named_uint("executableThrough", Timestamp.unwrap(proposal.executableThrough()));
     emit log_named_uint("creation         ", Timestamp.unwrap(proposal.creation));
     emit log_named_decimal_uint("yeaCount         ", proposal.summedBallot.yea, 18);
-    emit log_named_decimal_uint("neaCount         ", proposal.summedBallot.nea, 18);
+    emit log_named_decimal_uint("nayCount         ", proposal.summedBallot.nay, 18);
 
     Timestamp ts = Timestamp.wrap(block.timestamp) < pendingThrough
       ? Timestamp.wrap(block.timestamp)
@@ -319,7 +321,7 @@ contract GovScript is Test {
     emit log_named_uint("expected id", expectedId);
 
     vm.startBroadcast(ME);
-    governanceProposer.executeProposal(_round);
+    governanceProposer.submitRoundWinner(_round);
     vm.stopBroadcast();
 
     proposal = governance.getProposal(expectedId);

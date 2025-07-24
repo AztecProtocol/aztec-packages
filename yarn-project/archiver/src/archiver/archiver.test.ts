@@ -819,9 +819,8 @@ async function makeRollupTx(l2Block: L2Block) {
         archive,
         stateReference,
         oracleInput: { feeAssetPriceModifier: 0n },
-        txHashes: [],
       },
-      [],
+      RollupContract.packAttestations([]),
       blobInput,
     ],
   });

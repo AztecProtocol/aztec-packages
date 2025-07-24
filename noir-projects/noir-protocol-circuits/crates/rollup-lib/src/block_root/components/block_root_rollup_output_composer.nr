@@ -15,16 +15,14 @@ use blob::{
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
-        epoch_constant_data::EpochConstantData,
+        block_header::BlockHeader, epoch_constant_data::EpochConstantData,
+        partial_state_reference::PartialStateReference, state_reference::StateReference,
     },
-    block_header::BlockHeader,
     constants::{AZTEC_MAX_EPOCH_DURATION, L1_TO_L2_MSG_SUBTREE_HEIGHT},
     content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
-    partial_state_reference::PartialStateReference,
     proposed_block_header::ProposedBlockHeader,
-    state_reference::StateReference,
-    traits::{Empty, Hash, is_empty},
+    traits::{Empty, Hash},
 };
 
 pub struct BlockRootRollupOutputComposer {
@@ -83,37 +81,26 @@ impl BlockRootRollupOutputComposer {
         constants: BlockConstantData,
         empty_effect_blobs_hash: Field,
         empty_effect_blob_accumulation_input: BlobAccumulationInputs,
-        is_padding: bool,
     ) -> BlockRootOrBlockMergePublicInputs {
-        let (new_archive, proposed_block_header_hash) = if is_padding {
-            (constants.last_archive, 0)
-        } else {
-            let new_block_header = self.create_new_block_header(
-                constants,
-                self.data.previous_block_header.state.partial,
-                empty_effect_blobs_hash,
-            );
-            let new_block_hash = new_block_header.hash();
-            (
-                self.update_archive(constants.last_archive, new_block_hash),
-                self.create_proposed_block_header(new_block_header).hash(),
-            )
-        };
+        let new_block_header = self.create_new_block_header(
+            constants,
+            self.data.previous_block_header.state.partial,
+            empty_effect_blobs_hash,
+        );
+        let new_block_hash = new_block_header.hash();
+        let new_archive = self.update_archive(constants.last_archive, new_block_hash);
+        let proposed_block_header_hash = self.create_proposed_block_header(new_block_header).hash();
 
-        let end_blob_accumulator = if is_padding {
-            self.data.start_blob_accumulator
+        let end_blob_accumulator = if self.data.start_blob_accumulator.is_empty() {
+            BlobAccumulatorPublicInputs::init(
+                empty_effect_blob_accumulation_input,
+                self.data.final_blob_challenges.gamma,
+            )
         } else {
-            if is_empty(self.data.start_blob_accumulator) {
-                BlobAccumulatorPublicInputs::init(
-                    empty_effect_blob_accumulation_input,
-                    self.data.final_blob_challenges.gamma,
-                )
-            } else {
-                self.data.start_blob_accumulator.accumulate(
-                    empty_effect_blob_accumulation_input,
-                    self.data.final_blob_challenges.gamma,
-                )
-            }
+            self.data.start_blob_accumulator.accumulate(
+                empty_effect_blob_accumulation_input,
+                self.data.final_blob_challenges.gamma,
+            )
         };
 
         self.finish_with_new_values(

@@ -24,7 +24,8 @@ describe('e2e_sequencer_config', () => {
   });
 
   describe('Sequencer config', () => {
-    const manaTarget = 21e18;
+    // Sane targets < 64 bits.
+    const manaTarget = 21e10;
     beforeAll(async () => {
       const initialFundedAccounts = await getInitialTestAccounts();
       ({ teardown, sequencer, pxe, logger } = await setup(1, {

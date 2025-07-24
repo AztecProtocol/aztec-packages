@@ -31,7 +31,7 @@ E.g. you don't want a user to subscribe once they have subscribed already. Or yo
 
 Emit a nullifier in your function. By adding this nullifier into the tree, you prevent another nullifier from being added again. This is also why in authwit, we emit a nullifier, to prevent someone from reusing their approval.
 
-#include_code verify_private_authwit /noir-projects/aztec-nr/authwit/src/account.nr rust
+#include_code verify_private_authwit /noir-projects/aztec-nr/aztec/src/authwit/account.nr rust
 
 Note be careful to ensure that the nullifier is not deterministic and that no one could do a preimage analysis attack. More in [the anti pattern section on deterministic nullifiers](#deterministic-nullifiers)
 
@@ -39,7 +39,7 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 ### Reading public storage in private
 
-You can read public storage in private domain by leveraging the private getters of `PublicImmutable` (for values that never change) and `SharedMutable` (for values that change infrequently, see [shared state](../../../../reference/smart_contract_reference/storage/shared_state.md) for details) state variables.
+You can read public storage in private domain by leveraging the private getters of `PublicImmutable` (for values that never change) and `DelayedPublicMutable` (for values that change infrequently, see [delayed public mutable state](../../../../reference/smart_contract_reference/storage/delayed_public_mutable.md) for details) state variables.
 Values that change frequently (`PublicMutable`) cannot be read in private as for those we need access to the tip of the chain and only a sequencer has access to that (and sequencer executes only public functions).
 
 E.g. when using `PublicImmutable`

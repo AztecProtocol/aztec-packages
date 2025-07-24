@@ -1,9 +1,5 @@
 use crate::{note::note_metadata::NoteMetadata, utils::array::subarray::subarray};
-use protocol_types::{
-    address::AztecAddress,
-    traits::{FromField, Packable, Serialize, ToField},
-    utils::arrays::array_concat,
-};
+use protocol_types::{address::AztecAddress, traits::{FromField, Packable, Serialize, ToField}};
 
 // Number of fields a RetrievedNote adds to the packed or serialized representation of a note
 // +1 for the contract address
@@ -19,25 +15,26 @@ pub struct RetrievedNote<NOTE> {
     pub metadata: NoteMetadata,
 }
 
-impl<NOTE, let N: u32> Serialize<N + RETRIEVED_NOTE_OVERHEAD> for RetrievedNote<NOTE>
+impl<NOTE> Serialize for RetrievedNote<NOTE>
 where
-    NOTE: Serialize<N>,
+    NOTE: Serialize,
 {
-    fn serialize(self) -> [Field; N + RETRIEVED_NOTE_OVERHEAD] {
-        array_concat(
-            array_concat(self.note.serialize(), [self.contract_address.to_field()]),
-            self.metadata.serialize(),
-        )
+    let N: u32 = <NOTE as Serialize>::N + RETRIEVED_NOTE_OVERHEAD;
+
+    fn serialize(self) -> [Field; Self::N] {
+        self.note.serialize().concat([self.contract_address.to_field()]).concat(self
+            .metadata
+            .serialize())
     }
 }
 
 // This function is not part of the Packable trait implementation because in the case of the retrieved note, the pack
 // functionality resides in TS (oracle.ts and txe_service.ts).
-pub fn unpack_retrieved_note<NOTE, let N: u32>(
-    packed_retrieved_note: [Field; N + RETRIEVED_NOTE_OVERHEAD],
+pub fn unpack_retrieved_note<NOTE, let M: u32>(
+    packed_retrieved_note: [Field; M + RETRIEVED_NOTE_OVERHEAD],
 ) -> RetrievedNote<NOTE>
 where
-    NOTE: Packable<N>,
+    NOTE: Packable<N = M>,
 {
     let contract_address = AztecAddress::from_field(packed_retrieved_note[0]);
     let note_nonce = packed_retrieved_note[1];

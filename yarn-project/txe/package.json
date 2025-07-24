@@ -16,7 +16,7 @@
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "dev": "LOG_LEVEL=debug node ./dest/bin/index.js",
+    "dev": "LOG_LEVEL=\"debug; trace: simulator:state_manager; info: json-rpc:proxy\" node ./dest/bin/index.js",
     "start": "node --no-warnings ./dest/bin/index.js"
   },
   "inherits": [

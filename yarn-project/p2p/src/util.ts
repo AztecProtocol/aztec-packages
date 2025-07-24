@@ -1,3 +1,4 @@
+import { SecretValue } from '@aztec/foundation/config';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -118,10 +119,10 @@ export async function configureP2PClientAddresses(
  *
  */
 export async function getPeerIdPrivateKey(
-  config: { peerIdPrivateKey?: string; peerIdPrivateKeyPath?: string; dataDirectory?: string },
+  config: { peerIdPrivateKey?: SecretValue<string>; peerIdPrivateKeyPath?: string; dataDirectory?: string },
   store: AztecAsyncKVStore,
   logger: Logger,
-): Promise<string> {
+): Promise<SecretValue<string>> {
   const peerIdPrivateKeyFilePath =
     config.peerIdPrivateKeyPath ??
     (config.dataDirectory ? path.join(config.dataDirectory, PEER_ID_DATA_DIR_FILE) : undefined);
@@ -133,12 +134,12 @@ export async function getPeerIdPrivateKey(
   };
 
   // If the peerIdPrivateKey is provided in the config, we use it and persist it in either a file or the node's store
-  if (config.peerIdPrivateKey) {
+  if (config.peerIdPrivateKey && config.peerIdPrivateKey.getValue().trim()) {
     if (peerIdPrivateKeyFilePath) {
-      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, config.peerIdPrivateKey);
+      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, config.peerIdPrivateKey.getValue());
     } else {
       peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
-      await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey);
+      await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey.getValue());
     }
     return config.peerIdPrivateKey;
   }
@@ -163,7 +164,7 @@ export async function getPeerIdPrivateKey(
       logger.verbose(`Peer ID private key found in the node's store, persisting it to ${peerIdPrivateKeyFilePath}`);
       await writePrivateKeyToFile(peerIdPrivateKeyFilePath, storedPeerIdPrivateKey);
     }
-    return storedPeerIdPrivateKey;
+    return new SecretValue(storedPeerIdPrivateKey);
   }
 
   // Generate and persist a new private key
@@ -179,7 +180,7 @@ export async function getPeerIdPrivateKey(
     await peerIdPrivateKeySingleton!.set(privateKeyString);
   }
 
-  return privateKeyString;
+  return new SecretValue(privateKeyString);
 }
 
 /**

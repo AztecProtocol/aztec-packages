@@ -19,14 +19,14 @@ import { Timer, elapsed } from '@aztec/foundation/timer';
 import type { CustomRange } from '@aztec/kv-store';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import {
-  ContractClassRegisteredEvent,
+  ContractClassPublishedEvent,
   PrivateFunctionBroadcastedEvent,
   UtilityFunctionBroadcastedEvent,
-} from '@aztec/protocol-contracts/class-registerer';
+} from '@aztec/protocol-contracts/class-registry';
 import {
-  ContractInstanceDeployedEvent,
+  ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
-} from '@aztec/protocol-contracts/instance-deployer';
+} from '@aztec/protocol-contracts/instance-registry';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -60,6 +60,7 @@ import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -1115,9 +1116,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   public async getContract(
     address: AztecAddress,
-    blockNumber?: number,
+    maybeTimestamp?: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    return this.store.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
+    let timestamp;
+    if (maybeTimestamp === undefined) {
+      const latestBlockHeader = await this.getBlockHeader('latest');
+      // If we get undefined block header, it means that the archiver has not yet synced any block so we default to 0.
+      timestamp = latestBlockHeader ? latestBlockHeader.globalVariables.timestamp : 0n;
+    } else {
+      timestamp = maybeTimestamp;
+    }
+
+    return this.store.getContractInstance(address, timestamp);
   }
 
   /**
@@ -1272,15 +1282,15 @@ export class ArchiverStoreHelper
   constructor(protected readonly store: ArchiverDataStore) {}
 
   /**
-   * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
+   * Extracts and stores contract classes out of ContractClassPublished events emitted by the class registry contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateRegisteredContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
-    const contractClassRegisteredEvents = allLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
-      .map(log => ContractClassRegisteredEvent.fromLog(log));
+  async #updatePublishedContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
+    const contractClassPublishedEvents = allLogs
+      .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
+      .map(log => ContractClassPublishedEvent.fromLog(log));
 
-    const contractClasses = await Promise.all(contractClassRegisteredEvents.map(e => e.toContractClassPublic()));
+    const contractClasses = await Promise.all(contractClassPublishedEvents.map(e => e.toContractClassPublic()));
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
@@ -1297,13 +1307,13 @@ export class ArchiverStoreHelper
   }
 
   /**
-   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * Extracts and stores contract instances out of ContractInstancePublished events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateDeployedContractInstances(allLogs: PrivateLog[], blockNum: number, operation: Operation) {
     const contractInstances = allLogs
-      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
-      .map(log => ContractInstanceDeployedEvent.fromLog(log))
+      .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
+      .map(log => ContractInstancePublishedEvent.fromLog(log))
       .map(e => e.toContractInstance());
     if (contractInstances.length > 0) {
       contractInstances.forEach(c =>
@@ -1319,10 +1329,12 @@ export class ArchiverStoreHelper
   }
 
   /**
-   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * Extracts and stores contract instances out of ContractInstancePublished events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
+   * @param timestamp - Timestamp at which the updates were scheduled.
+   * @param operation - The operation to perform on the contract instance updates (Store or Delete).
    */
-  async #updateUpdatedContractInstances(allLogs: PublicLog[], blockNum: number, operation: Operation) {
+  async #updateUpdatedContractInstances(allLogs: PublicLog[], timestamp: UInt64, operation: Operation) {
     const contractUpdates = allLogs
       .filter(log => ContractInstanceUpdatedEvent.isContractInstanceUpdatedEvent(log))
       .map(log => ContractInstanceUpdatedEvent.fromLog(log))
@@ -1333,9 +1345,9 @@ export class ArchiverStoreHelper
         this.#log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.store.addContractInstanceUpdates(contractUpdates, blockNum);
+        return await this.store.addContractInstanceUpdates(contractUpdates, timestamp);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractInstanceUpdates(contractUpdates, blockNum);
+        return await this.store.deleteContractInstanceUpdates(contractUpdates, timestamp);
       }
     }
     return true;
@@ -1416,14 +1428,18 @@ export class ArchiverStoreHelper
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
         ...blocks.map(async block => {
           const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
-          // ContractInstanceDeployed event logs are broadcast in privateLogs.
+          // ContractInstancePublished event logs are broadcast in privateLogs.
           const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
           const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
           return (
             await Promise.all([
-              this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Store),
+              this.#updatePublishedContractClasses(contractClassLogs, block.block.number, Operation.Store),
               this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Store),
-              this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Store),
+              this.#updateUpdatedContractInstances(
+                publicLogs,
+                block.block.header.globalVariables.timestamp,
+                Operation.Store,
+              ),
               this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.block.number),
             ])
           ).every(Boolean);
@@ -1450,15 +1466,19 @@ export class ArchiverStoreHelper
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...blocks.map(async block => {
         const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
-        // ContractInstanceDeployed event logs are broadcast in privateLogs.
+        // ContractInstancePublished event logs are broadcast in privateLogs.
         const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
         const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
 
         return (
           await Promise.all([
-            this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Delete),
+            this.#updatePublishedContractClasses(contractClassLogs, block.block.number, Operation.Delete),
             this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Delete),
-            this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Delete),
+            this.#updateUpdatedContractInstances(
+              publicLogs,
+              block.block.header.globalVariables.timestamp,
+              Operation.Delete,
+            ),
           ])
         ).every(Boolean);
       }),
@@ -1530,8 +1550,8 @@ export class ArchiverStoreHelper
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     return this.store.getBytecodeCommitment(contractClassId);
   }
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
-    return this.store.getContractInstance(address, blockNumber);
+  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
+    return this.store.getContractInstance(address, timestamp);
   }
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();

@@ -64,7 +64,7 @@ export async function deployAztecContracts(
 
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
-    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
+    : privateKeyToAccount(addLeadingHex(privateKey));
   const chain = createEthereumChain(rpcUrls, chainId);
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
@@ -110,7 +110,7 @@ export async function deployNewRollupContracts(
 
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
-    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
+    : privateKeyToAccount(addLeadingHex(privateKey));
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
@@ -209,7 +209,7 @@ export async function prepTx(contractFile: string, functionName: string, _functi
  * @param hex - A hex string
  * @returns A new string with leading 0x removed
  */
-export const stripLeadingHex = (hex: string) => {
+export const stripLeadingHex = (hex: string): string => {
   if (hex.length > 2 && hex.startsWith('0x')) {
     return hex.substring(2);
   }
@@ -217,6 +217,18 @@ export const stripLeadingHex = (hex: string) => {
 };
 
 /**
+ * Adds a leading 0x to a hex string. If a leading 0x is already present the string is returned unchanged.
+ * @param hex - A hex string
+ * @returns A new string with leading 0x added
+ */
+export const addLeadingHex = (hex: string): `0x${string}` => {
+  if (hex.length > 2 && hex.startsWith('0x')) {
+    return hex as `0x${string}`;
+  }
+  return `0x${hex}`;
+};
+
+/*
  * Pretty prints Nargo.toml contents to a string
  * @param config - Nargo.toml contents
  * @returns The Nargo.toml contents as a string

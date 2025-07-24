@@ -16,7 +16,8 @@ pub contract Crowdfunding {
             storage::storage,
         },
         messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, PrivateSet, PublicImmutable},
+        protocol_types::address::AztecAddress,
+        state_vars::{PrivateSet, PublicImmutable},
         utils::comparison::Comparator,
     };
     use dep::uint_note::uint_note::UintNote;
@@ -77,11 +78,7 @@ pub contract Crowdfunding {
         // contract by proving that the hash of this note exists in the note hash tree.
         let note = UintNote::new(amount, donor);
 
-        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            donor,
-            donor,
-        ));
+        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(&mut context, donor));
     }
     // docs:end:donate
 

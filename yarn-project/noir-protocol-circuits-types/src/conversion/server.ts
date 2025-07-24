@@ -36,7 +36,6 @@ import {
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupKernelCircuitPublicInputs,
-  RollupValidationRequests,
 } from '@aztec/stdlib/kernel';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
@@ -53,6 +52,7 @@ import {
   EpochConstantData,
   FeeRecipient,
   type MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   type PreviousRollupBlockData,
   type PreviousRollupData,
   type PrivateBaseRollupInputs,
@@ -91,6 +91,7 @@ import type {
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
+  PaddingBlockRootRollupInputs as PaddingBlockRootRollupInputsNoir,
   ParityPublicInputs as ParityPublicInputsNoir,
   RootParityInput as ParityRootParityInputNoir,
   Poseidon2Sponge as Poseidon2SpongeNoir,
@@ -107,7 +108,6 @@ import type {
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicDataHint as PublicDataHintNoir,
   PublicTubeData as PublicTubeDataNoir,
-  RollupValidationRequests as RollupValidationRequestsNoir,
   RootParityInputs as RootParityInputsNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
@@ -122,6 +122,7 @@ import {
   mapAppendOnlyTreeSnapshotToNoir,
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
+  mapBigIntFromNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldArrayToNoir,
@@ -135,8 +136,6 @@ import {
   mapGlobalVariablesToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapMaxBlockNumberFromNoir,
-  mapMaxBlockNumberToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -156,6 +155,7 @@ import {
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
+  mapU64ToNoir,
   mapVerificationKeyToNoir,
   mapVkDataToNoir,
 } from './common.js';
@@ -416,7 +416,6 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs,
 ): BaseOrMergeRollupPublicInputsNoir {
   return {
-    rollup_type: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupType)),
     num_txs: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.numTxs)),
     constants: mapBlockConstantDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
@@ -574,12 +573,12 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
 ): PrivateToPublicKernelCircuitPublicInputsNoir {
   return {
     constants: mapTxConstantDataToNoir(inputs.constants),
-    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     non_revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.nonRevertibleAccumulatedData),
     revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.revertibleAccumulatedData),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -587,11 +586,11 @@ export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
   inputs: PrivateToRollupKernelCircuitPublicInputs,
 ): PrivateToRollupKernelCircuitPublicInputsNoir {
   return {
-    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapTxConstantDataToNoir(inputs.constants),
     end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -792,7 +791,14 @@ export function mapEmptyBlockRootRollupInputsToNoir(
   return {
     data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
     constants: mapBlockConstantDataToNoir(rootRollupInputs.constants),
-    is_padding: rootRollupInputs.isPadding,
+  };
+}
+
+export function mapPaddingBlockRootRollupInputsToNoir(
+  inputs: PaddingBlockRootRollupInputs,
+): PaddingBlockRootRollupInputsNoir {
+  return {
+    constants: mapEpochConstantDataToNoir(inputs.constants),
   };
 }
 
@@ -816,7 +822,6 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
-    mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
     mapNumberFromNoir(baseOrMergeRollupPublicInputs.num_txs),
     mapBlockConstantDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
@@ -953,20 +958,6 @@ export function mapBlockMergeRollupInputsToNoir(mergeRollupInputs: BlockMergeRol
   };
 }
 
-export function mapRollupValidationRequestsToNoir(
-  rollupValidationRequests: RollupValidationRequests,
-): RollupValidationRequestsNoir {
-  return {
-    max_block_number: mapMaxBlockNumberToNoir(rollupValidationRequests.maxBlockNumber),
-  };
-}
-
-export function mapRollupValidationRequestsFromNoir(
-  rollupValidationRequests: RollupValidationRequestsNoir,
-): RollupValidationRequests {
-  return new RollupValidationRequests(mapMaxBlockNumberFromNoir(rollupValidationRequests.max_block_number));
-}
-
 export function mapRevertCodeFromNoir(revertCode: NoirField): RevertCode {
   return RevertCode.fromField(mapFieldFromNoir(revertCode));
 }
@@ -980,9 +971,9 @@ export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
 ) {
   return new PrivateToRollupKernelCircuitPublicInputs(
     mapTxConstantDataFromNoir(inputs.constants),
-    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    mapBigIntFromNoir(inputs.include_by_timestamp),
   );
 }

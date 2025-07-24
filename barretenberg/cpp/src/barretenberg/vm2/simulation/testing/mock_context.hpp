@@ -34,7 +34,9 @@ class MockContext : public ContextInterface {
     // Environment.
     MOCK_METHOD(const AztecAddress&, get_address, (), (const, override));
     MOCK_METHOD(const AztecAddress&, get_msg_sender, (), (const, override));
+    MOCK_METHOD(const FF&, get_transaction_fee, (), (const, override));
     MOCK_METHOD(bool, get_is_static, (), (const, override));
+    MOCK_METHOD(const GlobalVariables&, get_globals, (), (const, override));
 
     // Input / Output.
     MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
@@ -57,6 +59,7 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(Gas, get_gas_used, (), (const, override));
     MOCK_METHOD(Gas, get_gas_limit, (), (const, override));
     MOCK_METHOD(void, set_gas_used, (Gas gas_used), (override));
+
     MOCK_METHOD(Gas, get_parent_gas_used, (), (const, override));
     MOCK_METHOD(Gas, get_parent_gas_limit, (), (const, override));
 

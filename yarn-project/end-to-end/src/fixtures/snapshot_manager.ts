@@ -14,8 +14,8 @@ import {
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js';
-import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
+import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
   type DeployL1ContractsArgs,
@@ -35,6 +35,7 @@ import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -50,7 +51,7 @@ import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { MNEMONIC, TEST_MAX_TX_POOL_SIZE, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
@@ -74,6 +75,7 @@ export type SubsystemsContext = {
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
+  sequencer: SequencerClient;
   dateProvider: TestDateProvider;
   blobSink: BlobSinkServer;
   initialFundedAccounts: InitialAccountData[];
@@ -306,6 +308,7 @@ async function setupFromFresh(
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+  aztecNodeConfig.maxTxPoolSize = opts.maxTxPoolSize ?? TEST_MAX_TX_POOL_SIZE;
   // Only enable proving if specifically requested.
   aztecNodeConfig.realProofs = !!opts.realProofs;
   // Only enforce the time table if requested
@@ -347,7 +350,7 @@ async function setupFromFresh(
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
   if (opts.l1StartTime) {
-    await ethCheatCodes.warp(opts.l1StartTime);
+    await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
   }
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
@@ -442,11 +445,11 @@ async function setupFromFresh(
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
-    logger.verbose('Creating and syncing a simulated prover node...');
+    logger.verbose('Creating and syncing a simulated prover node with p2p disabled...');
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
-      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')), p2pEnabled: false },
       aztecNode,
       prefilledPublicData,
     );
@@ -471,6 +474,7 @@ async function setupFromFresh(
     anvil,
     aztecNode,
     pxe,
+    sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
     deployL1ContractsValues,
@@ -589,6 +593,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     anvil,
     aztecNode,
     pxe,
+    sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
     proverNode,
@@ -652,8 +657,8 @@ export async function publicDeployAccounts(
   const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
   const calls: ContractFunctionInteraction[] = await Promise.all([
-    ...(!alreadyRegistered ? [registerContractClass(sender, SchnorrAccountContractArtifact)] : []),
-    ...instances.map(instance => deployInstance(sender, instance!)),
+    ...(!alreadyRegistered ? [publishContractClass(sender, SchnorrAccountContractArtifact)] : []),
+    ...instances.map(instance => publishInstance(sender, instance!)),
   ]);
 
   const batch = new BatchCall(sender, calls);

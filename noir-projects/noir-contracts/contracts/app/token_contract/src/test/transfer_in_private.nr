@@ -1,6 +1,6 @@
 use crate::test::utils;
 use crate::Token;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
+use aztec::test::helpers::authwit::add_private_authwit_from_call_interface;
 
 #[test]
 unconstrained fn transfer_private_on_behalf_of_other() {
@@ -12,23 +12,22 @@ unconstrained fn transfer_private_on_behalf_of_other() {
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        recipient,
-        transfer_private_from_call_interface,
-    );
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
+    add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    let _ = env.call_private(recipient, transfer_private_from_call_interface);
     // docs:end:private_authwit
     // Check balances
-    utils::check_private_balance(token_contract_address, owner, mint_amount - transfer_amount);
-    utils::check_private_balance(token_contract_address, recipient, transfer_amount);
+    utils::check_private_balance(
+        env,
+        token_contract_address,
+        owner,
+        mint_amount - transfer_amount,
+    );
+    utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 }
 
 // docs:start:fail_with_message
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, _) =
@@ -37,13 +36,9 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        recipient,
-        transfer_private_from_call_interface,
-    );
+    add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    let _ = env.call_private(owner, transfer_private_from_call_interface);
 }
 // docs:end:fail_with_message
 
@@ -56,15 +51,9 @@ unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
     let transfer_amount = mint_amount + (1 as u128);
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        recipient,
-        transfer_private_from_call_interface,
-    );
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
+    add_private_authwit_from_call_interface(owner, recipient, transfer_private_from_call_interface);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    let _ = env.call_private(recipient, transfer_private_from_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -76,10 +65,8 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() 
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    let _ = env.call_private(recipient, transfer_private_from_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -91,13 +78,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_wrong_caller() {
     let transfer_amount = 1000 as u128;
     let transfer_private_from_call_interface =
         Token::at(token_contract_address).transfer_in_private(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        owner,
-        transfer_private_from_call_interface,
-    );
-    // Impersonate recipient to perform the call
-    env.impersonate(recipient);
+    add_private_authwit_from_call_interface(owner, owner, transfer_private_from_call_interface);
     // Transfer tokens
-    transfer_private_from_call_interface.call(&mut env.private());
+    let _ = env.call_private(recipient, transfer_private_from_call_interface);
 }

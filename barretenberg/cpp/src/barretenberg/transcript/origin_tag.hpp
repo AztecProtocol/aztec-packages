@@ -13,6 +13,7 @@
  * to detect dangerous behaviours in-circuit. The mechanism is only enabled in DEBUG builds
  *
  */
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <cstddef>
@@ -108,7 +109,7 @@ struct OriginTag {
         : parent_tag(parent_index)
         , child_tag((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
     {
-        ASSERT(child_index < 128);
+        BB_ASSERT_LT(child_index, 128U);
     }
 
     /**

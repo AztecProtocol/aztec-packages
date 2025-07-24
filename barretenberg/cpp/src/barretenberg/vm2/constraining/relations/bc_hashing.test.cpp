@@ -13,6 +13,8 @@
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
@@ -24,20 +26,27 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::Return;
+using ::testing::StrictMock;
+
 using testing::random_bytes;
 using testing::random_fields;
 
+using simulation::EventEmitter;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::Poseidon2;
+using simulation::Poseidon2HashEvent;
+using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using tracegen::BytecodeTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bc_hashing = bb::avm2::bc_hashing<FF>;
 using poseidon2 = bb::avm2::poseidon2_hash<FF>;
-
-// using bc_hashing_lookup_relation = bb::avm2::lookup_bc_hashing_poseidon2_hash_relation<FF>;
-using bc_decomp_lookup_relation = bb::avm2::lookup_bc_hashing_get_packed_field_relation<FF>;
-using length_iv_relation = bb::avm2::lookup_bc_hashing_iv_is_len_relation<FF>;
 
 TEST(BytecodeHashingConstrainingTest, EmptyRow)
 {
@@ -74,9 +83,18 @@ TEST(BytecodeHashingConstrainingTest, MultipleBytecodeHash)
 
 TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
 {
-    simulation::EventEmitter<simulation::Poseidon2HashEvent> hash_event_emitter;
-    simulation::EventEmitter<simulation::Poseidon2PermutationEvent> perm_event_emitter;
-    simulation::Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    StrictMock<MockGreaterThan> mock_gt;
+    StrictMock<MockExecutionIdManager> mock_execution_id_manager;
+    EXPECT_CALL(mock_execution_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+
+    Poseidon2 poseidon2(
+        mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
     });
@@ -95,7 +113,7 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
         { { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = fields /* 62 bytes */ } }, trace);
 
     // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-    // tracegen::LookupIntoDynamicTableSequential<bc_hashing_lookup_relation::Settings>().process(trace);
+    // check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace);
 
     check_relation<bc_hashing>(trace);
 }
@@ -114,8 +132,9 @@ TEST(BytecodeHashingConstrainingTest, BytecodeInteractions)
     builder.process_decomposition(
         { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
-    tracegen::LookupIntoDynamicTableSequential<bc_decomp_lookup_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<length_iv_relation::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_bc_hashing_get_packed_field_settings,
+                      lookup_bc_hashing_iv_is_len_settings>(trace);
 
     check_relation<bc_hashing>(trace);
 }
@@ -214,9 +233,10 @@ TEST(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
     trace.set(Column::bc_hashing_incremental_hash, 1, 10);
 
     EXPECT_THROW_WITH_MESSAGE(
-        tracegen::LookupIntoDynamicTableSequential<bc_decomp_lookup_relation::Settings>().process(trace),
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_get_packed_field_settings>(trace)),
         "Failed.*GET_PACKED_FIELD. Could not find tuple in destination.");
-    EXPECT_THROW_WITH_MESSAGE(tracegen::LookupIntoDynamicTableSequential<length_iv_relation::Settings>().process(trace),
+
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_iv_is_len_settings>(trace)),
                               "Failed.*IV_IS_LEN. Could not find tuple in destination.");
 }
 

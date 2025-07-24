@@ -1,15 +1,16 @@
 use dep::aztec::macros::aztec;
 
+/// A contract that can be updated to a new contract class. Used to test contract updates in e2e_contract_updates.test.ts.
 #[aztec]
 contract Updatable {
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
     use aztec::messages::logs::note::encode_and_encrypt_note;
-    use aztec::prelude::{PrivateMutable, PublicMutable};
+    use aztec::state_vars::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::{
-        constants::DEPLOYER_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
+        constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
     };
-    use contract_instance_deployer::ContractInstanceDeployer;
+    use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
     #[storage]
@@ -26,7 +27,6 @@ contract Updatable {
         storage.private_value.initialize(new_value).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            owner,
         ));
         Updatable::at(context.this_address()).set_public_value(initial_value).enqueue(&mut context);
     }
@@ -38,21 +38,23 @@ contract Updatable {
 
     #[private]
     fn update_to(new_class_id: ContractClassId) {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).update(new_class_id).enqueue(
-            &mut context,
-        );
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .update(new_class_id)
+            .enqueue(&mut context);
     }
 
     #[private]
-    fn set_update_delay(new_delay: u32) {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).set_update_delay(new_delay).enqueue(
-            &mut context,
-        );
+    fn set_update_delay(new_delay: u64) {
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .set_update_delay(new_delay)
+            .enqueue(&mut context);
     }
 
     #[public]
-    fn get_update_delay() -> u32 {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
+    fn get_update_delay() -> u64 {
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay()
+            .view(&mut context)
     }
 
     #[utility]

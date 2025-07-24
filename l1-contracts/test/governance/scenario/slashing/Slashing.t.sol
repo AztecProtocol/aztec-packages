@@ -44,7 +44,7 @@ contract SlashingTest is TestBase {
   function _createAndExecutePayload(address[] memory _attesters, uint96 _slashAmount) internal {
     // Lets make a proposal to slash! For
     // We jump to perfectly land at the start of the next round
-    uint256 desiredSlot = (slashingProposer.getCurrentRound() + 1) * slashingProposer.M();
+    uint256 desiredSlot = (slashingProposer.getCurrentRound() + 1) * slashingProposer.ROUND_SIZE();
 
     timeCheater.cheat__jumpToSlot(desiredSlot);
     uint256 round = slashingProposer.getCurrentRound();
@@ -60,11 +60,11 @@ contract SlashingTest is TestBase {
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
-      slashingProposer.vote(payload);
+      slashingProposer.signal(payload);
       timeCheater.cheat__progressSlot();
     }
 
-    slashingProposer.executeProposal(round);
+    slashingProposer.submitRoundWinner(round);
   }
 
   function test_Slashing() public {

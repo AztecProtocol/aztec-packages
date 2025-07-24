@@ -76,7 +76,8 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
 
     // Modify the proven block count
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber);
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(l2BlockNumber);
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
@@ -118,6 +119,7 @@ contract TokenPortalTest is Test {
 
   function testDepositPrivate() public returns (bytes32) {
     // mint token and approve to the portal
+    vm.prank(testERC20.owner());
     testERC20.mint(address(this), mintAmount);
     testERC20.approve(address(tokenPortal), mintAmount);
 
@@ -147,6 +149,7 @@ contract TokenPortalTest is Test {
 
   function testDepositPublic() public returns (bytes32) {
     // mint token and approve to the portal
+    vm.prank(testERC20.owner());
     testERC20.mint(address(this), mintAmount);
     testERC20.approve(address(tokenPortal), mintAmount);
 
@@ -204,6 +207,7 @@ contract TokenPortalTest is Test {
     returns (bytes32, bytes32[] memory, bytes32)
   {
     // send assets to the portal
+    vm.prank(testERC20.owner());
     testERC20.mint(address(tokenPortal), withdrawAmount);
 
     // Create the message

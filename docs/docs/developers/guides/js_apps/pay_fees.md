@@ -136,12 +136,12 @@ A FPC contract must be registered in a users PXE before it can be used. This wil
 
 ```ts
 import { FPCContract } from "@aztec/noir-contracts.js/FPC";
-import { getContractInstanceFromDeployParams } from "@aztec/aztec.js";
+import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js";
 
 // ... (set up the wallet and PXE)
 
 // get the deployed FPC contract instance
-const fpcContractInstance = getContractInstanceFromDeployParams(
+const fpcContractInstance = getContractInstanceFromInstantiationParams(
   FPCContract.artifact,
   fpcDeployParams // the params used to deploy the FPC
 );

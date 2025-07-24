@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { randomInt } from '@aztec/foundation/crypto';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -23,10 +24,11 @@ import {
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
+import { ENR } from '@chainsafe/enr';
 import {
   type GossipSub,
   type GossipSubComponents,
@@ -67,10 +69,17 @@ import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolHandlers,
+  type ReqRespSubProtocolValidators,
   type SubProtocolMap,
+  ValidationError,
 } from '../reqresp/interface.js';
+import { reqRespBlockTxsHandler } from '../reqresp/protocols/block_txs/block_txs_handler.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
+  AuthRequest,
+  StatusMessage,
   pingHandler,
   reqRespBlockHandler,
   reqRespStatusHandler,
@@ -125,7 +134,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     private peerManager: PeerManagerInterface,
     protected mempools: MemPools<T>,
     private archiver: L2BlockSource & ContractDataSource,
-    epochCache: EpochCacheInterface,
+    private epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
@@ -230,6 +239,27 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
     const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
 
+    const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
+    const directPeers = (
+      await Promise.all(
+        preferredPeersEnrs.map(async enr => {
+          const peerId = await enr.peerId();
+          const address = enr.getLocationMultiaddr('tcp');
+          if (address === undefined) {
+            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+          }
+          return {
+            id: peerId,
+            addrs: [address],
+          };
+        }),
+      )
+    ).filter(peer => peer !== undefined);
+
+    if (directPeers.length > 0) {
+      logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
+    }
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -239,14 +269,23 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       },
       transports: [
         tcp({
-          maxConnections: config.maxPeerCount,
+          // It's better to have this number a bit higher than our maxPeerCount because it's sets the limit on transport (TCP) layer
+          // The connection attempts to the node on TCP layer are not necessarily valid Aztec peers so we want to have a bit of leeway here
+          // If we hit the limit, the connection will be temporarily accepted and immediately dropped.
+          // Docs: https://nodejs.org/api/net.html#servermaxconnections
+          maxConnections: Math.ceil(maxPeerCount * 1.5),
           // socket option: the maximum length of the queue of pending connections
           // https://nodejs.org/dist/latest-v22.x/docs/api/net.html#serverlisten
           // it's not safe if we increase this number
           backlog: 5,
           closeServerOnMaxConnections: {
-            closeAbove: maxPeerCount ?? Infinity,
-            listenBelow: maxPeerCount ?? Infinity,
+            // The property `maxConnections` will protect us against the most DDOS attack
+            // This property protects us in case of burst of new connections where server is not able to close them quickly enough
+            // In case closeAbove is reached, the server stops listening altogether
+            // It's important that there is enough difference between closeAbove and listenAbove,
+            // otherwise the server.listener will flap between being closed and open potentially degrading perf even more
+            closeAbove: maxPeerCount * 2,
+            listenBelow: Math.floor(maxPeerCount * 0.9),
           },
         }),
       ],
@@ -256,6 +295,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
+        maxConnections: maxPeerCount,
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
@@ -266,6 +306,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          directPeers,
           debugName: 'gossipsub',
           globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
@@ -328,11 +369,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       reqresp,
       worldStateSynchronizer,
       protocolVersion,
+      epochCache,
     );
 
     // Update gossipsub score params
     node.services.pubsub.score.params.appSpecificWeight = 10;
-    node.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+    node.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
+      peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
     return new LibP2PService(
       clientType,
@@ -372,7 +415,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.jobQueue.start();
 
     await this.peerManager.initializePeers();
-    await this.peerDiscoveryService.start();
+    if (!this.config.p2pDiscoveryDisabled) {
+      await this.peerDiscoveryService.start();
+    }
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
@@ -385,14 +430,24 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
+    // In case P2P client doesnt'have attestation pool,
+    // const blockTxsHandler = this.mempools.attestationPool
+    //   ? reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool)
+    //   : def;
 
-    const requestResponseHandlers = {
+    const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
+
+    // Only handle block transactions request if attestation pool is available to the client
+    if (this.mempools.attestationPool) {
+      const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
+      requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
+    }
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
@@ -445,6 +500,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.logger.info('LibP2P service stopped');
   }
 
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return this.reqresp.addSubProtocol(subProtocol, handler, validator);
+  }
+
   public getPeers(includePending?: boolean): PeerInfo[] {
     return this.peerManager.getPeers(includePending);
   }
@@ -463,23 +526,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Send Request via the ReqResp service
-   * The subprotocol defined will determine the request and response types
-   *
-   * See the subProtocolMap for the mapping of subprotocols to request/response types in `interface.ts`
-   *
-   * @param protocol The request response protocol to use
-   * @param request The request type to send
-   * @returns
-   */
-  sendRequest<SubProtocol extends ReqRespSubProtocol>(
-    protocol: SubProtocol,
-    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
-    return this.reqresp.sendRequest(protocol, request);
-  }
-
-  /**
    * Send a batch of requests to peers, and return the responses
    * @param protocol - The request response protocol to use
    * @param requests - The requests to send to the peers
@@ -489,7 +535,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     pinnedPeerId: PeerId | undefined,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
     return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
@@ -536,7 +582,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result.recipients.length;
   }
 
-  protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
+  protected preValidateReceivedMessage(
+    msg: Message,
+    msgId: string,
+    source: PeerId,
+  ): { result: boolean; topicType?: TopicType } {
     let topicType: TopicType | undefined;
 
     switch (msg.topic) {
@@ -559,12 +609,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!validator || !validator.addMessage(msgId)) {
       this.instrumentation.incMessagePrevalidationStatus(false, topicType);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
-      return false;
+      return { result: false, topicType };
     }
 
     this.instrumentation.incMessagePrevalidationStatus(true, topicType);
 
-    return true;
+    return { result: true, topicType };
   }
 
   /**
@@ -582,8 +632,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageLatency,
     });
 
-    if (!this.preValidateReceivedMessage(msg, msgId, source)) {
+    const preValidationResult = this.preValidateReceivedMessage(msg, msgId, source);
+
+    if (!preValidationResult.result) {
       return;
+    } else if (preValidationResult.topicType !== undefined) {
+      // guard against clock skew & DST
+      if (messageLatency > 0) {
+        this.instrumentation.recordMessageLatency(preValidationResult.topicType, messageLatency);
+      }
     }
 
     if (msg.topic === this.topicStrings[TopicType.tx]) {
@@ -642,6 +699,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       source: source.toString(),
       txHash: txHashString,
     });
+
+    if (this.config.dropTransactions && randomInt(1000) < this.config.dropTransactionsProbability * 1000) {
+      this.logger.debug(`Intentionally dropping tx ${txHashString} (probability rule)`);
+      return;
+    }
+
     await this.mempools.txPool.addTxs([tx]);
   }
 
@@ -735,7 +798,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     // Mark the txs in this proposal as non-evictable
-    await this.mempools.txPool.markTxsAsNonEvictable(block.payload.txHashes);
+    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
+    await this.mempools.attestationPool?.addBlockProposal(block);
     const attestations = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice
@@ -787,48 +851,67 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Validate a tx that has been requested from a peer.
+   * Validate a collection of txs that has been requested from a peer.
    *
-   * The core component of this validator is that the tx hash MUST match the requested tx hash,
+   * The core component of this validator is that each tx hash MUST match the requested tx hash,
    * In order to perform this check, the tx proof must be verified.
    *
    * Note: This function is called from within `ReqResp.sendRequest` as part of the
    * ReqRespSubProtocol.TX subprotocol validation.
    *
-   * @param requestedTxHash - The hash of the tx that was requested.
-   * @param responseTx - The tx that was received as a response to the request.
+   * @param requestedTxHash - The collection of the txs that was requested.
+   * @param responseTx - The collectin of txs that was received as a response to the request.
    * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the tx is valid, false otherwise.
+   * @returns True if the whole collection of txs is valid, false otherwise.
    */
+  //TODO: (mralj) - this is somewhat naive implementation, if single tx is invlid we consider the whole response invalid.
+  // I think we should still extract the valid txs and return them, so that we can still use the response.
   @trackSpan('Libp2pService.validateRequestedTx', (requestedTxHash, _responseTx) => ({
     [Attributes.TX_HASH]: requestedTxHash.toString(),
   }))
-  private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
+  private async validateRequestedTx(requestedTxHash: TxHash[], responseTx: Tx[], peerId: PeerId): Promise<boolean> {
+    const requested = new Set(requestedTxHash.map(h => h.toString()));
+
     const proofValidator = new TxProofValidator(this.proofVerifier);
-    const validProof = await proofValidator.validateTx(responseTx);
 
-    // If the node returns the wrong data, we penalize it
-    if (!requestedTxHash.equals(await responseTx.getTxHash())) {
-      // Returning the wrong data is a low tolerance error
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+    try {
+      await Promise.all(
+        responseTx.map(async tx => {
+          if (!requested.has((await tx.getTxHash()).toString())) {
+            this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+            throw new ValidationError(
+              `Received tx with hash ${(await tx.getTxHash()).toString()} that was not requested.`,
+            );
+          }
+
+          const { result } = await proofValidator.validateTx(tx);
+          if (result === 'invalid') {
+            this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+            throw new ValidationError(`Received tx with hash ${(await tx.getTxHash()).toString()} that is invalid.`);
+          }
+        }),
+      );
+      return true;
+    } catch (e: any) {
+      if (e instanceof ValidationError) {
+        this.logger.debug(`Failed to validate requested txs from peer ${peerId.toString()}, reason ${e.message}`);
+      } else {
+        this.logger.warn(`Error during validation of requested txs`, e);
+      }
+
       return false;
     }
-
-    if (validProof.result === 'invalid') {
-      // If the proof is invalid, but the txHash is correct, then this is an active attack and we severly punish
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-      return false;
-    }
-
-    return true;
   }
 
   @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
     [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
-    const messageValidators = await this.createMessageValidators(blockNumber);
+    const currentBlockNumber = await this.archiver.getBlockNumber();
+
+    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 
     for (const validator of messageValidators) {
       const outcome = await this.runValidations(tx, validator);
@@ -841,7 +924,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
       // Double spend validator has a special case handler
       if (name === 'doubleSpendValidator') {
-        severity = await this.handleDoubleSpendFailure(tx, blockNumber);
+        const txBlockNumber = currentBlockNumber + 1; // tx is expected to be in the next block
+        severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
       }
 
       this.peerManager.penalizePeer(peerId, severity);
@@ -862,8 +946,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   public async validate(txs: Tx[]): Promise<void> {
-    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
-    const messageValidators = await this.createMessageValidators(blockNumber);
+    const currentBlockNumber = await this.archiver.getBlockNumber();
+
+    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 
     await Promise.all(
       txs.map(async tx => {
@@ -878,20 +965,27 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Create message validators for the given block number.
+   * Create message validators for the given block number and timestamp.
    *
    * Each validator is a pair of a validator and a severity.
    * If a validator fails, the peer is penalized with the severity of the validator.
    *
-   * @param blockNumber - The block number to create validators for.
+   * @param currentBlockNumber - The current synced block number.
+   * @param nextSlotTimestamp - The timestamp of the next slot (used to validate txs are not expired).
    * @returns The message validators.
    */
-  private async createMessageValidators(blockNumber: number): Promise<Record<string, MessageValidator>[]> {
-    const gasFees = await this.getGasFees(blockNumber - 1);
+  private async createMessageValidators(
+    currentBlockNumber: number,
+    nextSlotTimestamp: UInt64,
+  ): Promise<Record<string, MessageValidator>[]> {
+    const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
+    const blockNumberInWhichTheTxIsConsideredToBeIncluded = currentBlockNumber + 1;
+
     return createTxMessageValidators(
-      blockNumber,
+      nextSlotTimestamp,
+      blockNumberInWhichTheTxIsConsideredToBeIncluded,
       this.worldStateSynchronizer,
       gasFees,
       this.config.l1ChainId,
@@ -1015,6 +1109,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   public getPeerScore(peerId: PeerId): number {
     return this.node.services.pubsub.score.score(peerId.toString());
+  }
+
+  public handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    return this.peerManager.handleAuthRequestFromPeer(authRequest, peerId);
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {

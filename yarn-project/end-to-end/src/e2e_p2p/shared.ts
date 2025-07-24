@@ -7,10 +7,10 @@ import {
   ProvenTx,
   type SentTx,
   TxStatus,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract, ViemClient } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
 import type { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
@@ -92,7 +92,7 @@ export async function createPXEServiceAndPrepareTransactions(
   await account.register();
   const wallet = await account.getWallet();
 
-  const testContractInstance = await getContractInstanceFromDeployParams(TestContractArtifact, {});
+  const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {});
   await wallet.registerContract({ instance: testContractInstance, artifact: TestContractArtifact });
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
@@ -112,16 +112,16 @@ export async function awaitProposalExecution(
 ) {
   await retryUntil(
     async () => {
-      const events = await slashingProposer.getEvents.ProposalExecuted();
+      const events = await slashingProposer.getEvents.PayloadSubmitted();
       if (events.length === 0) {
         return false;
       }
       const event = events[0];
       const roundNumber = event.args.round;
-      const proposal = event.args.proposal;
-      return roundNumber && proposal;
+      const payload = event.args.payload;
+      return roundNumber && payload;
     },
-    'proposal executed',
+    'payload submitted',
     timeoutSeconds,
     1,
   );

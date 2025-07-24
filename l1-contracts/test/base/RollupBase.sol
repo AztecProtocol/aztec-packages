@@ -20,7 +20,11 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {
+  CommitteeAttestation,
+  CommitteeAttestations,
+  SignatureLib
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
@@ -192,14 +196,13 @@ contract RollupBase is DecoderBase {
       header: full.block.header,
       archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: new bytes32[](0)
+      oracleInput: OracleInput(0)
     });
 
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, attestations, blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;

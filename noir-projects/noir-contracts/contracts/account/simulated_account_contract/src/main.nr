@@ -1,5 +1,3 @@
-mod public_key_note;
-
 use dep::aztec::macros::aztec;
 
 // Account contract that does not perform any authentication, typically used to override a *real* account contract
@@ -10,27 +8,25 @@ use dep::aztec::macros::aztec;
 // public key of the overridden contract
 #[aztec]
 pub contract SimulatedAccount {
-    use dep::authwit::{
-        account::AccountActions,
-        auth::{compute_authwit_message_hash, IS_VALID_SELECTOR},
-        entrypoint::{app::AppPayload, fee::FeePayload},
-    };
     use dep::aztec::{
-        macros::{functions::{private, view}, storage::storage},
-        oracle::offchain_effect::emit_offchain_effect,
-        prelude::{PrivateContext, PrivateImmutable},
+        authwit::{
+            account::AccountActions,
+            auth::IS_VALID_SELECTOR,
+            entrypoint::{app::AppPayload, fee::FeePayload},
+        },
+        context::PrivateContext,
+        macros::functions::{private, utility, view},
+        oracle::notes::set_sender_for_tags,
     };
-
-    use crate::public_key_note::PublicKeyNote;
-
-    #[storage]
-    struct Storage<Context> {
-        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
-    }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[private]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
+        // Since this value is only used for unconstrained tagging and not for any constrained logic,
+        // it is safe to set from a constrained context.
+        unsafe { set_sender_for_tags(context.this_address()) };
+
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }
@@ -38,13 +34,6 @@ pub contract SimulatedAccount {
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
-        let message_hash = compute_authwit_message_hash(
-            context.msg_sender(),
-            context.chain_id(),
-            context.version(),
-            inner_hash,
-        );
-        emit_offchain_effect(message_hash);
         IS_VALID_SELECTOR
     }
 
@@ -52,4 +41,10 @@ pub contract SimulatedAccount {
     fn is_valid_impl(_context: &mut PrivateContext, _outer_hash: Field) -> bool {
         true
     }
+
+    /// Since this contract normally emulates an account that uses a note to store the public key,
+    /// we completely bypass message discovery here to avoid losing time on useless processing
+    /// and also enabling the emulation of different accounts with differently sized public key notes.
+    #[utility]
+    unconstrained fn sync_private_state() {}
 }

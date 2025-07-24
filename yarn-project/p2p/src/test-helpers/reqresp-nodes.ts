@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -125,7 +126,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
     p2pEnabled: true,
-    peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+    peerIdPrivateKey: new SecretValue(Buffer.from(peerId.privateKey!).toString('hex')),
     bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
@@ -150,10 +151,12 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     reqresp,
     worldStateSynchronizer,
     protocolVersion,
+    epochCache,
   );
 
   p2pNode.services.pubsub.score.params.appSpecificWeight = 10;
-  p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+  p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
+    peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
   return new LibP2PService<T>(
     clientType,
@@ -187,6 +190,8 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
   [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
   [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
+  [ReqRespSubProtocol.AUTH]: (_msg: any) => Promise.resolve(Buffer.from('auth')),
+  [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
 };
 
 // By default, all requests are valid
@@ -197,6 +202,8 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.TX]: noopValidator,
   [ReqRespSubProtocol.GOODBYE]: noopValidator,
   [ReqRespSubProtocol.BLOCK]: noopValidator,
+  [ReqRespSubProtocol.AUTH]: noopValidator,
+  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
 };
 
 /**
@@ -278,7 +285,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     l1ChainId: chainConfig.l1ChainId,
     p2pIp: '127.0.0.1',
     p2pPort: port,
-    peerIdPrivateKey: privateKey,
+    peerIdPrivateKey: new SecretValue(privateKey),
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],

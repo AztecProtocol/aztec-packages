@@ -6,7 +6,7 @@ import {
   type NoirCompiledContract,
   PublicKeys,
   deriveKeys,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   loadContractArtifact,
 } from '@aztec/aztec.js';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -32,7 +32,6 @@ import {
   type ForeignCallSingle,
   fromArray,
   fromSingle,
-  toForeignCallResult,
   toSingle,
 } from './util/encoding.js';
 import type { ContractArtifactWithHash } from './util/txe_contract_data_provider.js';
@@ -54,7 +53,7 @@ type MethodNames<T> = {
 
 type TXEForeignCallInput = {
   session_id: number;
-  function: MethodNames<TXEService> | 'reset';
+  function: MethodNames<TXEService>;
   root_path: string;
   package_name: string;
   inputs: ForeignCallArgs;
@@ -63,7 +62,7 @@ type TXEForeignCallInput = {
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
   session_id: z.number().int().nonnegative(),
-  function: z.string() as ZodFor<MethodNames<TXEService> | 'reset'>,
+  function: z.string() as ZodFor<MethodNames<TXEService>>,
   // eslint-disable-next-line camelcase
   root_path: z.string(),
   // eslint-disable-next-line camelcase
@@ -152,7 +151,7 @@ class TXEDispatcher {
           artifact.name
         } with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
       );
-      instance = await getContractInstanceFromDeployParams(artifact, {
+      instance = await getContractInstanceFromInstantiationParams(artifact, {
         constructorArgs: decodedArgs,
         skipArgsDecoding: true,
         salt: Fr.ONE,
@@ -186,7 +185,7 @@ class TXEDispatcher {
         // and the TXE contract data provider can cache it
         artifactHash: await computeArtifactHash(SchnorrAccountContractArtifact),
       };
-      instance = await getContractInstanceFromDeployParams(artifact, {
+      instance = await getContractInstanceFromInstantiationParams(artifact, {
         constructorArgs: args,
         skipArgsDecoding: true,
         salt: Fr.ONE,
@@ -205,7 +204,7 @@ class TXEDispatcher {
     const { session_id: sessionId, function: functionName, inputs } = callData;
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
-    if (!TXESessions.has(sessionId) && functionName != 'reset') {
+    if (!TXESessions.has(sessionId)) {
       this.logger.debug(`Creating new session ${sessionId}`);
       if (!this.protocolContracts) {
         this.protocolContracts = await Promise.all(
@@ -216,11 +215,6 @@ class TXEDispatcher {
     }
 
     switch (functionName) {
-      case 'reset': {
-        TXESessions.delete(sessionId) &&
-          this.logger.debug(`Called reset on session ${sessionId}, yeeting it out of existence`);
-        return toForeignCallResult([]);
-      }
       case 'deploy': {
         await this.#processDeployInputs(callData);
         break;

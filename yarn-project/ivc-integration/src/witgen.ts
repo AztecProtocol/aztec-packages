@@ -1,7 +1,6 @@
 import {
   AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,7 +8,7 @@ import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { type ForeignCallInput, type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
 import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
-import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { strict as assert } from 'assert';
 
@@ -49,29 +48,30 @@ import type {
   MockRollupRootInputType,
   PrivateKernelPublicInputs,
   RollupPublicInputs,
+  VerificationKey,
 } from './types/index.js';
 
 // Re export the circuit jsons
 export {
   MockAppCreatorCircuit,
-  MockAppReaderCircuit,
-  MockPrivateKernelInitCircuit,
-  MockPrivateKernelInnerCircuit,
-  MockPrivateKernelResetCircuit,
-  MockPrivateKernelTailCircuit,
-  MockRollupBasePublicCircuit,
-  MockRollupBasePrivateCircuit,
-  MockRollupMergeCircuit,
-  MockRollupRootCircuit,
   MockAppCreatorVk,
+  MockAppReaderCircuit,
   MockAppReaderVk,
+  MockPrivateKernelInitCircuit,
   MockPrivateKernelInitVk,
+  MockPrivateKernelInnerCircuit,
   MockPrivateKernelInnerVk,
+  MockPrivateKernelResetCircuit,
   MockPrivateKernelResetVk,
+  MockPrivateKernelTailCircuit,
   MockPrivateKernelTailVk,
-  MockRollupBasePublicVk,
+  MockRollupBasePrivateCircuit,
   MockRollupBasePrivateVk,
+  MockRollupBasePublicCircuit,
+  MockRollupBasePublicVk,
+  MockRollupMergeCircuit,
   MockRollupMergeVk,
+  MockRollupRootCircuit,
   MockRollupRootVk,
 };
 
@@ -79,11 +79,14 @@ export {
 
 const log = createLogger('aztec:ivc-test');
 
-export function getVkAsFields(vk: {
-  keyAsBytes: string;
+export async function getVkAsFields({
+  keyAsFields,
+}: {
   keyAsFields: string[];
-}): FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
-  return vk.keyAsFields as FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+}): Promise<VerificationKey<typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>> {
+  const key = keyAsFields.map(f => Fr.fromString(f));
+  const vk = await VerificationKeyAsFields.fromKey(key);
+  return mapVerificationKeyToNoir(vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS);
 }
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
@@ -230,13 +233,13 @@ export async function generate3FunctionTestingIVCStack(): Promise<
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: appWitnessGenResult.publicInputs,
     tx,
-    app_vk: getVkAsFields(MockAppCreatorVk),
+    app_vk: await getVkAsFields(MockAppCreatorVk),
   });
   log.debug('generated mock private kernel init witness');
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
+    kernel_vk: await getVkAsFields(MockPrivateKernelInitVk),
   });
   log.debug('generated mock private kernel tail witness');
 
@@ -270,13 +273,13 @@ export async function generate6FunctionTestingIVCStack(): Promise<
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: creatorAppWitnessGenResult.publicInputs,
     tx,
-    app_vk: getVkAsFields(MockAppCreatorVk),
+    app_vk: await getVkAsFields(MockAppCreatorVk),
   });
   const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
     app_inputs: readerAppWitnessGenResult.publicInputs,
-    app_vk: getVkAsFields(MockAppReaderVk),
-    kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
+    app_vk: await getVkAsFields(MockAppReaderVk),
+    kernel_vk: await getVkAsFields(MockPrivateKernelInitVk),
   });
 
   const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -287,12 +290,12 @@ export async function generate6FunctionTestingIVCStack(): Promise<
       MOCK_MAX_COMMITMENTS_PER_TX.toString(),
       MOCK_MAX_COMMITMENTS_PER_TX.toString(),
     ],
-    kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
+    kernel_vk: await getVkAsFields(MockPrivateKernelInnerVk),
   });
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
-    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
+    kernel_vk: await getVkAsFields(MockPrivateKernelResetVk),
   });
 
   // Create client IVC proof
@@ -350,18 +353,6 @@ export function mapVerificationKeyToNoir<N extends number>(
     key: vk.key.map(field => field.toString()) as FixedLengthArray<string, N>,
     hash: vk.hash.toString(),
   };
-}
-
-export function mapAvmVerificationKeyToNoir(
-  vk: Fr[],
-): FixedLengthArray<string, typeof AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED> {
-  if (vk.length != AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
-    throw new Error('Invalid number of AVM verification key fields');
-  }
-  return vk.map(field => field.toString()) as FixedLengthArray<
-    string,
-    typeof AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED
-  >;
 }
 
 export function mapAvmPublicInputsToNoir(

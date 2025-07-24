@@ -9,15 +9,13 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
-  type Tuple,
+  bigintToUInt64BE,
   serializeToBuffer,
   serializeToFields,
 } from '@aztec/foundation/serialize';
@@ -30,13 +28,17 @@ import { PrivateLogData } from '../kernel/private_log_data.js';
 import { CountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { MaxBlockNumber } from '../tx/max_block_number.js';
 import { TxContext } from '../tx/tx_context.js';
+import type { UInt64 } from '../types/shared.js';
+import {
+  ClaimedLengthArray,
+  ClaimedLengthArrayFromBuffer,
+  ClaimedLengthArrayFromFields,
+} from './claimed_length_array.js';
 import { ReadRequest } from './hints/read_request.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { CountedPublicCallRequest, PublicCallRequest } from './public_call_request.js';
-import { isEmptyArray } from './utils/order_and_comparison.js';
 
 /**
  * Public inputs to a private circuit.
@@ -64,40 +66,40 @@ export class PrivateCircuitPublicInputs {
      */
     public isFeePayer: boolean,
     /**
-     * The maximum block number in which this transaction can be included and be valid.
+     * The highest timestamp of a block in which the transaction can still be included.
      */
-    public maxBlockNumber: MaxBlockNumber,
+    public includeByTimestamp: UInt64,
     /**
      * Read requests created by the corresponding function call.
      */
-    public noteHashReadRequests: Tuple<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier read requests created by the corresponding function call.
      */
-    public nullifierReadRequests: Tuple<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    public nullifierReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
      * Key validation requests and generators created by the corresponding function call.
      */
-    public keyValidationRequestsAndGenerators: Tuple<
+    public keyValidationRequestsAndGenerators: ClaimedLengthArray<
       KeyValidationRequestAndGenerator,
       typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL
     >,
     /**
      * New note hashes created by the corresponding function call.
      */
-    public noteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
+    public noteHashes: ClaimedLengthArray<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
-    public nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
+    public nullifiers: ClaimedLengthArray<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
     /**
      * Private call requests made within the current kernel iteration.
      */
-    public privateCallRequests: Tuple<PrivateCallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public privateCallRequests: ClaimedLengthArray<PrivateCallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallRequests: Tuple<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_CALL>,
+    public publicCallRequests: ClaimedLengthArray<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_CALL>,
     /**
      * Hash of the public teardown function.
      */
@@ -105,15 +107,15 @@ export class PrivateCircuitPublicInputs {
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public l2ToL1Msgs: Tuple<CountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: ClaimedLengthArray<CountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Logs emitted in this function call.
      */
-    public privateLogs: Tuple<PrivateLogData, typeof MAX_PRIVATE_LOGS_PER_CALL>,
+    public privateLogs: ClaimedLengthArray<PrivateLogData, typeof MAX_PRIVATE_LOGS_PER_CALL>,
     /**
      * Hash of the contract class logs emitted in this function call.
      */
-    public contractClassLogsHashes: Tuple<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    public contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -158,18 +160,20 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readBoolean(),
-      reader.readObject(MaxBlockNumber),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
-      reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
-      reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
+      reader.readUInt64(),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readObject(
+        ClaimedLengthArrayFromBuffer(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+      ),
+      reader.readObject(ClaimedLengthArrayFromBuffer(NoteHash, MAX_NOTE_HASHES_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(Nullifier, MAX_NULLIFIERS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
+      reader.readObject(ClaimedLengthArrayFromBuffer(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromBuffer(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -185,18 +189,20 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readBoolean(),
-      reader.readObject(MaxBlockNumber),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
-      reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
-      reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
+      reader.readU64(),
+      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
+      reader.readObject(
+        ClaimedLengthArrayFromFields(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+      ),
+      reader.readObject(ClaimedLengthArrayFromFields(NoteHash, MAX_NOTE_HASHES_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(Nullifier, MAX_NULLIFIERS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL)),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
+      reader.readObject(ClaimedLengthArrayFromFields(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL)),
+      reader.readObject(ClaimedLengthArrayFromFields(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL)),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -215,18 +221,18 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       false,
-      MaxBlockNumber.empty(),
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator.empty),
-      makeTuple(MAX_NOTE_HASHES_PER_CALL, NoteHash.empty),
-      makeTuple(MAX_NULLIFIERS_PER_CALL, Nullifier.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
-      makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest.empty),
+      0n,
+      ClaimedLengthArray.empty(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
+      ClaimedLengthArray.empty(NoteHash, MAX_NOTE_HASHES_PER_CALL),
+      ClaimedLengthArray.empty(Nullifier, MAX_NULLIFIERS_PER_CALL),
+      ClaimedLengthArray.empty(PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
+      ClaimedLengthArray.empty(CountedPublicCallRequest, MAX_ENQUEUED_CALLS_PER_CALL),
       PublicCallRequest.empty(),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message.empty),
-      makeTuple(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash.empty),
+      ClaimedLengthArray.empty(CountedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL),
+      ClaimedLengthArray.empty(PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL),
+      ClaimedLengthArray.empty(CountedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL),
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),
@@ -241,18 +247,18 @@ export class PrivateCircuitPublicInputs {
       this.returnsHash.isZero() &&
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
-      this.maxBlockNumber.isEmpty() &&
-      isEmptyArray(this.noteHashReadRequests) &&
-      isEmptyArray(this.nullifierReadRequests) &&
-      isEmptyArray(this.keyValidationRequestsAndGenerators) &&
-      isEmptyArray(this.noteHashes) &&
-      isEmptyArray(this.nullifiers) &&
-      isEmptyArray(this.privateCallRequests) &&
-      isEmptyArray(this.publicCallRequests) &&
+      !this.includeByTimestamp &&
+      this.noteHashReadRequests.isEmpty() &&
+      this.nullifierReadRequests.isEmpty() &&
+      this.keyValidationRequestsAndGenerators.isEmpty() &&
+      this.noteHashes.isEmpty() &&
+      this.nullifiers.isEmpty() &&
+      this.privateCallRequests.isEmpty() &&
+      this.publicCallRequests.isEmpty() &&
       this.publicTeardownCallRequest.isEmpty() &&
-      isEmptyArray(this.l2ToL1Msgs) &&
-      isEmptyArray(this.privateLogs) &&
-      isEmptyArray(this.contractClassLogsHashes) &&
+      this.l2ToL1Msgs.isEmpty() &&
+      this.privateLogs.isEmpty() &&
+      this.contractClassLogsHashes.isEmpty() &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
       this.historicalHeader.isEmpty() &&
@@ -272,7 +278,7 @@ export class PrivateCircuitPublicInputs {
       fields.returnsHash,
       fields.minRevertibleSideEffectCounter,
       fields.isFeePayer,
-      fields.maxBlockNumber,
+      fields.includeByTimestamp,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.keyValidationRequestsAndGenerators,
@@ -296,20 +302,38 @@ export class PrivateCircuitPublicInputs {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(...PrivateCircuitPublicInputs.getFields(this));
+    // TODO(#15525): Use the line below once UInt64 can be serialized correctly.
+    // return serializeToBuffer(...PrivateCircuitPublicInputs.getFields(this));
+    return serializeToBuffer([
+      this.callContext,
+      this.argsHash,
+      this.returnsHash,
+      this.minRevertibleSideEffectCounter,
+      this.isFeePayer,
+      bigintToUInt64BE(this.includeByTimestamp),
+      this.noteHashReadRequests,
+      this.nullifierReadRequests,
+      this.keyValidationRequestsAndGenerators,
+      this.noteHashes,
+      this.nullifiers,
+      this.privateCallRequests,
+      this.publicCallRequests,
+      this.publicTeardownCallRequest,
+      this.l2ToL1Msgs,
+      this.privateLogs,
+      this.contractClassLogsHashes,
+      this.startSideEffectCounter,
+      this.endSideEffectCounter,
+      this.historicalHeader,
+      this.txContext,
+    ]);
   }
 
   /**
    * Serialize this as a field array.
    */
   toFields(): Fr[] {
-    const fields = serializeToFields(...PrivateCircuitPublicInputs.getFields(this));
-    if (fields.length !== PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
-      throw new Error(
-        `Invalid number of fields for PrivateCircuitPublicInputs. Expected ${PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH}, got ${fields.length}`,
-      );
-    }
-    return fields;
+    return serializeToFields(...PrivateCircuitPublicInputs.getFields(this));
   }
 
   public toJSON() {

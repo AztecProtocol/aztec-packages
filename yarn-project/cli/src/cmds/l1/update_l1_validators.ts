@@ -1,5 +1,4 @@
 import {
-  EthCheatCodes,
   L1TxUtils,
   RollupContract,
   createEthereumChain,
@@ -8,6 +7,7 @@ import {
   getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
@@ -15,6 +15,8 @@ import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+
+import { addLeadingHex } from '../../utils/aztec.js';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
@@ -55,10 +57,12 @@ export async function addL1Validator({
   mnemonic,
   attesterAddress,
   stakingAssetHandlerAddress,
+  merkleProof,
   proofParams,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer }) {
+}: StakingAssetHandlerCommandArgs &
+  LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer; merkleProof: string[] }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -75,13 +79,14 @@ export async function addL1Validator({
 
   const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
   const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
+  const merkleProofArray = merkleProof.map(proof => addLeadingHex(proof));
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
       functionName: 'addValidator',
-      args: [attesterAddress.toString(), proofParamsObj.toViem()],
+      args: [attesterAddress.toString(), merkleProofArray, proofParamsObj.toViem()],
     }),
     abi: StakingAssetHandlerAbi,
   });
@@ -176,7 +181,7 @@ export async function fastForwardEpochs({
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
   dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {
-    await cheatCodes.warp(Number(timestamp));
+    await cheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
     dualLog(`Fast forwarded ${numEpochs} epochs to ${timestamp}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes("is lower than or equal to previous block's timestamp")) {

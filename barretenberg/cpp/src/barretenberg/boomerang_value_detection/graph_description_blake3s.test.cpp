@@ -2,9 +2,6 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s_plookup.hpp"
-#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
-#include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "graph.hpp"
 #include <gtest/gtest.h>
 
@@ -34,9 +31,9 @@ TEST(boomerang_stdlib_blake3s, test_single_block_plookup)
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
     std::vector<uint8_t> input_v(input.begin(), input.end());
     byte_array_plookup input_arr(&builder, input_v);
-    byte_array_plookup output = stdlib::blake3s(input_arr);
+    byte_array_plookup output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -56,11 +53,11 @@ TEST(boomerang_stdlib_blake3s, test_double_block_plookup)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_plookup input_arr(&builder, input_v);
-    byte_array_plookup output = stdlib::blake3s(input_arr);
+    byte_array_plookup output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
 
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);

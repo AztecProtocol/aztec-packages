@@ -10,7 +10,10 @@ import {Multicall3} from "./Multicall3.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib, Signature, CommitteeAttestation
+  SignatureLib,
+  Signature,
+  CommitteeAttestation,
+  CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -69,6 +72,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -120,7 +124,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     CommitteeAttestation[] attestations;
   }
 
-  DecoderBase.Full full = load("empty_block_1");
+  DecoderBase.Full full = load("single_tx_block_1");
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
@@ -154,11 +158,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
       .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
       _targetCommitteeSize
-    ).setEntryQueueFlushSizeMin(_validatorCount).setSlashingQuorum(VOTING_ROUND_SIZE)
+    ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
       .setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
@@ -213,8 +220,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
@@ -242,8 +247,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       header: header,
       archive: archiveRoot,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
-      txHashes: txHashes
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
 
     CommitteeAttestation[] memory attestations;
@@ -259,8 +263,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         archive: proposeArgs.archive,
         stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
-        headerHash: headerHash,
-        txHashes: proposeArgs.txHashes
+        headerHash: headerHash
       });
 
       bytes32 digest = ProposeLib.digest(proposePayload);
@@ -320,19 +323,19 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   /**
-   * @notice Creates an EIP-712 signature for voteWithSig
+   * @notice Creates an EIP-712 signature for signalWithSig
    * @param _signer The address that should sign (must match a proposer)
-   * @param _proposal The proposal to vote on
+   * @param _payload The payload to signal
    * @return The EIP-712 signature
    */
-  function createVoteSignature(address _signer, IPayload _proposal)
+  function createSignalSignature(address _signer, IPayload _payload, uint256 _round)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer);
+    bytes32 digest = slashingProposer.getSignalSignatureDigest(_payload, _signer, _round);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
@@ -351,11 +354,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
 
       _loadL1Metadata(i);
+      uint256 round = slashingProposer.getCurrentRound();
 
       if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
         address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createVoteSignature(proposer, slashPayload);
-        slashingProposer.voteWithSig(slashPayload, sig);
+        Signature memory sig = createSignalSignature(proposer, slashPayload, round);
+        slashingProposer.signalWithSig(slashPayload, sig);
         warmedUp = true;
       }
 
@@ -371,22 +375,25 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         skipBlobCheck(address(rollup));
 
         if (_slashing) {
-          Signature memory sig = createVoteSignature(proposer, slashPayload);
+          Signature memory sig = createSignalSignature(proposer, slashPayload, round);
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),
-            callData: abi.encodeCall(rollup.propose, (b.proposeArgs, b.attestations, b.blobInputs)),
+            callData: abi.encodeCall(
+              rollup.propose,
+              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs)
+            ),
             allowFailure: false
           });
           calls[1] = Multicall3.Call3({
             target: address(slashingProposer),
-            callData: abi.encodeCall(slashingProposer.voteWithSig, (slashPayload, sig)),
+            callData: abi.encodeCall(slashingProposer.signalWithSig, (slashPayload, sig)),
             allowFailure: false
           });
           multicall.aggregate3(calls);
         } else {
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
+          rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);

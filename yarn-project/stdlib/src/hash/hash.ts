@@ -7,11 +7,12 @@ import type { AztecAddress } from '../aztec-address/index.js';
 
 /**
  * Computes a hash of a given verification key.
- * @param vkBuf - The verification key as fields.
+ * @param keyAsFields - The verification key as fields.
  * @returns The hash of the verification key.
  */
-export function hashVK(keyAsFields: Fr[]): Promise<Fr> {
-  return poseidon2Hash(keyAsFields);
+export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
+  // Should match the implementation in barretenberg/cpp/src/barretenberg/flavor/flavor.hpp > hash()
+  return await poseidon2Hash(keyAsFields);
 }
 
 /**

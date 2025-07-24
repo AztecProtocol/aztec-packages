@@ -2,6 +2,7 @@ import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -9,8 +10,10 @@ import {
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
+import pickBy from 'lodash.pickby';
 import {
   type Abi,
   type Account,
@@ -99,6 +102,10 @@ export interface L1TxUtilsConfig {
    * First attempt is done at 1s, second at 2s, third at 3s, etc.
    */
   txPropagationMaxQueryAttempts?: number;
+  /**
+   * Whether to attempt to cancel a tx if it's not mined after txTimeoutMs
+   */
+  cancelTxOnTimeout?: boolean;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -145,17 +152,22 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   stallTimeMs: {
     description: 'How long before considering tx stalled',
     env: 'L1_TX_MONITOR_STALL_TIME_MS',
-    ...numberConfigHelper(45_000),
+    ...numberConfigHelper(24_000), // 24s, 2 ethereum slots
   },
   txTimeoutMs: {
     description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',
     env: 'L1_TX_MONITOR_TX_TIMEOUT_MS',
-    ...numberConfigHelper(300_000), // 5 mins
+    ...numberConfigHelper(120_000), // 2 mins
   },
   txPropagationMaxQueryAttempts: {
     description: 'How many attempts will be done to get a tx after it was sent',
     env: 'L1_TX_PROPAGATION_MAX_QUERY_ATTEMPTS',
     ...numberConfigHelper(3),
+  },
+  cancelTxOnTimeout: {
+    description: "Whether to attempt to cancel a tx if it's not mined after txTimeoutMs",
+    env: 'L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT',
+    ...booleanConfigHelper(true),
   },
 };
 
@@ -204,6 +216,7 @@ export class ReadOnlyL1TxUtils {
   constructor(
     public client: ViemClient,
     protected logger: Logger = createLogger('ReadOnlyL1TxUtils'),
+    public readonly dateProvider: DateProvider,
     config?: Partial<L1TxUtilsConfig>,
     protected debugMaxGasLimit: boolean = false,
   ) {
@@ -480,7 +493,7 @@ export class ReadOnlyL1TxUtils {
   ) {
     try {
       const result = await this.client.simulateBlocks({
-        validation: true,
+        validation: false,
         blocks: [
           {
             blockOverrides,
@@ -490,20 +503,15 @@ export class ReadOnlyL1TxUtils {
         ],
       });
 
-      this.logger?.debug(`L1 gas used in simulation: ${result[0].calls[0].gasUsed}`, {
-        result,
-      });
       if (result[0].calls[0].status === 'failure') {
-        this.logger?.error('L1 transaction Simulation failed', {
-          error: result[0].calls[0].error,
-        });
-        const decodedError = decodeErrorResult({
-          abi,
-          data: result[0].calls[0].data,
-        });
+        this.logger?.error('L1 transaction simulation failed', result[0].calls[0].error);
+        const decodedError = decodeErrorResult({ abi, data: result[0].calls[0].data });
 
-        throw new Error(`L1 transaction simulation failed with error: ${decodedError.errorName}`);
+        throw new Error(
+          `L1 transaction simulation failed with error ${decodedError.errorName}(${decodedError.args?.join(',')})`,
+        );
       }
+      this.logger?.debug(`L1 transaction simulation succeeded`, { ...result[0].calls[0] });
       return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
@@ -522,7 +530,9 @@ export class ReadOnlyL1TxUtils {
   public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
     const gasConfig = { ...this.config, ..._gasConfig };
     const bumpedGasLimit = gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
-    this.logger?.debug('Bumping gas limit', { gasLimit, gasConfig, bumpedGasLimit });
+
+    const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
+    this.logger?.debug('Bumping gas limit', { gasLimit, gasConfig: cleanGasConfig, bumpedGasLimit });
     return bumpedGasLimit;
   }
 }
@@ -531,10 +541,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   constructor(
     public override client: ExtendedViemWalletClient,
     protected override logger: Logger = createLogger('L1TxUtils'),
+    dateProvider: DateProvider = new DateProvider(),
     config?: Partial<L1TxUtilsConfig>,
     debugMaxGasLimit: boolean = false,
   ) {
-    super(client, logger, config, debugMaxGasLimit);
+    super(client, logger, dateProvider, config, debugMaxGasLimit);
     if (!isExtendedClient(this.client)) {
       throw new Error('L1TxUtils has to be instantiated with a wallet client.');
     }
@@ -564,8 +575,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
       const account = this.client.account;
-      let gasLimit: bigint;
 
+      let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
         gasLimit = LARGE_GAS_LIMIT;
       } else if (gasConfig.gasLimit) {
@@ -573,12 +584,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       } else {
         gasLimit = await this.estimateGas(account, request, gasConfig);
       }
-
-      this.logger?.debug('Gas limit', { gasLimit });
+      this.logger?.debug(`Gas limit for request is ${gasLimit}`, { gasLimit, ...request });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
-      if (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) {
+      if (gasConfig.txTimeoutAt && this.dateProvider.now() > gasConfig.txTimeoutAt.getTime()) {
         throw new Error('Transaction timed out before sending');
       }
 
@@ -600,10 +610,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         });
       }
+      const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
       this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
         gasLimit,
         maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
+        gasConfig: cleanGasConfig,
         ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
       });
 
@@ -661,7 +673,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const txHashes = new Set<Hex>([initialTxHash]);
     let currentTxHash = initialTxHash;
     let attempts = 0;
-    let lastAttemptSent = Date.now();
+    let lastAttemptSent = this.dateProvider.now();
     let lastGasPrice: GasPrice = {
       maxFeePerGas: tx.maxFeePerGas!,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas!,
@@ -670,14 +682,26 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const initialTxTime = lastAttemptSent;
 
     let txTimedOut = false;
+    let latestBlockTimestamp: bigint | undefined;
+
+    // We check against the latestBlockTimestamp as opposed to the current time to avoid a race condition where
+    // the tx is mined in a block with the same timestamp as txTimeoutAt, but our execution node has not yet processed it,
+    // or the loop here has not yet checked the tx before that timeout.
     const isTimedOut = () =>
-      (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) ||
-      (gasConfig.txTimeoutMs !== undefined && Date.now() - initialTxTime > gasConfig.txTimeoutMs) ||
+      (gasConfig.txTimeoutAt &&
+        latestBlockTimestamp !== undefined &&
+        Number(latestBlockTimestamp) * 1000 >= gasConfig.txTimeoutAt.getTime()) ||
+      (gasConfig.txTimeoutMs !== undefined && this.dateProvider.now() - initialTxTime > gasConfig.txTimeoutMs) ||
       this.interrupted ||
       false;
 
     while (!txTimedOut) {
       try {
+        ({ timestamp: latestBlockTimestamp } = await this.client.getBlock({
+          blockTag: 'latest',
+          includeTransactions: false,
+        }));
+
         const currentNonce = await this.client.getTransactionCount({ address: account.address });
         if (currentNonce > nonce) {
           for (const hash of txHashes) {
@@ -699,6 +723,16 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           }
         }
 
+        this.logger?.trace(`Tx timeout check for ${currentTxHash}: ${isTimedOut()}`, {
+          latestBlockTimestamp: Number(latestBlockTimestamp) * 1000,
+          lastAttemptSent,
+          initialTxTime,
+          now: this.dateProvider.now(),
+          txTimeoutAt: gasConfig.txTimeoutAt?.getTime(),
+          txTimeoutMs: gasConfig.txTimeoutMs,
+          txStallTime: gasConfig.stallTimeMs,
+        });
+
         // Retry a few times, in case the tx is not yet propagated.
         const tx = await retry<GetTransactionReturnType>(
           () => this.client.getTransaction({ hash: currentTxHash }),
@@ -707,7 +741,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           this.logger,
           true,
         );
-        const timePassed = Date.now() - lastAttemptSent;
+        const timePassed = this.dateProvider.now() - lastAttemptSent;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
           this.logger?.debug(`L1 transaction ${currentTxHash} pending. Time passed: ${timePassed}ms.`);
@@ -748,7 +782,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             },
           );
 
-          currentTxHash = await this.client.sendTransaction({
+          const newHash = await this.client.sendTransaction({
             ...request,
             ...blobInputs,
             nonce,
@@ -757,8 +791,19 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
           });
 
+          const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
+          this.logger?.verbose(`Sent L1 speed-up tx ${newHash}, replacing ${currentTxHash}`, {
+            gasLimit: params.gasLimit,
+            maxFeePerGas: formatGwei(newGasPrice.maxFeePerGas),
+            maxPriorityFeePerGas: formatGwei(newGasPrice.maxPriorityFeePerGas),
+            gasConfig: cleanGasConfig,
+            ...(newGasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newGasPrice.maxFeePerBlobGas) }),
+          });
+
+          currentTxHash = newHash;
+
           txHashes.add(currentTxHash);
-          lastAttemptSent = Date.now();
+          lastAttemptSent = this.dateProvider.now();
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
@@ -773,24 +818,27 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       txTimedOut = isTimedOut();
     }
 
-    if (!isCancelTx) {
+    if (!isCancelTx && gasConfig.cancelTxOnTimeout) {
       // Fire cancellation without awaiting to avoid blocking the main thread
-      this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
-        .then(cancelTxHash => {
-          this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
-        })
-        .catch(err => {
-          const viemError = formatViemError(err);
-          this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
-            metaMessages: viemError.metaMessages,
-          });
+      this.attemptTxCancellation(currentTxHash, nonce, isBlobTx, lastGasPrice, attempts).catch(err => {
+        const viemError = formatViemError(err);
+        this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
+          metaMessages: viemError.metaMessages,
         });
-
-      this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
-        txHash: currentTxHash,
-        ...tx,
       });
     }
+
+    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+      txHash: currentTxHash,
+      txTimeoutAt: gasConfig.txTimeoutAt,
+      txTimeoutMs: gasConfig.txTimeoutMs,
+      txInitialTime: initialTxTime,
+      now: this.dateProvider.now(),
+      attempts,
+      isInterrupted: this.interrupted,
+      ...tx,
+    });
+
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 
@@ -812,11 +860,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   public override async simulate(
     request: L1TxRequest & { gas?: bigint; from?: Hex },
-    blockOverrides: BlockOverrides<bigint, number> = {},
+    _blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     abi: Abi = RollupAbi,
-    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
+    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint; ignoreBlockGasLimit?: boolean },
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
+    const blockOverrides = { ..._blockOverrides };
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
 
@@ -829,6 +878,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       gas: request.gas ?? LARGE_GAS_LIMIT,
     };
 
+    if (!request.gas && !gasConfig.ignoreBlockGasLimit) {
+      // LARGE_GAS_LIMIT is set as call.gas, increase block gasLimit
+      blockOverrides.gasLimit = LARGE_GAS_LIMIT * 2n;
+    }
+
     return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }
 
@@ -839,7 +893,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
    */
-  protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+  protected async attemptTxCancellation(
+    currentTxHash: Hex,
+    nonce: number,
+    isBlobTx = false,
+    previousGasPrice?: GasPrice,
+    attempts = 0,
+  ) {
     if (isBlobTx) {
       throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
     }
@@ -858,7 +918,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.debug(`Attempting to cancel transaction with nonce ${nonce}`, {
+    this.logger?.debug(`Attempting to cancel L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
@@ -875,6 +935,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxFeePerGas: cancelGasPrice.maxFeePerGas,
       maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
     });
+
+    this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
+
     const receipt = await this.monitorTransaction(
       request,
       cancelTxHash,

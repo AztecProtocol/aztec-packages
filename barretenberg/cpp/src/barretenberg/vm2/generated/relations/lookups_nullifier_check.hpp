@@ -11,6 +11,37 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_nullifier_check_silo_poseidon2 ///////////////////
+
+struct lookup_nullifier_check_silo_poseidon2_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_SILO_POSEIDON2";
+    static constexpr std::string_view RELATION_NAME = "nullifier_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_silo;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column COUNTS = Column::lookup_nullifier_check_silo_poseidon2_counts;
+    static constexpr Column INVERSES = Column::lookup_nullifier_check_silo_poseidon2_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::nullifier_check_sel,
+        ColumnAndShifts::nullifier_check_siloing_separator,
+        ColumnAndShifts::nullifier_check_address,
+        ColumnAndShifts::nullifier_check_nullifier,
+        ColumnAndShifts::nullifier_check_siloed_nullifier
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
+};
+
+using lookup_nullifier_check_silo_poseidon2_settings = lookup_settings<lookup_nullifier_check_silo_poseidon2_settings_>;
+template <typename FF_>
+using lookup_nullifier_check_silo_poseidon2_relation =
+    lookup_relation_base<FF_, lookup_nullifier_check_silo_poseidon2_settings>;
+
 /////////////////// lookup_nullifier_check_low_leaf_poseidon2 ///////////////////
 
 struct lookup_nullifier_check_low_leaf_poseidon2_settings_ {
@@ -47,7 +78,7 @@ struct lookup_nullifier_check_updated_low_leaf_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_UPDATED_LOW_LEAF_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "nullifier_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::nullifier_check_write;
+    static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_insert;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_nullifier_check_updated_low_leaf_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_updated_low_leaf_poseidon2_inv;
@@ -82,12 +113,9 @@ struct lookup_nullifier_check_low_leaf_merkle_check_settings_ {
     static constexpr Column COUNTS = Column::lookup_nullifier_check_low_leaf_merkle_check_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_low_leaf_merkle_check_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::nullifier_check_write,
-        ColumnAndShifts::nullifier_check_low_leaf_hash,
-        ColumnAndShifts::nullifier_check_updated_low_leaf_hash,
-        ColumnAndShifts::nullifier_check_low_leaf_index,
-        ColumnAndShifts::nullifier_check_tree_height,
-        ColumnAndShifts::nullifier_check_root,
+        ColumnAndShifts::nullifier_check_should_insert,         ColumnAndShifts::nullifier_check_low_leaf_hash,
+        ColumnAndShifts::nullifier_check_updated_low_leaf_hash, ColumnAndShifts::nullifier_check_low_leaf_index,
+        ColumnAndShifts::nullifier_check_tree_height,           ColumnAndShifts::nullifier_check_root,
         ColumnAndShifts::nullifier_check_intermediate_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -115,9 +143,9 @@ struct lookup_nullifier_check_low_leaf_nullifier_validation_settings_ {
     static constexpr Column COUNTS = Column::lookup_nullifier_check_low_leaf_nullifier_validation_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_low_leaf_nullifier_validation_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::nullifier_check_nullifier,
+        ColumnAndShifts::nullifier_check_siloed_nullifier,
         ColumnAndShifts::nullifier_check_low_leaf_nullifier,
-        ColumnAndShifts::nullifier_check_one
+        ColumnAndShifts::nullifier_check_sel
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
@@ -142,8 +170,8 @@ struct lookup_nullifier_check_low_leaf_next_nullifier_validation_settings_ {
     static constexpr Column INVERSES = Column::lookup_nullifier_check_low_leaf_next_nullifier_validation_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::nullifier_check_low_leaf_next_nullifier,
-        ColumnAndShifts::nullifier_check_nullifier,
-        ColumnAndShifts::nullifier_check_one
+        ColumnAndShifts::nullifier_check_siloed_nullifier,
+        ColumnAndShifts::nullifier_check_sel
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
@@ -162,12 +190,12 @@ struct lookup_nullifier_check_new_leaf_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_NEW_LEAF_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "nullifier_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::nullifier_check_write;
+    static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_insert;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_nullifier_check_new_leaf_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_new_leaf_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::nullifier_check_nullifier,
+        ColumnAndShifts::nullifier_check_siloed_nullifier,
         ColumnAndShifts::nullifier_check_low_leaf_next_nullifier,
         ColumnAndShifts::nullifier_check_low_leaf_next_index,
         ColumnAndShifts::nullifier_check_new_leaf_hash
@@ -192,12 +220,12 @@ struct lookup_nullifier_check_new_leaf_merkle_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_NEW_LEAF_MERKLE_CHECK";
     static constexpr std::string_view RELATION_NAME = "nullifier_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
-    static constexpr Column SRC_SELECTOR = Column::nullifier_check_write;
+    static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_insert;
     static constexpr Column DST_SELECTOR = Column::merkle_check_start;
     static constexpr Column COUNTS = Column::lookup_nullifier_check_new_leaf_merkle_check_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_check_new_leaf_merkle_check_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::nullifier_check_one,           ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::nullifier_check_sel,           ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::nullifier_check_new_leaf_hash, ColumnAndShifts::nullifier_check_tree_size_before_write,
         ColumnAndShifts::nullifier_check_tree_height,   ColumnAndShifts::nullifier_check_intermediate_root,
         ColumnAndShifts::nullifier_check_write_root
@@ -215,5 +243,29 @@ using lookup_nullifier_check_new_leaf_merkle_check_settings =
 template <typename FF_>
 using lookup_nullifier_check_new_leaf_merkle_check_relation =
     lookup_relation_base<FF_, lookup_nullifier_check_new_leaf_merkle_check_settings>;
+
+/////////////////// lookup_nullifier_check_write_nullifier_to_public_inputs ///////////////////
+
+struct lookup_nullifier_check_write_nullifier_to_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_CHECK_WRITE_NULLIFIER_TO_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "nullifier_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::nullifier_check_should_write_to_public_inputs;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_nullifier_check_write_nullifier_to_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_nullifier_check_write_nullifier_to_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::nullifier_check_public_inputs_index, ColumnAndShifts::nullifier_check_siloed_nullifier
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_nullifier_check_write_nullifier_to_public_inputs_settings =
+    lookup_settings<lookup_nullifier_check_write_nullifier_to_public_inputs_settings_>;
+template <typename FF_>
+using lookup_nullifier_check_write_nullifier_to_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_nullifier_check_write_nullifier_to_public_inputs_settings>;
 
 } // namespace bb::avm2

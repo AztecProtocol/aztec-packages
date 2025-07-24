@@ -16,10 +16,10 @@ tests_tar=barretenberg-acir-tests-$(hash_str \
 
 tests_hash=$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
+  $(../cpp/bootstrap.sh hash) \
   $(cache_content_hash \
     ^barretenberg/acir_tests/ \
     ./.rebuild_patterns \
-    ../cpp/.rebuild_patterns \
     ../ts/.rebuild_patterns \
     ../noir/))
 
@@ -49,22 +49,23 @@ function run_proof_generation {
   dump_fail "$prove_cmd"
 
   local vk_fields=$(cat "$outdir/vk_fields.json")
+  local vk_hash_fields=$(cat "$outdir/vk_hash_fields.json")
   local public_inputs_fields=$(cat "$outdir/public_inputs_fields.json")
   local proof_fields=$(cat "$outdir/proof_fields.json")
 
-  generate_toml "$program" "$vk_fields" "$proof_fields" "$public_inputs_fields"
+  generate_toml "$program" "$vk_fields" "$vk_hash_fields" "$proof_fields" "$public_inputs_fields"
 }
 
 function generate_toml {
   local program=$1
   local vk_fields=$2
-  local proof_fields=$3
-  local num_inner_public_inputs=$4
+  local vk_hash_fields=$3
+  local proof_fields=$4
+  local num_inner_public_inputs=$5
   local output_file="../$program/Prover.toml"
-  local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
 
   jq -nr \
-      --arg key_hash "$key_hash" \
+      --arg key_hash "$vk_hash_fields" \
       --argjson vk_f "$vk_fields" \
       --argjson public_inputs_f "$public_inputs_fields" \
       --argjson proof_f "$proof_fields" \
@@ -95,6 +96,8 @@ function build {
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
+
+    rm -rf acir_tests/{ecdsa_secp256k1_invalid_pub_key_in_inactive_branch,ecdsa_secp256r1_invalid_pub_key_in_inactive_branch}
     # These are breaking with:
     # Failed to solve program: 'Failed to solve blackbox function: embedded_curve_add, reason: Infinite input: embedded_curve_add(infinity, infinity)'
     rm -rf acir_tests/{regression_5045,regression_7744}
@@ -134,31 +137,31 @@ function test_cmds {
   # Solidity tests. Isolate because anvil.
   local prefix="$tests_hash:ISOLATE=1"
   echo "$prefix FLOW=sol_honk $run_test assert_statement"
-  echo "$prefix FLOW=sol_honk $run_test 1_mul"
+  echo "$prefix FLOW=sol_honk $run_test a_1_mul"
   echo "$prefix FLOW=sol_honk $run_test slices"
   echo "$prefix FLOW=sol_honk $run_test verify_honk_proof"
   echo "$prefix FLOW=sol_honk_zk $run_test assert_statement"
-  echo "$prefix FLOW=sol_honk_zk $run_test 1_mul"
+  echo "$prefix FLOW=sol_honk_zk $run_test a_1_mul"
   echo "$prefix FLOW=sol_honk_zk $run_test slices"
   echo "$prefix FLOW=sol_honk_zk $run_test verify_honk_proof"
 
   # bb.js browser tests. Isolate because server.
   local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
   echo "$prefix:NAME=chrome_verify_honk_proof BROWSER=chrome $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=chrome_1_mul BROWSER=chrome $run_test_browser 1_mul"
+  echo "$prefix:NAME=chrome_a_1_mul BROWSER=chrome $run_test_browser a_1_mul"
   echo "$prefix:NAME=webkit_verify_honk_proof BROWSER=webkit $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=webkit_1_mul BROWSER=webkit $run_test_browser 1_mul"
+  echo "$prefix:NAME=webkit_a_1_mul BROWSER=webkit $run_test_browser a_1_mul"
 
   # bb.js tests.
   local prefix=$tests_hash
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x"
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array"
+  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test a_6_array"
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
+  echo "$prefix FLOW=prove_then_verify_tube $run_test a_6_array"
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # SYS decides which scheme will be used for the test.
@@ -184,19 +187,19 @@ function test_cmds {
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test assert_statement"
 
   # prove and verify using bb.js classes
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test assert_statement"
 
   # prove with bb.js and verify with solidity verifier
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test assert_statement"
 
   # prove with bb cli and verify with bb.js classes
-  echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test assert_statement"
 
   # prove with bb.js and verify with bb cli
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test assert_statement"
 }
 

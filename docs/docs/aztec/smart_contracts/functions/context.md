@@ -72,13 +72,13 @@ The call context contains information about the current call being made:
 
 Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr rust
+#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/abis/block_header.nr rust
 
 ### Transaction Context
 
 The private context provides access to the transaction context as well, which are user-defined values for the transaction in general that stay constant throughout its execution.
 
-#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr rust
+#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
 
 ### Args Hash
 
@@ -93,13 +93,13 @@ The return values are a set of values that are returned from an applications exe
 ```rust
 return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
 ```
-## Max Block Number
+## Include By Timestamp
 
-Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_tx_max_block_number` function can be used to set this property:
+Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_include_by_timestamp` function can be used to set this property:
 
-#include_code max-block-number /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
+#include_code include-by-timestamp /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
 
-A transaction that requests a maximum block number will never be included in a block with a block number larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
+A transaction that sets this value will never be included in a block with a timestamp larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
 
 ### Read Requests
 

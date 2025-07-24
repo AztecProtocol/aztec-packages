@@ -171,15 +171,15 @@ export class BotFactory {
       deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
     } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
       deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress());
-      deployOpts.skipPublicDeployment = true;
-      deployOpts.skipClassRegistration = true;
+      deployOpts.skipInstancePublication = true;
+      deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -279,8 +279,8 @@ export class BotFactory {
     });
 
     const mintTx = new BatchCall(wallet, [
-      token0.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
-      token1.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
+      token0.methods.mint_to_private(wallet.getAddress(), MINT_BALANCE),
+      token1.methods.mint_to_private(wallet.getAddress(), MINT_BALANCE),
     ]).send();
 
     this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
@@ -308,7 +308,7 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -342,10 +342,9 @@ export class BotFactory {
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
-      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
-          ? token.methods.mint_to_private(from, sender, MINT_BALANCE)
+          ? token.methods.mint_to_private(sender, MINT_BALANCE)
           : token.methods.mint(MINT_BALANCE, sender),
       );
     }

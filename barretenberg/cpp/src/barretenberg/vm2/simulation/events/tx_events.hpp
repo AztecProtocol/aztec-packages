@@ -15,8 +15,9 @@ struct TxStartupEvent {
 };
 
 struct EnqueuedCallEvent {
-    FF msg_sender;
+    FF msg_sender; // TODO(dbanks12): order sender and address to match other functions/types
     FF contract_address;
+    FF transaction_fee;
     bool is_static;
     FF calldata_hash;
     Gas prev_gas_used;
@@ -39,6 +40,7 @@ struct CollectGasFeeEvent {
     uint128_t effective_fee_per_l2_gas;
     AztecAddress fee_payer;
     FF fee_payer_balance;
+    FF fee_juice_balance_slot;
     FF fee;
 };
 
@@ -49,6 +51,7 @@ struct TxPhaseEvent {
     TransactionPhase phase;
     TreeStates prev_tree_state;
     TreeStates next_tree_state;
+    // TODO: Add written public data slots tree snapshot, ideally via a TxContextEvent
 
     bool reverted;
 

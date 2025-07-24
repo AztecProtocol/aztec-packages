@@ -4,22 +4,41 @@ import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../../aztec-address/index.js';
-import { NoteHash, type ScopedNoteHash } from '../note_hash.js';
+import { ClaimedLengthArray } from '../claimed_length_array.js';
+import { NoteHash } from '../note_hash.js';
 import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hints.js';
 import { type NoteHashReadRequestHints, NoteHashReadRequestHintsBuilder } from './note_hash_read_request_hints.js';
 import { ReadRequest, ScopedReadRequest } from './read_request.js';
-import { PendingReadHint, ReadRequestStatus, SettledReadHint } from './read_request_hints.js';
+import { PendingReadHint, ReadRequestAction, SettledReadHint } from './read_request_hints.js';
 
 describe('buildNoteHashReadRequestHints', () => {
-  let contractAddress: AztecAddress;
+  const contractAddress = AztecAddress.fromBigInt(112233n);
+
+  const getNoteHashValue = (index: number) => index + 9999;
+
+  const makeReadRequest = (value: number, counter = 2) =>
+    new ReadRequest(new Fr(value), counter).scope(contractAddress);
+
+  const makeNoteHash = (value: number, counter = 1) => new NoteHash(new Fr(value), counter).scope(contractAddress);
+  /**
+   * Create fixtures.
+   */
+  const noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, i => makeNoteHash(getNoteHashValue(i)));
+  const futureNoteHashes = Array.from({ length: MAX_NOTE_HASHES_PER_TX }).map((_, i) =>
+    makeNoteHash(getNoteHashValue(i + MAX_NOTE_HASHES_PER_TX)),
+  );
+
   const settledNoteHashes = [111, 222, 333];
   const settledLeafIndexes = [1010n, 2020n, 3030n];
   const oracle = {
     getNoteHashMembershipWitness: (leafIndex: bigint) =>
       settledLeafIndexes.includes(leafIndex) ? ({} as any) : undefined,
   };
+
+  /**
+   * Create initial state.
+   */
   let noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>;
-  let noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>;
   let noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   let expectedHints: NoteHashReadRequestHints<
     typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -28,20 +47,15 @@ describe('buildNoteHashReadRequestHints', () => {
   let numReadRequests = 0;
   let numPendingReads = 0;
   let numSettledReads = 0;
-  let futureNoteHashes: ScopedNoteHash[];
 
-  const getNoteHashValue = (index: number) => index + 9999;
-
-  const makeReadRequest = (value: number, counter = 2) =>
-    new ReadRequest(new Fr(value), counter).scope(contractAddress);
-
-  const makeNoteHash = (value: number, counter = 1) => new NoteHash(new Fr(value), counter).scope(contractAddress);
-
+  /**
+   * Helper functions for updating the state.
+   */
   const readPendingNoteHash = (noteHashIndex: number) => {
     const readRequestIndex = numReadRequests;
     const hintIndex = numPendingReads;
     noteHashReadRequests[readRequestIndex] = makeReadRequest(getNoteHashValue(noteHashIndex));
-    expectedHints.readRequestStatuses[readRequestIndex] = ReadRequestStatus.pending(hintIndex);
+    expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsPending(hintIndex);
     expectedHints.pendingReadHints[hintIndex] = new PendingReadHint(readRequestIndex, noteHashIndex);
     numReadRequests++;
     numPendingReads++;
@@ -53,7 +67,7 @@ describe('buildNoteHashReadRequestHints', () => {
     const value = settledNoteHashes[noteHashIndex];
     noteHashLeafIndexMap.set(BigInt(value), settledLeafIndexes[noteHashIndex]);
     noteHashReadRequests[readRequestIndex] = makeReadRequest(settledNoteHashes[noteHashIndex]);
-    expectedHints.readRequestStatuses[readRequestIndex] = ReadRequestStatus.settled(hintIndex);
+    expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsSettled(hintIndex);
     expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, new Fr(value));
     numReadRequests++;
     numSettledReads++;
@@ -68,16 +82,14 @@ describe('buildNoteHashReadRequestHints', () => {
   const buildHints = async () =>
     await buildNoteHashReadRequestHints(
       oracle,
-      noteHashReadRequests,
-      noteHashes,
+      new ClaimedLengthArray(noteHashReadRequests, numReadRequests),
+      new ClaimedLengthArray(noteHashes, MAX_NOTE_HASHES_PER_TX),
       noteHashLeafIndexMap,
       futureNoteHashes,
     );
 
-  beforeEach(async () => {
-    contractAddress = await AztecAddress.random();
+  beforeEach(() => {
     noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
-    noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, i => makeNoteHash(getNoteHashValue(i)));
     noteHashLeafIndexMap = new Map();
     expectedHints = NoteHashReadRequestHintsBuilder.empty(
       MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -86,9 +98,6 @@ describe('buildNoteHashReadRequestHints', () => {
     numReadRequests = 0;
     numPendingReads = 0;
     numSettledReads = 0;
-    futureNoteHashes = new Array(MAX_NOTE_HASHES_PER_TX)
-      .fill(null)
-      .map((_, i) => makeNoteHash(getNoteHashValue(i + MAX_NOTE_HASHES_PER_TX)));
   });
 
   it('builds empty hints', async () => {

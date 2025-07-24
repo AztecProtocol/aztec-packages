@@ -4,7 +4,9 @@
 pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature, CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {
+  Signature, CommitteeAttestation, SignatureLib
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
@@ -12,8 +14,6 @@ import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-
-import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
@@ -26,8 +26,7 @@ import {
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
+import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {GSE} from "@aztec/governance/GSE.sol";
@@ -94,8 +93,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    testERC20.mint(address(this), rollup.getDepositAmount());
-    testERC20.approve(address(rollup), rollup.getDepositAmount());
+    uint256 depositAmount = rollup.getDepositAmount();
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), depositAmount);
+    testERC20.approve(address(rollup), depositAmount);
     rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
@@ -141,8 +142,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    testERC20.mint(address(this), rollup.getDepositAmount());
-    testERC20.approve(address(rollup), rollup.getDepositAmount());
+    uint256 depositAmount = rollup.getDepositAmount();
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), depositAmount);
+    testERC20.approve(address(rollup), depositAmount);
     rollup.deposit(address(0xdead), address(0xdead), true);
     rollup.flushEntryQueue();
 
@@ -313,8 +316,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     {
       uint128 manaBaseFee =
         SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
@@ -327,8 +328,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header: header,
       archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: txHashes
+      oracleInput: OracleInput(0)
     });
 
     skipBlobCheck(address(rollup));
@@ -344,8 +344,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         archive: args.archive,
         stateReference: args.stateReference,
         oracleInput: args.oracleInput,
-        headerHash: ProposedHeaderLib.hash(header),
-        txHashes: args.txHashes
+        headerHash: ProposedHeaderLib.hash(header)
       });
 
       CommitteeAttestation[] memory attestations = new CommitteeAttestation[](ree.attestationsCount);
@@ -433,7 +432,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, attestations, full.block.blobCommitments);
+      rollup.propose(args, SignatureLib.packAttestations(attestations), full.block.blobCommitments);
 
       if (ree.shouldRevert) {
         return;
@@ -443,14 +442,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       if (_expectRevert) {
         vm.expectRevert(
           abi.encodeWithSelector(
-            Errors.ValidatorSelection__InvalidAttestationsLength.selector,
-            rollup.getCurrentEpochCommittee().length,
-            0
+            0x4e487b71, // Panic(uint256) selector
+            0x32 // Array out-of-bounds access panic code
           )
         );
         ree.shouldRevert = true;
       }
-      rollup.propose(args, attestations, full.block.blobCommitments);
+      rollup.propose(args, SignatureLib.packAttestations(attestations), full.block.blobCommitments);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

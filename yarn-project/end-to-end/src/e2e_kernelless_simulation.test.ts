@@ -1,89 +1,12 @@
-import { DefaultAccountInterface } from '@aztec/accounts/defaults';
-import {
-  type AccountInterface,
-  AccountWallet,
-  AuthWitness,
-  type ContractArtifact,
-  Fr,
-  type Logger,
-  type PXE,
-  TxExecutionRequest,
-  type Wallet,
-  getContractInstanceFromDeployParams,
-} from '@aztec/aztec.js';
+import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat';
+import { type AccountWallet, CallAuthorizationRequest, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { SimulationOverrides, TxSimulationResult } from '@aztec/stdlib/tx';
+import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
+import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
-
-/*
- * An AccountWallet that copies the address of another account, and then
- * uses the simulation overrides feature to execute different contract code under
- * the copied address. This is used to bypass authwit verification entirely
- * (`is_valid` always returns `true`). It also emits the required authwit hashes as offchain effects
- * so they can later be compared to the ones that would actually be verified by the real
- * account contract.
- */
-export class CopyCatWallet extends AccountWallet {
-  constructor(
-    pxe: PXE,
-    account: AccountInterface,
-    private originalAddress: CompleteAddress,
-    private originalContractClassId: Fr,
-    private artifact: ContractArtifact,
-    private instance: ContractInstanceWithAddress,
-  ) {
-    super(pxe, account);
-  }
-
-  static async create(pxe: PXE, originalAccount: AccountWallet): Promise<CopyCatWallet> {
-    const simulatedAuthWitnessProvider = {
-      createAuthWit(messageHash: Fr): Promise<AuthWitness> {
-        return Promise.resolve(new AuthWitness(messageHash, []));
-      },
-    };
-    const nodeInfo = await pxe.getNodeInfo();
-    const originalAddress = originalAccount.getCompleteAddress();
-    const { contractInstance } = await pxe.getContractMetadata(originalAddress.address);
-    if (!contractInstance) {
-      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
-    }
-    const { currentContractClassId: originalContractClassId } = contractInstance;
-    const accountInterface = new DefaultAccountInterface(simulatedAuthWitnessProvider, originalAddress, nodeInfo);
-    const { SimulatedAccountContractArtifact } = await import('@aztec/noir-contracts.js/SimulatedAccount');
-    const instance = await getContractInstanceFromDeployParams(SimulatedAccountContractArtifact, {});
-    return new CopyCatWallet(
-      pxe,
-      accountInterface,
-      originalAddress,
-      originalContractClassId,
-      SimulatedAccountContractArtifact,
-      instance,
-    );
-  }
-
-  override getCompleteAddress(): CompleteAddress {
-    return this.originalAddress;
-  }
-
-  override simulateTx(
-    txRequest: TxExecutionRequest,
-    simulatePublic: boolean,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
-    _overrides?: SimulationOverrides,
-  ): Promise<TxSimulationResult> {
-    const contractOverrides = {
-      [this.originalAddress.address.toString()]: { instance: this.instance, artifact: this.artifact },
-    };
-    return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, {
-      contracts: contractOverrides,
-    });
-  }
-}
 
 /*
  * Demonstrates the capability of simulating a transaction without executing the kernels, allowing
@@ -147,7 +70,7 @@ describe('Kernelless simulation', () => {
     }
 
     it('adds liquidity without authwits', async () => {
-      const copyCat = await CopyCatWallet.create(pxe, liquidityProvider);
+      const copyCat = await CopyCatAccountWallet.create(pxe, liquidityProvider);
 
       const lpBalancesBefore = await getWalletBalances(copyCat);
 
@@ -172,15 +95,44 @@ describe('Kernelless simulation', () => {
 
       const [token0AuthwitRequest, token1AuthwitRequest] = offchainEffects;
 
-      // The account contract that generates the authwit request
-      expect(token0AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
-      expect(token1AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
+      // The contract that generates the authwit request
+      expect(token0AuthwitRequest.contractAddress).toEqual(token0.address);
+      expect(token1AuthwitRequest.contractAddress).toEqual(token1.address);
 
-      expect(token0AuthwitRequest.data).toHaveLength(1);
-      expect(token1AuthwitRequest.data).toHaveLength(1);
+      // Authwit selector + inner_hash + msg_sender + function_selector + args_hash + args (4)
+      expect(token0AuthwitRequest.data).toHaveLength(9);
+      expect(token1AuthwitRequest.data).toHaveLength(9);
 
-      const [token0AuthwitHash] = token0AuthwitRequest.data;
-      const [token1AuthwitHash] = token1AuthwitRequest.data;
+      const token0CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
+      const token1CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
+
+      expect(token0CallAuthorizationRequest.selector).toEqual(token1CallAuthorizationRequest.selector);
+
+      const functionAbi = await getFunctionArtifact(
+        TokenContractArtifact,
+        token0CallAuthorizationRequest.functionSelector,
+      );
+      const token0CallArgs = decodeFromAbi(
+        functionAbi.parameters.map(param => param.type),
+        token0CallAuthorizationRequest.args,
+      ) as AbiDecoded[];
+
+      expect(token0CallArgs).toHaveLength(4);
+      expect(token0CallArgs[0]).toEqual(liquidityProvider.getAddress());
+      expect(token0CallArgs[1]).toEqual(amm.address);
+      expect(token0CallArgs[2]).toEqual(amount0Max);
+      expect(token0CallArgs[3]).toEqual(nonceForAuthwits.toBigInt());
+
+      const token1CallArgs = decodeFromAbi(
+        functionAbi.parameters.map(param => param.type),
+        token1CallAuthorizationRequest.args,
+      ) as AbiDecoded[];
+
+      expect(token1CallArgs).toHaveLength(4);
+      expect(token1CallArgs[0]).toEqual(liquidityProvider.getAddress());
+      expect(token1CallArgs[1]).toEqual(amm.address);
+      expect(token1CallArgs[2]).toEqual(amount1Max);
+      expect(token1CallArgs[3]).toEqual(nonceForAuthwits.toBigInt());
 
       // Compute the real authwitness
       const token0Authwit = await liquidityProvider.createAuthWit({
@@ -202,6 +154,22 @@ describe('Kernelless simulation', () => {
           nonceForAuthwits,
         ),
       });
+
+      const { l1ChainId: chainId, rollupVersion: version } = await pxe.getNodeInfo();
+
+      const token0AuthwitHash = await computeOuterAuthWitHash(
+        token0.address,
+        new Fr(chainId),
+        new Fr(version),
+        token0CallAuthorizationRequest.innerHash,
+      );
+
+      const token1AuthwitHash = await computeOuterAuthWitHash(
+        token1.address,
+        new Fr(chainId),
+        new Fr(version),
+        token1CallAuthorizationRequest.innerHash,
+      );
 
       expect(token0AuthwitHash).toEqual(token0Authwit.requestHash);
       expect(token1AuthwitHash).toEqual(token1Authwit.requestHash);

@@ -13,8 +13,10 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -32,6 +34,7 @@ struct ConfigValues {
 
 struct Config {
   address deployer;
+  CoinIssuer coinIssuer;
   TestERC20 testERC20;
   Registry registry;
   Governance governance;
@@ -184,19 +187,11 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setEntryQueueFlushSizeMin(uint256 _entryQueueFlushSizeMin)
+  function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig)
     public
     returns (RollupBuilder)
   {
-    config.rollupConfigInput.entryQueueFlushSizeMin = _entryQueueFlushSizeMin;
-    return this;
-  }
-
-  function setEntryQueueFlushSizeQuotient(uint256 _entryQueueFlushSizeQuotient)
-    public
-    returns (RollupBuilder)
-  {
-    config.rollupConfigInput.entryQueueFlushSizeQuotient = _entryQueueFlushSizeQuotient;
+    config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
     return this;
   }
 
@@ -216,8 +211,14 @@ contract RollupBuilder is Test {
       config.testERC20 = new TestERC20("test", "TEST", address(this));
     }
 
+    if (address(config.coinIssuer) == address(0)) {
+      config.coinIssuer = new CoinIssuer(config.testERC20, 1e18, address(this));
+    }
+
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(address(this), config.testERC20);
+      config.gse = new GSE(
+        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      );
     }
 
     if (address(config.registry) == address(0)) {
@@ -226,13 +227,20 @@ contract RollupBuilder is Test {
       config.testERC20.mint(
         address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
       );
+    } else {
+      config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
     }
 
     if (config.flags.makeGovernance) {
       GovernanceProposer proposer = new GovernanceProposer(
         config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
       );
-      config.governance = new Governance(config.testERC20, address(proposer), address(config.gse));
+      config.governance = new Governance(
+        config.testERC20,
+        address(proposer),
+        address(config.gse),
+        TestConstants.getGovernanceConfiguration()
+      );
       vm.label(address(config.governance), "Governance");
       vm.label(address(proposer), "GovernanceProposer");
 
@@ -243,13 +251,14 @@ contract RollupBuilder is Test {
         vm.prank(address(config.governance));
         config.governance.openFloodgates();
 
-        assertEq(config.governance.isAllDepositsAllowed(), true);
+        assertEq(config.governance.isAllBeneficiariesAllowed(), true);
       }
     }
 
+    config.rollupConfigInput.rewardConfig.rewardDistributor = config.rewardDistributor;
+
     config.rollup = new Rollup(
       config.testERC20,
-      config.rewardDistributor,
       config.testERC20,
       config.gse,
       new MockVerifier(),
@@ -257,6 +266,8 @@ contract RollupBuilder is Test {
       config.genesisState,
       config.rollupConfigInput
     );
+
+    config.rollup.preheatHeaders();
 
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());
@@ -280,9 +291,10 @@ contract RollupBuilder is Test {
     }
 
     if (config.flags.updateOwnerships) {
-      if (config.deployer != config.testERC20.owner()) {
+      if (address(config.coinIssuer) != config.testERC20.owner()) {
         vm.prank(config.testERC20.owner());
-        config.testERC20.transferOwnership(config.deployer);
+        config.testERC20.transferOwnership(address(config.coinIssuer));
+        config.coinIssuer.acceptTokenOwnership();
       }
 
       if (config.deployer != config.registry.owner()) {
@@ -299,6 +311,11 @@ contract RollupBuilder is Test {
       if (expGov != config.gse.owner()) {
         vm.prank(config.gse.owner());
         config.gse.transferOwnership(expGov);
+      }
+
+      if (expGov != config.coinIssuer.owner()) {
+        vm.prank(config.coinIssuer.owner());
+        config.coinIssuer.transferOwnership(expGov);
       }
     }
 
