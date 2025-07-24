@@ -36,7 +36,7 @@ interface IGSECore {
 
   function setGovernance(Governance _governance) external;
   function addRollup(address _rollup) external;
-  function deposit(address _attester, address _withdrawer, bool _onBonus) external;
+  function deposit(address _attester, address _withdrawer, bool _stayOnLatestRollup) external;
   function withdraw(address _attester, uint256 _amount) external returns (uint256, bool, uint256);
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
@@ -276,9 +276,9 @@ contract GSECore is IGSECore, Ownable {
    *
    * @param _attester     - The attester address of the attester
    * @param _withdrawer   - The withdrawer address of the attester
-   * @param _onBonus  - Whether to deposit into the specific instance, or the bonus instance
+   * @param _stayOnLatestRollup  - Whether to deposit into the specific instance, or the bonus instance
    */
-  function deposit(address _attester, address _withdrawer, bool _onBonus)
+  function deposit(address _attester, address _withdrawer, bool _stayOnLatestRollup)
     external
     override(IGSECore)
     onlyRollup
@@ -286,7 +286,9 @@ contract GSECore is IGSECore, Ownable {
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
     // If _onBonus is true, then msg.sender must be the latest rollup.
-    require(!_onBonus || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
+    require(
+      !_stayOnLatestRollup || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender)
+    );
 
     // Ensure that we are not already attesting on the rollup
     require(
@@ -305,7 +307,7 @@ contract GSECore is IGSECore, Ownable {
     // but the user is targeting the bonus address.
     // Otherwise, we use the msg.sender, which we know is a registered rollup
     // thanks to the modifier.
-    address recipientInstance = _onBonus ? BONUS_INSTANCE_ADDRESS : msg.sender;
+    address recipientInstance = _stayOnLatestRollup ? BONUS_INSTANCE_ADDRESS : msg.sender;
 
     // Add the attester to the instance's checkpointed set of attesters.
     require(

@@ -202,11 +202,11 @@ contract RollupCore is
     ExtRollupLib2.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _onCanonical)
+  function deposit(address _attester, address _withdrawer, bool _stayOnLatestRollup)
     external
     override(IStakingCore)
   {
-    ExtRollupLib2.deposit(_attester, _withdrawer, _onCanonical);
+    ExtRollupLib2.deposit(_attester, _withdrawer, _stayOnLatestRollup);
   }
 
   function flushEntryQueue() external override(IStakingCore) {

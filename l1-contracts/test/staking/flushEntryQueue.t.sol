@@ -197,12 +197,16 @@ contract FlushEntryQueueTest is StakingBase {
     _help_flushEntryQueue(_numNewValidators, effectiveFlushSize);
   }
 
-  function _help_deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
+  function _help_deposit(address _attester, address _withdrawer, bool _stayOnLatestRollup) internal {
     mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     uint256 balance = stakingAsset.balanceOf(address(staking));
 
-    staking.deposit({_attester: _attester, _withdrawer: _withdrawer, _onCanonical: _onCanonical});
+    staking.deposit({
+      _attester: _attester,
+      _withdrawer: _withdrawer,
+      _stayOnLatestRollup: _stayOnLatestRollup
+    });
 
     assertEq(stakingAsset.balanceOf(address(staking)), balance + DEPOSIT_AMOUNT, "invalid balance");
   }
