@@ -23,12 +23,12 @@ struct lookup_bc_hashing_get_packed_field_settings_ {
     static constexpr Column INVERSES = Column::lookup_bc_hashing_get_packed_field_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_hashing_pc_index,
-        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_address,
         ColumnAndShifts::bc_hashing_packed_field
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_address,
         ColumnAndShifts::bc_decomposition_packed_field
     };
 };
@@ -50,12 +50,12 @@ struct lookup_bc_hashing_iv_is_len_settings_ {
     static constexpr Column INVERSES = Column::lookup_bc_hashing_iv_is_len_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_hashing_pc_index,
-        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_address,
         ColumnAndShifts::bc_hashing_incremental_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_address,
         ColumnAndShifts::bc_decomposition_bytes_remaining
     };
 };

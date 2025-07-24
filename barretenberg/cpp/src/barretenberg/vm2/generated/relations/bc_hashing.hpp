@@ -78,10 +78,10 @@ template <typename FF_> class bc_hashingImpl {
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        { // ID_CONSISTENCY
+        { // ADDRESS_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (in.get(C::bc_hashing_bytecode_id_shift) - in.get(C::bc_hashing_bytecode_id));
+                       (in.get(C::bc_hashing_address_shift) - in.get(C::bc_hashing_address));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
@@ -111,7 +111,7 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
         case 6:
             return "PC_INCREMENTS";
         case 7:
-            return "ID_CONSISTENCY";
+            return "ADDRESS_CONSISTENCY";
         case 8:
             return "CHAIN_OUTPUT_TO_INCR";
         }
@@ -123,7 +123,7 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 3;
     static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_PC_INCREMENTS = 6;
-    static constexpr size_t SR_ID_CONSISTENCY = 7;
+    static constexpr size_t SR_ADDRESS_CONSISTENCY = 7;
     static constexpr size_t SR_CHAIN_OUTPUT_TO_INCR = 8;
 };
 

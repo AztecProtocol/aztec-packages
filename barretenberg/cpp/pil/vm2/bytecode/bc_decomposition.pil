@@ -19,8 +19,8 @@ sel = 0;
 // This includes the "current byte" and the WINDOW_SIZE - 1 lookahead bytes.
 pol WINDOW_SIZE = 37;
 
-// Internal bytecode identifier which is defined in bc_retrieval.pil
-pol commit id;
+// Contract address which identifies the bytecode
+pol commit address;
 // pc counts from 0 to bytecode_length - 1.
 pol commit pc;
 // bytes_remaining counts from bytecode_length to 1.
@@ -72,11 +72,11 @@ sel * (1 - last_of_contract) * (pc' - pc - 1) = 0;
 #[BC_DEC_BYTES_REMAINING_DECREMENT]
 sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 
-// This is crucial to propagate bytecode_id as this is part of the unique identifier
-// for a given instruction (pair [pc, bytecode_id]). Otherwise, instruction fetching might
+// This is crucial to propagate contract address as this is part of the unique identifier
+// for a given instruction (pair [pc, address]). Otherwise, instruction fetching might
 // be misled to copy the wrong instruction from this subtrace.
-#[BC_DEC_ID_CONSTANT]
-(1 - FIRST_OR_LAST_CONTRACT) * (id' - id) = 0;
+#[BC_DEC_ADDRESS_CONSTANT]
+(1 - FIRST_OR_LAST_CONTRACT) * (address' - address) = 0;
 
 // This constrains that the bytes are in the range 0 to 255.
 #[BYTES_ARE_BYTES]
@@ -211,12 +211,12 @@ bytes_pc_plus_36 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_35';
 // does not choose at least the minimum amount of rows, the lookup will fail.
 // NOTE: The bytecode hashing trace will constrain itself that every 31st pc is packed.
 
-// TODO: We need to ensure that there is a single row per pair (pc, bytecode_id) in
+// TODO: We need to ensure that there is a single row per pair (pc, address) in
 // this subtrace (otherwise, a malicious prover might copy wrong values).
 // This is ensured by #[SEL_TOGGLED_AT_PACKED] and #[BC_DEC_PC_INCREMENT] relations but
-// still have to implement the unicity on bytecode_id. The current plan is to
+// still have to implement the unicity on contract address. The current plan is to
 // add a permutation between this sub-trace and bc_retrieval.pil of the form:
-// last_of_contract {id} is bc_retrieval.sel_XXX {bc_retrieval.bytecode_id}
+// last_of_contract {address} is bc_retrieval.sel_XXX {bc_retrieval.address}
 
 pol commit sel_packed;
 sel_packed * (1 - sel_packed) = 0;

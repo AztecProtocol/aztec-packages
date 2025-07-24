@@ -415,8 +415,6 @@ void ExecutionTraceBuilder::process(
                 { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
                 { C::execution_l1_l2_tree_size,
                   ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
-                // Other.
-                { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
@@ -439,7 +437,6 @@ void ExecutionTraceBuilder::process(
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.bytecode_id },
                   } });
 
         /**************************************************************************************************

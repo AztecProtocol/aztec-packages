@@ -24,12 +24,12 @@
 namespace bb::avm2::simulation {
 
 struct BytecodeNotFoundError : public std::runtime_error {
-    BytecodeNotFoundError(BytecodeId id, const std::string& message)
+    BytecodeNotFoundError(const AztecAddress& address, const std::string& message)
         : std::runtime_error(message)
-        , bytecode_id(id)
+        , address(address)
     {}
 
-    BytecodeId bytecode_id;
+    AztecAddress address;
 };
 
 struct InstructionFetchingError : public std::runtime_error {
@@ -44,12 +44,9 @@ class TxBytecodeManagerInterface {
   public:
     virtual ~TxBytecodeManagerInterface() = default;
 
-    // Retrieves the bytecode and
-    // (1) sets up the address-class id connection,
-    // (2) hashes it if needed.
-    virtual BytecodeId get_bytecode(const AztecAddress& address) = 0;
-    // Retrieves an instruction and decomposes it if needed.
-    virtual Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) = 0;
+    // Retrieves an instruction and decomposes/hashes bytecode if needed.
+    // This combines the previous get_bytecode and read_instruction operations.
+    virtual Instruction read_instruction(const AztecAddress& address, uint32_t pc) = 0;
 };
 
 class TxBytecodeManager : public TxBytecodeManagerInterface {
@@ -74,8 +71,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , fetching_events(fetching_events)
     {}
 
-    BytecodeId get_bytecode(const AztecAddress& address) override;
-    Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) override;
+    Instruction read_instruction(const AztecAddress& address, uint32_t pc) override;
 
   private:
     ContractDBInterface& contract_db;
@@ -87,8 +83,12 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
-    unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
-    BytecodeId next_bytecode_id = 0;
+
+    // Cache bytecode by address to avoid re-retrieval
+    unordered_flat_map<AztecAddress, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
+
+    // Helper method to retrieve and cache bytecode for an address
+    std::shared_ptr<std::vector<uint8_t>> get_bytecode_for_address(const AztecAddress& address);
 };
 
 // Manages the bytecode of a single nested call.
@@ -98,8 +98,6 @@ class BytecodeManagerInterface {
     virtual ~BytecodeManagerInterface() = default;
 
     virtual Instruction read_instruction(uint32_t pc) = 0;
-    // Returns the id of the current bytecode. Tries to fetch it if not already done.
-    virtual BytecodeId get_bytecode_id() = 0;
 };
 
 class BytecodeManager : public BytecodeManagerInterface {
@@ -109,21 +107,10 @@ class BytecodeManager : public BytecodeManagerInterface {
         , tx_bytecode_manager(tx_bytecode_manager)
     {}
 
-    Instruction read_instruction(uint32_t pc) override
-    {
-        return tx_bytecode_manager.read_instruction(get_bytecode_id(), pc);
-    }
-    BytecodeId get_bytecode_id() override
-    {
-        if (!bytecode_id.has_value()) {
-            bytecode_id = tx_bytecode_manager.get_bytecode(address);
-        }
-        return bytecode_id.value();
-    }
+    Instruction read_instruction(uint32_t pc) override { return tx_bytecode_manager.read_instruction(address, pc); }
 
   private:
     AztecAddress address;
-    std::optional<BytecodeId> bytecode_id;
     TxBytecodeManagerInterface& tx_bytecode_manager;
 };
 

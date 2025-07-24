@@ -799,8 +799,7 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
             //// Temporality group 1 starts ////
 
-            // We try to get the bytecode id. This can throw if the contract is not deployed.
-            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
+            // Note: We no longer need to get bytecode_id as it's been removed from the system.
 
             //// Temporality group 2 starts ////
 
@@ -826,7 +825,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         catch (const BytecodeNotFoundError& e) {
             vinfo("Bytecode not found: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
-            ex_event.bytecode_id = e.bytecode_id;
             context.set_gas_used(context.get_gas_limit()); // Consume all gas.
             context.halt();
             set_execution_result({ .success = false });

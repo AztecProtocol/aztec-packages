@@ -33,7 +33,6 @@ using C = Column;
 using instr_fetching = instr_fetching<FF>;
 
 using simulation::BytecodeDecompositionEvent;
-using simulation::BytecodeId;
 using simulation::InstrDeserializationError;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
@@ -60,7 +59,7 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
 
-    builder.process_instruction_fetching({ { .bytecode_id = 1,
+    builder.process_instruction_fetching({ { .address = AztecAddress(1),
                                              .pc = 0,
                                              .instruction = add_8_instruction,
                                              .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } },
@@ -343,13 +342,13 @@ TEST(InstrFetchingConstrainingTest, MultipleBytecodes)
 
         for (size_t j = 0; j < num_of_instr; j++) {
             auto instr_event = instr_fetch_events.at(j);
-            instr_event.bytecode_id = static_cast<BytecodeId>(i);
+            instr_event.address = AztecAddress(i);
             instr_event.bytecode = bytecode_ptr;
             instr_events.emplace_back(instr_event);
         }
 
         decomposition_events.emplace_back(BytecodeDecompositionEvent{
-            .bytecode_id = static_cast<BytecodeId>(i),
+            .bytecode_commitment = FF(i),
             .bytecode = bytecode_ptr,
         });
     }

@@ -12,9 +12,13 @@
 
 namespace bb::avm2::simulation {
 
-BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
+std::shared_ptr<std::vector<uint8_t>> TxBytecodeManager::get_bytecode_for_address(const AztecAddress& address)
 {
-    auto bytecode_id = next_bytecode_id++;
+    // Check if we already have the bytecode cached
+    auto cached_it = bytecodes.find(address);
+    if (cached_it != bytecodes.end()) {
+        return cached_it->second;
+    }
 
     // Use shared ContractInstanceManager for contract instance retrieval and validation
     // This handles nullifier checks, address derivation, and update validation
@@ -23,12 +27,14 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     if (!maybe_instance.has_value()) {
         // Contract instance not found - emit error event and throw
         retrieval_events.emit({
-            .bytecode_id = bytecode_id,
             .address = address,
             .error = true,
         });
         vinfo("Contract ", field_to_string(address), " is not deployed!");
-        throw BytecodeNotFoundError(bytecode_id, "Contract " + field_to_string(address) + " is not deployed");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunderaligned-exception-object"
+        throw BytecodeNotFoundError(address, "Contract " + field_to_string(address) + " is not deployed");
+#pragma clang diagnostic pop
     }
 
     ContractClassId current_class_id = maybe_instance.value().current_class_id;
@@ -41,21 +47,22 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     info("Bytecode for ", address, " successfully retrieved!");
 
-    // Bytecode hashing and decomposition
-    FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
+    // Bytecode hashing and decomposition - deduplicated by bytecode commitment
+    FF bytecode_commitment =
+        bytecode_hasher.compute_public_bytecode_commitment(klass.public_bytecode_commitment, klass.packed_bytecode);
     (void)bytecode_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
     assert(bytecode_commitment == klass.public_bytecode_commitment);
+
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
-    decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
+    decomposition_events.emit({ .bytecode_commitment = klass.public_bytecode_commitment, .bytecode = shared_bytecode });
 
     // We now save the bytecode so that we don't repeat this process.
-    bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
+    bytecodes.emplace(address, shared_bytecode);
 
     auto tree_states = merkle_db.get_tree_state();
 
     retrieval_events.emit({
-        .bytecode_id = bytecode_id,
         .address = address,
         .current_class_id = current_class_id,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
@@ -63,22 +70,19 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         .public_data_tree_root = tree_states.publicDataTree.tree.root,
     });
 
-    return bytecode_id;
+    return shared_bytecode;
 }
 
-Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t pc)
+Instruction TxBytecodeManager::read_instruction(const AztecAddress& address, uint32_t pc)
 {
     // We'll be filling in the event as we progress.
     InstructionFetchingEvent instr_fetching_event;
 
-    auto it = bytecodes.find(bytecode_id);
-    // This should never happen. It is supposed to be checked in execution.
-    assert(it != bytecodes.end());
+    // Get the bytecode for this address (may trigger retrieval/hashing/decomposition)
+    auto bytecode_ptr = get_bytecode_for_address(address);
 
-    instr_fetching_event.bytecode_id = bytecode_id;
+    instr_fetching_event.address = address;
     instr_fetching_event.pc = pc;
-
-    auto bytecode_ptr = it->second;
     instr_fetching_event.bytecode = bytecode_ptr;
 
     const auto& bytecode = *bytecode_ptr;
