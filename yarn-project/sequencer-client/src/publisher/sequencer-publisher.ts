@@ -421,6 +421,10 @@ export class SequencerPublisher {
     if (payload.equals(EthAddress.ZERO)) {
       return false;
     }
+    if (signerAddress.equals(EthAddress.ZERO)) {
+      this.log.warn(`Cannot enqueue vote cast signal ${signalType} for address zero at slot ${slotNumber}`);
+      return false;
+    }
     const round = await base.computeRound(slotNumber);
     const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
@@ -527,10 +531,6 @@ export class SequencerPublisher {
   ): Promise<boolean> {
     const signalConfig = await this.getSignalConfig(slotNumber, signalType);
     if (!signalConfig) {
-      return false;
-    }
-    if (signerAddress.equals(EthAddress.ZERO)) {
-      this.log.warn(`Cannot enqueue vote cast signal ${signalType} for address zero at slot ${slotNumber}`);
       return false;
     }
     const { payload, base } = signalConfig;
