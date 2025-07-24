@@ -119,6 +119,7 @@ interface IRollupCore {
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
+    address[] memory _signers,
     bytes calldata _blobInput
   ) external;
 
@@ -148,6 +149,7 @@ interface IRollup is IRollupCore, IHaveVersion {
   function validateHeader(
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
+    address[] memory _signers,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags

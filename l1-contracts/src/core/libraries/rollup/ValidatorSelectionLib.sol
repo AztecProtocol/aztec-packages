@@ -88,14 +88,45 @@ library ValidatorSelectionLib {
    *
    * @param _slot - The slot of the block being proposed
    * @param _attestations - The committee attestations for the block proposal
+   * @param _signers - The addresses of the signers from the attestations
    * @param _digest - The digest of the block being proposed
    */
-  function verifyProposer(Slot _slot, CommitteeAttestations memory _attestations, bytes32 _digest)
-    internal
-  {
-    // If there is no committee for the epoch, or the proposer is who sent the tx, we're good
-    (address proposer, uint256 proposerIndex) = getProposerAt(_slot);
-    if (proposer == address(0) || proposer == msg.sender) {
+  function verifyProposer(
+    Slot _slot,
+    Epoch _epochNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _signers,
+    bytes32 _digest
+  ) internal {
+    // Load the committee commitment for the epoch
+    (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_epochNumber);
+
+    // If the target committee size is 0, we skip the validation
+    if (committeeSize == 0) {
+      return;
+    }
+
+    // Reconstruct the committee from the attestations and signers
+    address[] memory committee =
+      _attestations.reconstructCommitteeFromSigners(_signers, committeeSize);
+
+    // Check it matches the expected one
+    bytes32 reconstructedCommitment = computeCommitteeCommitment(committee);
+    if (reconstructedCommitment != committeeCommitment) {
+      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
+        reconstructedCommitment, committeeCommitment
+      );
+    }
+
+    // Get the proposer from the committee based on the epoch, slot, and sample seed
+    uint224 sampleSeed = getSampleSeed(_epochNumber);
+    uint256 proposerIndex = computeProposerIndex(_epochNumber, _slot, sampleSeed, committeeSize);
+    address proposer = committee[proposerIndex];
+
+    setCachedProposer(_slot, proposer, proposerIndex);
+
+    // If the proposer is who sent the tx, we're good
+    if (proposer == msg.sender) {
       return;
     }
 

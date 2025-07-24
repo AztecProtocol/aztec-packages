@@ -46,6 +46,7 @@ struct InterimProposeValues {
   bytes32 headerHash;
   bytes32 attestationsHash;
   bytes32 payloadDigest;
+  Epoch currentEpoch;
 }
 
 /**
@@ -76,6 +77,7 @@ library ProposeLib {
    *
    * @param _args - The arguments to propose the block
    * @param _attestations - Signatures (or empty) from the validators
+   * @param _signers - The addresses of the signers from the attestations
    * Input _blobsInput bytes:
    * input[:1] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
@@ -85,6 +87,7 @@ library ProposeLib {
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
+    address[] memory _signers,
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
@@ -103,8 +106,8 @@ library ProposeLib {
     ProposedHeader memory header = _args.header;
     v.headerHash = ProposedHeaderLib.hash(_args.header);
 
-    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setupEpoch(currentEpoch);
+    v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -128,14 +131,16 @@ library ProposeLib {
       })
     );
 
-    ValidatorSelectionLib.verifyProposer(header.slotNumber, _attestations, v.payloadDigest);
+    ValidatorSelectionLib.verifyProposer(
+      header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest
+    );
 
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = rollupStore.tips.getPendingBlockNumber() + 1;
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
     bool isFirstBlockOfEpoch =
-      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+      v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
       STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, isFirstBlockOfEpoch
     );

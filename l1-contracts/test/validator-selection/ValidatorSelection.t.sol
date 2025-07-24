@@ -51,18 +51,28 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     bool senderIsNotProposer;
     bool proposerAttestationNotProvided;
     bool invalidAttestation;
+    bool invalidSigners;
   }
 
   TestFlags NO_FLAGS = TestFlags({
     senderIsNotProposer: false,
     proposerAttestationNotProvided: false,
-    invalidAttestation: false
+    invalidAttestation: false,
+    invalidSigners: false
   });
 
   TestFlags INVALID_ATTESTATION = TestFlags({
     senderIsNotProposer: false,
     proposerAttestationNotProvided: false,
-    invalidAttestation: true
+    invalidAttestation: true,
+    invalidSigners: false
+  });
+
+  TestFlags INVALID_SIGNERS = TestFlags({
+    senderIsNotProposer: false,
+    proposerAttestationNotProvided: false,
+    invalidAttestation: false,
+    invalidSigners: true
   });
 
   bytes4 NO_REVERT = bytes4(0);
@@ -182,17 +192,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 signatureCount = committeeSize * 2 / 3 + (_insufficientSigs ? 0 : 1);
     assertGt(rollup.getAttesters().length, committeeSize, "Not enough validators");
 
-    ProposeTestData memory ree = _testBlock(
-      "mixed_block_1",
-      NO_REVERT,
-      signatureCount,
-      committeeSize,
-      TestFlags({
-        senderIsNotProposer: false,
-        proposerAttestationNotProvided: false,
-        invalidAttestation: false
-      })
-    );
+    ProposeTestData memory ree =
+      _testBlock("mixed_block_1", NO_REVERT, signatureCount, committeeSize, NO_FLAGS);
 
     assertEq(ree.committee.length, rollup.getTargetCommitteeSize(), "Invalid committee size");
 
@@ -264,7 +265,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       TestFlags({
         senderIsNotProposer: true,
         proposerAttestationNotProvided: false,
-        invalidAttestation: false
+        invalidAttestation: false,
+        invalidSigners: false
       })
     );
   }
@@ -278,7 +280,23 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       TestFlags({
         senderIsNotProposer: true,
         proposerAttestationNotProvided: true,
-        invalidAttestation: false
+        invalidAttestation: false,
+        invalidSigners: false
+      })
+    );
+  }
+
+  function testInvalidSigners() public setup(4, 4) progressEpochs(2) {
+    _testBlock(
+      "mixed_block_1",
+      Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+      3,
+      4,
+      TestFlags({
+        senderIsNotProposer: true,
+        proposerAttestationNotProvided: false,
+        invalidAttestation: false,
+        invalidSigners: true
       })
     );
   }
@@ -289,12 +307,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // the invalid attestation is the first one
     _invalidateByAttestationSig(ree, 1, Errors.Rollup__AttestationsAreValid.selector);
     _invalidateByAttestationSig(ree, 0, NO_REVERT);
-  }
-
-  function testInsufficientAttestations() public setup(4, 4) progressEpochs(2) {
-    ProposeTestData memory ree = _testBlock("mixed_block_1", NO_REVERT, 2, 2, NO_FLAGS);
-
-    _invalidateByAttestationCount(ree, NO_REVERT);
   }
 
   function testInsufficientSignatures() public setup(4, 4) progressEpochs(2) {
@@ -352,7 +364,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       TestFlags({
         senderIsNotProposer: false,
         proposerAttestationNotProvided: false,
-        invalidAttestation: false
+        invalidAttestation: false,
+        invalidSigners: false
       })
     );
   }
@@ -448,6 +461,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
 
     ree.attestations = new CommitteeAttestation[](ree.attestationsCount);
+    ree.signers = new address[](_signatureCount);
     bytes32 digest = ProposeLib.digest(ree.proposePayload);
 
     {
@@ -457,10 +471,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
           (signaturesCollected >= _signatureCount)
             || (ree.committee[i] == ree.proposer && _flags.proposerAttestationNotProvided)
         ) {
-          ree.attestations[i] = _createEmptyAttestation(ree.proposer);
+          ree.attestations[i] = _createEmptyAttestation(ree.committee[i]);
         } else {
-          signaturesCollected++;
           ree.attestations[i] = _createAttestation(ree.committee[i], digest);
+          ree.signers[signaturesCollected] = ree.committee[i];
+          signaturesCollected++;
         }
       }
     }
@@ -477,6 +492,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.attestations[0] = _createAttestation(invalidAttester, digest);
     }
 
+    if (_flags.invalidSigners) {
+      // Change the first element in the signers to a random address
+      uint256 invalidSignerKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
+      address invalidSigner = vm.addr(invalidSignerKey);
+      ree.signers[0] = invalidSigner;
+    }
+
     emit log("Time to propose");
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
@@ -484,7 +506,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     vm.prank(ree.sender);
     rollup.propose(
-      ree.proposeArgs, SignatureLib.packAttestations(ree.attestations), full.block.blobCommitments
+      ree.proposeArgs,
+      SignatureLib.packAttestations(ree.attestations),
+      ree.signers,
+      full.block.blobCommitments
     );
 
     if (_revertData != NO_REVERT) {

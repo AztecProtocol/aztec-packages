@@ -81,6 +81,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes body;
     bytes blobInputs;
     CommitteeAttestation[] attestations;
+    address[] signers;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -138,6 +139,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
+    address[] memory signers = new address[](0);
 
     bytes memory body = full.block.body;
     ProposedHeader memory header = full.block.header;
@@ -178,7 +180,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       header: header,
       body: body,
       blobInputs: full.block.blobCommitments,
-      attestations: attestations
+      attestations: attestations,
+      signers: signers
     });
   }
 
@@ -203,6 +206,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             })
           }),
           SignatureLib.packAttestations(b.attestations),
+          b.signers,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -297,6 +301,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             })
           }),
           SignatureLib.packAttestations(b.attestations),
+          b.signers,
           b.blobInputs
         );
 

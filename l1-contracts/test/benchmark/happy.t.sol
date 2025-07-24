@@ -117,6 +117,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs proposeArgs;
     bytes blobInputs;
     CommitteeAttestation[] attestations;
+    address[] signers;
   }
 
   DecoderBase.Full full = load("single_tx_block_1");
@@ -249,11 +250,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     });
 
     CommitteeAttestation[] memory attestations;
+    address[] memory signers;
 
     {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       uint256 needed = validators.length * 2 / 3 + 1;
       attestations = new CommitteeAttestation[](validators.length);
+      signers = new address[](needed);
 
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
@@ -273,15 +276,19 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         }
       }
 
-      // loop through again to get to the required number of attestations.
+      // loop to get to the required number of attestations.
       // yes, inefficient, but it's simple, clear, and is a test.
       uint256 sigCount = 1;
+      uint256 signersIndex = 0;
       for (uint256 i = 0; i < validators.length; i++) {
         if (validators[i] == proposer) {
-          continue;
+          signers[signersIndex] = validators[i];
+          signersIndex++;
         } else if (sigCount < needed) {
           attestations[i] = createAttestation(validators[i], digest);
+          signers[signersIndex] = validators[i];
           sigCount++;
+          signersIndex++;
         } else {
           attestations[i] = createEmptyAttestation(validators[i]);
         }
@@ -291,7 +298,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
-      attestations: attestations
+      attestations: attestations,
+      signers: signers
     });
   }
 
@@ -383,7 +391,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             target: address(rollup),
             callData: abi.encodeCall(
               rollup.propose,
-              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs)
+              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs)
             ),
             allowFailure: false
           });
@@ -395,7 +403,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           multicall.aggregate3(calls);
         } else {
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
+          rollup.propose(
+            b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs
+          );
         }
 
         nextSlot = nextSlot + Slot.wrap(1);

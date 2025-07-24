@@ -244,9 +244,10 @@ contract RollupCore is
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
+    address[] calldata _signers,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
   }
 
   function invalidateBadAttestation(
