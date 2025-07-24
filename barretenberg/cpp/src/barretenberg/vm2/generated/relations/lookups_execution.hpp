@@ -235,6 +235,77 @@ template <typename FF_>
 using lookup_execution_dyn_l2_factor_bitwise_relation =
     lookup_relation_base<FF_, lookup_execution_dyn_l2_factor_bitwise_settings>;
 
+/////////////////// lookup_execution_check_radix_gt_256 ///////////////////
+
+struct lookup_execution_check_radix_gt_256_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_CHECK_RADIX_GT_256";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_to_radix;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_execution_check_radix_gt_256_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_check_radix_gt_256_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_register_1_,
+        ColumnAndShifts::execution_two_five_six,
+        ColumnAndShifts::execution_sel_radix_gt_256
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
+};
+
+using lookup_execution_check_radix_gt_256_settings = lookup_settings<lookup_execution_check_radix_gt_256_settings_>;
+template <typename FF_>
+using lookup_execution_check_radix_gt_256_relation =
+    lookup_relation_base<FF_, lookup_execution_check_radix_gt_256_settings>;
+
+/////////////////// lookup_execution_get_p_limbs ///////////////////
+
+struct lookup_execution_get_p_limbs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_GET_P_LIMBS";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_lookup_num_p_limbs;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_p_limb_counts;
+    static constexpr Column COUNTS = Column::lookup_execution_get_p_limbs_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_get_p_limbs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_register_1_, ColumnAndShifts::execution_num_p_limbs
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_to_radix_num_limbs_for_p
+    };
+};
+
+using lookup_execution_get_p_limbs_settings = lookup_settings<lookup_execution_get_p_limbs_settings_>;
+template <typename FF_>
+using lookup_execution_get_p_limbs_relation = lookup_relation_base<FF_, lookup_execution_get_p_limbs_settings>;
+
+/////////////////// lookup_execution_get_max_limbs ///////////////////
+
+struct lookup_execution_get_max_limbs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_GET_MAX_LIMBS";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_to_radix;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_execution_get_max_limbs_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_get_max_limbs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_register_2_,
+        ColumnAndShifts::execution_num_p_limbs,
+        ColumnAndShifts::execution_sel_use_num_limbs
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
+};
+
+using lookup_execution_get_max_limbs_settings = lookup_settings<lookup_execution_get_max_limbs_settings_>;
+template <typename FF_>
+using lookup_execution_get_max_limbs_relation = lookup_relation_base<FF_, lookup_execution_get_max_limbs_settings>;
+
 /////////////////// lookup_execution_check_written_storage_slot ///////////////////
 
 struct lookup_execution_check_written_storage_slot_settings_ {

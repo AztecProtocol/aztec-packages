@@ -318,6 +318,12 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.to_radix);
                 },
                 [&]() {
+                    ToRadixTraceBuilder to_radix_builder;
+                    AVM_TRACK_TIME("tracegen/to_radix_memory",
+                                   to_radix_builder.process_with_memory(events.to_radix_memory, trace));
+                    clear_events(events.to_radix_memory);
+                },
+                [&]() {
                     FieldGreaterThanTraceBuilder field_gt_builder;
                     AVM_TRACK_TIME("tracegen/field_gt", field_gt_builder.process(events.field_gt, trace));
                     clear_events(events.field_gt);
