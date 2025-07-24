@@ -4,6 +4,8 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule } from '@aztec/stdlib/tx';
 
+import type { Account } from '../account/account.js';
+
 /**
  * Represents the options to configure a request from a contract interaction.
  * Allows specifying additional auth witnesses and capsules to use during execution
@@ -19,6 +21,7 @@ export type RequestMethodOptions = {
  * Represents options for calling a (constrained) function in a contract.
  */
 export type SendMethodOptions = RequestMethodOptions & {
+  from: Account;
   /** The fee options for the transaction. */
   fee?: UserFeeOptions;
   /**
@@ -41,10 +44,8 @@ export type SendMethodOptions = RequestMethodOptions & {
  */
 export type SimulateMethodOptions = Pick<
   SendMethodOptions,
-  'authWitnesses' | 'capsules' | 'fee' | 'txNonce' | 'cancellable'
+  'from' | 'authWitnesses' | 'capsules' | 'fee' | 'txNonce' | 'cancellable'
 > & {
-  /** The sender's Aztec address. */
-  from?: AztecAddress;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */

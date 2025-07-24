@@ -153,7 +153,7 @@ export class AccountManager {
    * set up the account contract for use.
    * @returns A ContractSetupMethods instance that can set up this account contract for use
    */
-  public async getDeployMethod(deployAccount?: Account): Promise<DeployMethod> {
+  public async getDeployMethod(): Promise<DeployMethod> {
     const artifact = await this.accountContract.getContractArtifact();
 
     if (!(await this.hasInitializer())) {
@@ -172,30 +172,9 @@ export class AccountManager {
       constructorArgs: undefined,
     };
 
-    if (deployAccount) {
-      // If deploying using an existing wallet/account, treat it like regular contract deployment.
-      const thisAccount = await this.getAccount();
-      return new DeployMethod(
-        this.getPublicKeys(),
-        this.deployWallet,
-        thisAccount,
-        artifact,
-        address => Contract.at(address, artifact, this.deployWallet),
-        constructorArgs,
-        constructorName,
-      );
-    }
-
-    const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
-    // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go.
-    // If we used getWallet, the deployment would get routed via the account contract entrypoint
-    // and it can't be used unless the contract is initialized.
-    const account = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
-
     return new DeployMethod(
       this.getPublicKeys(),
       this.deployWallet,
-      account,
       artifact,
       address => Contract.at(address, artifact, this.deployWallet),
       constructorArgs,
@@ -235,31 +214,31 @@ export class AccountManager {
    * @param opts - Fee options to be used for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
-  public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
-    let deployMethod: DeployMethod;
-    const sendTx = () =>
-      this.getDeployMethod(opts?.deployAccount)
-        .then(method => {
-          deployMethod = method;
-          if (!opts?.deployAccount && opts?.fee) {
-            return this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
-          }
-        })
-        .then(maybeWrappedPaymentMethod => {
-          let fee = opts?.fee;
-          if (maybeWrappedPaymentMethod) {
-            fee = { ...opts?.fee, paymentMethod: maybeWrappedPaymentMethod };
-          }
-          return deployMethod.send({
-            contractAddressSalt: new Fr(this.salt),
-            skipClassPublication: opts?.skipClassPublication ?? true,
-            skipInstancePublication: opts?.skipInstancePublication ?? true,
-            skipInitialization: opts?.skipInitialization ?? false,
-            universalDeploy: true,
-            fee,
-          });
-        })
-        .then(tx => tx.getTxHash());
+  public deploy(opts: DeployAccountOptions): DeployAccountSentTx {
+    const sendTx = async () => {
+      const deployMethod = await this.getDeployMethod();
+      let fee = opts?.fee ?? {};
+      let deployAccount = opts.deployAccount;
+      if (!deployAccount) {
+        const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
+        deployAccount = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
+        if (opts.fee) {
+          const wrappedPaymentMethod = await this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
+          fee = { ...opts?.fee, paymentMethod: wrappedPaymentMethod };
+        }
+      }
+
+      const tx = await deployMethod.send({
+        from: deployAccount,
+        contractAddressSalt: new Fr(this.salt),
+        skipClassPublication: opts?.skipClassPublication ?? true,
+        skipInstancePublication: opts?.skipInstancePublication ?? true,
+        skipInitialization: opts?.skipInitialization ?? false,
+        universalDeploy: true,
+        fee,
+      });
+      return tx.getTxHash();
+    };
     return new DeployAccountSentTx(this.pxe, sendTx, this.getAccount());
   }
 

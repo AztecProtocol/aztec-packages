@@ -22,7 +22,6 @@ export abstract class BaseContractInteraction {
 
   constructor(
     protected wallet: Wallet,
-    protected account: Account,
     protected authWitnesses: AuthWitness[] = [],
     protected capsules: Capsule[] = [],
   ) {}
@@ -49,7 +48,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The proving result.
    */
-  protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
+  protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
     const txRequest = await this.create(options);
     return await this.wallet.proveTx(txRequest);
   }
@@ -60,7 +59,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
+  public async prove(options: SendMethodOptions): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
@@ -81,7 +80,7 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}): SentTx {
+  public send(options: SendMethodOptions): SentTx {
     // docs:end:send
     const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
@@ -98,7 +97,7 @@ export abstract class BaseContractInteraction {
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas'>,
+    opts: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
@@ -119,10 +118,10 @@ export abstract class BaseContractInteraction {
    * Returns default fee options based on the user opts without running a simulation for gas estimation.
    * @param fee - User-provided fee options.
    */
-  protected async getDefaultFeeOptions(fee: UserFeeOptions | undefined): Promise<FeeOptions> {
+  protected async getDefaultFeeOptions(account: Account, fee: UserFeeOptions | undefined): Promise<FeeOptions> {
     const maxFeesPerGas =
       fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
-    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(this.account.getAddress());
+    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(account.getAddress());
     const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, gasSettings);
     return { gasSettings, paymentMethod };
@@ -137,12 +136,13 @@ export abstract class BaseContractInteraction {
    * @returns Fee options for the actual transaction.
    */
   protected async getFeeOptions(
+    account: Account,
     executionPayload: ExecutionPayload,
     fee: UserFeeOptions = {},
     options: TxExecutionOptions,
   ): Promise<FeeOptions> {
     // docs:end:getFeeOptions
-    const defaultFeeOptions = await this.getDefaultFeeOptions(fee);
+    const defaultFeeOptions = await this.getDefaultFeeOptions(account, fee);
     const paymentMethod = defaultFeeOptions.paymentMethod;
     const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;
     const maxPriorityFeesPerGas = defaultFeeOptions.gasSettings.maxPriorityFeesPerGas;
@@ -150,7 +150,7 @@ export abstract class BaseContractInteraction {
     let gasSettings = defaultFeeOptions.gasSettings;
     if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
-      const txRequest = await this.account.createTxExecutionRequest(executionPayload, feeForEstimation, options);
+      const txRequest = await account.createTxExecutionRequest(executionPayload, feeForEstimation, options);
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,

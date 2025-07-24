@@ -25,7 +25,7 @@ export async function simulateWithoutSignature(
   const { l1ChainId: chainId, rollupVersion } = await wallet.getNodeInfo();
   const entrypoint = new DefaultEntrypoint(chainId, rollupVersion);
   const account = new SignerlessAccount(entrypoint);
-  const interaction = new ContractFunctionInteraction(wallet, account, contractAddress, abi, args);
+  const interaction = new ContractFunctionInteraction(wallet, contractAddress, abi, args);
 
   const request = await interaction.request();
   const maxFeesPerGas = (await wallet.getCurrentBaseFees()).mul(1.5);

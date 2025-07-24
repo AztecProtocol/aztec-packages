@@ -68,7 +68,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   constructor(
     private publicKeys: PublicKeys,
     wallet: Wallet,
-    account: Account,
     private artifact: ContractArtifact,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
@@ -76,7 +75,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
   ) {
-    super(wallet, account, authWitnesses, capsules);
+    super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
   }
 
@@ -96,11 +95,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing optional deployment settings, contractAddressSalt, and from.
    * @returns A Promise resolving to an object containing the signed transaction data and other relevant information.
    */
-  public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
+  public async create(options: DeployOptions): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
     const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
-    return this.account.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
+    const fee = await this.getFeeOptions(options.from, requestWithoutFee, userFee, { txNonce, cancellable });
+    return options.from.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other
@@ -114,7 +113,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @remarks This method does not have the same return type as the `request` in the ContractInteraction object,
    * it returns a promise for an array instead of a function call directly.
    */
-  public async request(options: DeployOptions = {}): Promise<ExecutionPayload> {
+  public async request(options: DeployOptions): Promise<ExecutionPayload> {
     const publication = await this.getPublicationExecutionPayload(options);
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
@@ -141,18 +140,16 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(
-    options: DeployOptions & ProfileMethodOptions = { profileMode: 'gates', skipProofGeneration: true },
-  ): Promise<TxProfileResult> {
+  public async profile(options: DeployOptions & ProfileMethodOptions): Promise<TxProfileResult> {
     const txRequest = await this.create(options);
-    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
+    return await this.wallet.profileTx(txRequest, options.profileMode ?? 'gates', options.skipProofGeneration ?? true);
   }
 
   /**
    * Adds this contract to the PXE and returns the Contract object.
    * @param options - Deployment options.
    */
-  public async register(options: DeployOptions = {}): Promise<TContract> {
+  public async register(options: DeployOptions): Promise<TContract> {
     const instance = await this.getInstance(options);
     await this.wallet.registerContract({ artifact: this.artifact, instance });
     return this.postDeployCtor(instance.address, this.wallet);
@@ -166,7 +163,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Contract creation options.
    * @returns An execution payload with potentially calls (and bytecode capsule) to the class registry and instance registry.
    */
-  protected async getPublicationExecutionPayload(options: DeployOptions = {}): Promise<ExecutionPayload> {
+  protected async getPublicationExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
     const calls: ExecutionPayload[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -201,7 +198,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/15596):
       // Read the artifact, and if there are no public functions, warn the caller that publication of the
       // contract instance is not necessary (until such time as they wish to update the instance (i.e. change its class_id)).
-      const deploymentInteraction = await publishInstance(this.wallet, instance);
+      const deploymentInteraction = await publishInstance(options.from, this.wallet, instance);
       calls.push(await deploymentInteraction.request());
     }
 
@@ -219,7 +216,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       const { address } = await this.getInstance(options);
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,
-        this.account,
         address,
         this.constructorArtifact,
         this.args,
@@ -237,7 +233,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various deployment options such as contractAddressSalt and from.
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
-  public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
+  public override send(options: DeployOptions): DeploySentTx<TContract> {
     const sendTx = () => super.send(options).getTxHash();
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
     return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));
@@ -249,14 +245,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various initialization and publication options.
    * @returns An instance object.
    */
-  public async getInstance(options: DeployOptions = {}): Promise<ContractInstanceWithAddress> {
+  public async getInstance(options: DeployOptions): Promise<ContractInstanceWithAddress> {
     if (!this.instance) {
       this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
         publicKeys: this.publicKeys,
         constructorArtifact: this.constructorArtifact,
-        deployer: options.universalDeploy ? AztecAddress.ZERO : this.account.getAddress(),
+        deployer: options.universalDeploy ? AztecAddress.ZERO : options.from.getAddress(),
       });
     }
     return this.instance;
@@ -283,7 +279,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Options.
    */
   public override estimateGas(
-    options?: Omit<DeployOptions, 'estimateGas'>,
+    options: Omit<DeployOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     return super.estimateGas(options);
   }
@@ -315,7 +311,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     return new DeployMethod(
       this.publicKeys,
       this.wallet,
-      this.account,
       this.artifact,
       this.postDeployCtor,
       this.args,

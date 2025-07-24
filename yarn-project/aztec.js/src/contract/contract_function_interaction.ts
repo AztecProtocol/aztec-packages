@@ -52,7 +52,6 @@ type SimulationReturn<T extends boolean | undefined> = T extends true
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    account: Account,
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
@@ -60,7 +59,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     capsules: Capsule[] = [],
     private extraHashedArgs: HashedValues[] = [],
   ) {
-    super(wallet, account, authWitnesses, capsules);
+    super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
     }
@@ -73,7 +72,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public override async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+  public override async create(options: SendMethodOptions): Promise<TxExecutionRequest> {
     // docs:end:create
     if (this.functionDao.functionType === FunctionType.UTILITY) {
       throw new Error("Can't call `create` on a utility  function.");
@@ -81,9 +80,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const requestWithoutFee = await this.request(options);
 
     const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
+    const fee = await this.getFeeOptions(options.from, requestWithoutFee, userFee, { txNonce, cancellable });
 
-    return await this.account.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
+    return await options.from.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // docs:start:request
@@ -126,11 +125,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate<T extends SimulateMethodOptions>(options?: T): Promise<SimulationReturn<T['includeMetadata']>>;
+  public async simulate<T extends SimulateMethodOptions>(options: T): Promise<SimulationReturn<T['includeMetadata']>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
-  public async simulate(
-    options: SimulateMethodOptions = {},
-  ): Promise<SimulationReturn<typeof options.includeMetadata>> {
+  public async simulate(options: SimulateMethodOptions): Promise<SimulationReturn<typeof options.includeMetadata>> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const utilityResult = await this.wallet.simulateUtility(
@@ -138,7 +135,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         this.args,
         this.contractAddress,
         options.authWitnesses ?? [],
-        options?.from,
       );
 
       if (options.includeMetadata) {
@@ -157,7 +153,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       true /* simulatePublic */,
       options.skipTxValidation,
       options.skipFeeEnforcement ?? true,
-      { msgSender: options?.from },
     );
 
     let rawReturnValues;
@@ -194,16 +189,14 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(
-    options: ProfileMethodOptions = { profileMode: 'gates', skipProofGeneration: true },
-  ): Promise<TxProfileResult> {
+  public async profile(options: ProfileMethodOptions): Promise<TxProfileResult> {
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       throw new Error("Can't profile a utility function.");
     }
-    const { authWitnesses, capsules, fee } = options;
+    const { authWitnesses, capsules, fee, from } = options;
 
-    const txRequest = await this.create({ fee, authWitnesses, capsules });
-    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
+    const txRequest = await this.create({ from, fee, authWitnesses, capsules });
+    return await this.wallet.profileTx(txRequest, options.profileMode ?? 'gates', options.skipProofGeneration ?? true);
   }
 
   /**
@@ -227,7 +220,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }): ContractFunctionInteraction {
     return new ContractFunctionInteraction(
       this.wallet,
-      this.account,
       this.contractAddress,
       this.functionDao,
       this.args,

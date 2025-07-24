@@ -144,7 +144,7 @@ describe('Contract Class', () => {
     contractAddress = await AztecAddress.random();
     account = mock<Account>();
     accountAddress = await CompleteAddress.random();
-    account.getCompleteAddress.mockResolvedValue(accountAddress);
+    account.getCompleteAddress.mockReturnValue(accountAddress);
     const contractClass = await getContractClassFromArtifact(defaultArtifact);
     contractInstance = {
       address: contractAddress,
@@ -186,7 +186,7 @@ describe('Contract Class', () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send();
+    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account });
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
@@ -199,16 +199,14 @@ describe('Contract Class', () => {
 
   it('should call view on a utility function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).simulate({
-      from: accountAddress.address,
-    });
+    const result = await fooContract.methods.qux(123n).simulate({ from: account });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], accountAddress.address);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
     expect(result).toBe(mockUtilityResultValue.result);
   });
 
   it('should not call create on a utility  function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    await expect(fooContract.methods.qux().create()).rejects.toThrow();
+    await expect(fooContract.methods.qux().create({ from: account })).rejects.toThrow();
   });
 });

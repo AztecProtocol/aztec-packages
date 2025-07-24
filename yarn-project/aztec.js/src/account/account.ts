@@ -31,7 +31,7 @@ export type Account = AccountInterface & AuthwitnessIntentProvider;
 /**
  * A wallet implementation that forwards authentication requests to a provided account.
  */
-export class BaseAccount implements AccountInterface, AuthwitnessIntentProvider {
+export class BaseAccount implements Account {
   constructor(protected account: AccountInterface) {}
 
   createTxExecutionRequest(
@@ -106,13 +106,10 @@ export class BaseAccount implements AccountInterface, AuthwitnessIntentProvider 
       messageHash = await this.getMessageHash(messageHashOrIntent);
     }
 
-    return new ContractFunctionInteraction(
-      wallet,
-      this,
-      ProtocolContractAddress.AuthRegistry,
-      this.getSetAuthorizedAbi(),
-      [messageHash, authorized],
-    );
+    return new ContractFunctionInteraction(wallet, ProtocolContractAddress.AuthRegistry, this.getSetAuthorizedAbi(), [
+      messageHash,
+      authorized,
+    ]);
   }
 
   private async getInnerHashAndConsumer(intent: IntentInnerHash | IntentAction): Promise<{
@@ -176,11 +173,10 @@ export class BaseAccount implements AccountInterface, AuthwitnessIntentProvider 
     try {
       results.isValidInPrivate = (await new ContractFunctionInteraction(
         wallet,
-        this,
         onBehalfOf,
         this.getLookupValidityAbi(),
         [consumer, innerHash],
-      ).simulate({ authWitnesses: [witness] })) as boolean;
+      ).simulate({ from: this, authWitnesses: [witness] })) as boolean;
       // TODO: Narrow down the error to make sure simulation failed due to an invalid authwit
       // eslint-disable-next-line no-empty
     } catch {}
@@ -188,11 +184,10 @@ export class BaseAccount implements AccountInterface, AuthwitnessIntentProvider 
     // check public
     results.isValidInPublic = (await new ContractFunctionInteraction(
       wallet,
-      this,
       ProtocolContractAddress.AuthRegistry,
       this.getIsConsumableAbi(),
       [onBehalfOf, messageHash],
-    ).simulate()) as boolean;
+    ).simulate({ from: this })) as boolean;
 
     return results;
   }

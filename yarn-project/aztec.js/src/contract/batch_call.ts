@@ -2,7 +2,6 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/pay
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { Account } from '../account/account.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } from './interaction_options.js';
@@ -11,10 +10,9 @@ import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } f
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    account: Account,
     protected calls: BaseContractInteraction[],
   ) {
-    super(wallet, account);
+    super(wallet);
   }
 
   /**
@@ -23,13 +21,13 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+  public async create(options: SendMethodOptions): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
 
     const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
+    const fee = await this.getFeeOptions(options.from, requestWithoutFee, userFee, { txNonce, cancellable });
 
-    return await this.account.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
+    return await options.from.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   /**
@@ -57,7 +55,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
+  public async simulate(options: SimulateMethodOptions): Promise<any> {
     const { indexedExecutionPayloads, utility } = (await this.getRequests()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
@@ -93,23 +91,20 @@ export class BatchCall extends BaseContractInteraction {
       combinedPayload.extraHashedArgs,
     );
     const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
-    const txRequest = await this.account.createTxExecutionRequest(requestWithoutFee, fee, {
+    const fee = await this.getFeeOptions(options.from, requestWithoutFee, userFee, {});
+    const txRequest = await options.from.createTxExecutionRequest(requestWithoutFee, fee, {
       txNonce,
       cancellable,
     });
 
     const utilityCalls = utility.map(
       async ([call, index]) =>
-        [
-          await this.wallet.simulateUtility(call.name, call.args, call.to, options?.authWitnesses, options?.from),
-          index,
-        ] as const,
+        [await this.wallet.simulateUtility(call.name, call.args, call.to, options?.authWitnesses), index] as const,
     );
 
     const [utilityResults, simulatedTx] = await Promise.all([
       Promise.all(utilityCalls),
-      this.wallet.simulateTx(txRequest, true, options?.skipTxValidation, false, { msgSender: options?.from }),
+      this.wallet.simulateTx(txRequest, true, options?.skipTxValidation, false),
     ]);
 
     const results: any[] = [];
