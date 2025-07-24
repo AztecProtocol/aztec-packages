@@ -140,9 +140,11 @@ export class PeerManager implements PeerManagerInterface {
 
     if (this.config.preferredPeers) {
       const preferredPeersEnrs: ENR[] = this.config.preferredPeers.map(enr => ENR.decodeTxt(enr));
-      await Promise.all(preferredPeersEnrs.map(enr => enr.peerId))
-        .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
-        .catch(e => this.logger.error('Error initializing preferred peers', e));
+      preferredPeersEnrs
+        .map(enr => enr.peerId)
+        .forEach(pid => {
+          this.preferredPeers.add(pid.toString());
+        });
     }
   }
 
