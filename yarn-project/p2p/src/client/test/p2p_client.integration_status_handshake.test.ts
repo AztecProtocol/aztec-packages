@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -60,13 +61,13 @@ describe('p2p client integration status handshake', () => {
   });
 
   afterEach(async () => {
-    jest.restoreAllMocks();
-    jest.resetAllMocks();
-    jest.clearAllMocks();
-
     logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
     await shutdown(clients);
     logger.info('Shut down p2p clients');
+
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    jest.clearAllMocks();
 
     clients = [];
   });
@@ -88,13 +89,14 @@ describe('p2p client integration status handshake', () => {
       })
     ).map(x => x.client);
 
-    const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
+    const [client1] = clients;
+    const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'markPeerForDisconnect'));
     const statusHandshakeSpies = clients.map(c =>
       jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
     );
 
     await startTestP2PClients(clients);
-    await sleep(5000);
+    await retryUntil(async () => (await client1.getPeers()).length == 1, 'peers discovered', 10, 0.5);
     logger.info(`Finished waiting for clients to connect`);
 
     for (const handshakeSpy of statusHandshakeSpies) {
@@ -116,16 +118,16 @@ describe('p2p client integration status handshake', () => {
         mockWorldState: worldState,
       })
     ).map(x => x.client);
-    const [c0] = clients;
-    (c0 as any).p2pService.peerManager.protocolVersion = 'WRONG_VERSION';
+    const [client1] = clients;
+    (client1 as any).p2pService.peerManager.protocolVersion = 'WRONG_VERSION';
 
-    const disconnectSpy = jest.spyOn((c0 as any).p2pService.peerManager, 'disconnectPeer');
+    const disconnectSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'markPeerForDisconnect');
     const statusHandshakeSpies = clients.map(c =>
       jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
     );
 
     await startTestP2PClients(clients);
-    await sleep(5000);
+    await retryUntil(async () => (await client1.getPeers()).length == 1, 'peers discovered', 10, 0.5);
     logger.info(`Finished waiting for clients to connect`);
 
     for (const handshakeSpy of statusHandshakeSpies) {
@@ -152,7 +154,7 @@ describe('p2p client integration status handshake', () => {
     const statusHandshakeSpies = clients.map(c =>
       jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
     );
-    const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
+    const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'markPeerForDisconnect'));
 
     const badPeerId = (clients[0] as any).p2pService.node.peerId;
     const c1PeerManager = (c1 as any).p2pService.peerManager;
@@ -173,7 +175,7 @@ describe('p2p client integration status handshake', () => {
 
     await startTestP2PClients(clients);
     logger.info(`Started p2p clients`, { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
-    await sleep(5000);
+    await retryUntil(async () => (await c1.getPeers()).length >= 1, 'peers discovered', 10, 0.5);
     logger.info(`Finished waiting for clients to connect`);
 
     expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 <> C0 disconnected
