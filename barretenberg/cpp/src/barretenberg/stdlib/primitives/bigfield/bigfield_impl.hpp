@@ -517,7 +517,9 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     if (other.is_constant()) {
         uint512_t right = other.get_value() % modulus_u512;
         uint512_t neg_right = (modulus_u512 - right) % modulus_u512;
-        return operator+(bigfield(ctx, uint256_t(neg_right.lo)));
+        bigfield summand = bigfield(ctx, uint256_t(neg_right.lo));
+        summand.set_origin_tag(OriginTag(other.get_origin_tag()));
+        return operator+(summand);
     }
 
     /**
@@ -1504,7 +1506,7 @@ bigfield<Builder, T> bigfield<Builder, T>::msub_div(const std::vector<bigfield>&
     for (auto& element : to_sub) {
         new_tag = OriginTag(new_tag, element.get_origin_tag());
     }
-    // Gett he context
+    // Get the context
     Builder* ctx = divisor.context;
     if (ctx == NULL) {
         for (auto& el : mul_left) {
@@ -1626,10 +1628,9 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
 {
     // If the predicate is constant, the conditional selection can be done out of circuit
     if (predicate.is_constant()) {
-        if (predicate.get_value()) {
-            return other;
-        }
-        return *this;
+        bigfield result = predicate.get_value() ? other : *this;
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag(), predicate.get_origin_tag()));
+        return result;
     }
 
     // If both elements are the same, we can just return one of them
