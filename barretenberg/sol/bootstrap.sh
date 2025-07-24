@@ -42,19 +42,6 @@ function build_sol {
     fi
 }
 
-function build_cpp {
-    echo_header "barretenberg/sol building cpp"
-
-    local artifact=barretenberg-sol-cpp-$hash.tar.gz
-    if ! cache_download $artifact; then
-        cd ../cpp
-        cmake --build --preset default --parallel --target honk_solidity_proof_gen honk_solidity_key_gen
-        cd ../sol
-
-        cache_upload $artifact ../cpp/build/bin/*solidity*
-    fi
-}
-
 function generate_vks {
     # Only run on a cache miss
     ./scripts/init_honk.sh
@@ -62,12 +49,11 @@ function generate_vks {
 
 function build_code {
     # These steps are sequential
-    build_cpp
     generate_vks
     build_sol
 }
 
-export -f build_code build_cpp generate_vks build_sol
+export -f build_code generate_vks build_sol
 
 function build {
     echo_header "barretenberg/sol building"
