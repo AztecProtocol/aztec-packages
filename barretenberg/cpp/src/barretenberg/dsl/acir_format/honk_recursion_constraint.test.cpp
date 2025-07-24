@@ -226,10 +226,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         // a MegaVerifier = UltraVerifier<MegaFlavor>. By design, the MegaVerifier expects the public inputs to be the
         // ones of the HidingKernel, so we mock the missing part: ecc_op_tables
         if constexpr (IsMegaBuilder<BuilderType>) {
-            for (size_t idx = 0; idx < BuilderType::NUM_WIRES; idx++) {
-                typename stdlib::bn254<BuilderType>::Group point =
-                    stdlib::bn254<BuilderType>::Group::point_at_infinity(&outer_circuit);
-                point.set_public();
+            for (auto& commitment :
+                 stdlib::recursion::honk::HidingKernelIO<BuilderType>::default_ecc_op_tables(&outer_circuit)) {
+                commitment.set_public();
             }
         }
 

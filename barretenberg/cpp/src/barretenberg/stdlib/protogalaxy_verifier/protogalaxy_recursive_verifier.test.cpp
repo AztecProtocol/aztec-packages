@@ -348,12 +348,13 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
-        pairing_points.set_public();
-        // Add dummy public inputs for ecc_op_tables
-        for (size_t idx = 0; idx < OuterBuilder::NUM_WIRES; idx++) {
-            bn254<OuterBuilder>::Group point = bn254<OuterBuilder>::Group::point_at_infinity(&decider_circuit);
-            point.set_public();
-        }
+
+        // IO
+        HidingKernelIO<OuterBuilder> inputs;
+        inputs.pairing_inputs = pairing_points;
+        inputs.ecc_op_tables = HidingKernelIO<OuterBuilder>::default_ecc_op_tables(decider_circuit);
+        inputs.set_public();
+
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();

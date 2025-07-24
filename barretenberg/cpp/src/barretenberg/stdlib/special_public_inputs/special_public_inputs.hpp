@@ -187,6 +187,16 @@ template <class Builder_> class HidingKernelIO {
         builder->finalize_public_inputs();
     }
 
+    static std::array<G1, Builder::NUM_WIRES> default_ecc_op_tables(Builder& builder)
+    {
+        std::array<G1, Builder::NUM_WIRES> defaults;
+        for (auto& table : defaults) {
+            table = G1::point_at_infinity(&builder);
+        }
+
+        return defaults;
+    }
+
     /**
      * @brief Add default public inputs when they are not present
      *

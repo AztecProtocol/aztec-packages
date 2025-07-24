@@ -218,9 +218,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         if constexpr (IsMegaFlavor<OuterFlavor>) {
             // MegaFlavor required HidingKernelIO
             for (size_t idx = 0; idx < OuterBuilder::NUM_WIRES; idx++) {
-                typename bn254<OuterBuilder>::Group point =
-                    bn254<OuterBuilder>::Group::point_at_infinity(&outer_circuit);
-                point.set_public();
+                for (auto& commitment : HidingKernelIO<OuterBuilder>::default_ecc_op_tables(&outer_circuit)) {
+                    commitment.set_public();
+                }
             }
         } else if constexpr (HasIPAAccumulator<OuterFlavor>) {
             // HasIPAAccumulator requires RollUpIO

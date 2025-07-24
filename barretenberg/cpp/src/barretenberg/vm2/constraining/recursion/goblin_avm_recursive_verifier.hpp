@@ -213,10 +213,8 @@ class AvmGoblinRecursiveVerifier {
         // Public inputs
         IO inputs;
         inputs.pairing_inputs = points_accumulator;
-        // There is only one layer of Goblin, so T_prev is the empty table
-        for (auto& commitment : inputs.ecc_op_tables) {
-            commitment = stdlib::bn254<MegaBuilder>::Group::point_at_infinity(&mega_builder);
-        }
+        inputs.ecc_op_tables = stdlib::recursion::honk::HidingKernelIO<MegaBuilder>::default_ecc_op_tables(
+            mega_builder); // There is only one layer of Goblin, so T_prev is the empty table
         inputs.set_public();
 
         // All prover components share a single transcript
