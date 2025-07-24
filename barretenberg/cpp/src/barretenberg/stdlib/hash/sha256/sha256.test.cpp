@@ -146,17 +146,16 @@ std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
 
 TEST(stdlib_sha256, test_plookup_55_bytes)
 {
-    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
     typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
     // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
     auto builder = UltraCircuitBuilder();
-    packed_byte_array_pt input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
+    byte_array_ct input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
 
     packed_byte_array_pt output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bits.to_unverified_byte_slices(4);
 
     EXPECT_EQ(uint256_t(output[0].get_value()), 0x51b2529fU);
     EXPECT_EQ(uint256_t(output[1].get_value()), 0x872e839aU);

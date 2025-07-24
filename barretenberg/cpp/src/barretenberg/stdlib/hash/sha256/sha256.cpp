@@ -312,23 +312,25 @@ template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte
 {
     Builder* ctx = input[0].get_context();
     // nothing constrained?
-    info("entering sha256: ", ctx->get_estimated_num_finalized_gates());
     std::vector<field_ct> message_schedule;
     const size_t message_length_bytes = input.size();
+    info("entering sha256, message length bytes : ", message_length_bytes);
 
     for (size_t idx = 0; idx < message_length_bytes; idx++) {
         message_schedule.push_back(input[idx]);
     }
-    info("packed byte array created: ", ctx->get_estimated_num_finalized_gates());
-
     // It's a constant, no need to constrain
     message_schedule.push_back(field_ct(ctx, 128));
+    info("128 pushed : ", message_schedule.size());
 
     constexpr size_t bytes_per_block = 64;
+    // include message length
     const size_t num_bytes = message_schedule.size() + 8;
+    info("num bytes ", num_bytes);
     const size_t num_blocks = num_bytes / bytes_per_block + (num_bytes % bytes_per_block != 0);
 
     const size_t num_total_bytes = num_blocks * bytes_per_block;
+    info("num total bytes ", num_total_bytes);
     // Pad with zeroes to make the number divisible by 64
     for (size_t i = num_bytes; i < num_total_bytes; ++i) {
         message_schedule.push_back(field_ct(ctx, 0));
@@ -366,8 +368,15 @@ template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte
         rolling_hash = sha256_block(rolling_hash, hash_input);
     }
 
-    std::vector<field_ct> output_vector(rolling_hash.begin(), rolling_hash.end());
-    return byte_array<Builder>(ctx, output_vector);
+    std::vector<field_ct> output;
+
+    for (const auto& word : rolling_hash) {
+        byte_array_ct word_byte_decomposition(word, 4);
+        for (size_t i = 0; i < 4; i++) {
+            output.push_back(word_byte_decomposition[i]);
+        }
+    }
+    return byte_array<Builder>(ctx, output);
 }
 
 template class SHA256<bb::UltraCircuitBuilder>;
