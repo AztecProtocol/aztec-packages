@@ -575,7 +575,7 @@ describe('L1Publisher integration', () => {
       const result = await publisher.sendRequests();
 
       expect(result!.successfulActions).toEqual(['propose']);
-      expect(result!.failedActions).toEqual(['slashing-vote']);
+      expect(result!.failedActions).toEqual(['slashing-signal']);
     });
 
     it(`shows propose custom errors if tx simulation fails`, async () => {
