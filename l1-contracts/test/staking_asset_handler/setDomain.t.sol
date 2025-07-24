@@ -9,24 +9,24 @@ import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable func-name-mixedcase
 // solhint-disable ordering
 
-contract SetSubscopeTest is StakingAssetHandlerBase {
-  string subscope = "some.new.subscope.com";
+contract SetDomainTest is StakingAssetHandlerBase {
+  string domain = "some.new.scope.com";
 
-  function test_WhenCallerOfSetSubscopeIsNotOwner(address _caller) external {
+  function test_WhenCallerOfSetDomainIsNotOwner(address _caller) external {
     // it reverts
 
     vm.assume(_caller != address(this));
     vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, _caller));
     vm.prank(_caller);
-    stakingAssetHandler.setSubscope(subscope);
+    stakingAssetHandler.setDomain(domain);
   }
 
-  function test_WhenCallerOfSetSubscopeIsOwner() external {
-    // it sets the subscope
-    // it emits a {SubScopeUpdated} event
+  function test_WhenCallerOfSetDomainIsOwner() external {
+    // it sets the scope
+    // it emits a {ScopeSet} event
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.SubScopeUpdated(subscope);
-    stakingAssetHandler.setSubscope(subscope);
+    emit IStakingAssetHandler.DomainUpdated(domain);
+    stakingAssetHandler.setDomain(domain);
   }
 }

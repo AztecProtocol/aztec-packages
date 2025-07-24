@@ -56,8 +56,8 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
       depositMerkleRoot: depositMerkleRoot,
       zkPassportVerifier: zkPassportVerifier,
       unhinged: new address[](0),
+      domain: CORRECT_DOMAIN,
       scope: CORRECT_SCOPE,
-      subscope: CORRECT_SUBSCOPE,
       skipBindCheck: true,
       skipMerkleCheck: true
     });

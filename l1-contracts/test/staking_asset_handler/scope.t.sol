@@ -10,34 +10,34 @@ import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAsse
 // solhint-disable private-vars-leading-underscore
 
 contract ScopeTest is StakingAssetHandlerBase {
-  string constant INCORRECT_SCOPE = "aint nuffin but a peanut";
-  string constant INCORRECT_SUBSCOPE = "LIGHTWEIGHT BABY";
+  string constant INCORRECT_DOMAIN = "aint nuffin but a peanut";
+  string constant INCORRECT_SCOPE = "LIGHTWEIGHT BABY";
 
   function setUp() public override {
     super.setUp();
+  }
+
+  function _setCorrectDomain() internal {
+    stakingAssetHandler.setDomain(CORRECT_DOMAIN);
   }
 
   function _setCorrectScope() internal {
     stakingAssetHandler.setScope(CORRECT_SCOPE);
   }
 
-  function _setCorrectSubScope() internal {
-    stakingAssetHandler.setSubscope(CORRECT_SUBSCOPE);
+  function _setIncorrectDomain() internal {
+    stakingAssetHandler.setDomain(INCORRECT_DOMAIN);
   }
 
   function _setIncorrectScope() internal {
     stakingAssetHandler.setScope(INCORRECT_SCOPE);
   }
 
-  function _setIncorrectSubScope() internal {
-    stakingAssetHandler.setSubscope(INCORRECT_SUBSCOPE);
-  }
-
-  function test_WhenScopeIsValidAndSubscopeIsValid() external {
+  function test_WhenScopeIsValidAndScopeIsValid() external {
     // it emits {ValidatorAdded} event
 
+    _setCorrectDomain();
     _setCorrectScope();
-    _setCorrectSubScope();
 
     address attester = address(1);
 
@@ -47,41 +47,41 @@ contract ScopeTest is StakingAssetHandlerBase {
     stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
   }
 
-  function test_WhenScopeIsValidAndSubscopeIsInvalid() external {
+  function test_WhenDomainIsValidAndScopeIsInvalid() external {
     // it reverts
 
+    _setCorrectDomain();
+    _setIncorrectScope();
+
+    address attester = address(1);
+
+    vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
+    vm.prank(attester);
+    stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
+  }
+
+  function test_WhenDomainIsInvalidButScopeIsValid() external {
+    // it reverts
+
+    _setIncorrectDomain();
     _setCorrectScope();
-    _setIncorrectSubScope();
 
     address attester = address(1);
 
-    vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
+    vm.expectRevert(IStakingAssetHandler.InvalidDomain.selector);
     vm.prank(attester);
     stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
   }
 
-  function test_WhenScopeIsInvalidButSubscopeIsValid() external {
+  function test_WhenDomainIsInvalidAndSScopeIsInvalid() external {
     // it reverts
 
+    _setIncorrectDomain();
     _setIncorrectScope();
-    _setCorrectSubScope();
 
     address attester = address(1);
 
-    vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
-    vm.prank(attester);
-    stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
-  }
-
-  function test_WhenScopeIsInvalidAndSubscopeIsInvalid() external {
-    // it reverts
-
-    _setIncorrectScope();
-    _setIncorrectSubScope();
-
-    address attester = address(1);
-
-    vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
+    vm.expectRevert(IStakingAssetHandler.InvalidDomain.selector);
     vm.prank(attester);
     stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
   }

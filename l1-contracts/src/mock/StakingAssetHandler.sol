@@ -35,8 +35,8 @@ interface IStakingAssetHandler {
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
   event ZKPassportVerifierUpdated(address indexed _verifier);
+  event DomainUpdated(string newDomain);
   event ScopeUpdated(string newScope);
-  event SubScopeUpdated(string newSubScope);
   event SkipBindCheckUpdated(bool _skipBindCheck);
   event SkipMerkleCheckUpdated(bool _skipMerkleCheck);
   event DepositMerkleRootUpdated(bytes32 _root);
@@ -48,7 +48,9 @@ interface IStakingAssetHandler {
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
   error InvalidScope();
+  error InvalidDomain();
   error ProofNotBoundToAddress(address _expected, address _received);
+  error ProofNotBoundToChainId(uint256 _expected, uint256 _received);
   error SybilDetected(bytes32 _nullifier);
   error AttesterDoesNotExist(address _attester);
   error NoNullifier();
@@ -69,8 +71,8 @@ interface IStakingAssetHandler {
   function addUnhinged(address _address) external;
   function removeUnhinged(address _address) external;
   function setZKPassportVerifier(address _address) external;
+  function setDomain(string memory _domain) external;
   function setScope(string memory _scope) external;
-  function setSubscope(string memory _subscope) external;
   function setSkipBindCheck(bool _skipBindCheck) external;
   function setSkipMerkleCheck(bool _skipMerkleCheck) external;
   function setDepositMerkleRoot(bytes32 _root) external;
@@ -90,8 +92,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     bytes32 depositMerkleRoot;
     ZKPassportVerifier zkPassportVerifier;
     address[] unhinged;
+    string domain;
     string scope;
-    string subscope;
     bool skipBindCheck;
     bool skipMerkleCheck;
   }
@@ -115,8 +117,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   address public withdrawer;
 
+  string public validDomain;
   string public validScope;
-  string public validSubscope;
 
   constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
     require(_args.depositsPerMint > 0, CannotMintZeroAmount());
@@ -146,8 +148,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     depositMerkleRoot = _args.depositMerkleRoot;
     emit DepositMerkleRootUpdated(_args.depositMerkleRoot);
 
+    validDomain = _args.domain;
     validScope = _args.scope;
-    validSubscope = _args.subscope;
 
     skipBindCheck = _args.skipBindCheck;
     skipMerkleCheck = _args.skipMerkleCheck;
@@ -227,14 +229,14 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit ZKPassportVerifierUpdated(_zkPassportVerifier);
   }
 
+  function setDomain(string memory _domain) external override(IStakingAssetHandler) onlyOwner {
+    validDomain = _domain;
+    emit DomainUpdated(_domain);
+  }
+
   function setScope(string memory _scope) external override(IStakingAssetHandler) onlyOwner {
     validScope = _scope;
     emit ScopeUpdated(_scope);
-  }
-
-  function setSubscope(string memory _subscope) external override(IStakingAssetHandler) onlyOwner {
-    validSubscope = _subscope;
-    emit SubScopeUpdated(_subscope);
   }
 
   function setWithdrawer(address _withdrawer) external override(IStakingAssetHandler) onlyOwner {
@@ -288,25 +290,24 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     // If active, nullifiers will end up being zero, but it is user provided input, so we are sanity checking it
     require(_params.devMode == false, InvalidProof());
 
+    require(keccak256(bytes(_params.domain)) == keccak256(bytes(validDomain)), InvalidDomain());
+    require(keccak256(bytes(_params.scope)) == keccak256(bytes(validScope)), InvalidScope());
+
     (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
 
     require(verified, InvalidProof());
     require(!nullifiers[nullifier], SybilDetected(nullifier));
 
-    // Note: below is checked from user input with proof in verify proof, however, we check here again to enforce scoping
-    require(
-      zkPassportVerifier.verifyScopes(_params.publicInputs, validScope, validSubscope),
-      InvalidScope()
-    );
-
     if (!skipBindCheck) {
       bytes memory data =
         zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
       // Use the getBoundData function to get the formatted data
-      // which includes the user's address and any custom data
-      (address boundAddress,) = zkPassportVerifier.getBoundData(data);
+      // which includes the user's address, chainId and any custom data
+      (address boundAddress, uint256 chainId,) = zkPassportVerifier.getBoundData(data);
       // Make sure the bound user address is the same as the _attester
       require(boundAddress == _attester, ProofNotBoundToAddress(boundAddress, _attester));
+      // Make sure the chainId is the same as the current chainId
+      require(chainId == block.chainid, ProofNotBoundToChainId(chainId, block.chainid));
     }
 
     // Set nullifier to consumed
