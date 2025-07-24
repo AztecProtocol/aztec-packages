@@ -20,6 +20,7 @@ import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -92,6 +93,8 @@ export class P2PNetworkTest {
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
+    const zkPassportParams = ZkPassportProofParams.random();
+
     this.snapshotManager = createSnapshotManager(
       `e2e_p2p_network/${testName}`,
       process.env.E2E_DATA_PATH,
@@ -119,6 +122,8 @@ export class P2PNetworkTest {
         initialValidators: [],
         zkPassportArgs: {
           mockZkPassportVerifier,
+          zkPassportDomain: zkPassportParams.domain,
+          zkPassportScope: zkPassportParams.scope,
         },
       },
     );
