@@ -33,7 +33,7 @@ pub unconstrained fn setup(
         18,
     );
     let token_contract =
-        env.deploy_self("Token").with_public_void_initializer(owner, initializer_call_interface);
+        env.deploy_self("Token").with_public_initializer(owner, initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.mine_block();
     (&mut env, token_contract_address, owner, recipient)
