@@ -117,7 +117,7 @@ class AvmGoblinRecursiveVerifier {
         using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
         using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
         using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
-        using MergeCommitments = GoblinRecursiveVerifier::MergeVerifier::WitnessCommitments;
+        using TableCommitments = GoblinRecursiveVerifier::MergeVerifier::TableCommitments;
         using FF = MegaRecursiveFlavor::FF;
 
         // Construct hash buffer containing the AVM proof, public inputs, and VK
@@ -138,12 +138,10 @@ class AvmGoblinRecursiveVerifier {
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
-        MergeCommitments merge_commitments;
-        merge_commitments.set_t_commitments(mega_verifier.key->witness_commitments.get_ecc_op_wires());
-        // merge_commitments.T_prev_commitments = mega_verifier_output.ecc_op_tables;
+        TableCommitments t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_data();
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
         GoblinRecursiveVerifierOutput goblin_verifier_output =
-            goblin_verifier.verify(inner_output.goblin_proof, merge_commitments, merge_commitments.T_commitments);
+            goblin_verifier.verify(inner_output.goblin_proof, t_commitments);
         goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)

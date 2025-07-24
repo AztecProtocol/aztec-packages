@@ -83,13 +83,13 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         auto merge_proof = merge_prover.construct_proof();
 
         // Construct Merge commitments
-        MergeVerifier::WitnessCommitments merge_commitments;
+        MergeVerifier::TableCommitments t_commitments;
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; idx++) {
-            merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
         }
 
-        bool verified = merge_verifier.verify_proof(merge_proof, merge_commitments, merge_commitments.T_commitments);
+        auto [verified, _] = merge_verifier.verify_proof(merge_proof, t_commitments);
 
         return verified;
     }
