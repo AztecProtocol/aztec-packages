@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { recoverAddress } from '@aztec/foundation/crypto';
+import { makeEthSignDigest, recoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -835,7 +835,8 @@ export class PeerManager implements PeerManagerInterface {
       }
 
       const hashToRecover = authRequest.getPayloadToSign();
-      const sender = recoverAddress(hashToRecover, peerAuthResponse.signature);
+      const ethSignedHash = makeEthSignDigest(hashToRecover);
+      const sender = recoverAddress(ethSignedHash, peerAuthResponse.signature);
       const registeredValidators = await this.epochCache.getRegisteredValidators();
       const found = registeredValidators.find(v => v.toString() === sender.toString()) !== undefined;
       if (!found) {
