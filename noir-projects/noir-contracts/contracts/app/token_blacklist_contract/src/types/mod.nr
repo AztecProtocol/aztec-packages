@@ -1,4 +1,4 @@
 mod transparent_note;
 mod balances_map;
-mod token_note;
+pub(crate) mod token_note;
 mod roles;

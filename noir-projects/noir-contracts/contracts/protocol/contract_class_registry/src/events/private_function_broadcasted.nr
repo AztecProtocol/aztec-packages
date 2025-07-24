@@ -14,29 +14,29 @@ use std::meta::derive;
 
 #[derive(Serialize)]
 pub struct InnerPrivateFunction {
-    selector: FunctionSelector,
-    metadata_hash: Field,
-    vk_hash: Field,
+    pub selector: FunctionSelector,
+    pub metadata_hash: Field,
+    pub vk_hash: Field,
 }
 
 #[derive(Serialize)]
 pub struct PrivateFunction {
-    selector: FunctionSelector,
-    metadata_hash: Field,
-    vk_hash: Field,
-    bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS],
+    pub selector: FunctionSelector,
+    pub metadata_hash: Field,
+    pub vk_hash: Field,
+    pub bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS],
 }
 
 // #[event]
 pub struct ClassPrivateFunctionBroadcasted {
-    contract_class_id: ContractClassId,
-    artifact_metadata_hash: Field,
-    utility_functions_artifact_tree_root: Field,
-    private_function_tree_sibling_path: [Field; FUNCTION_TREE_HEIGHT],
-    private_function_tree_leaf_index: Field,
-    artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
-    artifact_function_tree_leaf_index: Field,
-    function: PrivateFunction,
+    pub contract_class_id: ContractClassId,
+    pub artifact_metadata_hash: Field,
+    pub utility_functions_artifact_tree_root: Field,
+    pub private_function_tree_sibling_path: [Field; FUNCTION_TREE_HEIGHT],
+    pub private_function_tree_leaf_index: Field,
+    pub artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
+    pub artifact_function_tree_leaf_index: Field,
+    pub function: PrivateFunction,
 }
 
 impl ClassPrivateFunctionBroadcasted {

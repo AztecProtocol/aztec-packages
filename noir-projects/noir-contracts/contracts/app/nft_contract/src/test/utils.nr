@@ -1,8 +1,7 @@
 use crate::NFT;
 use aztec::{
-    oracle::{execution::get_contract_address, notes::set_sender_for_tags},
-    protocol_types::address::AztecAddress,
-    test::helpers::{test_environment::TestEnvironment, txe_oracles},
+    oracle::notes::set_sender_for_tags, protocol_types::address::AztecAddress,
+    test::helpers::test_environment::TestEnvironment,
 };
 
 pub unconstrained fn setup(

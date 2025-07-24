@@ -12,7 +12,7 @@ pub contract Counter {
         state_vars::Map,
     };
     use easy_private_state::EasyPrivateUint;
-    use value_note::{balance_utils, value_note::ValueNote};
+    use value_note::balance_utils;
     // docs:end:imports
 
     // docs:start:storage_struct

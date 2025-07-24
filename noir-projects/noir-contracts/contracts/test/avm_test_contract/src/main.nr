@@ -32,6 +32,7 @@ pub contract AvmTest {
     };
     use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::state_vars::storage::HasStorageSlot;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
@@ -85,7 +86,7 @@ pub contract AvmTest {
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
-        derive_storage_slot_in_map(storage.map.storage_slot, to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[public]
@@ -93,7 +94,7 @@ pub contract AvmTest {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
         // returns storage slot for key
-        derive_storage_slot_in_map(storage.map.storage_slot, to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[public]
@@ -307,7 +308,7 @@ pub contract AvmTest {
 
     #[public]
     fn returndata_copy_oracle() {
-        AvmTest::at(context.this_address()).return_oracle().call(&mut context);
+        let _ = AvmTest::at(context.this_address()).return_oracle().call(&mut context);
         let returndatasize = dep::aztec::context::public_context::returndata_size();
         let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
         assert(returndata == &[1, 2, 3], "Returndata copy failed");
