@@ -235,6 +235,10 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
+  - regex: "ethereum/src/l1_tx_utils.test.ts"
+    error_regex: "✕ attempts to cancel timed out blob transactions with correct parameters"
+    owners:
+      - *palla
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
     error_regex: "Exceeded timeout of"
     owners:
