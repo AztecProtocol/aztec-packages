@@ -137,7 +137,7 @@ export async function startNode(
     };
     let account;
     if (sequencerConfig.publisherPrivateKey.getValue() === NULL_KEY) {
-      if (sequencerConfig.validatorPrivateKeys.getValue().length) {
+      if (sequencerConfig.validatorPrivateKeys?.getValue().length) {
         sequencerConfig.publisherPrivateKey = new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0]);
       } else if (!options.l1Mnemonic) {
         userLog(

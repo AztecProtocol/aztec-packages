@@ -55,9 +55,8 @@ std::string pad_left(std::string input, size_t length)
  * Expected inputs:
  * 1. flavor: ultra_keccak
  * 2. circuit_type: blake, add2
- * 3. public_inputs: comma separated list of public inputs
- * 4. project_root_path: path to the solidity project root
- * 5. srs_path: path to the srs db
+ * 3. srs_path: path to the srs db
+ * 4. public_inputs: comma separated list of public inputs
  */
 int main(int argc, char** argv)
 {
