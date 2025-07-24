@@ -6,7 +6,7 @@ import {Errors} from "./Errors.sol";
 struct DepositArgs {
   address attester;
   address withdrawer;
-  bool stayOnLatestRollup;
+  bool moveWithLatestRollup;
 }
 
 struct StakingQueue {
@@ -29,14 +29,14 @@ library StakingQueueLib {
     StakingQueue storage self,
     address _attester,
     address _withdrawer,
-    bool _stayOnLatestRollup
+    bool _moveWithLatestRollup
   ) internal returns (uint256) {
     uint128 queueLocation = self.last;
 
     self.validators[queueLocation] = DepositArgs({
       attester: _attester,
       withdrawer: _withdrawer,
-      stayOnLatestRollup: _stayOnLatestRollup
+      moveWithLatestRollup: _moveWithLatestRollup
     });
     self.last = queueLocation + 1;
 

@@ -43,7 +43,9 @@ contract GSEBase is TestBase {
     vm.label(address(registry), "registry");
   }
 
-  function help__deposit(address _attester, address _withdrawer, bool _stayOnLatestRollup) internal {
+  function help__deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
+    internal
+  {
     uint256 depositAmount = ROLLUP.getDepositAmount();
     vm.prank(stakingAsset.owner());
     stakingAsset.mint(address(this), depositAmount);
@@ -54,7 +56,7 @@ contract GSEBase is TestBase {
     ROLLUP.deposit({
       _attester: _attester,
       _withdrawer: _withdrawer,
-      _stayOnLatestRollup: _stayOnLatestRollup
+      _moveWithLatestRollup: _moveWithLatestRollup
     });
     ROLLUP.flushEntryQueue();
 

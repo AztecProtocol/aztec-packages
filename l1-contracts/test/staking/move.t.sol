@@ -72,7 +72,7 @@ contract MoveTest is StakingBase {
       oldRollup.deposit({
         _attester: address(uint160(i + 1000)),
         _withdrawer: WITHDRAWER,
-        _stayOnLatestRollup: onCanonical
+        _moveWithLatestRollup: onCanonical
       });
     }
     oldRollup.flushEntryQueue();
