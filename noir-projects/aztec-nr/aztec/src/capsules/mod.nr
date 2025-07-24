@@ -122,173 +122,198 @@ impl<T> CapsuleArray<T> {
 mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::CapsuleArray;
-    use protocol_types::address::AztecAddress;
 
     global SLOT: Field = 1230;
 
-    unconstrained fn setup() -> AztecAddress {
-        TestEnvironment::new().utility().this_address()
-    }
-
     #[test]
     unconstrained fn empty_array() {
-        let contract_address = setup();
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
 
-        let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, SLOT);
-        assert_eq(array.len(), 0);
+            let array: CapsuleArray<Field> = CapsuleArray::at(contract_address, SLOT);
+            assert_eq(array.len(), 0);
+        });
     }
 
     #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn empty_array_read() {
-        let contract_address = setup();
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
 
-        let array = CapsuleArray::at(contract_address, SLOT);
-        let _: Field = array.get(0);
+            let array = CapsuleArray::at(contract_address, SLOT);
+            let _: Field = array.get(0);
+        });
     }
 
     #[test]
     unconstrained fn array_push() {
-        let contract_address = setup();
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
 
-        let array = CapsuleArray::at(contract_address, SLOT);
-        array.push(5);
+            let array = CapsuleArray::at(contract_address, SLOT);
+            array.push(5);
 
-        assert_eq(array.len(), 1);
-        assert_eq(array.get(0), 5);
+            assert_eq(array.len(), 1);
+            assert_eq(array.get(0), 5);
+        });
     }
 
     #[test(should_fail_with = "Attempted to read past the length of a CapsuleArray")]
     unconstrained fn read_past_len() {
-        let contract_address = setup();
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
 
-        let array = CapsuleArray::at(contract_address, SLOT);
-        array.push(5);
+            let array = CapsuleArray::at(contract_address, SLOT);
+            array.push(5);
 
-        let _ = array.get(1);
+            let _ = array.get(1);
+        });
     }
 
     #[test]
     unconstrained fn array_remove_last() {
-        let contract_address = setup();
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
 
-        let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT);
 
-        array.push(5);
-        array.remove(0);
+            array.push(5);
+            array.remove(0);
 
-        assert_eq(array.len(), 0);
+            assert_eq(array.len(), 0);
+        });
     }
 
     #[test]
     unconstrained fn array_remove_some() {
-        let contract_address = setup();
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
 
-        let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT);
 
-        array.push(7);
-        array.push(8);
-        array.push(9);
+            array.push(7);
+            array.push(8);
+            array.push(9);
 
-        assert_eq(array.len(), 3);
-        assert_eq(array.get(0), 7);
-        assert_eq(array.get(1), 8);
-        assert_eq(array.get(2), 9);
+            assert_eq(array.len(), 3);
+            assert_eq(array.get(0), 7);
+            assert_eq(array.get(1), 8);
+            assert_eq(array.get(2), 9);
 
-        array.remove(1);
+            array.remove(1);
 
-        assert_eq(array.len(), 2);
-        assert_eq(array.get(0), 7);
-        assert_eq(array.get(1), 9);
+            assert_eq(array.len(), 2);
+            assert_eq(array.get(0), 7);
+            assert_eq(array.get(1), 9);
+        });
     }
 
     #[test]
     unconstrained fn array_remove_all() {
-        let contract_address = setup();
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
 
-        let array = CapsuleArray::at(contract_address, SLOT);
+            let array = CapsuleArray::at(contract_address, SLOT);
 
-        array.push(7);
-        array.push(8);
-        array.push(9);
+            array.push(7);
+            array.push(8);
+            array.push(9);
 
-        array.remove(1);
-        array.remove(1);
-        array.remove(0);
+            array.remove(1);
+            array.remove(1);
+            array.remove(0);
 
-        assert_eq(array.len(), 0);
+            assert_eq(array.len(), 0);
+        });
     }
 
     #[test]
     unconstrained fn for_each_called_with_all_elements() {
-        let contract_address = setup();
-        let array = CapsuleArray::at(contract_address, SLOT);
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let array = CapsuleArray::at(contract_address, SLOT);
 
-        array.push(4);
-        array.push(5);
-        array.push(6);
+            array.push(4);
+            array.push(5);
+            array.push(6);
 
-        // We store all values that we were called with and check that all (value, index) tuples are present. Note that
-        // we do not care about the order in which each tuple was passed to the closure.
-        let called_with = &mut BoundedVec::<(u32, Field), 3>::new();
-        array.for_each(|index, value| { called_with.push((index, value)); });
+            // We store all values that we were called with and check that all (value, index) tuples are present. Note that
+            // we do not care about the order in which each tuple was passed to the closure.
+            let called_with = &mut BoundedVec::<(u32, Field), 3>::new();
+            array.for_each(|index, value| { called_with.push((index, value)); });
 
-        assert_eq(called_with.len(), 3);
-        assert(called_with.any(|(index, value)| (index == 0) & (value == 4)));
-        assert(called_with.any(|(index, value)| (index == 1) & (value == 5)));
-        assert(called_with.any(|(index, value)| (index == 2) & (value == 6)));
+            assert_eq(called_with.len(), 3);
+            assert(called_with.any(|(index, value)| (index == 0) & (value == 4)));
+            assert(called_with.any(|(index, value)| (index == 1) & (value == 5)));
+            assert(called_with.any(|(index, value)| (index == 2) & (value == 6)));
+        });
     }
 
     #[test]
     unconstrained fn for_each_remove_some() {
-        let contract_address = setup();
-        let array = CapsuleArray::at(contract_address, SLOT);
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let array = CapsuleArray::at(contract_address, SLOT);
 
-        array.push(4);
-        array.push(5);
-        array.push(6);
+            array.push(4);
+            array.push(5);
+            array.push(6);
 
-        array.for_each(|index, _| {
-            if index == 1 {
-                array.remove(index);
-            }
+            array.for_each(|index, _| {
+                if index == 1 {
+                    array.remove(index);
+                }
+            });
+
+            assert_eq(array.len(), 2);
+            assert_eq(array.get(0), 4);
+            assert_eq(array.get(1), 6);
         });
-
-        assert_eq(array.len(), 2);
-        assert_eq(array.get(0), 4);
-        assert_eq(array.get(1), 6);
     }
 
     #[test]
     unconstrained fn for_each_remove_all() {
-        let contract_address = setup();
-        let array = CapsuleArray::at(contract_address, SLOT);
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let array = CapsuleArray::at(contract_address, SLOT);
 
-        array.push(4);
-        array.push(5);
-        array.push(6);
+            array.push(4);
+            array.push(5);
+            array.push(6);
 
-        array.for_each(|index, _| { array.remove(index); });
+            array.for_each(|index, _| { array.remove(index); });
 
-        assert_eq(array.len(), 0);
+            assert_eq(array.len(), 0);
+        });
     }
 
-    // TODO: uncomment this test once OracleMock::count is implemented in the stdlib.
-    // #[test]
-    // unconstrained fn for_each_remove_all_no_copy() {
-    //     let contract_address = setup();
-    //     let array = CapsuleArray::at(contract_address, SLOT);
+    #[test]
+    unconstrained fn for_each_remove_all_no_copy() {
+        let mut env = TestEnvironment::new();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            let array = CapsuleArray::at(contract_address, SLOT);
 
-    //     array.push(4);
-    //     array.push(5);
-    //     array.push(6);
+            array.push(4);
+            array.push(5);
+            array.push(6);
 
-    //     // We test that the copyCapsule was never called, which is the expensive operation we want to avoid.
-    //     let mock = OracleMock::mock("copyCapsule");
+            // We test that the copyCapsule was never called, which is the expensive operation we want to avoid.
+            let mock = std::test::OracleMock::mock("copyCapsule");
 
-    //     array.for_each(|index, _| {
-    //         array.remove(index);
-    //     });
+            array.for_each(|index, _| { array.remove(index); });
 
-    //     assert_eq(mock.count(), 0);
-    // }
+            assert_eq(mock.times_called(), 0);
+        });
+    }
 }

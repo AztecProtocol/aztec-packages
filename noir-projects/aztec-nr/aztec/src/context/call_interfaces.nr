@@ -4,13 +4,9 @@ use dep::protocol_types::{
     traits::{Deserialize, ToField},
 };
 
-use crate::context::{
-    gas::GasOpts, private_context::PrivateContext, public_context::PublicContext,
-    returns_hash::ReturnsHash,
-};
+use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
 use crate::hash::{hash_args, hash_calldata};
 use crate::oracle::execution_cache;
-use crate::test::helpers::txe_oracles;
 
 pub trait CallInterface<let N: u32> {
     fn get_args(self) -> [Field];
@@ -435,122 +431,5 @@ impl<let M: u32, T> UtilityCallInterface<M, T> {
 
     pub fn get_contract_address(self) -> AztecAddress {
         self.target_contract
-    }
-}
-
-pub trait TXEPublicCallInterface<T> {
-    unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field);
-}
-
-impl<let M: u32, T> TXEPublicCallInterface<T> for PublicCallInterface<M, T>
-where
-    T: Deserialize,
-{
-    unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
-            from,
-            self.target_contract,
-            self.selector,
-            self.args,
-            self.is_static,
-        );
-
-        let returns = ReturnsHash::new(returns_hash).get_preimage();
-
-        (returns, tx_hash)
-    }
-}
-
-impl<let M: u32, T> TXEPublicCallInterface<T> for PublicStaticCallInterface<M, T>
-where
-    T: Deserialize,
-{
-    unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
-            from,
-            self.target_contract,
-            self.selector,
-            self.args,
-            self.is_static,
-        );
-
-        let returns = ReturnsHash::new(returns_hash).get_preimage();
-
-        (returns, tx_hash)
-    }
-}
-
-pub trait TXEPrivateCallInterface<T> {
-    unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field);
-}
-
-impl<let M: u32, T> TXEPrivateCallInterface<T> for PrivateCallInterface<M, T>
-where
-    T: Deserialize,
-{
-    unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let args = self.get_args();
-        let args_hash = hash_args(args);
-
-        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
-            from,
-            self.get_contract_address(),
-            self.get_selector(),
-            args,
-            args_hash,
-            self.get_is_static(),
-        );
-
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-
-        (returns, tx_hash)
-    }
-}
-
-impl<let M: u32, T> TXEPrivateCallInterface<T> for PrivateStaticCallInterface<M, T>
-where
-    T: Deserialize,
-{
-    unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let args = self.get_args();
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-
-        let (_, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
-            from,
-            self.get_contract_address(),
-            self.get_selector(),
-            args,
-            args_hash,
-            self.get_is_static(),
-        );
-
-        let returns = ReturnsHash::new(returns_hash).get_preimage();
-
-        (returns, tx_hash)
-    }
-}
-
-pub trait TXEUtilityCallInterface<T> {
-    unconstrained fn call_with_txe(self) -> T;
-}
-
-impl<let M: u32, T> TXEUtilityCallInterface<T> for UtilityCallInterface<M, T>
-where
-    T: Deserialize,
-{
-    unconstrained fn call_with_txe(self) -> T {
-        let args = self.get_args();
-        let args_hash = hash_args(args);
-        execution_cache::store(args, args_hash);
-
-        let returns_hash = crate::oracle::simulate_utility_function::simulate_utility_function(
-            self.get_contract_address(),
-            self.get_selector(),
-            args_hash,
-        );
-
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        returns
     }
 }
