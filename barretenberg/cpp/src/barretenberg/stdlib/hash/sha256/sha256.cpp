@@ -305,32 +305,24 @@ std::array<field_t<Builder>, 8> SHA256<Builder>::sha256_block(const std::array<f
     return output;
 }
 
-// The input is assumed to be a vector of 4-byte field elements.
-// The output in the only application - ECDSA is cast into byte_array
-// The input there is a byte_array!
 template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte_array_ct& input)
 {
     Builder* ctx = input[0].get_context();
-    // nothing constrained?
     std::vector<field_ct> message_schedule;
     const size_t message_length_bytes = input.size();
-    info("entering sha256, message length bytes : ", message_length_bytes);
 
     for (size_t idx = 0; idx < message_length_bytes; idx++) {
         message_schedule.push_back(input[idx]);
     }
-    // It's a constant, no need to constrain
+
     message_schedule.push_back(field_ct(ctx, 128));
-    info("128 pushed : ", message_schedule.size());
 
     constexpr size_t bytes_per_block = 64;
-    // include message length
+    // Include message length
     const size_t num_bytes = message_schedule.size() + 8;
-    info("num bytes ", num_bytes);
     const size_t num_blocks = num_bytes / bytes_per_block + (num_bytes % bytes_per_block != 0);
 
     const size_t num_total_bytes = num_blocks * bytes_per_block;
-    info("num total bytes ", num_total_bytes);
     // Pad with zeroes to make the number divisible by 64
     for (size_t i = num_bytes; i < num_total_bytes; ++i) {
         message_schedule.push_back(field_ct(ctx, 0));
@@ -369,13 +361,18 @@ template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte
     }
 
     std::vector<field_ct> output;
-
+    // Each element of rolling_hash is a 4-byte field_t, decompose rolling hash into bytes.
     for (const auto& word : rolling_hash) {
+        // This constructor constrains
+        // - word length to be <=4 bytes
+        // - the element reconstructed from bytes is equal to the given input.
+        // - each entry to be a byte
         byte_array_ct word_byte_decomposition(word, 4);
         for (size_t i = 0; i < 4; i++) {
             output.push_back(word_byte_decomposition[i]);
         }
     }
+    //
     return byte_array<Builder>(ctx, output);
 }
 

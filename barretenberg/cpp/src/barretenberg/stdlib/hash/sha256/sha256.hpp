@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include <array>
 
@@ -12,7 +13,6 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 #include "../../primitives/field/field.hpp"
-#include "../../primitives/packed_byte_array/packed_byte_array.hpp"
 
 namespace bb::stdlib {
 

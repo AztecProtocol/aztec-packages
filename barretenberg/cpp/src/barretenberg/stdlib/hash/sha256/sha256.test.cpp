@@ -18,7 +18,6 @@ auto& engine = numeric::get_debug_randomness();
 using Builder = UltraCircuitBuilder;
 
 using byte_array_ct = byte_array<Builder>;
-using packed_byte_array_ct = packed_byte_array<Builder>;
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;
 
@@ -146,16 +145,15 @@ std::array<uint64_t, 8> inner_block(std::array<uint64_t, 64>& w)
 
 TEST(stdlib_sha256, test_plookup_55_bytes)
 {
-    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
     // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
     auto builder = UltraCircuitBuilder();
     byte_array_ct input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
 
-    packed_byte_array_pt output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bits.to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
 
     EXPECT_EQ(uint256_t(output[0].get_value()), 0x51b2529fU);
     EXPECT_EQ(uint256_t(output[1].get_value()), 0x872e839aU);
@@ -176,11 +174,11 @@ TEST(stdlib_sha256, test_55_bytes)
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
     // accounting for the single padding bit, and the 64 size bits required by the SHA-256 standard.
     auto builder = Builder();
-    packed_byte_array_ct input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
+    byte_array_ct input(&builder, "An 8 character password? Snow White and the 7 Dwarves..");
 
-    packed_byte_array_ct output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = output_bits.to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
 
     EXPECT_EQ(output[0].get_value(), fr(0x51b2529fULL));
     EXPECT_EQ(output[1].get_value(), fr(0x872e839aULL));
@@ -198,14 +196,12 @@ TEST(stdlib_sha256, test_55_bytes)
 
 TEST(stdlib_sha256, test_NIST_vector_one_packed_byte_array)
 {
-    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
-    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     auto builder = UltraCircuitBuilder();
 
-    packed_byte_array_pt input(&builder, "abc");
-    packed_byte_array_pt output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
-    std::vector<field_pt> output = output_bytes.to_unverified_byte_slices(4);
+    byte_array_ct input(&builder, "abc");
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
     EXPECT_EQ(uint256_t(output[0].get_value()).data[0], (uint64_t)0xBA7816BFU);
     EXPECT_EQ(uint256_t(output[1].get_value()).data[0], (uint64_t)0x8F01CFEAU);
     EXPECT_EQ(uint256_t(output[2].get_value()).data[0], (uint64_t)0x414140DEU);
@@ -222,16 +218,14 @@ TEST(stdlib_sha256, test_NIST_vector_one_packed_byte_array)
 
 TEST(stdlib_sha256, test_NIST_vector_one)
 {
-    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
-    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     auto builder = UltraCircuitBuilder();
 
-    packed_byte_array_pt input(&builder, "abc");
+    byte_array_ct input(&builder, "abc");
 
-    packed_byte_array_pt output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
 
     EXPECT_EQ(output[0].get_value(), fr(0xBA7816BFULL));
     EXPECT_EQ(output[1].get_value(), fr(0x8F01CFEAULL));
@@ -253,9 +247,9 @@ TEST(stdlib_sha256, test_NIST_vector_two)
 
     byte_array_ct input(&builder, "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
 
-    byte_array_ct output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = packed_byte_array_ct(output_bits).to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
 
     EXPECT_EQ(output[0].get_value(), 0x248D6A61ULL);
     EXPECT_EQ(output[1].get_value(), 0xD20638B8ULL);
@@ -278,9 +272,9 @@ TEST(stdlib_sha256, test_NIST_vector_three)
     // one byte, 0xbd
     byte_array_ct input(&builder, std::vector<uint8_t>{ 0xbd });
 
-    byte_array_ct output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = packed_byte_array_ct(output_bits).to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
 
     EXPECT_EQ(output[0].get_value(), 0x68325720ULL);
     EXPECT_EQ(output[1].get_value(), 0xaabd7c82ULL);
@@ -303,9 +297,9 @@ TEST(stdlib_sha256, test_NIST_vector_four)
     // 4 bytes, 0xc98c8e55
     byte_array_ct input(&builder, std::vector<uint8_t>{ 0xc9, 0x8c, 0x8e, 0x55 });
 
-    byte_array_ct output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_ct> output = packed_byte_array_ct(output_bits).to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
 
     EXPECT_EQ(output[0].get_value(), 0x7abc22c0ULL);
     EXPECT_EQ(output[1].get_value(), 0xae5af26cULL);
@@ -324,12 +318,10 @@ TEST(stdlib_sha256, test_NIST_vector_four)
 
 HEAVY_TEST(stdlib_sha256, test_NIST_vector_five)
 {
-    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
-    typedef stdlib::packed_byte_array<UltraCircuitBuilder> packed_byte_array_pt;
 
     auto builder = UltraCircuitBuilder();
 
-    packed_byte_array_pt input(
+    byte_array_ct input(
         &builder,
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -342,9 +334,9 @@ HEAVY_TEST(stdlib_sha256, test_NIST_vector_five)
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         "AAAAAAAAAA");
 
-    packed_byte_array_pt output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+    byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-    std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
+    std::vector<field_ct> output = output_bytes.pack_bytes_into_field_elements();
 
     EXPECT_EQ(output[0].get_value(), 0xc2e68682ULL);
     EXPECT_EQ(output[1].get_value(), 0x3489ced2ULL);
@@ -371,9 +363,9 @@ TEST(stdlib_sha256, test_input_len_multiple)
         auto input_buf = std::vector<uint8_t>(inp, 1);
 
         byte_array_ct input(&builder, input_buf);
-        byte_array_ct output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+        byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-        auto circuit_output = output_bits.get_value();
+        auto circuit_output = output_bytes.get_value();
 
         auto expected = crypto::sha256(input_buf);
 
@@ -415,9 +407,9 @@ TEST(stdlib_sha256, test_input_str_len_multiple)
         auto input_buf = std::vector<uint8_t>(input_str.begin(), input_str.end());
 
         byte_array_ct input(&builder, input_buf);
-        byte_array_ct output_bits = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
+        byte_array_ct output_bytes = stdlib::SHA256<UltraCircuitBuilder>::hash(input);
 
-        auto circuit_output = output_bits.get_value();
+        auto circuit_output = output_bytes.get_value();
 
         auto expected = crypto::sha256(input_buf);
 

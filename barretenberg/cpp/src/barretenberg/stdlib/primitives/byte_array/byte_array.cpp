@@ -194,13 +194,8 @@ byte_array<Builder>::byte_array(const field_t<Builder>& input,
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, bytes_t const& input)
     : context(parent_context)
-    , values(input.size())
-{
-    for (size_t idx = 0; idx < input.size(); idx++) {
-        values[idx] = input[idx];
-        values[idx].create_range_constraint(8, "byte_array: input is not a byte");
-    }
-}
+    , values(input)
+{}
 
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, bytes_t&& input)
@@ -313,6 +308,18 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::reverse() c
     return byte_array(context, bytes);
 }
 
+template <typename Builder> std::vector<field_t<Builder>> byte_array<Builder>::pack_bytes_into_field_elements()
+{
+    std::vector<field_t<Builder>> result;
+    const size_t byte_len = values.size();
+
+    for (size_t i = 0; i < byte_len; i += 4) {
+        byte_array<Builder> chunk = slice(i, std::min(4UL, byte_len - i));
+        result.emplace_back(static_cast<field_t<Builder>>(chunk));
+    }
+
+    return result;
+}
 /**
  * @brief A helper converting a `byte_array` into the vector of its uint8_t values.
  * @note Used only in tests.
