@@ -139,28 +139,28 @@ where
 
 // pub fn is_empty<T>(item: T) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     item.eq(T::empty())
 // }
 
 // pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     array.all(|elem| is_empty(elem))
 // }
 
 // pub fn assert_empty<T>(item: T) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     assert(item.eq(T::empty()))
 // }
 
 // pub fn assert_empty_array<T, let N: u32>(array: [T; N]) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     // A cheaper option than `is_empty_array` for if you don't need to gracefully
 //     // handle a bool result.
