@@ -109,10 +109,14 @@ template <typename FF> class StaticAnalyzer_ {
                                                                  size_t index,
                                                                  size_t block_idx,
                                                                  UltraBlock& blk);
-    std::vector<uint32_t> get_auxiliary_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                 size_t index,
-                                                                 size_t block_idx,
-                                                                 UltraBlock& blk);
+    std::vector<uint32_t> get_memory_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                              size_t index,
+                                                              size_t block_idx,
+                                                              UltraBlock& blk);
+    std::vector<uint32_t> get_non_native_field_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                        size_t index,
+                                                                        size_t block_idx,
+                                                                        UltraBlock& blk);
     std::vector<uint32_t> get_rom_table_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                             const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(bb::UltraCircuitBuilder& ultra_builder,

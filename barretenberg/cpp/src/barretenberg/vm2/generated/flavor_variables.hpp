@@ -20,6 +20,7 @@
 #include "relations/ecc.hpp"
 #include "relations/ecc_mem.hpp"
 #include "relations/emit_notehash.hpp"
+#include "relations/emit_nullifier.hpp"
 #include "relations/execution.hpp"
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
@@ -71,6 +72,7 @@
 #include "relations/lookups_data_copy.hpp"
 #include "relations/lookups_ecc_mem.hpp"
 #include "relations/lookups_emit_notehash.hpp"
+#include "relations/lookups_emit_nullifier.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
@@ -112,10 +114,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2506;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2518;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2881;
+    static constexpr size_t NUM_ALL_ENTITIES = 2893;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -139,6 +141,7 @@ struct AvmFlavorVariables {
         avm2::ecc<FF_>,
         avm2::ecc_mem<FF_>,
         avm2::emit_notehash<FF_>,
+        avm2::emit_nullifier<FF_>,
         avm2::execution<FF_>,
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
@@ -245,6 +248,7 @@ struct AvmFlavorVariables {
         lookup_ecc_mem_write_mem_1_relation<FF_>,
         lookup_ecc_mem_write_mem_2_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
+        lookup_emit_nullifier_write_nullifier_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_check_written_storage_slot_relation<FF_>,
         lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,

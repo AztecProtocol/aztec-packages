@@ -56,8 +56,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
             break;
         case TamperProofMode::MCommitment: {
             // Tamper with the commitment in the proof
-            Commitment m_commitment = bb::field_conversion::convert_from_bn254_frs<Commitment>(
-                std::span{ merge_proof }.subspan(m_commitment_idx, 4));
+            Commitment m_commitment =
+                bb::field_conversion::convert_from_bn254_frs<Commitment>(std::span{ merge_proof }.subspan(
+                    m_commitment_idx, bb::field_conversion::calc_num_bn254_frs<Commitment>()));
             m_commitment = m_commitment + Commitment::one();
             auto m_commitment_frs = bb::field_conversion::convert_to_bn254_frs<Commitment>(m_commitment);
             for (size_t idx = 0; idx < 4; ++idx) {
@@ -76,12 +77,15 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     }
 
     static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                       const MergeSettings settings = MergeSettings::PREPEND,
                                        const TamperProofMode tampering_mode = TamperProofMode::None,
                                        const bool expected = true)
     {
         RecursiveBuilder outer_circuit;
 
-        MergeProver merge_prover{ op_queue };
+        MergeProver merge_prover{ op_queue, settings };
+        auto merge_proof = merge_prover.construct_proof();
+        tamper_with_proof(merge_proof, tampering_mode);
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
@@ -94,14 +98,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
                 RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, cm);
         }
 
-        // Construct Merge proof
-        auto merge_proof = merge_prover.construct_proof();
-        tamper_with_proof(merge_proof, tampering_mode);
-
         // Create a recursive merge verification circuit for the merge proof
-        RecursiveMergeVerifier verifier{ &outer_circuit };
+        RecursiveMergeVerifier verifier{ &outer_circuit, settings };
         verifier.transcript->enable_manifest();
-        verifier.settings = op_queue->get_current_settings();
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
         auto pairing_points = verifier.verify_proof(
             stdlib_merge_proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
@@ -111,9 +110,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         // Check 1: Perform native merge verification then perform the pairing on the outputs of the recursive merge
         // verifier and check that the result agrees.
-        MergeVerifier native_verifier;
+        MergeVerifier native_verifier{ settings };
         native_verifier.transcript->enable_manifest();
-        native_verifier.settings = op_queue->get_current_settings();
         bool verified_native =
             native_verifier.verify_proof(merge_proof, merge_commitments, merge_commitments.T_commitments);
         VerifierCommitmentKey pcs_verification_key;
@@ -140,7 +138,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue, TamperProofMode::Shift, false);
+        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::Shift, false);
     }
 
     /**
@@ -152,7 +150,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue, TamperProofMode::MCommitment, false);
+        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::MCommitment, false);
     }
 
     /**
@@ -164,7 +162,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue, TamperProofMode::LEval, false);
+        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, TamperProofMode::LEval, false);
     }
 
     /**
@@ -186,9 +184,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         GoblinMockCircuits::construct_simple_circuit(circuit2);
         prove_and_verify_merge(op_queue);
 
-        InnerBuilder circuit3{ op_queue, MergeSettings::APPEND };
+        InnerBuilder circuit3{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit3);
-        prove_and_verify_merge(op_queue);
+        prove_and_verify_merge(op_queue, MergeSettings::APPEND);
     }
 };
 

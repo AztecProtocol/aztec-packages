@@ -33,7 +33,7 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
    */
   mapping(uint256 proposalId => address proposer) internal proposalProposer;
 
-  constructor(IRegistry _registry, IGSE _gse, uint256 _n, uint256 _m) EmpireBase(_n, _m) {
+  constructor(IRegistry _registry, IGSE _gse, uint256 _n, uint256 _m) EmpireBase(_n, _m, 5, 0) {
     REGISTRY = _registry;
     GSE = _gse;
   }

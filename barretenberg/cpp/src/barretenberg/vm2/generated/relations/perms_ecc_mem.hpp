@@ -32,7 +32,7 @@ struct perm_ecc_mem_dispatch_exec_ecc_add_settings_ {
         ColumnAndShifts::ecc_add_mem_p_x,           ColumnAndShifts::ecc_add_mem_p_y,
         ColumnAndShifts::ecc_add_mem_p_is_inf,      ColumnAndShifts::ecc_add_mem_q_x,
         ColumnAndShifts::ecc_add_mem_q_y,           ColumnAndShifts::ecc_add_mem_q_is_inf,
-        ColumnAndShifts::ecc_add_mem_dst_addr_0_,   ColumnAndShifts::ecc_add_mem_sel_dst_out_of_range_err
+        ColumnAndShifts::ecc_add_mem_dst_addr_0_,   ColumnAndShifts::ecc_add_mem_err
     };
 };
 

@@ -39,9 +39,11 @@ include "execution.pil";
  *     - guaranteed by this gadget to be U1.
 *
  * ERROR HANDLING:
- * A single error needs to be handled as part of this trace
+ * Two errors needs to be handled as part of this trace,
  * (1) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
+ * (2) POINT_NOT_ON_CURVE: If either of the inputs (embedded curve points) do not
+ *     satisfy the grumpkin curve equation (SW form: Y^2 = X^3 − 17)
  *
  * N.B This subtrace writes the values within a single row (i.e. 3 output columns)
  *
@@ -86,48 +88,45 @@ namespace ecc_add_mem;
     gt.sel { gt.input_a, gt.input_b, gt.res };
 
     ////////////////////////////////////////////////
-    // Dispatch from execution trace to ECC Add
+    // Error Handling - Check Points are on curve
     ////////////////////////////////////////////////
-    #[DISPATCH_EXEC_ECC_ADD]
-    execution.sel_execute_ecc_add {
-        precomputed.clk,
-        execution.context_id,
-        // Point P
-        execution.register[0],
-        execution.register[1],
-        execution.register[2],
-        // Point Q
-        execution.register[3],
-        execution.register[4],
-        execution.register[5],
-        // Dst address
-        execution.rop[6],
-        // Error
-        execution.sel_opcode_error
-    } is
-    sel {
-        execution_clk,
-        space_id,
-        // Point P
-        p_x,
-        p_y,
-        p_is_inf,
-        // Point Q
-        q_x,
-        q_y,
-        q_is_inf,
-        // Dst address
-        dst_addr[0],
-        // Error
-        sel_dst_out_of_range_err
-    };
+    pol commit sel_p_not_on_curve_err;
+    sel_p_not_on_curve_err * (1 - sel_p_not_on_curve_err) = 0;
+
+    pol commit sel_q_not_on_curve_err;
+    sel_q_not_on_curve_err * (1 - sel_q_not_on_curve_err) = 0;
+
+    // Y^2 = X^3 − 17, re-formulate to Y^2 - (X^3 - 17) = 0
+    pol commit p_is_on_curve_eqn; // Needs to be committed to reduce relation degrees
+    pol P_X3 = p_x * p_x * p_x;
+    pol P_Y2 = p_y * p_y;
+    #[P_CURVE_EQN]
+    p_is_on_curve_eqn = sel * (P_Y2 - (P_X3 - 17)) * (1 - p_is_inf); // Infinity considered as on curve
+    // If p_is_on_curve_eqn != 0,  sel_p_not_on_curve_err = 1
+    pol commit p_is_on_curve_eqn_inv;
+    #[P_ON_CURVE_CHECK]
+    sel * (p_is_on_curve_eqn * ((1 - sel_p_not_on_curve_err) * (1 - p_is_on_curve_eqn_inv) + p_is_on_curve_eqn_inv) - sel_p_not_on_curve_err) = 0;
+
+    // Y^2 = X^3 − 17, re-formulate to Y^2 - (X^3 - 17) = 0
+    pol commit q_is_on_curve_eqn; // Needs to be committed to reduce relation degrees
+    pol Q_X3 = q_x * q_x * q_x;
+    pol Q_Y2 = q_y * q_y;
+    #[Q_CURVE_EQN]
+    q_is_on_curve_eqn = sel * (Q_Y2 - (Q_X3 - 17)) * (1 - q_is_inf); // Infinity considered as on curve
+    // If q_is_on_curve_eqn != 0,  sel_q_not_on_curve_err = 1
+    pol commit q_is_on_curve_eqn_inv;
+    #[Q_ON_CURVE_CHECK]
+    sel * (q_is_on_curve_eqn * ((1 - sel_q_not_on_curve_err) * (1 - q_is_on_curve_eqn_inv) + q_is_on_curve_eqn_inv) - sel_q_not_on_curve_err) = 0;
+
+    pol commit err; // Consolidate errors
+    err = 1 - (1 - sel_dst_out_of_range_err) * (1 - sel_p_not_on_curve_err) * (1 - sel_q_not_on_curve_err);
 
     ///////////////////////////////////////////////////////////////////////
     // Dispatch inputs to ecc add and retrieve outputs
     ///////////////////////////////////////////////////////////////////////
     pol commit res_x, res_y, res_is_inf;
     pol commit sel_should_exec;
-    sel_should_exec = sel * (1 - sel_dst_out_of_range_err);
+    sel_should_exec = sel * (1 - err);
 
     #[INPUT_OUTPUT_ECC_ADD]
     sel_should_exec {
@@ -180,3 +179,41 @@ namespace ecc_add_mem;
         memory.value,    memory.tag,
         memory.space_id, memory.rw
     };
+
+    ////////////////////////////////////////////////
+    // Dispatch from execution trace to ECC Add
+    ////////////////////////////////////////////////
+    #[DISPATCH_EXEC_ECC_ADD]
+    execution.sel_execute_ecc_add {
+        precomputed.clk,
+        execution.context_id,
+        // Point P
+        execution.register[0],
+        execution.register[1],
+        execution.register[2],
+        // Point Q
+        execution.register[3],
+        execution.register[4],
+        execution.register[5],
+        // Dst address
+        execution.rop[6],
+        // Error
+        execution.sel_opcode_error
+    } is
+    sel {
+        execution_clk,
+        space_id,
+        // Point P
+        p_x,
+        p_y,
+        p_is_inf,
+        // Point Q
+        q_x,
+        q_y,
+        q_is_inf,
+        // Dst address
+        dst_addr[0],
+        // Error
+        err
+    };
+

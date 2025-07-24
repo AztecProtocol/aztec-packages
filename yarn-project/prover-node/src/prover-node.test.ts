@@ -17,7 +17,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { type BlockHeader, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { type BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -150,7 +150,7 @@ describe('prover-node', () => {
     jobs = [];
   });
 
-  const makeTx = (txHash: TxHash): TxWithHash => ({ getTxHash: () => Promise.resolve(txHash), txHash }) as TxWithHash;
+  const makeTx = (txHash: TxHash): Tx => ({ getTxHash: () => txHash, txHash }) as Tx;
 
   afterEach(async () => {
     await proverNode.stop();

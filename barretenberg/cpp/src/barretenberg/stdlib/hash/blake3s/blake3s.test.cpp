@@ -3,7 +3,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "blake3s.hpp"
-#include "blake3s_plookup.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -19,7 +18,7 @@ TEST(stdlib_blake3s, test_single_block_plookup)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_plookup input_arr(&builder, input_v);
-    byte_array_plookup output = stdlib::blake3s(input_arr);
+    byte_array_plookup output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
 
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
@@ -38,7 +37,7 @@ TEST(stdlib_blake3s, test_double_block_plookup)
     std::vector<uint8_t> input_v(input.begin(), input.end());
 
     byte_array_plookup input_arr(&builder, input_v);
-    byte_array_plookup output = stdlib::blake3s(input_arr);
+    byte_array_plookup output = stdlib::Blake3s<UltraBuilder>::hash(input_arr);
 
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
@@ -57,6 +56,6 @@ TEST(stdlib_blake3s, test_too_large_input_plookup)
     std::vector<uint8_t> input_v(1025, 0);
 
     byte_array_plookup input_arr(&builder, input_v);
-    EXPECT_THROW_OR_ABORT(stdlib::blake3s(input_arr),
+    EXPECT_THROW_OR_ABORT(stdlib::Blake3s<UltraBuilder>::hash(input_arr),
                           "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 }
