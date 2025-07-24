@@ -228,6 +228,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             // Store ipa_proof
             outer_circuit.ipa_proof = output.ipa_proof.get_value();
+        } else {
+            DefaultIO<OuterBuilder> inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.set_public();
         }
 
         // Check for a failure flag in the recursive verifier circuit
