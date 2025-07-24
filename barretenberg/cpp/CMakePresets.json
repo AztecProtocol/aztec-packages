@@ -448,6 +448,9 @@
       "description": "Build with op counting",
       "inherits": "clang16-assert",
       "binaryDir": "build-op-count-time",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
+      },
       "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
       }

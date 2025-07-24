@@ -45,7 +45,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+        bool verified = std::get<0>(verifier.verify_proof(proof));
 
         return verified;
     }
@@ -67,7 +67,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+        bool verified = std::get<0>(verifier.verify_proof(proof));
 
         return verified;
     }
@@ -191,7 +191,7 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
 
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
 }
 
 /**
@@ -243,13 +243,13 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto proof = prover.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
-    EXPECT_TRUE(verifier.verify_proof(proof));
+    EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
-    EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
+    EXPECT_TRUE(std::get<0>(verifier_copy.verify_proof(proof_copy)));
 }
 
 /**
@@ -503,7 +503,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(proving_key_1, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        EXPECT_TRUE(verifier.verify_proof(proof));
+        EXPECT_TRUE(std::get<0>(verifier.verify_proof(proof)));
     }
 
     { // Verification based on pkey 2 should fail
@@ -512,6 +512,6 @@ TYPED_TEST(MegaHonkTests, PolySwap)
         typename TestFixture::Prover prover(proving_key_2, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        EXPECT_FALSE(verifier.verify_proof(proof));
+        EXPECT_FALSE(std::get<0>(verifier.verify_proof(proof)));
     }
 }
