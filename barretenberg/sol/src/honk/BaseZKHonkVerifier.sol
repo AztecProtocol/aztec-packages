@@ -18,15 +18,14 @@ import {
 import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {
-    MODULUS as P, MINUS_ONE, SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib
-} from "./Fr.sol";
+import {SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib} from "./Fr.sol";
 
 import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 
 import {RelationsLib} from "./Relations.sol";
 
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
+import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator, validateOnCurve} from "./utils.sol";
 
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
@@ -214,6 +213,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     uint256 constant LIBRA_COMMITMENTS = 3;
     uint256 constant LIBRA_EVALUATIONS = 4;
     uint256 constant LIBRA_UNIVARIATES_LENGTH = 9;
+
+    struct PairingInputs {
+        Honk.G1Point P_0;
+        Honk.G1Point P_1;
+    }
 
     function verifyShplemini(Honk.ZKProof memory proof, Honk.VerificationKey memory vk, ZKTranscript memory tp)
         internal
@@ -432,10 +436,24 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = quotient_commitment;
         scalars[boundary] = tp.shplonkZ; // evaluation challenge
 
-        Honk.G1Point memory P_0 = batchMul(commitments, scalars);
-        Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
+        PairingInputs memory pair;
+        pair.P_0 = batchMul(commitments, scalars);
+        pair.P_1 = negateInplace(quotient_commitment);
 
-        return pairing(P_0, P_1);
+        // Aggregate pairing points
+        Fr recursionSeparator = generateRecursionSeparator(proof.pairingPointObject, pair.P_0, pair.P_1);
+        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
+            convertPairingPointsToG1(proof.pairingPointObject);
+
+        // Validate the points from the proof are on the curve
+        validateOnCurve(P_0_other);
+        validateOnCurve(P_1_other);
+
+        // accumulate with aggregate points in proof
+        pair.P_0 = mulWithSeperator(pair.P_0, P_0_other, recursionSeparator);
+        pair.P_1 = mulWithSeperator(pair.P_1, P_1_other, recursionSeparator);
+
+        return pairing(pair.P_0, pair.P_1);
     }
 
     struct SmallSubgroupIpaIntermediates {
@@ -500,6 +518,12 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars
     ) internal view returns (Honk.G1Point memory result) {
         uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3;
+
+        // Validate all points are on the curve
+        for (uint256 i = 0; i < limit; ++i) {
+            validateOnCurve(base[i]);
+        }
+
         assembly {
             let success := 0x01
             let free := mload(0x40)
