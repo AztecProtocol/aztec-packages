@@ -9,6 +9,7 @@
 #include "circuits/add_2_circuit.hpp"
 #include "circuits/blake_circuit.hpp"
 #include "circuits/ecdsa_circuit.hpp"
+#include "circuits/recursive_circuit.hpp"
 #include "utils/utils.hpp"
 
 #include <iostream>
@@ -24,9 +25,13 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
+    using CircuitBuilder = typename Flavor::CircuitBuilder;
 
-    UltraCircuitBuilder builder = Circuit::generate(inputs);
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+    CircuitBuilder builder = Circuit::generate(inputs);
+    // If this is not a recursive circuit, we need to add the default pairing points to the public inputs
+    if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
+        stdlib::recursion::PairingPoints<CircuitBuilder>::add_default_to_public_inputs(builder);
+    }
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
     auto verification_key = std::make_shared<VerificationKey>(instance->get_precomputed());
@@ -97,6 +102,8 @@ int main(int argc, char** argv)
             generate_proof<Add2Circuit, UltraKeccakFlavor>(inputs);
         } else if (circuit_type == "ecdsa") {
             generate_proof<EcdsaCircuit, UltraKeccakFlavor>(inputs);
+        } else if (circuit_type == "recursive") {
+            generate_proof<RecursiveCircuit, UltraKeccakFlavor>(inputs);
         } else {
             info("Invalid circuit type: " + circuit_type);
             return 1;
@@ -109,6 +116,8 @@ int main(int argc, char** argv)
             generate_proof<Add2Circuit, UltraKeccakZKFlavor>(inputs);
         } else if (circuit_type == "ecdsa") {
             generate_proof<EcdsaCircuit, UltraKeccakZKFlavor>(inputs);
+        } else if (circuit_type == "recursive") {
+            generate_proof<RecursiveCircuit, UltraKeccakZKFlavor>(inputs);
         } else {
             info("Invalid circuit type: " + circuit_type);
             return 1;
