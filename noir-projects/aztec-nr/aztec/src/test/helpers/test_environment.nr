@@ -289,15 +289,15 @@ impl TestEnvironment {
     }
 
     pub unconstrained fn deploy<let N: u32, let M: u32>(
-        _self: Self,
+        self: Self,
         path: str<N>,
         name: str<M>,
     ) -> Deployer<N, M> {
-        Deployer { path, name, secret: 0 }
+        Deployer { env: self, path, name, secret: 0 }
     }
 
-    pub unconstrained fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { path: "", name, secret: 0 }
+    pub unconstrained fn deploy_self<let M: u32>(self: Self, name: str<M>) -> Deployer<0, M> {
+        Deployer { env: self, path: "", name, secret: 0 }
     }
 
     pub unconstrained fn call_private<T, let M: u32>(
