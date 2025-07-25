@@ -146,7 +146,6 @@ template <typename Builder, typename Native> class uint {
     uint256_t get_additive_constant() const { return additive_constant; }
 
     std::vector<uint32_t> get_accumulators() const { return accumulators; }
-    uint256_t get_unbounded_value() const;
 
   protected:
     Builder* context;
