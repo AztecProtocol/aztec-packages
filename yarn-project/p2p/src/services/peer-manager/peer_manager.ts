@@ -649,21 +649,21 @@ export class PeerManager implements PeerManagerInterface {
         //TODO: maybe hard ban these peers in the future.
         //We could allow this to happen up to N times, and then hard ban?
         //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, logData);
+        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond status handshake`, logData);
         await this.disconnectPeer(peerId);
         return;
       }
 
       const peerStatusMessage = StatusMessage.fromBuffer(data);
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
+        this.logger.debug(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
         await this.disconnectPeer(peerId);
         return;
       }
       this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.warn(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
+      this.logger.debug(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
         peerId,
       });
       await this.disconnectPeer(peerId);
