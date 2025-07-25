@@ -116,6 +116,23 @@ TEST_F(ExecutionSimulationTest, Add)
     execution.add(context, 4, 5, 6);
 }
 
+TEST_F(ExecutionSimulationTest, Mul)
+{
+    uint128_t max = static_cast<uint128_t>(get_tag_max_value(ValueTag::U128));
+    auto a = MemoryValue::from<uint128_t>(max);
+    auto b = MemoryValue::from<uint128_t>(max - 3);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, mul(a, b)).WillOnce(Return(MemoryValue::from<uint128_t>(4)));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<uint128_t>(4)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.mul(context, 1, 2, 3);
+}
+
+// TODO(MW): Add alu tests here for other ops
+
 TEST_F(ExecutionSimulationTest, Call)
 {
     FF zero = 0;

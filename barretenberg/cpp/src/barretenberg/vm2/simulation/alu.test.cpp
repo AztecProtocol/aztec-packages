@@ -84,6 +84,68 @@ TEST(AvmSimulationAluTest, NegativeAddTag)
                                       .error = AluError::TAG_ERROR }));
 }
 
+TEST(AvmSimulationAluTest, Mul)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(2);
+    auto b = MemoryValue::from<uint32_t>(3);
+
+    auto c = alu.mul(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint32_t>(6));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::MUL, .a = a, .b = b, .c = c }));
+}
+
+TEST(AvmSimulationAluTest, MulOverflow)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(static_cast<uint32_t>(get_tag_max_value(ValueTag::U32)));
+    auto b = MemoryValue::from<uint32_t>(2);
+
+    auto c = alu.mul(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint32_t>(static_cast<uint32_t>(get_tag_max_value(ValueTag::U32) - 1)));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::MUL, .a = a, .b = b, .c = c }));
+}
+
+TEST(AvmSimulationAluTest, MulOverflowU128)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    uint128_t max = static_cast<uint128_t>(get_tag_max_value(ValueTag::U128));
+
+    auto a = MemoryValue::from<uint128_t>(max);
+    auto b = MemoryValue::from<uint128_t>(max - 3);
+
+    // For u128s, we range check a_lo, a_hi, b_lo, b_hi, and c_hi:
+    EXPECT_CALL(range_check, assert_range(_, 64)).Times(5);
+
+    auto c = alu.mul(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint128_t>(4));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::MUL, .a = a, .b = b, .c = c }));
+}
+
 TEST(AvmSimulationAluTest, LT)
 {
     EventEmitter<AluEvent> alu_event_emitter;

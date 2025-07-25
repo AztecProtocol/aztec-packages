@@ -5,6 +5,7 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -17,6 +18,34 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
     } catch (const TagMismatchException& e) {
         events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException("ADD, " + std::string(e.what()));
+    }
+}
+
+MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a * b; // This will throw if the tags do not match.
+        uint256_t a_int = static_cast<uint256_t>(a.as_ff());
+        uint256_t b_int = static_cast<uint256_t>(b.as_ff());
+        MemoryTag tag = a.get_tag();
+        if (tag == MemoryTag::U128) {
+            // For u128, we decompose a and b into 64 bit chunks and discard the highest bits given by the product:
+            auto a_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
+            auto b_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
+            range_check.assert_range(a_decomp.lo, 64);
+            range_check.assert_range(a_decomp.hi, 64);
+            range_check.assert_range(b_decomp.lo, 64);
+            range_check.assert_range(b_decomp.hi, 64);
+            auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+            // c_hi = old_c_hi - a_hi * b_hi % 2^64
+            uint256_t c_hi = (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64);
+            range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
+        }
+        events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("MUL, " + std::string(e.what()));
     }
 }
 
@@ -82,7 +111,7 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
 
     // Circuit leakage: range check for `mid` value defined by a = ic + mid * 2^dst_tag_bits + hi_128 * 2^128 and
     // mid is (128 - dst_tag_bits) bits.
-    bool is_trivial = dst_tag == ValueTag::FF || static_cast<uint256_t>(a) <= get_tag_max_value(dst_tag);
+    bool is_trivial = dst_tag == MemoryTag::FF || static_cast<uint256_t>(a) <= get_tag_max_value(dst_tag);
     if (!is_trivial) {
 
         uint128_t a_lo = 0;
