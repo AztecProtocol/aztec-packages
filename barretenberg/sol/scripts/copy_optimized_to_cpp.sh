@@ -188,10 +188,12 @@ else
     echo "Warning: IVerifier.sol not found at $IVERIFIER_FILE"
 fi
 
-# Add the processed Solidity content, skipping pragma and any import statements
+# Add the processed Solidity content, skipping SPDX, pragma, copyright, and any import statements
 awk '
+    /^\/\/ SPDX-License-Identifier:/ { next }
     /^pragma/ { next }
     /^import/ { next }
+    /[Cc]opyright/ { next }
     { print }
 ' "$TEMP_PROCESSED" >> "$FINAL_SOL"
 

@@ -203,7 +203,6 @@ library TranscriptLib {
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
-            // console.logBytes(abi.encodePacked(univariateChal));
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
             Fr unused;
             (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);

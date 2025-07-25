@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+USE_OPTIMIZED_CONTRACT=${USE_OPTIMIZED_CONTRACT:-false}
+
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
 FLAGS="-c $CRS_PATH $VFLAG --scheme ultra_honk --disable_zk"
@@ -11,8 +13,6 @@ CONTRACT_FLAGS="$FLAGS"
 if [ "$USE_OPTIMIZED_CONTRACT" = true ]; then
     CONTRACT_FLAGS="$CONTRACT_FLAGS --optimized"
 fi
-
-USE_OPTIMIZED_CONTRACT=${USE_OPTIMIZED_CONTRACT:-false}
 
 outdir=$(mktemp -d)
 trap "rm -rf $outdir" EXIT

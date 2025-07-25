@@ -23,7 +23,6 @@ interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
 }
 
-// SPDX-License-Identifier: Apache-2.0
 
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
