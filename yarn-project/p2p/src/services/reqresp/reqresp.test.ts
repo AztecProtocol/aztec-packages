@@ -124,7 +124,7 @@ describe('ReqResp', () => {
     await startNodes(nodes);
 
     // Spy on the logger to make sure the error message is logged
-    const loggerSpy = jest.spyOn((nodes[1].req as any).logger, 'warn');
+    const loggerSpy = jest.spyOn((nodes[1].req as any).logger, 'verbose');
 
     await sleep(500);
     await connectToPeers(nodes);
