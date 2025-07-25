@@ -39,7 +39,9 @@ class MergeVerifier {
 
     explicit MergeVerifier(const MergeSettings settings = MergeSettings::PREPEND,
                            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    std::pair<bool, TableCommitments> verify_proof(const HonkProof& proof, const TableCommitments& t_commitments);
+    std::pair<bool, TableCommitments> verify_proof(const HonkProof& proof,
+                                                   const TableCommitments& t_commitments,
+                                                   const TableCommitments& T_prev_commitments);
 };
 
 } // namespace bb
