@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstddef>
@@ -35,6 +36,91 @@ struct StackTraces {
 };
 #endif
 
+template <typename FF> class Selector {
+  public:
+    void emplace_back(const FF& value) { push_back(value); }
+    virtual void emplace_back(int) = 0;
+    virtual void push_back(const FF&) = 0;
+    virtual void resize(size_t) = 0;
+    virtual FF& operator[](size_t) = 0;
+    virtual size_t size() const = 0;
+    virtual FF& back() = 0;
+    virtual bool empty() const = 0;
+    virtual std::vector<uint8_t> to_buffer() const = 0;
+};
+
+// template <typename FF> std::vector<uint8_t> to_buffer(Selector<FF> const& selector)
+// {
+//     return selector.to_buffer();
+// }
+
+template <typename FF> class ZeroSelector : public Selector<FF> {
+  public:
+    using Selector<FF>::emplace_back;
+    void emplace_back(int i) override
+    {
+        BB_ASSERT_EQ(i, 0);
+        size_++;
+    }
+    void push_back(const FF& value) override
+    {
+        ASSERT(value.is_zero());
+        size_++;
+    }
+    void resize([[maybe_unused]] size_t new_size) override { size_ = new_size; }
+
+    bool operator==(const ZeroSelector& other) const { return size_ == other.size(); };
+    FF& operator[](size_t index) override
+    {
+        BB_ASSERT_LT(index, size_);
+        ASSERT(zero.is_zero());
+        return zero;
+    };
+    FF& back() override
+    {
+        ASSERT(zero.is_zero());
+        return zero;
+    }
+
+    size_t size() const override { return size_; }
+    bool empty() const override { return size_ == 0; }
+
+    std::vector<uint8_t> to_buffer() const override
+    {
+        ASSERT(zero.is_zero());
+        using serialize::write;
+        std::vector<uint8_t> buf;
+        for (size_t i = 0; i < size_; i++) {
+            write(buf, zero);
+        }
+        return buf;
+    }
+
+  private:
+    FF zero = 0;
+    size_t size_ = 0;
+};
+
+template <typename FF> class SlabVectorSelector : public Selector<FF> {
+  public:
+    using Selector<FF>::emplace_back;
+    void emplace_back(int i) override { data.emplace_back(i); }
+    void push_back(const FF& value) override { data.push_back(value); }
+    void resize(size_t new_size) override { data.resize(new_size); }
+
+    bool operator==(const SlabVectorSelector& other) const { return data == other.data; }
+    FF& operator[](size_t i) override { return data[i]; };
+    FF& back() override { return data.back(); }
+
+    size_t size() const override { return data.size(); }
+    bool empty() const override { return data.empty(); }
+
+    std::vector<uint8_t> to_buffer() const override { return ::to_buffer(data); }
+
+  private:
+    SlabVector<FF> data;
+};
+
 /**
  * @brief Basic structure for storing gate data in a builder
  *
@@ -47,7 +133,7 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
     static constexpr size_t NUM_WIRES = NUM_WIRES_;
     static constexpr size_t NUM_SELECTORS = NUM_SELECTORS_;
 
-    using SelectorType = SlabVector<FF>;
+    using SelectorType = SlabVectorSelector<FF>;
     using WireType = SlabVector<uint32_t>;
     using Selectors = std::array<SelectorType, NUM_SELECTORS>;
     using Wires = std::array<WireType, NUM_WIRES>;
@@ -114,6 +200,8 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
     }
 #endif
     uint32_t fixed_size = 0; // Fixed size for use in structured trace
+  protected:
+    ZeroSelector<FF> zero_selector;
 };
 
 } // namespace bb

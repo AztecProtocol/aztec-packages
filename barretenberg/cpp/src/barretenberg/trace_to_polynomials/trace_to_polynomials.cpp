@@ -50,7 +50,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
 
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
-    RefArray<Polynomial, NUM_SELECTORS> selectors = polynomials.get_selectors();
+    auto selectors = polynomials.get_selectors();
 
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
