@@ -1,5 +1,5 @@
-#include "barretenberg/api/bbapi_ultra_honk.hpp"
-#include "barretenberg/api/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
