@@ -34,13 +34,15 @@ impl Counter {
 }
 
 pub struct TestEnvironment {
-    // The secrets to be used for light and contract account creation. By keeping track of the last used secret we can
-    // issue new ones automatically without requiring the user to provide different ones. Additionally, having the
-    // secrets be deterministic for each set of accounts and all concurrent tests results in TXE being able to maximize
-    // cache usage and not have to recompute account addresses and contract artifacts, which are relatively expensive
-    // operations.
+    // The secrets to be used for light and contract account creation, as well as contract deployments. By keeping track
+    // of the last used secret we can issue new ones automatically without requiring the user to provide different ones.
+    //
+    // Additionally, having the secrets be deterministic for each set of accounts and all concurrent tests results in
+    // TXE being able to maximize cache usage and not have to recompute account addresses and contract artifacts, which
+    // are relatively expensive operations.
     light_account_secret: Counter,
     contract_account_secret: Counter,
+    contract_deployment_secret: Counter,
 }
 
 pub struct CallResult<T> {
@@ -71,12 +73,20 @@ impl PrivateContextOptions {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        Self { light_account_secret: Counter::new(), contract_account_secret: Counter::new() }
+        Self {
+            light_account_secret: Counter::new(),
+            contract_account_secret: Counter::new(),
+            contract_deployment_secret: Counter::new(),
+        }
     }
 
     pub unconstrained fn _new() -> Self {
         txe_oracles::enable_context_checks();
-        Self { light_account_secret: Counter::new(), contract_account_secret: Counter::new() }
+        Self {
+            light_account_secret: Counter::new(),
+            contract_account_secret: Counter::new(),
+            contract_deployment_secret: Counter::new(),
+        }
     }
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
@@ -373,8 +383,8 @@ impl TestEnvironment {
     /// ```noir
     /// TestEnvironment::new().deploy("../my_other_crate/MyContract");
     /// ```
-    pub unconstrained fn deploy<let N: u32>(self: Self, path: str<N>) -> ContractDeployment<N> {
-        ContractDeployment { env: self, path, secret: 0 }
+    pub unconstrained fn deploy<let N: u32>(&mut self, path: str<N>) -> ContractDeployment<N> {
+        ContractDeployment { env: *self, path, secret: self.contract_deployment_secret.next() }
     }
 
     pub unconstrained fn call_private<T, let M: u32>(

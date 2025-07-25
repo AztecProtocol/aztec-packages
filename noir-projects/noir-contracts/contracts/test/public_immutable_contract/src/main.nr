@@ -34,7 +34,7 @@ mod tests {
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
         // Setup test environment
-        let env = TestEnvironment::new();
+        let mut env = TestEnvironment::new();
 
         // Deploy contract without initialization
         let contract_address =
