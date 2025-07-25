@@ -12,6 +12,7 @@ import { BbApiBase } from '../cbind/generated/api_types.js';
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraHonkBackend, AztecClientBackend } from './backend.js';
+export { BbApiUltraHonkBackend } from './backend_bbapi.js';
 
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
