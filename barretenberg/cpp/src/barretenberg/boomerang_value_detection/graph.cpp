@@ -580,7 +580,23 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_conn
     [[maybe_unused]] size_t index, [[maybe_unused]] size_t block_idx, [[maybe_unused]] auto& blk)
 {
     std::vector<uint32_t> gate_variables;
-    // TODO: Implement eccop connected component logic
+    gate_variables.reserve(7);
+    auto w1 = blk.w_1()[index]; // get opcode of operation, because function get_ecc_op_idx returns type uint32_t and it
+                                // adds as w1
+    if (w1 != circuit_builder.zero_idx) {
+        // this is opcode and start of the UltraOp element
+        if (w1 == circuit_builder.add_accum_op_idx || w1 == circuit_builder.mul_accum_op_idx ||
+            w1 == circuit_builder.) {
+            gate_variables.insert(
+                gate_variables.end(),
+                { w1, blk.w_2()[index], blk.w_3()[index], blk.w_4()[index] }) // add op, x_lo, x_hi, y_lo
+                if (index < blk.size() - 1)
+            {
+                gate_variables.insert(gate_variables.end(),
+                                      { blk.w2()[index], blk.w_3()[index], blk.w_4()[index] }) // ad y_hi, z1, z2
+            }
+        } else if (w1 == circuit_builder.)
+    }
     return gate_variables;
 }
 
