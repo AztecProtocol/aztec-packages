@@ -27,6 +27,6 @@ template <typename Flavor>
 create_honk_recursion_constraints(typename Flavor::CircuitBuilder& builder,
                                   const RecursionConstraint& input,
                                   bool has_valid_witness_assignments = false)
-    requires IsRecursiveFlavor<Flavor>;
+    requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>);
 
 } // namespace acir_format

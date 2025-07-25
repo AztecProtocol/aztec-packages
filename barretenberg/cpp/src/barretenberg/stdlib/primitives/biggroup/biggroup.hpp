@@ -21,8 +21,9 @@
 namespace bb::stdlib::element_default {
 
 // ( ͡° ͜ʖ ͡°)
-template <class Builder, class Fq, class Fr, class NativeGroup> class element {
+template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
+    using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
@@ -161,6 +162,17 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         Fq x_fq(ctx, x);
         Fq y_fq(ctx, y);
         return element(x_fq, y_fq);
+    }
+
+    static element point_at_infinity(Builder* ctx)
+    {
+        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
+        zero.unset_free_witness_tag();
+        Fq x_fq(zero, zero);
+        Fq y_fq(zero, zero);
+        element result(x_fq, y_fq);
+        result.set_point_at_infinity(true);
+        return result;
     }
 
     element& operator=(const element& other);

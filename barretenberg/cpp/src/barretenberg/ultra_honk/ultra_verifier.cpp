@@ -99,17 +99,12 @@ std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::
     auto [public_inputs, decider_output] = verify_internal(proof);
 
     // Reconstruct the public inputs
-    DefaultIO inputs; // Will be HidingKernelIO
+    HidingKernelIO inputs;
     inputs.reconstruct_from_public(public_inputs);
 
     decider_output.pairing_points.aggregate(inputs.pairing_inputs);
 
-    // Dummy vector, will be fetched from inputs once we have HidingKernelIO
-    std::array<Commitment, Flavor::NUM_WIRES> dummy;
-    for (auto& commitment : dummy) {
-        commitment = Commitment::one();
-    }
-    return std::make_pair(decider_output.check(), dummy);
+    return std::make_pair(decider_output.check(), inputs.ecc_op_tables);
 }
 
 template class UltraVerifier_<UltraFlavor>;
