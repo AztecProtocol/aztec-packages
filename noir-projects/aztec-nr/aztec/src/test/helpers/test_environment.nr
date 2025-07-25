@@ -34,8 +34,13 @@ impl Counter {
 }
 
 pub struct TestEnvironment {
+    // The secrets to be used for light and contract account creation. By keeping track of the last used secret we can
+    // issue new ones automatically without requiring the user to provide different ones. Additionally, having the
+    // secrets be deterministic for each set of accounts and all concurrent tests results in TXE being able to maximize
+    // cache usage and not have to recompute account addresses and contract artifacts, which are relatively expensive
+    // operations.
     light_account_secret: Counter,
-    account_contract_secret: Counter,
+    contract_account_secret: Counter,
 }
 
 pub struct CallResult<T> {
@@ -66,12 +71,12 @@ impl PrivateContextOptions {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        Self { light_account_secret: Counter::new(), account_contract_secret: Counter::new() }
+        Self { light_account_secret: Counter::new(), contract_account_secret: Counter::new() }
     }
 
     pub unconstrained fn _new() -> Self {
         txe_oracles::enable_context_checks();
-        Self { light_account_secret: Counter::new(), account_contract_secret: Counter::new() }
+        Self { light_account_secret: Counter::new(), contract_account_secret: Counter::new() }
     }
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
@@ -294,7 +299,7 @@ impl TestEnvironment {
     /// generate multiple addresses. These addresses are also different from the ones that `create_light_account`
     /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
     pub unconstrained fn create_contract_account(&mut self) -> AztecAddress {
-        let test_account = txe_oracles::add_account(self.account_contract_secret.next());
+        let test_account = txe_oracles::add_account(self.contract_account_secret.next());
         let address = test_account.address;
 
         let _ = self.call_private(
