@@ -81,6 +81,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   });
 
   bytes4 NO_REVERT = bytes4(0);
+  bytes4 ANY_REVERT = bytes4(0xFFFFFFFF);
 
   function testInitialCommitteeMatch() public setup(4, 4) progressEpochs(2) {
     address[] memory attesters = rollup.getAttesters();
@@ -381,9 +382,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // a block if you submit one with no signatures. This was a change from prior behavior where we had had
     // that if there were zero validators in a rollup, anyone could build a block
 
-    // TODO(palla): What should we do in this scenario? Block the proposal, or allow invalidating later?
-    vm.skip(true);
-
     GSE gse = rollup.getGSE();
     address caller = gse.owner();
     vm.prank(caller);
@@ -391,7 +389,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(rollup.getCurrentEpochCommittee().length, 4);
     _testBlock(
       "mixed_block_1",
-      NO_REVERT,
+      ANY_REVERT,
       0,
       0,
       TestFlags({
@@ -543,7 +541,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     emit log("Time to propose");
     if (_revertData != NO_REVERT) {
-      vm.expectPartialRevert(_revertData);
+      if (_revertData == ANY_REVERT) {
+        vm.expectRevert();
+      } else {
+        vm.expectPartialRevert(_revertData);
+      }
     }
 
     vm.prank(ree.sender);
