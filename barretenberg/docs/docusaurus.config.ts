@@ -61,10 +61,6 @@ const config: Config = {
     defaultLocale: "en",
     locales: ["en"],
   },
-
-  customFields: {
-    MATOMO_ENV: process.env.ENV,
-  },
   presets: [
     [
       "classic",
