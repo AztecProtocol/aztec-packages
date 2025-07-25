@@ -190,7 +190,7 @@ template <class Builder_> class HidingKernelIO {
     static std::array<G1, Builder::NUM_WIRES> default_ecc_op_tables(Builder& builder, bool set_infinity = true)
     {
         std::array<G1, Builder::NUM_WIRES> defaults;
-        for (auto& table : defaults) {
+        for (auto& table_commitment : defaults) {
             // We need to branch because this function is used in two places: when we set default public inputs in
             // circuits that already have pairing inputs but no ecc op tables, and when we set default ecc op tables for
             // a MegaVerifier that verifies only one Merge. In the first case, we need to set the point to something
@@ -204,9 +204,10 @@ template <class Builder_> class HidingKernelIO {
             // infinity.
             // TODO(): Can we handle the point at infinity in the public inputs?
             if (set_infinity) {
-                table = G1::point_at_infinity(&builder);
+                table_commitment = G1::point_at_infinity(&builder);
             } else {
-                table = G1::one(&builder);
+                table_commitment = G1::one(&builder);
+                table_commitment.convert_constant_to_fixed_witness(&builder);
             }
         }
 
@@ -221,8 +222,9 @@ template <class Builder_> class HidingKernelIO {
     {
         PairingInputs::add_default_to_public_inputs(builder);
         for (size_t idx = 0; idx < Builder::NUM_WIRES; idx++) {
-            G1 point = G1::one(&builder);
-            point.set_public();
+            G1 table_commitment = G1::one(&builder);
+            table_commitment.convert_constant_to_fixed_witness(&builder);
+            table_commitment.set_public();
         }
     };
 };
