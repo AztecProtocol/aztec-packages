@@ -25,6 +25,8 @@ class API {
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
 
+        bool optimized_solidity_verifier{ false }; // should we use the optimized sol verifier? (temp)
+
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
             os << "flags: [\n"
