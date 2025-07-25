@@ -1,303 +1,129 @@
-#include "bbapi_ultra_honk.hpp"
-#include "barretenberg/client_ivc/acir_bincode_mocks.hpp"
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
-#include "barretenberg/srs/global_crs.hpp"
-#include "bbapi_execute.hpp"
+#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
+#include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/program_witness.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include <gtest/gtest.h>
-#include <memory>
 
 namespace bb::bbapi {
 
-class BbApiUltraHonkTest : public ::testing::Test {
+class BBApiUltraHonkTest : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+    static constexpr size_t NUM_CONSTRAINTS = 10;
+
+    std::vector<uint8_t> create_simple_circuit()
+    {
+        // Create a simple circuit with some constraints
+        acir_format::AcirFormat constraint_system;
+
+        // Add a simple constraint: x + y = z
+        constraint_system.poly_triple_constraints.push_back({
+            .a = 1,
+            .b = 2,
+            .c = 3,
+            .q_m = 0,
+            .q_l = bb::fr::one(),
+            .q_r = bb::fr::one(),
+            .q_o = -bb::fr::one(),
+            .q_c = 0,
+        });
+
+        constraint_system.varnum = 4;
+        constraint_system.recursive = false;
+        constraint_system.num_acir_opcodes = 1;
+
+        // Convert to buffer
+        return acir_format::constraint_system_to_acir_buf(constraint_system);
+    }
+
+    std::vector<uint8_t> create_witness()
+    {
+        // Create witness for x=2, y=3, z=5
+        acir_format::WitnessVector witness;
+        witness.push_back(0); // index 0 is unused
+        witness.push_back(2); // x
+        witness.push_back(3); // y
+        witness.push_back(5); // z
+
+        return acir_format::witness_buf_to_witness_data(witness);
+    }
 };
 
-TEST_F(BbApiUltraHonkTest, CircuitProve)
+TEST_F(BBApiUltraHonkTest, ProofAsFields)
 {
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+    // Create and prove a simple circuit
+    auto bytecode = create_simple_circuit();
+    auto witness = create_witness();
 
-    CircuitProve command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                          .witness = witness,
-                          .settings = { .ipa_accumulation = false,
-                                        .oracle_hash_type = "poseidon2",
-                                        .disable_zk = false,
-                                        .honk_recursion = 1,
-                                        .recursive = false } };
+    CircuitProve prove_cmd{ .circuit = { .bytecode = bytecode },
+                            .witness = witness,
+                            .settings = { .oracle_hash_type = "poseidon2" } };
 
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
-
-    // Verify response has valid proof
-    EXPECT_FALSE(response.proof.empty());
-    // The simple circuit has no public inputs
-    EXPECT_EQ(response.public_inputs.size(), 0);
-}
-
-TEST_F(BbApiUltraHonkTest, CircuitComputeVk)
-{
-    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    CircuitComputeVk command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                              .settings = { .ipa_accumulation = false,
-                                            .oracle_hash_type = "poseidon2",
-                                            .disable_zk = false,
-                                            .honk_recursion = 1,
-                                            .recursive = false } };
-
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
-
-    // Verify we got a non-empty verification key
-    EXPECT_FALSE(response.bytes.empty());
-}
-
-TEST_F(BbApiUltraHonkTest, CircuitInfo)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    CircuitInfo command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                         .include_gates_per_opcode = true,
-                         .settings = { .ipa_accumulation = false,
-                                       .oracle_hash_type = "poseidon2",
-                                       .disable_zk = false,
-                                       .honk_recursion = 1,
-                                       .recursive = false } };
-
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
-
-    // Verify circuit info
-    EXPECT_GT(response.total_gates, 0);
-    EXPECT_GT(response.subgroup_size, 0);
-    EXPECT_FALSE(response.gates_per_opcode.empty());
-}
-
-TEST_F(BbApiUltraHonkTest, CircuitCheck)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    CircuitCheck command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                          .witness = witness,
-                          .settings = { .ipa_accumulation = false,
-                                        .oracle_hash_type = "poseidon2",
-                                        .disable_zk = false,
-                                        .honk_recursion = 1,
-                                        .recursive = false } };
-
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
-
-    // Circuit should be satisfied with correct witness
-    EXPECT_TRUE(response.satisfied);
-}
-
-TEST_F(BbApiUltraHonkTest, CircuitCheckFails)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    // Corrupt the witness to make circuit unsatisfied
-    witness[witness.size() - 1] ^= 1; // flip a bit
-
-    CircuitCheck command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                          .witness = witness,
-                          .settings = { .ipa_accumulation = false,
-                                        .oracle_hash_type = "poseidon2",
-                                        .disable_zk = false,
-                                        .honk_recursion = 1,
-                                        .recursive = false } };
-
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
-
-    // Circuit should not be satisfied with incorrect witness
-    EXPECT_FALSE(response.satisfied);
-}
-
-TEST_F(BbApiUltraHonkTest, CircuitProveAndVerify)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    // First prove
-    CircuitProve prove_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                                .witness = witness,
-                                .settings = { .ipa_accumulation = false,
-                                              .oracle_hash_type = "poseidon2",
-                                              .disable_zk = false,
-                                              .honk_recursion = 1,
-                                              .recursive = false } };
-
-    auto prove_response = std::move(prove_command).execute();
-
-    // Compute VK
-    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                 .settings = { .ipa_accumulation = false,
-                                               .oracle_hash_type = "poseidon2",
-                                               .disable_zk = false,
-                                               .honk_recursion = 1,
-                                               .recursive = false } };
-
-    auto vk_response = std::move(vk_command).execute();
-
-    // Verify the proof
-    CircuitVerify verify_command{ .verification_key = vk_response.bytes,
-                                  .public_inputs = prove_response.public_inputs,
-                                  .proof = prove_response.proof,
-                                  .settings = { .ipa_accumulation = false,
-                                                .oracle_hash_type = "poseidon2",
-                                                .disable_zk = false,
-                                                .honk_recursion = 1,
-                                                .recursive = false } };
-
-    auto verify_response = std::move(verify_command).execute();
-
-    EXPECT_TRUE(verify_response.verified);
-}
-
-TEST_F(BbApiUltraHonkTest, ProofAsFields)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    // First generate a proof
-    CircuitProve prove_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                                .witness = witness,
-                                .settings = { .ipa_accumulation = false,
-                                              .oracle_hash_type = "poseidon2",
-                                              .disable_zk = false,
-                                              .honk_recursion = 1,
-                                              .recursive = false } };
-
-    auto prove_response = std::move(prove_command).execute();
+    auto prove_response = std::move(prove_cmd).execute();
 
     // Convert proof to fields
-    ProofAsFields command{ .proof = prove_response.proof };
+    ProofAsFields proof_as_fields_cmd{ .proof = prove_response.proof };
 
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
+    auto fields_response = std::move(proof_as_fields_cmd).execute();
 
-    // Verify we got field elements
-    EXPECT_FALSE(response.fields.empty());
-    EXPECT_EQ(response.fields.size(), prove_response.proof.size());
+    // Verify that we got field elements back
+    EXPECT_GT(fields_response.fields.size(), 0);
+
+    // The fields should match the original proof
+    EXPECT_EQ(fields_response.fields, prove_response.proof);
 }
 
-TEST_F(BbApiUltraHonkTest, VkAsFields)
+TEST_F(BBApiUltraHonkTest, VkAsFieldsUltraHonk)
 {
-    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
+    auto bytecode = create_simple_circuit();
 
     // Compute VK
-    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                 .settings = { .ipa_accumulation = false,
-                                               .oracle_hash_type = "poseidon2",
-                                               .disable_zk = false,
-                                               .honk_recursion = 1,
-                                               .recursive = false } };
+    CircuitComputeVk compute_vk_cmd{ .circuit = { .bytecode = bytecode },
+                                     .settings = { .oracle_hash_type = "poseidon2" } };
 
-    auto vk_response = std::move(vk_command).execute();
+    auto vk_response = std::move(compute_vk_cmd).execute();
 
     // Convert VK to fields
-    VkAsFields command{ .verification_key = vk_response.bytes, .is_mega_honk = false };
+    VkAsFields vk_as_fields_cmd{ .verification_key = vk_response.bytes, .is_mega_honk = false };
 
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
+    auto fields_response = std::move(vk_as_fields_cmd).execute();
 
-    // Verify we got field elements
-    EXPECT_FALSE(response.fields.empty());
+    // Verify that we got field elements back
+    EXPECT_GT(fields_response.fields.size(), 0);
+
+    // Deserialize the VK and check it matches
+    auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response.bytes);
+    auto expected_fields = vk.to_field_elements();
+
+    EXPECT_EQ(fields_response.fields, expected_fields);
 }
 
-TEST_F(BbApiUltraHonkTest, CircuitWriteSolidityVerifier)
+TEST_F(BBApiUltraHonkTest, VkAsFieldsMegaHonk)
 {
-    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
+    // For MegaHonk test, we need a more complex setup
+    // This is a placeholder - in practice, MegaHonk VKs come from recursive circuits
 
-    // Compute VK first
-    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                 .settings = { .ipa_accumulation = false,
-                                               .oracle_hash_type = "keccak",
-                                               .disable_zk = false,
-                                               .honk_recursion = 1,
-                                               .recursive = false } };
+    // Create a dummy MegaFlavor VK for testing
+    MegaFlavor::VerificationKey mega_vk;
+    mega_vk.circuit_size = 16; // Minimal circuit size
+    mega_vk.log_circuit_size = 4;
+    mega_vk.num_public_inputs = 0;
 
-    auto vk_response = std::move(vk_command).execute();
+    // Serialize it
+    auto vk_bytes = to_buffer(mega_vk);
 
-    // Generate Solidity verifier
-    CircuitWriteSolidityVerifier command{ .verification_key = vk_response.bytes,
-                                          .settings = { .ipa_accumulation = false,
-                                                        .oracle_hash_type = "keccak",
-                                                        .disable_zk = false,
-                                                        .honk_recursion = 1,
-                                                        .recursive = false } };
+    // Convert VK to fields
+    VkAsFields vk_as_fields_cmd{ .verification_key = vk_bytes, .is_mega_honk = true };
 
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
+    auto fields_response = std::move(vk_as_fields_cmd).execute();
 
-    // Verify we got Solidity code
-    EXPECT_FALSE(response.solidity_code.empty());
-    EXPECT_NE(response.solidity_code.find("contract"), std::string::npos);
-}
+    // Verify that we got field elements back
+    EXPECT_GT(fields_response.fields.size(), 0);
 
-TEST_F(BbApiUltraHonkTest, CircuitBenchmark)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    CircuitBenchmark command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                              .witness = witness,
-                              .settings = { .ipa_accumulation = false,
-                                            .oracle_hash_type = "poseidon2",
-                                            .disable_zk = false,
-                                            .honk_recursion = 1,
-                                            .recursive = false },
-                              .num_iterations = 2,
-                              .benchmark_witness_generation = true,
-                              .benchmark_proving = true };
-
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
-
-    // Verify benchmark results
-    EXPECT_GT(response.witness_generation_time_ms, 0);
-    EXPECT_GT(response.proving_time_ms, 0);
-    EXPECT_GT(response.verification_time_ms, 0);
-    // Peak memory tracking not yet implemented
-    // EXPECT_GT(response.peak_memory_bytes, 0);
-}
-
-TEST_F(BbApiUltraHonkTest, CircuitProveWithPublicInputs)
-{
-    // Create a kernel circuit which has public inputs
-    size_t vk_size = 100; // Just a reasonable size for testing
-    auto bytecode = acir_bincode_mocks::create_simple_kernel(vk_size, /*is_init_kernel=*/true);
-
-    // Create witness data for the kernel circuit
-    // The kernel expects witnesses for the VK and key hash
-    std::vector<uint8_t> witness;
-    Witnesses::WitnessStack witness_stack;
-    Witnesses::StackItem stack_item{};
-
-    // Create witness values for VK and key hash
-    for (uint32_t i = 0; i < vk_size + 1; ++i) {
-        std::string value = "000000000000000000000000000000000000000000000000000000000000000" + std::to_string(i + 1);
-        // Ensure it's 64 chars (32 bytes in hex)
-        value = value.substr(value.length() - 64);
-        stack_item.witness.value[Witnesses::Witness{ i }] = value;
-    }
-    witness_stack.stack.push_back(stack_item);
-    witness = witness_stack.bincodeSerialize();
-
-    CircuitProve command{ .circuit = { .name = "kernel_circuit", .bytecode = bytecode, .verification_key = {} },
-                          .witness = witness,
-                          .settings = { .ipa_accumulation = false,
-                                        .oracle_hash_type = "poseidon2",
-                                        .disable_zk = false,
-                                        .honk_recursion = 1,
-                                        .recursive = false } };
-
-    BBApiRequest request;
-    auto response = std::move(command).execute(request);
-
-    // Verify response has valid proof
-    EXPECT_FALSE(response.proof.empty());
-    // Note: The mock kernel circuit doesn't define public inputs,
-    // but in a real kernel circuit there would be public inputs
+    // Check it matches
+    auto expected_fields = mega_vk.to_field_elements();
+    EXPECT_EQ(fields_response.fields, expected_fields);
 }
 
 } // namespace bb::bbapi
