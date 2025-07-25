@@ -34,7 +34,7 @@ unconstrained fn note_is_nullified_fails_on_blocks_before_note_nullification() {
 
 #[test]
 unconstrained fn prove_nullifier_inclusion_succeeds_on_blocks_after_nullifier_creation() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     let siloed_nullifier = env.private_context(|context| {
         let unsiloed_nullifier = 42069;
@@ -62,7 +62,7 @@ unconstrained fn prove_nullifier_inclusion_succeeds_on_blocks_after_nullifier_cr
 
 #[test(should_fail_with = "Nullifier membership witness not found")]
 unconstrained fn prove_nullifier_inclusion_fails_on_blocks_before_nullifier_creation() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let header = context.historical_header;

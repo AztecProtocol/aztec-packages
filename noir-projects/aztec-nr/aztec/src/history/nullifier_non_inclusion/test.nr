@@ -37,7 +37,7 @@ unconstrained fn note_not_nullified_fails_in_blocks_after_note_nullification_fai
 
 #[test]
 unconstrained fn nullifier_non_inclusion_succeeds_in_blocks_before_nullifier_creation() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let header = context.historical_header;
@@ -47,7 +47,7 @@ unconstrained fn nullifier_non_inclusion_succeeds_in_blocks_before_nullifier_cre
 
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn nullifier_non_inclusion_fails_in_blocks_after_nullifier_creation() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     let siloed_nullifier = env.private_context(|context| {
         let unsiloed_nullifier = 42069;

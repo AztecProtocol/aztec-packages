@@ -7,6 +7,8 @@ import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
+import { AsyncApi } from '../cbind/generated/async.js';
+import { BbApiBase } from '../cbind/generated/api_types.js';
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraHonkBackend, AztecClientBackend } from './backend.js';
@@ -39,6 +41,7 @@ export type CircuitOptions = {
  */
 export class Barretenberg extends BarretenbergApi {
   private options: BackendOptions;
+  private bbApi: BbApiBase;
 
   private constructor(
     private worker: any,
@@ -47,6 +50,7 @@ export class Barretenberg extends BarretenbergApi {
   ) {
     super(wasm);
     this.options = options;
+    this.bbApi = new AsyncApi(wasm);
   }
 
   /**
@@ -113,6 +117,39 @@ export class Barretenberg extends BarretenbergApi {
 
   getWasm() {
     return this.wasm;
+  }
+
+  getBbApi(): BbApiBase {
+    return this.bbApi;
+  }
+
+  // Wrap ClientIVC methods used by AztecClientBackend
+  async clientIvcStart(command: Parameters<BbApiBase['clientIvcStart']>[0]) {
+    return this.bbApi.clientIvcStart(command);
+  }
+
+  async clientIvcLoad(command: Parameters<BbApiBase['clientIvcLoad']>[0]) {
+    return this.bbApi.clientIvcLoad(command);
+  }
+
+  async clientIvcAccumulate(command: Parameters<BbApiBase['clientIvcAccumulate']>[0]) {
+    return this.bbApi.clientIvcAccumulate(command);
+  }
+
+  async clientIvcProve(command: Parameters<BbApiBase['clientIvcProve']>[0]) {
+    return this.bbApi.clientIvcProve(command);
+  }
+
+  async clientIvcVerify(command: Parameters<BbApiBase['clientIvcVerify']>[0]) {
+    return this.bbApi.clientIvcVerify(command);
+  }
+
+  async clientIvcComputeIvcVk(command: Parameters<BbApiBase['clientIvcComputeIvcVk']>[0]) {
+    return this.bbApi.clientIvcComputeIvcVk(command);
+  }
+
+  async clientIvcGates(command: Parameters<BbApiBase['clientIvcGates']>[0]) {
+    return this.bbApi.clientIvcGates(command);
   }
 }
 

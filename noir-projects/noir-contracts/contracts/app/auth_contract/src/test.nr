@@ -4,8 +4,8 @@ use aztec::{
     protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
 };
 
-unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
-    let mut env = TestEnvironment::new();
+unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+    let env = TestEnvironment::new();
 
     let admin = env.create_account(1);
     let to_authorize = env.create_account(2);
@@ -14,10 +14,10 @@ unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, A
     let initializer_call_interface = Auth::interface().constructor(admin);
 
     let auth_contract =
-        env.deploy_self("Auth").with_public_void_initializer(admin, initializer_call_interface);
+        env.deploy_self("Auth").with_public_initializer(admin, initializer_call_interface);
     let auth_contract_address = auth_contract.to_address();
 
-    (&mut env, auth_contract_address, admin, to_authorize, other)
+    (env, auth_contract_address, admin, to_authorize, other)
 }
 
 #[test]
