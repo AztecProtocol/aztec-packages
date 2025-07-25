@@ -1,8 +1,8 @@
 #pragma once
 
-#include "barretenberg/api/bbapi_client_ivc.hpp"
-#include "barretenberg/api/bbapi_shared.hpp"
-#include "barretenberg/api/bbapi_ultra_honk.hpp"
+#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <vector>
 
@@ -19,12 +19,14 @@ using Command = NamedUnion<CircuitProve,
                            ClientIvcLoad,
                            ClientIvcAccumulate,
                            ClientIvcProve,
+                           ClientIvcVerify,
                            ProofAsFields,
                            VkAsFields,
                            CircuitWriteSolidityVerifier,
                            CircuitProveAndVerify,
                            CircuitBenchmark,
-                           ClientIvcCheckPrecomputedVk>;
+                           ClientIvcCheckPrecomputedVk,
+                           ClientIvcGates>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -37,12 +39,14 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    ClientIvcLoad::Response,
                                    ClientIvcAccumulate::Response,
                                    ClientIvcProve::Response,
+                                   ClientIvcVerify::Response,
                                    ProofAsFields::Response,
                                    VkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    CircuitProveAndVerify::Response,
                                    CircuitBenchmark::Response,
-                                   ClientIvcCheckPrecomputedVk::Response>;
+                                   ClientIvcCheckPrecomputedVk::Response,
+                                   ClientIvcGates::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
@@ -59,15 +63,8 @@ inline CommandResponse execute(BBApiRequest& request, Command&& command)
     });
 }
 
-// Can only be called from the execution thread (the same as the main thread, except in threaded WASM).
-inline std::vector<CommandResponse> execute_request(BBApiRequest&& request, std::vector<Command>&& commands)
-{
-    std::vector<CommandResponse> responses;
-    responses.reserve(commands.size());
-    for (Command& command : commands) {
-        responses.push_back(execute(request, std::move(command)));
-    }
-    return responses;
-}
+// The msgpack scheme is an ad-hoc format that allows for cbind/compiler.ts to
+// generate TypeScript bindings for the API.
+std::string get_msgpack_schema_as_json();
 
 } // namespace bb::bbapi

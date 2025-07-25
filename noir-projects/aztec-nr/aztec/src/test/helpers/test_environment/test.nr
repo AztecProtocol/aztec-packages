@@ -198,32 +198,84 @@ unconstrained fn private_context_repeats_contract_address() {
     assert_eq(first_address, second_address);
 }
 
+// utility_context currently uses the _next_ block number, not the last one. This is because we actually have a single
+// oracle for the block number, which has a meaning that depends on the current context. Once all three contexts are
+// implemented as actual separate handlers we'll be able to make this test pass.
+// #[test]
+// unconstrained fn utility_context_uses_last_block_number() {
+//     let env = TestEnvironment::_new();
+
+//     let last_block_number = env.last_block_number();
+
+//     env.utility_context(|context| {
+//         assert_eq(last_block_number, context.block_number());
+//     });
+// }
+
 #[test]
-unconstrained fn private_and_public_context_share_contract_address() {
+unconstrained fn utility_context_does_not_advance_block_number() {
+    let env = TestEnvironment::_new();
+
+    let first_block_number = env.utility_context(|context| context.block_number());
+    let second_block_number = env.utility_context(|context| context.block_number());
+
+    assert_eq(second_block_number, first_block_number);
+}
+
+#[test]
+unconstrained fn utility_context_does_not_advance_the_timestamp() {
+    let env = TestEnvironment::_new();
+
+    env.utility_context(|_| {});
+    let first_timestamp = env.last_block_timestamp();
+    env.utility_context(|_| {});
+    let second_timestamp = env.last_block_timestamp();
+
+    assert_eq(second_timestamp, first_timestamp);
+}
+
+#[test]
+unconstrained fn utility_context_repeats_contract_address() {
+    let env = TestEnvironment::new();
+
+    let first_address = env.utility_context(|context| context.this_address());
+    let second_address = env.utility_context(|context| context.this_address());
+
+    assert_eq(first_address, second_address);
+}
+
+#[test]
+unconstrained fn private_public_and_utility_context_share_default_contract_address() {
     let env = TestEnvironment::new();
 
     let private_address = env.private_context(|context| context.this_address());
     let public_address = env.public_context(|context| context.this_address());
+    let utility_address = env.utility_context(|context| context.this_address());
 
     assert_eq(private_address, public_address);
+    assert_eq(private_address, utility_address);
 }
 
 #[test]
-unconstrained fn private_and_public_context_share_version() {
+unconstrained fn private_public_and_utility_context_share_default_version() {
     let env = TestEnvironment::new();
 
     let private_version = env.private_context(|context| context.version());
     let public_version = env.public_context(|context| context.version());
+    let utility_version = env.utility_context(|context| context.version());
 
     assert_eq(private_version, public_version);
+    assert_eq(private_version, utility_version);
 }
 
 #[test]
-unconstrained fn private_and_public_context_share_chain_id() {
+unconstrained fn private_public_and_utility_context_share_default_chain_id() {
     let env = TestEnvironment::new();
 
     let private_chain_id = env.private_context(|context| context.chain_id());
     let public_chain_id = env.public_context(|context| context.chain_id());
+    let utility_chain_id = env.utility_context(|context| context.chain_id());
 
     assert_eq(private_chain_id, public_chain_id);
+    assert_eq(private_chain_id, utility_chain_id);
 }
