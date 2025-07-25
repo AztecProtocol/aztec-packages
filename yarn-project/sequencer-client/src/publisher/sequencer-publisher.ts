@@ -344,7 +344,7 @@ export class SequencerPublisher {
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
-        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeader', args }),
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeaderWithAttestations', args }),
         from: MULTI_CALL_3_ADDRESS,
       },
       {

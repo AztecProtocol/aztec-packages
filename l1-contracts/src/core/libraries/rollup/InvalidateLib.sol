@@ -58,10 +58,6 @@ library InvalidateLib {
       revert Errors.Rollup__AttestationsAreValid();
     }
 
-    // Reset the pending block number to remove this block and all subsequent blocks
-    RollupStore storage rollupStore = STFLib.getStorage();
-    rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(_blockNumber - 1);
-
     _invalidateBlock(_blockNumber);
   }
 

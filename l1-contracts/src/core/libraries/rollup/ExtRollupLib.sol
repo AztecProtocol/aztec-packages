@@ -29,7 +29,7 @@ library ExtRollupLib {
     EpochProofLib.submitEpochRootProof(_args);
   }
 
-  function validateHeader(
+  function validateHeaderWithAttestations(
     ValidateHeaderArgs calldata _args,
     CommitteeAttestations calldata _attestations,
     address[] calldata _signers
@@ -41,7 +41,7 @@ library ExtRollupLib {
 
     Slot slot = _args.header.slotNumber;
     Epoch epoch = slot.epochFromSlot();
-    ValidatorSelectionLib.verify(slot, epoch, _attestations, _args.digest);
+    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, _args.digest);
     ValidatorSelectionLib.verifyProposer(slot, epoch, _attestations, _signers, _args.digest);
   }
 

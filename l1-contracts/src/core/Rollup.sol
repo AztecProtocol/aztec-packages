@@ -102,7 +102,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _blobsHash - The blobs hash for this block
    * @param _flags - The flags to validate
    */
-  function validateHeader(
+  function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
@@ -111,7 +111,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     BlockHeaderValidationFlags memory _flags
   ) external override(IRollup) {
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    ExtRollupLib.validateHeader(
+    ExtRollupLib.validateHeaderWithAttestations(
       ValidateHeaderArgs({
         header: _header,
         digest: _digest,

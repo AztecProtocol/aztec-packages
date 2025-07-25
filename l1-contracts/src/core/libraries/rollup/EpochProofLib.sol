@@ -8,7 +8,7 @@ import {
   IRollupCore,
   RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
-import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -18,6 +18,7 @@ import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {CommitteeAttestations, SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -30,6 +31,7 @@ library EpochProofLib {
   using SafeCast for uint256;
   using ChainTipsLib for CompressedChainTips;
   using SignatureLib for CommitteeAttestations;
+  using CompressedTimeMath for CompressedSlot;
 
   // This is a temporary struct to avoid stack too deep errors
   struct BlobVarsTemp {
@@ -224,7 +226,7 @@ library EpochProofLib {
     CommitteeAttestations memory _attestations
   ) private {
     // Get the stored attestation hash and payload digest for the last block
-    TempBlockLog memory blockLog = STFLib.getTempBlockLog(_endBlockNumber);
+    CompressedTempBlockLog storage blockLog = STFLib.getStorageTempBlockLog(_endBlockNumber);
 
     // Verify that the provided attestations match the stored hash
     bytes32 providedAttestationsHash = keccak256(abi.encode(_attestations));
@@ -233,10 +235,10 @@ library EpochProofLib {
     );
 
     // Get the slot and epoch for the last block
-    Slot slot = blockLog.slotNumber;
+    Slot slot = blockLog.slotNumber.decompress();
     Epoch epoch = STFLib.getEpochForBlock(_endBlockNumber);
 
-    ValidatorSelectionLib.verify(slot, epoch, _attestations, blockLog.payloadDigest);
+    ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, blockLog.payloadDigest);
   }
 
   function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {

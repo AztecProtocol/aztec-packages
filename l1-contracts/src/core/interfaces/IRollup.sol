@@ -146,7 +146,7 @@ interface IRollupCore {
 }
 
 interface IRollup is IRollupCore, IHaveVersion {
-  function validateHeader(
+  function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
