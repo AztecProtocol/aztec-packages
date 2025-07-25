@@ -183,15 +183,11 @@ template <typename Builder, typename Native> uint256_t uint<Builder, Native>::ge
     if (!context || is_constant()) {
         return additive_constant;
     }
-    return (uint256_t(context->get_variable(witness_index))) & MASK;
-}
 
-template <typename Builder, typename Native> uint256_t uint<Builder, Native>::get_unbounded_value() const
-{
-    if (!context || is_constant()) {
-        return additive_constant;
-    }
-    return (uint256_t(context->get_variable(witness_index)));
+    const uint256_t witness_value = context->get_variable(witness_index);
+    ASSERT(witness_value.get_msb() < width, "uint::get_value(): witness value exceeds type width");
+
+    return witness_value & MASK;
 }
 
 template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::at(const size_t bit_index) const
