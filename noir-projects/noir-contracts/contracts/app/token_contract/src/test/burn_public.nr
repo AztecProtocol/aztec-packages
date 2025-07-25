@@ -9,7 +9,10 @@ unconstrained fn burn_public_success() {
     let burn_amount = mint_amount / (10 as u128);
 
     // Burn less than balance
-    env.call_public(owner, Token::at(token_contract_address).burn_public(owner, burn_amount, 0));
+    let _ = env.call_public(
+        owner,
+        Token::at(token_contract_address).burn_public(owner, burn_amount, 0),
+    );
     utils::check_public_balance(
         env,
         token_contract_address,

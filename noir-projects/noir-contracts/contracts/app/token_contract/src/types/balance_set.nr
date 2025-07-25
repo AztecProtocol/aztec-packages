@@ -195,7 +195,7 @@ mod test {
 
             let note =
                 recipient_balance_set.sub(recipient, smaller_note_value).emission.unwrap().note;
-            assert_eq(note.value, larger_note_value - smaller_note_value);
+            assert_eq(note.get_value(), larger_note_value - smaller_note_value);
         });
     }
 }

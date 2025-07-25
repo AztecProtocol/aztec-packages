@@ -8,8 +8,8 @@ use aztec::{
 #[note]
 pub struct SubscriptionNote {
     owner: AztecAddress,
-    expiry_block_number: u32,
-    remaining_txs: u32,
+    pub expiry_block_number: u32,
+    pub remaining_txs: u32,
     // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }

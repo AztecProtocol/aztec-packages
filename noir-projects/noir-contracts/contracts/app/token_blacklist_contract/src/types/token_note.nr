@@ -4,7 +4,7 @@ use aztec::{
     protocol_types::{address::AztecAddress, traits::Packable},
 };
 
-trait OwnedNote {
+pub trait OwnedNote {
     fn new(amount: u128, owner: AztecAddress) -> Self;
     fn get_amount(self) -> u128;
 }

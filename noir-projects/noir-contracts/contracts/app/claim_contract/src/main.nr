@@ -41,7 +41,7 @@ pub contract Claim {
             "Note does not correspond to the target contract",
         );
         assert_eq(
-            proof_retrieved_note.note.owner,
+            proof_retrieved_note.note.get_owner(),
             context.msg_sender(),
             "Note does not belong to the sender",
         );
@@ -67,7 +67,7 @@ pub contract Claim {
 
         // 4) Finally we mint the reward token to the sender of the transaction
         Token::at(storage.reward_token.read())
-            .mint_to_public(recipient, proof_retrieved_note.note.value)
+            .mint_to_public(recipient, proof_retrieved_note.note.get_value())
             .enqueue(&mut context);
     }
 }

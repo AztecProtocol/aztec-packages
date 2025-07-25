@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Deserialize, FromField, Packable, Serialize, ToField};
+use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize, ToField};
 use std::meta::derive;
 
 global ADMIN_FLAG: u64 = 1;
@@ -7,9 +7,9 @@ global BLACKLIST_FLAG: u64 = 4;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct UserFlags {
-    is_admin: bool,
-    is_minter: bool,
-    is_blacklisted: bool,
+    pub is_admin: bool,
+    pub is_minter: bool,
+    pub is_blacklisted: bool,
 }
 
 impl Packable for UserFlags {

@@ -55,7 +55,7 @@ pub contract Uniswap {
         secret_hash_for_L1_to_l2_message: Field,
         caller_on_L1: EthAddress,
         // nonce for someone to call swap on sender's behalf
-        nonce_for_swap_approval: Field,
+        _nonce_for_swap_approval: Field,
     ) {
         if (!sender.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, sender);

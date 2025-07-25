@@ -47,7 +47,7 @@ impl DAppPayload {
 
     // Executes all private and public calls
     // docs:start:entrypoint-execute-calls
-    fn execute_calls(self, context: &mut PrivateContext, target_address: AztecAddress) {
+    pub fn execute_calls(self, context: &mut PrivateContext, target_address: AztecAddress) {
         for i in 0..DAPP_MAX_CALLS {
             let call = self.function_calls[i];
             // whitelist the calls that the user can do only go to the expected Dapp contract

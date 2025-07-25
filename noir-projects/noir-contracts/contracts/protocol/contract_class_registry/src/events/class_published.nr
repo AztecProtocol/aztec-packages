@@ -5,15 +5,15 @@ use dep::aztec::protocol_types::{
 use dep::aztec::protocol_types::traits::ToField;
 
 pub struct ContractClassPublished {
-    contract_class_id: ContractClassId,
-    version: Field,
-    artifact_hash: Field,
-    private_functions_root: Field,
-    packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS],
+    pub contract_class_id: ContractClassId,
+    pub version: Field,
+    pub artifact_hash: Field,
+    pub private_functions_root: Field,
+    pub packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS],
 }
 
 impl ContractClassPublished {
-    fn serialize_non_standard(
+    pub fn serialize_non_standard(
         self: Self,
     ) -> [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5] {
         let mut packed = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5];

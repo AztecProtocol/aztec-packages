@@ -98,8 +98,8 @@ pub contract DocsExample {
 
     // docs:start:initialize-private-mutable
     #[private]
-    fn initialize_private_immutable(randomness: Field, points: u8) {
-        let new_card = CardNote::new(points, randomness, context.msg_sender());
+    fn initialize_private_immutable(points: u8) {
+        let new_card = CardNote::new(points, context.msg_sender());
 
         storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
             &mut context,
@@ -123,8 +123,8 @@ pub contract DocsExample {
         // docs:start:state_vars-PrivateMutableGet
         let card = storage.legendary_card.get_note().note;
         // docs:end:state_vars-PrivateMutableGet
-        let points = card.points + 1;
-        let new_card = CardNote::new(points, card.randomness, context.msg_sender());
+        let points = card.get_points() + 1;
+        let new_card = CardNote::new(points, context.msg_sender());
 
         // docs:start:state_vars-PrivateMutableReplace
         storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
@@ -163,7 +163,7 @@ pub contract DocsExample {
     // contract library method to avoid compilation error.
     #[contract_library_method]
     // docs:start:simple_macro_example_expanded
-    fn simple_macro_example_expanded(
+    pub fn simple_macro_example_expanded(
         // ************************************************************
         // The private context inputs are made available to the circuit by the kernel
         // docs:start:context-example-inputs

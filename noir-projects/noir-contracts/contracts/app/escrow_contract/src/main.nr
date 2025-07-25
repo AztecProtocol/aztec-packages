@@ -35,7 +35,7 @@ pub contract Escrow {
         let sender = context.msg_sender();
 
         let note = storage.owner.get_note();
-        assert(note.address == sender);
+        assert(note.get_address() == sender);
         // docs:start:call_function
         Token::at(token).transfer(recipient, amount).call(&mut context);
         // docs:end:call_function

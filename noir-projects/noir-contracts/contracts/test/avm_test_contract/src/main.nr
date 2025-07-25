@@ -32,6 +32,7 @@ pub contract AvmTest {
     };
     use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::state_vars::storage::HasStorageSlot;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
@@ -85,7 +86,7 @@ pub contract AvmTest {
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
-        derive_storage_slot_in_map(storage.map.storage_slot, to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[public]
@@ -93,7 +94,7 @@ pub contract AvmTest {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
         // returns storage slot for key
-        derive_storage_slot_in_map(storage.map.storage_slot, to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[public]
@@ -252,7 +253,7 @@ pub contract AvmTest {
 
     #[public]
     fn external_call_to_divide_by_zero() {
-        AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+        let _ = AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
     }
 
     #[public]
@@ -307,7 +308,7 @@ pub contract AvmTest {
 
     #[public]
     fn returndata_copy_oracle() {
-        AvmTest::at(context.this_address()).return_oracle().call(&mut context);
+        let _ = AvmTest::at(context.this_address()).return_oracle().call(&mut context);
         let returndatasize = dep::aztec::context::public_context::returndata_size();
         let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
         assert(returndata == &[1, 2, 3], "Returndata copy failed");
@@ -617,7 +618,7 @@ pub contract AvmTest {
 
     // function with large array as calldata (for benchmarking call interface macros)
     #[public]
-    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+    fn fn_w_large_calldata(_arr: [Field; 300]) -> pub Field {
         // do nothing and return...
         5
     }
@@ -668,7 +669,7 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
         let _ = sha256::sha256_var(args_u8, args_u8.len() as u64);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
-        let _ = std::hash::poseidon2::Poseidon2::hash(args_field, args_field.len());
+        let _ = poseidon::poseidon2::Poseidon2::hash(args_field, args_field.len());
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
         let _ = std::hash::pedersen_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
