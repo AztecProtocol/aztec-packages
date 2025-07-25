@@ -1413,6 +1413,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
     auto& block = blocks.memory;
     block.q_memory().emplace_back(type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1);
     // Set to zero the selectors that are not enabled for this gate
+    block.q_arith().emplace_back(0);
     block.q_delta_range().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
@@ -1431,7 +1432,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1446,11 +1446,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         // 'read', validate adjacent values do not change Used for ROM reads and RAM reads across read/write boundaries
         block.q_1().emplace_back(0);
         block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
+        block.q_3().emplace_back(1);
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(1);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1466,7 +1465,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(1);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1483,7 +1481,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1500,7 +1497,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1517,7 +1513,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(1); // read/write flag stored in q_c
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1531,7 +1526,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1570,6 +1564,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
     auto& block = blocks.nnf;
     block.q_nnf().emplace_back(type == NNF_SELECTORS::NNF_NONE ? 0 : 1);
     // Set to zero the selectors that are not enabled for this gate
+    block.q_arith().emplace_back(0);
     block.q_delta_range().emplace_back(0);
     block.q_lookup_type().emplace_back(0);
     block.q_elliptic().emplace_back(0);
@@ -1584,7 +1579,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(1);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1598,7 +1592,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1612,7 +1605,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1626,7 +1618,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(1);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1640,7 +1631,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
@@ -1654,7 +1644,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_4().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
-        block.q_arith().emplace_back(0);
         if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
             block.pad_additional();
         }
