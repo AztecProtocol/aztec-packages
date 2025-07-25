@@ -137,7 +137,7 @@ class AvmGoblinRecursiveVerifier {
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
-        TableCommitments t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_data();
+        TableCommitments t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_copy();
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
         GoblinRecursiveVerifierOutput goblin_verifier_output =
             goblin_verifier.verify(inner_output.goblin_proof, t_commitments);

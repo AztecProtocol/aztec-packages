@@ -152,7 +152,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_data();
+    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
 
     // Recursively verify the corresponding merge proof
     auto [pairing_points, merged_table_commitments] =
@@ -398,7 +398,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_data();
+    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
     // Perform recursive verification of the last merge proof
     auto [points_accumulator, merged_table_commitments] =
         goblin.recursively_verify_merge(circuit, t_commitments, pg_merge_transcript);
@@ -492,7 +492,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
     MergeVerifier::TableCommitments t_commitments =
-        verifier.verification_key->witness_commitments.get_ecc_op_wires().get_data();
+        verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
     auto [goblin_verified, _merged_table_commitments] =
