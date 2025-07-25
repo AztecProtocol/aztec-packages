@@ -31,7 +31,7 @@ where
 }
 
 pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,
