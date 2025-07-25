@@ -63,6 +63,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override;
 
     // Constrained.
     FF storage_read(const AztecAddress& contract_address, const FF& slot) const override;

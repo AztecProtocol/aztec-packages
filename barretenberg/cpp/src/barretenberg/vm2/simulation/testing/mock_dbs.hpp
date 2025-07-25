@@ -57,6 +57,7 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));
+    MOCK_METHOD(uint32_t, get_checkpoint_id, (), (const, override));
 };
 
 class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
@@ -85,6 +86,7 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));
+    MOCK_METHOD(uint32_t, get_checkpoint_id, (), (const, override));
 
     MOCK_METHOD(LowLevelMerkleDBInterface&, as_unconstrained, (), (const, override));
 };
