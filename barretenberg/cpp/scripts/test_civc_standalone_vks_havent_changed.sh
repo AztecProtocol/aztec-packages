@@ -53,7 +53,7 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
 fi
 
 export inputs_tmp_dir=$(mktemp -d)
-trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
+trap 'rm -rf "$inputs_tmp_dir" bb-civc-inputs.tar.gz' EXIT SIGINT
 
 curl -s -f "$pinned_civc_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/null
 
