@@ -523,7 +523,7 @@ export class ReqResp implements ReqRespInterface {
       this.metrics.recordRequestReceived(protocol);
       const rateLimitStatus = this.rateLimiter.allow(protocol, connection.remotePeer);
       if (rateLimitStatus !== RateLimitStatus.Allowed) {
-        this.logger.warn(
+        this.logger.verbose(
           `Rate limit exceeded ${prettyPrintRateLimitStatus(rateLimitStatus)} for ${protocol} from ${
             connection.remotePeer
           }`,
@@ -540,10 +540,11 @@ export class ReqResp implements ReqRespInterface {
       if (err instanceof ReqRespStatusError) {
         const errorSent = await this.trySendError(stream, connection.remotePeer, protocol, err.status);
         const logMessage = errorSent
-          ? 'Protocol error sent successfully'
-          : 'Stream already closed or poisoned, not sending error response';
+          ? 'Protocol error sent successfully.'
+          : 'Stream already closed or poisoned, not sending error response.';
 
-        this.logger.warn(logMessage, {
+        const level = err.status === ReqRespStatus.RATE_LIMIT_EXCEEDED ? 'debug' : 'warn';
+        this.logger[level](logMessage + ` Status: ${ReqRespStatus[err.status]}`, {
           protocol,
           err,
           errorStatus: err.status,
