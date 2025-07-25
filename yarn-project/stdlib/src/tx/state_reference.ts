@@ -1,7 +1,6 @@
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   STATE_REFERENCE_LENGTH,
 } from '@aztec/constants';
@@ -120,11 +119,6 @@ export class StateReference {
     if (this.partial.nullifierTree.nextAvailableLeafIndex % MAX_NULLIFIERS_PER_TX !== 0) {
       throw new Error(
         `Invalid nullifier tree next available leaf index ${this.partial.nullifierTree.nextAvailableLeafIndex} (must be a multiple of ${MAX_NULLIFIERS_PER_TX})`,
-      );
-    }
-    if (this.partial.publicDataTree.nextAvailableLeafIndex % MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX !== 0) {
-      throw new Error(
-        `Invalid public data tree next available leaf index ${this.partial.publicDataTree.nextAvailableLeafIndex} (must be a multiple of ${MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX})`,
       );
     }
   }
