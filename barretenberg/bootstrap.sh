@@ -10,6 +10,7 @@ function bootstrap_all {
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
   ./acir_tests/bootstrap.sh $@
+  ./docs/bootstrap.sh $@
   ./sol/bootstrap.sh $@
 }
 
@@ -28,6 +29,9 @@ case "$cmd" in
   ""|clean|ci|fast|test|test_cmds|bench|bench_cmds|release)
     bootstrap_all $@
     ;;
+  "release-preview")
+    ./docs/bootstrap.sh release-preview
+    ;;
   bootstrap_e2e_hack)
     echo "WARNING: This assumes your PR only changes barretenberg and the rest of the repository is unchanged from master."
     echo "WARNING: This is only sound if you have not changed VK generation! (or noir-projects VKs will be incorrect)."
@@ -41,8 +45,10 @@ case "$cmd" in
       fi
     done
     ;;
+
   *)
     echo "Unknown command: $cmd"
     exit 1
   ;;
 esac
+
