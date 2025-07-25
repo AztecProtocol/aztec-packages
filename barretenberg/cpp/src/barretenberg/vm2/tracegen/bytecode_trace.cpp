@@ -51,7 +51,7 @@ void BytecodeTraceBuilder::process_decomposition(
                 row + i,
                 { {
                     { C::bc_decomposition_sel, 1 },
-                    { C::bc_decomposition_id, id },
+                    { C::bc_decomposition_bytecode_id, id },
                     { C::bc_decomposition_pc, i },
                     { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
                     { C::bc_decomposition_bytes_remaining, remaining },

@@ -28,7 +28,7 @@ struct lookup_bc_hashing_get_packed_field_settings_ {
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_bytecode_id,
         ColumnAndShifts::bc_decomposition_packed_field
     };
 };
@@ -55,7 +55,7 @@ struct lookup_bc_hashing_iv_is_len_settings_ {
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_bytecode_id,
         ColumnAndShifts::bc_decomposition_bytes_remaining
     };
 };

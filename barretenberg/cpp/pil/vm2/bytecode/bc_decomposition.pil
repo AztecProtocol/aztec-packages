@@ -19,8 +19,9 @@ sel = 0;
 // This includes the "current byte" and the WINDOW_SIZE - 1 lookahead bytes.
 pol WINDOW_SIZE = 37;
 
-// Internal bytecode identifier which is defined in bc_retrieval.pil
-pol commit id;
+// Bytecode identifier which is the bytecode commitment (for optimal deduplication)
+// This should be the same as bytecode_id from bc_retrieval.pil
+pol commit bytecode_id;
 // pc counts from 0 to bytecode_length - 1.
 pol commit pc;
 // bytes_remaining counts from bytecode_length to 1.
@@ -76,7 +77,7 @@ sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 // for a given instruction (pair [pc, bytecode_id]). Otherwise, instruction fetching might
 // be misled to copy the wrong instruction from this subtrace.
 #[BC_DEC_ID_CONSTANT]
-(1 - FIRST_OR_LAST_CONTRACT) * (id' - id) = 0;
+(1 - FIRST_OR_LAST_CONTRACT) * (bytecode_id' - bytecode_id) = 0;
 
 // This constrains that the bytes are in the range 0 to 255.
 #[BYTES_ARE_BYTES]
@@ -216,7 +217,7 @@ bytes_pc_plus_36 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_35';
 // This is ensured by #[SEL_TOGGLED_AT_PACKED] and #[BC_DEC_PC_INCREMENT] relations but
 // still have to implement the unicity on bytecode_id. The current plan is to
 // add a permutation between this sub-trace and bc_retrieval.pil of the form:
-// last_of_contract {id} is bc_retrieval.sel_XXX {bc_retrieval.bytecode_id}
+// last_of_contract {bytecode_id} is bc_retrieval.sel_XXX {bc_retrieval.bytecode_id}
 
 pol commit sel_packed;
 sel_packed * (1 - sel_packed) = 0;

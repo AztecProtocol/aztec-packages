@@ -97,7 +97,7 @@ struct lookup_instr_fetching_bytecode_size_from_bc_dec_settings_ {
         ColumnAndShifts::instr_fetching_bytecode_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_bytecode_id,
         ColumnAndShifts::bc_decomposition_pc,
         ColumnAndShifts::bc_decomposition_bytes_remaining
     };
@@ -142,46 +142,26 @@ struct lookup_instr_fetching_bytes_from_bc_dec_settings_ {
         ColumnAndShifts::instr_fetching_bd35,          ColumnAndShifts::instr_fetching_bd36
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_id,
-        ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_bytes_to_read,
-        ColumnAndShifts::bc_decomposition_bytes,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_1,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_2,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_3,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_4,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_5,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_6,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_7,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_8,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_9,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_10,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_11,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_12,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_13,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_14,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_15,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_16,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_17,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_18,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_19,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_20,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_21,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_22,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_23,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_24,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_25,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_26,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_27,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_28,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_29,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_30,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_31,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_32,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_33,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_34,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_35,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_36
+        ColumnAndShifts::bc_decomposition_bytecode_id,      ColumnAndShifts::bc_decomposition_pc,
+        ColumnAndShifts::bc_decomposition_bytes_to_read,    ColumnAndShifts::bc_decomposition_bytes,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_1,  ColumnAndShifts::bc_decomposition_bytes_pc_plus_2,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_3,  ColumnAndShifts::bc_decomposition_bytes_pc_plus_4,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_5,  ColumnAndShifts::bc_decomposition_bytes_pc_plus_6,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_7,  ColumnAndShifts::bc_decomposition_bytes_pc_plus_8,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_9,  ColumnAndShifts::bc_decomposition_bytes_pc_plus_10,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_11, ColumnAndShifts::bc_decomposition_bytes_pc_plus_12,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_13, ColumnAndShifts::bc_decomposition_bytes_pc_plus_14,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_15, ColumnAndShifts::bc_decomposition_bytes_pc_plus_16,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_17, ColumnAndShifts::bc_decomposition_bytes_pc_plus_18,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_19, ColumnAndShifts::bc_decomposition_bytes_pc_plus_20,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_21, ColumnAndShifts::bc_decomposition_bytes_pc_plus_22,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_23, ColumnAndShifts::bc_decomposition_bytes_pc_plus_24,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_25, ColumnAndShifts::bc_decomposition_bytes_pc_plus_26,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_27, ColumnAndShifts::bc_decomposition_bytes_pc_plus_28,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_29, ColumnAndShifts::bc_decomposition_bytes_pc_plus_30,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_31, ColumnAndShifts::bc_decomposition_bytes_pc_plus_32,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_33, ColumnAndShifts::bc_decomposition_bytes_pc_plus_34,
+        ColumnAndShifts::bc_decomposition_bytes_pc_plus_35, ColumnAndShifts::bc_decomposition_bytes_pc_plus_36
     };
 };
 
