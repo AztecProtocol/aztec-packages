@@ -20,6 +20,7 @@ std::vector<uint32_t> uint<Builder, Native>::constrain_accumulators(Builder* con
 template <typename Builder, typename Native>
 uint<Builder, Native>::uint(const witness_t<Builder>& witness)
     : context(witness.context)
+    , witness_status(WitnessStatus::OK)
 {
     if (witness.witness_index == IS_CONSTANT) {
         additive_constant = witness.witness;
@@ -34,6 +35,7 @@ template <typename Builder, typename Native>
 uint<Builder, Native>::uint(const field_t<Builder>& value)
     : context(value.context)
     , additive_constant(0)
+    , witness_status(WitnessStatus::OK)
 {
     if (value.witness_index == IS_CONSTANT) {
         additive_constant = value.additive_constant;
@@ -49,6 +51,7 @@ template <typename Builder, typename Native>
 uint<Builder, Native>::uint(Builder* builder, const uint256_t& value)
     : context(builder)
     , additive_constant(value)
+    , witness_status(WitnessStatus::OK)
     , accumulators()
     , witness_index(IS_CONSTANT)
 {}
@@ -57,6 +60,7 @@ template <typename Builder, typename Native>
 uint<Builder, Native>::uint(const uint256_t& value)
     : context(nullptr)
     , additive_constant(value)
+    , witness_status(WitnessStatus::OK)
     , accumulators()
     , witness_index(IS_CONSTANT)
 {}
@@ -65,6 +69,7 @@ template <typename Builder, typename Native>
 uint<Builder, Native>::uint(const byte_array<Builder>& other)
     : context(other.get_context())
     , additive_constant(0)
+    , witness_status(WitnessStatus::WEAK_NORMALIZED)
     , accumulators()
     , witness_index(IS_CONSTANT)
 {
@@ -83,9 +88,6 @@ uint<Builder, Native>::uint(const byte_array<Builder>& other)
     } else {
         witness_index = accumulator.witness_index;
     }
-
-    // We need to constrain the accumulators, so we normalize here.
-    normalize();
 }
 
 template <typename Builder, typename Native>
@@ -97,6 +99,7 @@ template <typename Builder, typename Native>
 uint<Builder, Native>::uint(Builder* parent_context, const std::vector<bool_t<Builder>>& wires)
     : context(parent_context)
     , additive_constant(0)
+    , witness_status(WitnessStatus::WEAK_NORMALIZED)
     , accumulators()
     , witness_index(IS_CONSTANT)
 {
@@ -114,15 +117,13 @@ uint<Builder, Native>::uint(Builder* parent_context, const std::vector<bool_t<Bu
     } else {
         witness_index = accumulator.witness_index;
     }
-
-    // We need to constrain the accumulators, so we normalize here.
-    normalize();
 }
 
 template <typename Builder, typename Native>
 uint<Builder, Native>::uint(const uint& other)
     : context(other.context)
     , additive_constant(other.additive_constant)
+    , witness_status(other.witness_status)
     , accumulators(other.accumulators)
     , witness_index(other.witness_index)
 {}
@@ -131,6 +132,7 @@ template <typename Builder, typename Native>
 uint<Builder, Native>::uint(uint&& other)
     : context(other.context)
     , additive_constant(other.additive_constant)
+    , witness_status(other.witness_status)
     , accumulators(other.accumulators)
     , witness_index(other.witness_index)
 {}
@@ -139,6 +141,7 @@ template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder
 {
     context = other.context;
     additive_constant = other.additive_constant;
+    witness_status = other.witness_status;
     accumulators = other.accumulators;
     witness_index = other.witness_index;
     return *this;
@@ -148,6 +151,7 @@ template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder
 {
     context = other.context;
     additive_constant = other.additive_constant;
+    witness_status = other.witness_status;
     accumulators = other.accumulators;
     witness_index = other.witness_index;
     return *this;
@@ -173,8 +177,10 @@ template <typename Builder, typename Native> uint<Builder, Native> uint<Builder,
         return *this;
     }
 
-    // Constrain the accumulators
-    accumulators = constrain_accumulators(context, witness_index);
+    if (witness_status == WitnessStatus::WEAK_NORMALIZED) {
+        accumulators = constrain_accumulators(context, witness_index);
+        witness_status = WitnessStatus::OK;
+    }
     return *this;
 }
 
@@ -183,17 +189,24 @@ template <typename Builder, typename Native> uint256_t uint<Builder, Native>::ge
     if (!context || is_constant()) {
         return additive_constant;
     }
+    return (uint256_t(context->get_variable(witness_index))) & MASK;
+}
 
-    const uint256_t witness_value = context->get_variable(witness_index);
-    ASSERT(witness_value.get_msb() < width, "uint::get_value(): witness value exceeds type width");
-
-    return witness_value & MASK;
+template <typename Builder, typename Native> uint256_t uint<Builder, Native>::get_unbounded_value() const
+{
+    if (!context || is_constant()) {
+        return additive_constant;
+    }
+    return (uint256_t(context->get_variable(witness_index)));
 }
 
 template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::at(const size_t bit_index) const
 {
     if (is_constant()) {
         return bool_t<Builder>(context, get_value().get_bit(bit_index));
+    }
+    if (witness_status != WitnessStatus::OK) {
+        normalize();
     }
 
     const uint64_t slice_bit_position = bit_index % bits_per_limb;
