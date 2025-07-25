@@ -21,6 +21,18 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+MemoryValue Alu::sub(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a - b; // This will throw if the tags do not match.
+        events.emit({ .operation = AluOperation::SUB, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::SUB, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SUB, " + std::string(e.what()));
+    }
+}
+
 MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
 {
     try {
