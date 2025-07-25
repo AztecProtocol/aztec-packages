@@ -116,6 +116,20 @@ TEST_F(ExecutionSimulationTest, Add)
     execution.add(context, 4, 5, 6);
 }
 
+TEST_F(ExecutionSimulationTest, Sub)
+{
+    MemoryValue a = MemoryValue::from<uint64_t>(5);
+    MemoryValue b = MemoryValue::from<uint64_t>(3);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, sub(a, b)).WillOnce(Return(MemoryValue::from<uint64_t>(2)));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<uint64_t>(2)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.sub(context, 1, 2, 3);
+}
+
 TEST_F(ExecutionSimulationTest, Mul)
 {
     uint128_t max = static_cast<uint128_t>(get_tag_max_value(ValueTag::U128));
