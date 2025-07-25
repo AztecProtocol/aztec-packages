@@ -690,7 +690,12 @@ export class ReqResp implements ReqRespInterface {
       );
     } catch (e: any) {
       let level: 'warn' | 'debug' = 'warn';
-      if (e && e instanceof ReqRespStatusError && e.status === ReqRespStatus.RATE_LIMIT_EXCEEDED) {
+      if (
+        e &&
+        ((e instanceof ReqRespStatusError && e.status === ReqRespStatus.RATE_LIMIT_EXCEEDED) ||
+          (e instanceof Error &&
+            ['stream reset', 'Cannot push value onto an ended pushable'].some(msg => e.message.includes(msg))))
+      ) {
         level = 'debug';
       }
       this.logger[level](`Reqresp response error: ${String(e)}`, e);
