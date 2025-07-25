@@ -22,6 +22,12 @@ template <typename T, typename... Args> std::string check_memory_span(T* obj, Ar
     // Convert the variadic template arguments to a vector of pairs.
     // Each pair contains a pointer (as uintptr_t) and its size.
     std::vector<std::pair<uintptr_t, size_t>> pointers{ { (uintptr_t)(args), sizeof(Args) }... };
+
+    // Handle empty structs - if there are no fields, just return success
+    if (pointers.empty()) {
+        return {};
+    }
+
     // Sort the vector based on the pointer values.
     std::sort(pointers.begin(), pointers.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 
