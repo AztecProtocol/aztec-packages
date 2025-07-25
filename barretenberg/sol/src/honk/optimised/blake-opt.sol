@@ -1567,7 +1567,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Generate Shplonk Z
                 // Hash of the single shplonk Q commitment
                 mcopy(0x20, SHPLONK_Q_X0_LOC, 0x80)
-                log0(0x20, 0x80)
                 prev_challenge := mod(keccak256(0x00, 0xa0), p)
 
                 let shplonkZ := and(prev_challenge, LOWER_128_MASK)
@@ -2907,12 +2906,10 @@ contract BlakeOptHonkVerifier is IVerifier {
             let cache := mload(GEMINI_R_CHALLENGE)
             let off := POWERS_OF_EVALUATION_CHALLENGE_0_LOC
             mstore(off, cache)
-            log1(off, 0x20, 100)
             for {let i := 1} lt(i, CONST_PROOF_SIZE_LOG_N) {i := add(i, 1)} {
                 off := add(off, 0x20)
                 cache := mulmod(cache, cache, p)
                 mstore(off, cache)
-                log1(off, 0x20, i)
             }
 
             // Compute Inverted Gemini Denominators
@@ -3343,14 +3340,14 @@ contract BlakeOptHonkVerifier is IVerifier {
                 y := or(shl(136, y_high), y_low)
             }
 
-            function validateProofPointOnCurve(success_flag, proof_point_memory_location, p_clone, q_clone) -> success_return {
+            function validateProofPointOnCurve(proof_point_memory_location, q_clone) -> success_return {
                 let x, y := writeProofPointOntoStack(proof_point_memory_location)
 
-                let xx := mulmod(x, x, p_clone)
-                let yy := mulmod(y, y, p_clone)
-                let xy := mulmod(x, y, p_clone)
+                let xx := mulmod(x, x, q_clone)
+                let xxx := mulmod(xx, x, q_clone)
+                let yy := mulmod(y, y, q_clone)
 
-                success_return := and(success_flag, iszero(eq(mulmod(y, y, q_clone), addmod(mulmod(x, xx, q_clone), 3, q_clone))))
+                success_return := eq(yy, addmod(xxx, 3, q_clone))
             }
 
             // Validate the proof points are on the curve
@@ -3358,47 +3355,47 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
                 let success_flag := 1
                 // Wires
-                success_flag := validateProofPointOnCurve(success_flag, W_L_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, W_R_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, W_O_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_READ_COUNTS_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_READ_TAGS_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, W_4_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_INVERSES_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, Z_PERM_X0_LOC, p, q)
+                success_flag := and(success_flag, validateProofPointOnCurve(W_L_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_R_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_O_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_COUNTS_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_TAGS_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_4_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_INVERSES_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(Z_PERM_X0_LOC, q))
 
-                // Gemini commitments
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_0_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_1_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_2_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_3_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_4_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_5_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_6_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_7_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_8_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_9_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_10_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_11_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_12_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_13_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_14_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_15_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_16_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_17_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_18_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_19_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_20_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_21_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_22_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_23_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_24_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_25_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_26_X0_LOC, p, q)
+                // Gemini commitments - validate up to log n
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_0_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_1_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_2_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_3_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_4_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_5_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_6_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_7_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_8_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_9_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_10_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_11_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_12_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_13_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_14_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_15_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_16_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_17_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_18_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_19_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_20_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_21_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_22_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_23_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_24_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_25_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_26_X0_LOC, q))
 
                 // Shlponk
-                success_flag := validateProofPointOnCurve(success_flag, SHPLONK_Q_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, KZG_QUOTIENT_X0_LOC, p, q)
+                success_flag := and(success_flag, validateProofPointOnCurve(SHPLONK_Q_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(KZG_QUOTIENT_X0_LOC, q))
 
                 if iszero(success_flag) {
                     mstore(0x00, PROOF_POINT_NOT_ON_CURVE_SELECTOR)
