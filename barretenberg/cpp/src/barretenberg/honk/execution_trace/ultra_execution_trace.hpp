@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
@@ -55,9 +56,7 @@ template <typename T> struct UltraTraceBlockData {
     bool operator==(const UltraTraceBlockData& other) const = default;
 };
 
-class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
-    using SelectorType = ExecutionTraceBlock<fr, 4, 14>::SelectorType;
-
+class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 7> {
   public:
     void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
@@ -76,20 +75,80 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_
     auto& w_o() { return std::get<2>(this->wires); };
     auto& w_4() { return std::get<3>(this->wires); };
 
-    auto& q_m() { return this->selectors[0]; };
-    auto& q_c() { return this->selectors[1]; };
-    auto& q_1() { return this->selectors[2]; };
-    auto& q_2() { return this->selectors[3]; };
-    auto& q_3() { return this->selectors[4]; };
-    auto& q_4() { return this->selectors[5]; };
-    auto& q_lookup_type() { return this->selectors[6]; };
-    auto& q_arith() { return this->selectors[7]; };
-    auto& q_delta_range() { return this->selectors[8]; };
-    auto& q_elliptic() { return this->selectors[9]; };
-    auto& q_memory() { return this->selectors[10]; };
-    auto& q_nnf() { return this->selectors[11]; };
-    auto& q_poseidon2_external() { return this->selectors[12]; };
-    auto& q_poseidon2_internal() { return this->selectors[13]; };
+    SlabVectorSelector<fr>& q_m() { return this->selectors[0]; };
+    SlabVectorSelector<fr>& q_c() { return this->selectors[1]; };
+    SlabVectorSelector<fr>& q_1() { return this->selectors[2]; };
+    SlabVectorSelector<fr>& q_2() { return this->selectors[3]; };
+    SlabVectorSelector<fr>& q_3() { return this->selectors[4]; };
+    SlabVectorSelector<fr>& q_4() { return this->selectors[5]; };
+
+    enum class Type {
+        LOOKUP_TYPE,
+        ARITHMETIC,
+        DELTA_RANGE,
+        ELLIPTIC,
+        MEMORY,
+        NON_NATIVE_FIELD,
+        POSEIDON2_EXTERNAL,
+        POSEIDON2_INTERNAL,
+    } type;
+
+    Selector<fr>& q_lookup_type()
+    {
+        if (type == Type::LOOKUP_TYPE) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    };
+    Selector<fr>& q_arith()
+    {
+        if (type == Type::ARITHMETIC) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    }
+    Selector<fr>& q_delta_range()
+    {
+        if (type == Type::DELTA_RANGE) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    }
+    Selector<fr>& q_elliptic()
+    {
+        if (type == Type::ELLIPTIC) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    }
+    Selector<fr>& q_memory()
+    {
+        if (type == Type::MEMORY) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    }
+    Selector<fr>& q_nnf()
+    {
+        if (type == Type::NON_NATIVE_FIELD) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    }
+    Selector<fr>& q_poseidon2_external()
+    {
+        if (type == Type::POSEIDON2_EXTERNAL) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    }
+    Selector<fr>& q_poseidon2_internal()
+    {
+        if (type == Type::POSEIDON2_INTERNAL) {
+            return this->selectors[6];
+        }
+        return zero_selector;
+    }
 };
 
 class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
