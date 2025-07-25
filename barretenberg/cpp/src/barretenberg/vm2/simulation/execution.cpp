@@ -800,7 +800,9 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             //// Temporality group 1 starts ////
 
             // We try to get the bytecode id. This can throw if the contract is not deployed.
-            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
+            // Note: bytecode_id is now tracked in the context events, not the top-level execution event
+            // and it is already included in the before_context_event.
+            context.get_bytecode_manager().get_bytecode_id();
 
             //// Temporality group 2 starts ////
 
@@ -826,7 +828,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         catch (const BytecodeNotFoundError& e) {
             vinfo("Bytecode not found: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
-            ex_event.bytecode_id = e.bytecode_id;
             context.set_gas_used(context.get_gas_limit()); // Consume all gas.
             context.halt();
             set_execution_result({ .success = false });
@@ -894,6 +895,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
                             .next_pc = parent_context.get_next_pc(),
                             .msg_sender = parent_context.get_msg_sender(),
                             .contract_addr = parent_context.get_address(),
+                            .bytecode_id = parent_context.get_bytecode_manager().get_bytecode_id_safe().value_or(FF(0)),
                             .is_static = parent_context.get_is_static(),
                             .parent_gas_used = parent_context.get_parent_gas_used(),
                             .parent_gas_limit = parent_context.get_parent_gas_limit() });
