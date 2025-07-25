@@ -7,6 +7,8 @@ FLAGS="-c $CRS_PATH $VFLAG --scheme ultra_honk --disable_zk"
 PROVE_FLAGS="$FLAGS $BFLAG --oracle_hash keccak --output_format bytes_and_fields --write_vk"
 VERIFY_FLAGS="$FLAGS --oracle_hash keccak"
 
+USE_OPTIMIZED_CONTRACT=${USE_OPTIMIZED_CONTRACT:-false}
+
 outdir=$(mktemp -d)
 trap "rm -rf $outdir" EXIT
 
@@ -21,7 +23,11 @@ export VERIFIER_CONTRACT="$outdir/Verifier.sol"
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
 $BIN prove $PROVE_FLAGS -o $outdir
 $BIN verify $VERIFY_FLAGS -i $PUBLIC_INPUTS -k $VK -p $PROOF
-$BIN write_solidity_verifier $FLAGS -k $VK -o $VERIFIER_CONTRACT
+if [ "$USE_OPTIMIZED_CONTRACT" = true ]; then
+    $BIN write_solidity_verifier $FLAGS -k $VK -o $VERIFIER_CONTRACT --optimized
+else
+    $BIN write_solidity_verifier $FLAGS -k $VK -o $VERIFIER_CONTRACT
+fi
 
 # Export the paths to the environment variables for the js test runner
 export VERIFIER_PATH="$outdir/Verifier.sol"

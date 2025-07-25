@@ -145,6 +145,13 @@ function test_cmds {
   echo "$prefix FLOW=sol_honk_zk $run_test slices"
   echo "$prefix FLOW=sol_honk_zk $run_test verify_honk_proof"
 
+  # Solidity tests with optimized contract.
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test assert_statement"
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test a_1_mul"
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test slices"
+  # echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test verify_honk_proof"
+  # echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test double_verify_honk_proof"
+
   # bb.js browser tests. Isolate because server.
   local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
   echo "$prefix:NAME=chrome_verify_honk_proof BROWSER=chrome $run_test_browser verify_honk_proof"
