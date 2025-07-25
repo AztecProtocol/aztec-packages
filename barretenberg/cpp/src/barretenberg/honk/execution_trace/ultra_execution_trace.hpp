@@ -90,12 +90,6 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_
     auto& q_nnf() { return this->selectors[11]; };
     auto& q_poseidon2_external() { return this->selectors[12]; };
     auto& q_poseidon2_internal() { return this->selectors[13]; };
-
-    RefVector<SelectorType> get_gate_selectors()
-    {
-        return { q_lookup_type(), q_arith(), q_delta_range(),        q_elliptic(),
-                 q_memory(),      q_nnf(),   q_poseidon2_external(), q_poseidon2_internal() };
-    }
 };
 
 class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
