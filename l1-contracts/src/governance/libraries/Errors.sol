@@ -87,4 +87,7 @@ library Errors {
   error Governance__BlsKeyAlreadyRegistered(address account);
   error Governance__BlsKeyNotRegistered(address account);
   error Governance__BlsKeyAlreadyInUse(address currentOwner);
+
+  error Governance__BlsKeyInvalidG1Point(uint256[2]);
+  error Governance__BlsKeyInvalidG2Point(uint256[4]);
 }
