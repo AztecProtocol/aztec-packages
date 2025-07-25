@@ -8,6 +8,7 @@ import {
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
+  type TypedDataDefinition,
   encodeFunctionData,
   getContract,
 } from 'viem';
@@ -47,6 +48,14 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     return this.proposer.read.ROUND_SIZE();
   }
 
+  public getLifetimeInRounds() {
+    return this.proposer.read.LIFETIME_IN_ROUNDS();
+  }
+
+  public getExecutionDelayInRounds() {
+    return this.proposer.read.EXECUTION_DELAY_IN_ROUNDS();
+  }
+
   public computeRound(slot: bigint): Promise<bigint> {
     return this.proposer.read.computeRound([slot]);
   }
@@ -78,7 +87,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     round: bigint,
     chainId: number,
     signerAddress: Hex,
-    signer: (msg: Hex) => Promise<Hex>,
+    signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(signerAddress);
     const signature = await signSignalWithSig(signer, payload, nonce, round, this.address.toString(), chainId);

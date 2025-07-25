@@ -234,7 +234,7 @@ describe('SequencerPublisher', () => {
         1n,
         SignalType.GOVERNANCE,
         EthAddress.fromString(testHarnessPrivateKey.address),
-        hash => testHarnessPrivateKey.sign({ hash }),
+        msg => testHarnessPrivateKey.signTypedData(msg),
       ),
     ).toEqual(true);
 
@@ -265,10 +265,6 @@ describe('SequencerPublisher', () => {
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {
-          to: mockRollupAddress,
-          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
-        },
-        {
           to: mockGovernanceProposerAddress,
           data: encodeFunctionData({
             abi: EmpireBaseAbi,
@@ -276,16 +272,22 @@ describe('SequencerPublisher', () => {
             args: [govPayload.toString(), voteSig.toViemSignature()],
           }),
         },
+        {
+          to: mockRollupAddress,
+          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
+        },
       ],
       l1TxUtils,
       {
-        gasLimit: 2085048n,
+        gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
       },
       { blobs: expectedBlobs.map(b => b.data), kzg },
       mockRollupAddress,
       expect.anything(), // the logger
     );
+
+    expect(forwardSpy.mock.calls[0][2]?.gasLimit).toBeGreaterThan(2_000_000n);
   });
 
   it('errors if forwarder tx fails', async () => {

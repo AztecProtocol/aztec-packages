@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
@@ -24,7 +24,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { ContentCommitment, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError, InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -195,7 +195,7 @@ describe('ValidatorClient', () => {
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
 
-    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => Promise.resolve(txHash), txHash }) as TxWithHash;
+    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
     const enableReexecution = () => {
       (validatorClient as any).config.validatorReexecute = true;
@@ -462,8 +462,8 @@ describe('ValidatorClient', () => {
 
       // We should have used the first address to sign
       const payloadToSign = request.getPayloadToSign();
-      const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.validatorPrivateKeys.getValue()[0]));
-      const signature = firstSigner.sign(payloadToSign);
+      const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.validatorPrivateKeys!.getValue()[0]));
+      const signature = firstSigner.sign(makeEthSignDigest(payloadToSign));
       expect(authResponse.signature.equals(signature)).toBeTruthy();
     });
 
@@ -473,7 +473,7 @@ describe('ValidatorClient', () => {
       p2pClient.handleAuthRequestFromPeer.mockResolvedValueOnce(ourStatus);
       // Make sure our addresses are registered
       const registeredAddress = validatorClient.getValidatorAddresses()[1];
-      const validatorPrivateKey = config.validatorPrivateKeys.getValue()[1];
+      const validatorPrivateKey = config.validatorPrivateKeys!.getValue()[1];
       epochCache.getRegisteredValidators.mockResolvedValueOnce([registeredAddress]);
       const peerId = await createSecp256k1PeerId();
       const request = AuthRequest.random();
@@ -485,7 +485,7 @@ describe('ValidatorClient', () => {
       // We should have used the second address to sign as this is the only one registered
       const payloadToSign = request.getPayloadToSign();
       const firstSigner = new Secp256k1Signer(Buffer32.fromString(validatorPrivateKey));
-      const signature = firstSigner.sign(payloadToSign);
+      const signature = firstSigner.sign(makeEthSignDigest(payloadToSign));
       expect(authResponse.signature.equals(signature)).toBeTruthy();
     });
   });
@@ -502,8 +502,8 @@ describe('ValidatorClient', () => {
       };
 
       const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
-      expect(config.validatorPrivateKeys.getValue()).toHaveLength(1);
-      expect(config.validatorPrivateKeys.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
+      expect(config.validatorPrivateKeys!.getValue()).toHaveLength(1);
+      expect(config.validatorPrivateKeys!.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
     });
   });
 });

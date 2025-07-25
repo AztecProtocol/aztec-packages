@@ -25,6 +25,9 @@ library TestConstants {
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
+  uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
+  uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
+  address internal constant AZTEC_SLASHING_VETOER = address(0);
   uint256 internal constant AZTEC_MANA_TARGET = 100000000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
@@ -100,6 +103,9 @@ library TestConstants {
       targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
+      slashingLifetimeInRounds: AZTEC_SLASHING_LIFETIME_IN_ROUNDS,
+      slashingExecutionDelayInRounds: AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS,
+      slashingVetoer: AZTEC_SLASHING_VETOER,
       manaTarget: AZTEC_MANA_TARGET,
       exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,

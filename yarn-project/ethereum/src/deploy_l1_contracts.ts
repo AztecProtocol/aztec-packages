@@ -91,7 +91,7 @@ import {
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
-import { ZK_PASSPORT_SCOPE, ZK_PASSPORT_SUB_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
+import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -228,10 +228,13 @@ export const l1Artifacts = {
     contractAbi: MultiAdderAbi,
     contractBytecode: MultiAdderBytecode as Hex,
   },
-  gse: {
-    contractAbi: GSEAbi,
-    contractBytecode: GSEBytecode as Hex,
-  },
+};
+
+// Moving this out to avoid "type too big" error.
+// Palla has a proper fix for this.
+export const gseArtifact = {
+  contractAbi: GSEAbi,
+  contractBytecode: GSEBytecode as Hex,
 };
 
 export const l1ArtifactsVerifiers = {
@@ -278,10 +281,10 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
 export interface ZKPassportArgs {
   /** Whether to use the mock zk passport verifier */
   mockZkPassportVerifier?: boolean;
-  /** The scope of the zk passport - domain (url) */
+  /** The domain of the zk passport (url) */
+  zkPassportDomain?: string;
+  /** The scope of the zk passport (personhood, etc) */
   zkPassportScope?: string;
-  /** The sub-scope of the zk passport - domain seperator (personhood, etc) */
-  zkPassportSubScope?: string;
 }
 
 export const deploySharedContracts = async (
@@ -310,7 +313,7 @@ export const deploySharedContracts = async (
 
   const gseConfiguration = getGSEConfiguration(networkName);
 
-  const gseAddress = await deployer.deploy(l1Artifacts.gse, [
+  const gseAddress = await deployer.deploy(gseArtifact, [
     l1Client.account.address.toString(),
     stakingAssetAddress.toString(),
     gseConfiguration.depositAmount,
@@ -350,7 +353,7 @@ export const deploySharedContracts = async (
   } else {
     const gseContract = getContract({
       address: getAddress(gseAddress.toString()),
-      abi: l1Artifacts.gse.contractAbi,
+      abi: gseArtifact.contractAbi,
       client: l1Client,
     });
     const existingGovernance = await gseContract.read.getGovernance();
@@ -364,7 +367,7 @@ export const deploySharedContracts = async (
       {
         to: gseAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.gse.contractAbi,
+          abi: gseArtifact.contractAbi,
           functionName: 'setGovernance',
           args: [governanceAddress.toString()],
         }),
@@ -443,7 +446,7 @@ export const deploySharedContracts = async (
     if ([11155111, foundry.id].includes(l1Client.chain.id)) {
       const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
       zkPassportVerifierAddress = await getZkPassportVerifierAddress(deployer, args);
-      const [scope, subscope] = getZkPassportScopes(args);
+      const [domain, scope] = getZkPassportScopes(args);
 
       const stakingAssetHandlerDeployArgs = {
         owner: l1Client.account.address,
@@ -456,8 +459,8 @@ export const deploySharedContracts = async (
         zkPassportVerifier: zkPassportVerifierAddress.toString(),
         unhinged: [AMIN.toString()], // isUnhinged,
         // Scopes
+        domain: domain,
         scope: scope,
-        subscope: subscope,
         // Skip checks
         skipBindCheck: args.zkPassportArgs?.mockZkPassportVerifier ?? false,
         skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
@@ -553,9 +556,9 @@ const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1
  * @returns The zk passport scopes
  */
 const getZkPassportScopes = (args: DeployL1ContractsArgs): [string, string] => {
+  const domain = args.zkPassportArgs?.zkPassportDomain ?? ZK_PASSPORT_DOMAIN;
   const scope = args.zkPassportArgs?.zkPassportScope ?? ZK_PASSPORT_SCOPE;
-  const subscope = args.zkPassportArgs?.zkPassportSubScope ?? ZK_PASSPORT_SUB_SCOPE;
-  return [scope, subscope];
+  return [domain, scope];
 };
 
 /**
@@ -658,6 +661,9 @@ export const deployRollup = async (
     aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
+    slashingLifetimeInRounds: args.slashingLifetimeInRounds,
+    slashingExecutionDelayInRounds: args.slashingExecutionDelayInRounds,
+    slashingVetoer: args.slashingVetoer.toString(),
     manaTarget: args.manaTarget,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
@@ -746,7 +752,7 @@ export const deployRollup = async (
   // We need to call a function on the registry to set the various contract addresses.
   const gseContract = getContract({
     address: getAddress(addresses.gseAddress.toString()),
-    abi: l1Artifacts.gse.contractAbi,
+    abi: gseArtifact.contractAbi,
     client: extendedClient,
   });
   if ((await gseContract.read.owner()) === getAddress(extendedClient.account.address)) {
@@ -754,7 +760,7 @@ export const deployRollup = async (
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.gseAddress.toString(),
         data: encodeFunctionData({
-          abi: l1Artifacts.gse.contractAbi,
+          abi: gseArtifact.contractAbi,
           functionName: 'addRollup',
           args: [getAddress(rollupContract.address)],
         }),
@@ -807,7 +813,7 @@ export const handoverToGovernance = async (
 
   const gseContract = getContract({
     address: getAddress(gseAddress.toString()),
-    abi: l1Artifacts.gse.contractAbi,
+    abi: gseArtifact.contractAbi,
     client: extendedClient,
   });
 
@@ -839,7 +845,7 @@ export const handoverToGovernance = async (
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: gseContract.address,
       data: encodeFunctionData({
-        abi: l1Artifacts.gse.contractAbi,
+        abi: gseArtifact.contractAbi,
         functionName: 'transferOwnership',
         args: [getAddress(governanceAddress.toString())],
       }),

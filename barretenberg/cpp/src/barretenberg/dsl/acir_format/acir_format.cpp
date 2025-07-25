@@ -413,7 +413,7 @@ process_honk_recursion_constraints(Builder& builder,
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK_ZK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof] =
+            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
                 create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
                     builder, constraint, has_valid_witness_assignments);
 
@@ -424,7 +424,7 @@ process_honk_recursion_constraints(Builder& builder,
             }
 
         } else if (constraint.proof_type == HONK) {
-            auto [pairing_points, _ipa_claim, _ipa_proof] =
+            auto [pairing_points, _ipa_claim, _ipa_proof, _ecc_op_tables] =
                 create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
                     builder, constraint, has_valid_witness_assignments);
             if (output.points_accumulator.has_data) {
@@ -439,7 +439,7 @@ process_honk_recursion_constraints(Builder& builder,
                 if (constraint.proof_type == ROOT_ROLLUP_HONK) {
                     output.is_root_rollup = true;
                 }
-                auto [pairing_points, ipa_claim, ipa_proof] =
+                auto [pairing_points, ipa_claim, ipa_proof, _ecc_op_tables] =
                     create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
                         builder, constraint, has_valid_witness_assignments);
                 if (output.points_accumulator.has_data) {

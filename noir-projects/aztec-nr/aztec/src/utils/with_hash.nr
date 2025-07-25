@@ -116,17 +116,14 @@ where
 mod test {
     use crate::{
         oracle::random::random,
-        test::{
-            helpers::{test_environment::TestEnvironment, txe_oracles},
-            mocks::mock_struct::MockStruct,
-        },
+        test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
         utils::with_hash::WithHash,
     };
     use dep::protocol_types::hash::poseidon2_hash;
     use dep::protocol_types::traits::{Packable, ToField};
-    use dep::std::{mem, test::OracleMock};
+    use dep::std::test::OracleMock;
 
-    global storage_slot: Field = 47;
+    global STORAGE_SLOT: Field = 47;
 
     #[test]
     unconstrained fn create_and_recover() {
@@ -141,101 +138,85 @@ mod test {
 
     #[test]
     unconstrained fn read_uninitialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
-        let block_header = env.private().historical_header;
-        let address = env.contract_address();
+        env.private_context(|context| {
+            let result = WithHash::<MockStruct, _>::historical_public_storage_read(
+                context.historical_header,
+                context.this_address(),
+                STORAGE_SLOT,
+            );
 
-        let result = WithHash::<MockStruct, _>::historical_public_storage_read(
-            block_header,
-            address,
-            storage_slot,
-        );
-
-        // We should get zeroed value
-        let expected: MockStruct = mem::zeroed();
-        assert_eq(result, expected);
+            assert_eq(result, std::mem::zeroed());
+        });
     }
 
     #[test]
     unconstrained fn read_initialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         let value = MockStruct { a: 5, b: 3 };
         let value_with_hash = WithHash::new(value);
 
-        // We write the value with hash to storage
-        txe_oracles::direct_storage_write(
-            env.contract_address(),
-            storage_slot,
-            value_with_hash.pack(),
-        );
+        env.public_context(|context| { context.storage_write(STORAGE_SLOT, value_with_hash); });
 
-        // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.mine_block();
-
-        let result = WithHash::<MockStruct, _>::historical_public_storage_read(
-            env.private().historical_header,
-            env.contract_address(),
-            storage_slot,
-        );
-
-        assert_eq(result, value);
+        env.private_context(|context| {
+            let result = WithHash::<MockStruct, _>::historical_public_storage_read(
+                context.historical_header,
+                context.this_address(),
+                STORAGE_SLOT,
+            );
+            assert_eq(result, value);
+        });
     }
 
     #[test(should_fail_with = "Non-zero hint for zero hash")]
     unconstrained fn bad_hint_uninitialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
-        env.mine_block();
+        env.private_context(|context| {
+            let block_header = context.historical_header;
+            let address = context.this_address();
 
-        let value_packed = MockStruct { a: 1, b: 1 }.pack();
+            // Mock the oracle to return a non-zero hint/packed value
+            let value_packed = MockStruct { a: 1, b: 1 }.pack();
+            let _ = OracleMock::mock("storageRead")
+                .with_params((
+                    address.to_field(), STORAGE_SLOT, block_header.global_variables.block_number,
+                    value_packed.len(),
+                ))
+                .returns(value_packed)
+                .times(1);
 
-        let block_header = env.private().historical_header;
-        let address = env.contract_address();
-
-        // Mock the oracle to return a non-zero hint/packed value
-        let _ = OracleMock::mock("storageRead")
-            .with_params((
-                address.to_field(), storage_slot, block_header.global_variables.block_number,
-                value_packed.len(),
-            ))
-            .returns(value_packed)
-            .times(1);
-
-        // This should revert because the hint value is non-zero and the hash is zero (default value of storage)
-        let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
-            block_header,
-            address,
-            storage_slot,
-        );
+            // This should fail because the hint value is non-zero and the hash is zero (default value of storage)
+            let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
+                block_header,
+                address,
+                STORAGE_SLOT,
+            );
+        });
     }
 
     #[test(should_fail_with = "Hint values do not match hash")]
     unconstrained fn bad_hint_initialized_value() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
-        let value_packed = MockStruct { a: 5, b: 3 }.pack();
+        env.public_context(|context| {
+            // Write the value and hash separately so that the hash is wrong
+            let value = MockStruct { a: 5, b: 3 };
+            context.storage_write(STORAGE_SLOT, value);
 
-        // We write the value to storage
-        txe_oracles::direct_storage_write(env.contract_address(), storage_slot, value_packed);
+            let incorrect_hash = random();
+            let hash_storage_slot = STORAGE_SLOT + (value.pack().len() as Field);
+            context.storage_write(hash_storage_slot, [incorrect_hash]);
+        });
 
-        // Now we write incorrect hash to the hash storage slot
-        let incorrect_hash = random();
-        let hash_storage_slot = storage_slot + (value_packed.len() as Field);
-        txe_oracles::direct_storage_write(
-            env.contract_address(),
-            hash_storage_slot,
-            [incorrect_hash],
-        );
-
-        // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.mine_block();
-
-        let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
-            env.private().historical_header,
-            env.contract_address(),
-            storage_slot,
-        );
+        env.private_context(|context| {
+            let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
+                context.historical_header,
+                context.this_address(),
+                STORAGE_SLOT,
+            );
+        });
     }
 }

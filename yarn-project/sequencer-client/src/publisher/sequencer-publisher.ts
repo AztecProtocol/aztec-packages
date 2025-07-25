@@ -35,7 +35,14 @@ import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData, getAbiItem, toEventSelector, toHex } from 'viem';
+import {
+  type TransactionReceipt,
+  type TypedDataDefinition,
+  encodeFunctionData,
+  getAbiItem,
+  toEventSelector,
+  toHex,
+} from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -63,7 +70,11 @@ export enum SignalType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-export type Action = 'propose' | 'governance-signal' | 'slashing-signal';
+const Actions = ['propose', 'governance-signal', 'slashing-signal'] as const;
+export type Action = (typeof Actions)[number];
+
+// Sorting for actions such that proposals always go first
+const compareActions = (a: Action, b: Action) => Actions.indexOf(b) - Actions.indexOf(a);
 
 interface RequestWithExpiry {
   action: Action;
@@ -108,8 +119,8 @@ export class SequencerPublisher {
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
 
-  // Gas report for VotingWithSigTest shows a max gas of 100k, so better err on the safe side
-  public static VOTE_GAS_GUESS: bigint = 500_000n;
+  // Gas report for VotingWithSigTest shows a max gas of 100k, but we've seen it cost 700k+ in testnet
+  public static VOTE_GAS_GUESS: bigint = 800_000n;
 
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
@@ -233,6 +244,10 @@ export class SequencerPublisher {
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
     const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
     const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
+
+    // Sort the requests so that proposals always go first
+    // This ensures the committee gets precomputed correctly
+    validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
       this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
@@ -405,12 +420,16 @@ export class SequencerPublisher {
     payload: EthAddress,
     base: IEmpireBase,
     signerAddress: EthAddress,
-    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     if (this.myLastSignals[signalType] >= slotNumber) {
       return false;
     }
     if (payload.equals(EthAddress.ZERO)) {
+      return false;
+    }
+    if (signerAddress.equals(EthAddress.ZERO)) {
+      this.log.warn(`Cannot enqueue vote cast signal ${signalType} for address zero at slot ${slotNumber}`);
       return false;
     }
     const round = await base.computeRound(slotNumber);
@@ -515,7 +534,7 @@ export class SequencerPublisher {
     timestamp: bigint,
     signalType: SignalType,
     signerAddress: EthAddress,
-    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     const signalConfig = await this.getSignalConfig(slotNumber, signalType);
     if (!signalConfig) {
@@ -729,6 +748,12 @@ export class SequencerPublisher {
         SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     );
 
+    // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
+    // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
+    void this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
+      this.log.error('Failed to send blobs to blob sink');
+    });
+
     return this.addRequest({
       action: 'propose',
       request: {
@@ -770,10 +795,6 @@ export class SequencerPublisher {
           this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats(), ...receipt });
           this.metrics.recordProcessBlockTx(timer.ms(), publishStats);
 
-          // Send the blobs to the blob sink
-          this.sendBlobsToBlobSink(receipt.blockHash, encodedData.blobs).catch(_err => {
-            this.log.error('Failed to send blobs to blob sink');
-          });
           return true;
         } else {
           this.metrics.recordFailedTx('process');
@@ -787,17 +808,5 @@ export class SequencerPublisher {
         }
       },
     });
-  }
-
-  /**
-   * Send blobs to the blob sink
-   *
-   * If a blob sink url is configured, then we send blobs to the blob sink
-   * - for now we use the blockHash as the identifier for the blobs;
-   *   In the future this will move to be the beacon block id - which takes a bit more work
-   *   to calculate and will need to be mocked in e2e tests
-   */
-  protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+
 function bootstrap_all {
   # To run bb we need a crs.
   # Download ignition up front to ensure no race conditions at runtime.
@@ -10,6 +11,7 @@ function bootstrap_all {
   ./ts/bootstrap.sh $@
   ./acir_tests/bootstrap.sh $@
   ./docs/bootstrap.sh $@
+  ./sol/bootstrap.sh $@
 }
 
 function hash {

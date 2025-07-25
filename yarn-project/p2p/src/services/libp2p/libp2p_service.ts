@@ -693,7 +693,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!result || !tx) {
       return;
     }
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
       source: source.toString(),
@@ -877,17 +877,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     try {
       await Promise.all(
         responseTx.map(async tx => {
-          if (!requested.has((await tx.getTxHash()).toString())) {
+          if (!requested.has(tx.getTxHash().toString())) {
             this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-            throw new ValidationError(
-              `Received tx with hash ${(await tx.getTxHash()).toString()} that was not requested.`,
-            );
+            throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that was not requested.`);
           }
 
           const { result } = await proofValidator.validateTx(tx);
           if (result === 'invalid') {
             this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-            throw new ValidationError(`Received tx with hash ${(await tx.getTxHash()).toString()} that is invalid.`);
+            throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that is invalid.`);
           }
         }),
       );
@@ -903,8 +901,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
   }
 
-  @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
-    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
+  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const currentBlockNumber = await this.archiver.getBlockNumber();

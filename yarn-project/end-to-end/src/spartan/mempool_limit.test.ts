@@ -2,7 +2,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { AztecAddress, Fr, SponsoredFeePaymentMethod, Tx, TxStatus, type Wallet } from '@aztec/aztec.js';
 import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { times, timesAsync } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -151,16 +151,16 @@ describe('mempool limiter test', () => {
   });
 
   it('evicts txs to keep mempool under specified limit', async () => {
-    const txs = await timesAsync(TX_FLOOD_SIZE, async () => {
+    const txs = times(TX_FLOOD_SIZE, () => {
       const tx = Tx.fromBuffer(sampleTx.toBuffer());
       // this only works on unproven networks, otherwise this will fail verification
       tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
-      await tx.getTxHash(true);
+      tx.getTxHash();
       return tx;
     });
 
     await asyncPool(CONCURRENCY, txs, tx => node.sendTx(tx));
-    const receipts = await asyncPool(CONCURRENCY, txs, async tx => node.getTxReceipt(await tx.getTxHash()));
+    const receipts = await asyncPool(CONCURRENCY, txs, async tx => await node.getTxReceipt(tx.getTxHash()));
     const pending = receipts.reduce((count, receipt) => (receipt.status === TxStatus.PENDING ? count + 1 : count), 0);
     expect(pending).toBeLessThanOrEqual(TX_MEMPOOL_LIMIT);
   }, 600_000);
