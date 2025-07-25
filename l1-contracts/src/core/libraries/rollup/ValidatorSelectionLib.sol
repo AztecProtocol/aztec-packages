@@ -40,7 +40,6 @@ library ValidatorSelectionLib {
     uint256 needed;
     uint256 signaturesRecovered;
     address[] reconstructedCommittee;
-    bool proposerVerified;
   }
 
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
@@ -98,32 +97,38 @@ library ValidatorSelectionLib {
     address[] memory _signers,
     bytes32 _digest
   ) internal {
-    // Load the committee commitment for the epoch
-    (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_epochNumber);
+    // Try load the proposer from cache
+    (address proposer, uint256 proposerIndex) = getCachedProposer(_slot);
 
-    // If the target committee size is 0, we skip the validation
-    if (committeeSize == 0) {
-      return;
+    // If not in cache, grab from the committee, reconstructed from the attestations and signers
+    if (proposer == address(0)) {
+      // Load the committee commitment for the epoch
+      (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_epochNumber);
+
+      // If the target committee size is 0, we skip the validation
+      if (committeeSize == 0) {
+        return;
+      }
+
+      // Reconstruct the committee from the attestations and signers
+      address[] memory committee =
+        _attestations.reconstructCommitteeFromSigners(_signers, committeeSize);
+
+      // Check it matches the expected one
+      bytes32 reconstructedCommitment = computeCommitteeCommitment(committee);
+      if (reconstructedCommitment != committeeCommitment) {
+        revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
+          reconstructedCommitment, committeeCommitment
+        );
+      }
+
+      // Get the proposer from the committee based on the epoch, slot, and sample seed
+      uint224 sampleSeed = getSampleSeed(_epochNumber);
+      proposerIndex = computeProposerIndex(_epochNumber, _slot, sampleSeed, committeeSize);
+      proposer = committee[proposerIndex];
+
+      setCachedProposer(_slot, proposer, proposerIndex);
     }
-
-    // Reconstruct the committee from the attestations and signers
-    address[] memory committee =
-      _attestations.reconstructCommitteeFromSigners(_signers, committeeSize);
-
-    // Check it matches the expected one
-    bytes32 reconstructedCommitment = computeCommitteeCommitment(committee);
-    if (reconstructedCommitment != committeeCommitment) {
-      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
-        reconstructedCommitment, committeeCommitment
-      );
-    }
-
-    // Get the proposer from the committee based on the epoch, slot, and sample seed
-    uint224 sampleSeed = getSampleSeed(_epochNumber);
-    uint256 proposerIndex = computeProposerIndex(_epochNumber, _slot, sampleSeed, committeeSize);
-    address proposer = committee[proposerIndex];
-
-    setCachedProposer(_slot, proposer, proposerIndex);
 
     // If the proposer is who sent the tx, we're good
     if (proposer == msg.sender) {
@@ -145,20 +150,18 @@ library ValidatorSelectionLib {
   /**
    * @notice  Propose a pending block from the point-of-view of sequencer selection. Will:
    *          - Setup the epoch if needed (if epoch committee is empty skips the rest)
-   *          - Validate that the proposer has signed with its own key
    *          - Validate that the signatures for attestations are indeed from the validatorset
    *          - Validate that the number of valid attestations is sufficient
    *
    * @dev     Cases where errors are thrown:
    *          - If the epoch is not setup
-   *          - If the proposer is not the real proposer AND the proposer is not open
    *          - If the number of valid attestations is insufficient
    *
    * @param _slot - The slot of the block
    * @param _attestations - The signatures (or empty; just address is provided) of the committee members
    * @param _digest - The digest of the block
    */
-  function verify(
+  function verifyAttestations(
     Slot _slot,
     Epoch _epochNumber,
     CommitteeAttestations memory _attestations,
@@ -181,8 +184,7 @@ library ValidatorSelectionLib {
       needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
       index: 0,
       signaturesRecovered: 0,
-      reconstructedCommittee: new address[](targetCommitteeSize),
-      proposerVerified: false
+      reconstructedCommittee: new address[](targetCommitteeSize)
     });
 
     bytes32 digest = _digest.toEthSignedMessageHash();
@@ -213,10 +215,6 @@ library ValidatorSelectionLib {
 
           ++stack.signaturesRecovered;
           stack.reconstructedCommittee[i] = ECDSA.recover(digest, v, r, s);
-
-          if (i == stack.proposerIndex) {
-            stack.proposerVerified = true;
-          }
         } else {
           address addr;
           assembly {
@@ -229,10 +227,6 @@ library ValidatorSelectionLib {
     }
 
     address proposer = stack.reconstructedCommittee[stack.proposerIndex];
-
-    require(
-      stack.proposerVerified, Errors.ValidatorSelection__InvalidProposer(proposer, address(0))
-    );
 
     require(
       stack.signaturesRecovered >= stack.needed,

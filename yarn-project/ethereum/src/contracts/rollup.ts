@@ -405,7 +405,7 @@ export class RollupContract {
       await this.client.simulateContract({
         address: this.address,
         abi: RollupAbi,
-        functionName: 'validateHeader',
+        functionName: 'validateHeaderWithAttestations',
         args,
         account,
       });
