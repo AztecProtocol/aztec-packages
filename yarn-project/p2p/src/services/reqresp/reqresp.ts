@@ -534,7 +534,7 @@ export class ReqResp implements ReqRespInterface {
     }
 
     // Do not punish if we are stopping the service
-    if (e instanceof AbortError) {
+    if (e && (e instanceof AbortError || e.code === 'ABORT_ERR')) {
       this.logger.debug(`Request aborted: ${e.message}`, logTags);
       return undefined;
     }
