@@ -1,18 +1,23 @@
 pragma solidity ^0.8.27;
 
-import {IVerifier} from "../../interfaces/IVerifier.sol";
-import {
-    CONST_PROOF_SIZE_LOG_N,
-    NUMBER_OF_SUBRELATIONS,
-    BATCHED_RELATION_PARTIAL_LENGTH,
-    NUMBER_OF_ENTITIES,
-    NUMBER_UNSHIFTED,
-    NUMBER_TO_BE_SHIFTED,
-    NUMBER_OF_ALPHAS
-} from "../HonkTypes.sol";
+interface IVerifier {
+    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
+}
 
-// Log_N for this particular circuit is 15, used in sumcheck
+uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
+uint256 constant NUMBER_OF_SUBRELATIONS = 28;
+uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
+uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
+uint256 constant NUMBER_OF_ENTITIES = 41;
+uint256 constant NUMBER_UNSHIFTED = 36;
+uint256 constant NUMBER_TO_BE_SHIFTED = 5;
+uint256 constant PAIRING_POINTS_SIZE = 16;
+
+uint256 constant CIRCUIT_SIZE = 32768;
 uint256 constant LOG_N = 15;
+uint256 constant NUMBER_PUBLIC_INPUTS = 20;
+uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 20 - 16;
+uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 
 error PUBLIC_INPUT_TOO_LARGE();
 error SUMCHECK_FAILED();
@@ -21,11 +26,6 @@ error BATCH_ACCUMULATION_FAILED();
 error MODEXP_FAILED();
 error PROOF_POINT_NOT_ON_CURVE();
 
-uint256 constant CIRCUIT_SIZE = 32768;
-uint256 constant LOG_CIRCUIT_SIZE = 15;
-uint256 constant NUMBER_PUBLIC_INPUTS = 20;
-uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 20 - 16;
-uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 
 contract BlakeOptHonkVerifier is IVerifier {
 
