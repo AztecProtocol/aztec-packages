@@ -10,7 +10,7 @@ use aztec::utils::comparison::Comparator;
 
 #[test]
 unconstrained fn check_block_number() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     let router_contract = env.deploy_self("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
@@ -25,7 +25,7 @@ unconstrained fn check_block_number() {
 
 #[test(should_fail)] // should_fail_with = "Block number mismatch."
 unconstrained fn check_block_number_fail() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     let router_contract = env.deploy_self("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
@@ -40,7 +40,7 @@ unconstrained fn check_block_number_fail() {
 
 #[test]
 unconstrained fn check_timestamp() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     let router_contract = env.deploy_self("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
@@ -56,7 +56,7 @@ unconstrained fn check_timestamp() {
 
 #[test(should_fail)] // should_fail_with = "Timestamp mismatch."
 unconstrained fn check_timestamp_fail() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     let router_contract = env.deploy_self("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
