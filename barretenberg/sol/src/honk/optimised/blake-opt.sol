@@ -1917,7 +1917,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let round_target := 0
                 let pow_partial_evaluation := 1
 
-                for {} lt(round, 15) {} {
+                for {} lt(round, LOG_N) {} {
                     let round_univariates_off := add(SUMCHECK_UNIVARIATE_0_0_LOC, mul(round, 0x100))
                     let challenge_off := add(SUM_U_CHALLENGE_0, mul(round, 0x20))
 
