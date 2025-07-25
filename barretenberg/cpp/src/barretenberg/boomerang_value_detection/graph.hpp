@@ -104,7 +104,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::vector<uint32_t> get_ram_table_connected_component(const bb::RamTranscript& ram_array);
 
     std::vector<uint32_t> get_databus_connected_component(size_t index, size_t block_idx, auto& blk);
-    std::vector<uint32_t> get_eccop_connected_component(size_t index, size_t block_idx, auto& blk);
+    std::vector<uint32_t> get_eccop_part_connected_component(size_t index, size_t block_idx, auto& blk);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
