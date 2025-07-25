@@ -4,7 +4,6 @@ use crate::{
 };
 use protocol_types::{
     address::AztecAddress,
-    contract_instance::ContractInstance,
     public_keys::PublicKeys,
     traits::{Deserialize, Serialize},
 };
@@ -21,7 +20,7 @@ impl<let N: u32> ContractDeployment<N> {
         self,
         from: AztecAddress,
         call_interface: PrivateCallInterface<P, T>,
-    ) -> ContractInstance
+    ) -> AztecAddress
     where
         T: Deserialize,
     {
@@ -48,14 +47,14 @@ impl<let N: u32> ContractDeployment<N> {
             ),
         );
 
-        instance
+        instance.to_address()
     }
 
     pub unconstrained fn with_public_initializer<let P: u32, T>(
         self,
         from: AztecAddress,
         call_interface: PublicCallInterface<P, T>,
-    ) -> ContractInstance
+    ) -> AztecAddress
     where
         T: Deserialize,
     {
@@ -82,11 +81,11 @@ impl<let N: u32> ContractDeployment<N> {
             ),
         );
 
-        instance
+        instance.to_address()
     }
 
-    pub unconstrained fn without_initializer(self) -> ContractInstance {
-        txe_oracles::deploy(self.path, "", &[], self.secret)
+    pub unconstrained fn without_initializer(self) -> AztecAddress {
+        txe_oracles::deploy(self.path, "", &[], self.secret).to_address()
     }
 }
 

@@ -103,7 +103,7 @@ class TXEDispatcher {
     const publicKeysHash = await publicKeys.hash();
 
     let artifactPath = '';
-    const { dir: contractDirectory, contractFilename } = parse(contractPath);
+    const { dir: contractDirectory, base: contractFilename } = parse(contractPath);
     if (contractDirectory) {
       if (contractDirectory.includes('@')) {
         // We're deploying a contract that belongs in a workspace
