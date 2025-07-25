@@ -16,15 +16,20 @@
  */
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/api_client_ivc.hpp"
+#include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
+#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include <fstream>
+#include <iostream>
 
 namespace bb {
 // This is updated in-place by bootstrap.sh during the release process. This prevents
@@ -552,6 +557,24 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
+     * Subcommand: msgpack
+     ***************************************************************************************************************/
+    CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
+
+    // Subcommand: msgpack schema
+    CLI::App* msgpack_schema_command =
+        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
+    add_verbose_flag(msgpack_schema_command);
+
+    // Subcommand: msgpack run
+    CLI::App* msgpack_run_command =
+        msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
+    add_verbose_flag(msgpack_run_command);
+    std::string msgpack_input_file;
+    msgpack_run_command->add_option(
+        "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
+
+    /***************************************************************************************************************
      * Subcommand: prove_tube
      ***************************************************************************************************************/
     CLI ::App* prove_tube_command = app.add_subcommand("prove_tube", "");
@@ -628,6 +651,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
+        // MSGPACK
+        if (msgpack_schema_command->parsed()) {
+            std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
+            return 0;
+        }
+        if (msgpack_run_command->parsed()) {
+            return execute_msgpack_run(msgpack_input_file);
+        }
         // TUBE
         if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
