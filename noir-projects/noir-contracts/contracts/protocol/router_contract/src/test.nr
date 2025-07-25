@@ -10,10 +10,9 @@ use aztec::utils::comparison::Comparator;
 
 #[test]
 unconstrained fn check_block_number() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_number = env.next_block_number();
@@ -25,10 +24,9 @@ unconstrained fn check_block_number() {
 
 #[test(should_fail)] // should_fail_with = "Block number mismatch."
 unconstrained fn check_block_number_fail() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_number = env.next_block_number();
@@ -40,10 +38,9 @@ unconstrained fn check_block_number_fail() {
 
 #[test]
 unconstrained fn check_timestamp() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
@@ -56,10 +53,9 @@ unconstrained fn check_timestamp() {
 
 #[test(should_fail)] // should_fail_with = "Timestamp mismatch."
 unconstrained fn check_timestamp_fail() {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;

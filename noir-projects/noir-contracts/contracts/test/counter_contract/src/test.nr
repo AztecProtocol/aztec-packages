@@ -16,7 +16,6 @@ pub unconstrained fn setup(initial_value: Field) -> (TestEnvironment, AztecAddre
 
     // Deploy contract and initialize
     let initializer = Counter::interface().initialize(initial_value as u64, owner);
-    let counter_contract = env.deploy_self("Counter").with_private_initializer(owner, initializer);
-    let contract_address = counter_contract.to_address();
+    let contract_address = env.deploy("Counter").with_private_initializer(owner, initializer);
     (env, contract_address, owner)
 }

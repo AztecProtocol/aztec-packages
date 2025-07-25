@@ -27,8 +27,7 @@ pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
 
     // Deploy contract and initialize
     let initializer = Test::interface().initialize();
-    let test_contract = env.deploy_self("Test").with_private_initializer(owner, initializer);
-    let contract_address = test_contract.to_address();
+    let contract_address = env.deploy("Test").with_private_initializer(owner, initializer);
 
     // We sanity check that the initialization block was the last one
     assert_eq(env.last_block_number(), CONTRACT_INITIALIZED_AT);

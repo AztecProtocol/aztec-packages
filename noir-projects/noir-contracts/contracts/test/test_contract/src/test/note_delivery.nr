@@ -13,9 +13,8 @@ pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, Az
     let sender = env.create_light_account();
     let recipient = env.create_light_account();
 
-    let test_contract =
-        env.deploy_self("Test").with_private_initializer(sender, Test::interface().initialize());
-    let contract_address = test_contract.to_address();
+    let contract_address =
+        env.deploy("Test").with_private_initializer(sender, Test::interface().initialize());
 
     (env, contract_address, sender, recipient)
 }
