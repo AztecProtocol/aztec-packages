@@ -3,9 +3,9 @@
 ## A mini python script to help generate the locations in memory of the indicies requred to generate a proof
 
 vk_fr = [
-    "VK_CIRCUIT_SIZE",
-    "VK_NUM_PUBLIC_INPUTS",
-    "VK_PUB_INPUTS_OFFSET",
+    "VK_CIRCUIT_SIZE_LOC",
+    "VK_NUM_PUBLIC_INPUTS_LOC",
+    "VK_PUB_INPUTS_OFFSET_LOC",
 ]
 
 vk_g1 = [
@@ -21,7 +21,7 @@ vk_g1 = [
     "Q_AUX",
     "Q_LOOKUP",
     "Q_POSEIDON_2_EXTERNAL",
-    "Q_POSEIDON_2_INERNAL",
+    "Q_POSEIDON_2_INTERNAL",
     "SIGMA_1",
     "SIGMA_2",
     "SIGMA_3",
