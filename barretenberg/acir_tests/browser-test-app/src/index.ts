@@ -16,7 +16,10 @@ function installUltraHonkGlobals() {
     const { UltraHonkBackend } = await import("@aztec/bb.js");
 
     logger.debug("starting test...");
-    const backend = new UltraHonkBackend(bytecode, { threads });
+    const backend = new UltraHonkBackend(bytecode, {
+      threads,
+      logger: console.log,
+    });
     const proofData = await backend.generateProof(witness);
 
     logger.debug(`getting the verification key...`);

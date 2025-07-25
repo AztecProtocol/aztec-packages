@@ -8,30 +8,15 @@ import {
   splitHonkProof,
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
-import { Encoder } from 'msgpackr/pack';
+import { fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_types.js';
 import { ungzip } from 'pako';
+import { Buffer } from 'buffer';
+import { Decoder, Encoder } from 'msgpackr';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
     super(message);
   }
-}
-
-// Utility for parsing gate counts from buffer
-// TODO: Where should this logic live? Should go away with move to msgpack.
-function parseBigEndianU32Array(buffer: Uint8Array): number[] {
-  const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-
-  let offset = 0;
-  const count = buffer.byteLength >>> 2; // default is entire buffer length / 4
-
-  const out: number[] = new Array(count);
-  for (let i = 0; i < count; i++) {
-    out[i] = dv.getUint32(offset, false);
-    offset += 4;
-  }
-
-  return out;
 }
 
 /**
@@ -219,39 +204,6 @@ export class UltraHonkBackend {
     await this.api.destroy();
   }
 }
-interface AztecClientExecutionStep {
-  functionName: string;
-  gateCount?: number;
-  // Note: not gzipped like in native code
-  bytecode: Uint8Array;
-  // Note: not gzipped like in native code. Already bincoded.
-  witness: Uint8Array;
-  /* TODO(https://github.com/AztecProtocol/barretenberg/issues/1328) this should get its own proper class. */
-  vk: Uint8Array;
-}
-
-function serializeAztecClientExecutionSteps(
-  acirBuf: Uint8Array[],
-  witnessBuf: Uint8Array[],
-  vksBuf: Uint8Array[],
-): Uint8Array {
-  const steps: AztecClientExecutionStep[] = [];
-  for (let i = 0; i < acirBuf.length; i++) {
-    const bytecode = acirBuf[i];
-    // Witnesses are not provided at all for gates info.
-    const witness = witnessBuf[i] || Buffer.from([]);
-    // VKs are optional for proving (deprecated feature) or not provided at all for gates info.
-    const vk = vksBuf[i] || Buffer.from([]);
-    const functionName = `unknown_wasm_${i}`;
-    steps.push({
-      bytecode,
-      witness,
-      vk,
-      functionName,
-    });
-  }
-  return new Encoder({ useRecords: false }).pack(steps);
-}
 
 export class AztecClientBackend {
   // These type assertions are used so that we don't
@@ -284,26 +236,73 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
     await this.instantiate();
-    const ivcInputsBuf = serializeAztecClientExecutionSteps(this.acirBuf, witnessBuf, vksBuf);
-    const proofAndVk = await this.api.acirProveAztecClient(ivcInputsBuf);
-    const [proof, vk] = proofAndVk;
-    if (!(await this.verify(proof, vk))) {
+
+    // Queue IVC start with the number of circuits
+    this.api.clientIvcStart({ numCircuits: this.acirBuf.length });
+
+    // Queue load and accumulate for each circuit
+    for (let i = 0; i < this.acirBuf.length; i++) {
+      const bytecode = this.acirBuf[i];
+      const witness = witnessBuf[i] || Buffer.from([]);
+      const vk = vksBuf[i] || Buffer.from([]);
+      const functionName = `unknown_wasm_${i}`;
+
+      // Load the circuit
+      this.api.clientIvcLoad({
+        circuit: {
+          name: functionName,
+          bytecode: Buffer.from(bytecode),
+          verificationKey: Buffer.from(vk),
+        }
+      });
+
+      // Accumulate with witness
+      this.api.clientIvcAccumulate({
+        witness: Buffer.from(witness),
+      });
+    }
+
+    // Generate the proof (and wait for all previous steps to finish)
+    const proveResult = await this.api.clientIvcProve({});
+
+    // The API currently expects a msgpack-encoded API.
+    const proof = new Encoder({useRecords: false}).encode(fromClientIVCProof(proveResult.proof));
+    // Generate the VK
+    const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
+      name: 'tail',
+      bytecode: this.acirBuf[this.acirBuf.length - 1],
+    } });
+
+    // Note: Verification may not work correctly until we properly serialize the proof
+    if (!(await this.verify(proof, vkResult.bytes))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
     }
-    return proofAndVk;
+    return [proof, vkResult.bytes];
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
-    return this.api.acirVerifyAztecClient(proof, vk);
+    const result = await this.api.clientIvcVerify({
+      proof: toClientIVCProof(new Decoder({useRecords: false}).decode(proof)),
+      vk: Buffer.from(vk),
+    });
+    return result.valid;
   }
 
   async gates(): Promise<number[]> {
-    // call function on API
     await this.instantiate();
-    const ivcInputsBuf = serializeAztecClientExecutionSteps(this.acirBuf, [], []);
-    const resultBuffer = await this.api.acirGatesAztecClient(ivcInputsBuf);
-    return parseBigEndianU32Array(resultBuffer);
+    const circuitSizes: number[] = [];
+    for (const buf of this.acirBuf) {
+      const gates = await this.api.clientIvcGates({
+        circuit: {
+          name: 'circuit',
+          bytecode: buf,
+        },
+        includeGatesPerOpcode: false
+      });
+      circuitSizes.push(gates.circuitSize);
+    }
+    return circuitSizes;
   }
 
   async destroy(): Promise<void> {

@@ -29,5 +29,6 @@ struct GoblinProof {
     };
 
     MSGPACK_FIELDS(merge_proof, eccvm_proof, translator_proof);
+    bool operator==(const GoblinProof& other) const = default;
 };
 } // namespace bb

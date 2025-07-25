@@ -8,3 +8,6 @@ dest
 /crs
 package.tgz
 package
+
+# Generated files
+src/cbind/generated/

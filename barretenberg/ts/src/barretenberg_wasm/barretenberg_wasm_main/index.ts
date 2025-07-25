@@ -136,6 +136,29 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       return this.getMemorySlice(ptr + 4, ptr + 4 + length);
     });
   }
+
+  cbindCall(cbind: string, inputBuffer: Uint8Array): any {
+    const outputSizePtr = this.call('bbmalloc', 4);
+    const outputMsgpackPtr = this.call('bbmalloc', 4);
+
+    const inputPtr = this.call('bbmalloc', inputBuffer.length);
+    this.writeMemory(inputPtr, inputBuffer);
+    this.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
+
+    const readPtr32 = (ptr32: number) => {
+      const dataView = new DataView(this.getMemorySlice(ptr32, ptr32 + 4).buffer);
+      return dataView.getUint32(0, true);
+    };
+
+    const encodedResult = this.getMemorySlice(
+      readPtr32(outputMsgpackPtr),
+      readPtr32(outputMsgpackPtr) + readPtr32(outputSizePtr),
+    );
+    this.call('bbfree', inputPtr);
+    this.call('bbfree', outputSizePtr);
+    this.call('bbfree', outputMsgpackPtr);
+    return encodedResult;
+  }
 }
 
 /**

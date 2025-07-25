@@ -109,6 +109,7 @@ class ClientIVC {
          * @return uint8_t* Double size-prefixed msgpack buffer
          */
         uint8_t* to_msgpack_heap_buffer() const;
+        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIVCProof";
 
         class DeserializationError : public std::runtime_error {
           public:
@@ -124,6 +125,7 @@ class ClientIVC {
         static Proof from_file_msgpack(const std::string& filename);
 
         MSGPACK_FIELDS(mega_proof, goblin_proof);
+        bool operator==(const Proof& other) const = default;
     };
 
     struct VerificationKey {
