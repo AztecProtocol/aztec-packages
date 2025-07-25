@@ -100,15 +100,11 @@ template <typename Builder, typename Native> class uint {
     uint256_t get_additive_constant() const { return additive_constant; }
 
     std::vector<uint32_t> get_accumulators() const { return accumulators; }
-    uint256_t get_unbounded_value() const;
 
   protected:
     Builder* context;
 
-    enum WitnessStatus { OK, NOT_NORMALIZED, WEAK_NORMALIZED };
-
     mutable uint256_t additive_constant;
-    mutable WitnessStatus witness_status;
 
     // N.B. Not an accumulator! Contains 6-bit slices of input
     mutable std::vector<uint32_t> accumulators;
