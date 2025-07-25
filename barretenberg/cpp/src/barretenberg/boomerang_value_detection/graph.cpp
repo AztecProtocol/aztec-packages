@@ -576,26 +576,19 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_co
 }
 
 template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_connected_component(
-    [[maybe_unused]] size_t index, [[maybe_unused]] size_t block_idx, [[maybe_unused]] auto& blk)
+inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part_connected_component(
+    size_t index, size_t block_idx, auto& blk)
 {
     std::vector<uint32_t> gate_variables;
-    gate_variables.reserve(7);
-    auto w1 = blk.w_1()[index]; // get opcode of operation, because function get_ecc_op_idx returns type uint32_t and it
-                                // adds as w1
+    auto w1 = blk.w_l()[index]; // get opcode of operation, because function get_ecc_op_idx returns type uint32_t and it adds as w1
     if (w1 != circuit_builder.zero_idx) {
         // this is opcode and start of the UltraOp element
-        if (w1 == circuit_builder.add_accum_op_idx || w1 == circuit_builder.mul_accum_op_idx ||
-            w1 == circuit_builder.) {
-            gate_variables.insert(
-                gate_variables.end(),
-                { w1, blk.w_2()[index], blk.w_3()[index], blk.w_4()[index] }) // add op, x_lo, x_hi, y_lo
-                if (index < blk.size() - 1)
-            {
-                gate_variables.insert(gate_variables.end(),
-                                      { blk.w2()[index], blk.w_3()[index], blk.w_4()[index] }) // ad y_hi, z1, z2
-            }
-        } else if (w1 == circuit_builder.)
+        gate_variables.insert(gate_variables.end(), { w1, blk.w_r()[index], blk.w_o()[index], blk.w_4()[index] }); // add op, x_lo, x_hi, y_lo
+        if (index < blk.size() - 1) {
+            gate_variables.insert(gate_variables.end(), { blk.w_r()[index + 1], blk.w_o()[index + 1], blk.w_4()[index + 1] }); // add y_hi, z1, z2
+        }
+        gate_variables = this->to_real(gate_variables);
+        this->process_gate_variables(gate_variables, index, block_idx);
     }
     return gate_variables;
 }
@@ -606,7 +599,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
     auto block_data = circuit_builder.blocks.get();
 
     // We have to determine pub_inputs block index based on circuit builder type, because we have to skip it.
-    // If type of CircuitBuilder is UltraCircuitBuilder, the pub_inputs block is the first block so we can update
+    // If type of CircuitBuilder is UltraCircuitBuilder, the pub_inputs block is the first block so we can set
     // pub_inputs_block_idx
     size_t pub_inputs_block_idx = 0;
 
@@ -652,15 +645,24 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
                 connect_all_variables_in_vector(delta_range_variables);
             }
             if constexpr (std::is_same_v<CircuitBuilder, bb::MegaCircuitBuilder>) {
-                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they are databus or
-                // eccop
+                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they are databus or eccop
+                std::vector<uint32_t> eccop_variables;
                 auto databus_variables = get_databus_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
                 if (connect_variables) {
                     connect_all_variables_in_vector(databus_variables);
                 }
-                auto eccop_variables = get_eccop_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
+                auto eccop_gate_variables = get_eccop_part_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
                 if (connect_variables) {
-                    connect_all_variables_in_vector(eccop_variables);
+                    if (!eccop_gate_variables.empty()) {
+                        //The gotten vector of variables contains all variables from UltraOp element of the table
+                        eccop_variables.insert(eccop_variables.end(), eccop_gate_variables.begin(), eccop_gate_variables.end());
+                        //if a current opcode is responsible for equality and reset, we have to connect all variables in
+                        //global vector and clear it for the next parts
+                        if (eccop_gate_variables[0] == circuit_builder.equality_op_idx) {
+                            connect_all_variables_in_vector(eccop_variables);
+                            eccop_variables.clear();
+                        }
+                    }
                 }
             }
         }

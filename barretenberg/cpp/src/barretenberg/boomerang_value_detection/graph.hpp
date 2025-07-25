@@ -90,7 +90,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
 
-<<<<<<< HEAD
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(
         bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
@@ -121,7 +120,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
                                                             const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(bb::UltraCircuitBuilder& ultra_builder,
                                                             const bb::RamTranscript& ram_array);
-=======
     void process_execution_trace(bool connect_variables = true);
 
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(size_t index,
@@ -137,7 +135,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
 
     std::vector<uint32_t> get_databus_connected_component(size_t index, size_t block_idx, auto& blk);
     std::vector<uint32_t> get_eccop_connected_component(size_t index, size_t block_idx, auto& blk);
->>>>>>> e4aae870fb (new tool's design to work with Mega and Ultra)
+    std::vector<uint32_t> get_eccop_part_connected_component(size_t index, size_t block_idx, auto& blk);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
