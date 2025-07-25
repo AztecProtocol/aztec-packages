@@ -211,7 +211,13 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         greater_than,
                         get_contract_instance,
                         merkle_db);
-    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
+    TxExecution tx_execution(execution,
+                             context_provider,
+                             merkle_db,
+                             written_public_data_slots_tree_check,
+                             field_gt,
+                             poseidon2,
+                             tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
 

@@ -144,7 +144,9 @@ std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
 }
 
 std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase,
-                                                              const simulation::EnqueuedCallEvent& event)
+                                                              const simulation::EnqueuedCallEvent& event,
+                                                              const simulation::TxContextEvent& state_before,
+                                                              const simulation::TxContextEvent& state_after)
 {
     return {
         { Column::tx_is_public_call_request, 1 },
@@ -155,10 +157,10 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
         { Column::tx_is_static, event.is_static },
         { Column::tx_calldata_hash, event.calldata_hash },
         { Column::tx_reverted, event.success },
-        { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.prev_gas_used.daGas },
-        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.prev_gas_used.l2Gas },
-        { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.gas_used.daGas },
-        { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.gas_used.l2Gas },
+        { Column::tx_prev_da_gas_used_sent_to_enqueued_call, state_before.gas_used.daGas },
+        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, state_before.gas_used.l2Gas },
+        { Column::tx_next_da_gas_used_sent_to_enqueued_call, state_after.gas_used.daGas },
+        { Column::tx_next_l2_gas_used_sent_to_enqueued_call, state_after.gas_used.l2Gas },
         { Column::tx_da_gas_limit, event.gas_limit.daGas },
         { Column::tx_l2_gas_limit, event.gas_limit.l2Gas },
     };
@@ -338,10 +340,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     // We keep the msg counter across the phases since it is not tracked in the event
     uint32_t l2_l1_msg_counter = 0;
     // This is the tree state we will use during the "skipped" phases
-    TreeStates propagated_tree_state = startup_event_data.tree_state;
-
-    Gas gas_limit = startup_event_data.tx_gas_limit;
-    Gas gas_used = startup_event_data.private_gas_used;
+    // TODO(alvaro): integrate written public data slots tree state
+    TreeStates propagated_tree_state = startup_event_data.state.tree_states;
+    Gas gas_limit = startup_event_data.state.gas_limit;
+    Gas gas_used = startup_event_data.state.gas_used;
 
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
@@ -362,8 +364,11 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             // Count the number of steps in this phase
             uint32_t phase_counter = 0;
             uint32_t phase_length = static_cast<uint32_t>(phase.size());
-            // We alway set the tree state
-            trace.set(row, insert_tree_state(tx_phase_event->prev_tree_state, tx_phase_event->next_tree_state));
+            // We always set the tree state
+            // TODO(alvaro): integrate written public data slots tree state
+            trace.set(
+                row,
+                insert_tree_state(tx_phase_event->state_before.tree_states, tx_phase_event->state_after.tree_states));
             trace.set(row,
                       { {
                           { C::tx_sel, 1 },
@@ -383,7 +388,11 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             std::visit(
                 overloaded{
                     [&](const simulation::EnqueuedCallEvent& event) {
-                        trace.set(row, handle_enqueued_call_event(tx_phase_event->phase, event));
+                        trace.set(row,
+                                  handle_enqueued_call_event(tx_phase_event->phase,
+                                                             event,
+                                                             tx_phase_event->state_before,
+                                                             tx_phase_event->state_after));
                         // No explicit write counter for this phase
                         trace.set(row,
                                   handle_pi_read_write(
@@ -394,7 +403,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
                         // Teardown has independent gas tracking
                         if (tx_phase_event->phase != TransactionPhase::TEARDOWN) {
-                            gas_used = event.gas_used;
+                            gas_used = tx_phase_event->state_after.gas_used;
                         }
                     },
                     [&](const simulation::PrivateAppendTreeEvent& event) {
@@ -435,7 +444,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             phase_counter++;
         }
         // In case we encounter another skip row
-        propagated_tree_state = phase.back()->next_tree_state;
+        // TODO(alvaro): integrate written public data slots tree state
+        propagated_tree_state = phase.back()->state_after.tree_states;
         row++;
     }
 }
