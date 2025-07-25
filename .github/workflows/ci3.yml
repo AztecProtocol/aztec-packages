@@ -53,7 +53,7 @@ jobs:
 
       - name: Barretenberg CI Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-barretenberg')
-        run: echo "BARRETENBERG_CI=1" >> $GITHUB_ENV
+        run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
       - name: Compute Target Branch
         id: target_branch
