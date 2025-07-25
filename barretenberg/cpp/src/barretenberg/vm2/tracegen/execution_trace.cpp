@@ -833,8 +833,8 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
               } });
 
-    if (gas_event.dynamic_gas_factor.l2Gas != 0 || gas_event.dynamic_gas_factor.daGas != 0) {
-        const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+    const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+    if (exec_spec.dyn_gas_id != 0) {
         trace.set(get_dyn_gas_selector(exec_spec.dyn_gas_id), row, 1);
     }
 }

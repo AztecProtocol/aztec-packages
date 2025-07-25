@@ -14,4 +14,13 @@ struct U256Decomposition {
 
 U256Decomposition decompose(const uint256_t& x);
 
+struct U128Decomposition {
+    uint64_t lo;
+    uint64_t hi;
+
+    bool operator==(const U128Decomposition& other) const = default;
+};
+
+U128Decomposition decompose(const uint128_t& x);
+
 } // namespace bb::avm2::simulation

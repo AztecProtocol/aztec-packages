@@ -15,6 +15,7 @@ class MockAlu : public AluInterface {
     ~MockAlu() override;
 
     MOCK_METHOD(MemoryValue, add, (const MemoryValue& a, const MemoryValue& b), (override));
+    MOCK_METHOD(MemoryValue, mul, (const MemoryValue& a, const MemoryValue& b), (override));
     MOCK_METHOD(MemoryValue, eq, (const MemoryValue& a, const MemoryValue& b), (override));
     MOCK_METHOD(MemoryValue, lt, (const MemoryValue& a, const MemoryValue& b), (override));
     MOCK_METHOD(MemoryValue, lte, (const MemoryValue& a, const MemoryValue& b), (override));
