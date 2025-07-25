@@ -141,7 +141,7 @@ class AvmGoblinRecursiveVerifier {
         TableCommitments t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_copy();
         TableCommitments T_prev_commitments =
             stdlib::recursion::honk::HidingKernelIO<UltraBuilder>::empty_ecc_op_tables(
-                &ultra_builder); // Empty ecc op tables because there is only one layer of Goblin
+                ultra_builder); // Empty ecc op tables because there is only one layer of Goblin
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
         GoblinRecursiveVerifierOutput goblin_verifier_output =
             goblin_verifier.verify(inner_output.goblin_proof, t_commitments, T_prev_commitments);
