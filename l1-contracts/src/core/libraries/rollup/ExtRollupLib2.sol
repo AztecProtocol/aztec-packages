@@ -48,8 +48,8 @@ library ExtRollupLib2 {
     StakingLib.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _onCanonical) external {
-    StakingLib.deposit(_attester, _withdrawer, _onCanonical);
+  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) external {
+    StakingLib.deposit(_attester, _withdrawer, _moveWithLatestRollup);
   }
 
   function flushEntryQueue(uint256 _maxAddableValidators) external {
