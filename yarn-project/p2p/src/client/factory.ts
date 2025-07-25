@@ -21,7 +21,7 @@ import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
-import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
+import { configureP2PClientAddresses, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
@@ -148,9 +148,8 @@ async function createP2PService<T extends P2PClientType>(
 
   // Create peer discovery service
   const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
-  const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey.getValue());
 
-  const p2pService = await (p2pServiceFactory ?? LibP2PService.new<T>)(clientType, config, peerId, {
+  const p2pService = await (p2pServiceFactory ?? LibP2PService.new<T>)(clientType, config, peerIdPrivateKey, {
     packageVersion,
     mempools,
     l2BlockSource: archiver,
