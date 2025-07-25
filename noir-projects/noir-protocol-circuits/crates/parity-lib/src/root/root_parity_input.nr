@@ -32,7 +32,7 @@ impl Empty for RootParityInput {
 impl Verifiable for RootParityInput {
     /// Verifies the proof against the verification key and public inputs.
     /// The vk hash is also checked in the backend to match the key.
-    fn verify(self) {
+    fn verify(self, _: bool) {
         let inputs = ParityPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
             self.verification_key.key,

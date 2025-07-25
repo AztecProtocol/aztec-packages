@@ -19,7 +19,7 @@ impl PrivateTubeDataValidator {
 
     pub fn validate_proof_and_vk(self) {
         if !dep::std::runtime::is_unconstrained() {
-            self.data.verify();
+            self.data.verify(false);
             // TODO(#7410): Add private tube vk hash to the tree and uncomment the following check.
             // self.data.vk_data.validate_vk_in_vk_tree();
         }
