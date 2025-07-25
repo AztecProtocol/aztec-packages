@@ -240,6 +240,36 @@ template <typename TestType> class stdlib_uint : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_add_edge_case()
+    {
+        Builder builder = Builder();
+
+        // We want to construct a uint_ct that has a value > uint_native_max.
+        // We do this by creating a byte_array_ct that has a value > uint_native_max.
+        uint256_t a_val = uint256_t(uint_native_max) + (uint256_t(1) << uint_native_width);
+
+        stdlib::field_t<Builder> a_wit = witness_ct(&builder, a_val);
+        byte_array_ct a_bytes(&builder);
+        a_bytes.write(static_cast<byte_array_ct>(a_wit));
+        uint_ct a(a_bytes);
+
+        std::cout << "a_unbounded = " << a.get_unbounded_value() << std::endl;
+        std::cout << "a_value = " << a.get_value() << std::endl;
+
+        uint_native b_val = 1;
+        uint_ct b = witness_ct(&builder, b_val);
+
+        // If we add a and b, we should get a value that is still greater than uint_native_max.
+        // Ideally, this addition should work because we allow overflow during addition (upto 2 bits).
+        uint_ct c = a + b;
+        c = c.normalize();
+        std::cout << "error = " << builder.err() << std::endl;
+
+        bool proof_result = CircuitChecker::check(builder);
+        std::cout << "error = " << builder.err() << std::endl;
+        EXPECT_EQ(proof_result, true);
+    }
+
     static void test_sub_special()
     {
         Builder builder = Builder();
@@ -1117,6 +1147,10 @@ using CircuitTypes = testing::Types<TestType<bb::UltraCircuitBuilder, uint8_t>,
 
 TYPED_TEST_SUITE(stdlib_uint, CircuitTypes);
 
+TYPED_TEST(stdlib_uint, test_add_edge_case)
+{
+    TestFixture::test_add_edge_case();
+}
 TYPED_TEST(stdlib_uint, test_weak_normalize)
 {
     TestFixture::test_weak_normalize();
