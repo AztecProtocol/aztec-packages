@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Signature, CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -20,7 +20,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposePayload, ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
@@ -38,13 +38,16 @@ contract ValidatorSelectionTestBase is DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
 
-  struct StructToAvoidDeepStacks {
+  struct ProposeTestData {
     uint256 needed;
     address proposer;
-    bool shouldRevert;
-    bool provideEmptyAttestations;
+    address sender;
     uint256 attestationsCount;
+    address[] committee;
+    CommitteeAttestation[] attestations;
+    address[] signers;
     ProposePayload proposePayload;
+    ProposeArgs proposeArgs;
   }
 
   SlashFactory internal slashFactory;

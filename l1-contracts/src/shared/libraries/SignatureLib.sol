@@ -38,6 +38,16 @@ error SignatureLib__InvalidSignature(address, address);
 
 library SignatureLib {
   /**
+   * @notice Checks if the given CommitteeAttestations is empty
+   * @param _attestations - The committee attestations
+   * @return True if the committee attestations are empty, false otherwise
+   */
+  function isEmpty(CommitteeAttestations memory _attestations) internal pure returns (bool) {
+    return
+      _attestations.signatureIndices.length == 0 && _attestations.signaturesOrAddresses.length == 0;
+  }
+
+  /**
    * @notice Checks if the given index in the CommitteeAttestations is a signature
    * @param _attestations - The committee attestations
    * @param _index - The index to check
@@ -60,7 +70,98 @@ library SignatureLib {
   }
 
   /**
-   * @notice Verified a signature, throws if the signature is invalid or empty
+   * @notice Gets the signature at the given index
+   * @param _attestations - The committee attestations
+   * @param _index - The index of the signature to get
+   */
+  function getSignature(CommitteeAttestations memory _attestations, uint256 _index)
+    internal
+    pure
+    returns (Signature memory)
+  {
+    bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    require(isSignature(_attestations, _index), "Not a signature at this index");
+
+    uint256 dataPtr;
+    assembly {
+      // Skip length
+      dataPtr := add(signaturesOrAddresses, 0x20)
+    }
+
+    // Move to the start of the signature
+    for (uint256 i = 0; i < _index; ++i) {
+      dataPtr += isSignature(_attestations, i) ? 65 : 20;
+    }
+
+    uint8 v;
+    bytes32 r;
+    bytes32 s;
+
+    assembly {
+      v := byte(0, mload(dataPtr))
+      dataPtr := add(dataPtr, 1)
+      r := mload(dataPtr)
+      dataPtr := add(dataPtr, 32)
+      s := mload(dataPtr)
+    }
+    return Signature({v: v, r: r, s: s});
+  }
+
+  /**
+   * Returns the addresses from the CommitteeAttestations, using the array of signers to populate where there are signatures.
+   * Indices with signatures will have a zero address.
+   * @param _attestations - The committee attestations
+   * @param _length - The number of addresses to return, should match the number of committee members
+   */
+  function reconstructCommitteeFromSigners(
+    CommitteeAttestations memory _attestations,
+    address[] memory _signers,
+    uint256 _length
+  ) internal pure returns (address[] memory) {
+    bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    bytes memory signatureIndices = _attestations.signatureIndices;
+    address[] memory addresses = new address[](_length);
+
+    uint256 signersIndex;
+    uint256 dataPtr;
+    uint256 currentByte;
+    uint256 bitMask;
+
+    assembly {
+      // Skip length
+      dataPtr := add(signaturesOrAddresses, 0x20)
+    }
+
+    for (uint256 i = 0; i < _length; ++i) {
+      // Load new byte every 8 iterations
+      if (i % 8 == 0) {
+        uint256 byteIndex = i / 8;
+        currentByte = uint8(signatureIndices[byteIndex]);
+        bitMask = 128; // 0b10000000
+      }
+
+      bool isSignatureFlag = (currentByte & bitMask) != 0;
+      bitMask >>= 1;
+
+      if (isSignatureFlag) {
+        dataPtr += 65;
+        addresses[i] = _signers[signersIndex];
+        signersIndex++;
+      } else {
+        address addr;
+        assembly {
+          addr := shr(96, mload(dataPtr))
+          dataPtr := add(dataPtr, 20)
+        }
+        addresses[i] = addr;
+      }
+    }
+
+    return addresses;
+  }
+
+  /**
+   * @notice Verifies a signature, throws if the signature is invalid or empty
    *
    * @param _signature - The signature to verify
    * @param _signer - The expected signer of the signature

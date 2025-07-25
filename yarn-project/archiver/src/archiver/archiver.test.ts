@@ -821,6 +821,7 @@ async function makeRollupTx(l2Block: L2Block) {
         oracleInput: { feeAssetPriceModifier: 0n },
       },
       RollupContract.packAttestations([]),
+      [],
       blobInput,
     ],
   });

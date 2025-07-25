@@ -12,10 +12,10 @@ import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
+  RewardDistributorArtifact,
   RollupContract,
   createExtendedL1Client,
   getPublicClient,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -149,7 +149,7 @@ export class FeesTest {
   async getBlockRewards() {
     const rewardDistributor = getContract({
       address: this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-      abi: l1Artifacts.rewardDistributor.contractAbi,
+      abi: RewardDistributorArtifact.contractAbi,
       client: this.context.deployL1ContractsValues.l1Client,
     });
 

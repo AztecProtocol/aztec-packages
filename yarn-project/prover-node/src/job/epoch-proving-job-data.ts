@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
 /** All data from an epoch used in proving. */
@@ -10,6 +10,7 @@ export type EpochProvingJobData = {
   txs: Tx[];
   l1ToL2Messages: Record<number, Fr[]>;
   previousBlockHeader: BlockHeader;
+  attestations: CommitteeAttestation[];
 };
 
 export function validateEpochProvingJobData(data: EpochProvingJobData) {
@@ -36,6 +37,7 @@ export function serializeEpochProvingJobData(data: EpochProvingJobData): Buffer 
     messages.length,
     ...messages,
   ]);
+  const attestations = data.attestations.map(attestation => attestation.toBuffer());
 
   return serializeToBuffer(
     Number(data.epochNumber),
@@ -46,6 +48,8 @@ export function serializeEpochProvingJobData(data: EpochProvingJobData): Buffer 
     ...txs,
     l1ToL2Messages.length,
     ...l1ToL2Messages,
+    attestations.length,
+    ...attestations,
   );
 }
 
@@ -64,5 +68,7 @@ export function deserializeEpochProvingJobData(buf: Buffer): EpochProvingJobData
     l1ToL2Messages[blockNumber] = messages;
   }
 
-  return { epochNumber, previousBlockHeader, blocks, txs, l1ToL2Messages };
+  const attestations = reader.readVector(CommitteeAttestation);
+
+  return { epochNumber, previousBlockHeader, blocks, txs, l1ToL2Messages, attestations };
 }
