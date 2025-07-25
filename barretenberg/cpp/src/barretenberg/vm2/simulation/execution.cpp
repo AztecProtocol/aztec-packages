@@ -848,6 +848,12 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             context.set_gas_used(context.get_gas_limit()); // Consume all gas.
             context.halt();
             set_execution_result({ .success = false });
+        } catch (const OutOfGasException& e) {
+            vinfo("Out of gas exception: ", e.what());
+            ex_event.error = ExecutionError::GAS;
+            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
+            context.halt();
+            set_execution_result({ .success = false });
         } catch (const OpcodeExecutionException& e) {
             vinfo("Opcode execution exception: ", e.what());
             ex_event.error = ExecutionError::OPCODE_EXECUTION;
