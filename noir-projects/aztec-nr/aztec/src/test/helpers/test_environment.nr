@@ -17,7 +17,26 @@ use super::txe_oracles::public_call_new_flow;
 
 mod test;
 
-pub struct TestEnvironment {}
+struct Counter {
+    next_value: Field,
+}
+
+impl Counter {
+    fn new() -> Self {
+        Self { next_value: 0 }
+    }
+
+    fn next(&mut self) -> Field {
+        let ret = self.next_value;
+        self.next_value += 1;
+        ret
+    }
+}
+
+pub struct TestEnvironment {
+    light_account_secret: Counter,
+    account_contract_secret: Counter,
+}
 
 pub struct CallResult<T> {
     pub return_value: T,
@@ -47,12 +66,12 @@ impl PrivateContextOptions {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        Self {}
+        Self { light_account_secret: Counter::new(), account_contract_secret: Counter::new() }
     }
 
     pub unconstrained fn _new() -> Self {
         txe_oracles::enable_context_checks();
-        Self {}
+        Self { light_account_secret: Counter::new(), account_contract_secret: Counter::new() }
     }
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
@@ -262,13 +281,20 @@ impl TestEnvironment {
         txe_oracles::advance_timestamp_by(duration);
     }
 
-    pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
-        let test_account = txe_oracles::create_account(secret);
-        test_account.address
-    }
-
-    pub unconstrained fn create_account_contract(self, secret: Field) -> AztecAddress {
-        let test_account = txe_oracles::add_account(secret);
+    /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
+    /// `public_call`, or be made the owner or recipient of notes in `private_context`.
+    ///
+    /// The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It also has
+    /// an associated `SchnorrAccount` contract that can process authwit requests - the authwits can be added via the
+    /// `add_private_authwit_from_call_interface` and `add_public_authwit_from_call_interface` helper functions. If
+    /// authwits are not required, consider using `create_light_account` instead, which is a faster variant of this
+    /// function.
+    ///
+    /// Each call to `create_contract_account` will return a different address, and so it can be called repeatedly to
+    /// generate multiple addresses. These addresses are also different from the ones that `create_light_account`
+    /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
+    pub unconstrained fn create_contract_account(&mut self) -> AztecAddress {
+        let test_account = txe_oracles::add_account(self.account_contract_secret.next());
         let address = test_account.address;
 
         let _ = self.call_private(
@@ -283,6 +309,21 @@ impl TestEnvironment {
         );
 
         address
+    }
+
+    /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
+    /// `public_call`, or be made the owner or recipient of notes in `private_context`. This is a faster variant of
+    /// `create_contract_account`, but comes with reduced capabilities.
+    ///
+    /// The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It doesn't
+    /// however have an associated account contract, so it cannot process authwit requests.
+    ///
+    /// Each call to `create_light_account` will return a different address, and so it can be called repeatedly to
+    /// generate multiple addresses. These addresses are also different from the ones that `create_contract_account`
+    /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
+    pub unconstrained fn create_light_account(&mut self) -> AztecAddress {
+        let test_account = txe_oracles::create_account(self.light_account_secret.next());
+        test_account.address
     }
 
     pub unconstrained fn deploy<let N: u32, let M: u32>(

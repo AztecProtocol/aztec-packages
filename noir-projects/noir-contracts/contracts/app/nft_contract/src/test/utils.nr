@@ -9,18 +9,18 @@ pub unconstrained fn setup(
     with_account_contracts: bool,
 ) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
-        let owner = env.create_account_contract(1);
-        let recipient = env.create_account_contract(2);
+        let owner = env.create_contract_account();
+        let recipient = env.create_contract_account();
         (owner, recipient)
     } else {
-        let owner = env.create_account(1);
-        let recipient = env.create_account(2);
+        let owner = env.create_light_account();
+        let recipient = env.create_light_account();
 
         // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
         // usually done by account contract's entrypoint.
-        let sender = env.create_account(7097070);
+        let sender = env.create_light_account();
         set_sender_for_tags(sender);
 
         (owner, recipient)

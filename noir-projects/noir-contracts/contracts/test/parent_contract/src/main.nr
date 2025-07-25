@@ -265,9 +265,9 @@ pub contract Parent {
 
     #[test]
     unconstrained fn test_private_call() {
-        let env = TestEnvironment::new();
-        let owner = env.create_account(1);
-        let sender = env.create_account(7097070);
+        let mut env = TestEnvironment::new();
+        let owner = env.create_light_account();
+        let sender = env.create_light_account();
 
         // Deploy parent contract
         let parent_contract = env.deploy_self("Parent").without_initializer();

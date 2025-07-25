@@ -91,11 +91,11 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
 #[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
 unconstrained fn incorrect_completer_cannot_complete_partial_note() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
-    let (env, nft_contract_address, owner, recipient, token_id) =
+    let (mut env, nft_contract_address, owner, recipient, token_id) =
         utils::setup_and_mint(/* with_account_contracts */ false);
 
     // We set up the completer
-    let completer = env.create_account(3);
+    let completer = env.create_light_account();
 
     // We prepare the partial note as a completer.
     let partial_note = env
