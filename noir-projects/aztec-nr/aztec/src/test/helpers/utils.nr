@@ -10,14 +10,13 @@ use protocol_types::{
 };
 use std::meta::derive;
 
-pub struct Deployer<let N: u32, let M: u32> {
+pub struct ContractDeployment<let N: u32> {
     pub env: TestEnvironment,
     pub path: str<N>,
-    pub name: str<M>,
     pub secret: Field,
 }
 
-impl<let N: u32, let M: u32> Deployer<N, M> {
+impl<let N: u32> ContractDeployment<N> {
     pub unconstrained fn with_private_initializer<T, let P: u32>(
         self,
         from: AztecAddress,
@@ -28,7 +27,6 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     {
         let instance = txe_oracles::deploy(
             self.path,
-            self.name,
             call_interface.get_name(),
             call_interface.get_args(),
             self.secret,
@@ -63,7 +61,6 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     {
         let instance = txe_oracles::deploy(
             self.path,
-            self.name,
             call_interface.get_name(),
             call_interface.get_args(),
             self.secret,
@@ -89,7 +86,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     }
 
     pub unconstrained fn without_initializer(self) -> ContractInstance {
-        txe_oracles::deploy(self.path, self.name, "", &[], self.secret)
+        txe_oracles::deploy(self.path, "", &[], self.secret)
     }
 }
 

@@ -12,7 +12,7 @@ use aztec::utils::comparison::Comparator;
 unconstrained fn check_block_number() {
     let env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
+    let router_contract = env.deploy("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
@@ -27,7 +27,7 @@ unconstrained fn check_block_number() {
 unconstrained fn check_block_number_fail() {
     let env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
+    let router_contract = env.deploy("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
@@ -42,7 +42,7 @@ unconstrained fn check_block_number_fail() {
 unconstrained fn check_timestamp() {
     let env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
+    let router_contract = env.deploy("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
@@ -58,7 +58,7 @@ unconstrained fn check_timestamp() {
 unconstrained fn check_timestamp_fail() {
     let env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
+    let router_contract = env.deploy("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 

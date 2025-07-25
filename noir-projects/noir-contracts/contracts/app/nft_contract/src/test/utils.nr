@@ -32,8 +32,7 @@ pub unconstrained fn setup(
         "TestNFT000000000000000000000000",
         "TN00000000000000000000000000000",
     );
-    let nft_contract =
-        env.deploy_self("NFT").with_public_initializer(owner, initializer_call_interface);
+    let nft_contract = env.deploy("NFT").with_public_initializer(owner, initializer_call_interface);
     let nft_contract_address = nft_contract.to_address();
 
     (env, nft_contract_address, owner, recipient)

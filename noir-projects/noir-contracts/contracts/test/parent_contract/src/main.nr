@@ -270,11 +270,11 @@ pub contract Parent {
         let sender = env.create_light_account();
 
         // Deploy parent contract
-        let parent_contract = env.deploy_self("Parent").without_initializer();
+        let parent_contract = env.deploy("Parent").without_initializer();
         let parent_contract_address = parent_contract.to_address();
 
         // Deploy child contract
-        let child_contract = env.deploy("./@child_contract", "Child").without_initializer();
+        let child_contract = env.deploy("@child_contract/Child").without_initializer();
         let child_contract_address = child_contract.to_address();
 
         // The 'from' param is irrelevant in all tests below.

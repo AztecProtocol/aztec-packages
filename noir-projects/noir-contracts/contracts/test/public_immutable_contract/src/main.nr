@@ -38,7 +38,7 @@ mod tests {
 
         // Deploy contract without initialization
         let contract_address =
-            env.deploy_self("PublicImmutableContract").without_initializer().to_address();
+            env.deploy("PublicImmutableContract").without_initializer().to_address();
 
         (env, contract_address)
     }

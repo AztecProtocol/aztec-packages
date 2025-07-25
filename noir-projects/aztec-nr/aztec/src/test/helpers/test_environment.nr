@@ -10,7 +10,7 @@ use crate::{
     },
     hash::hash_args,
     oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
-    test::helpers::{txe_oracles, utils::Deployer},
+    test::helpers::{txe_oracles, utils::ContractDeployment},
 };
 
 use super::txe_oracles::public_call_new_flow;
@@ -331,16 +331,50 @@ impl TestEnvironment {
         test_account.address
     }
 
-    pub unconstrained fn deploy<let N: u32, let M: u32>(
-        self: Self,
-        path: str<N>,
-        name: str<M>,
-    ) -> Deployer<N, M> {
-        Deployer { env: self, path, name, secret: 0 }
-    }
-
-    pub unconstrained fn deploy_self<let M: u32>(self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { env: self, path: "", name, secret: 0 }
+    /// Prepares a contract deployment, so that its private, public and utility functions can be called. In order to
+    /// finalize the deployment, the proper initializer function must be specified via one of the associated methods.
+    ///
+    /// ### Initialization
+    /// If no initializer function needs to be called, use `without_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").without_initializer;
+    /// ```
+    ///
+    /// For private initializers, use `with_private_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_private_initializer(
+    ///   PrivateInitContract::interface().private_init_fn(init_args)
+    /// );
+    /// ```
+    ///
+    /// For public initializers, use `with_public_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_public_initializer(
+    ///   PublicInitContract::interface().public_init_fn(init_args)
+    /// );
+    /// ```
+    ///
+    /// ### Path
+    /// Contracts can be deployed from either the same crate as the test, from a different crate in the same workspace,
+    /// or from an altogether independent crate.
+    ///
+    /// If deploying contracts from the same crate as the test, just refer to it by its name:
+    /// ```noir
+    /// TestEnvironment::new().deploy("MyContract");
+    /// ```
+    ///
+    /// If deploying contracts from a different crate in the same workspace, use `@crate_name/contract_name`:
+    /// ```noir
+    /// TestEnvironment::new().deploy("@my_contract_crate/MyContract");
+    /// ```
+    ///
+    /// If deploying contracts from a crate not in the workspace, use `path_to_crate/contract_name`, with the crate path
+    /// relative to the current workspace:
+    /// ```noir
+    /// TestEnvironment::new().deploy("../my_other_crate/MyContract");
+    /// ```
+    pub unconstrained fn deploy<let N: u32>(self: Self, path: str<N>) -> ContractDeployment<N> {
+        ContractDeployment { env: self, path, secret: 0 }
     }
 
     pub unconstrained fn call_private<T, let M: u32>(
