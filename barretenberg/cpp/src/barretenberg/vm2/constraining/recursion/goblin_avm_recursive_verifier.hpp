@@ -139,9 +139,12 @@ class AvmGoblinRecursiveVerifier {
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         TableCommitments t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_copy();
+        TableCommitments T_prev_commitments =
+            stdlib::recursion::honk::HidingKernelIO<UltraBuilder>::empty_ecc_op_tables(
+                &ultra_builder); // Empty ecc op tables because there is only one layer of Goblin
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
         GoblinRecursiveVerifierOutput goblin_verifier_output =
-            goblin_verifier.verify(inner_output.goblin_proof, t_commitments);
+            goblin_verifier.verify(inner_output.goblin_proof, t_commitments, T_prev_commitments);
         goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
