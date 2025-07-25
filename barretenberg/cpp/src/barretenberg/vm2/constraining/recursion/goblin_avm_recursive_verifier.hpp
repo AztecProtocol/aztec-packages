@@ -63,13 +63,17 @@ class AvmGoblinRecursiveVerifier {
         size_t mega_hash_public_input_index;                  // Index of hash h_M in the Mega proof opub inputs
     };
 
-    std::vector<UltraFF> outer_key_fields;
-
     UltraBuilder& ultra_builder;
+    std::vector<UltraFF> outer_key_fields;
+    UltraFF vk_hash;
 
-    explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder, const std::vector<UltraFF>& outer_key_fields)
-        : outer_key_fields(outer_key_fields)
-        , ultra_builder(builder)
+    explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder,
+                                        const std::vector<UltraFF>& outer_key_fields,
+                                        UltraFF& vk_hash)
+        : ultra_builder(builder)
+        , outer_key_fields(outer_key_fields)
+        , vk_hash(vk_hash)
+
     {}
 
     /**
@@ -126,12 +130,15 @@ class AvmGoblinRecursiveVerifier {
             hash_buffer.insert(hash_buffer.end(), input_vec.begin(), input_vec.end());
         }
         hash_buffer.insert(hash_buffer.end(), outer_key_fields.begin(), outer_key_fields.end());
+        hash_buffer.emplace_back(vk_hash);
 
         // Recursively verify the Mega proof \pi_M in the Ultra circuit
         // All verifier components share a single transcript
         auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
         auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(ultra_builder, inner_output.mega_vk);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
+        // mega_vk_and_hash->vk.fix_witness();
+        mega_vk_and_hash->hash.fix_witness();
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
         stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
@@ -198,6 +205,7 @@ class AvmGoblinRecursiveVerifier {
             mega_public_inputs.emplace_back(convert_stdlib_ultra_to_stdlib_mega(input_vec));
         }
         std::vector<FF> key_fields = convert_stdlib_ultra_to_stdlib_mega(outer_key_fields);
+        FF mega_vk_hash = convert_stdlib_ultra_to_stdlib_mega({ vk_hash })[0];
 
         // Compute the hash and set it public
         const FF mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
@@ -206,7 +214,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
-        AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key };
+        AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key, mega_vk_hash };
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs);
         points_accumulator.set_public();
 

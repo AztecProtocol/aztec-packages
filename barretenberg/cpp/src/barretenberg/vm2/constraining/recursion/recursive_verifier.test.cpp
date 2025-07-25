@@ -68,8 +68,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
-    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<OuterBuilder>;
-    using UltraFF = UltraRollupRecursiveFlavor::FF;
+    using UltraFF = UltraRecursiveFlavor_<OuterBuilder>::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
@@ -100,11 +99,13 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         UltraFF val = UltraFF::from_witness(&outer_circuit, f);
         outer_key_fields.push_back(val);
     }
+    fr vk_hash_native = verification_key->hash();
+    UltraFF vk_hash = UltraFF::from_witness(&outer_circuit, vk_hash_native);
 
     // Construct the AVM recursive verifier and verify the proof
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
+        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields, vk_hash);
         return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
     }();
 
