@@ -197,8 +197,9 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
             }
 
             for (size_t j = 0; j <= max_opcode; j++) {
-                if (!first)
+                if (!first) {
                     gates_per_opcode_str += ",";
+                }
                 first = false;
 
                 auto it = response.gates_per_opcode.find("opcode_" + std::to_string(j));

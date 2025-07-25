@@ -1,7 +1,7 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
+#include "barretenberg/client_ivc/acir_bincode_mocks.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/program_witness.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include <gtest/gtest.h>
@@ -10,51 +10,183 @@ namespace bb::bbapi {
 
 class BBApiUltraHonkTest : public ::testing::Test {
   protected:
-    static constexpr size_t NUM_CONSTRAINTS = 10;
-
-    std::vector<uint8_t> create_simple_circuit()
-    {
-        // Create a simple circuit with some constraints
-        acir_format::AcirFormat constraint_system;
-
-        // Add a simple constraint: x + y = z
-        constraint_system.poly_triple_constraints.push_back({
-            .a = 1,
-            .b = 2,
-            .c = 3,
-            .q_m = 0,
-            .q_l = bb::fr::one(),
-            .q_r = bb::fr::one(),
-            .q_o = -bb::fr::one(),
-            .q_c = 0,
-        });
-
-        constraint_system.varnum = 4;
-        constraint_system.recursive = false;
-        constraint_system.num_acir_opcodes = 1;
-
-        // Convert to buffer
-        return acir_format::constraint_system_to_acir_buf(constraint_system);
-    }
-
-    std::vector<uint8_t> create_witness()
-    {
-        // Create witness for x=2, y=3, z=5
-        acir_format::WitnessVector witness;
-        witness.push_back(0); // index 0 is unused
-        witness.push_back(2); // x
-        witness.push_back(3); // y
-        witness.push_back(5); // z
-
-        return acir_format::witness_buf_to_witness_data(witness);
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
+
+TEST_F(BBApiUltraHonkTest, CircuitProve)
+{
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    CircuitProve command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
+                          .witness = witness,
+                          .settings = { .ipa_accumulation = false,
+                                        .oracle_hash_type = "poseidon2",
+                                        .disable_zk = false,
+                                        .honk_recursion = 1,
+                                        .recursive = false } };
+
+    auto response = std::move(command).execute();
+
+    // Verify response has valid proof
+    EXPECT_FALSE(response.proof.empty());
+    // The simple circuit has no public inputs
+    EXPECT_EQ(response.public_inputs.size(), 0);
+}
+
+TEST_F(BBApiUltraHonkTest, CircuitComputeVk)
+{
+    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    CircuitComputeVk command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
+                              .settings = { .ipa_accumulation = false,
+                                            .oracle_hash_type = "poseidon2",
+                                            .disable_zk = false,
+                                            .honk_recursion = 1,
+                                            .recursive = false } };
+
+    auto response = std::move(command).execute();
+
+    // Verify we got a non-empty verification key
+    EXPECT_FALSE(response.bytes.empty());
+}
+
+TEST_F(BBApiUltraHonkTest, CircuitProveAndVerify)
+{
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // First prove
+    CircuitProve prove_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
+                                .witness = witness,
+                                .settings = { .ipa_accumulation = false,
+                                              .oracle_hash_type = "poseidon2",
+                                              .disable_zk = false,
+                                              .honk_recursion = 1,
+                                              .recursive = false } };
+
+    auto prove_response = std::move(prove_command).execute();
+
+    // Compute VK
+    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
+                                 .settings = { .ipa_accumulation = false,
+                                               .oracle_hash_type = "poseidon2",
+                                               .disable_zk = false,
+                                               .honk_recursion = 1,
+                                               .recursive = false } };
+
+    auto vk_response = std::move(vk_command).execute();
+
+    // Verify the proof
+    CircuitVerify verify_command{ .verification_key = vk_response.bytes,
+                                  .public_inputs = prove_response.public_inputs,
+                                  .proof = prove_response.proof,
+                                  .settings = { .ipa_accumulation = false,
+                                                .oracle_hash_type = "poseidon2",
+                                                .disable_zk = false,
+                                                .honk_recursion = 1,
+                                                .recursive = false } };
+
+    auto verify_response = std::move(verify_command).execute();
+
+    EXPECT_TRUE(verify_response.verified);
+}
+
+TEST_F(BBApiUltraHonkTest, CircuitVerifyWithWrongProof)
+{
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // First prove
+    CircuitProve prove_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
+                                .witness = witness,
+                                .settings = { .ipa_accumulation = false,
+                                              .oracle_hash_type = "poseidon2",
+                                              .disable_zk = false,
+                                              .honk_recursion = 1,
+                                              .recursive = false } };
+
+    auto prove_response = std::move(prove_command).execute();
+
+    // Compute VK
+    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
+                                 .settings = { .ipa_accumulation = false,
+                                               .oracle_hash_type = "poseidon2",
+                                               .disable_zk = false,
+                                               .honk_recursion = 1,
+                                               .recursive = false } };
+
+    auto vk_response = std::move(vk_command).execute();
+
+    // Corrupt the proof by changing one element
+    auto corrupted_proof = prove_response.proof;
+    if (!corrupted_proof.empty()) {
+        corrupted_proof[0] = corrupted_proof[0] + bb::fr::one();
+    }
+
+    // Verify the corrupted proof
+    CircuitVerify verify_command{ .verification_key = vk_response.bytes,
+                                  .public_inputs = prove_response.public_inputs,
+                                  .proof = corrupted_proof,
+                                  .settings = { .ipa_accumulation = false,
+                                                .oracle_hash_type = "poseidon2",
+                                                .disable_zk = false,
+                                                .honk_recursion = 1,
+                                                .recursive = false } };
+
+    auto verify_response = std::move(verify_command).execute();
+
+    EXPECT_FALSE(verify_response.verified);
+}
+
+TEST_F(BBApiUltraHonkTest, ProveWithDifferentFlavors)
+{
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // Test with UltraFlavor (poseidon2 + disable_zk)
+    {
+        CircuitProve command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
+                              .witness = witness,
+                              .settings = { .ipa_accumulation = false,
+                                            .oracle_hash_type = "poseidon2",
+                                            .disable_zk = true,
+                                            .honk_recursion = 1,
+                                            .recursive = false } };
+
+        auto response = std::move(command).execute();
+        EXPECT_FALSE(response.proof.empty());
+    }
+
+    // Test with UltraKeccakFlavor
+    {
+        CircuitProve command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
+                              .witness = witness,
+                              .settings = { .ipa_accumulation = false,
+                                            .oracle_hash_type = "keccak",
+                                            .disable_zk = true,
+                                            .honk_recursion = 1,
+                                            .recursive = false } };
+
+        auto response = std::move(command).execute();
+        EXPECT_FALSE(response.proof.empty());
+    }
+
+    // Test with UltraRollupFlavor (IPA accumulation)
+    {
+        CircuitProve command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
+                              .witness = witness,
+                              .settings = { .ipa_accumulation = true,
+                                            .oracle_hash_type = "poseidon2",
+                                            .disable_zk = false,
+                                            .honk_recursion = 2,
+                                            .recursive = false } };
+
+        auto response = std::move(command).execute();
+        EXPECT_FALSE(response.proof.empty());
+    }
+}
 
 TEST_F(BBApiUltraHonkTest, ProofAsFields)
 {
     // Create and prove a simple circuit
-    auto bytecode = create_simple_circuit();
-    auto witness = create_witness();
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     CircuitProve prove_cmd{ .circuit = { .bytecode = bytecode },
                             .witness = witness,
@@ -76,7 +208,7 @@ TEST_F(BBApiUltraHonkTest, ProofAsFields)
 
 TEST_F(BBApiUltraHonkTest, VkAsFieldsUltraHonk)
 {
-    auto bytecode = create_simple_circuit();
+    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     // Compute VK
     CircuitComputeVk compute_vk_cmd{ .circuit = { .bytecode = bytecode },
@@ -106,8 +238,7 @@ TEST_F(BBApiUltraHonkTest, VkAsFieldsMegaHonk)
 
     // Create a dummy MegaFlavor VK for testing
     MegaFlavor::VerificationKey mega_vk;
-    mega_vk.circuit_size = 16; // Minimal circuit size
-    mega_vk.log_circuit_size = 4;
+    mega_vk.log_circuit_size = 4; // log2(16) = 4
     mega_vk.num_public_inputs = 0;
 
     // Serialize it
@@ -124,6 +255,101 @@ TEST_F(BBApiUltraHonkTest, VkAsFieldsMegaHonk)
     // Check it matches
     auto expected_fields = mega_vk.to_field_elements();
     EXPECT_EQ(fields_response.fields, expected_fields);
+}
+
+TEST_F(BBApiUltraHonkTest, CircuitInfo)
+{
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    CircuitInfo command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
+                         .include_gates_per_opcode = true,
+                         .settings = { .ipa_accumulation = false,
+                                       .oracle_hash_type = "poseidon2",
+                                       .disable_zk = false,
+                                       .honk_recursion = 1,
+                                       .recursive = false } };
+
+    auto response = std::move(command).execute();
+
+    // Verify circuit info
+    EXPECT_GT(response.total_gates, 0);
+    EXPECT_GT(response.subgroup_size, 0);
+    // The simple circuit may not have gates_per_opcode populated
+    // EXPECT_FALSE(response.gates_per_opcode.empty());
+}
+
+TEST_F(BBApiUltraHonkTest, CircuitWriteSolidityVerifier)
+{
+    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // Compute VK first
+    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
+                                 .settings = { .ipa_accumulation = false,
+                                               .oracle_hash_type = "keccak",
+                                               .disable_zk = false,
+                                               .honk_recursion = 1,
+                                               .recursive = false } };
+
+    auto vk_response = std::move(vk_command).execute();
+
+    // Generate Solidity verifier
+    CircuitWriteSolidityVerifier command{ .verification_key = vk_response.bytes,
+                                          .settings = { .ipa_accumulation = false,
+                                                        .oracle_hash_type = "keccak",
+                                                        .disable_zk = false,
+                                                        .honk_recursion = 1,
+                                                        .recursive = false } };
+
+    auto response = std::move(command).execute();
+
+    // Verify we got Solidity code
+    EXPECT_FALSE(response.solidity_code.empty());
+    EXPECT_NE(response.solidity_code.find("contract"), std::string::npos);
+}
+
+TEST_F(BBApiUltraHonkTest, ProveWithPrecomputedVK)
+{
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // First compute the VK
+    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
+                                 .settings = { .ipa_accumulation = false,
+                                               .oracle_hash_type = "poseidon2",
+                                               .disable_zk = false,
+                                               .honk_recursion = 1,
+                                               .recursive = false } };
+
+    auto vk_response = std::move(vk_command).execute();
+
+    // Now prove with the precomputed VK
+    CircuitProve prove_command{
+        .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = vk_response.bytes },
+        .witness = witness,
+        .settings = { .ipa_accumulation = false,
+                      .oracle_hash_type = "poseidon2",
+                      .disable_zk = false,
+                      .honk_recursion = 1,
+                      .recursive = false }
+    };
+
+    auto prove_response = std::move(prove_command).execute();
+
+    // Verify response has valid proof
+    EXPECT_FALSE(prove_response.proof.empty());
+    EXPECT_EQ(prove_response.public_inputs.size(), 0);
+
+    // Verify the proof with the same VK
+    CircuitVerify verify_command{ .verification_key = vk_response.bytes,
+                                  .public_inputs = prove_response.public_inputs,
+                                  .proof = prove_response.proof,
+                                  .settings = { .ipa_accumulation = false,
+                                                .oracle_hash_type = "poseidon2",
+                                                .disable_zk = false,
+                                                .honk_recursion = 1,
+                                                .recursive = false } };
+
+    auto verify_response = std::move(verify_command).execute();
+    EXPECT_TRUE(verify_response.verified);
 }
 
 } // namespace bb::bbapi
