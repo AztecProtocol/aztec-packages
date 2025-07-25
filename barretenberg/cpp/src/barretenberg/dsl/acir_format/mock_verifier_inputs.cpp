@@ -177,9 +177,9 @@ Goblin::MergeProof create_mock_merge_proof()
     // Populate mock subtable size
     proof.emplace_back(mock_val);
 
-    // There are 12 entities in the merge protocol (4 columns x 3 components: T_{prev,j}, T_j, g_j(X) = X^{l-1} t_j(X))
+    // There are 8 entities in the merge protocol (4 columns x 2 components: T_j, g_j(X) = X^{l-1} t_j(X))
     // and 8 evaluations (4 columns x 2 components: g_j(kappa), t_j(1/kappa))
-    const size_t NUM_TRANSCRIPT_ENTITIES = 12;
+    const size_t NUM_TRANSCRIPT_ENTITIES = 8;
     const size_t NUM_TRANSCRIPT_EVALUATIONS = 8;
 
     // Transcript poly commitments
