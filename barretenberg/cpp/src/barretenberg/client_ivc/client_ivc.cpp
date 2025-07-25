@@ -9,6 +9,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
@@ -202,6 +203,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // .., A_{i, n} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
+    // Commitment to the previous state of the op_queue in the recursive verification
+    TableCommitments T_prev_commitments;
+
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
         instantiate_stdlib_verification_queue(circuit);
@@ -219,6 +223,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // we can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
 
+        // Update commitment to the status of the op_queue
+        T_prev_commitments = merged_table_commitments;
+
         stdlib_verification_queue.pop_front();
 
         is_hiding_kernel = (verifier_input.type == QUEUE_TYPE::PG_FINAL);
@@ -226,7 +233,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
-        HidingKernelIO hiding_output{ points_accumulator };
+        HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
     } else {
         KernelIO kernel_output;
@@ -437,7 +444,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, builder);
     fold_output.accumulator = nullptr;
 
-    HidingKernelIO hiding_output{ pairing_points };
+    HidingKernelIO hiding_output{ pairing_points, merged_table_commitments };
     hiding_output.set_public();
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
@@ -487,7 +494,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    auto [mega_verified, _] = verifier.verify_proof(proof.mega_proof);
+    auto [mega_verified, T_prev_commitments] = verifier.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
