@@ -1074,7 +1074,9 @@ pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
-pub global PROOF_TYPE_PG_FINAL: u32 = 7;
+// worktodo comment here where 7 is
+pub global PROOF_TYPE_PG_FINAL: u32 = 8;
+pub global PROOF_TYPE_TAIL: u32 = 9;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
 // AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)
