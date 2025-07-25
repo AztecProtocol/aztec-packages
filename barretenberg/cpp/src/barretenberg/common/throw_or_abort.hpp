@@ -1,18 +1,9 @@
 #pragma once
+#include "barretenberg/env/throw_or_abort_impl.hpp"
 #include "log.hpp"
 #include <string>
 
-inline void abort_with_message [[noreturn]] (std::string const& err)
-{
-    info("abort: ", err);
-    std::abort();
-}
-
 inline void throw_or_abort [[noreturn]] (std::string const& err)
 {
-#ifndef BB_NO_EXCEPTIONS
-    throw std::runtime_error(err);
-#else
-    abort_with_message(err);
-#endif
+    throw_or_abort_impl(err.c_str());
 }
