@@ -307,7 +307,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function testProposerAttestationNotProvided() public setup(4, 4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
-      Errors.ValidatorSelection__InvalidProposer.selector,
+      Errors.ValidatorSelection__MissingProposerSignature.selector,
       3,
       4,
       TestFlags({
@@ -498,17 +498,26 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     bytes32 digest = ProposeLib.digest(ree.proposePayload);
 
     {
-      uint256 signaturesCollected = 0;
+      uint256 signersIndex = 0;
+      uint256 signaturesCollected = _flags.proposerAttestationNotProvided ? 0 : 1;
       for (uint256 i = 0; i < ree.attestationsCount; i++) {
-        if (
-          (signaturesCollected >= _signatureCount)
-            || (ree.committee[i] == ree.proposer && _flags.proposerAttestationNotProvided)
-        ) {
+        if ((ree.committee[i] == ree.proposer && _flags.proposerAttestationNotProvided)) {
+          // If the proposer is not providing an attestation, we skip it
+          ree.attestations[i] = _createEmptyAttestation(ree.committee[i]);
+        } else if ((ree.committee[i] == ree.proposer)) {
+          // If the proposer is providing an attestation, set it
+          ree.attestations[i] = _createAttestation(ree.committee[i], digest);
+          ree.signers[signersIndex] = ree.committee[i];
+          signersIndex++;
+        } else if ((signaturesCollected >= _signatureCount)) {
+          // No need to create more signatures if we have collected enough
           ree.attestations[i] = _createEmptyAttestation(ree.committee[i]);
         } else {
+          // Create an attestation for the committee member and add them to the signers
           ree.attestations[i] = _createAttestation(ree.committee[i], digest);
-          ree.signers[signaturesCollected] = ree.committee[i];
+          ree.signers[signersIndex] = ree.committee[i];
           signaturesCollected++;
+          signersIndex++;
         }
       }
     }

@@ -183,16 +183,17 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @param _ts - The timestamp to check
    * @param _archive - The archive to check (should be the latest archive)
+   * @param _who - The address to check
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
     external
     override(IRollup)
     returns (Slot, uint256)
   {
-    return ExtRollupLib2.canProposeAtTime(_ts, _archive);
+    return ExtRollupLib2.canProposeAtTime(_ts, _archive, _who);
   }
 
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
