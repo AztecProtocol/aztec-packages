@@ -10,82 +10,44 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-// NOTE: We only test width 32, but widths 8, 16, 32 and 64 can all be tested.
-//       In widths 8, 16, 32: all tests pass.
-//       In width 64, the following tests fail for UltraBuilder.
-//           test_xor_special, test_xor_more_constants, test_and_constants, test_and_special, test_or_special,
-//           test_ror_special, test_hash_rounds, test_and, test_xor, test_or.
-// They fail with 'C++ exception with description"Last key slice greater than 64" thrown in the test body."'
+// TestType template for uint tests with Builder and NativeType parameters
+template <typename _Builder, typename _NativeType> struct TestType {
+  public:
+    using Builder = _Builder;
+    using NativeType = _NativeType;
 
-typedef uint32_t uint_native;
-size_t uint_native_width = 8 * sizeof(uint_native);
-uint_native uint_native_max = static_cast<uint_native>((static_cast<uint256_t>(1) << uint_native_width) - 1);
-
-template <typename Native> Native get_random()
-{
-    return static_cast<uint_native>(engine.get_random_uint64());
-};
-
-template <typename Native> std::vector<Native> get_several_random(size_t num)
-{
-    std::vector<Native> result;
-    for (size_t i = 0; i < num; ++i) {
-        result.emplace_back(get_random<Native>());
-    }
-    return result;
-}
-
-/**
- * @brief Utility function for testing the uint_ct comparison operators
- *
- * @details Given a uint_ct a and a constant const_b, this  allows to create a
- * uint_ct b having a desired relation to a (either >. = or <).
- */
-uint_native impose_comparison(uint_native const_a,
-                              uint_native const_b,
-                              uint_native a_val,
-                              bool force_equal = false,
-                              bool force_gt = false,
-                              bool force_lt = false)
-{
-    uint_native b_val;
-    if (force_equal) {
-        b_val = a_val + const_a - const_b;
-    } else if (force_lt) { // forcing b < a
-        // if   a_val + const_a != const_b, then we set up b_val + const_b = a_val + const_a - 1
-        // elif a_val + const_a  = const_b, then we set up b_val + const_b = a_val + const_a
-        //   and we increment a by 1, leading to           a_val + const_a = b_val + const_b + 1.
-        b_val = (a_val + const_a - const_b) ? a_val + const_a - const_b - 1 : const_a - const_b + (a_val++);
-    } else if (force_gt) { // forcing b > a
-        // set b_val + const_b = a_val + const_a + 1 unless that would wrap, in which case we instead
-        // set b_val + const_b = a then decrease a by 1.
-        b_val = (a_val + const_a - const_b) == uint_native_width ? const_a - const_b + (a_val--)
-                                                                 : a_val + const_a - const_b + 1;
-    } else {
-        b_val = get_random<uint_native>();
-    }
-    return b_val;
-}
-
-uint_native rotate(uint_native value, size_t rotation)
-{
-    return rotation ? static_cast<uint_native>(value >> rotation) +
-                          static_cast<uint_native>(value << (uint_native_width - rotation))
-                    : value;
-}
-template <typename Builder> class stdlib_uint : public testing::Test {
-    using uint_ct = stdlib::uint<Builder, uint_native>;
+    // Define the stdlib types based on the template parameters
+    using uint_ct = stdlib::uint<Builder, NativeType>;
     using bool_ct = stdlib::bool_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
     using byte_array_ct = stdlib::byte_array<Builder>;
+};
 
-    static inline std::vector<uint_native> special_values{ 0U,
-                                                           1U,
-                                                           2U,
-                                                           static_cast<uint_native>(1 << uint_native_width / 4),
-                                                           static_cast<uint_native>(1 << uint_native_width / 2),
-                                                           static_cast<uint_native>((1 << uint_native_width / 2) + 1),
-                                                           uint_native_max };
+template <typename TestType> class stdlib_uint : public testing::Test {
+  public:
+    using TestFixture = stdlib_uint<TestType>;
+
+  private:
+    using Builder = typename TestType::Builder;
+    using uint_ct = typename TestType::uint_ct;
+    using bool_ct = typename TestType::bool_ct;
+    using witness_ct = typename TestType::witness_ct;
+    using byte_array_ct = typename TestType::byte_array_ct;
+    using uint_native = typename TestType::NativeType;
+    static constexpr size_t uint_native_width = sizeof(uint_native) * 8;
+    static constexpr uint_native uint_native_max =
+        static_cast<uint_native>((static_cast<uint256_t>(1) << uint_native_width) - 1);
+
+    static inline std::vector<uint_native> special_values{
+        0U,
+        1U,
+        2U,
+        static_cast<uint_native>(static_cast<uint64_t>(1) << uint_native_width / 4),
+        static_cast<uint_native>(static_cast<uint64_t>(1) << uint_native_width / 2),
+        static_cast<uint_native>((static_cast<uint64_t>(1) << uint_native_width / 2) + 1),
+        uint_native_max
+    };
 
     static std::vector<uint_ct> get_special_uints(Builder* ctx)
     {
@@ -96,14 +58,57 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         return special_uints;
     };
 
+    static uint_native get_random() { return static_cast<uint_native>(engine.get_random_uint64()); };
+
+    static std::vector<uint_native> get_several_random(size_t num)
+    {
+        std::vector<uint_native> result;
+        for (size_t i = 0; i < num; ++i) {
+            result.emplace_back(get_random());
+        }
+        return result;
+    }
+
+    /**
+     * @brief Utility function for testing the uint_ct comparison operators
+     *
+     * @details Given a uint_ct a and a constant const_b, this  allows to create a
+     * uint_ct b having a desired relation to a (either >. = or <).
+     */
+    static uint_native impose_comparison(uint_native const_a,
+                                         uint_native const_b,
+                                         uint_native a_val,
+                                         bool force_equal = false,
+                                         bool force_gt = false,
+                                         bool force_lt = false)
+    {
+        uint_native b_val;
+        if (force_equal) {
+            b_val = a_val + const_a - const_b;
+        } else if (force_lt) { // forcing b < a
+            // if   a_val + const_a != const_b, then we set up b_val + const_b = a_val + const_a - 1
+            // elif a_val + const_a  = const_b, then we set up b_val + const_b = a_val + const_a
+            //   and we increment a by 1, leading to           a_val + const_a = b_val + const_b + 1.
+            b_val = (a_val + const_a - const_b) ? a_val + const_a - const_b - 1 : const_a - const_b + (a_val++);
+        } else if (force_gt) { // forcing b > a
+            // set b_val + const_b = a_val + const_a + 1 unless that would wrap, in which case we instead
+            // set b_val + const_b = a then decrease a by 1.
+            b_val = (a_val + const_a - const_b) == uint_native_width ? const_a - const_b + (a_val--)
+                                                                     : a_val + const_a - const_b + 1;
+        } else {
+            b_val = get_random();
+        }
+        return b_val;
+    }
+
   public:
     static void test_weak_normalize()
     {
         auto run_test = [](bool constant_only, bool add_constant) {
             Builder builder = Builder();
             uint_ct a;
-            uint_native a_val = get_random<uint_native>();
-            uint_native const_a = get_random<uint_native>();
+            uint_native a_val = get_random();
+            uint_native const_a = get_random();
             uint_native expected;
 
             if (constant_only) {
@@ -147,8 +152,8 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         Builder builder = Builder();
 
         for (size_t i = 1; i < 1024; i *= 2) {
-            uint_native a_expected = (uint_native)i;
-            uint_native b_expected = (uint_native)i;
+            uint_native a_expected = static_cast<uint_native>(i);
+            uint_native b_expected = static_cast<uint_native>(i);
 
             uint_ct a = witness_ct(&builder, a_expected);
             uint_ct b = witness_ct(&builder, b_expected);
@@ -273,8 +278,8 @@ template <typename Builder> class stdlib_uint : public testing::Test {
     static void test_add_with_constants()
     {
         size_t n = 8;
-        std::vector<uint_native> witnesses = get_several_random<uint_native>(3 * n);
-        uint_native expected[8];
+        std::vector<uint_native> witnesses = get_several_random(3 * n);
+        std::array<uint_native, 8> expected;
         for (size_t i = 2; i < n; ++i) {
             expected[0] = witnesses[3 * i];
             expected[1] = witnesses[3 * i + 1];
@@ -286,7 +291,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
             expected[7] = expected[4] + expected[5];
         }
         Builder builder = Builder();
-        uint_ct result[8];
+        std::array<uint_ct, 8> result;
         for (size_t i = 2; i < n; ++i) {
             result[0] = uint_ct(&builder, witnesses[3 * i]);
             result[1] = (witness_ct(&builder, witnesses[3 * i + 1]));
@@ -368,190 +373,6 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_xor_special()
-    {
-        uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
-        uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
-        uint_native c_expected = a_expected ^ b_expected;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b_expected = a_expected;
-            a_expected = c_expected;
-            c_expected = a_expected + b_expected;
-            a_expected = c_expected ^ a_expected;
-        }
-
-        Builder builder = Builder();
-
-        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
-
-        uint_ct a = first_input;
-        uint_ct b = second_input;
-        uint_ct c = a ^ b;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b = a;
-            a = c;
-            c = a + b;
-            a = c ^ a;
-        }
-        uint_native a_result = static_cast<uint_native>(a.get_value());
-
-        EXPECT_EQ(a_result, a_expected);
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_xor_constants()
-    {
-        Builder builder = Builder();
-
-        uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
-        uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
-        uint_native c_expected = a_expected ^ b_expected;
-
-        uint_ct const_a(&builder, static_cast<uint_native>(0x10000000a3b10422));
-        uint_ct const_b(&builder, static_cast<uint_native>(0xfafab007eac21343));
-        uint_ct c = const_a ^ const_b;
-        c.get_witness_index();
-
-        EXPECT_EQ(c.get_additive_constant(), uint256_t(c_expected));
-    }
-
-    static void test_xor_more_constants()
-    {
-        uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
-        uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
-        uint_native c_expected = a_expected ^ b_expected;
-        for (size_t i = 0; i < 1; ++i) {
-            b_expected = a_expected;
-            a_expected = c_expected;
-            c_expected = (a_expected + b_expected) ^
-                         (static_cast<uint_native>(0x10000000a3b10422) ^ static_cast<uint_native>(0xfafab007eac21343));
-        }
-
-        Builder builder = Builder();
-
-        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
-
-        uint_ct a = first_input;
-        uint_ct b = second_input;
-        uint_ct c = a ^ b;
-        for (size_t i = 0; i < 1; ++i) {
-            uint_ct const_a = static_cast<uint_native>(0x10000000a3b10422);
-            uint_ct const_b = static_cast<uint_native>(0xfafab007eac21343);
-            b = a;
-            a = c;
-            c = (a + b) ^ (const_a ^ const_b);
-        }
-        uint_native c_result = static_cast<uint_native>(c.get_value());
-        EXPECT_EQ(c_result, c_expected);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_and_constants()
-    {
-        uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
-        uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
-        uint_native c_expected = a_expected & b_expected;
-        for (size_t i = 0; i < 1; ++i) {
-            b_expected = a_expected;
-            a_expected = c_expected;
-            c_expected = (~a_expected & static_cast<uint_native>(0x10000000a3b10422)) +
-                         (b_expected & static_cast<uint_native>(0xfafab007eac21343));
-            // c_expected = (a_expected + b_expected) & (static_cast<uint_native>(0x10000000a3b10422) &
-            // static_cast<uint_native>(0xfafab007eac21343));
-        }
-
-        Builder builder = Builder();
-
-        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
-
-        uint_ct a = first_input;
-        uint_ct b = second_input;
-        uint_ct c = a & b;
-        for (size_t i = 0; i < 1; ++i) {
-            uint_ct const_a = static_cast<uint_native>(0x10000000a3b10422);
-            uint_ct const_b = static_cast<uint_native>(0xfafab007eac21343);
-            b = a;
-            a = c;
-            c = (~a & const_a) + (b & const_b);
-        }
-        uint_native c_result = static_cast<uint_native>(c.get_value());
-        EXPECT_EQ(c_result, c_expected);
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_and_special()
-    {
-        uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
-        uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
-        uint_native c_expected = a_expected + b_expected;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b_expected = a_expected;
-            a_expected = c_expected;
-            c_expected = a_expected + b_expected;
-            a_expected = c_expected & a_expected;
-        }
-
-        Builder builder = Builder();
-
-        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
-
-        uint_ct a = first_input;
-        uint_ct b = second_input;
-        uint_ct c = a + b;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b = a;
-            a = c;
-            c = a + b;
-            a = c & a;
-        }
-        uint_native a_result = static_cast<uint_native>(a.get_value());
-        EXPECT_EQ(a_result, a_expected);
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_or_special()
-    {
-        uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
-        uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
-        uint_native c_expected = a_expected ^ b_expected;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b_expected = a_expected;
-            a_expected = c_expected;
-            c_expected = a_expected + b_expected;
-            a_expected = c_expected | a_expected;
-        }
-
-        Builder builder = Builder();
-
-        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
-
-        uint_ct a = first_input;
-        uint_ct b = second_input;
-        uint_ct c = a ^ b;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b = a;
-            a = c;
-            c = a + b;
-            a = c | a;
-        }
-        uint_native a_result = static_cast<uint_native>(a.get_value());
-        EXPECT_EQ(a_result, a_expected);
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
     static void test_gt_special()
     {
         const auto run_test = [](bool lhs_constant, bool rhs_constant, int type = 0) {
@@ -619,192 +440,6 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         run_test(true, true, 2);
     }
 
-    static uint_native rotate(uint_native value, size_t rotation)
-    {
-        return rotation ? static_cast<uint_native>(value >> rotation) +
-                              static_cast<uint_native>(value << (uint_native_width - rotation))
-                        : value;
-    }
-
-    static void test_ror_special()
-    {
-        uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
-        uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
-        uint_native c_expected = a_expected ^ b_expected;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b_expected = a_expected;
-            a_expected = c_expected;
-            c_expected = a_expected + b_expected;
-            a_expected = rotate(c_expected, i % 31) + rotate(a_expected, (i + 1) % 31);
-        }
-
-        Builder builder = Builder();
-
-        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
-
-        uint_ct a = first_input;
-        uint_ct b = second_input;
-        uint_ct c = a ^ b;
-        for (size_t i = 0; i < uint_native_width; ++i) {
-            b = a;
-            a = c;
-            c = a + b;
-            a = c.ror(static_cast<uint_native>(i % 31)) + a.ror(static_cast<uint_native>((i + 1) % 31));
-        }
-        uint_native a_result = static_cast<uint_native>(a.get_value());
-        EXPECT_EQ(a_result, a_expected);
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    /**
-     * @brief If uint_native_width == 32, test part of SHA256. Otherwise, do something similar.
-     *
-     * @details Notes that the static casts have to be there becuase of -Wc++11-narrowing flag.
-     *
-     * StandardPLONK: 210363 gates
-     */
-    static void test_hash_rounds()
-    {
-        std::vector<uint_native> k_constants(64);
-        std::vector<uint_native> round_values(8);
-        if (uint_native_width == 32) {
-            k_constants = { static_cast<uint_native>(0x428a2f98), static_cast<uint_native>(0x71374491),
-                            static_cast<uint_native>(0xb5c0fbcf), static_cast<uint_native>(0xe9b5dba5),
-                            static_cast<uint_native>(0x3956c25b), static_cast<uint_native>(0x59f111f1),
-                            static_cast<uint_native>(0x923f82a4), static_cast<uint_native>(0xab1c5ed5),
-                            static_cast<uint_native>(0xd807aa98), static_cast<uint_native>(0x12835b01),
-                            static_cast<uint_native>(0x243185be), static_cast<uint_native>(0x550c7dc3),
-                            static_cast<uint_native>(0x72be5d74), static_cast<uint_native>(0x80deb1fe),
-                            static_cast<uint_native>(0x9bdc06a7), static_cast<uint_native>(0xc19bf174),
-                            static_cast<uint_native>(0xe49b69c1), static_cast<uint_native>(0xefbe4786),
-                            static_cast<uint_native>(0x0fc19dc6), static_cast<uint_native>(0x240ca1cc),
-                            static_cast<uint_native>(0x2de92c6f), static_cast<uint_native>(0x4a7484aa),
-                            static_cast<uint_native>(0x5cb0a9dc), static_cast<uint_native>(0x76f988da),
-                            static_cast<uint_native>(0x983e5152), static_cast<uint_native>(0xa831c66d),
-                            static_cast<uint_native>(0xb00327c8), static_cast<uint_native>(0xbf597fc7),
-                            static_cast<uint_native>(0xc6e00bf3), static_cast<uint_native>(0xd5a79147),
-                            static_cast<uint_native>(0x06ca6351), static_cast<uint_native>(0x14292967),
-                            static_cast<uint_native>(0x27b70a85), static_cast<uint_native>(0x2e1b2138),
-                            static_cast<uint_native>(0x4d2c6dfc), static_cast<uint_native>(0x53380d13),
-                            static_cast<uint_native>(0x650a7354), static_cast<uint_native>(0x766a0abb),
-                            static_cast<uint_native>(0x81c2c92e), static_cast<uint_native>(0x92722c85),
-                            static_cast<uint_native>(0xa2bfe8a1), static_cast<uint_native>(0xa81a664b),
-                            static_cast<uint_native>(0xc24b8b70), static_cast<uint_native>(0xc76c51a3),
-                            static_cast<uint_native>(0xd192e819), static_cast<uint_native>(0xd6990624),
-                            static_cast<uint_native>(0xf40e3585), static_cast<uint_native>(0x106aa070),
-                            static_cast<uint_native>(0x19a4c116), static_cast<uint_native>(0x1e376c08),
-                            static_cast<uint_native>(0x2748774c), static_cast<uint_native>(0x34b0bcb5),
-                            static_cast<uint_native>(0x391c0cb3), static_cast<uint_native>(0x4ed8aa4a),
-                            static_cast<uint_native>(0x5b9cca4f), static_cast<uint_native>(0x682e6ff3),
-                            static_cast<uint_native>(0x748f82ee), static_cast<uint_native>(0x78a5636f),
-                            static_cast<uint_native>(0x84c87814), static_cast<uint_native>(0x8cc70208),
-                            static_cast<uint_native>(0x90befffa), static_cast<uint_native>(0xa4506ceb),
-                            static_cast<uint_native>(0xbef9a3f7), static_cast<uint_native>(0xc67178f2) };
-
-            round_values = { static_cast<uint_native>(0x01020304), static_cast<uint_native>(0x0a0b0c0d),
-                             static_cast<uint_native>(0x1a2b3e4d), static_cast<uint_native>(0x03951bd3),
-                             static_cast<uint_native>(0x0e0fa3fe), static_cast<uint_native>(0x01000000),
-                             static_cast<uint_native>(0x0f0eeea1), static_cast<uint_native>(0x12345678) };
-        } else {
-            k_constants = get_several_random<uint_native>(64);
-            round_values = get_several_random<uint_native>(8);
-        };
-
-        std::vector<uint_native> w_alt = get_several_random<uint_native>(64);
-
-        uint_native a_alt = round_values[0];
-        uint_native b_alt = round_values[1];
-        uint_native c_alt = round_values[2];
-        uint_native d_alt = round_values[3];
-        uint_native e_alt = round_values[4];
-        uint_native f_alt = round_values[5];
-        uint_native g_alt = round_values[6];
-        uint_native h_alt = round_values[7];
-        for (size_t i = 0; i < 64; ++i) {
-            uint_native S1_alt = rotate(e_alt, 7 % uint_native_width) ^ rotate(e_alt, 11 % uint_native_width) ^
-                                 rotate(e_alt, 25 % uint_native_width);
-            uint_native ch_alt = (e_alt & f_alt) ^ ((~e_alt) & g_alt);
-            uint_native temp1_alt = h_alt + S1_alt + ch_alt + k_constants[i % 64] + w_alt[i];
-
-            uint_native S0_alt = rotate(a_alt, 2 % uint_native_width) ^ rotate(a_alt, 13 % uint_native_width) ^
-                                 rotate(a_alt, 22 % uint_native_width);
-            uint_native maj_alt = (a_alt & b_alt) ^ (a_alt & c_alt) ^ (b_alt & c_alt);
-            uint_native temp2_alt = S0_alt + maj_alt;
-
-            h_alt = g_alt;
-            g_alt = f_alt;
-            f_alt = e_alt;
-            e_alt = d_alt + temp1_alt;
-            d_alt = c_alt;
-            c_alt = b_alt;
-            b_alt = a_alt;
-            a_alt = temp1_alt + temp2_alt;
-        }
-        Builder builder = Builder();
-
-        std::vector<uint_ct> w;
-        std::vector<uint_ct> k;
-        for (size_t i = 0; i < 64; ++i) {
-            w.emplace_back(uint_ct(witness_ct(&builder, w_alt[i])));
-            k.emplace_back(uint_ct(&builder, k_constants[i % 64]));
-        }
-        uint_ct a = witness_ct(&builder, round_values[0]);
-        uint_ct b = witness_ct(&builder, round_values[1]);
-        uint_ct c = witness_ct(&builder, round_values[2]);
-        uint_ct d = witness_ct(&builder, round_values[3]);
-        uint_ct e = witness_ct(&builder, round_values[4]);
-        uint_ct f = witness_ct(&builder, round_values[5]);
-        uint_ct g = witness_ct(&builder, round_values[6]);
-        uint_ct h = witness_ct(&builder, round_values[7]);
-        for (size_t i = 0; i < 64; ++i) {
-            uint_ct S1 =
-                e.ror(7U % uint_native_width) ^ e.ror(11U % uint_native_width) ^ e.ror(25U % uint_native_width);
-            uint_ct ch = (e & f) + ((~e) & g);
-            uint_ct temp1 = h + S1 + ch + k[i] + w[i];
-
-            uint_ct S0 =
-                a.ror(2U % uint_native_width) ^ a.ror(13U % uint_native_width) ^ a.ror(22U % uint_native_width);
-            uint_ct T0 = (b & c);
-            uint_ct T1 = (b - T0) + (c - T0);
-            uint_ct T2 = a & T1;
-            uint_ct maj = T2 + T0;
-            uint_ct temp2 = S0 + maj;
-
-            h = g;
-            g = f;
-            f = e;
-            e = d + temp1;
-            d = c;
-            c = b;
-            b = a;
-            a = temp1 + temp2;
-        }
-
-        uint_native a_result = static_cast<uint_native>(a.get_value()); // PROBLEM
-        uint_native b_result = static_cast<uint_native>(b.get_value());
-        uint_native c_result = static_cast<uint_native>(c.get_value());
-        uint_native d_result = static_cast<uint_native>(d.get_value());
-        uint_native e_result = static_cast<uint_native>(e.get_value());
-        uint_native f_result = static_cast<uint_native>(f.get_value());
-        uint_native g_result = static_cast<uint_native>(g.get_value());
-        uint_native h_result = static_cast<uint_native>(h.get_value());
-
-        EXPECT_EQ(a_result, a_alt);
-        EXPECT_EQ(b_result, b_alt);
-        EXPECT_EQ(c_result, c_alt);
-        EXPECT_EQ(d_result, d_alt);
-        EXPECT_EQ(e_result, e_alt);
-        EXPECT_EQ(f_result, f_alt);
-        EXPECT_EQ(g_result, g_alt);
-        EXPECT_EQ(h_result, h_alt);
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
     // BELOW HERE ARE TESTS FORMERLY MARKED AS TURBO
 
     /**
@@ -815,8 +450,8 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         Builder builder = Builder();
 
         const auto add_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = get_random<uint_native>();
+            uint_native a_val = get_random();
+            uint_native b_val = get_random();
             uint_native expected = a_val + b_val;
             uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
             uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
@@ -842,9 +477,9 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         Builder builder = Builder();
 
         const auto sub_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = get_random<uint_native>();
-            uint_native const_shift_val = get_random<uint_native>();
+            uint_native a_val = get_random();
+            uint_native b_val = get_random();
+            uint_native const_shift_val = get_random();
             uint_native expected = a_val - (b_val + const_shift_val);
             uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
             uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
@@ -874,10 +509,10 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         Builder builder = Builder();
 
         const auto mul_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = get_random<uint_native>();
-            uint_native const_a = get_random<uint_native>();
-            uint_native const_b = get_random<uint_native>();
+            uint_native a_val = get_random();
+            uint_native b_val = get_random();
+            uint_native const_a = get_random();
+            uint_native const_b = get_random();
             uint_native expected =
                 static_cast<uint_native>(a_val + const_a) * static_cast<uint_native>(b_val + const_b);
             uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
@@ -914,11 +549,10 @@ template <typename Builder> class stdlib_uint : public testing::Test {
                                                 bool dividend_is_divisor = false,
                                                 bool dividend_zero = false,
                                                 bool divisor_zero = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = dividend_is_divisor ? a_val : get_random<uint_native>();
-            uint_native const_a = dividend_zero ? 0 - a_val : get_random<uint_native>();
-            uint_native const_b =
-                divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random<uint_native>());
+            uint_native a_val = get_random();
+            uint_native b_val = dividend_is_divisor ? a_val : get_random();
+            uint_native const_a = dividend_zero ? 0 - a_val : get_random();
+            uint_native const_b = divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random());
             uint_native expected =
                 static_cast<uint_native>(a_val + const_a) / static_cast<uint_native>(b_val + const_b);
             uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
@@ -970,11 +604,10 @@ template <typename Builder> class stdlib_uint : public testing::Test {
                                              bool dividend_is_divisor = false,
                                              bool dividend_zero = false,
                                              bool divisor_zero = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = dividend_is_divisor ? a_val : get_random<uint_native>();
-            uint_native const_a = dividend_zero ? 0 - a_val : get_random<uint_native>();
-            uint_native const_b =
-                divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random<uint_native>());
+            uint_native a_val = get_random();
+            uint_native b_val = dividend_is_divisor ? a_val : get_random();
+            uint_native const_a = dividend_zero ? 0 - a_val : get_random();
+            uint_native const_b = divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random());
             uint_native expected =
                 static_cast<uint_native>(a_val + const_a) % static_cast<uint_native>(b_val + const_b);
             uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
@@ -1022,11 +655,10 @@ template <typename Builder> class stdlib_uint : public testing::Test {
                                         bool divisor_zero = false) {
             Builder builder = Builder();
 
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = dividend_is_divisor ? a_val : get_random<uint_native>();
-            uint_native const_a = dividend_zero ? 0 - a_val : get_random<uint_native>();
-            uint_native const_b =
-                divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random<uint_native>());
+            uint_native a_val = get_random();
+            uint_native b_val = dividend_is_divisor ? a_val : get_random();
+            uint_native const_a = dividend_zero ? 0 - a_val : get_random();
+            uint_native const_b = divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random());
             uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
             uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
             uint_ct a_shift = uint_ct(&builder, const_a);
@@ -1105,7 +737,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
     {
         Builder builder = Builder();
 
-        uint_native val = get_random<uint_native>();
+        uint_native val = get_random();
 
         uint_ct a = witness_ct(&builder, val);
         uint_ct b = witness_ct(&builder, val);
@@ -1172,153 +804,14 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         EXPECT_EQ(result, false);
     }
 
-    static void test_and()
-    {
-        Builder builder = Builder();
-
-        const auto and_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = get_random<uint_native>();
-            uint_native const_a = get_random<uint_native>();
-            uint_native const_b = get_random<uint_native>();
-            uint_native expected = (a_val + const_a) & (b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct b_shift = uint_ct(&builder, const_b);
-            uint_ct c = a + a_shift;
-            uint_ct d = b + b_shift;
-            uint_ct e = c & d;
-            e = e.normalize();
-
-            uint_native result = uint_native(e.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        and_integers(false, false);
-        and_integers(false, true);
-        and_integers(true, false);
-        and_integers(true, true);
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
-    static void test_xor()
-    {
-        Builder builder = Builder();
-
-        const auto xor_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = get_random<uint_native>();
-            uint_native const_a = get_random<uint_native>();
-            uint_native const_b = get_random<uint_native>();
-            uint_native expected = (a_val + const_a) ^ (b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct b_shift = uint_ct(&builder, const_b);
-            uint_ct c = a + a_shift;
-            uint_ct d = b + b_shift;
-            uint_ct e = c ^ d;
-            e = e.normalize();
-
-            uint_native result = uint_native(e.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        xor_integers(false, false);
-        xor_integers(false, true);
-        xor_integers(true, false);
-        xor_integers(true, true);
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
-    static void test_or()
-    {
-        Builder builder = Builder();
-
-        const auto or_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native b_val = get_random<uint_native>();
-            uint_native const_a = get_random<uint_native>();
-            uint_native const_b = get_random<uint_native>();
-            uint_native expected = (a_val + const_a) | (b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct b_shift = uint_ct(&builder, const_b);
-            uint_ct c = a + a_shift;
-            uint_ct d = b + b_shift;
-            uint_ct e = c | d;
-            e = e.normalize();
-
-            uint_native result = uint_native(e.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        or_integers(false, false);
-        or_integers(false, false);
-        or_integers(false, false);
-        or_integers(false, false);
-        or_integers(false, false);
-        or_integers(false, true);
-        or_integers(true, false);
-        or_integers(true, true);
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
-    static void test_not()
-    {
-        Builder builder = Builder();
-
-        const auto not_integers = [&builder](bool lhs_constant = false, bool = false) {
-            uint_native a_val = get_random<uint_native>();
-            uint_native const_a = get_random<uint_native>();
-            uint_native expected = ~(a_val + const_a);
-            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct c = a + a_shift;
-            uint_ct e = ~c;
-            e = e.normalize();
-
-            uint_native result = uint_native(e.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        not_integers(false, false);
-        not_integers(false, true);
-        not_integers(true, false);
-        not_integers(true, true);
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
     static void test_gt()
     {
         Builder builder = Builder();
         const auto compare_integers =
             [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
-                uint_native const_a = get_random<uint_native>();
-                uint_native const_b = get_random<uint_native>();
-                uint_native a_val = get_random<uint_native>();
+                uint_native const_a = get_random();
+                uint_native const_b = get_random();
+                uint_native a_val = get_random();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) > static_cast<uint_native>(a_val + const_a);
@@ -1356,9 +849,9 @@ template <typename Builder> class stdlib_uint : public testing::Test {
 
         const auto compare_integers =
             [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
-                uint_native const_a = get_random<uint_native>();
-                uint_native const_b = get_random<uint_native>();
-                uint_native a_val = get_random<uint_native>();
+                uint_native const_a = get_random();
+                uint_native const_b = get_random();
+                uint_native a_val = get_random();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) < static_cast<uint_native>(a_val + const_a);
@@ -1397,9 +890,9 @@ template <typename Builder> class stdlib_uint : public testing::Test {
 
         const auto compare_integers =
             [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
-                uint_native const_a = get_random<uint_native>();
-                uint_native const_b = get_random<uint_native>();
-                uint_native a_val = get_random<uint_native>();
+                uint_native const_a = get_random();
+                uint_native const_b = get_random();
+                uint_native a_val = get_random();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) >= static_cast<uint_native>(a_val + const_a);
@@ -1437,9 +930,9 @@ template <typename Builder> class stdlib_uint : public testing::Test {
 
         const auto compare_integers =
             [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
-                uint_native const_a = get_random<uint_native>();
-                uint_native const_b = get_random<uint_native>();
-                uint_native a_val = get_random<uint_native>();
+                uint_native const_a = get_random();
+                uint_native const_b = get_random();
+                uint_native a_val = get_random();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) <= static_cast<uint_native>(a_val + const_a);
@@ -1478,9 +971,9 @@ template <typename Builder> class stdlib_uint : public testing::Test {
 
         const auto compare_integers =
             [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
-                uint_native const_a = get_random<uint_native>();
-                uint_native const_b = get_random<uint_native>();
-                uint_native a_val = get_random<uint_native>();
+                uint_native const_a = get_random();
+                uint_native const_b = get_random();
+                uint_native a_val = get_random();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) == static_cast<uint_native>(a_val + const_a);
@@ -1519,9 +1012,9 @@ template <typename Builder> class stdlib_uint : public testing::Test {
 
         const auto compare_integers =
             [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
-                uint_native const_a = get_random<uint_native>();
-                uint_native const_b = get_random<uint_native>();
-                uint_native a_val = get_random<uint_native>();
+                uint_native const_a = get_random();
+                uint_native const_b = get_random();
+                uint_native a_val = get_random();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) != static_cast<uint_native>(a_val + const_a);
@@ -1559,8 +1052,8 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         Builder builder = Builder();
 
         const auto not_integer = [&builder](bool force_zero) {
-            uint_native const_a = get_random<uint_native>();
-            uint_native a_val = force_zero ? 0 - const_a : get_random<uint_native>();
+            uint_native const_a = get_random();
+            uint_native a_val = force_zero ? 0 - const_a : get_random();
             bool expected = !static_cast<uint_native>(const_a + a_val);
             uint_ct a = witness_ct(&builder, a_val);
             uint_ct a_shift = uint_ct(&builder, const_a);
@@ -1582,126 +1075,6 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         EXPECT_EQ(proof_result, true);
     }
 
-    static void test_right_shift()
-    {
-        Builder builder = Builder();
-
-        const auto shift_integer = [&builder](const bool is_constant, const uint_native shift) {
-            uint_native const_a = get_random<uint_native>();
-            uint_native a_val = get_random<uint_native>();
-            uint_native expected = static_cast<uint_native>(a_val + const_a) >> shift;
-            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct c = a + a_shift;
-            uint_ct d = c >> shift;
-            uint_native result = uint_native(d.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        for (uint_native i = 0; i < uint_native_width; ++i) {
-            shift_integer(false, i);
-            shift_integer(true, i);
-        }
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
-    static void test_left_shift()
-    {
-        Builder builder = Builder();
-
-        const auto shift_integer = [&builder](const bool is_constant, const uint_native shift) {
-            uint_native const_a = get_random<uint_native>();
-            uint_native a_val = get_random<uint_native>();
-            uint_native expected = static_cast<uint_native>((a_val + const_a) << shift);
-            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct c = a + a_shift;
-            uint_ct d = c << shift;
-            uint_native result = uint_native(d.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        for (uint_native i = 0; i < uint_native_width; ++i) {
-            shift_integer(true, i);
-            shift_integer(false, i);
-        }
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
-    static void test_ror()
-    {
-        Builder builder = Builder();
-
-        const auto ror_integer = [&builder](const bool is_constant, const uint_native rotation) {
-            const auto ror = [](const uint_native in, const uint_native rval) {
-                return rval ? (in >> rval) | (in << (uint_native_width - rval)) : in;
-            };
-
-            uint_native const_a = get_random<uint_native>();
-            uint_native a_val = get_random<uint_native>();
-            uint_native expected = static_cast<uint_native>(ror(static_cast<uint_native>(const_a + a_val), rotation));
-            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct c = a + a_shift;
-            uint_ct d = c.ror(rotation);
-            uint_native result = uint_native(d.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        for (uint_native i = 0; i < uint_native_width; ++i) {
-            ror_integer(true, i);
-            ror_integer(false, i);
-        }
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
-    static void test_rol()
-    {
-        Builder builder = Builder();
-
-        const auto rol_integer = [&builder](const bool is_constant, const uint_native rotation) {
-            const auto rol = [](const uint_native in, const uint_native rval) {
-                return rval ? (in << rval) | (in >> (uint_native_width - rval)) : in;
-            };
-
-            uint_native const_a = get_random<uint_native>();
-            uint_native a_val = get_random<uint_native>();
-            uint_native expected = static_cast<uint_native>(rol(static_cast<uint_native>(const_a + a_val), rotation));
-            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct c = a + a_shift;
-            uint_ct d = c.rol(rotation);
-            uint_native result = uint_native(d.get_value());
-
-            EXPECT_EQ(result, expected);
-        };
-
-        for (uint_native i = 0; i < uint_native_width; ++i) {
-            rol_integer(true, i);
-            rol_integer(false, i);
-        }
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
-
     /**
      * @brief Test the function uint_ct::at used to extract bits.
      */
@@ -1712,8 +1085,8 @@ template <typename Builder> class stdlib_uint : public testing::Test {
         const auto bit_test = [&builder](const bool is_constant) {
             // construct a sum of uint_ct's, where at least one is a constant,
             // and validate its correctness bitwise
-            uint_native const_a = get_random<uint_native>();
-            uint_native a_val = get_random<uint_native>();
+            uint_native const_a = get_random();
+            uint_native a_val = get_random();
             uint_native c_val = const_a + a_val;
             uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
             uint_ct a_shift = uint_ct(&builder, const_a);
@@ -1736,7 +1109,11 @@ template <typename Builder> class stdlib_uint : public testing::Test {
     }
 };
 
-using CircuitTypes = testing::Types<bb::UltraCircuitBuilder>;
+// Define the test types for all combinations
+using CircuitTypes = testing::Types<TestType<bb::UltraCircuitBuilder, uint8_t>,
+                                    TestType<bb::UltraCircuitBuilder, uint16_t>,
+                                    TestType<bb::UltraCircuitBuilder, uint32_t>,
+                                    TestType<bb::UltraCircuitBuilder, uint64_t>>;
 
 TYPED_TEST_SUITE(stdlib_uint, CircuitTypes);
 
@@ -1776,41 +1153,9 @@ TYPED_TEST(stdlib_uint, test_mul_big)
 {
     TestFixture::test_mul_big();
 }
-TYPED_TEST(stdlib_uint, test_xor_special)
-{
-    TestFixture::test_xor_special();
-}
-TYPED_TEST(stdlib_uint, test_xor_constants)
-{
-    TestFixture::test_xor_constants();
-}
-TYPED_TEST(stdlib_uint, test_xor_more_constants)
-{
-    TestFixture::test_xor_more_constants();
-}
-TYPED_TEST(stdlib_uint, test_and_constants)
-{
-    TestFixture::test_and_constants();
-}
-TYPED_TEST(stdlib_uint, test_and_special)
-{
-    TestFixture::test_and_special();
-}
-TYPED_TEST(stdlib_uint, test_or_special)
-{
-    TestFixture::test_or_special();
-}
 TYPED_TEST(stdlib_uint, test_gt_special)
 {
     TestFixture::test_gt_special();
-}
-TYPED_TEST(stdlib_uint, test_ror_special)
-{
-    TestFixture::test_ror_special();
-}
-TYPED_TEST(stdlib_uint, test_hash_rounds)
-{
-    TestFixture::test_hash_rounds();
 }
 // BELOW HERE ARE TESTS FORMERLY MARKED AS TURBO
 TYPED_TEST(stdlib_uint, test_add)
@@ -1845,22 +1190,6 @@ TYPED_TEST(stdlib_uint, div_remainder_constraint)
 {
     TestFixture::div_remainder_constraint();
 }
-TYPED_TEST(stdlib_uint, test_and)
-{
-    TestFixture::test_and();
-}
-TYPED_TEST(stdlib_uint, test_xor)
-{
-    TestFixture::test_xor();
-}
-TYPED_TEST(stdlib_uint, test_or)
-{
-    TestFixture::test_or();
-}
-TYPED_TEST(stdlib_uint, test_not)
-{
-    TestFixture::test_not();
-}
 TYPED_TEST(stdlib_uint, test_gt)
 {
     TestFixture::test_gt();
@@ -1889,53 +1218,7 @@ TYPED_TEST(stdlib_uint, test_logical_not)
 {
     TestFixture::test_logical_not();
 }
-TYPED_TEST(stdlib_uint, test_right_shift)
-{
-    TestFixture::test_right_shift();
-}
-TYPED_TEST(stdlib_uint, test_left_shift)
-{
-    TestFixture::test_left_shift();
-}
-TYPED_TEST(stdlib_uint, test_ror)
-{
-    TestFixture::test_ror();
-}
-TYPED_TEST(stdlib_uint, test_rol)
-{
-    TestFixture::test_rol();
-}
 TYPED_TEST(stdlib_uint, test_at)
 {
     TestFixture::test_at();
-}
-
-// There was one plookup-specific test in the ./plookup/uint_plookup.test.cpp
-// TODO: either remove this test or move it to a more appropriate location
-TEST(stdlib_uint32, test_accumulators_plookup_uint32)
-{
-    using uint32_ct = stdlib::uint32<bb::UltraCircuitBuilder>;
-    using witness_ct = stdlib::witness_t<bb::UltraCircuitBuilder>;
-
-    UltraCircuitBuilder builder;
-
-    uint32_t a_val = engine.get_random_uint32();
-    uint32_t b_val = engine.get_random_uint32();
-    uint32_ct a = witness_ct(&builder, a_val);
-    uint32_ct b = witness_ct(&builder, b_val);
-    a = a ^ b;
-    uint32_t val = a_val ^ b_val;
-    uint32_t MASK = (1U << uint32_ct::bits_per_limb) - 1;
-    const auto accumulators = a.get_accumulators();
-    for (size_t i = 0; i < uint32_ct::num_accumulators(); ++i) {
-        const uint64_t result = uint256_t(builder.get_variable(accumulators[i])).data[0];
-        const uint64_t expected = val & MASK;
-        val = val >> uint32_ct::bits_per_limb;
-        EXPECT_EQ(result, expected);
-    }
-
-    info("builder gates = ", builder.get_estimated_num_finalized_gates());
-
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
 }

@@ -50,19 +50,6 @@ template <typename Builder, typename Native> class uint {
     uint operator/(const uint& other) const;
     uint operator%(const uint& other) const;
 
-    uint operator&(const uint& other) const;
-    uint operator^(const uint& other) const;
-    uint operator|(const uint& other) const;
-    uint operator~() const;
-
-    uint operator>>(const size_t shift) const;
-    uint operator<<(const size_t shift) const;
-
-    uint ror(const size_t target_rotation) const;
-    uint rol(const size_t target_rotation) const;
-    uint ror(const uint256_t target_rotation) const { return ror(static_cast<size_t>(target_rotation.data[0])); }
-    uint rol(const uint256_t target_rotation) const { return rol(static_cast<size_t>(target_rotation.data[0])); }
-
     bool_t<Builder> operator>(const uint& other) const;
     bool_t<Builder> operator<(const uint& other) const;
     bool_t<Builder> operator>=(const uint& other) const;
@@ -94,33 +81,6 @@ template <typename Builder, typename Native> class uint {
     uint operator%=(const uint& other)
     {
         *this = operator%(other);
-        return *this;
-    }
-
-    uint operator&=(const uint& other)
-    {
-        *this = operator&(other);
-        return *this;
-    }
-    uint operator^=(const uint& other)
-    {
-        *this = operator^(other);
-        return *this;
-    }
-    uint operator|=(const uint& other)
-    {
-        *this = operator|(other);
-        return *this;
-    }
-
-    uint operator>>=(const size_t shift)
-    {
-        *this = operator>>(shift);
-        return *this;
-    }
-    uint operator<<=(const size_t shift)
-    {
-        *this = operator<<(shift);
         return *this;
     }
 

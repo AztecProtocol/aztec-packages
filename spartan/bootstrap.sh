@@ -91,7 +91,7 @@ function start_env {
 }
 
 function stop_env {
-  if [ "$CI_NIGHTLY" -eq 1 ]; then
+  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
     echo "Uninstalling test network in namespace $NIGHTLY_NS"
     ./scripts/cleanup_k8s.sh "$NIGHTLY_NS" "$NIGHTLY_NS"

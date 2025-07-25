@@ -15,7 +15,6 @@ import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -56,9 +55,10 @@ describe('aztec node', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let lastBlockNumber: number;
-  let node: AztecNode;
+  let node: AztecNodeService;
   let feePayer: AztecAddress;
   let epochCache: EpochCache;
+  let nodeConfig: AztecNodeConfig;
 
   const chainId = new Fr(12345);
   const rollupVersion = new Fr(1);
@@ -131,7 +131,20 @@ describe('aztec node', () => {
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
 
-    const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
+    const nodeConfigFromEnvVars: AztecNodeConfig = getConfigEnvVars();
+    nodeConfig = {
+      ...nodeConfigFromEnvVars,
+      l1Contracts: {
+        ...nodeConfigFromEnvVars.l1Contracts,
+        rollupAddress: EthAddress.ZERO,
+        registryAddress: EthAddress.ZERO,
+        inboxAddress: EthAddress.ZERO,
+        outboxAddress: EthAddress.ZERO,
+      },
+    };
+
+    // Inject a spurious config value to test that the config is correctly picked up
+    (nodeConfig as any).nonExistingConfig = 'foo';
 
     // We never request any info from the rollup contract here, since only the `getEpochAndSlotInNextL1Slot` method
     // on the epoch cache is used so a simple mock will suffice.
@@ -140,16 +153,7 @@ describe('aztec node', () => {
     epochCache = new EpochCache(rollupContract, 0n, undefined, 0n, EmptyL1RollupConstants, new MockDateProvider());
 
     node = new AztecNodeService(
-      {
-        ...aztecNodeConfig,
-        l1Contracts: {
-          ...aztecNodeConfig.l1Contracts,
-          rollupAddress: EthAddress.ZERO,
-          registryAddress: EthAddress.ZERO,
-          inboxAddress: EthAddress.ZERO,
-          outboxAddress: EthAddress.ZERO,
-        },
-      },
+      nodeConfig,
       p2p,
       l2BlockSource,
       l2LogsSource,
@@ -259,6 +263,14 @@ describe('aztec node', () => {
   });
 
   describe('getters', () => {
+    describe('config', () => {
+      it('returns the correct config', async () => {
+        const config = await node.getConfig();
+        expect(config.maxTxPoolSize).toEqual(nodeConfig.maxTxPoolSize);
+        expect('nonExistingConfig' in config).toBe(false);
+      });
+    });
+
     describe('node info', () => {
       it('returns the correct node version', async () => {
         const releasePleaseVersionFile = readFileSync(

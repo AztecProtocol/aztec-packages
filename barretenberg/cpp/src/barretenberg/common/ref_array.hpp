@@ -56,11 +56,11 @@ template <typename T, std::size_t N> class RefArray {
     }
 
     /**
-     * @brief Get underlying data. Use carefully, as it allocates new data for the data pointed to by the elements in
-     * the RefArray
+     * @brief Get a copy of the underlying data. Use carefully, as it allocates new data for the data pointed to by the
+     * elements in the RefArray
      *
      */
-    std::array<T, N> get_data()
+    std::array<T, N> get_copy()
     {
         std::array<T, N> data;
         for (size_t idx = 0; idx < N; idx++) {

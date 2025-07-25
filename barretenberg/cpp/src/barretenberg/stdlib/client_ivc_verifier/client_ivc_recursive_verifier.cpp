@@ -27,7 +27,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
 
     // Perform Goblin recursive verification
     GoblinVerificationKey goblin_verification_key{};
-    TableCommitments t_commitments = verifier.key->witness_commitments.get_ecc_op_wires().get_data();
+    TableCommitments t_commitments = verifier.key->witness_commitments.get_ecc_op_wires().get_copy();
     GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key, civc_rec_verifier_transcript };
     GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof, t_commitments);
     output.points_accumulator.aggregate(mega_output.points_accumulator);
