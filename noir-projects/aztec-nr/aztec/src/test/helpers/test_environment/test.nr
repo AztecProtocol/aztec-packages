@@ -1,37 +1,8 @@
 use crate::test::helpers::test_environment::TestEnvironment;
 
+mod accounts;
 mod private_context;
 mod public_context;
-
-#[test]
-unconstrained fn create_light_account_does_not_repeat_accounts() {
-    let mut env = TestEnvironment::_new();
-
-    let first_account = env.create_light_account();
-    let second_account = env.create_light_account();
-
-    assert(first_account != second_account);
-}
-
-#[test]
-unconstrained fn create_contract_account_does_not_repeat_accounts() {
-    let mut env = TestEnvironment::new();
-
-    let first_account = env.create_contract_account();
-    let second_account = env.create_contract_account();
-
-    assert(first_account != second_account);
-}
-
-#[test]
-unconstrained fn light_and_contract_accounts_do_not_share_addresses() {
-    let mut env = TestEnvironment::new();
-
-    let light_account = env.create_light_account();
-    let contract_account = env.create_contract_account();
-
-    assert(light_account != contract_account);
-}
 
 #[test(should_fail_with = "cannot be before next timestamp")]
 unconstrained fn set_next_block_timestamp_to_past_fails() {

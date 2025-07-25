@@ -321,7 +321,7 @@ impl TestEnvironment {
     /// `create_contract_account`, but comes with reduced capabilities.
     ///
     /// The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It doesn't
-    /// however have an associated account contract, so it cannot process authwit requests.
+    /// however have an associated account contract, so it cannot process private authwit requests.
     ///
     /// Each call to `create_light_account` will return a different address, and so it can be called repeatedly to
     /// generate multiple addresses. These addresses are also different from the ones that `create_contract_account`
