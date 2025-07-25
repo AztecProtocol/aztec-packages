@@ -124,10 +124,7 @@ impl TestEnvironment {
     /// outside of the passed function, since it will become invalid once `private_context` returns.
     ///
     /// The historical block is set to the latest block.
-    pub unconstrained fn private_context<Env, T>(
-        &mut self,
-        f: fn[Env](&mut PrivateContext) -> T,
-    ) -> T {
+    pub unconstrained fn private_context<Env, T>(self, f: fn[Env](&mut PrivateContext) -> T) -> T {
         // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
         // now we have them in this order because creating the private context requires reading the latest block number,
         // which we only allow for top level and utility
@@ -148,7 +145,7 @@ impl TestEnvironment {
     }
 
     pub unconstrained fn private_context_at<Env, T>(
-        &mut self,
+        self,
         addr: AztecAddress,
         f: fn[Env](&mut PrivateContext) -> T,
     ) -> T {
@@ -162,7 +159,7 @@ impl TestEnvironment {
     }
 
     pub unconstrained fn private_context_opts<Env, T>(
-        &mut self,
+        self,
         opts: PrivateContextOptions,
         f: fn[Env](&mut PrivateContext) -> T,
     ) -> T {
@@ -200,7 +197,7 @@ impl TestEnvironment {
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
     pub unconstrained fn utility_context<Env, T>(
-        _self: &mut Self,
+        _self: Self,
         f: fn[Env](UtilityContext) -> T,
     ) -> T {
         txe_oracles::set_utility_txe_context();
@@ -212,7 +209,7 @@ impl TestEnvironment {
     }
 
     pub unconstrained fn utility_context_at<Env, T>(
-        &mut self,
+        self,
         addr: AztecAddress,
         f: fn[Env](UtilityContext) -> T,
     ) -> T {
@@ -239,13 +236,13 @@ impl TestEnvironment {
         txe_oracles::get_last_block_timestamp()
     }
 
-    pub unconstrained fn mine_block_at(&mut self, timestamp: u64) {
+    pub unconstrained fn mine_block_at(self, timestamp: u64) {
         self.set_next_block_timestamp(timestamp);
         self.mine_block();
     }
 
     /// Advances the internal TXe timestamp to the specified timestamp.
-    pub unconstrained fn set_next_block_timestamp(&mut self, timestamp: u64) {
+    pub unconstrained fn set_next_block_timestamp(self, timestamp: u64) {
         let pending_timestamp = get_timestamp();
         assert(
             pending_timestamp <= timestamp,
@@ -256,12 +253,12 @@ impl TestEnvironment {
     }
 
     /// Advances the internal TXe state by one valid block.
-    pub unconstrained fn mine_block(_self: &mut Self) {
+    pub unconstrained fn mine_block(_self: Self) {
         txe_oracles::advance_blocks_by(1);
     }
 
     /// Advances the internal TXe timestamp by the specified duration in seconds.
-    pub unconstrained fn advance_next_block_timestamp_by(_self: &mut Self, duration: u64) {
+    pub unconstrained fn advance_next_block_timestamp_by(_self: Self, duration: u64) {
         txe_oracles::advance_timestamp_by(duration);
     }
 
@@ -270,7 +267,7 @@ impl TestEnvironment {
         test_account.address
     }
 
-    pub unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
+    pub unconstrained fn create_account_contract(self, secret: Field) -> AztecAddress {
         let test_account = txe_oracles::add_account(secret);
         let address = test_account.address;
 

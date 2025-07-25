@@ -4,8 +4,8 @@ use dep::aztec::{
 
 use crate::EasyPrivateVoting;
 
-pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
-    let mut env = TestEnvironment::new();
+pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
+    let env = TestEnvironment::new();
 
     let admin = env.create_account(1);
 
@@ -16,5 +16,5 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     );
 
     env.mine_block();
-    (&mut env, voting_contract.to_address(), admin)
+    (env, voting_contract.to_address(), admin)
 }

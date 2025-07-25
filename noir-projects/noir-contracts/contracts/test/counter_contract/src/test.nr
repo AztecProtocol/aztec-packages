@@ -4,11 +4,9 @@ use aztec::{
     test::helpers::test_environment::TestEnvironment,
 };
 
-pub unconstrained fn setup(
-    initial_value: Field,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
+pub unconstrained fn setup(initial_value: Field) -> (TestEnvironment, AztecAddress, AztecAddress) {
     // Setup env, generate keys
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
     let owner = env.create_account(1);
 
     // We are not deploying any account contracts and so we need to manually set the sender for tags. This is usually
@@ -20,5 +18,5 @@ pub unconstrained fn setup(
     let initializer = Counter::interface().initialize(initial_value as u64, owner);
     let counter_contract = env.deploy_self("Counter").with_private_initializer(owner, initializer);
     let contract_address = counter_contract.to_address();
-    (&mut env, contract_address, owner)
+    (env, contract_address, owner)
 }

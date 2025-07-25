@@ -9,8 +9,8 @@ pub(crate) global NOTE_STORAGE_SLOT: Field = 420;
 pub(crate) global NOTE_CREATED_AT: u32 = 2;
 pub(crate) global NOTE_NULLIFIED_AT: u32 = 3;
 
-pub(crate) unconstrained fn create_note() -> (&mut TestEnvironment, RetrievedNote<MockNote>) {
-    let mut env = TestEnvironment::new();
+pub(crate) unconstrained fn create_note() -> (TestEnvironment, RetrievedNote<MockNote>) {
+    let env = TestEnvironment::new();
 
     // We create a note in block NOTE_CREATED_AT
     let retrieved_note = env.private_context(|context| {
@@ -34,10 +34,10 @@ pub(crate) unconstrained fn create_note() -> (&mut TestEnvironment, RetrievedNot
     // Verify the note was inserted in the correct block
     assert_eq(env.last_block_number(), NOTE_CREATED_AT);
 
-    (&mut env, retrieved_note)
+    (env, retrieved_note)
 }
 
-pub(crate) unconstrained fn create_note_and_nullify_it() -> (&mut TestEnvironment, RetrievedNote<MockNote>) {
+pub(crate) unconstrained fn create_note_and_nullify_it() -> (TestEnvironment, RetrievedNote<MockNote>) {
     let (env, retrieved_note) = create_note();
 
     env.private_context(|context| { destroy_note(context, retrieved_note, NOTE_STORAGE_SLOT); });

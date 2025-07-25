@@ -8,7 +8,7 @@ global VALUE: Field = 17;
 
 #[test]
 unconstrained fn historical_no_write_public_storage_read() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         assert_eq(
@@ -23,7 +23,7 @@ unconstrained fn historical_no_write_public_storage_read() {
 
 #[test]
 unconstrained fn historical_pre_write_public_storage_read() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| { context.storage_write(STORAGE_SLOT, VALUE); });
 
@@ -45,7 +45,7 @@ unconstrained fn historical_pre_write_public_storage_read() {
 
 #[test]
 unconstrained fn historical_post_write_public_storage_read() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| { context.storage_write(STORAGE_SLOT, VALUE); });
 

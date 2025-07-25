@@ -265,7 +265,7 @@ pub contract Parent {
 
     #[test]
     unconstrained fn test_private_call() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         let owner = env.create_account(1);
         let sender = env.create_account(7097070);
 

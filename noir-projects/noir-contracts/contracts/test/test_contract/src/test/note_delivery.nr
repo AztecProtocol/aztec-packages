@@ -7,8 +7,8 @@ global VALUE: u128 = 5;
 global STORAGE_SLOT: Field = 17;
 global ACTIVE_OR_NULLIFIED: bool = false; // We don't care about nullified note retrieval in discovery tests
 
-pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
-    let mut env = TestEnvironment::new();
+pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+    let env = TestEnvironment::new();
 
     let sender = env.create_account(1);
     let recipient = env.create_account(2);
@@ -17,7 +17,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
         env.deploy_self("Test").with_private_initializer(sender, Test::interface().initialize());
     let contract_address = test_contract.to_address();
 
-    (&mut env, contract_address, sender, recipient)
+    (env, contract_address, sender, recipient)
 }
 
 #[test]

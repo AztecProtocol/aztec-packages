@@ -20,7 +20,7 @@ unconstrained fn in_utility(context: UtilityContext) -> PrivateSet<MockNote, Uti
 
 #[test]
 unconstrained fn get_empty() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -34,7 +34,7 @@ unconstrained fn get_empty() {
 
 #[test]
 unconstrained fn view_empty() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.utility_context(|context| {
         let state_var = in_utility(context);
@@ -46,7 +46,7 @@ unconstrained fn view_empty() {
 
 #[test]
 unconstrained fn insert() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
     env.private_context(|context| {
         let state_var = in_private(context);
 
@@ -65,7 +65,7 @@ unconstrained fn insert() {
 
 #[test]
 unconstrained fn insert_and_get_pending() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -90,7 +90,7 @@ unconstrained fn insert_and_get_pending() {
 
 #[test]
 unconstrained fn insert_and_pop_pending() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -111,7 +111,7 @@ unconstrained fn insert_and_pop_pending() {
 
 #[test]
 unconstrained fn insert_and_remove_pending() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -130,7 +130,7 @@ unconstrained fn insert_and_remove_pending() {
 
 #[test]
 unconstrained fn insert_pop_and_read_again_pending() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -148,7 +148,7 @@ unconstrained fn insert_pop_and_read_again_pending() {
 
 #[test]
 unconstrained fn insert_remove_and_read_again_pending() {
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
