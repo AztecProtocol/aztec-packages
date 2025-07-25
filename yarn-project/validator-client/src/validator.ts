@@ -87,7 +87,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private blockProposalValidator: BlockProposalValidator;
 
-  private proposersOfInvalidBlocks: Set<EthAddress> = new Set();
+  private proposersOfInvalidBlocks: Set<string> = new Set();
 
   protected constructor(
     private blockBuilder: IFullNodeBlockBuilder,
@@ -459,7 +459,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.proposersOfInvalidBlocks.delete(this.proposersOfInvalidBlocks.values().next().value!);
     }
 
-    this.proposersOfInvalidBlocks.add(proposer);
+    this.proposersOfInvalidBlocks.add(proposer.toString());
 
     this.emit(WANT_TO_SLASH_EVENT, [
       {
@@ -485,7 +485,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public shouldSlash(args: WantToSlashArgs): Promise<boolean> {
     // note we don't check the offence here: we know this person is bad and we're willing to slash up to the max penalty.
     return Promise.resolve(
-      args.amount <= this.config.slashInvalidBlockMaxPenalty && this.proposersOfInvalidBlocks.has(args.validator),
+      args.amount <= this.config.slashInvalidBlockMaxPenalty &&
+        this.proposersOfInvalidBlocks.has(args.validator.toString()),
     );
   }
 
