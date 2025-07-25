@@ -16,20 +16,18 @@ namespace bb::avm2 {
 struct lookup_execution_bytecode_retrieval_result_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_BYTECODE_RETRIEVAL_RESULT";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_first_row_in_context;
     static constexpr Column DST_SELECTOR = Column::bc_retrieval_sel;
     static constexpr Column COUNTS = Column::lookup_execution_bytecode_retrieval_result_counts;
     static constexpr Column INVERSES = Column::lookup_execution_bytecode_retrieval_result_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_bytecode_id,
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_prev_nullifier_tree_root,
         ColumnAndShifts::execution_prev_public_data_tree_root,
         ColumnAndShifts::execution_sel_bytecode_retrieval_failure
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_bytecode_id,
         ColumnAndShifts::bc_retrieval_address,
         ColumnAndShifts::bc_retrieval_nullifier_tree_root,
         ColumnAndShifts::bc_retrieval_public_data_tree_root,
@@ -55,12 +53,12 @@ struct lookup_execution_instruction_fetching_result_settings_ {
     static constexpr Column INVERSES = Column::lookup_execution_instruction_fetching_result_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_pc,
-        ColumnAndShifts::execution_bytecode_id,
+        ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_sel_instruction_fetching_failure
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::instr_fetching_pc,
-        ColumnAndShifts::instr_fetching_bytecode_id,
+        ColumnAndShifts::instr_fetching_contract_address,
         ColumnAndShifts::instr_fetching_sel_parsing_err
     };
 };
@@ -82,7 +80,7 @@ struct lookup_execution_instruction_fetching_body_settings_ {
     static constexpr Column COUNTS = Column::lookup_execution_instruction_fetching_body_counts;
     static constexpr Column INVERSES = Column::lookup_execution_instruction_fetching_body_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_pc,        ColumnAndShifts::execution_bytecode_id,
+        ColumnAndShifts::execution_pc,        ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_ex_opcode, ColumnAndShifts::execution_instr_length,
         ColumnAndShifts::execution_indirect,  ColumnAndShifts::execution_op_0_,
         ColumnAndShifts::execution_op_1_,     ColumnAndShifts::execution_op_2_,
@@ -90,7 +88,7 @@ struct lookup_execution_instruction_fetching_body_settings_ {
         ColumnAndShifts::execution_op_5_,     ColumnAndShifts::execution_op_6_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc,          ColumnAndShifts::instr_fetching_bytecode_id,
+        ColumnAndShifts::instr_fetching_pc,          ColumnAndShifts::instr_fetching_contract_address,
         ColumnAndShifts::instr_fetching_exec_opcode, ColumnAndShifts::instr_fetching_instr_size,
         ColumnAndShifts::instr_fetching_indirect,    ColumnAndShifts::instr_fetching_op1,
         ColumnAndShifts::instr_fetching_op2,         ColumnAndShifts::instr_fetching_op3,

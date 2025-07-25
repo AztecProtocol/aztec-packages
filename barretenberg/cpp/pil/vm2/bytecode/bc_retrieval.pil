@@ -14,8 +14,8 @@ include "../constants_gen.pil";
 // - Check updatability.
 //
 // The lookups into this subtrace are expected to be on the columns
-// { bytecode_id, address, error }
-// This trace is the owner of the bytecode_id (incrementing).
+// { address, nullifier_tree_root, public_data_tree_root, error }
+// This trace deduplicates by contract address.
 //
 // Note that this trace will prove both success or failure of retrieval.
 
@@ -32,16 +32,8 @@ sel = 0;
 #[TRACE_CONTINUITY]
 (1 - sel) * (1 - precomputed.first_row) * sel' = 0;
 
-// This id is generated at runtime starting from zero and incremented by 1.
-// The primary source of bytecode_id is this sub-trace.
-pol commit bytecode_id;
 pol commit error;  // some error occurred.
 pol commit address;  // contract address.
-
-// `bytecode_id` starts from zero and incremented by 1.
-// Note: we only need to require TRACE_CONTINUITY because of this.
-((1 - sel) * sel') * bytecode_id = 0;  // First row that has sel = 1.
-sel * sel' * (bytecode_id' - bytecode_id) = 0;  // Next row.
 
 // contract instance members.
 //
@@ -105,11 +97,11 @@ instance_exists {
 // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
 // Note: only need to hash the bytecode if the instance exists. Otherwise there is nothing to hash!
 //#[BYTECODE_HASH_IS_CORRECT]
-//instance_exists { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
+//instance_exists { address, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.address, bc_hashing.output_hash };
 
 // Note: we don't need to silo and check the class id because the deployer contract guarrantees
 // that if a contract instance exists, the class has been registered.
 
-// TODO: To ensure byetcode_id unicity inside of bc_decomposition.pil, we will have to introduce
-// a permutation of the form: sel_XXX {bytecode_id} is bc_decomposition.last_of_contract {bc_decomposition.id}
-// sel_XXX will have to be picked so that it selects a bytecode_id iff it has an entry in bc_decomposition
+// TODO: To ensure contract address unicity inside of bc_decomposition.pil, we will have to introduce
+// a permutation of the form: sel_XXX {address} is bc_decomposition.last_of_contract {bc_decomposition.address}
+// sel_XXX will have to be picked so that it selects a contract address iff it has an entry in bc_decomposition

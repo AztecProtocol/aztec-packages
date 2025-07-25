@@ -130,11 +130,11 @@ TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
     class_id_derivation.assert_derivation(class_id, klass);
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
-    bc_trace_builder.process_retrieval({ { .bytecode_id = 0,
-                                           .address = 1,
+    bc_trace_builder.process_retrieval({ { .address = AztecAddress(1),
                                            .current_class_id = class_id,
                                            .contract_class = klass,
-                                           .nullifier_root = 3 } },
+                                           .nullifier_root = FF(3),
+                                           .public_data_tree_root = FF(0) } },
                                        trace);
 
     check_interaction<BytecodeTraceBuilder, lookup_bc_retrieval_class_id_derivation_settings>(trace);

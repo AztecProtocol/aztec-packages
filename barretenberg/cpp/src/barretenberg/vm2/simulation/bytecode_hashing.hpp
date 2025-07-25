@@ -11,7 +11,7 @@ namespace bb::avm2::simulation {
 class BytecodeHashingInterface {
   public:
     virtual ~BytecodeHashingInterface() = default;
-    virtual FF compute_public_bytecode_commitment(const BytecodeId bytecode_id,
+    virtual FF compute_public_bytecode_commitment(const FF& expected_commitment,
                                                   const std::vector<uint8_t>& bytecode) = 0;
 };
 
@@ -22,7 +22,7 @@ class BytecodeHasher : public BytecodeHashingInterface {
         , hasher(hasher)
     {}
 
-    FF compute_public_bytecode_commitment(const BytecodeId bytecode_id, const std::vector<uint8_t>& bytecode) override;
+    FF compute_public_bytecode_commitment(const FF& expected_commitment, const std::vector<uint8_t>& bytecode) override;
 
   private:
     [[maybe_unused]] EventEmitterInterface<BytecodeHashingEvent>& events;

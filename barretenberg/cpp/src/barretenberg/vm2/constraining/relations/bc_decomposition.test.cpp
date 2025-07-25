@@ -43,7 +43,8 @@ TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)
     init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
+        { { .bytecode_commitment = FF(1), .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } },
+        trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40);
     check_relation<bc_decomposition>(trace);

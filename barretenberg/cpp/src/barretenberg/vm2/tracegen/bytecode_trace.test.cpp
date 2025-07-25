@@ -21,7 +21,6 @@ namespace {
 
 using C = Column;
 
-using simulation::BytecodeId;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
 
@@ -33,7 +32,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
     builder.process_decomposition(
         {
             simulation::BytecodeDecompositionEvent{
-                .bytecode_id = 43,
+                .bytecode_commitment = FF(43),
                 .bytecode = std::make_shared<std::vector<uint8_t>>(std::vector<uint8_t>{ 12, 31, 5, 2 }),
             },
         },
@@ -47,7 +46,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
     // We do not inspect row at index 0 as it is completely empty.
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 43),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(43)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, 12),
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_1, 31),
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_2, 5),
@@ -62,7 +61,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
 
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 43),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(43)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, 31),
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_1, 5),
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_2, 2),
@@ -76,7 +75,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
 
     EXPECT_THAT(rows.at(3),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 43),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(43)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, 5),
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_1, 2),
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_2, 0),
@@ -89,7 +88,7 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
 
     EXPECT_THAT(rows.at(4),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 43),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(43)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, 2),
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_1, 0),
                       ROW_FIELD_EQ(bc_decomposition_pc, 3),
@@ -117,7 +116,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
     builder.process_decomposition(
         {
             simulation::BytecodeDecompositionEvent{
-                .bytecode_id = 7,
+                .bytecode_commitment = FF(7),
                 .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode),
             },
         },
@@ -131,7 +130,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
     // We do not inspect row at index 0 as it is completely empty.
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 7),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(7)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte),
                       ROW_FIELD_EQ(bc_decomposition_pc, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, bytecode_size),
@@ -144,7 +143,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
 
     EXPECT_THAT(rows.at(9),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 7),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(7)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte + 8),
                       ROW_FIELD_EQ(bc_decomposition_pc, 8),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE),
@@ -155,7 +154,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
 
     EXPECT_THAT(rows.at(10),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 7),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(7)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte + 9),
                       ROW_FIELD_EQ(bc_decomposition_pc, 9),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE - 1),
@@ -167,7 +166,7 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
     // Last row
     EXPECT_THAT(rows.at(bytecode_size),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                      ROW_FIELD_EQ(bc_decomposition_id, 7),
+                      ROW_FIELD_EQ(bc_decomposition_address, FF(7)),
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte + bytecode_size - 1),
                       ROW_FIELD_EQ(bc_decomposition_pc, bytecode_size - 1),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 1),
@@ -197,19 +196,19 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
     builder.process_decomposition(
         {
             simulation::BytecodeDecompositionEvent{
-                .bytecode_id = 0,
+                .bytecode_commitment = FF(0),
                 .bytecode = std::make_shared<std::vector<uint8_t>>(bytecodes[0]),
             },
             simulation::BytecodeDecompositionEvent{
-                .bytecode_id = 1,
+                .bytecode_commitment = FF(1),
                 .bytecode = std::make_shared<std::vector<uint8_t>>(bytecodes[1]),
             },
             simulation::BytecodeDecompositionEvent{
-                .bytecode_id = 2,
+                .bytecode_commitment = FF(2),
                 .bytecode = std::make_shared<std::vector<uint8_t>>(bytecodes[2]),
             },
             simulation::BytecodeDecompositionEvent{
-                .bytecode_id = 3,
+                .bytecode_commitment = FF(3),
                 .bytecode = std::make_shared<std::vector<uint8_t>>(bytecodes[3]),
             },
         },
@@ -248,7 +247,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     builder.process_hashing(
         {
             simulation::BytecodeHashingEvent{
-                .bytecode_id = 0,
+                .bytecode_commitment = FF(0),
                 .bytecode_length = 6,
                 .bytecode_fields = { 10, 20 },
             },
@@ -261,7 +260,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                 AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
                       ROW_FIELD_EQ(bc_hashing_start, 1),
                       ROW_FIELD_EQ(bc_hashing_latch, 0),
-                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 0),
+                      ROW_FIELD_EQ(bc_hashing_address, FF(0)),
                       ROW_FIELD_EQ(bc_hashing_pc_index, 0),
                       ROW_FIELD_EQ(bc_hashing_packed_field, 10),
                       ROW_FIELD_EQ(bc_hashing_incremental_hash, 6)));
@@ -271,7 +270,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                 AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
                       ROW_FIELD_EQ(bc_hashing_start, 0),
                       ROW_FIELD_EQ(bc_hashing_latch, 1),
-                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 0),
+                      ROW_FIELD_EQ(bc_hashing_address, FF(0)),
                       ROW_FIELD_EQ(bc_hashing_pc_index, 31),
                       ROW_FIELD_EQ(bc_hashing_packed_field, 20)));
 }
@@ -314,14 +313,14 @@ std::vector<InstructionFetchingEvent> create_instruction_fetching_events(
     const std::vector<Instruction>& instructions,
     const std::vector<size_t>& pcs,
     const std::shared_ptr<std::vector<uint8_t>>& bytecode_ptr,
-    const BytecodeId bytecode_id)
+    const AztecAddress& contract_address)
 {
     std::vector<InstructionFetchingEvent> events;
     events.reserve(instructions.size());
 
     for (size_t i = 0; i < instructions.size(); i++) {
         events.emplace_back(InstructionFetchingEvent{
-            .bytecode_id = bytecode_id,
+            .address = contract_address,
             .pc = static_cast<uint32_t>(pcs.at(i)),
             .instruction = instructions.at(i),
             .bytecode = bytecode_ptr,
@@ -355,7 +354,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
     };
 
-    constexpr BytecodeId bytecode_id = 1;
+    const AztecAddress contract_address = AztecAddress(1);
     constexpr auto num_opcodes = static_cast<size_t>(WireOpCode::LAST_OPCODE_SENTINEL);
 
     std::vector<WireOpCode> opcodes;
@@ -370,7 +369,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
 
     auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
     std::vector<InstructionFetchingEvent> events =
-        create_instruction_fetching_events(instructions, pcs, bytecode_ptr, bytecode_id);
+        create_instruction_fetching_events(instructions, pcs, bytecode_ptr, contract_address);
 
     builder.process_instruction_fetching(events, trace);
 
@@ -412,7 +411,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
 
-    constexpr BytecodeId bytecode_id = 1;
+    const AztecAddress contract_address = AztecAddress(1);
     constexpr size_t num_of_opcodes = 10;
     constexpr std::array<WireOpCode, num_of_opcodes> opcodes = {
         WireOpCode::DIV_16,
@@ -432,7 +431,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
     std::vector<uint8_t> bytecode = create_bytecode(instructions);
 
     std::vector<InstructionFetchingEvent> events = create_instruction_fetching_events(
-        instructions, pcs, std::make_shared<std::vector<uint8_t>>(bytecode), bytecode_id);
+        instructions, pcs, std::make_shared<std::vector<uint8_t>>(bytecode), contract_address);
 
     builder.process_instruction_fetching(events, trace);
 
@@ -461,7 +460,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
                     AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
                           ROW_FIELD_EQ(instr_fetching_pc, pc),
                           ROW_FIELD_EQ(instr_fetching_bd0, static_cast<uint8_t>(opcodes.at(i))),
-                          ROW_FIELD_EQ(instr_fetching_bytecode_id, bytecode_id),
+                          ROW_FIELD_EQ(instr_fetching_contract_address, contract_address),
                           ROW_FIELD_EQ(instr_fetching_bytes_to_read, bytes_to_read),
                           ROW_FIELD_EQ(instr_fetching_bytecode_size, bytecode_size),
                           ROW_FIELD_EQ(instr_fetching_instr_size, instr_size),
@@ -498,8 +497,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingMultipleBytecodes)
     std::vector<InstructionFetchingEvent> events;
     for (size_t i = 0; i < 3; i++) {
         auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
-        auto new_events =
-            create_instruction_fetching_events(instructions, pcs, bytecode_ptr, static_cast<BytecodeId>(i + 1));
+        auto new_events = create_instruction_fetching_events(instructions, pcs, bytecode_ptr, AztecAddress(i + 1));
         events.insert(events.end(), new_events.begin(), new_events.end());
     }
 
@@ -529,7 +527,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
 
-    constexpr BytecodeId bytecode_id = 1;
+    const AztecAddress contract_address = AztecAddress(1);
     constexpr size_t bytecode_size = 20;
     std::vector<uint8_t> bytecode(bytecode_size);
     for (size_t i = 0; i < bytecode_size; i++) {
@@ -540,19 +538,19 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
     std::vector<InstructionFetchingEvent> events;
     auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
     events.emplace_back(InstructionFetchingEvent{
-        .bytecode_id = bytecode_id,
+        .address = contract_address,
         .pc = 0,
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
-        .bytecode_id = bytecode_id,
+        .address = contract_address,
         .pc = 19,
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
-        .bytecode_id = bytecode_id,
+        .address = contract_address,
         .pc = 38,
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::PC_OUT_OF_RANGE,
@@ -630,7 +628,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
 
     std::vector<InstructionFetchingEvent> events;
     events.emplace_back(InstructionFetchingEvent{
-        .bytecode_id = 1,
+        .address = AztecAddress(1),
         .pc = 0,
         .instruction = deserialize_instruction(bytecode, 0), // Reflect more the real code path than passing instr_cast.
         .bytecode = bytecode_ptr,
@@ -638,7 +636,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     });
 
     events.emplace_back(InstructionFetchingEvent{
-        .bytecode_id = 1,
+        .address = AztecAddress(1),
         .pc = cast_size,
         .instruction =
             deserialize_instruction(bytecode, cast_size), // Reflect more the real code path than passing instr_set.

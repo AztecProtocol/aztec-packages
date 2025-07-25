@@ -101,10 +101,10 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // BC_DEC_ID_CONSTANT
+        { // BC_DEC_ADDRESS_CONSTANT
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) *
-                       (in.get(C::bc_decomposition_id_shift) - in.get(C::bc_decomposition_id));
+                       (in.get(C::bc_decomposition_address_shift) - in.get(C::bc_decomposition_address));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
@@ -497,7 +497,7 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
         case 7:
             return "BC_DEC_BYTES_REMAINING_DECREMENT";
         case 8:
-            return "BC_DEC_ID_CONSTANT";
+            return "BC_DEC_ADDRESS_CONSTANT";
         case 10:
             return "BC_DEC_ABS_DIFF";
         case 11:
@@ -517,7 +517,7 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static constexpr size_t SR_BC_DEC_PC_ZERO_INITIALIZATION = 5;
     static constexpr size_t SR_BC_DEC_PC_INCREMENT = 6;
     static constexpr size_t SR_BC_DEC_BYTES_REMAINING_DECREMENT = 7;
-    static constexpr size_t SR_BC_DEC_ID_CONSTANT = 8;
+    static constexpr size_t SR_BC_DEC_ADDRESS_CONSTANT = 8;
     static constexpr size_t SR_BC_DEC_ABS_DIFF = 10;
     static constexpr size_t SR_BC_DEC_OVERFLOW_CORRECTION_VALUE = 11;
     static constexpr size_t SR_SEL_TOGGLED_AT_PACKED = 49;

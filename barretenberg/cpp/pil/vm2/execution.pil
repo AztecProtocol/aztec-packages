@@ -95,21 +95,16 @@ last = sel * (1 - sel');
  *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
-pol commit bytecode_id;
 pol commit sel_bytecode_retrieval_failure;
 
-// TODO(dbanks12): since this lookup is no longer active for all rows,
-// we likely need to constrain that bytecode_id does not change during a context,
-// or we need to otherwise consider the implications of this.
+// Note: bytecode_id concept removed - bytecode retrieval now uses contract address directly
 #[BYTECODE_RETRIEVAL_RESULT]
 sel_first_row_in_context {
-    bytecode_id,
     contract_address,
     prev_nullifier_tree_root, // from context.pil
     prev_public_data_tree_root, // from context.pil
     sel_bytecode_retrieval_failure
 } in bc_retrieval.sel {
-    bc_retrieval.bytecode_id,
     bc_retrieval.address,
     bc_retrieval.nullifier_tree_root,
     bc_retrieval.public_data_tree_root,
@@ -139,9 +134,9 @@ pol commit op[7];  // operands
 
 #[INSTRUCTION_FETCHING_RESULT]
 sel_bytecode_retrieval_success {
-    pc, bytecode_id, sel_instruction_fetching_failure
+    pc, contract_address, sel_instruction_fetching_failure
 } in instr_fetching.sel {
-    instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err
+    instr_fetching.pc, instr_fetching.contract_address, instr_fetching.sel_parsing_err
 };
 
 pol commit sel_instruction_fetching_success;
@@ -150,11 +145,11 @@ sel_instruction_fetching_success = sel * (1 - sel_instruction_fetching_failure);
 
 #[INSTRUCTION_FETCHING_BODY]
 sel_instruction_fetching_success {
-    pc, bytecode_id, ex_opcode, instr_length,
+    pc, contract_address, ex_opcode, instr_length,
     indirect, op[0], op[1], op[2], op[3], op[4], op[5], op[6]
 } in instr_fetching.sel {
     instr_fetching.pc,
-    instr_fetching.bytecode_id,
+    instr_fetching.contract_address,
     instr_fetching.exec_opcode,
     instr_fetching.instr_size,
     instr_fetching.indirect,

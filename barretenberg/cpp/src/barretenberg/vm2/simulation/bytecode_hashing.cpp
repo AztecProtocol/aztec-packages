@@ -5,10 +5,10 @@
 
 namespace bb::avm2::simulation {
 
-FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const BytecodeId bytecode_id,
+FF BytecodeHasher::compute_public_bytecode_commitment(const FF& expected_commitment,
                                                       const std::vector<uint8_t>& bytecode)
 {
-    [[maybe_unused]] auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
+    auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
 
     std::vector<FF> inputs = { GENERATOR_INDEX__PUBLIC_BYTECODE };
     auto bytecode_as_fields = encode_bytecode(bytecode);
@@ -16,9 +16,10 @@ FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const Byt
 
     FF hash = hasher.hash(inputs);
 
-    // events.emit({ .bytecode_id = bytecode_id,
-    //               .bytecode_length = bytecode_length_in_bytes,
-    //               .bytecode_fields = std::move(bytecode_as_fields) });
+    // Emit event for constraint generation, deduplicated by the expected commitment
+    events.emit({ .bytecode_commitment = expected_commitment,
+                  .bytecode_length = bytecode_length_in_bytes,
+                  .bytecode_fields = std::move(bytecode_as_fields) });
     return hash;
 }
 
