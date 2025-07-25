@@ -392,8 +392,23 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           });
           multicall.aggregate3(calls);
         } else {
+          CommitteeAttestations memory attestations = SignatureLib.packAttestations(b.attestations);
+
+          vm.record();
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
+          rollup.propose(b.proposeArgs, attestations, b.blobInputs);
+
+          (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup));
+          emit log_named_address("rollup", address(rollup));
+          emit log_named_uint("reads", reads.length);
+          emit log_named_uint("writes", writes.length);
+
+          for (uint256 j = 0; j < reads.length; j++) {
+            //  emit log_named_bytes32("\tread", reads[j]);
+          }
+          for (uint256 j = 0; j < writes.length; j++) {
+            // emit log_named_bytes32("\twrite", writes[j]);
+          }
         }
 
         nextSlot = nextSlot + Slot.wrap(1);
