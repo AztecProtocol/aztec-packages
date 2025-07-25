@@ -58,8 +58,9 @@ library CommitmentSchemeLib {
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers,
         uint256 logSize
-    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations) {
-        for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
+    ) internal view returns (Fr[] memory) {
+        Fr[] memory foldPosEvaluations = new Fr[](logSize);
+        for (uint256 i = logSize; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = sumcheckUChallenges[i - 1];
 
@@ -69,10 +70,10 @@ library CommitmentSchemeLib {
             );
             // Divide by the denominator
             batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
-            if (i <= logSize) {
-                batchedEvalAccumulator = batchedEvalRoundAcc;
-                foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
-            }
+
+            batchedEvalAccumulator = batchedEvalRoundAcc;
+            foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
         }
+        return foldPosEvaluations;
     }
 }

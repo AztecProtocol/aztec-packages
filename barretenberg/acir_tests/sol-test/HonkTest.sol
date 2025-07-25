@@ -12,7 +12,7 @@ contract Test {
         verifier = new HonkVerifier();
     }
 
-    function test(bytes calldata proof, bytes32[] calldata publicInputs) public view returns (bool) {
+    function test(bytes calldata proof, bytes32[] calldata publicInputs) public returns (bool) {
         return verifier.verify(proof, publicInputs);
     }
 }
