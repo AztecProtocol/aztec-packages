@@ -834,7 +834,7 @@ contract HonkVerifier is IVerifier {
                 let round_target := 0
                 let pow_partial_evaluation := 1
 
-                for {} lt(round, 15) {} {
+                for {} lt(round, LOG_N) {} {
                     let round_univariates_off := add(SUMCHECK_UNIVARIATE_0_0_LOC, mul(round, 0x100))
                     let challenge_off := add(SUM_U_CHALLENGE_0, mul(round, 0x20))
 
@@ -1821,9 +1821,9 @@ contract HonkVerifier is IVerifier {
 
             // In order to compute fold pos evaluations we need
             // TODO: code generate the 14 - logN - 1 here
-            let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
-            let pow_off := POWERS_OF_EVALUATION_CHALLENGE_14_LOC
-            let sumcheck_u_off := SUM_U_CHALLENGE_14
+            let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_11_LOC
+            let pow_off := POWERS_OF_EVALUATION_CHALLENGE_11_LOC
+            let sumcheck_u_off := SUM_U_CHALLENGE_11
 
             // TODO: challengePower * (ONE - u) can be cached - measure performance
             for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
@@ -2059,12 +2059,12 @@ contract HonkVerifier is IVerifier {
             // Compute fold pos evaluations
             {
                 // TODO: work out the stack here
-                mstore(CHALL_POW_LOC,  POWERS_OF_EVALUATION_CHALLENGE_14_LOC)
-                mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_14)
-                mstore(GEMINI_A_LOC, GEMINI_A_EVAL_14)
+                mstore(CHALL_POW_LOC,  POWERS_OF_EVALUATION_CHALLENGE_11_LOC)
+                mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_11)
+                mstore(GEMINI_A_LOC, GEMINI_A_EVAL_11)
                 // Inversion of this value was included in batch inversion above
-                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
-                let fold_pos_off := FOLD_POS_EVALUATIONS_14_LOC
+                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_11_LOC
+                let fold_pos_off := FOLD_POS_EVALUATIONS_11_LOC
 
                 let batchedEvalAcc := batchedEvaluation
                 for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
