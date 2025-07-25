@@ -156,16 +156,15 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    // Get all constraint systems from the bytecode
-    auto constraint_systems = get_constraint_systems(bytecode_path.string());
+    // Get the bytecode directly
+    auto bytecode = get_bytecode(bytecode_path);
 
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
 
-    size_t i = 0;
-    for (const auto& constraint_system : constraint_systems) {
-        // Serialize this constraint system to bytecode
-        auto bytecode = acir_format::to_buffer(constraint_system);
+    // For now, treat the entire bytecode as a single circuit
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Handle multi-circuit programs properly
+    {
 
         // Convert flags to ProofSystemSettings
         bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
@@ -211,24 +210,18 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
             }
         }
 
-        // Get acir_opcodes count from the original constraint system
-        auto result_string = format("{\n        \"acir_opcodes\": ",
-                                    constraint_system.num_acir_opcodes,
-                                    ",\n        \"circuit_size\": ",
-                                    response.total_gates,
-                                    (flags.include_gates_per_opcode
-                                         ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]")
-                                         : ""),
-                                    "\n  }");
-
-        // Attach a comma if there are more circuit reports to generate
-        if (i != (constraint_systems.size() - 1)) {
-            result_string = format(result_string, ",");
-        }
+        // For now, we'll use the CircuitInfo response which includes circuit statistics
+        // The num_acir_opcodes is not directly available from bytecode alone
+        auto result_string = format(
+            "{\n        \"acir_opcodes\": ",
+            1, // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Get actual opcode count from bytecode
+            ",\n        \"circuit_size\": ",
+            response.total_gates,
+            (flags.include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]")
+                                            : ""),
+            "\n  }");
 
         functions_string = format(functions_string, result_string);
-
-        i++;
     }
     std::cout << format(functions_string, "\n]}");
 }

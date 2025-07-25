@@ -739,7 +739,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         else if (proof_as_fields->parsed()) {
             auto proof_bytes = read_file(proof_path);
             bbapi::ProofAsFields cmd{ .proof = many_from_buffer<bb::fr>(proof_bytes) };
-            auto response = cmd.execute();
+            auto response = std::move(cmd).execute();
             std::string json = field_elements_to_json(response.fields);
             write_file(output_path / "proof_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
             vinfo("proof converted to field elements and written to ", output_path / "proof_fields.json");
@@ -747,7 +747,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (vk_as_fields->parsed()) {
             auto vk_bytes = read_file(vk_path);
             bbapi::VkAsFields cmd{ .verification_key = vk_bytes, .is_mega_honk = flags.mega_honk };
-            auto response = cmd.execute();
+            auto response = std::move(cmd).execute();
             std::string json = field_elements_to_json(response.fields);
             write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
             vinfo("verification key converted to field elements and written to ", output_path / "vk_fields.json");
