@@ -122,67 +122,43 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
  *contract from bb contract_honk
  **/
 inline void output_vk_sol_ultra_honk_opt(std::ostream& os,
-                                     auto const& key,
-                                     bool include_types_import = false)
+                                     auto const& key)
 {
 
-    const auto print_u256_const = [&](const auto& element, const std::string& name) {
-        os << "uint256 constant " << name << " = " << element << ";" << std::endl;
-    };
 
     const auto print_g1 = [&](const auto& element, const std::string& name) {
-        os << "            " << "mstore(" << name << "_x_loc, " << element.x << ")" << std::endl;
-        os << "            " << "mstore(" << name << "_y_loc, " << element.y << ")" << std::endl;
+        os << "            " << "mstore(" << name << "_X_LOC, " << element.x << ")" << std::endl;
+        os << "            " << "mstore(" << name << "_Y_LOC, " << element.y << ")" << std::endl;
     };
 
-    // Include the types import if working with the local test suite
-    const auto print_types_import = [&]() {
-        if (include_types_import) {
-            os << "import { Honk } from \"../HonkTypes.sol\";\n";
-        }
-    };
-
-    // clang-format off
-    os <<
-    //   "// Verification Key Hash: " << key->sha256_hash() << "\n"
-      "// SPDX-License-Identifier: Apache-2.0\n"
-      "// Copyright 2022 Aztec\n"
-      "pragma solidity >=0.8.21;\n"
-      "\n"
-    "";
-    print_types_import();
-    print_u256_const(key->circuit_size, "N");
-    print_u256_const(key->log_circuit_size, "LOG_N");
-    print_u256_const(key->num_public_inputs, "NUMBER_OF_PUBLIC_INPUTS");
     os << "";
-    print_g1(key->q_l, "ql");
-    print_g1(key->q_r, "qr");
-    print_g1(key->q_o, "qo");
-    print_g1(key->q_4, "q4");
-    print_g1(key->q_m, "qm");
-    print_g1(key->q_c, "qc");
-    print_g1(key->q_arith, "qArith");
-    print_g1(key->q_delta_range, "qDeltaRange");
-    print_g1(key->q_elliptic, "qElliptic");
-    print_g1(key->q_aux, "qAux");
-    print_g1(key->q_lookup, "qLookup");
-    print_g1(key->q_poseidon2_external, "qPoseidon2External");
-    print_g1(key->q_poseidon2_internal, "qPoseidon2Internal");
-    print_g1(key->sigma_1, "s1");
-    print_g1(key->sigma_2, "s2");
-    print_g1(key->sigma_3, "s3");
-    print_g1(key->sigma_4, "s4");
-    print_g1(key->table_1, "t1");
-    print_g1(key->table_2, "t2");
-    print_g1(key->table_3, "t3");
-    print_g1(key->table_4, "t4");
-    // print_g1("0x500", "0x520", key->table, "vk.TABLE_TYPE");
-    print_g1(key->id_1, "id1");
-    print_g1(key->id_2, "id2");
-    print_g1(key->id_3, "id3");
-    print_g1(key->id_4, "id4");
-    print_g1(key->lagrange_first, "lagrangeFirst");
-    print_g1(key->lagrange_last, "lagrangeLast");
+    print_g1(key->q_l, "Q_L");
+    print_g1(key->q_r, "Q_R");
+    print_g1(key->q_o, "Q_O");
+    print_g1(key->q_4, "Q_4");
+    print_g1(key->q_m, "Q_M");
+    print_g1(key->q_c, "Q_C");
+    print_g1(key->q_arith, "Q_ARITH");
+    print_g1(key->q_delta_range, "Q_DELTA_RANGE");
+    print_g1(key->q_elliptic, "Q_ELLIPTIC");
+    print_g1(key->q_aux, "Q_AUX");
+    print_g1(key->q_lookup, "Q_LOOKUP");
+    print_g1(key->q_poseidon2_external, "Q_POSEIDON_2_EXTERNAL");
+    print_g1(key->q_poseidon2_internal, "Q_POSEIDON_2_INTERNAL");
+    print_g1(key->sigma_1, "SIGMA_1");
+    print_g1(key->sigma_2, "SIGMA_2");
+    print_g1(key->sigma_3, "SIGMA_3");
+    print_g1(key->sigma_4, "SIGMA_4");
+    print_g1(key->table_1, "TABLE_1");
+    print_g1(key->table_2, "TABLE_2");
+    print_g1(key->table_3, "TABLE_3");
+    print_g1(key->table_4, "TABLE_4");
+    print_g1(key->id_1, "ID_1");
+    print_g1(key->id_2, "ID_2");
+    print_g1(key->id_3, "ID_3");
+    print_g1(key->id_4, "ID_4");
+    print_g1(key->lagrange_first, "LAGRANGE_FIRST");
+    print_g1(key->lagrange_last, "LAGRANGE_LAST");
     os << std::flush;
 }
 
