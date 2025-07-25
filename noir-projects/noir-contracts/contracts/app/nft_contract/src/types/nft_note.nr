@@ -208,7 +208,7 @@ impl NoteType for PrivateNFTPartialNotePrivateLogContent {
 /// of course that its token id is known).
 #[derive(Packable, Serialize, Deserialize)]
 pub struct PartialNFTNote {
-    pub commitment: Field,
+    commitment: Field,
 }
 
 impl PartialNFTNote {
@@ -271,7 +271,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
+        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -315,7 +315,9 @@ mod test {
             randomness,
             public_log_tag: commitment,
         };
-        let partial_note = PartialNFTNote { commitment };
+        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
+        // letting devs manually construct it when they shouldn't be able to.
+        let partial_note = PartialNFTNote::deserialize([commitment]);
 
         // The first field of the partial note private content is the public completion log tag, so it should match the
         // first field of the public log.

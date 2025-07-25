@@ -212,7 +212,7 @@ impl NoteType for PrivateUintPartialNotePrivateLogContent {
 /// of course that its value is known).
 #[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
-    pub commitment: Field,
+    commitment: Field,
 }
 
 global NOTE_COMPLETION_LOG_LENGTH: u32 = 2;
@@ -333,7 +333,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
+        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -377,7 +377,9 @@ mod test {
             randomness,
             public_log_tag: commitment,
         };
-        let partial_note = PartialUintNote { commitment };
+        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
+        // letting devs manually construct it when they shouldn't be able to.
+        let partial_note = PartialUintNote::deserialize([commitment]);
 
         // The first field of the partial note private content is the public completion log tag, so it should match the
         // first field of the public log.
