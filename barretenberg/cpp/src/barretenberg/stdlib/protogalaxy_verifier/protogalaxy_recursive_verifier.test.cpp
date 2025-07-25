@@ -352,7 +352,8 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         // IO
         HidingKernelIO<OuterBuilder> inputs;
         inputs.pairing_inputs = pairing_points;
-        inputs.ecc_op_tables = HidingKernelIO<OuterBuilder>::default_ecc_op_tables(decider_circuit);
+        inputs.ecc_op_tables =
+            HidingKernelIO<OuterBuilder>::default_ecc_op_tables(decider_circuit, /*set_infinity=*/false);
         inputs.set_public();
 
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);

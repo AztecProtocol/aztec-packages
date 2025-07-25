@@ -187,11 +187,27 @@ template <class Builder_> class HidingKernelIO {
         builder->finalize_public_inputs();
     }
 
-    static std::array<G1, Builder::NUM_WIRES> default_ecc_op_tables(Builder& builder)
+    static std::array<G1, Builder::NUM_WIRES> default_ecc_op_tables(Builder& builder, bool set_infinity = true)
     {
         std::array<G1, Builder::NUM_WIRES> defaults;
         for (auto& table : defaults) {
-            table = G1::point_at_infinity(&builder);
+            // We need to branch because this function is used in two places: when we set default public inputs in
+            // circuits that already have pairing inputs but no ecc op tables, and when we set default ecc op tables for
+            // a MegaVerifier that verifies only one Merge. In the first case, we need to set the point to something
+            // different from the the point at infinity because we currently don't handle the reconstruction of the
+            // point at infinity from the public inputs. In the second case, we need to set the ecc op tables to the
+            // point at infinity because the merge verification will merge the new operations into the empty table. Note
+            // that the case of adding defaults to circuits that already have pairing inputs works only because a
+            // circuit that needs to propagate ecc op tables either comes at the end of various layers of Goblin (in
+            // CIVC), in which case there are ecc op tables to propagate, or at the beginning of Goblin, in which case
+            // it doesn't matter what gets propagated, as the verifier will disregard that value and use the point at
+            // infinity.
+            // TODO(): Can we handle the point at infinity in the public inputs?
+            if (set_infinity) {
+                table = G1::point_at_infinity(&builder);
+            } else {
+                table = G1::one(&builder);
+            }
         }
 
         return defaults;
@@ -205,7 +221,7 @@ template <class Builder_> class HidingKernelIO {
     {
         PairingInputs::add_default_to_public_inputs(builder);
         for (size_t idx = 0; idx < Builder::NUM_WIRES; idx++) {
-            G1 point = G1::point_at_infinity(&builder);
+            G1 point = G1::one(&builder);
             point.set_public();
         }
     };
