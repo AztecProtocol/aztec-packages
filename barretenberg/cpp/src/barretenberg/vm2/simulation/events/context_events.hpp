@@ -19,6 +19,8 @@ struct ContextEvent {
     FF transaction_fee;
     bool is_static;
 
+    FF class_id;
+
     // Calldata info from parent context
     uint32_t parent_cd_addr;
     uint32_t parent_cd_size_addr;
@@ -49,6 +51,8 @@ struct ContextStackEvent {
     uint32_t id;
     uint32_t parent_id;
     uint32_t entered_context_id;
+
+    FF parent_class_id;
 
     // State
     uint32_t next_pc;

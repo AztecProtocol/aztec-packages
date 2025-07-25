@@ -53,7 +53,7 @@ sel = 0;
 
 // This pair identifies uniquely a given instruction among the bytecodes.
 pol commit pc;
-pol commit bytecode_id;
+pol commit class_id;
 
 
 // ****************************************************************************
@@ -159,7 +159,7 @@ sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomp
 
 // The size of the bytecode is bytes_remaining at pc == 0.
 #[BYTECODE_SIZE_FROM_BC_DEC]
-sel { bytecode_id, precomputed.zero, bytecode_size } in
+sel { class_id, precomputed.zero, bytecode_size } in
 bc_decomposition.sel { bc_decomposition.id, bc_decomposition.pc, bc_decomposition.bytes_remaining };
 
 // bytecode[pc] to bytecode[pc + 36]
@@ -182,7 +182,7 @@ sel_pc_in_range = sel * (1 - pc_out_of_range);
 // Bring in the bytes from the bytecode columns.
 #[BYTES_FROM_BC_DEC]
 sel_pc_in_range {
-     bytecode_id,
+     class_id,
      pc,
      bytes_to_read,
      bd0,  bd1,  bd2,  bd3,  bd4,

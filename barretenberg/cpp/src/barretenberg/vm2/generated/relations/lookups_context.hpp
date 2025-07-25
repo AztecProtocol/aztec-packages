@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_context_ctx_stack_call_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_CALL";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 14;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_call_counts;
@@ -29,6 +29,7 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::execution_msg_sender,
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_is_static,
+        ColumnAndShifts::execution_class_id,
         ColumnAndShifts::execution_parent_calldata_addr,
         ColumnAndShifts::execution_parent_calldata_size,
         ColumnAndShifts::execution_parent_l2_gas_limit,
@@ -44,6 +45,7 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
+        ColumnAndShifts::context_stack_parent_class_id,
         ColumnAndShifts::context_stack_parent_calldata_addr,
         ColumnAndShifts::context_stack_parent_calldata_size,
         ColumnAndShifts::context_stack_parent_l2_gas_limit,
@@ -62,7 +64,7 @@ using lookup_context_ctx_stack_call_relation = lookup_relation_base<FF_, lookup_
 struct lookup_context_ctx_stack_rollback_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_ROLLBACK";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 14;
     static constexpr Column SRC_SELECTOR = Column::execution_rollback_context;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_rollback_counts;
@@ -75,6 +77,7 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::execution_msg_sender_shift,
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
+        ColumnAndShifts::execution_class_id_shift,
         ColumnAndShifts::execution_parent_calldata_addr_shift,
         ColumnAndShifts::execution_parent_calldata_size_shift,
         ColumnAndShifts::execution_parent_l2_gas_limit_shift,
@@ -90,6 +93,7 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
+        ColumnAndShifts::context_stack_parent_class_id,
         ColumnAndShifts::context_stack_parent_calldata_addr,
         ColumnAndShifts::context_stack_parent_calldata_size,
         ColumnAndShifts::context_stack_parent_l2_gas_limit,
@@ -109,7 +113,7 @@ using lookup_context_ctx_stack_rollback_relation =
 struct lookup_context_ctx_stack_return_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_RETURN";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 14;
     static constexpr Column SRC_SELECTOR = Column::execution_nested_return;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_return_counts;
@@ -122,6 +126,7 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::execution_msg_sender_shift,
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
+        ColumnAndShifts::execution_class_id_shift,
         ColumnAndShifts::execution_parent_calldata_addr_shift,
         ColumnAndShifts::execution_parent_calldata_size_shift,
         ColumnAndShifts::execution_parent_l2_gas_limit_shift,
@@ -137,6 +142,7 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
+        ColumnAndShifts::context_stack_parent_class_id,
         ColumnAndShifts::context_stack_parent_calldata_addr,
         ColumnAndShifts::context_stack_parent_calldata_size,
         ColumnAndShifts::context_stack_parent_l2_gas_limit,

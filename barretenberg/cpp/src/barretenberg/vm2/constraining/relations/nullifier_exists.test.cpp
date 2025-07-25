@@ -146,7 +146,5 @@ TEST(NullifierExistsConstrainingTest, Interactions)
     check_interaction<ExecutionTraceBuilder, lookup_nullifier_exists_nullifier_exists_check_settings>(trace);
 }
 
-// TODO(dbanks12): interaction tests
-
 } // namespace
 } // namespace bb::avm2::constraining

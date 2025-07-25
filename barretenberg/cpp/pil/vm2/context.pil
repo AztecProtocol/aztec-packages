@@ -32,6 +32,9 @@ namespace execution;
     pol commit transaction_fee;
     // Constrained boolean by tx trace (for enqueued call) and #[NEXT_IS_STATIC] for nested
     pol commit is_static;
+    
+    // Class ID of the current contract
+    pol commit class_id;
 
     pol commit parent_calldata_addr;
     pol commit parent_calldata_size;
@@ -165,6 +168,13 @@ namespace execution;
     #[IS_STATIC_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_execute_static_call) = 0;
+    
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> class_id' = class_id from bytecode retrieval
+    // otherwise        = 0 ==> class_id' = class_id
+    #[CLASS_ID_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (class_id' - class_id) = 0;
+    // When entering a call, class_id will be set from bytecode retrieval on the next row
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
@@ -256,6 +266,7 @@ namespace execution;
         msg_sender,
         contract_address,
         is_static,
+        class_id,
         parent_calldata_addr,
         parent_calldata_size,
         parent_l2_gas_limit,
@@ -271,6 +282,7 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
+        context_stack.parent_class_id,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
@@ -294,6 +306,7 @@ namespace execution;
         msg_sender',
         contract_address',
         is_static',
+        class_id',
         parent_calldata_addr',
         parent_calldata_size',
         parent_l2_gas_limit',
@@ -311,6 +324,7 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
+        context_stack.parent_class_id,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
@@ -332,6 +346,7 @@ namespace execution;
         msg_sender',
         contract_address',
         is_static',
+        class_id',
         parent_calldata_addr',
         parent_calldata_size',
         parent_l2_gas_limit',
@@ -347,6 +362,7 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
+        context_stack.parent_class_id,
         context_stack.parent_calldata_addr,
         context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,

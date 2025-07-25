@@ -44,7 +44,7 @@ class TagCheckError : public std::exception {
 
 struct ExecutionEvent {
     ExecutionError error = ExecutionError::NONE;
-    BytecodeId bytecode_id;
+    ContractClassId class_id;
     Instruction wire_instruction;
 
     // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.

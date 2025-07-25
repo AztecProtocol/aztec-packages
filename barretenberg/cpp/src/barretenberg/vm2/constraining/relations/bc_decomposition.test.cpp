@@ -43,7 +43,7 @@ TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)
     init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
+        { { .class_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) } }, trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40);
     check_relation<bc_decomposition>(trace);
@@ -56,7 +56,7 @@ TEST(BytecodeDecompositionConstrainingTest, ShortSingleBytecode)
     init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) } }, trace);
+        { { .class_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) } }, trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 5);
     check_relation<bc_decomposition>(trace);
@@ -68,8 +68,8 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodes)
     init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
-          { .bytecode_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(55)) } },
+        { { .class_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
+          { .class_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(55)) } },
         trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 55);
@@ -82,11 +82,11 @@ TEST(BytecodeDecompositionConstrainingTest, MultipleBytecodesWithShortOnes)
     init_trace(trace);
     BytecodeTraceBuilder builder;
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
-          { .bytecode_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) },
-          { .bytecode_id = 3, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(10)) },
-          { .bytecode_id = 4, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(55)) },
-          { .bytecode_id = 5, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(2)) } },
+        { { .class_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(40)) },
+          { .class_id = 2, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(5)) },
+          { .class_id = 3, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(10)) },
+          { .class_id = 4, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(55)) },
+          { .class_id = 5, .bytecode = std::make_shared<std::vector<uint8_t>>(random_bytes(2)) } },
         trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 + 40 + 5 + 10 + 55 + 2);

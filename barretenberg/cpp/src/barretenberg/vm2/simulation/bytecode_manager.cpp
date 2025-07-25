@@ -12,9 +12,12 @@
 
 namespace bb::avm2::simulation {
 
-BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
+ContractClassId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
-    auto bytecode_id = next_bytecode_id++;
+    // Note: this function cannot be deduplicated because its results depend on
+    // latest tree state, but some inner components it interacts with can be deduplicated.
+    // In particular, class id derivation, bytecode hashing, address derivation can all
+    // be deduplicated.
 
     // Use shared ContractInstanceManager for contract instance retrieval and validation
     // This handles nullifier checks, address derivation, and update validation
@@ -23,12 +26,12 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     if (!maybe_instance.has_value()) {
         // Contract instance not found - emit error event and throw
         retrieval_events.emit({
-            .bytecode_id = bytecode_id,
+            .class_id = 0,
             .address = address,
             .error = true,
         });
         vinfo("Contract ", field_to_string(address), " is not deployed!");
-        throw BytecodeNotFoundError(bytecode_id, "Contract " + field_to_string(address) + " is not deployed");
+        throw BytecodeNotFoundError("Contract " + field_to_string(address) + " is not deployed");
     }
 
     ContractClassId current_class_id = maybe_instance.value().current_class_id;
@@ -42,20 +45,21 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     info("Bytecode for ", address, " successfully retrieved!");
 
     // Bytecode hashing and decomposition
-    FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
+    FF bytecode_commitment =
+        bytecode_hasher.compute_public_bytecode_commitment(current_class_id, klass.packed_bytecode);
     (void)bytecode_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
     assert(bytecode_commitment == klass.public_bytecode_commitment);
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
-    decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
+    decomposition_events.emit({ .class_id = current_class_id, .bytecode = shared_bytecode });
 
     // We now save the bytecode so that we don't repeat this process.
-    bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
+    bytecodes.emplace(current_class_id, std::move(shared_bytecode));
 
     auto tree_states = merkle_db.get_tree_state();
 
     retrieval_events.emit({
-        .bytecode_id = bytecode_id,
+        .class_id = current_class_id,
         .address = address,
         .current_class_id = current_class_id,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
@@ -63,19 +67,19 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         .public_data_tree_root = tree_states.publicDataTree.tree.root,
     });
 
-    return bytecode_id;
+    return current_class_id;
 }
 
-Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t pc)
+Instruction TxBytecodeManager::read_instruction(ContractClassId class_id, uint32_t pc)
 {
     // We'll be filling in the event as we progress.
     InstructionFetchingEvent instr_fetching_event;
 
-    auto it = bytecodes.find(bytecode_id);
+    auto it = bytecodes.find(class_id);
     // This should never happen. It is supposed to be checked in execution.
     assert(it != bytecodes.end());
 
-    instr_fetching_event.bytecode_id = bytecode_id;
+    instr_fetching_event.class_id = class_id;
     instr_fetching_event.pc = pc;
 
     auto bytecode_ptr = it->second;

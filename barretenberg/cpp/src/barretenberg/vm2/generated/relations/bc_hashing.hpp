@@ -81,7 +81,7 @@ template <typename FF_> class bc_hashingImpl {
         { // ID_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (in.get(C::bc_hashing_bytecode_id_shift) - in.get(C::bc_hashing_bytecode_id));
+                       (in.get(C::bc_hashing_class_id_shift) - in.get(C::bc_hashing_class_id));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }

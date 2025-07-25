@@ -9,7 +9,12 @@ namespace bb::avm2::simulation {
 
 void AddressDerivation::assert_derivation(const AztecAddress& address, const ContractInstance& instance)
 {
-    // TODO: Cache and deduplicate.
+    if (derived_addresses.contains(address)) {
+        // Deduplicated! This was previously computed and cached.
+        return;
+    }
+
+    // Perform address derivation computation
     FF salted_initialization_hash = poseidon2.hash(
         { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr });
 
@@ -32,6 +37,9 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
     EmbeddedCurvePoint address_point = ecc.add(preaddress_public_key, instance.public_keys.incoming_viewing_key);
 
     assert(address == address_point.x());
+
+    // Mark this address as successfully derived in the cache
+    derived_addresses.insert(address);
 
     events.emit({
         .address = address,
