@@ -95,11 +95,16 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
+        const TableCommitments& T_prev_commitments,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     // Witness commitments and public inputs corresponding to the incoming instance
     WitnessCommitments witness_commitments;
     std::vector<StdlibFF> public_inputs;
+
+    // Commitments to the previous status of the op_queue, to be finalized according to the recursive verification we
+    // are performing
+    TableCommitments finalised_T_prev_commitments = T_prev_commitments;
 
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG: {
@@ -138,6 +143,9 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         witness_commitments = std::move(verifier_accum->witness_commitments);
         public_inputs = std::move(verifier.public_inputs);
 
+        // T_prev = 0 in the first recursive verification
+        finalised_T_prev_commitments = HidingKernelIO::empty_ecc_op_tables(circuit);
+
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
@@ -152,20 +160,15 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
     }
 
-    // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
-
-    // Recursively verify the corresponding merge proof
-    auto [pairing_points, merged_table_commitments] =
-        goblin.recursively_verify_merge(circuit, t_commitments, accumulation_recursive_transcript);
-
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
     if (verifier_inputs.is_kernel) {
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
         kernel_input.reconstruct_from_public(public_inputs);
+
         nested_pairing_points = kernel_input.pairing_inputs;
+        finalised_T_prev_commitments = kernel_input.ecc_op_tables;
 
         // Perform databus consistency checks
         kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
@@ -182,6 +185,13 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Set the app return data commitment to be propagated via the public inputs
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
     }
+
+    // Extract the commitments to the subtable corresponding to the incoming circuit
+    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+
+    // Recursively verify the corresponding merge proof
+    auto [pairing_points, merged_table_commitments] = goblin.recursively_verify_merge(
+        circuit, t_commitments, finalised_T_prev_commitments, accumulation_recursive_transcript);
 
     pairing_points.aggregate(nested_pairing_points);
 
@@ -217,7 +227,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
         auto [pairing_points, merged_table_commitments] = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, verifier_input, accumulation_recursive_transcript);
+            circuit, verifier_input, T_prev_commitments, accumulation_recursive_transcript);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems
         // we can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
@@ -240,6 +250,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.pairing_inputs = points_accumulator;
         kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
         kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
+        kernel_output.ecc_op_tables = T_prev_commitments;
 
         kernel_output.set_public();
     }
@@ -408,7 +419,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
     // Perform recursive verification of the last merge proof
     auto [points_accumulator, merged_table_commitments] =
-        goblin.recursively_verify_merge(circuit, t_commitments, pg_merge_transcript);
+        goblin.recursively_verify_merge(circuit, t_commitments, kernel_input.ecc_op_tables, pg_merge_transcript);
 
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 
@@ -502,8 +513,8 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
         verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
-    auto [goblin_verified, _merged_table_commitments] =
-        Goblin::verify(proof.goblin_proof, t_commitments, civc_verifier_transcript);
+    auto [goblin_verified, _] =
+        Goblin::verify(proof.goblin_proof, t_commitments, T_prev_commitments, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
