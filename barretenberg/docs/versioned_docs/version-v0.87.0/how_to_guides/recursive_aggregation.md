@@ -1,6 +1,6 @@
 ---
-title: How to use recursion on NoirJS
-description: Learn how to implement recursion with BB.JS, a powerful tool for creating smart contracts on the EVM blockchain. This guide assumes familiarity with NoirJS, solidity verifiers, and the Barretenberg proving backend. Discover how to generate both final and intermediate proofs using `noir_js` and `bb.js`.
+title: Recursive Aggregation
+description: Learn how to implement recursion with bb.js, a powerful tool for creating smart contracts on the EVM blockchain. This guide assumes familiarity with NoirJS, solidity verifiers, and the Barretenberg proving backend. Discover how to generate both final and intermediate proofs using `noir_js` and `bb.js`.
 keywords:
   [
     "NoirJS",
