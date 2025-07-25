@@ -130,15 +130,10 @@ library ValidatorSelectionLib {
       setCachedProposer(_slot, proposer, proposerIndex);
     }
 
-    // If the proposer is who sent the tx, we're good
-    if (proposer == msg.sender) {
-      return;
-    }
-
     // Check if the proposer has signed, if not, fail
     bool hasProposerSignature = _attestations.isSignature(proposerIndex);
     if (!hasProposerSignature) {
-      revert Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender);
+      revert Errors.ValidatorSelection__MissingProposerSignature(proposer, proposerIndex);
     }
 
     // Check if the signature is correct
@@ -358,7 +353,10 @@ library ValidatorSelectionLib {
     }
   }
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) internal returns (Slot, uint256) {
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
+    internal
+    returns (Slot, uint256)
+  {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -373,9 +371,7 @@ library ValidatorSelectionLib {
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
     (address proposer,) = getProposerAt(slot);
-    require(
-      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
+    require(proposer == _who, Errors.ValidatorSelection__InvalidProposer(proposer, _who));
 
     return (slot, pendingBlockNumber + 1);
   }
