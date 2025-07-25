@@ -81,6 +81,7 @@ function UnsignedIntegerClassFactory(bits: number) {
     public constructor(n: bigint | number) {
       super();
       this.n = BigInt(n);
+      assert(n >= 0 `${this.constructor.name} cannot handle negative values: ${n}.`);
       assert(n < NewUintClass.mod, `Value ${n} is too large for ${this.constructor.name}.`);
     }
 
