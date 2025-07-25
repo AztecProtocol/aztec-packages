@@ -27,7 +27,7 @@ uint256 constant NUMBER_PUBLIC_INPUTS = 20;
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 20 - 16;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 
-contract BlakeOptHonkVerifier is IVerifier {
+abstract contract BaseOptHonkVerifier is IVerifier {
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    SLAB ALLOCATION                         */
@@ -1173,7 +1173,8 @@ contract BlakeOptHonkVerifier is IVerifier {
     // TOOD: maybe verify vk points are on curve in constructor
     constructor() {}
 
-    // function loadVerificationKey() internal pure virtual;
+    function loadVerificationKey() internal pure virtual;
+
 
     function verify(bytes calldata, bytes32[] calldata) public override returns (bool) {
         // Load the proof from calldata in one large chunk
@@ -1227,8 +1228,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(TABLE_1_Y_LOC, 0x0215718164a2dbf8fc7da2fcf053b162d84e8703001218f0ad90d1f8d7526ba0)
                 mstore(TABLE_2_X_LOC, 0x1bdccd1181f8c909975dd24a69fd1c26ed6e513cd237106bacd9ac5e790374f2)
                 mstore(TABLE_2_Y_LOC, 0x1ba438e74f962c1b769f452da854110d0635d48e4d74d282ad06ae0e2830ac91)
-                mstore(TABLE_3_X_LOC, 0x20d80d8e50445042431974ff13f53c27c62c17d6d2100faac252917bc2666ac1)
-                mstore(TABLE_3_Y_LOC, 0x04bffddce3617713d52791e3344987b29b7c3359a227a03ca26857e813a84278)
+                mstore(TABLE_3_X_LOC, 0x21313b069a809e1ab2df2a959cfd9a407933547daf0af170b0e6851d5f4e1014)
+                mstore(TABLE_3_Y_LOC, 0x11a24ca630551e13681edd34cb75746b12ee1806cc3c2c7e670f3a1bb4f30a1f)
                 mstore(TABLE_4_X_LOC, 0x2a0724cfe33e0ee4b3f81929ef0cd1da5e113987c9aed1534cca51dae3d9bc2d)
                 mstore(TABLE_4_Y_LOC, 0x26983a78aa5c4f3103c7e6128a32f0fae2779a6f0efb2b60facdd09153d403c9)
                 mstore(ID_1_X_LOC, 0x036e9faa607b6e7b97aa939face171293464ea9983674c2a23dc3586cb3646a0)
@@ -3357,7 +3358,6 @@ contract BlakeOptHonkVerifier is IVerifier {
             {
                 let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
                 let success_flag := 1
-                // Wires
                 success_flag := validateProofPointOnCurve(success_flag, W_L_X0_LOC, p, q)
                 success_flag := validateProofPointOnCurve(success_flag, W_R_X0_LOC, p, q)
                 success_flag := validateProofPointOnCurve(success_flag, W_O_X0_LOC, p, q)
@@ -3366,39 +3366,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 success_flag := validateProofPointOnCurve(success_flag, W_4_X0_LOC, p, q)
                 success_flag := validateProofPointOnCurve(success_flag, LOOKUP_INVERSES_X0_LOC, p, q)
                 success_flag := validateProofPointOnCurve(success_flag, Z_PERM_X0_LOC, p, q)
-
-                // Gemini commitments
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_0_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_1_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_2_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_3_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_4_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_5_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_6_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_7_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_8_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_9_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_10_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_11_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_12_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_13_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_14_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_15_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_16_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_17_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_18_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_19_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_20_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_21_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_22_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_23_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_24_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_25_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, GEMINI_FOLD_UNIVARIATE_26_X0_LOC, p, q)
-
-                // Shlponk
-                success_flag := validateProofPointOnCurve(success_flag, SHPLONK_Q_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, KZG_QUOTIENT_X0_LOC, p, q)
 
                 if iszero(success_flag) {
                     mstore(0x00, PROOF_POINT_NOT_ON_CURVE_SELECTOR)

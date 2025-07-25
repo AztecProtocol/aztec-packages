@@ -373,10 +373,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         // Compute scalar multipliers for each fold commitment
         for (uint256 i = 0; i < $LOG_N - 1; ++i) {
             // Update inverted denominators
-            // logFr("pos", i, (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]));
-            // logFr("pos inverted", i, (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert());
-            // logFr("neg", i, (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]));
-            // logFr("neg inverted", i, (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert());
             mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
             mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
 
@@ -385,7 +381,6 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
             // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
             scalars[NUMBER_OF_ENTITIES + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
-            // logFr("scalars[num]", NUMBER_OF_ENTITIES + 1 + i, scalars[NUMBER_OF_ENTITIES + 1 + i]);
 
             // Accumulate the const term contribution given by
             // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
