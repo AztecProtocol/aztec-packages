@@ -22,5 +22,9 @@ impl AddressNote {
         let randomness = unsafe { random() };
         AddressNote { address, owner, randomness }
     }
+
+    pub fn get_address(self) -> AztecAddress {
+        self.address
+    }
 }
 // docs:end:address_note_def
