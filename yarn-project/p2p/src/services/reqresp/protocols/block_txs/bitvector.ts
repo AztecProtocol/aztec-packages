@@ -63,6 +63,13 @@ export class BitVector {
   }
 
   /**
+   * Returns true if no indices are set to true
+   * */
+  isEmpty(): boolean {
+    return this.getTrueIndices().length === 0;
+  }
+
+  /**
    * Serializes the BitVector object into a Buffer
    *
    * @returns Buffer representation of the BitVector object
