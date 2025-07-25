@@ -104,7 +104,7 @@ template <typename FF_> class bc_decompositionImpl {
         { // BC_DEC_ID_CONSTANT
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = (FF(1) - bc_decomposition_FIRST_OR_LAST_CONTRACT) *
-                       (in.get(C::bc_decomposition_id_shift) - in.get(C::bc_decomposition_id));
+                       (in.get(C::bc_decomposition_bytecode_id_shift) - in.get(C::bc_decomposition_bytecode_id));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }

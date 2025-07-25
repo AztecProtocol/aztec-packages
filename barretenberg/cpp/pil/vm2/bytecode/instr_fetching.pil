@@ -160,7 +160,7 @@ sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomp
 // The size of the bytecode is bytes_remaining at pc == 0.
 #[BYTECODE_SIZE_FROM_BC_DEC]
 sel { bytecode_id, precomputed.zero, bytecode_size } in
-bc_decomposition.sel { bc_decomposition.id, bc_decomposition.pc, bc_decomposition.bytes_remaining };
+bc_decomposition.sel { bc_decomposition.bytecode_id, bc_decomposition.pc, bc_decomposition.bytes_remaining };
 
 // bytecode[pc] to bytecode[pc + 36]
 pol commit bd0, bd1, bd2, bd3, bd4,
@@ -195,7 +195,7 @@ sel_pc_in_range {
      bd35, bd36
 } in
 bc_decomposition.sel {
-     bc_decomposition.id,
+     bc_decomposition.bytecode_id,
      bc_decomposition.pc,
      bc_decomposition.bytes_to_read,
      bc_decomposition.bytes,            bc_decomposition.bytes_pc_plus_1, bc_decomposition.bytes_pc_plus_2, bc_decomposition.bytes_pc_plus_3, bc_decomposition.bytes_pc_plus_4,

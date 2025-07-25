@@ -88,7 +88,7 @@ namespace bc_hashing;
     #[GET_PACKED_FIELD]
     sel { pc_index, bytecode_id, packed_field }
     in
-    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
+    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.bytecode_id, bc_decomposition.packed_field };
 
     // This tracks the incremental bytecode hash after the i-th input
     // The first incremental hash of each new bytecode_id is the length of the bytecode
@@ -99,7 +99,7 @@ namespace bc_hashing;
     #[IV_IS_LEN]
     start { pc_index, bytecode_id, incremental_hash }
     in
-    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
+    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.bytecode_id, bc_decomposition.bytes_remaining };
 
     // Start Hashing, Poseidon2(packed_field, running_hash)
     pol commit output_hash;
