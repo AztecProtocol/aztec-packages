@@ -93,11 +93,9 @@ describe('End-to-end tests for devnet', () => {
       const nodeInfo = await pxe.getNodeInfo();
       const pxeInfo = await pxe.getPXEInfo();
 
-      expect(nodeInfo.protocolContractAddresses.classRegisterer).toEqual(
-        pxeInfo.protocolContractAddresses.classRegisterer,
-      );
-      expect(nodeInfo.protocolContractAddresses.instanceDeployer).toEqual(
-        pxeInfo.protocolContractAddresses.instanceDeployer,
+      expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
+      expect(nodeInfo.protocolContractAddresses.instanceRegistry).toEqual(
+        pxeInfo.protocolContractAddresses.instanceRegistry,
       );
       expect(nodeInfo.protocolContractAddresses.feeJuice).toEqual(pxeInfo.protocolContractAddresses.feeJuice);
       expect(nodeInfo.protocolContractAddresses.multiCallEntrypoint).toEqual(
@@ -295,7 +293,7 @@ describe('End-to-end tests for devnet', () => {
     }
 
     const test = await TestContract.deploy(deployWallet)
-      .send({ universalDeploy: true, skipClassRegistration: true })
+      .send({ universalDeploy: true, skipClassPublication: true })
       .deployed();
 
     // start at 1 because deploying the contract has already mined a block

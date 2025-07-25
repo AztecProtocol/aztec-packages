@@ -6,7 +6,6 @@ use dep::aztec::{
         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,
         traits::Packable,
-        utils::arrays::array_concat,
     },
 };
 use dep::std::mem::zeroed;
@@ -15,8 +14,8 @@ use dep::std::mem::zeroed;
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
 // Owner of the tokens provides a "secret_hash" as an argument to the public "shield" function and then the tokens
 // can be redeemed in private by presenting the preimage of the "secret_hash" (the secret).
+#[derive(Eq, Packable)]
 #[custom_note]
-#[derive(Eq)]
 pub struct TransparentNote {
     amount: u128,
     secret_hash: Field,
@@ -24,7 +23,7 @@ pub struct TransparentNote {
 
 impl NoteHash for TransparentNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
-        let inputs = array_concat(self.pack(), [storage_slot]);
+        let inputs = self.pack().concat([storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 

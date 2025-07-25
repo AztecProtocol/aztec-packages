@@ -6,7 +6,10 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {BlockLog, CompressedBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {
+  BlockLog, CompressedTempBlockLog
+} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
@@ -15,7 +18,6 @@ import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/r
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -61,7 +63,11 @@ struct RollupConfigInput {
   uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
+  uint256 slashingLifetimeInRounds;
+  uint256 slashingExecutionDelayInRounds;
+  address slashingVetoer;
   uint256 manaTarget;
+  uint256 exitDelaySeconds;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
@@ -69,21 +75,21 @@ struct RollupConfigInput {
 }
 
 struct RollupConfig {
-  uint256 aztecProofSubmissionEpochs;
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  uint32 version;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;
   IRewardDistributor rewardDistributor;
-  bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
   IVerifier epochProofVerifier;
   IInbox inbox;
   IOutbox outbox;
-  uint256 version;
 }
 
 struct RollupStore {
   CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
-  mapping(uint256 blockNumber => CompressedBlockLog log) blocks;
+  mapping(uint256 blockNumber => bytes32 archive) archives;
+  mapping(uint256 blockNumber => CompressedTempBlockLog temp) tempBlockLogs;
   RollupConfig config;
 }
 

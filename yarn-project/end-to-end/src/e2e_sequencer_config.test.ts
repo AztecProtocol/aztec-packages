@@ -24,7 +24,8 @@ describe('e2e_sequencer_config', () => {
   });
 
   describe('Sequencer config', () => {
-    const manaTarget = 21e18;
+    // Sane targets < 64 bits.
+    const manaTarget = 21e10;
     beforeAll(async () => {
       const initialFundedAccounts = await getInitialTestAccounts();
       ({ teardown, sequencer, pxe, logger } = await setup(1, {
@@ -55,7 +56,6 @@ describe('e2e_sequencer_config', () => {
         maxTxsPerBlock: 1,
         minTxsPerBlock: 0,
       });
-      sequencer!.flush();
 
       // Run a tx to get the total mana used
       const receipt: TxReceipt = (await bot.run()) as TxReceipt;
@@ -77,9 +77,6 @@ describe('e2e_sequencer_config', () => {
         maxL2BlockGas: Number(totalManaUsed),
       });
 
-      // Flush the sequencer to make sure the new config is applied to the next tx
-      sequencer!.flush();
-
       // Run a tx and expect it to succeed
       const receipt2: TxReceipt = (await bot.run()) as TxReceipt;
       expect(receipt2).toBeDefined();
@@ -89,9 +86,6 @@ describe('e2e_sequencer_config', () => {
       sequencer!.updateSequencerConfig({
         maxL2BlockGas: Number(totalManaUsed) - 1,
       });
-
-      // Flush the sequencer to make sure the new config is applied to the next tx
-      sequencer!.flush();
 
       // Try to run a tx and expect it to fail
       await expect(bot.run()).rejects.toThrow(/Timeout awaiting isMined/);

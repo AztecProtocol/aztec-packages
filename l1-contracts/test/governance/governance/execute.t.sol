@@ -52,10 +52,20 @@ contract ExecuteTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
+  function test_GivenStateIsDroppable(address _governanceProposer)
+    external
+    givenStateIsNotExecutable
+  {
+    // it revert
+    _stateDroppable("empty", _governanceProposer);
+    governance.dropProposal(proposalId);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
+  }
+
   function test_GivenStateIsDropped(address _governanceProposer) external givenStateIsNotExecutable {
     // it revert
-    _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
+    _stateDroppable("empty", _governanceProposer);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Droppable);
   }
 
   function test_GivenStateIsExecuted(
@@ -152,7 +162,7 @@ contract ExecuteTest is GovernanceBase {
     proposal = governance.getProposal(proposalId);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
-    assertEq(proposal.state, ProposalState.Executed);
+    assertEq(proposal.cachedState, ProposalState.Executed);
     address rollup = address(registry.getCanonicalRollup());
     assertEq(rollup, UpgradePayload(address(proposal.payload)).NEW_ROLLUP());
   }

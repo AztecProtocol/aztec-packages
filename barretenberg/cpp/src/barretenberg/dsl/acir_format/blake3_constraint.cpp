@@ -5,6 +5,7 @@
 // =====================
 
 #include "blake3_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "round.hpp"
@@ -27,14 +28,14 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
 
         // XXX: The implementation requires us to truncate the element to the nearest byte and not bit
         auto num_bytes = round_to_nearest_byte(num_bits);
-        ASSERT(num_bytes <= 1024, "barretenberg does not support blake3 inputs with more than 1024 bytes");
+        BB_ASSERT_LTE(num_bytes, 1024U, "barretenberg does not support blake3 inputs with more than 1024 bytes");
         field_ct element = to_field_ct(witness_index, builder);
         byte_array_ct element_bytes(element, num_bytes);
 
         arr.write(element_bytes);
     }
 
-    byte_array_ct output_bytes = bb::stdlib::blake3s<Builder>(arr);
+    byte_array_ct output_bytes = bb::stdlib::Blake3s<Builder>::hash(arr);
 
     // Convert byte array to vector of field_t
     auto bytes = output_bytes.bytes();

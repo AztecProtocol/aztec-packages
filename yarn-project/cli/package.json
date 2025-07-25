@@ -73,6 +73,7 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/p2p": "workspace:^",
@@ -90,7 +91,6 @@
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",
-    "@aztec/ethereum": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",

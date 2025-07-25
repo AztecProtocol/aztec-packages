@@ -17,8 +17,6 @@ import {
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
 
-import {logFr} from "./Debug.sol";
-
 library CommitmentSchemeLib {
     using FrLib for Fr;
 
@@ -47,7 +45,6 @@ library CommitmentSchemeLib {
     }
 
     function computeSquares(Fr r) internal pure returns (Fr[CONST_PROOF_SIZE_LOG_N] memory squares) {
-        logFr("gemini R", r);
         squares[0] = r;
         for (uint256 i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             squares[i] = squares[i - 1].sqr();
@@ -67,8 +64,6 @@ library CommitmentSchemeLib {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = sumcheckUChallenges[i - 1];
 
-            logFr("batchedEvalAccumulator", i - 1, batchedEvalAccumulator);
-
             Fr batchedEvalRoundAcc = (
                 (challengePower * batchedEvalAccumulator * Fr.wrap(2))
                     - geminiEvaluations[i - 1] * (challengePower * (ONE - u) - u)
@@ -78,10 +73,7 @@ library CommitmentSchemeLib {
 
             batchedEvalAccumulator = batchedEvalRoundAcc;
             foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
-            logFr("foldPosEvaluations", i - 1, batchedEvalRoundAcc);
         }
         return foldPosEvaluations;
     }
-
 }
-

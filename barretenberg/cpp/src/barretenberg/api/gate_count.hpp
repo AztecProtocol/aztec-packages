@@ -31,7 +31,7 @@ void gate_count(const std::string& bytecode_path,
         acir_format::AcirProgram program{ constraint_system };
         auto builder = acir_format::create_circuit<Builder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
-        size_t circuit_size = builder.num_gates;
+        size_t circuit_size = builder.get_finalized_total_circuit_size();
         vinfo("Calculated circuit size in gate_count: ", circuit_size);
 
         // Build individual circuit report

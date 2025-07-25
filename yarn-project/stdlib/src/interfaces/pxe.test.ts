@@ -270,11 +270,11 @@ describe('PXESchema', () => {
   });
 
   it('getContractMetadata', async () => {
-    const { contractInstance, isContractInitialized, isContractPubliclyDeployed } =
+    const { contractInstance, isContractInitialized, isContractPublished } =
       await context.client.getContractMetadata(address);
     expect(contractInstance).toEqual(instance);
     expect(isContractInitialized).toEqual(true);
-    expect(isContractPubliclyDeployed).toEqual(true);
+    expect(isContractPublished).toEqual(true);
   });
 
   it('getContractClassMetadata', async () => {
@@ -416,7 +416,7 @@ class MockPXE implements PXE {
   }
   sendTx(tx: Tx): Promise<TxHash> {
     expect(tx).toBeInstanceOf(Tx);
-    return tx.getTxHash();
+    return Promise.resolve(tx.getTxHash());
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -534,7 +534,7 @@ class MockPXE implements PXE {
     return Promise.resolve({
       contractInstance: this.instance,
       isContractInitialized: true,
-      isContractPubliclyDeployed: true,
+      isContractPublished: true,
     });
   }
   getPrivateEvents<T>(

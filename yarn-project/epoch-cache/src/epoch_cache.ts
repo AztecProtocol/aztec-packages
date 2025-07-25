@@ -29,8 +29,10 @@ export type EpochCommitteeInfo = {
   epoch: bigint;
 };
 
+export type SlotTag = 'now' | 'next' | bigint;
+
 export interface EpochCacheInterface {
-  getCommittee(slot: 'now' | 'next' | bigint | undefined): Promise<EpochCommitteeInfo>;
+  getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot;
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
@@ -41,7 +43,9 @@ export interface EpochCacheInterface {
     currentSlot: bigint;
     nextSlot: bigint;
   }>;
-  isInCommittee(validator: EthAddress): Promise<boolean>;
+  getRegisteredValidators(): Promise<EthAddress[]>;
+  isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
+  filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
 }
 
 /**
@@ -55,6 +59,8 @@ export interface EpochCacheInterface {
  */
 export class EpochCache implements EpochCacheInterface {
   private cache: Map<bigint, EpochCommitteeInfo> = new Map();
+  private allValidators: Set<string> = new Set();
+  private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
   constructor(
@@ -64,7 +70,7 @@ export class EpochCache implements EpochCacheInterface {
     initialSampleSeed: bigint = 0n,
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
     private readonly dateProvider: DateProvider = new DateProvider(),
-    private readonly config = { cacheSize: 12 },
+    private readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
     this.cache.set(initialEpoch, { epoch: initialEpoch, committee: initialValidators, seed: initialSampleSeed });
     this.log.debug(`Initialized EpochCache with ${initialValidators?.length ?? 'no'} validators`, {
@@ -163,7 +169,7 @@ export class EpochCache implements EpochCacheInterface {
    * @param nextSlot - If true, get the validator set for the next slot.
    * @returns The current validator set.
    */
-  public async getCommittee(slot: 'now' | 'next' | bigint = 'now'): Promise<EpochCommitteeInfo> {
+  public async getCommittee(slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
     const { epoch, ts } = this.getEpochAndTimestamp(slot);
 
     if (this.cache.has(epoch)) {
@@ -185,7 +191,7 @@ export class EpochCache implements EpochCacheInterface {
     return epochData;
   }
 
-  private getEpochAndTimestamp(slot: 'now' | 'next' | bigint = 'now') {
+  private getEpochAndTimestamp(slot: SlotTag = 'now') {
     if (slot === 'now') {
       return this.getEpochAndSlotNow();
     } else if (slot === 'next') {
@@ -277,23 +283,33 @@ export class EpochCache implements EpochCacheInterface {
     return committee[Number(proposerIndex)];
   }
 
-  /**
-   * Check if a validator is in the current epoch's committee
-   */
-  async isInCommittee(validator: EthAddress): Promise<boolean> {
-    const { committee } = await this.getCommittee();
+  /** Check if a validator is in the given slot's committee */
+  async isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean> {
+    const { committee } = await this.getCommittee(slot);
     if (!committee) {
       return false;
     }
     return committee.some(v => v.equals(validator));
   }
 
-  async filterInCommittee(validators: EthAddress[]): Promise<EthAddress[]> {
-    const { committee } = await this.getCommittee();
+  /** From the set of given addresses, return all that are on the committee for the given slot */
+  async filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]> {
+    const { committee } = await this.getCommittee(slot);
     if (!committee) {
       return [];
     }
     const committeeSet = new Set(committee.map(v => v.toString()));
     return validators.filter(v => committeeSet.has(v.toString()));
+  }
+
+  async getRegisteredValidators(): Promise<EthAddress[]> {
+    const validatorRefreshIntervalMs = this.config.validatorRefreshIntervalSeconds * 1000;
+    const validatorRefreshTime = this.lastValidatorRefresh + validatorRefreshIntervalMs;
+    if (validatorRefreshTime < this.dateProvider.now()) {
+      const currentSet = await this.rollup.getAttesters();
+      this.allValidators = new Set(currentSet);
+      this.lastValidatorRefresh = this.dateProvider.now();
+    }
+    return Array.from(this.allValidators.keys().map(v => EthAddress.fromString(v)));
   }
 }

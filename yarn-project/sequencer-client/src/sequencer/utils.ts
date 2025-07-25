@@ -37,6 +37,12 @@ export enum SequencerState {
   PUBLISHING_BLOCK = 'PUBLISHING_BLOCK',
 }
 
+export type SequencerStateWithSlot =
+  | SequencerState.INITIALIZING_PROPOSAL
+  | SequencerState.CREATING_BLOCK
+  | SequencerState.COLLECTING_ATTESTATIONS
+  | SequencerState.PUBLISHING_BLOCK;
+
 export type SequencerStateCallback = () => SequencerState;
 
 export function sequencerStateToNumber(state: SequencerState): number {

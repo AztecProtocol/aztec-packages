@@ -7,16 +7,17 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 /**
  * @notice Structure to store a set of addresses with their historical snapshots
- * @param size The current number of addresses in the set
- * @param checkpoints Mapping of index to array of address snapshots
- * @param attestorToIndex Mapping of attestor address to its current index in the set
+ * @param size The timestamped history of the number of addresses in the set
+ * @param indexToAddressHistory Mapping of index to array of timestamped address history
+ * @param addressToCurrentIndex Mapping of address to its current index in the set
  */
 struct SnapshottedAddressSet {
   // This size must also be snapshotted
   Checkpoints.Trace224 size;
-  mapping(uint256 index => Checkpoints.Trace224) checkpoints;
-  // Store up to date position for each address
-  mapping(address addr => Index index) addressToIndex;
+  // For each index, store the timestamped history of addresses
+  mapping(uint256 index => Checkpoints.Trace224) indexToAddressHistory;
+  // For each address, store its current index in the set
+  mapping(address addr => Index index) addressToCurrentIndex;
 }
 
 struct Index {
@@ -26,12 +27,18 @@ struct Index {
 
 // AddressSnapshotLib
 error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
+error AddressSnapshotLib__AddressNotInSet(address addr);
 
 /**
  * @title AddressSnapshotLib
  * @notice A library for managing a set of addresses with historical snapshots
  * @dev This library provides functionality similar to EnumerableSet but can track addresses across time
- *      and allows querying the state of addresses at any point in time
+ *      and allows querying the state of addresses at any point in time. This is used to track the
+ *      list of stakers on a particular rollup instance in the GSE throughout time.
+ *
+ * The SnapshottedAddressSet is maintained such that the you can take a timestamp, and from it:
+ * 1. Get the `size` of the set at that timestamp
+ * 2. Query the first `size` indices in `indexToAddressHistory` at that timestamp to get a set of addresses of size `size`
  */
 library AddressSnapshotLib {
   using SafeCast for *;
@@ -45,16 +52,16 @@ library AddressSnapshotLib {
    */
   function add(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
     // Prevent against double insertion
-    if (_self.addressToIndex[_address].exists) {
+    if (_self.addressToCurrentIndex[_address].exists) {
       return false;
     }
 
     uint224 index = _self.size.latest();
-    _self.addressToIndex[_address] = Index({exists: true, index: index});
+    _self.addressToCurrentIndex[_address] = Index({exists: true, index: index});
 
     uint32 key = block.timestamp.toUint32();
 
-    _self.checkpoints[index].push(key, uint160(_address).toUint224());
+    _self.indexToAddressHistory[index].push(key, uint160(_address).toUint224());
     _self.size.push(key, (index + 1).toUint224());
 
     return true;
@@ -62,12 +69,15 @@ library AddressSnapshotLib {
 
   /**
    * @notice Removes a address from the set by address
+   *
+   * @dev This function is only used in tests.
+   *
    * @param _self The storage reference to the set
    * @param _address The address of the address to remove
    * @return bool True if the address was removed, false if it wasn't found
    */
   function remove(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
-    Index memory index = _self.addressToIndex[_address];
+    Index memory index = _self.addressToCurrentIndex[_address];
     if (!index.exists) {
       return false;
     }
@@ -79,48 +89,54 @@ library AddressSnapshotLib {
    * @notice Removes a validator from the set by index
    * @param _self The storage reference to the set
    * @param _index The index of the validator to remove
-   * @return bool True if the validator was removed, false otherwise
+   * @return bool True if the validator was removed, reverts otherwise
    */
   function remove(SnapshottedAddressSet storage _self, uint224 _index) internal returns (bool) {
-    address _address = address(_self.checkpoints[_index].latest().toUint160());
+    address _address = address(_self.indexToAddressHistory[_index].latest().toUint160());
     return _remove(_self, _index, _address);
   }
 
   /**
-   * @notice Removes a validator from the set by index
+   * @notice Removes a validator from the set
    * @param _self The storage reference to the set
    * @param _index The index of the validator to remove
-   * @return bool True if the validator was removed, false otherwise
+   * @return bool True if the validator was removed, reverts otherwise
    */
   function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address)
     internal
     returns (bool)
   {
-    uint224 size = _self.size.latest();
-    if (_index >= size) {
-      revert AddressSnapshotLib__IndexOutOfBounds(_index, size);
+    uint224 currentSize = _self.size.latest();
+    if (_index >= currentSize) {
+      revert AddressSnapshotLib__IndexOutOfBounds(_index, currentSize);
     }
 
-    // To remove from the list, we push the last item into the index and reduce the size
-    uint224 lastIndex = size - 1;
+    // Mark the address to remove as not existing
+    _self.addressToCurrentIndex[_address] = Index({exists: false, index: 0});
 
-    address lastValidator = address(_self.checkpoints[lastIndex].latest().toUint160());
+    // Now we need to update the indexToAddressHistory.
+    // Suppose the current size is 3, and we are removing Bob from index 1, and Charlie is at index 2.
+    // We effectively push Charlie into the snapshot at index 1,
+    // then update Charlie in addressToCurrentIndex to reflect the new index of 1.
+
+    uint224 lastIndex = currentSize - 1;
+    address lastValidator = address(_self.indexToAddressHistory[lastIndex].latest().toUint160());
 
     uint32 key = block.timestamp.toUint32();
 
     // If we are removing the last item, we cannot swap it with anything
     // so we append a new address of zero for this timestamp
     // And since we are removing it, we set the location to 0
-    _self.addressToIndex[_address] = Index({exists: false, index: 0});
     if (lastIndex == _index) {
-      _self.checkpoints[_index].push(key, uint224(0));
+      _self.indexToAddressHistory[_index].push(key, uint224(0));
     } else {
       // Otherwise, we swap the last item with the item we are removing
       // and update the location of the last item
-      _self.addressToIndex[lastValidator] = Index({exists: true, index: _index.toUint224()});
-      _self.checkpoints[_index].push(key, uint160(lastValidator).toUint224());
+      _self.addressToCurrentIndex[lastValidator] = Index({exists: true, index: _index.toUint224()});
+      _self.indexToAddressHistory[_index].push(key, uint160(lastValidator).toUint224());
     }
 
+    // Finally, we update the size to reflect the new size of the set.
     _self.size.push(key, (lastIndex).toUint224());
     return true;
   }
@@ -150,7 +166,9 @@ library AddressSnapshotLib {
     uint256 size = lengthAtTimestamp(_self, _timestamp);
     require(_index < size, AddressSnapshotLib__IndexOutOfBounds(_index, size));
 
-    uint224 addr = _self.checkpoints[_index].upperLookup(_timestamp);
+    // Since the _index is less than the size, we know that the address at _index
+    // exists at/before _timestamp.
+    uint224 addr = _self.indexToAddressHistory[_index].upperLookup(_timestamp);
     return address(addr.toUint160());
   }
 
@@ -181,6 +199,9 @@ library AddressSnapshotLib {
 
   /**
    * @notice Gets all current addresses in the set
+   *
+   * @dev This function is only used in tests.
+   *
    * @param _self The storage reference to the set
    * @return address[] Array of all current addresses in the set
    */
@@ -190,6 +211,9 @@ library AddressSnapshotLib {
 
   /**
    * @notice Gets all addresses in the set at a specific timestamp
+   *
+   * @dev This function is only used in tests.
+   *
    * @param _self The storage reference to the set
    * @param _timestamp The timestamp to query
    * @return address[] Array of all addresses in the set at the given timestamp
@@ -208,7 +232,7 @@ library AddressSnapshotLib {
       vals[i] = getAddressFromIndexAtTimestamp(_self, i, _timestamp);
 
       unchecked {
-        i++;
+        ++i;
       }
     }
     return vals;
@@ -219,6 +243,6 @@ library AddressSnapshotLib {
     view
     returns (bool)
   {
-    return _self.addressToIndex[_address].exists;
+    return _self.addressToCurrentIndex[_address].exists;
   }
 }

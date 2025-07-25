@@ -12,7 +12,11 @@ import {Epoch, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
-import {StakingQueueConfig, StakingQueueLib} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueLib} from "@aztec/core/libraries/StakingQueue.sol";
+import {
+  StakingQueueConfig,
+  StakingQueueConfigLib
+} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 
 contract FlushEntryQueueTest is StakingBase {
@@ -39,10 +43,10 @@ contract FlushEntryQueueTest is StakingBase {
     uint256 _normalFlushSizeQuotient
   ) internal {
     StakingQueueConfig memory stakingQueueConfig = StakingQueueConfig({
-      bootstrapValidatorSetSize: _bootstrapValidatorSetSize,
-      bootstrapFlushSize: _bootstrapFlushSize,
-      normalFlushSizeMin: _normalFlushSizeMin,
-      normalFlushSizeQuotient: _normalFlushSizeQuotient
+      bootstrapValidatorSetSize: bound(_bootstrapValidatorSetSize, 0, type(uint64).max),
+      bootstrapFlushSize: bound(_bootstrapFlushSize, 0, type(uint64).max),
+      normalFlushSizeMin: bound(_normalFlushSizeMin, 0, type(uint64).max),
+      normalFlushSizeQuotient: bound(_normalFlushSizeQuotient, 0, type(uint64).max)
     });
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.prank(rollup.owner());
@@ -194,7 +198,7 @@ contract FlushEntryQueueTest is StakingBase {
   }
 
   function _help_deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     uint256 balance = stakingAsset.balanceOf(address(staking));
 
@@ -205,10 +209,10 @@ contract FlushEntryQueueTest is StakingBase {
 
   function _help_flushEntryQueue(uint256 _numValidators, uint256 _expectedFlushSize) internal {
     GSE gse = staking.getGSE();
-    address canonicalMagicAddress = gse.getCanonicalMagicAddress();
+    address bonusInstanceAddress = gse.BONUS_INSTANCE_ADDRESS();
     uint256 initialActiveAttesterCount = staking.getActiveAttesterCount();
     uint256 initialCanonicalCount =
-      gse.getAttestersAtTime(canonicalMagicAddress, Timestamp.wrap(block.timestamp)).length;
+      gse.getAttestersAtTime(bonusInstanceAddress, Timestamp.wrap(block.timestamp)).length;
     uint256 initialInstanceCount =
       gse.getAttestersAtTime(address(staking), Timestamp.wrap(block.timestamp)).length;
 
@@ -303,7 +307,7 @@ contract FlushEntryQueueTest is StakingBase {
 
     // Check the canonical set has the proper validators
     address[] memory attestersOnCanonical =
-      gse.getAttestersAtTime(canonicalMagicAddress, Timestamp.wrap(block.timestamp));
+      gse.getAttestersAtTime(bonusInstanceAddress, Timestamp.wrap(block.timestamp));
     assertEq(
       attestersOnCanonical.length,
       initialCanonicalCount + onCanonicalCount,

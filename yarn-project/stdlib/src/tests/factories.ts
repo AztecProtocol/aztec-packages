@@ -43,11 +43,11 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { compact } from '@aztec/foundation/collection';
+import { compact, padArrayEnd } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BLS12Point, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import type { Bufferable } from '@aztec/foundation/serialize';
+import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { FunctionSelector } from '../abi/function_selector.js';
@@ -97,8 +97,8 @@ import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operati
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { ReadRequest } from '../kernel/hints/read_request.js';
-import { RollupValidationRequests } from '../kernel/hints/rollup_validation_requests.js';
 import {
+  ClaimedLengthArray,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
@@ -107,7 +107,6 @@ import {
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupAccumulatedData,
-  mergeAccumulatedData,
 } from '../kernel/index.js';
 import { CountedLogHash, LogHash, ScopedLogHash } from '../kernel/log_hash.js';
 import { NoteHash } from '../kernel/note_hash.js';
@@ -165,7 +164,6 @@ import { CallContext } from '../tx/call_context.js';
 import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
-import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
@@ -307,10 +305,6 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
   return new ContractStorageRead(fr(seed), fr(seed + 1), seed + 2);
 }
 
-export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new IncludeByTimestamp(true, BigInt(seed + 0x31415)));
-}
-
 function makeTxConstantData(seed = 1) {
   return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
 }
@@ -409,9 +403,9 @@ export function makePrivateKernelTailCircuitPublicInputs(
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
-    makeRollupValidationRequests(seed + 0x500),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
+    BigInt(seed + 0x800),
     forPublic,
     forRollup,
   );
@@ -420,12 +414,12 @@ export function makePrivateKernelTailCircuitPublicInputs(
 function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
   return new PrivateToPublicKernelCircuitPublicInputs(
     makeTxConstantData(seed),
-    makeRollupValidationRequests(seed + 0x100),
     makePrivateToPublicAccumulatedData(seed + 0x200),
     makePrivateToPublicAccumulatedData(seed + 0x300),
     makePublicCallRequest(seed + 0x400),
     makeGas(seed + 0x500),
     makeAztecAddress(seed + 0x600),
+    BigInt(seed + 0x700),
   );
 }
 
@@ -440,10 +434,10 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
 ): PrivateToRollupKernelCircuitPublicInputs {
   return new PrivateToRollupKernelCircuitPublicInputs(
     makeTxConstantData(seed + 0x100),
-    makeRollupValidationRequests(seed),
     makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
+    BigInt(seed + 0x800),
   );
 }
 
@@ -560,6 +554,15 @@ export function makeTxRequest(seed = 1): TxRequest {
   });
 }
 
+function makeClaimedLengthArray<T extends Serializable, N extends number>(
+  arraySize: N,
+  makeItem: (seed: number) => T,
+  seed: number,
+  length = arraySize,
+): ClaimedLengthArray<T, N> {
+  return new ClaimedLengthArray(makeTuple(arraySize, makeItem, seed) as Tuple<T, N>, length);
+}
+
 /**
  * Makes arbitrary private circuit public inputs.
  * @param seed - The seed to use for generating the private circuit public inputs.
@@ -567,26 +570,30 @@ export function makeTxRequest(seed = 1): TxRequest {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    includeByTimestamp: new IncludeByTimestamp(true, BigInt(seed + 0x31415)),
+    includeByTimestamp: BigInt(seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
-    noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
-    nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
-    keyValidationRequestsAndGenerators: makeTuple(
+    noteHashReadRequests: makeClaimedLengthArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
+    nullifierReadRequests: makeClaimedLengthArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
+    keyValidationRequestsAndGenerators: makeClaimedLengthArray(
       MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
       makeKeyValidationRequestAndGenerators,
       seed + 0x320,
     ),
-    noteHashes: makeTuple(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
-    nullifiers: makeTuple(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
-    privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
-    publicCallRequests: makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, makeCountedPublicCallRequest, seed + 0x700),
+    noteHashes: makeClaimedLengthArray(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
+    nullifiers: makeClaimedLengthArray(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
+    privateCallRequests: makeClaimedLengthArray(
+      MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+      makePrivateCallRequest,
+      seed + 0x600,
+    ),
+    publicCallRequests: makeClaimedLengthArray(MAX_ENQUEUED_CALLS_PER_CALL, makeCountedPublicCallRequest, seed + 0x700),
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
-    l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeCountedL2ToL1Message, seed + 0x800),
-    privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
-    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
+    l2ToL1Msgs: makeClaimedLengthArray(MAX_L2_TO_L1_MSGS_PER_CALL, makeCountedL2ToL1Message, seed + 0x800),
+    privateLogs: makeClaimedLengthArray(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
+    contractClassLogsHashes: makeClaimedLengthArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
@@ -1470,7 +1477,6 @@ export async function makePublicCallRequestWithCalldata(seed = 0): Promise<Publi
 export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
-    makeGlobalVariables(seed),
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
     {
@@ -1505,6 +1511,7 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
+    globalVariables: makeGlobalVariables(seed + 0x4000),
     tx: await makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
@@ -1537,6 +1544,7 @@ export async function makeAvmExecutionHints(
   };
 
   return new AvmExecutionHints(
+    fields.globalVariables,
     fields.tx,
     fields.contractInstances,
     fields.contractClasses,
@@ -1645,6 +1653,7 @@ export async function makeBloatedProcessedTx({
 
     tx.data.forRollup!.end = data;
 
+    await tx.recomputeHash();
     return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
     const dataFromPrivate = tx.data.forPublic!;
@@ -1688,9 +1697,9 @@ export async function makeBloatedProcessedTx({
       avmOutput.previousRevertibleAccumulatedData.getArrayLengths();
     // Assign final data emitted from avm.
     avmOutput.accumulatedData.noteHashes = revertibleData.noteHashes;
-    avmOutput.accumulatedData.nullifiers = mergeAccumulatedData(
-      nonRevertibleData.nullifiers,
-      revertibleData.nullifiers,
+    avmOutput.accumulatedData.nullifiers = padArrayEnd(
+      nonRevertibleData.nullifiers.concat(revertibleData.nullifiers).filter(n => !n.isEmpty()),
+      Fr.ZERO,
       MAX_NULLIFIERS_PER_TX,
     );
     avmOutput.accumulatedData.l2ToL1Msgs = revertibleData.l2ToL1Msgs;
@@ -1710,6 +1719,7 @@ export async function makeBloatedProcessedTx({
       billedGas: Gas.empty(),
     } satisfies GasUsed;
 
+    await tx.recomputeHash();
     return makeProcessedTxFromTxWithPublicCalls(
       tx,
       {

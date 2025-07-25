@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
+#include "barretenberg/vm2/generated/relations/registers.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -16,6 +17,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
+using registers = bb::avm2::registers<FF>;
 
 TEST(CtrlFlowConstrainingTest, Jump)
 {
@@ -23,7 +25,7 @@ TEST(CtrlFlowConstrainingTest, Jump)
         { { C::precomputed_first_row, 1 } },
         {
             { C::execution_sel, 1 },
-            { C::execution_sel_jump, 1 },
+            { C::execution_sel_execute_jump, 1 },
             { C::execution_rop_0_, 120 },
         },
         { { C::execution_sel, 1 }, { C::execution_last, 1 }, { C::execution_pc, 120 } },
@@ -42,7 +44,7 @@ TEST(CtrlFlowConstrainingTest, JumpiTrueCondition)
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
         { { C::execution_sel, 1 },
-          { C::execution_sel_jumpi, 1 },
+          { C::execution_sel_execute_jumpi, 1 },
           { C::execution_rop_1_, 120 },
           { C::execution_next_pc, 220 },
           { C::execution_register_0_, 1 } }, // True condition
@@ -61,7 +63,7 @@ TEST(CtrlFlowConstrainingTest, JumpiFalseCondition)
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
         { { C::execution_sel, 1 },
-          { C::execution_sel_jumpi, 1 },
+          { C::execution_sel_execute_jumpi, 1 },
           { C::execution_rop_1_, 120 },
           { C::execution_next_pc, 220 },
           { C::execution_register_0_, 0 } }, // False condition

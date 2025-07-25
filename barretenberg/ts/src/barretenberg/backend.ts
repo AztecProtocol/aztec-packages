@@ -114,7 +114,7 @@ export class UltraHonkBackend {
           ? this.api.acirProveUltraStarknetHonk.bind(this.api)
           : options?.starknetZK
             ? this.api.acirProveUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirProveUltraHonk.bind(this.api);
+            : this.api.acirProveUltraZKHonk.bind(this.api);
 
     const proofWithPublicInputs = await proveUltraHonk(
       this.acirUncompressedBytecode,
@@ -154,7 +154,7 @@ export class UltraHonkBackend {
           ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
           : options?.starknetZK
             ? this.api.acirVerifyUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirVerifyUltraHonk.bind(this.api);
+            : this.api.acirVerifyUltraZKHonk.bind(this.api);
 
     const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));

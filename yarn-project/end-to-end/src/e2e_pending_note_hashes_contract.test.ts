@@ -293,9 +293,7 @@ describe('e2e_pending_note_hashes_contract', () => {
     // Then emit another note log with the same counter as the one above, but with value 5
     const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, sender).send().wait();
 
-    await deployedContract.methods.sync_private_state().simulate();
-
-    const notes = await pxe.getNotes({ txHash: txReceipt.txHash });
+    const notes = await pxe.getNotes({ txHash: txReceipt.txHash, contractAddress: deployedContract.address });
 
     expect(notes.length).toBe(1);
   });

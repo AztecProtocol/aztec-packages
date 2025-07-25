@@ -1,12 +1,12 @@
 import { createLogger } from '@aztec/aztec.js';
 
+import { DEFAULT_ATTESTATION_PROPAGATION_TIME } from '../config.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
 const MIN_EXECUTION_TIME = 1;
 const BLOCK_PREPARE_TIME = 1;
 const BLOCK_VALIDATION_TIME = 1;
-const ATTESTATION_PROPAGATION_TIME = 2;
 
 export class SequencerTimetable {
   /**
@@ -30,20 +30,40 @@ export class SequencerTimetable {
   public readonly blockPrepareTime: number = BLOCK_PREPARE_TIME;
 
   /** How long it takes to for proposals and attestations to travel across the p2p layer (one-way) */
-  public readonly attestationPropagationTime: number = ATTESTATION_PROPAGATION_TIME;
+  public readonly attestationPropagationTime: number;
 
   /** How much time we spend validating and processing a block after building it, and assembling the proposal to send to attestors */
   public readonly blockValidationTime: number = BLOCK_VALIDATION_TIME;
 
+  /** Ethereum slot duration in seconds */
+  public readonly ethereumSlotDuration: number;
+
+  /** Aztec slot duration in seconds (must be multiple of ethereum slot duration) */
+  public readonly aztecSlotDuration: number;
+
+  /** How late into an L1 slot we can send a tx to make sure it gets included in the immediate next block. Complement of l1PublishingTime. */
+  public readonly maxL1TxInclusionTimeIntoSlot: number;
+
+  /** Whether assertTimeLeft will throw if not enough time. */
+  public readonly enforce: boolean;
+
   constructor(
-    private readonly ethereumSlotDuration: number,
-    private readonly aztecSlotDuration: number,
-    private readonly maxL1TxInclusionTimeIntoSlot: number,
-    private readonly enforce: boolean = true,
+    opts: {
+      ethereumSlotDuration: number;
+      aztecSlotDuration: number;
+      maxL1TxInclusionTimeIntoSlot: number;
+      attestationPropagationTime?: number;
+      enforce: boolean;
+    },
     private readonly metrics?: SequencerMetrics,
     private readonly log = createLogger('sequencer:timetable'),
   ) {
+    this.ethereumSlotDuration = opts.ethereumSlotDuration;
+    this.aztecSlotDuration = opts.aztecSlotDuration;
+    this.maxL1TxInclusionTimeIntoSlot = opts.maxL1TxInclusionTimeIntoSlot;
+    this.attestationPropagationTime = opts.attestationPropagationTime ?? DEFAULT_ATTESTATION_PROPAGATION_TIME;
     this.l1PublishingTime = this.ethereumSlotDuration - this.maxL1TxInclusionTimeIntoSlot;
+    this.enforce = opts.enforce;
 
     // Assume zero-cost propagation time and faster runs in test environments where L1 slot duration is shortened
     if (this.ethereumSlotDuration < 8) {
@@ -65,6 +85,19 @@ export class SequencerTimetable {
       );
     }
     this.initializeDeadline = initializeDeadline;
+    this.log.verbose(`Sequencer timetable initialized (${this.enforce ? 'enforced' : 'not enforced'})`, {
+      ethereumSlotDuration: this.ethereumSlotDuration,
+      aztecSlotDuration: this.aztecSlotDuration,
+      maxL1TxInclusionTimeIntoSlot: this.maxL1TxInclusionTimeIntoSlot,
+      l1PublishingTime: this.l1PublishingTime,
+      minExecutionTime: this.minExecutionTime,
+      blockPrepareTime: this.blockPrepareTime,
+      attestationPropagationTime: this.attestationPropagationTime,
+      blockValidationTime: this.blockValidationTime,
+      initializeDeadline: this.initializeDeadline,
+      enforce: this.enforce,
+      allWorkToDo,
+    });
   }
 
   private get afterBlockBuildingTimeNeededWithoutReexec() {

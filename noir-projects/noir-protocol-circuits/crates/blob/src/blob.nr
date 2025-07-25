@@ -320,6 +320,7 @@ mod tests {
     // we don't actually need to operate on it so we've simply encoded it as fitting inside a
     // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
     // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
+    #[derive(Eq)]
     pub struct TestBlobEvaluationOutputs {
         pub z: Field,
         pub y: F,

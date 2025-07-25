@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+
 function bootstrap_all {
   # To run bb we need a crs.
   # Download ignition up front to ensure no race conditions at runtime.
@@ -9,10 +10,13 @@ function bootstrap_all {
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
   ./acir_tests/bootstrap.sh $@
+  ./sol/bootstrap.sh $@
 }
 
 function hash {
-  cache_content_hash "^barretenberg"
+  hash_str \
+    $(cache_content_hash ^barretenberg) \
+    $(./cpp/bootstrap.sh hash) # yes, cpp src gets hashed twice, but this second call also takes DISABLE_AVM into account
 }
 
 cmd=${1:-}

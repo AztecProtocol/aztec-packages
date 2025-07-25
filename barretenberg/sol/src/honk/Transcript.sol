@@ -11,9 +11,6 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
 
-import {logFr} from "./Debug.sol";
-
-import "forge-std/console.sol";
 
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
@@ -46,8 +43,6 @@ library TranscriptLib {
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
-        logFr("alphas[25]", t.alphas[25]);
-
         (t.gateChallenges, previousChallenge) = generateGateChallenges(previousChallenge);
 
         (t.sumCheckUChallenges, previousChallenge) = generateSumcheckChallenges(proof, previousChallenge);
@@ -59,8 +54,6 @@ library TranscriptLib {
         (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge);
 
         (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
-
-        logFr("shplonkZ", t.shplonkZ);
 
         return t;
     }
@@ -98,6 +91,7 @@ library TranscriptLib {
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
+
         for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
@@ -120,14 +114,10 @@ library TranscriptLib {
         round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
         round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
 
-        for (uint i = 0; i < round0.length; i++) {
-            console.logBytes32(round0[i]);
-        }
-
-        // console.logBytes(abi.encodePacked(round0));
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
+
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
         Fr unused;
         (etaThree, unused) = splitChallenge(previousChallenge);
@@ -192,7 +182,6 @@ library TranscriptLib {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
             Fr unused;
             (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
-            // logFr("alpha", NUMBER_OF_ALPHAS - 1, alphas[NUMBER_OF_ALPHAS - 1]);
         }
     }
 
@@ -227,7 +216,6 @@ library TranscriptLib {
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
             Fr unused;
             (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);
-            logFr("sumcheck", i, sumcheckChallenges[i]);
         }
         nextPreviousChallenge = prevChallenge;
     }
@@ -248,7 +236,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
         Fr unused;
         (rho, unused) = splitChallenge(nextPreviousChallenge);
-        logFr("rho", rho);
     }
 
     function generateGeminiRChallenge(Honk.Proof memory proof, Fr prevChallenge)
@@ -269,7 +256,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
         Fr unused;
         (geminiR, unused) = splitChallenge(nextPreviousChallenge);
-        logFr("geminiR", geminiR);
     }
 
     function generateShplonkNuChallenge(Honk.Proof memory proof, Fr prevChallenge)
@@ -287,7 +273,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkNuChallengeElements)));
         Fr unused;
         (shplonkNu, unused) = splitChallenge(nextPreviousChallenge);
-        logFr("shplonkNu", shplonkNu);
     }
 
     function generateShplonkZChallenge(Honk.Proof memory proof, Fr prevChallenge)
@@ -303,10 +288,6 @@ library TranscriptLib {
         shplonkZChallengeElements[3] = proof.shplonkQ.y_0;
         shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
 
-        logFr("shplonk Q x0", Fr.wrap(proof.shplonkQ.x_0));
-        logFr("shplonk Q x1", Fr.wrap(proof.shplonkQ.x_1));
-        logFr("shplonk Q y0", Fr.wrap(proof.shplonkQ.y_0));
-        logFr("shplonk Q y1", Fr.wrap(proof.shplonkQ.y_1));
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
         Fr unused;

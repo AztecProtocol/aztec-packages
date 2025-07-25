@@ -16,6 +16,9 @@ class EccTraceBuilder final {
                      TraceContainer& trace);
     void process_scalar_mul(const simulation::EventEmitterInterface<simulation::ScalarMulEvent>::Container& events,
                             TraceContainer& trace);
+    void process_add_with_memory(
+        const simulation::EventEmitterInterface<simulation::EccAddMemoryEvent>::Container& events,
+        TraceContainer& trace);
 
     static const InteractionDefinition interactions;
 };

@@ -23,7 +23,6 @@
     "./tx_hash": "./dest/api/tx_hash.js",
     "./wallet": "./dest/api/wallet.js",
     "./utils": "./dest/api/utils.js",
-    "./testing": "./dest/api/testing.js",
     "./fee/testing": "./dest/api/fee_testing.js"
   },
   "typedocOptions": {

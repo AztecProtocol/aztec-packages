@@ -30,7 +30,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     using PCS = typename Flavor::PCS;
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 

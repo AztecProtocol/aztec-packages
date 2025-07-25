@@ -170,7 +170,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       }
     } else {
       // For public functions we retrieve the first values directly from the public output.
-      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0].values;
+      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;
     }
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];

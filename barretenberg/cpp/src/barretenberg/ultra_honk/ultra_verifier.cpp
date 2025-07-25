@@ -8,71 +8,49 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb {
 
 /**
- * @brief This function verifies an Ultra Honk proof for a given Flavor.
+ * @brief This function performs the decider verification of an Ultra Honk proof for a given Flavor.
  *
  */
-template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
+template <typename Flavor>
+std::pair<typename UltraVerifier_<Flavor>::PublicInputs, typename UltraVerifier_<Flavor>::DeciderVerifier::Output>
+UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
 
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
+    const PublicInputs& public_inputs = oink_verifier.public_inputs;
 
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         verification_key->gate_challenges.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
 
-    const auto recover_fq_from_public_inputs = [](std::array<FF, 4> limbs) {
-        const uint256_t limb = uint256_t(limbs[0]) +
-                               (uint256_t(limbs[1]) << stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                               (uint256_t(limbs[2]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                               (uint256_t(limbs[3]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
-        return fq(limb);
-    };
-
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_key and runs the native IPA verifier.
-    if constexpr (HasIPAAccumulator<Flavor>) {
-
-        constexpr size_t NUM_LIMBS = 4;
-        OpeningClaim<curve::Grumpkin> ipa_claim;
-
-        // Extract the public inputs containing the IPA claim
-        std::array<FF, IPA_CLAIM_SIZE> ipa_claim_limbs;
-        const uint32_t start_idx = verification_key->verification_key->ipa_claim_public_input_key.start_idx;
-        for (size_t k = 0; k < IPA_CLAIM_SIZE; k++) {
-            ipa_claim_limbs[k] = verification_key->public_inputs[start_idx + k];
-        }
-
-        std::array<FF, NUM_LIMBS> challenge_bigfield_limbs;
-        std::array<FF, NUM_LIMBS> evaluation_bigfield_limbs;
-        for (size_t k = 0; k < NUM_LIMBS; k++) {
-            challenge_bigfield_limbs[k] = ipa_claim_limbs[k];
-        }
-        for (size_t k = 0; k < NUM_LIMBS; k++) {
-            evaluation_bigfield_limbs[k] = ipa_claim_limbs[NUM_LIMBS + k];
-        }
-        ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
-        ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
-        ipa_claim.commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
-
-        // verify the ipa_proof with this claim
-        ipa_transcript->load_proof(ipa_proof);
-        bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
-        if (!ipa_result) {
-            return false;
-        }
-    }
-
     DeciderVerifier decider_verifier{ verification_key, transcript };
-    auto decider_output = decider_verifier.verify();
+
+    return std::make_pair(public_inputs, decider_verifier.verify());
+}
+
+/**
+ * @brief This function verifies an Ultra Honk proof for a given UltraHonk Flavor.
+ *
+ */
+template <typename Flavor>
+bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProof& ipa_proof)
+    requires IsUltraHonk<Flavor>
+{
+    using RollUpIO = bb::RollupIO;
+    using DefaultIO = bb::DefaultIO;
+
+    auto [public_inputs, decider_output] = verify_internal(proof);
     if (!decider_output.sumcheck_verified) {
         info("Sumcheck failed!");
         return false;
@@ -82,20 +60,56 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         return false;
     }
 
-    // Extract nested pairing points from the proof
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.
-    if constexpr (!std::is_same_v<Flavor, UltraKeccakFlavor> && !std::is_same_v<Flavor, UltraKeccakZKFlavor>) {
-        const size_t limb_offset = verification_key->verification_key->pairing_inputs_public_input_key.start_idx;
-        BB_ASSERT_GTE(verification_key->public_inputs.size(),
-                      limb_offset + PAIRING_POINTS_SIZE,
-                      "Not enough public inputs to extract pairing points");
-        std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + limb_offset,
-                                                                 PAIRING_POINTS_SIZE };
-        PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
-        decider_output.pairing_points.aggregate(nested_pairing_points);
+    // Reconstruct the nested IPA claim from the public inputs and run the native IPA verifier.
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        RollUpIO inputs;
+        inputs.reconstruct_from_public(public_inputs);
+
+        // verify the ipa_proof with this claim
+        ipa_transcript->load_proof(ipa_proof);
+        bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, inputs.ipa_claim, ipa_transcript);
+        if (!ipa_result) {
+            return false;
+        }
+
+        decider_output.pairing_points.aggregate(inputs.pairing_inputs);
+    } else {
+        DefaultIO inputs;
+        inputs.reconstruct_from_public(public_inputs);
+
+        decider_output.pairing_points.aggregate(inputs.pairing_inputs);
     }
 
     return decider_output.check();
+}
+
+/**
+ * @brief This function verifies an Ultra Honk proof for a Mega Flavor.
+ *
+ * @details This function returns a boolean whose meaning is whether the decider proof is valid or not, and an array of
+ * commitments, corresponding to the commitments to the merged table that is the output of the merge verification
+ * performed in the Hiding kernel.
+ *
+ */
+template <typename Flavor>
+std::pair<bool, std::array<typename UltraVerifier_<Flavor>::Commitment, Flavor::NUM_WIRES>> UltraVerifier_<
+    Flavor>::verify_proof(const HonkProof& proof)
+    requires IsMegaFlavor<Flavor> && (!HasIPAAccumulator<Flavor>)
+{
+    auto [public_inputs, decider_output] = verify_internal(proof);
+
+    // Reconstruct the public inputs
+    DefaultIO inputs; // Will be HidingKernelIO
+    inputs.reconstruct_from_public(public_inputs);
+
+    decider_output.pairing_points.aggregate(inputs.pairing_inputs);
+
+    // Dummy vector, will be fetched from inputs once we have HidingKernelIO
+    std::array<Commitment, Flavor::NUM_WIRES> dummy;
+    for (auto& commitment : dummy) {
+        commitment = Commitment::one();
+    }
+    return std::make_pair(decider_output.check(), dummy);
 }
 
 template class UltraVerifier_<UltraFlavor>;

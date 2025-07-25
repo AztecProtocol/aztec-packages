@@ -69,16 +69,15 @@ export class PrivateSimulationResult {
     return accumulatePrivateReturnValues(this.privateExecutionResult);
   }
 
-  toSimulatedTx(): Tx {
+  async toSimulatedTx(): Promise<Tx> {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
 
-    const tx = new Tx(
-      this.publicInputs,
-      ClientIvcProof.empty(),
-      contractClassLogs,
-      this.privateExecutionResult.publicFunctionCalldata,
-    );
-    return tx;
+    return await Tx.create({
+      data: this.publicInputs,
+      clientIvcProof: ClientIvcProof.empty(),
+      contractClassLogFields: contractClassLogs,
+      publicFunctionCalldata: this.privateExecutionResult.publicFunctionCalldata,
+    });
   }
 }
 
@@ -146,7 +145,7 @@ export class TxSimulationResult {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).getPrivateReturnValues();
   }
 
-  toSimulatedTx(): Tx {
+  toSimulatedTx(): Promise<Tx> {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).toSimulatedTx();
   }
 
@@ -166,8 +165,8 @@ export function accumulatePrivateReturnValues(executionResult: PrivateExecutionR
     executionResult: PrivateCallExecutionResult,
   ): NestedProcessReturnValues => {
     const acc = new NestedProcessReturnValues(executionResult.returnValues);
-    acc.nested = executionResult.nestedExecutions.map(nestedExecution =>
-      collectPrivateReturnValuesRecursive(nestedExecution),
+    acc.nested = executionResult.nestedExecutionResults.map(nestedExecutionResult =>
+      collectPrivateReturnValuesRecursive(nestedExecutionResult),
     );
     return acc;
   };
