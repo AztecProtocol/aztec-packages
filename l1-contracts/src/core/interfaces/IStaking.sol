@@ -19,7 +19,7 @@ interface IStakingCore {
   event StakingQueueConfigUpdated(StakingQueueConfig config);
 
   function setSlasher(address _slasher) external;
-  function deposit(address _attester, address _withdrawer, bool _onCanonical) external;
+  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) external;
   function flushEntryQueue() external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finaliseWithdraw(address _attester) external;

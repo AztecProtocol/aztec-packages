@@ -217,7 +217,7 @@ library StakingLib {
     }
   }
 
-  function deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
+  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
     require(
       _attester != address(0) && _withdrawer != address(0),
       Errors.Staking__InvalidDeposit(_attester, _withdrawer)
@@ -228,7 +228,7 @@ library StakingLib {
     uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
-    store.entryQueue.enqueue(_attester, _withdrawer, _onCanonical);
+    store.entryQueue.enqueue(_attester, _withdrawer, _moveWithLatestRollup);
     emit IStakingCore.ValidatorQueued(_attester, _withdrawer);
   }
 
@@ -252,7 +252,7 @@ library StakingLib {
       DepositArgs memory args = store.entryQueue.dequeue();
       (bool success, bytes memory data) = address(store.gse).call(
         abi.encodeWithSelector(
-          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.onCanonical
+          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.moveWithLatestRollup
         )
       );
       if (success) {
