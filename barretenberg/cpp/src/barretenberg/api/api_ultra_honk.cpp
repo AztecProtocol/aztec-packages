@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
@@ -271,7 +272,13 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
-    std::string contract = flags.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
+    std::string contract;
+    if (flags.disable_zk) {
+        contract = flags.optimized_solidity_verifier ? get_optimized_honk_solidity_verifier(vk)
+                                                     : get_honk_solidity_verifier(vk);
+    } else {
+        contract = get_honk_zk_solidity_verifier(vk);
+    }
 
     if (output_path == "-") {
         std::cout << contract;

@@ -300,6 +300,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
+    const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -429,6 +434,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(write_solidity_verifier);
     remove_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
+    add_optimized_solidity_verifier_flag(write_solidity_verifier);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API

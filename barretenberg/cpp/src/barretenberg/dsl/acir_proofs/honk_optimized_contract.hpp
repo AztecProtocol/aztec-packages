@@ -1,3 +1,20 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#pragma once
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <vector>
+
+// Source code for the Ultrahonk Solidity verifier.
+// It's expected that the AcirComposer will inject a library which will load the verification key into memory.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+static const char HONK_CONTRACT_OPT_SOURCE[] = R"(
 pragma solidity ^0.8.27;
 
 interface IVerifier {
@@ -13,10 +30,10 @@ uint256 constant NUMBER_UNSHIFTED = 36;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
 uint256 constant PAIRING_POINTS_SIZE = 16;
 
-uint256 constant CIRCUIT_SIZE = 32768;
-uint256 constant LOG_N = 15;
-uint256 constant NUMBER_PUBLIC_INPUTS = 20;
-uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 20 - 16;
+uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
+uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
+uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
+uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }} - 16;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 
 error PUBLIC_INPUT_TOO_LARGE();
@@ -26,8 +43,7 @@ error BATCH_ACCUMULATION_FAILED();
 error MODEXP_FAILED();
 error PROOF_POINT_NOT_ON_CURVE();
 
-
-contract BlakeOptHonkVerifier is IVerifier {
+contract HonkVerifier is IVerifier {
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    SLAB ALLOCATION                         */
@@ -1170,10 +1186,13 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant MODEXP_FAILED_SELECTOR = 0xf442f1632281d2be46b78bb3acb1f1913a15d6a07f63752701a999716db0ff1c;
     uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x661e012dec6c96ca8837b414041da533bfbba850eceb3a5ad66e998562e76d1e;
 
-    // TOOD: maybe verify vk points are on curve in constructor
-    constructor() {}
 
-    // function loadVerificationKey() internal pure virtual;
+    constructor() {
+        // TODO: verify the points are on the curve in the constructor
+        // vk points
+    }
+
+
 
     function verify(bytes calldata, bytes32[] calldata) public override returns (bool) {
         // Load the proof from calldata in one large chunk
@@ -1186,63 +1205,62 @@ contract BlakeOptHonkVerifier is IVerifier {
             /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
             // Write the verification key into memory
             function loadVk() {
-                // TODO: in the vk GENERATOR swap the location of l and m
-                mstore(Q_L_X_LOC, 0x1dbc2d49981f1318140ca1106a52550e1c079613c92a2b23206d1504cfb2f86b)
-                mstore(Q_L_Y_LOC, 0x04d743fe1aa6c0e790573ff504c0b5068b8d630459835db49d24004e0f010ad3)
-                mstore(Q_R_X_LOC, 0x06d4bd3d2520f2a248394d32ae446f689484f908ddcf272e978d431784e205f1)
-                mstore(Q_R_Y_LOC, 0x175cf52a76ee209fd0ff22a663db695c0d290b60d71138236aef5b329ab19432)
-                mstore(Q_O_X_LOC, 0x2381d95872adb9e4f3955b2c49f978ee03b98cdb0abdf39b0968a507501c9dba)
-                mstore(Q_O_Y_LOC, 0x1b008ca9ebed2b85934fb415d074922e1def59790d010bb15729d3824beea8a7)
-                mstore(Q_4_X_LOC, 0x2f2580b9ccf05cf1b0f017e01456a6bfdafcf9b3166c576c687de3c9e3c50304)
-                mstore(Q_4_Y_LOC, 0x0b371c7aab9c618ce48d244ef8356cde119972b5c40caf4a5f38ad817d448451)
-                mstore(Q_M_X_LOC, 0x2be5953099867a3a2150e243842f051637662c71e3d7c19eb666f2dcb7d35ed6)
-                mstore(Q_M_Y_LOC, 0x1400e3f66ff58817c736185766bad7b06df6fc22d6394a458e2ee79f31d14797)
-                mstore(Q_C_X_LOC, 0x1cebfae35f0e17cea692772e1b0f64a860a185a35fe4d91d52b1e08b133ef525)
-                mstore(Q_C_Y_LOC, 0x1398b2c0e75952e2614ec248b7f2002e710035f2ec026a386c1940e12203a173)
-                mstore(Q_LOOKUP_X_LOC, 0x2f52fd71248e5fb7fcda49e0778edcf84065f4c837dc259c99350f66d2756526)
-                mstore(Q_LOOKUP_Y_LOC, 0x07f7f722d2341b84f37e028a0993f9ba6eb0539524e258a6666f2149f7edba7e)
-                mstore(Q_ARITH_X_LOC, 0x0a2f3de6c4da1c2f6711875e52ee30c1eb7676fe3f04dee0cbe51d8e9314968d)
-                mstore(Q_ARITH_Y_LOC, 0x1163146d3736c646b9f0d3e446b742a925732850136119397601ab9c729406ac)
-                mstore(Q_DELTA_RANGE_X_LOC, 0x0f75fa9241e6b995002a5dec650dd8ee11b2c95463b42b9bfd6886d861a81dcc)
-                mstore(Q_DELTA_RANGE_Y_LOC, 0x000b33ecd7762627f56dd05319f6c2a8f577d84c23736426a14a815ea240dd10)
-                mstore(Q_ELLIPTIC_X_LOC, 0x23d68410cad93a2213d42fc11507040613f1c36376c79fc119af71f9240ddf85)
-                mstore(Q_ELLIPTIC_Y_LOC, 0x08036d4655c57be0f4c5e4165dbb99102feb96cdff2eb5c7f02358c7ce06d1ea)
-                mstore(Q_MEMORY_X_LOC, 0x1133465e96ae5ca432246d0fb87ce71c0f37b36dfdf404a6c97c487242a6bf71)
-                mstore(Q_MEMORY_Y_LOC, 0x1edd6fa7f5b8c58ac5bcfea2db37b96f66e55376162e9230d6b8b88f5ae04c6d)
-                mstore(Q_NNF_X_LOC, 0x2634efbf217db5182ee476472d9a87972acb13713640fbd542b74510b53823d3)
-                mstore(Q_NNF_Y_LOC, 0x1f4efbc506f80a69e5185539cf24ea43e3d7a416989e8d5697fe651f5b525282)
-                mstore(Q_POSEIDON_2_EXTERNAL_X_LOC, 0x1bb2a291b05e1a09d92da67dce13ecfdf4311c3a6c717ed1822331033bb535a0)
-                mstore(Q_POSEIDON_2_EXTERNAL_Y_LOC, 0x2ce5b67d60b91124c3906f07d0ce01476a3fc9cfcca33200d2aafba321b282ca)
-                mstore(Q_POSEIDON_2_INTERNAL_X_LOC, 0x292fc33ecaeee0a93a3db74c63ecb036702ae9d9e10f115b4a41ca026748a8e9)
-                mstore(Q_POSEIDON_2_INTERNAL_Y_LOC, 0x191404cfbc6ecde452a8dc5e2f2971948fff39018c5ccd820c8454679a299e8d)
-                mstore(SIGMA_1_X_LOC, 0x0a185ce3c7f2823ad60e0217165c591d0fc4743a4ffd8df74e735eb842ec37d1)
-                mstore(SIGMA_1_Y_LOC, 0x16003f72a8338960f090006eb8313aa3773a445c2dbc974e03337c0f0a643ffe)
-                mstore(SIGMA_2_X_LOC, 0x274cf54ae7f12682a78a2682118ef13862e8697325d1280d3758ae907238ba0c)
-                mstore(SIGMA_2_Y_LOC, 0x06114456c109ea3e28becc1819131ca5902491ccf9738f27918a92c74d5808f4)
-                mstore(SIGMA_3_X_LOC, 0x1860e83dbaee0d906588cc79b49323f24d983b79a9dc90bf838d8fd8d5075c74)
-                mstore(SIGMA_3_Y_LOC, 0x197f83bc73cde1744420bbfb265c78c4f97beb3f4d89c988b431a2e002dd7aad)
-                mstore(SIGMA_4_X_LOC, 0x3037389763af5b68ca15943e765c1a58b2a5b3ac251a9d942bf6367bf718f9ee)
-                mstore(SIGMA_4_Y_LOC, 0x0ab24e2474238a7130b1da39c972873619dc1f2cdf8719f840daaeb14c04861e)
-                mstore(TABLE_1_X_LOC, 0x2d063c46ff66cce30b90a92ac814ecdb93e8f4881222ee7ce76651bf3ad54e07)
-                mstore(TABLE_1_Y_LOC, 0x0215718164a2dbf8fc7da2fcf053b162d84e8703001218f0ad90d1f8d7526ba0)
-                mstore(TABLE_2_X_LOC, 0x1bdccd1181f8c909975dd24a69fd1c26ed6e513cd237106bacd9ac5e790374f2)
-                mstore(TABLE_2_Y_LOC, 0x1ba438e74f962c1b769f452da854110d0635d48e4d74d282ad06ae0e2830ac91)
-                mstore(TABLE_3_X_LOC, 0x20d80d8e50445042431974ff13f53c27c62c17d6d2100faac252917bc2666ac1)
-                mstore(TABLE_3_Y_LOC, 0x04bffddce3617713d52791e3344987b29b7c3359a227a03ca26857e813a84278)
-                mstore(TABLE_4_X_LOC, 0x2a0724cfe33e0ee4b3f81929ef0cd1da5e113987c9aed1534cca51dae3d9bc2d)
-                mstore(TABLE_4_Y_LOC, 0x26983a78aa5c4f3103c7e6128a32f0fae2779a6f0efb2b60facdd09153d403c9)
-                mstore(ID_1_X_LOC, 0x036e9faa607b6e7b97aa939face171293464ea9983674c2a23dc3586cb3646a0)
-                mstore(ID_1_Y_LOC, 0x1c44f59189b7da985accbd2810512c34b938f6892324326f3d8ed0445abf7cb3)
-                mstore(ID_2_X_LOC, 0x25e2e65c5b496b09b0fbb4a4f5f26b0d7525b1c4973efcedc641052b05d1eeca)
-                mstore(ID_2_Y_LOC, 0x2ebbcc2e263835cdf1d29d1381895cadf5a74583998a7e23139e04d6ef110ecb)
-                mstore(ID_3_X_LOC, 0x28bcb49916bccb9286a5fcc44bc513ed9df38d2042335556f7d7788ca87ad268)
-                mstore(ID_3_Y_LOC, 0x004daa3b3de855f9aac2dd1a04392f9c1bc9d9678b96b94705ca30361ff10c2c)
-                mstore(ID_4_X_LOC, 0x13756493eec9a875b3984e91dd380a82db0f76ec4cd9b7f7c7393eca89525d51)
-                mstore(ID_4_Y_LOC, 0x1d1d4b3d152e00a6dc81dfd10caba54e964046c86ee19e39f43f1989bbab1d03)
-                mstore(LAGRANGE_FIRST_X_LOC, 0x0000000000000000000000000000000000000000000000000000000000000001)
-                mstore(LAGRANGE_FIRST_Y_LOC, 0x0000000000000000000000000000000000000000000000000000000000000002)
-                mstore(LAGRANGE_LAST_X_LOC, 0x17e0906260294d3d5c54eac5f5d339729e238f870f5e304f258cad591b9f6e8f)
-                mstore(LAGRANGE_LAST_Y_LOC, 0x10dd66d911bcc3d85f85797e451edfd1d98b78130650208c3f8cf586c9e902c4)
+                mstore(Q_L_X_LOC, {{ Q_L_X_LOC }})
+                mstore(Q_L_Y_LOC, {{ Q_L_Y_LOC }})
+                mstore(Q_R_X_LOC, {{ Q_R_X_LOC }})
+                mstore(Q_R_Y_LOC, {{ Q_R_Y_LOC }})
+                mstore(Q_O_X_LOC, {{ Q_O_X_LOC }})
+                mstore(Q_O_Y_LOC, {{ Q_O_Y_LOC }})
+                mstore(Q_4_X_LOC, {{ Q_4_X_LOC }})
+                mstore(Q_4_Y_LOC, {{ Q_4_Y_LOC }})
+                mstore(Q_M_X_LOC, {{ Q_M_X_LOC }})
+                mstore(Q_M_Y_LOC, {{ Q_M_Y_LOC }})
+                mstore(Q_C_X_LOC, {{ Q_C_X_LOC }})
+                mstore(Q_C_Y_LOC, {{ Q_C_Y_LOC }})
+                mstore(Q_LOOKUP_X_LOC, {{ Q_LOOKUP_X_LOC }})
+                mstore(Q_LOOKUP_Y_LOC, {{ Q_LOOKUP_Y_LOC }})
+                mstore(Q_ARITH_X_LOC, {{ Q_ARITH_X_LOC }})
+                mstore(Q_ARITH_Y_LOC, {{ Q_ARITH_Y_LOC }})
+                mstore(Q_DELTA_RANGE_X_LOC, {{ Q_DELTA_RANGE_X_LOC }})
+                mstore(Q_DELTA_RANGE_Y_LOC, {{ Q_DELTA_RANGE_Y_LOC }})
+                mstore(Q_ELLIPTIC_X_LOC, {{ Q_ELLIPTIC_X_LOC }})
+                mstore(Q_ELLIPTIC_Y_LOC, {{ Q_ELLIPTIC_Y_LOC }})
+                mstore(Q_MEMORY_X_LOC, {{ Q_MEMORY_X_LOC }})
+                mstore(Q_MEMORY_Y_LOC, {{ Q_MEMORY_Y_LOC }})
+                mstore(Q_NNF_X_LOC, {{ Q_NNF_X_LOC }})
+                mstore(Q_NNF_Y_LOC, {{ Q_NNF_Y_LOC }})
+                mstore(Q_POSEIDON_2_EXTERNAL_X_LOC, {{ Q_POSEIDON_2_EXTERNAL_X_LOC }})
+                mstore(Q_POSEIDON_2_EXTERNAL_Y_LOC, {{ Q_POSEIDON_2_EXTERNAL_Y_LOC }})
+                mstore(Q_POSEIDON_2_INTERNAL_X_LOC, {{ Q_POSEIDON_2_INTERNAL_X_LOC }})
+                mstore(Q_POSEIDON_2_INTERNAL_Y_LOC, {{ Q_POSEIDON_2_INTERNAL_Y_LOC }})
+                mstore(SIGMA_1_X_LOC, {{ SIGMA_1_X_LOC }})
+                mstore(SIGMA_1_Y_LOC, {{ SIGMA_1_Y_LOC }})
+                mstore(SIGMA_2_X_LOC, {{ SIGMA_2_X_LOC }})
+                mstore(SIGMA_2_Y_LOC, {{ SIGMA_2_Y_LOC }})
+                mstore(SIGMA_3_X_LOC, {{ SIGMA_3_X_LOC }})
+                mstore(SIGMA_3_Y_LOC, {{ SIGMA_3_Y_LOC }})
+                mstore(SIGMA_4_X_LOC, {{ SIGMA_4_X_LOC }})
+                mstore(SIGMA_4_Y_LOC, {{ SIGMA_4_Y_LOC }})
+                mstore(TABLE_1_X_LOC, {{ TABLE_1_X_LOC }})
+                mstore(TABLE_1_Y_LOC, {{ TABLE_1_Y_LOC }})
+                mstore(TABLE_2_X_LOC, {{ TABLE_2_X_LOC }})
+                mstore(TABLE_2_Y_LOC, {{ TABLE_2_Y_LOC }})
+                mstore(TABLE_3_X_LOC, {{ TABLE_3_X_LOC }})
+                mstore(TABLE_3_Y_LOC, {{ TABLE_3_Y_LOC }})
+                mstore(TABLE_4_X_LOC, {{ TABLE_4_X_LOC }})
+                mstore(TABLE_4_Y_LOC, {{ TABLE_4_Y_LOC }})
+                mstore(ID_1_X_LOC, {{ ID_1_X_LOC }})
+                mstore(ID_1_Y_LOC, {{ ID_1_Y_LOC }})
+                mstore(ID_2_X_LOC, {{ ID_2_X_LOC }})
+                mstore(ID_2_Y_LOC, {{ ID_2_Y_LOC }})
+                mstore(ID_3_X_LOC, {{ ID_3_X_LOC }})
+                mstore(ID_3_Y_LOC, {{ ID_3_Y_LOC }})
+                mstore(ID_4_X_LOC, {{ ID_4_X_LOC }})
+                mstore(ID_4_Y_LOC, {{ ID_4_Y_LOC }})
+                mstore(LAGRANGE_FIRST_X_LOC, {{ LAGRANGE_FIRST_X_LOC }})
+                mstore(LAGRANGE_FIRST_Y_LOC, {{ LAGRANGE_FIRST_Y_LOC }})
+                mstore(LAGRANGE_LAST_X_LOC, {{ LAGRANGE_LAST_X_LOC }})
+                mstore(LAGRANGE_LAST_Y_LOC, {{ LAGRANGE_LAST_Y_LOC }})
             }
 
 
@@ -1567,6 +1585,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Generate Shplonk Z
                 // Hash of the single shplonk Q commitment
                 mcopy(0x20, SHPLONK_Q_X0_LOC, 0x80)
+                log0(0x20, 0x80)
                 prev_challenge := mod(keccak256(0x00, 0xa0), p)
 
                 let shplonkZ := and(prev_challenge, LOWER_128_MASK)
@@ -2812,22 +2831,38 @@ contract BlakeOptHonkVerifier is IVerifier {
                     ////////////////////////////////////////////////////////////////////////////
                     mstore(
                         SUBRELATION_EVAL_20_LOC,
-                        mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p)
+                        addmod(
+                            mload(SUBRELATION_EVAL_20_LOC),
+                            mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p),
+                            p
+                        )
                     )
 
                     mstore(
                         SUBRELATION_EVAL_21_LOC,
-                        mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p)
+                        addmod(
+                            mload(SUBRELATION_EVAL_21_LOC),
+                            mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p),
+                            p
+                        )
                     )
 
                     mstore(
                         SUBRELATION_EVAL_22_LOC,
-                        mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p)
+                        addmod(
+                            mload(SUBRELATION_EVAL_22_LOC),
+                            mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p),
+                            p
+                        )
                     )
 
                     mstore(
                         SUBRELATION_EVAL_23_LOC,
-                        mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p)
+                        addmod(
+                            mload(SUBRELATION_EVAL_23_LOC),
+                            mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p),
+                            p
+                        )
                     )
                 }
 
@@ -2906,10 +2941,12 @@ contract BlakeOptHonkVerifier is IVerifier {
             let cache := mload(GEMINI_R_CHALLENGE)
             let off := POWERS_OF_EVALUATION_CHALLENGE_0_LOC
             mstore(off, cache)
+            log1(off, 0x20, 100)
             for {let i := 1} lt(i, CONST_PROOF_SIZE_LOG_N) {i := add(i, 1)} {
                 off := add(off, 0x20)
                 cache := mulmod(cache, cache, p)
                 mstore(off, cache)
+                log1(off, 0x20, i)
             }
 
             // Compute Inverted Gemini Denominators
@@ -2927,10 +2964,9 @@ contract BlakeOptHonkVerifier is IVerifier {
             // TODO: unroll - can do in code gen - probably using handlebars???
 
             // In order to compute fold pos evaluations we need
-            // TODO: code generate the 14 - logN - 1 here
-            let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
-            let pow_off := POWERS_OF_EVALUATION_CHALLENGE_14_LOC
-            let sumcheck_u_off := SUM_U_CHALLENGE_14
+            let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC
+            let pow_off := POWERS_OF_EVALUATION_CHALLENGE_{{ LOG_N_MINUS_ONE }}_LOC
+            let sumcheck_u_off := SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}
 
             // TODO: challengePower * (ONE - u) can be cached - measure performance
             for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
@@ -3166,12 +3202,12 @@ contract BlakeOptHonkVerifier is IVerifier {
             // Compute fold pos evaluations
             {
                 // TODO: work out the stack here
-                mstore(CHALL_POW_LOC,  POWERS_OF_EVALUATION_CHALLENGE_14_LOC)
-                mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_14)
-                mstore(GEMINI_A_LOC, GEMINI_A_EVAL_14)
+                mstore(CHALL_POW_LOC,  POWERS_OF_EVALUATION_CHALLENGE_{{ LOG_N_MINUS_ONE }}_LOC)
+                mstore(SUMCHECK_U_LOC, SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }})
+                mstore(GEMINI_A_LOC, GEMINI_A_EVAL_{{ LOG_N_MINUS_ONE }})
                 // Inversion of this value was included in batch inversion above
-                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
-                let fold_pos_off := FOLD_POS_EVALUATIONS_14_LOC
+                let inverted_chall_pow_minus_u_loc := INVERTED_CHALLENEGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC
+                let fold_pos_off := FOLD_POS_EVALUATIONS_{{ LOG_N_MINUS_ONE }}_LOC
 
                 let batchedEvalAcc := batched_evaluation
                 for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
@@ -3339,62 +3375,28 @@ contract BlakeOptHonkVerifier is IVerifier {
                 y := or(shl(136, y_high), y_low)
             }
 
-            function validateProofPointOnCurve(proof_point_memory_location, q_clone) -> success_return {
+            function validateProofPointOnCurve(success_flag, proof_point_memory_location, p_clone, q_clone) -> success_return {
                 let x, y := writeProofPointOntoStack(proof_point_memory_location)
 
-                let xx := mulmod(x, x, q_clone)
-                let xxx := mulmod(xx, x, q_clone)
-                let yy := mulmod(y, y, q_clone)
+                let xx := mulmod(x, x, p_clone)
+                let yy := mulmod(y, y, p_clone)
+                let xy := mulmod(x, y, p_clone)
 
-                success_return := eq(yy, addmod(xxx, 3, q_clone))
+                success_return := and(success_flag, iszero(eq(mulmod(y, y, q_clone), addmod(mulmod(x, xx, q_clone), 3, q_clone))))
             }
 
             // Validate the proof points are on the curve
             {
                 let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
                 let success_flag := 1
-                // Wires
-                success_flag := and(success_flag, validateProofPointOnCurve(W_L_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_R_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_O_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_COUNTS_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_TAGS_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_4_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_INVERSES_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(Z_PERM_X0_LOC, q))
-
-                // Gemini commitments - validate up to log n
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_0_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_1_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_2_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_3_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_4_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_5_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_6_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_7_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_8_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_9_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_10_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_11_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_12_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_13_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_14_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_15_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_16_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_17_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_18_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_19_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_20_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_21_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_22_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_23_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_24_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_25_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_26_X0_LOC, q))
-
-                // Shlponk
-                success_flag := and(success_flag, validateProofPointOnCurve(SHPLONK_Q_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(KZG_QUOTIENT_X0_LOC, q))
+                success_flag := validateProofPointOnCurve(success_flag, W_L_X0_LOC, p, q)
+                success_flag := validateProofPointOnCurve(success_flag, W_R_X0_LOC, p, q)
+                success_flag := validateProofPointOnCurve(success_flag, W_O_X0_LOC, p, q)
+                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_READ_COUNTS_X0_LOC, p, q)
+                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_READ_TAGS_X0_LOC, p, q)
+                success_flag := validateProofPointOnCurve(success_flag, W_4_X0_LOC, p, q)
+                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_INVERSES_X0_LOC, p, q)
+                success_flag := validateProofPointOnCurve(success_flag, Z_PERM_X0_LOC, p, q)
 
                 if iszero(success_flag) {
                     mstore(0x00, PROOF_POINT_NOT_ON_CURVE_SELECTOR)
@@ -3930,4 +3932,369 @@ contract BlakeOptHonkVerifier is IVerifier {
         }
 
     }
+}
+)";
+
+// static const int max_log_n = 28;
+
+// inline std::string get_memory_slots_string(int log_n)
+// {
+//     std::ostringstream out;
+//     int pointer = 0x380;
+
+//     // Helper lambdas
+//     auto print_loc = [&](int pointer, const std::string& name) {
+//         out << "uint256 internal constant " << name << " = " << std::showbase << std::hex << pointer << ";\n";
+//     };
+//     auto print_fr = print_loc;
+//     auto print_small_g1 = [&](int pointer, const std::string& name) {
+//         print_loc(pointer, name + "_X_LOC");
+//         print_loc(pointer + 32, name + "_Y_LOC");
+//     };
+//     auto print_g1 = [&](int pointer, const std::string& name) {
+//         print_loc(pointer, name + "_X0_LOC");
+//         print_loc(pointer + 32, name + "_X1_LOC");
+//         print_loc(pointer + 64, name + "_Y0_LOC");
+//         print_loc(pointer + 96, name + "_Y1_LOC");
+//     };
+
+//     // Data from Python script
+//     const std::vector<std::string> vk_fr = { "VK_CIRCUIT_SIZE_LOC",
+//                                              "VK_NUM_PUBLIC_INPUTS_LOC",
+//                                              "VK_PUB_INPUTS_OFFSET_LOC" };
+//     const std::vector<std::string> vk_g1 = { "Q_M",
+//                                              "Q_C",
+//                                              "Q_L",
+//                                              "Q_R",
+//                                              "Q_O",
+//                                              "Q_4",
+//                                              "Q_ARITH",
+//                                              "Q_DELTA_RANGE",
+//                                              "Q_ELLIPTIC",
+//                                              "Q_AUX",
+//                                              "Q_LOOKUP",
+//                                              "Q_POSEIDON_2_EXTERNAL",
+//                                              "Q_POSEIDON_2_INTERNAL",
+//                                              "SIGMA_1",
+//                                              "SIGMA_2",
+//                                              "SIGMA_3",
+//                                              "SIGMA_4",
+//                                              "ID_1",
+//                                              "ID_2",
+//                                              "ID_3",
+//                                              "ID_4",
+//                                              "TABLE_1",
+//                                              "TABLE_2",
+//                                              "TABLE_3",
+//                                              "TABLE_4",
+//                                              "LAGRANGE_FIRST",
+//                                              "LAGRANGE_LAST" };
+//     const std::vector<std::string> pairing_points = { "PAIRING_POINT_0",  "PAIRING_POINT_1",  "PAIRING_POINT_2",
+//                                                       "PAIRING_POINT_3",  "PAIRING_POINT_4",  "PAIRING_POINT_5",
+//                                                       "PAIRING_POINT_6",  "PAIRING_POINT_7",  "PAIRING_POINT_8",
+//                                                       "PAIRING_POINT_9",  "PAIRING_POINT_10", "PAIRING_POINT_11",
+//                                                       "PAIRING_POINT_12", "PAIRING_POINT_13", "PAIRING_POINT_14",
+//                                                       "PAIRING_POINT_15" };
+//     const std::vector<std::string> proof_g1 = {
+//         "W_L", "W_R", "W_O", "LOOKUP_READ_COUNTS", "LOOKUP_READ_TAGS", "W_4", "LOOKUP_INVERSES", "Z_PERM"
+//     };
+//     const std::vector<std::string> entities = { "QM",
+//                                                 "QC",
+//                                                 "QL",
+//                                                 "QR",
+//                                                 "QO",
+//                                                 "Q4",
+//                                                 "QLOOKUP",
+//                                                 "QARITH",
+//                                                 "QRANGE",
+//                                                 "QELLIPTIC",
+//                                                 "QAUX",
+//                                                 "QPOSEIDON2_EXTERNAL",
+//                                                 "QPOSEIDON2_INTERNAL",
+//                                                 "SIGMA1",
+//                                                 "SIGMA2",
+//                                                 "SIGMA3",
+//                                                 "SIGMA4",
+//                                                 "ID1",
+//                                                 "ID2",
+//                                                 "ID3",
+//                                                 "ID4",
+//                                                 "TABLE1",
+//                                                 "TABLE2",
+//                                                 "TABLE3",
+//                                                 "TABLE4",
+//                                                 "LAGRANGE_FIRST",
+//                                                 "LAGRANGE_LAST",
+//                                                 "W1",
+//                                                 "W2",
+//                                                 "W3",
+//                                                 "W4",
+//                                                 "Z_PERM",
+//                                                 "LOOKUP_INVERSES",
+//                                                 "LOOKUP_READ_COUNTS",
+//                                                 "LOOKUP_READ_TAGS",
+//                                                 "W1_SHIFT",
+//                                                 "W2_SHIFT",
+//                                                 "W3_SHIFT",
+//                                                 "W4_SHIFT",
+//                                                 "Z_PERM_SHIFT" };
+//     const std::vector<std::string> challenges = { "ETA",
+//                                                   "ETA_TWO",
+//                                                   "ETA_THREE",
+//                                                   "BETA",
+//                                                   "GAMMA",
+//                                                   "RHO",
+//                                                   "GEMINI_R",
+//                                                   "SHPLONK_NU",
+//                                                   "SHPLONK_Z",
+//                                                   "PUBLIC_INPUTS_DELTA_NUMERATOR",
+//                                                   "PUBLIC_INPUTS_DELTA_DENOMINATOR" };
+//     const int BATCHED_RELATION_PARTIAL_LENGTH = 8;
+//     const int NUMBER_OF_ALPHAS = 26;
+//     const int NUMBER_OF_SUBRELATIONS = 27;
+//     const int BARYCENTRIC_DOMAIN_SIZE = 8;
+//     const std::vector<std::string> subrelation_intermediates = { "AUX_NON_NATIVE_FIELD_IDENTITY",
+//                                                                  "AUX_LIMB_ACCUMULATOR_IDENTITY",
+//                                                                  "AUX_RAM_CONSISTENCY_CHECK_IDENTITY",
+//                                                                  "AUX_ROM_CONSISTENCY_CHECK_IDENTITY",
+//                                                                  "AUX_MEMORY_CHECK_IDENTITY" };
+//     const std::vector<std::string> general_intermediates = { "FINAL_ROUND_TARGET_LOC", "POW_PARTIAL_EVALUATION_LOC"
+//     };
+
+//     // Print VK
+//     out << "// Verification key indicies\n";
+//     for (const auto& item : vk_fr) {
+//         print_fr(pointer, item);
+//         pointer += 32;
+//     }
+//     for (const auto& item : vk_g1) {
+//         print_small_g1(pointer, item);
+//         pointer += (4 * 32);
+//     }
+//     out << "\n// Proof indicies\n";
+//     for (const auto& item : pairing_points) {
+//         print_fr(pointer, item);
+//         pointer += 32;
+//     }
+//     for (const auto& item : proof_g1) {
+//         print_g1(pointer, item);
+//         pointer += (4 * 32);
+//     }
+//     out << "\n// Sumcheck univariates\n";
+//     for (int relation_len = 0; relation_len < BATCHED_RELATION_PARTIAL_LENGTH; ++relation_len) {
+//         for (int size = 0; size < log_n; ++size) {
+//             print_fr(pointer,
+//                      "SUMCHECK_UNIVARIATE_" + std::to_string(relation_len) + "_" + std::to_string(size) + "_LOC");
+//             pointer += 32;
+//         }
+//     }
+//     out << "\n// Entities\n";
+//     for (const auto& entity : entities) {
+//         print_fr(pointer, entity + "_EVAL_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Shplemini\n";
+//     for (int size = 0; size < max_log_n - 1; ++size) {
+//         print_g1(pointer, "GEMINI_FOLD_UNIVARIATE_" + std::to_string(size));
+//         pointer += (4 * 32);
+//     }
+//     for (int size = 0; size < log_n; ++size) {
+//         print_fr(pointer, "GEMINI_A_EVAL_" + std::to_string(size));
+//         pointer += 32;
+//     }
+//     print_g1(pointer, "SHPLONK_Q");
+//     pointer += (4 * 32);
+//     print_g1(pointer, "KZG_QUOTIENT");
+//     pointer += (4 * 32);
+//     out << "\n// Challenges\n";
+//     for (const auto& chall : challenges) {
+//         print_fr(pointer, chall + "_CHALLENGE");
+//         pointer += 32;
+//     }
+//     for (int alpha = 0; alpha < NUMBER_OF_ALPHAS; ++alpha) {
+//         print_fr(pointer, "ALPHA_CHALLENGE_" + std::to_string(alpha));
+//         pointer += 32;
+//     }
+//     for (int gate = 0; gate < log_n; ++gate) {
+//         print_fr(pointer, "GATE_CHALLENGE_" + std::to_string(gate));
+//         pointer += 32;
+//     }
+//     for (int sum_u = 0; sum_u < log_n; ++sum_u) {
+//         print_fr(pointer, "SUM_U_CHALLENGE_" + std::to_string(sum_u));
+//         pointer += 32;
+//     }
+//     out << "\n// Barycentric domain\n";
+//     for (int i = 0; i < BARYCENTRIC_DOMAIN_SIZE; ++i) {
+//         print_fr(pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     for (int i = 0; i < BARYCENTRIC_DOMAIN_SIZE; ++i) {
+//         print_fr(pointer, "BARYCENTRIC_DOMAIN_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     for (int i = 0; i < BARYCENTRIC_DOMAIN_SIZE; ++i) {
+//         print_fr(pointer, "BARYCENTRIC_DENOMINATOR_INVERSES_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Subrelation evaluations\n";
+//     for (int i = 0; i < NUMBER_OF_SUBRELATIONS; ++i) {
+//         print_fr(pointer, "SUBRELATION_EVAL_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Subrelation intermediates\n";
+//     for (const auto& item : general_intermediates) {
+//         print_fr(pointer, item);
+//         pointer += 32;
+//     }
+//     for (const auto& item : subrelation_intermediates) {
+//         print_fr(pointer, item);
+//         pointer += 32;
+//     }
+//     out << "\n// Powers of evaluation challenge\n";
+//     for (int i = 0; i < log_n; ++i) {
+//         print_fr(pointer, "POWERS_OF_EVALUATION_CHALLENGE_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// 29 Inverted gemini denominators\n";
+//     for (int i = 0; i < log_n + 1; ++i) {
+//         print_fr(pointer, "INVERTED_GEMINI_DENOMINATOR_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Batch accumulators\n";
+//     for (int i = 0; i < 9; ++i) {
+//         print_fr(pointer, "BATCH_ACCUMULATOR_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Batch scalars\n";
+//     for (int i = 0; i < 70; ++i) {
+//         print_fr(pointer, "BATCH_SCALAR_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Batched evaluation accumulator inversions\n";
+//     for (int i = 0; i < log_n; ++i) {
+//         print_fr(pointer, "BATCH_EVALUATION_ACCUMULATOR_INVERSION_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     print_fr(pointer, "BATCHED_EVALUATION_LOC");
+//     pointer += 32;
+//     print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC");
+//     pointer += 32;
+
+//     // Additional memory slots for shplemini runtime memory (log_n)
+//     out << "\n// Inverted challenge pow minus u\n";
+//     for (int i = 0; i < log_n + 1; ++i) {
+//         print_fr(pointer, "INVERTED_CHALLENEGE_POW_MINUS_U_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Pos inverted denom\n";
+//     for (int i = 0; i < log_n; ++i) {
+//         print_fr(pointer, "POS_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Neg inverted denom\n";
+//     for (int i = 0; i < log_n; ++i) {
+//         print_fr(pointer, "NEG_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+//     out << "\n// Fold pos evaluations\n";
+//     for (int i = 0; i < log_n; ++i) {
+//         print_fr(pointer, "FOLD_POS_EVALUATIONS_" + std::to_string(i) + "_LOC");
+//         pointer += 32;
+//     }
+
+//     print_fr(pointer, "LATER_SCRATCH_SPACE");
+
+//     return out.str();
+// }
+
+template <typename Field> std::string field_to_hex(const Field& f)
+{
+    std::ostringstream os;
+    os << f;
+    return os.str();
+}
+
+inline std::string get_optimized_honk_solidity_verifier(auto const& verification_key)
+{
+    std::string template_str = HONK_CONTRACT_OPT_SOURCE;
+
+    // Helper function to replace template variables
+    auto set_template_param = [&template_str](const std::string& key, const std::string& value) {
+        std::string::size_type pos = 0;
+        std::string pattern = "{{ " + key + " }}";
+        while ((pos = template_str.find(pattern, pos)) != std::string::npos) {
+            template_str.replace(pos, pattern.length(), value);
+            pos += value.length();
+        }
+    };
+
+    set_template_param("CIRCUIT_SIZE", std::to_string(1 << verification_key->log_circuit_size));
+    set_template_param("LOG_CIRCUIT_SIZE", std::to_string(verification_key->log_circuit_size));
+    set_template_param("NUM_PUBLIC_INPUTS", std::to_string(verification_key->num_public_inputs));
+    set_template_param("LOG_N_MINUS_ONE", std::to_string(verification_key->log_circuit_size - 1));
+
+    // Verification Key
+    set_template_param("Q_L_X_LOC", field_to_hex(verification_key->q_l.x));
+    set_template_param("Q_L_Y_LOC", field_to_hex(verification_key->q_l.y));
+    set_template_param("Q_R_X_LOC", field_to_hex(verification_key->q_r.x));
+    set_template_param("Q_R_Y_LOC", field_to_hex(verification_key->q_r.y));
+    set_template_param("Q_O_X_LOC", field_to_hex(verification_key->q_o.x));
+    set_template_param("Q_O_Y_LOC", field_to_hex(verification_key->q_o.y));
+    set_template_param("Q_4_X_LOC", field_to_hex(verification_key->q_4.x));
+    set_template_param("Q_4_Y_LOC", field_to_hex(verification_key->q_4.y));
+    set_template_param("Q_M_X_LOC", field_to_hex(verification_key->q_m.x));
+    set_template_param("Q_M_Y_LOC", field_to_hex(verification_key->q_m.y));
+    set_template_param("Q_C_X_LOC", field_to_hex(verification_key->q_c.x));
+    set_template_param("Q_C_Y_LOC", field_to_hex(verification_key->q_c.y));
+    set_template_param("Q_LOOKUP_X_LOC", field_to_hex(verification_key->q_lookup.x));
+    set_template_param("Q_LOOKUP_Y_LOC", field_to_hex(verification_key->q_lookup.y));
+    set_template_param("Q_ARITH_X_LOC", field_to_hex(verification_key->q_arith.x));
+    set_template_param("Q_ARITH_Y_LOC", field_to_hex(verification_key->q_arith.y));
+    set_template_param("Q_DELTA_RANGE_X_LOC", field_to_hex(verification_key->q_delta_range.x));
+    set_template_param("Q_DELTA_RANGE_Y_LOC", field_to_hex(verification_key->q_delta_range.y));
+    set_template_param("Q_ELLIPTIC_X_LOC", field_to_hex(verification_key->q_elliptic.x));
+    set_template_param("Q_ELLIPTIC_Y_LOC", field_to_hex(verification_key->q_elliptic.y));
+    set_template_param("Q_MEMORY_X_LOC", field_to_hex(verification_key->q_memory.x));
+    set_template_param("Q_MEMORY_Y_LOC", field_to_hex(verification_key->q_memory.y));
+    set_template_param("Q_NNF_X_LOC", field_to_hex(verification_key->q_nnf.x));
+    set_template_param("Q_NNF_Y_LOC", field_to_hex(verification_key->q_nnf.y));
+    set_template_param("Q_POSEIDON_2_EXTERNAL_X_LOC", field_to_hex(verification_key->q_poseidon2_external.x));
+    set_template_param("Q_POSEIDON_2_EXTERNAL_Y_LOC", field_to_hex(verification_key->q_poseidon2_external.y));
+    set_template_param("Q_POSEIDON_2_INTERNAL_X_LOC", field_to_hex(verification_key->q_poseidon2_internal.x));
+    set_template_param("Q_POSEIDON_2_INTERNAL_Y_LOC", field_to_hex(verification_key->q_poseidon2_internal.y));
+    set_template_param("SIGMA_1_X_LOC", field_to_hex(verification_key->sigma_1.x));
+    set_template_param("SIGMA_1_Y_LOC", field_to_hex(verification_key->sigma_1.y));
+    set_template_param("SIGMA_2_X_LOC", field_to_hex(verification_key->sigma_2.x));
+    set_template_param("SIGMA_2_Y_LOC", field_to_hex(verification_key->sigma_2.y));
+    set_template_param("SIGMA_3_X_LOC", field_to_hex(verification_key->sigma_3.x));
+    set_template_param("SIGMA_3_Y_LOC", field_to_hex(verification_key->sigma_3.y));
+    set_template_param("SIGMA_4_X_LOC", field_to_hex(verification_key->sigma_4.x));
+    set_template_param("SIGMA_4_Y_LOC", field_to_hex(verification_key->sigma_4.y));
+    set_template_param("TABLE_1_X_LOC", field_to_hex(verification_key->table_1.x));
+    set_template_param("TABLE_1_Y_LOC", field_to_hex(verification_key->table_1.y));
+    set_template_param("TABLE_2_X_LOC", field_to_hex(verification_key->table_2.x));
+    set_template_param("TABLE_2_Y_LOC", field_to_hex(verification_key->table_2.y));
+    set_template_param("TABLE_3_X_LOC", field_to_hex(verification_key->table_3.x));
+    set_template_param("TABLE_3_Y_LOC", field_to_hex(verification_key->table_3.y));
+    set_template_param("TABLE_4_X_LOC", field_to_hex(verification_key->table_4.x));
+    set_template_param("TABLE_4_Y_LOC", field_to_hex(verification_key->table_4.y));
+    set_template_param("ID_1_X_LOC", field_to_hex(verification_key->id_1.x));
+    set_template_param("ID_1_Y_LOC", field_to_hex(verification_key->id_1.y));
+    set_template_param("ID_2_X_LOC", field_to_hex(verification_key->id_2.x));
+    set_template_param("ID_2_Y_LOC", field_to_hex(verification_key->id_2.y));
+    set_template_param("ID_3_X_LOC", field_to_hex(verification_key->id_3.x));
+    set_template_param("ID_3_Y_LOC", field_to_hex(verification_key->id_3.y));
+    set_template_param("ID_4_X_LOC", field_to_hex(verification_key->id_4.x));
+    set_template_param("ID_4_Y_LOC", field_to_hex(verification_key->id_4.y));
+    set_template_param("LAGRANGE_FIRST_X_LOC", field_to_hex(verification_key->lagrange_first.x));
+    set_template_param("LAGRANGE_FIRST_Y_LOC", field_to_hex(verification_key->lagrange_first.y));
+    set_template_param("LAGRANGE_LAST_X_LOC", field_to_hex(verification_key->lagrange_last.x));
+    set_template_param("LAGRANGE_LAST_Y_LOC", field_to_hex(verification_key->lagrange_last.y));
+
+    // TODO(saleel/md): Fill in the memory layout to not always use 28
+    // std::ostringstream memory_layout_stream;
+    // memory_layout_stream << get_memory_slots_string(static_cast<int>(max_log_n));
+    // replace_template("{{ MEMORY_LAYOUT }}", memory_layout_stream.str());
+
+    return template_str;
 }
