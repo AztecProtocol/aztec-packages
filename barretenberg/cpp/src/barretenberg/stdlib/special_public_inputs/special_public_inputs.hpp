@@ -14,6 +14,13 @@
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 namespace bb::stdlib::recursion::honk {
 
+// Default coordinates of commitment to an ecc op table
+// These are the coordinates that come from committing to the ecc ops that are added to the op_queue by finalize_circuit
+static constexpr bb::fq DEFAULT_ECC_COMMITMENT_X("0x08434fa4480433735e7aeaccecb911eb7a06165ad70e5ced6ac6848296e59279");
+static constexpr bb::fq DEFAULT_ECC_COMMITMENT_Y("0x0a13a1839ab95ef15be8d0710b2c8aa47cea0b0e62a8596e68cc0fd54a6ae73d");
+static constexpr bb::curve::BN254::AffineElement DEFAULT_ECC_COMMITMENT(DEFAULT_ECC_COMMITMENT_X,
+                                                                        DEFAULT_ECC_COMMITMENT_Y);
+
 /**
  * @brief Manages the data that is propagated on the public inputs of a kernel circuit
  *
@@ -187,31 +194,25 @@ template <class Builder_> class HidingKernelIO {
         builder->finalize_public_inputs();
     }
 
-    static std::array<G1, Builder::NUM_WIRES> default_ecc_op_tables(Builder& builder, bool set_infinity = true)
+    static std::array<G1, Builder::NUM_WIRES> empty_ecc_op_tables(Builder& builder)
     {
-        std::array<G1, Builder::NUM_WIRES> defaults;
-        for (auto& table_commitment : defaults) {
-            // We need to branch because this function is used in two places: when we set default public inputs in
-            // circuits that already have pairing inputs but no ecc op tables, and when we set default ecc op tables for
-            // a MegaVerifier that verifies only one Merge. In the first case, we need to set the point to something
-            // different from the the point at infinity because we currently don't handle the reconstruction of the
-            // point at infinity from the public inputs. In the second case, we need to set the ecc op tables to the
-            // point at infinity because the merge verification will merge the new operations into the empty table. Note
-            // that the case of adding defaults to circuits that already have pairing inputs works only because a
-            // circuit that needs to propagate ecc op tables either comes at the end of various layers of Goblin (in
-            // CIVC), in which case there are ecc op tables to propagate, or at the beginning of Goblin, in which case
-            // it doesn't matter what gets propagated, as the verifier will disregard that value and use the point at
-            // infinity.
-            // TODO(): Can we handle the point at infinity in the public inputs?
-            if (set_infinity) {
-                table_commitment = G1::point_at_infinity(&builder);
-            } else {
-                table_commitment = G1::one(&builder);
-                table_commitment.convert_constant_to_fixed_witness(&builder);
-            }
+        std::array<G1, Builder::NUM_WIRES> empty_tables;
+        for (auto& table_commitment : empty_tables) {
+            table_commitment = G1::point_at_infinity(&builder);
         }
 
-        return defaults;
+        return empty_tables;
+    }
+
+    static std::array<G1, Builder::NUM_WIRES> default_ecc_op_tables(Builder& builder)
+    {
+        std::array<G1, Builder::NUM_WIRES> default_tables;
+        for (auto& table_commitment : default_tables) {
+            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment.convert_constant_to_fixed_witness(&builder);
+        }
+
+        return default_tables;
     }
 
     /**
@@ -221,9 +222,7 @@ template <class Builder_> class HidingKernelIO {
     static void add_default(Builder& builder)
     {
         PairingInputs::add_default_to_public_inputs(builder);
-        for (size_t idx = 0; idx < Builder::NUM_WIRES; idx++) {
-            G1 table_commitment = G1::one(&builder);
-            table_commitment.convert_constant_to_fixed_witness(&builder);
+        for (auto& table_commitment : default_ecc_op_tables(builder)) {
             table_commitment.set_public();
         }
     };
