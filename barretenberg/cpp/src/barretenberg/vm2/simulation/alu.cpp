@@ -28,8 +28,6 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
         uint256_t a_int = static_cast<uint256_t>(a.as_ff());
         uint256_t b_int = static_cast<uint256_t>(b.as_ff());
         MemoryTag tag = a.get_tag();
-        // TODO(MW): Either gate the c_hi check by u128 tag, or check in all cases but use a new limb_bits column for
-        // each tag (e.g. u64 => range check c_hi is in 32 bits)
         if (tag == MemoryTag::U128) {
             // For u128, we decompose a and b into 64 bit chunks and discard the highest bits given by the product:
             auto a_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
@@ -41,10 +39,6 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             // c_hi = old_c_hi - a_hi * b_hi % 2^64
             uint256_t c_hi = (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64);
-            range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
-        } else {
-            // For other integers, we just take the 'overflowed' bits:
-            uint256_t c_hi = tag == MemoryTag::FF ? 0 : (a_int * b_int) >> get_tag_bits(tag);
             range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
         }
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .c = c });

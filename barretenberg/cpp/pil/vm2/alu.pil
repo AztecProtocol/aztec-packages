@@ -146,7 +146,6 @@ pol commit c_hi;
 
 // MUL - non u128
 
-// TODO(MW): cf required? could be sel_op_mul * (1 - sel_tag_err) * (ia * ib - ic - cf * (max_value + 1) * c_hi) = 0;
 #[ALU_MUL_NON_U128]
 sel_op_mul * IS_NOT_U128 * (1 - sel_tag_err)
     * (
@@ -208,12 +207,11 @@ sel_mul_u128 { b_lo, constant_64 } in range_check.sel { range_check.value, range
 #[RANGE_CHECK_MUL_U128_B_HI]
 sel_mul_u128 { b_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-// TODO(MW): range check c_hi for non 128 cases?
-// Each c_hi should pass because it is either from u1-u64 inputs, represent a 64 bit limb of a u128 number, or
-// = 0 for a field, but do we need to check it?
+// No need to range_check c_hi for cases other than u128 because we know a and b's size from the tags and have looked
+// up max_value. i.e. we cannot provide a malicious c, c_hi such that a + b - c_hi * 2^n = c passes for n < 128.
 // No need to range_check c_lo = ic because the memory write will ensure ic <= max_value.
 #[RANGE_CHECK_MUL_U128_C_HI]
-sel_op_mul { c_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_u128 { c_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
 // EQ
 
