@@ -149,7 +149,7 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
     clients.push(client);
   }
 
-  await Promise.all(clients.map(client => client.isReady()));
+  await retryUntil(() => clients.every(c => c.isReady()), 'p2p clients started', 10, 0.5);
   testConfig.logger?.info(`Created and started ${clients.length} P2P clients at ports ${ports.join(',')}`, {
     ports,
     peerEnrs,
