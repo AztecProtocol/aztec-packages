@@ -11,7 +11,6 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
 
-
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     // Oink
@@ -35,7 +34,7 @@ library TranscriptLib {
         uint256 circuitSize,
         uint256 publicInputsSize,
         uint256 pubInputsOffset
-    ) internal view returns (Transcript memory t) {
+    ) internal pure returns (Transcript memory t) {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
             proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge
@@ -73,7 +72,7 @@ library TranscriptLib {
         uint256 publicInputsSize,
         uint256 pubInputsOffset,
         Fr previousChallenge
-    ) internal view returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
+    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
             generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
 
@@ -86,7 +85,7 @@ library TranscriptLib {
         uint256 circuitSize,
         uint256 publicInputsSize,
         uint256 pubInputsOffset
-    ) internal view returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
+    ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
         bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
@@ -113,7 +112,6 @@ library TranscriptLib {
         round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
         round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
         round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
-
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -168,15 +166,9 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
         (alphas[0], alphas[1]) = splitChallenge(nextPreviousChallenge);
 
-        // logFr("alpha0", alphas[0]);
-        // logFr("alpha1", alphas[1]);
-
         for (uint256 i = 1; i < NUMBER_OF_ALPHAS / 2; i++) {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
             (alphas[2 * i], alphas[2 * i + 1]) = splitChallenge(nextPreviousChallenge);
-
-            // logFr("alpha", 2 * i, alphas[2 * i]);
-            // logFr("alpha", 2 * i + 1, alphas[2 * i + 1]);
         }
         if (((NUMBER_OF_ALPHAS & 1) == 1) && (NUMBER_OF_ALPHAS > 2)) {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
@@ -194,7 +186,6 @@ library TranscriptLib {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
             Fr unused;
             (gateChallenges[i], unused) = splitChallenge(previousChallenge);
-            // logFr("gate", i, gateChallenges[i]);
         }
         nextPreviousChallenge = previousChallenge;
     }
@@ -287,7 +278,6 @@ library TranscriptLib {
         shplonkZChallengeElements[2] = proof.shplonkQ.x_1;
         shplonkZChallengeElements[3] = proof.shplonkQ.y_0;
         shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
-
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
         Fr unused;

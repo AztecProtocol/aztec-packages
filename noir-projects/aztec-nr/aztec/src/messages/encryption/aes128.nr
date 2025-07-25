@@ -381,7 +381,7 @@ mod test {
 
     #[test]
     unconstrained fn encrypt_decrypt_log() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
         // Advance 1 block so we can read historic state from private
         env.mine_block();
 

@@ -6,9 +6,9 @@ use aztec::{
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
-    let mut env = TestEnvironment::new();
+    let env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
         let owner = env.create_account_contract(1);
         let recipient = env.create_account_contract(2);
@@ -36,12 +36,12 @@ pub unconstrained fn setup(
         env.deploy_self("Token").with_public_initializer(owner, initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.mine_block();
-    (&mut env, token_contract_address, owner, recipient)
+    (env, token_contract_address, owner, recipient)
 }
 
 pub unconstrained fn setup_and_mint_to_public(
     with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000 as u128;
@@ -58,7 +58,7 @@ pub unconstrained fn setup_and_mint_to_public(
 pub unconstrained fn setup_and_mint_amount_to_private(
     with_account_contracts: bool,
     mint_amount: u128,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
     // Setup the tokens and mint public balance
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
 
@@ -73,14 +73,14 @@ pub unconstrained fn setup_and_mint_amount_to_private(
 
 pub unconstrained fn setup_and_mint_to_private(
     with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
     let mint_amount = 10000 as u128;
     setup_and_mint_amount_to_private(with_account_contracts, mint_amount)
 }
 
 // docs:start:txe_test_read_public
 pub unconstrained fn check_public_balance(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: u128,
@@ -94,7 +94,7 @@ pub unconstrained fn check_public_balance(
 
 // docs:start:txe_test_call_utility
 pub unconstrained fn check_private_balance(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: u128,
