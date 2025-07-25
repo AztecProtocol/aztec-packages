@@ -534,7 +534,7 @@ export class ReqResp implements ReqRespInterface {
     }
 
     // Do not punish if we are stopping the service
-    if (e instanceof AbortError) {
+    if (e && (e instanceof AbortError || e.code === 'ABORT_ERR')) {
       this.logger.debug(`Request aborted: ${e.message}`, logTags);
       return undefined;
     }
@@ -653,7 +653,7 @@ export class ReqResp implements ReqRespInterface {
       // Store a reference to from this for the async generator
       const rateLimitStatus = this.rateLimiter.allow(protocol, connection.remotePeer);
       if (rateLimitStatus != RateLimitStatus.Allowed) {
-        this.logger.warn(
+        this.logger.verbose(
           `Rate limit exceeded ${prettyPrintRateLimitStatus(rateLimitStatus)} for ${protocol} from ${
             connection.remotePeer
           }`,
@@ -689,7 +689,11 @@ export class ReqResp implements ReqRespInterface {
         stream,
       );
     } catch (e: any) {
-      this.logger.warn('Reqresp response error: ', e);
+      let level: 'warn' | 'debug' = 'warn';
+      if (e && e instanceof ReqRespStatusError && e.status === ReqRespStatus.RATE_LIMIT_EXCEEDED) {
+        level = 'debug';
+      }
+      this.logger[level](`Reqresp response error: ${String(e)}`, e);
       this.metrics.recordResponseError(protocol);
 
       // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown
