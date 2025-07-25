@@ -140,9 +140,7 @@ impl Deck<UtilityContext> {
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
 
-        let cards = notes.map(|note| Card::from_field(note.value()));
-
-        cards
+        notes.map(|note| Card::from_field(note.value()))
     }
 }
 
