@@ -89,10 +89,8 @@ uint<Builder, Native>::uint(const byte_array<Builder>& other)
         witness_index = accumulator.witness_index;
     }
 
-    // Constrain the accumulators
-    if (witness_index != IS_CONSTANT) {
-        accumulators = constrain_accumulators(context, witness_index);
-    }
+    // We need to constrain the accumulators, so we normalize here.
+    normalize();
 }
 
 template <typename Builder, typename Native>
@@ -127,10 +125,8 @@ uint<Builder, Native>::uint(Builder* parent_context, const std::vector<bool_t<Bu
         witness_index = accumulator.witness_index;
     }
 
-    // Constrain the accumulators
-    if (witness_index != IS_CONSTANT) {
-        accumulators = constrain_accumulators(context, witness_index);
-    }
+    // We need to constrain the accumulators, so we normalize here.
+    normalize();
 }
 
 template <typename Builder, typename Native>
