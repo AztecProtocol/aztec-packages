@@ -15,11 +15,16 @@
 // It's expected that the AcirComposer will inject a library which will load the verification key into memory.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 static const char HONK_CONTRACT_OPT_SOURCE[] = R"(
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2022 Aztec
 pragma solidity ^0.8.27;
 
 interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
 }
+
+// SPDX-License-Identifier: Apache-2.0
+
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
 uint256 constant NUMBER_OF_SUBRELATIONS = 28;
@@ -42,6 +47,7 @@ error PAIRING_FAILED();
 error BATCH_ACCUMULATION_FAILED();
 error MODEXP_FAILED();
 error PROOF_POINT_NOT_ON_CURVE();
+
 
 contract HonkVerifier is IVerifier {
 
@@ -1174,27 +1180,21 @@ contract HonkVerifier is IVerifier {
     uint256 internal constant SCALAR_LOCATION = 0xa0;
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         ERRORS                             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
     // TODO: abi
-    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x803bff7c344ff5b16551a5ff428efbfb68dfa832bf946fa306648013bf8fc122;
-    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x7d06dd7faaf5393eff2f5d94a2830a2244117ae191b2ceb4c40f10bb2ee32c7b;
-    uint256 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd263426aa449bcb1812d17b2ee4b2b75c655b0156a285b6b1b7625218054;
-    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0xfef01a9a4184d1d1f572cb06e4887eb53d80ee5f51926a913905fdbfe50c006a;
-    uint256 internal constant MODEXP_FAILED_SELECTOR = 0xf442f1632281d2be46b78bb3acb1f1913a15d6a07f63752701a999716db0ff1c;
-    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x661e012dec6c96ca8837b414041da533bfbba850eceb3a5ad66e998562e76d1e;
+    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x803bff7c;
+    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x7d06dd7fa;
+    uint256 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd2634;
+    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0xfef01a9a4;
+    uint256 internal constant MODEXP_FAILED_SELECTOR = 0xf442f1632;
+    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x661e012dec;
 
+    // TOOD: maybe verify vk points are on curve in constructor
+    constructor() {}
 
-    constructor() {
-        // TODO: verify the points are on the curve in the constructor
-        // vk points
-    }
-
-
-
-    function verify(bytes calldata, bytes32[] calldata) public override returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) public view override returns (bool) {
         // Load the proof from calldata in one large chunk
         assembly {
             // Inline the verification key code here for the meantime
@@ -1585,7 +1585,6 @@ contract HonkVerifier is IVerifier {
                 // Generate Shplonk Z
                 // Hash of the single shplonk Q commitment
                 mcopy(0x20, SHPLONK_Q_X0_LOC, 0x80)
-                log0(0x20, 0x80)
                 prev_challenge := mod(keccak256(0x00, 0xa0), p)
 
                 let shplonkZ := and(prev_challenge, LOWER_128_MASK)
@@ -2818,51 +2817,24 @@ contract HonkVerifier is IVerifier {
 
                     let q_pos_by_scaling := mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p)
 
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    // TODO: I DONT THINK I NEED TO ADD THESE??? redundant += operations - it will be 0?
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
                     mstore(
                         SUBRELATION_EVAL_20_LOC,
-                        addmod(
-                            mload(SUBRELATION_EVAL_20_LOC),
-                            mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p),
-                            p
-                        )
+                        mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
                         SUBRELATION_EVAL_21_LOC,
-                        addmod(
-                            mload(SUBRELATION_EVAL_21_LOC),
-                            mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p),
-                            p
-                        )
+                        mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
                         SUBRELATION_EVAL_22_LOC,
-                        addmod(
-                            mload(SUBRELATION_EVAL_22_LOC),
-                            mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p),
-                            p
-                        )
+                        mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
                         SUBRELATION_EVAL_23_LOC,
-                        addmod(
-                            mload(SUBRELATION_EVAL_23_LOC),
-                            mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p),
-                            p
-                        )
+                        mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p)
                     )
                 }
 
@@ -2923,8 +2895,7 @@ contract HonkVerifier is IVerifier {
                 let sumcheck_valid := eq(accumulator, mload(FINAL_ROUND_TARGET_LOC))
 
                 if iszero(sumcheck_valid) {
-                    // TOOD: errs
-                    mstore(0x00, 0x69696969)
+                    mstore(0x00, SUMCHECK_FAILED_SELECTOR)
                     return(0x00, 0x20)
                 }
             }
@@ -2941,12 +2912,10 @@ contract HonkVerifier is IVerifier {
             let cache := mload(GEMINI_R_CHALLENGE)
             let off := POWERS_OF_EVALUATION_CHALLENGE_0_LOC
             mstore(off, cache)
-            log1(off, 0x20, 100)
             for {let i := 1} lt(i, CONST_PROOF_SIZE_LOG_N) {i := add(i, 1)} {
                 off := add(off, 0x20)
                 cache := mulmod(cache, cache, p)
                 mstore(off, cache)
-                log1(off, 0x20, i)
             }
 
             // Compute Inverted Gemini Denominators
@@ -2964,6 +2933,7 @@ contract HonkVerifier is IVerifier {
             // TODO: unroll - can do in code gen - probably using handlebars???
 
             // In order to compute fold pos evaluations we need
+            // TODO: code generate the 14 - logN - 1 here
             let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_{{ LOG_N_MINUS_ONE }}_LOC
             let pow_off := POWERS_OF_EVALUATION_CHALLENGE_{{ LOG_N_MINUS_ONE }}_LOC
             let sumcheck_u_off := SUM_U_CHALLENGE_{{ LOG_N_MINUS_ONE }}
@@ -3375,28 +3345,62 @@ contract HonkVerifier is IVerifier {
                 y := or(shl(136, y_high), y_low)
             }
 
-            function validateProofPointOnCurve(success_flag, proof_point_memory_location, p_clone, q_clone) -> success_return {
+            function validateProofPointOnCurve(proof_point_memory_location, q_clone) -> success_return {
                 let x, y := writeProofPointOntoStack(proof_point_memory_location)
 
-                let xx := mulmod(x, x, p_clone)
-                let yy := mulmod(y, y, p_clone)
-                let xy := mulmod(x, y, p_clone)
+                let xx := mulmod(x, x, q_clone)
+                let xxx := mulmod(xx, x, q_clone)
+                let yy := mulmod(y, y, q_clone)
 
-                success_return := and(success_flag, iszero(eq(mulmod(y, y, q_clone), addmod(mulmod(x, xx, q_clone), 3, q_clone))))
+                success_return := eq(yy, addmod(xxx, 3, q_clone))
             }
 
             // Validate the proof points are on the curve
             {
                 let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
                 let success_flag := 1
-                success_flag := validateProofPointOnCurve(success_flag, W_L_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, W_R_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, W_O_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_READ_COUNTS_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_READ_TAGS_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, W_4_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, LOOKUP_INVERSES_X0_LOC, p, q)
-                success_flag := validateProofPointOnCurve(success_flag, Z_PERM_X0_LOC, p, q)
+                // Wires
+                success_flag := and(success_flag, validateProofPointOnCurve(W_L_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_R_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_O_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_COUNTS_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_TAGS_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_4_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_INVERSES_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(Z_PERM_X0_LOC, q))
+
+                // Gemini commitments - validate up to log n
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_0_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_1_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_2_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_3_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_4_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_5_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_6_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_7_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_8_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_9_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_10_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_11_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_12_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_13_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_14_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_15_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_16_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_17_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_18_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_19_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_20_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_21_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_22_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_23_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_24_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_25_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_26_X0_LOC, q))
+
+                // Shlponk
+                success_flag := and(success_flag, validateProofPointOnCurve(SHPLONK_Q_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(KZG_QUOTIENT_X0_LOC, q))
 
                 if iszero(success_flag) {
                     mstore(0x00, PROOF_POINT_NOT_ON_CURVE_SELECTOR)

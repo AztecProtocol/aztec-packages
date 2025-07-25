@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.27;
 
-interface IVerifier {
-    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
-}
+import {IVerifier} from "../../interfaces/IVerifier.sol";
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
 uint256 constant NUMBER_OF_SUBRELATIONS = 28;
@@ -1158,24 +1157,21 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant SCALAR_LOCATION = 0xa0;
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         ERRORS                             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
     // TODO: abi
-    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x803bff7c344ff5b16551a5ff428efbfb68dfa832bf946fa306648013bf8fc122;
-    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x7d06dd7faaf5393eff2f5d94a2830a2244117ae191b2ceb4c40f10bb2ee32c7b;
-    uint256 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd263426aa449bcb1812d17b2ee4b2b75c655b0156a285b6b1b7625218054;
-    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0xfef01a9a4184d1d1f572cb06e4887eb53d80ee5f51926a913905fdbfe50c006a;
-    uint256 internal constant MODEXP_FAILED_SELECTOR = 0xf442f1632281d2be46b78bb3acb1f1913a15d6a07f63752701a999716db0ff1c;
-    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x661e012dec6c96ca8837b414041da533bfbba850eceb3a5ad66e998562e76d1e;
+    uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x803bff7c;
+    uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x7d06dd7fa;
+    uint256 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd2634;
+    uint256 internal constant BATCH_ACCUMULATION_FAILED_SELECTOR = 0xfef01a9a4;
+    uint256 internal constant MODEXP_FAILED_SELECTOR = 0xf442f1632;
+    uint256 internal constant PROOF_POINT_NOT_ON_CURVE_SELECTOR = 0x661e012dec;
 
     // TOOD: maybe verify vk points are on curve in constructor
     constructor() {}
 
-    // function loadVerificationKey() internal pure virtual;
-
-    function verify(bytes calldata, bytes32[] calldata) public override returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) public view override returns (bool) {
         // Load the proof from calldata in one large chunk
         assembly {
             // Inline the verification key code here for the meantime
@@ -1186,7 +1182,6 @@ contract BlakeOptHonkVerifier is IVerifier {
             /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
             // Write the verification key into memory
             function loadVk() {
-                // TODO: in the vk GENERATOR swap the location of l and m
                 mstore(Q_L_X_LOC, 0x1dbc2d49981f1318140ca1106a52550e1c079613c92a2b23206d1504cfb2f86b)
                 mstore(Q_L_Y_LOC, 0x04d743fe1aa6c0e790573ff504c0b5068b8d630459835db49d24004e0f010ad3)
                 mstore(Q_R_X_LOC, 0x06d4bd3d2520f2a248394d32ae446f689484f908ddcf272e978d431784e205f1)
@@ -2799,17 +2794,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     let q_pos_by_scaling := mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p)
 
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    // TODO: I DONT THINK I NEED TO ADD THESE??? redundant += operations - it will be 0?
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
-                    ////////////////////////////////////////////////////////////////////////////
                     mstore(
                         SUBRELATION_EVAL_20_LOC,
                         mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p)
@@ -2888,8 +2872,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let sumcheck_valid := eq(accumulator, mload(FINAL_ROUND_TARGET_LOC))
 
                 if iszero(sumcheck_valid) {
-                    // TOOD: errs
-                    mstore(0x00, 0x69696969)
+                    mstore(0x00, SUMCHECK_FAILED_SELECTOR)
                     return(0x00, 0x20)
                 }
             }
