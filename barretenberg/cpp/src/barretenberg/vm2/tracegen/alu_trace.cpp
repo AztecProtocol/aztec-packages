@@ -42,9 +42,9 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_constant_64, 64 },
             { Column::alu_sel_is_u128, is_u128 },
             { Column::alu_tag_u128_diff_inv,
-              is_u128
-                  ? 0
-                  : FF((static_cast<uint8_t>(event.a.get_tag())) - static_cast<uint8_t>(MemoryTag::U128)).invert() },
+              is_u128 ? 0
+                      : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U128)))
+                            .invert() },
         };
         if (is_u128) {
             // For u128s, we decompose a and b into 64 bit chunks:
