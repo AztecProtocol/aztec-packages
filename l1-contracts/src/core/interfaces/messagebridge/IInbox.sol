@@ -2,7 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DataStructures} from "../../libraries/DataStructures.sol";
+import {InboxAnchor, InboxAnchorHash} from "./../../libraries/crypto/InboxAnchorChain.sol";
+import {DataStructures} from "./../../libraries/DataStructures.sol";
 
 /**
  * @title Inbox
@@ -48,27 +49,39 @@ interface IInbox {
   ) external returns (bytes32, uint256);
   // docs:end:send_l1_to_l2_message
 
-  // docs:start:consume
-  /**
-   * @notice Consumes the current tree, and starts a new one if needed
-   * @dev Only callable by the rollup contract
-   * @dev In the first iteration we return empty tree root because first block's messages tree is always
-   * empty because there has to be a 1 block lag to prevent sequencer DOS attacks
-   *
-   * @param _toConsume - The block number to consume
-   *
-   * @return The root of the consumed tree
-   */
-  function consume(uint256 _toConsume) external returns (bytes32);
-  // docs:end:consume
+  function lowerAnchorForcefully() external;
+
+  function consume(InboxAnchor[] memory _chain, uint256 _startBlock, uint256 _endBlock)
+    external
+    view
+    returns (bytes32[] memory);
 
   function getFeeAssetPortal() external view returns (address);
 
   function getRoot(uint256 _blockNumber) external view returns (bytes32);
+
+  function getHeight() external view returns (uint256);
+
+  function getSize() external view returns (uint256);
 
   function getState() external view returns (InboxState memory);
 
   function getTotalMessagesInserted() external view returns (uint64);
 
   function getInProgress() external view returns (uint64);
+
+  function getLastAnchorBlockNumber() external view returns (uint256);
+
+  function hasAnchor(uint256 _blockNumber) external view returns (bool);
+
+  function getAnchorHash(uint256 _blockNumber) external view returns (InboxAnchorHash);
+
+  function isAnchor(uint256 _blockNumber, InboxAnchorHash _anchorHash) external view returns (bool);
+
+  function isAnchor(InboxAnchor memory _anchor) external view returns (bool);
+
+  function getAnchorChain(uint256 _startBlockNumber, uint256 _endBlockNumber)
+    external
+    view
+    returns (InboxAnchor[] memory);
 }

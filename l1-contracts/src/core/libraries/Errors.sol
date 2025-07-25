@@ -25,6 +25,16 @@ library Errors {
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
+  error Inbox__AlreadyPopulated(uint256 blockNumber);
+  error Inbox__CannotLowerAnchorInPast(uint256 blockNumber, uint256 lastAnchorBlockNumber);
+  error Inbox__EmptyAnchorChain();
+  error Inbox__StartBlockGreaterThanEndBlock();
+  error Inbox__EndBlockUnstable(uint256 endBlock, uint256 inProgress);
+  error Inbox__EndBlockNotAnchored(uint256 endBlock);
+  error Inbox__StartBlockNotLocallyAnchored(uint256 startBlock);
+  error Inbox__EndBlockNotLocallyAnchored(uint256 endBlock);
+  error Inbox__InvalidAnchorChain();
+  error Inbox__InvalidAnchorLength(uint256 expected, uint256 actual);
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2

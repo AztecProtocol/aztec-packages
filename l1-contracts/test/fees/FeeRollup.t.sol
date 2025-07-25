@@ -386,11 +386,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         });
 
         {
+          uint256 end = start + epochSize - 1;
           rollup.submitEpochRootProof(
             SubmitEpochRootProofArgs({
               start: start,
-              end: start + epochSize - 1,
+              end: end,
               args: args,
+              anchorChain: rollup.getInbox().getAnchorChain(start, end),
               fees: fees,
               blobInputs: full.block.batchedBlobInputs,
               proof: ""

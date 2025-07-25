@@ -1,6 +1,6 @@
 import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import type { InboxAnchorChain, InboxContract, L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -45,6 +45,7 @@ export class ProverNodePublisher {
   protected log = createLogger('prover-node:l1-tx-publisher');
 
   protected rollupContract: RollupContract;
+  protected inboxContract: InboxContract;
 
   public readonly l1TxUtils: L1TxUtils;
 
@@ -52,6 +53,7 @@ export class ProverNodePublisher {
     config: TxSenderConfig & PublisherConfig,
     deps: {
       rollupContract: RollupContract;
+      inboxContract: InboxContract;
       l1TxUtils: L1TxUtils;
       telemetry?: TelemetryClient;
     },
@@ -63,6 +65,7 @@ export class ProverNodePublisher {
     this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');
 
     this.rollupContract = deps.rollupContract;
+    this.inboxContract = deps.inboxContract;
     this.l1TxUtils = deps.l1TxUtils;
   }
 
@@ -105,7 +108,9 @@ export class ProverNodePublisher {
       // Validate epoch proof range and hashes are correct before submitting
       await this.validateEpochProofSubmission(args);
 
-      const txReceipt = await this.sendSubmitEpochProofTx(args);
+      const anchorChain = await this.getAnchorChain(fromBlock, toBlock);
+
+      const txReceipt = await this.sendSubmitEpochProofTx({ ...args, anchorChain });
       if (!txReceipt) {
         return false;
       }
@@ -142,6 +147,20 @@ export class ProverNodePublisher {
 
     this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
     return false;
+  }
+
+  private async getAnchorChain(fromBlock: number, toBlock: number) {
+    const lastAnchorBlockNumber = await this.inboxContract.getLastAnchorBlockNumber();
+
+    // If the toBlock is larger than the last anchor we cannot create the anchor chain
+    // Therefore we will progress to include the last so both ends are anchored.
+    // Will wait for success
+    if (BigInt(toBlock) > lastAnchorBlockNumber) {
+      this.log.info(`Lowering anchor forcefully to progress from ${lastAnchorBlockNumber}`);
+      await this.inboxContract.lowerAnchorForcefully(this.l1TxUtils);
+    }
+
+    return await this.inboxContract.getAnchorChain(BigInt(fromBlock), BigInt(toBlock));
   }
 
   private async validateEpochProofSubmission(args: {
@@ -207,6 +226,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
+    anchorChain: InboxAnchorChain;
   }): Promise<TransactionReceipt | undefined> {
     const txArgs = [this.getSubmitEpochProofArgs(args)] as const;
 
@@ -271,6 +291,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
+    anchorChain: InboxAnchorChain;
   }) {
     // Returns arguments for EpochProofLib.sol -> submitEpochRootProof()
     const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
@@ -282,6 +303,7 @@ export class ProverNodePublisher {
       fees: argsArray[3],
       blobInputs: argsArray[4],
       proof: proofHex,
+      anchorChain: args.anchorChain,
     };
   }
 

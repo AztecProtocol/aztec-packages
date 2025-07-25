@@ -7,6 +7,7 @@ import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelect
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {
   SignatureLib, Signature, CommitteeAttestations
@@ -78,6 +79,9 @@ library ValidatorSelectionLib {
     if (committeeCommitment == bytes32(0)) {
       address[] memory committee = sampleValidators(_epochNumber, sampleSeed);
       store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(committee);
+
+      // Create a checkpoint in the inbox.
+      STFLib.getStorage().config.inbox.lowerAnchorForcefully();
     }
   }
 

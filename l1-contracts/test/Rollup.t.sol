@@ -13,7 +13,7 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-
+import {InboxAnchor} from "@aztec/core/libraries/crypto/InboxAnchorChain.sol";
 import {
   IRollupCore,
   BlockLog,
@@ -198,7 +198,7 @@ contract RollupTest is RollupBase {
     assertNotEq(rootMixed, bytes32(0), "Invalid root");
 
     rollup.prune();
-    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
+    assertEq(inbox.getInProgress(), 2, "Invalid in progress");
     assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
@@ -482,6 +482,7 @@ contract RollupTest is RollupBase {
     address prover = address(0x1234);
 
     {
+      InboxAnchor[] memory anchorChain = inbox.getAnchorChain(1, 1);
       vm.expectRevert(
         abi.encodeWithSelector(
           IERC20Errors.ERC20InsufficientBalance.selector,
@@ -498,7 +499,8 @@ contract RollupTest is RollupBase {
         data.batchedBlobInputs,
         prover,
         header.coinbase,
-        interim.feeAmount
+        interim.feeAmount,
+        anchorChain
       );
     }
     assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
@@ -519,7 +521,8 @@ contract RollupTest is RollupBase {
         data.batchedBlobInputs,
         address(42),
         header.coinbase,
-        interim.feeAmount
+        interim.feeAmount,
+        inbox.getAnchorChain(1, 1)
       );
 
       {
@@ -631,6 +634,8 @@ contract RollupTest is RollupBase {
 
     bytes memory proof = "";
 
+    InboxAnchor[] memory anchorChain = inbox.getAnchorChain(1, 2);
+
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Rollup__StartAndEndNotSameEpoch.selector, Epoch.wrap(0), Epoch.wrap(1)
@@ -642,6 +647,7 @@ contract RollupTest is RollupBase {
         start: 1,
         end: 2,
         args: args,
+        anchorChain: anchorChain,
         fees: fees,
         blobInputs: data.batchedBlobInputs,
         proof: proof
@@ -660,7 +666,15 @@ contract RollupTest is RollupBase {
 
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid initial proven block number");
     BlockLog memory blockLog = rollup.getBlock(0);
-    _submitEpochProof(1, 2, blockLog.archive, data.archive, data.batchedBlobInputs, address(0));
+    _submitEpochProof(
+      1,
+      2,
+      blockLog.archive,
+      data.archive,
+      data.batchedBlobInputs,
+      address(0),
+      inbox.getAnchorChain(1, 2)
+    );
 
     assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 2, "Invalid proven block number");
@@ -760,12 +774,13 @@ contract RollupTest is RollupBase {
 
     BlockLog memory blockLog = rollup.getBlock(0);
     bytes32 wrong = bytes32(uint256(0xdeadbeef));
+    InboxAnchor[] memory anchorChain = inbox.getAnchorChain(1, 1);
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Rollup__InvalidPreviousArchive.selector, blockLog.archive, wrong
       )
     );
-    _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, address(0));
+    _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, address(0), anchorChain);
   }
 
   function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
@@ -775,10 +790,13 @@ contract RollupTest is RollupBase {
     bytes32 wrongArchive = bytes32(uint256(0xdeadbeef));
 
     BlockLog memory blockLog = rollup.getBlock(0);
+    InboxAnchor[] memory anchorChain = inbox.getAnchorChain(1, 1);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
     );
-    _submitEpochProof(1, 1, blockLog.archive, wrongArchive, data.batchedBlobInputs, address(0));
+    _submitEpochProof(
+      1, 1, blockLog.archive, wrongArchive, data.batchedBlobInputs, address(0), anchorChain
+    );
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -795,8 +813,11 @@ contract RollupTest is RollupBase {
     }
 
     BlockLog memory blockLog = rollup.getBlock(0);
+    InboxAnchor[] memory anchorChain = inbox.getAnchorChain(1, 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHash));
-    _submitEpochProof(1, 1, blockLog.archive, data.archive, blobProofInputs, address(0));
+    _submitEpochProof(
+      1, 1, blockLog.archive, data.archive, blobProofInputs, address(0), anchorChain
+    );
   }
 
   function testTooManyBlocks() public setUpFor("mixed_block_1") {
@@ -808,6 +829,7 @@ contract RollupTest is RollupBase {
       .checked_write(Constants.AZTEC_MAX_EPOCH_DURATION + 2);
 
     BlockLog memory blockLog = rollup.getBlock(0);
+    InboxAnchor[] memory anchorChain = new InboxAnchor[](1);
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Rollup__TooManyBlocksInEpoch.selector,
@@ -821,7 +843,8 @@ contract RollupTest is RollupBase {
       blockLog.archive,
       data.archive,
       data.batchedBlobInputs,
-      address(0)
+      address(0),
+      anchorChain
     );
   }
 
@@ -831,10 +854,11 @@ contract RollupTest is RollupBase {
     bytes32 _prevArchive,
     bytes32 _archive,
     bytes memory _blobInputs,
-    address _prover
+    address _prover,
+    InboxAnchor[] memory _anchorChain
   ) internal {
     _submitEpochProofWithFee(
-      _start, _end, _prevArchive, _archive, _blobInputs, _prover, address(0), 0
+      _start, _end, _prevArchive, _archive, _blobInputs, _prover, address(0), 0, _anchorChain
     );
   }
 
@@ -846,7 +870,8 @@ contract RollupTest is RollupBase {
     bytes memory _blobInputs,
     address _prover,
     address _coinbase,
-    uint256 _fee
+    uint256 _fee,
+    InboxAnchor[] memory _anchorChain
   ) internal {
     PublicInputArgs memory args =
       PublicInputArgs({previousArchive: _prevArchive, endArchive: _archive, proverId: _prover});
@@ -860,6 +885,7 @@ contract RollupTest is RollupBase {
         start: _start,
         end: _end,
         args: args,
+        anchorChain: _anchorChain,
         fees: fees,
         blobInputs: _blobInputs,
         proof: ""

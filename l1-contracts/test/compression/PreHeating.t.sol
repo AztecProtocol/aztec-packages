@@ -274,6 +274,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
               start: start,
               end: start + epochSize - 1,
               args: args,
+              anchorChain: rollup.getInbox().getAnchorChain(start, start + epochSize - 1),
               fees: fees,
               blobInputs: full.block.batchedBlobInputs,
               proof: ""

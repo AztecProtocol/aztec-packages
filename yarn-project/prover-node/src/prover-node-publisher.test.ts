@@ -1,5 +1,5 @@
 import { BatchedBlob } from '@aztec/blob-lib';
-import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import type { InboxContract, L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -14,6 +14,7 @@ import { ProverNodePublisher } from './prover-node-publisher.js';
 describe('prover-node-publisher', () => {
   // Prover publisher dependencies
   let rollup: MockProxy<RollupContract>;
+  let inbox: MockProxy<InboxContract>;
   let l1Utils: MockProxy<L1TxUtils>;
 
   let publisher: ProverNodePublisher;
@@ -22,6 +23,7 @@ describe('prover-node-publisher', () => {
 
   beforeEach(() => {
     rollup = mock<RollupContract>();
+    inbox = mock<InboxContract>();
     l1Utils = mock<L1TxUtils>();
 
     config = {
@@ -48,7 +50,11 @@ describe('prover-node-publisher', () => {
   });
 
   beforeEach(() => {
-    publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
+    publisher = new ProverNodePublisher(config, {
+      rollupContract: rollup,
+      inboxContract: inbox,
+      l1TxUtils: l1Utils,
+    });
   });
 
   const testCases = [
@@ -118,15 +124,63 @@ describe('prover-node-publisher', () => {
       toBlock: 40,
       expectedPublish: true,
     },
+
+    // We create a case that will need to lower the anchor forcefully to ensure it will do so
+    {
+      pendingBlockNumber: 65n,
+      provenBlockNumber: 32n,
+      fromBlock: 33,
+      toBlock: 64,
+      expectedPublish: true,
+      message: '',
+      mustLowerAnchor: true,
+    },
   ];
 
   test.each(testCases)(
     'submits proof for epoch with pendingBlock: $pendingBlockNumber, provenBlock: $provenBlockNumber, fromBlock: $fromBlock, toBlock: $toBlock',
-    async ({ pendingBlockNumber, provenBlockNumber, fromBlock, toBlock, expectedPublish, message }) => {
+    async ({
+      pendingBlockNumber,
+      provenBlockNumber,
+      fromBlock,
+      toBlock,
+      expectedPublish,
+      message,
+      mustLowerAnchor,
+    }) => {
       // Create public inputs for every block
       const blocks = Array.from({ length: 100 }, () => {
         return RootRollupPublicInputs.random();
       });
+
+      inbox.getLastAnchorBlockNumber.mockResolvedValue(mustLowerAnchor ? BigInt(toBlock - 1) : pendingBlockNumber);
+
+      if (mustLowerAnchor) {
+        inbox.lowerAnchorForcefully.mockResolvedValue({
+          receipt: {
+            transactionHash: '0x',
+            status: 'success',
+            blockHash: '0x',
+            blockNumber: 0n,
+            contractAddress: '0x',
+            cumulativeGasUsed: 0n,
+            gasUsed: 0n,
+            logs: [],
+            logsBloom: '0x',
+            transactionIndex: 0,
+            from: '0x',
+            to: '0x',
+            type: '0x',
+            effectiveGasPrice: 0n,
+          },
+          gasPrice: {
+            maxFeePerGas: 0n,
+            maxPriorityFeePerGas: 0n,
+          },
+        });
+      }
+
+      inbox.getAnchorChain.mockResolvedValue([]);
 
       // Return the tips specified by the test
       rollup.getTips.mockResolvedValue({
@@ -140,6 +194,7 @@ describe('prover-node-publisher', () => {
           archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
           headerHash: '0x', // unused,
           blobCommitmentsHash: '0x', // unused,
+          inHash: '0x', // unused,
           slotNumber: 0n, // unused,
           feeHeader: {
             excessMana: 0n, // unused
@@ -187,6 +242,12 @@ describe('prover-node-publisher', () => {
       } else {
         expect(result).toBe(message);
         expect(l1Utils.sendAndMonitorTransaction).not.toHaveBeenCalled();
+      }
+
+      if (mustLowerAnchor) {
+        expect(inbox.lowerAnchorForcefully).toHaveBeenCalled();
+      } else {
+        expect(inbox.lowerAnchorForcefully).not.toHaveBeenCalled();
       }
     },
   );

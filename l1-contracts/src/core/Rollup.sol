@@ -363,6 +363,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
     return BlockLog({
       archive: rollupStore.archives[_blockNumber],
+      inHash: tempBlockLog.inHash,
       headerHash: tempBlockLog.headerHash,
       blobCommitmentsHash: tempBlockLog.blobCommitmentsHash,
       slotNumber: tempBlockLog.slotNumber,

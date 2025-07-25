@@ -2,11 +2,12 @@ import { Buffer16 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { InboxAbi } from '@aztec/l1-artifacts/InboxAbi';
 
-import { type BlockTag, type GetContractReturnType, type Hex, getContract } from 'viem';
+import { type BlockTag, type GetContractReturnType, type Hex, encodeFunctionData, getContract } from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
+import type { L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { checkBlockTag } from './utils.js';
 
@@ -54,6 +55,29 @@ export class InboxContract {
       treeInProgress: state.inProgress,
     };
   }
+
+  public async getLastAnchorBlockNumber(): Promise<bigint> {
+    return await this.inbox.read.getLastAnchorBlockNumber();
+  }
+
+  public lowerAnchorForcefully(l1TxUtils: L1TxUtils) {
+    return l1TxUtils.sendAndMonitorTransaction({
+      to: this.address,
+      data: encodeFunctionData({
+        abi: InboxAbi,
+        functionName: 'lowerAnchorForcefully',
+      }),
+    });
+  }
+
+  public async getAnchorChain(startBlockNumber: bigint, endBlockNumber: bigint): Promise<InboxAnchorChain> {
+    const anchorChain = await this.inbox.read.getAnchorChain([startBlockNumber, endBlockNumber]);
+    return anchorChain.map(anchor => ({
+      blockNumber: anchor.blockNumber,
+      parent: anchor.parent,
+      root: anchor.root,
+    }));
+  }
 }
 
 export type InboxContractState = {
@@ -61,3 +85,11 @@ export type InboxContractState = {
   messagesRollingHash: Buffer16;
   treeInProgress: bigint;
 };
+
+export type InboxAnchor = {
+  root: Hex;
+  blockNumber: bigint;
+  parent: Hex;
+};
+
+export type InboxAnchorChain = InboxAnchor[];
