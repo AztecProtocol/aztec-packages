@@ -21,10 +21,16 @@ TEST_F(SpecialPublicInputsTests, Basic)
     using G1Native = Curve::GroupNative::affine_element;
     using FFNative = Curve::ScalarFieldNative;
 
+    static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
+
     G1Native P0_val = G1Native::random_element();
     G1Native P1_val = G1Native::random_element();
     G1Native kernel_return_data_val = G1Native::random_element();
     G1Native app_return_data_val = G1Native::random_element();
+    std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
+    for (auto& commitment : ecc_op_tables_val) {
+        commitment = G1Native::random_element();
+    }
 
     // Store the public inputs of the first circuit to be used by the second
     std::vector<FFNative> public_inputs;
@@ -39,6 +45,9 @@ TEST_F(SpecialPublicInputsTests, Basic)
         kernel_output.pairing_inputs = pairing_inputs;
         kernel_output.kernel_return_data = G1::from_witness(&builder, kernel_return_data_val);
         kernel_output.app_return_data = G1::from_witness(&builder, app_return_data_val);
+        for (auto [table_commitment, table_val] : zip_view(kernel_output.ecc_op_tables, ecc_op_tables_val)) {
+            table_commitment = G1::from_witness(&builder, table_val);
+        }
 
         // Propagate the kernel output via the public inputs
         kernel_output.set_public();
@@ -67,6 +76,9 @@ TEST_F(SpecialPublicInputsTests, Basic)
         EXPECT_EQ(kernel_input.pairing_inputs.P1.get_value(), P1_val);
         EXPECT_EQ(kernel_input.kernel_return_data.get_value(), kernel_return_data_val);
         EXPECT_EQ(kernel_input.app_return_data.get_value(), app_return_data_val);
+        for (auto [reconstructed_commitment, commitment] : zip_view(kernel_input.ecc_op_tables, ecc_op_tables_val)) {
+            EXPECT_EQ(reconstructed_commitment.get_value(), commitment);
+        }
     }
 }
 
@@ -265,13 +277,11 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
 
         // Set the output values
         PairingInputs pairing_inputs{ G1::from_witness(&builder, P0_val), G1::from_witness(&builder, P1_val) };
-        std::array<G1, NUM_WIRES> ecc_op_tables;
-        for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-            ecc_op_tables[idx] = G1::from_witness(&builder, ecc_op_tables_val[idx]);
-        }
-
         hiding_output.pairing_inputs = pairing_inputs;
-        hiding_output.ecc_op_tables = ecc_op_tables;
+
+        for (auto [table_commitment, table_val] : zip_view(hiding_output.ecc_op_tables, ecc_op_tables_val)) {
+            table_commitment = G1::from_witness(&builder, table_val);
+        }
 
         // Propagate the kernel output via the public inputs
         hiding_output.set_public();

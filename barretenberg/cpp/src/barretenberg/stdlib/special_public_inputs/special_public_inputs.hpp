@@ -39,12 +39,13 @@ class KernelIO {
     PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
     G1 kernel_return_data;        // Commitment to the return data of a kernel circuit
     G1 app_return_data;           // Commitment to the return data of an app circuit
-    // G1 ecc_op_table;
+    std::array<G1, Builder::NUM_WIRES>
+        ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
     // FF pg_acc_hash;
 
     // Total size of the kernel IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE +
+                                                 G1::PUBLIC_INPUTS_SIZE + Builder::NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -62,8 +63,10 @@ class KernelIO {
         index += G1::PUBLIC_INPUTS_SIZE;
         app_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
-        // ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
-        // index += G1::PUBLIC_INPUTS_SIZE;
+        for (auto& table_commitment : ecc_op_tables) {
+            table_commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
         // pg_acc_hash = FF::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
@@ -76,7 +79,9 @@ class KernelIO {
         pairing_inputs.set_public();
         kernel_return_data.set_public();
         app_return_data.set_public();
-        // ecc_op_table.set_public();
+        for (auto& table_commitment : ecc_op_tables) {
+            table_commitment.set_public();
+        }
         // pg_acc_hash.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
