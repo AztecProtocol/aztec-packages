@@ -31,15 +31,16 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
     auto calldata_hash = FF::random_element();
 
     simulation::TxStartupEvent startup_event = {
-        .tx_gas_limit = { 1000, 2000 },
-        .private_gas_used = { 500, 1000 },
-        .tree_state = {},
+        .state = { .gas_used = { 500, 1000 },
+                   .gas_limit = { 1000, 2000 },
+                   .tree_states = {},
+                   .written_public_data_slots_tree_snapshot = {} },
     };
 
     simulation::TxPhaseEvent tx_event = {
         .phase = TransactionPhase::SETUP,
-        .prev_tree_state = {},
-        .next_tree_state = {},
+        .state_before = {},
+        .state_after = {},
         .reverted = false,
         .event =
             simulation::EnqueuedCallEvent{
@@ -47,9 +48,6 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
                 .contract_address = contract_address,
                 .is_static = false,
                 .calldata_hash = calldata_hash,
-                .prev_gas_used = {},
-                .gas_used = {},
-                .gas_limit = {},
                 .success = true,
             },
     };
@@ -103,14 +101,15 @@ TEST(TxTraceGenTest, CollectFeeEvent)
     auto fee = effective_fee_per_da_gas * prev_da_gas_used + effective_fee_per_l2_gas * prev_l2_gas_used;
 
     simulation::TxStartupEvent startup_event = {
-        .tx_gas_limit = { 1000, 2000 },
-        .private_gas_used = { 500, 1000 },
-        .tree_state = {},
+        .state = { .gas_used = { 500, 1000 },
+                   .gas_limit = { 1000, 2000 },
+                   .tree_states = {},
+                   .written_public_data_slots_tree_snapshot = {} },
     };
 
     simulation::TxPhaseEvent tx_event = { .phase = TransactionPhase::COLLECT_GAS_FEES,
-                                          .prev_tree_state = {},
-                                          .next_tree_state = {},
+                                          .state_before = {},
+                                          .state_after = {},
                                           .reverted = false,
                                           .event = simulation::CollectGasFeeEvent{
                                               .effective_fee_per_da_gas =
