@@ -67,9 +67,9 @@ class GoblinRecursiveVerifier {
         , transcript(transcript){};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&, const TableCommitments& t_commitments);
+        const GoblinProof&, const TableCommitments& t_commitments, const TableCommitments& T_prev_commitments);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibProof&, const TableCommitments& t_commitments);
+        const StdlibProof&, const TableCommitments& t_commitments, const TableCommitments& T_prev_commitments);
 
   private:
     Builder* builder;
