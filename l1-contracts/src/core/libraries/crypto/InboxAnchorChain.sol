@@ -62,11 +62,13 @@ library InboxAnchorLib {
  *          such that the intermediate values need not be published at all, N reads became 2 reads + some hashing or circuit work.
  *
  *          Say for example that you were given elements N-2, N-1, N, N+1; then you can "in memory" compute:
- *          Element N-2: hash(Content N-2, hash(element N-3)) // where `hash(element N-3)` is already in storage so match that
+ *          Element N-2: hash(Content N-2, hash(element N-3)) // where `hash(element N-3)` will also be in storage (implicitly checked later)
  *          Element N-1: hash(Content N-1, hash(element N-2)) // where element N-2 were something we provided
  *          Element N: hash(Content N, hash(element N-1))     // where element N-1 were something we provided
  *          Element N+1: hash(Content N+1, hash(element N))   // where element N were something we provided and
  *                                                            // the output `hash(element N+1)` is already in storage to match
+ *                                                            // Due to the hashing structure, `hash(element N+1) will only match
+ *                                                            // if the correct `hash(element N-3)` was used at the start.
  *
  * @dev     Each of these checkpoint values (element hashes) are referred to as an `anchor` (its a trust anchor).
  */
@@ -188,10 +190,6 @@ library InboxAnchorChainLib {
       == InboxAnchorHash.unwrap(_anchorHash);
   }
 
-  // We want to be able to open from one anchor, all the way back to the first anchor at or before our target.
-  // This is to show that all in our "span" is correct. We do this "before" because we need to support that
-  // blocks without any anchors exists (this is the case if there were no messages in the block after it).
-
   /**
    * @notice    Validate that a chain of anchors create a valid anchored hash-chain
    *
@@ -209,13 +207,7 @@ library InboxAnchorChainLib {
     view
     returns (bool)
   {
-    // @todo    It is possible to optimise slightly by computing the hash of the anchor first such that it can be reused in the
-    //          first update to the current anchor.
     InboxAnchor memory currentAnchor = _chain[0];
-
-    if (!isAnchor(self, currentAnchor)) {
-      return false;
-    }
 
     for (uint256 i = 1; i < _chain.length; i++) {
       InboxAnchor memory nextAnchor = _chain[i];

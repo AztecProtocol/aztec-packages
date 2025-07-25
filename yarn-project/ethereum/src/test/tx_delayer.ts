@@ -72,6 +72,8 @@ export interface Delayer {
   pauseNextTxUntilTimestamp(l1Timestamp: number | bigint | undefined): void;
   /** Delays the next tx to be sent indefinitely. */
   cancelNextTx(): void;
+  /** Delays the next tx to be sent by the given number of seconds. */
+  delayBy(seconds: number | bigint): void;
   /**
    * Sets max inclusion time into slot. If more than this many seconds have passed
    * since the last L1 block was mined, then any tx will not be mined in the current
@@ -91,7 +93,12 @@ class DelayerImpl implements Delayer {
 
   public maxInclusionTimeIntoSlot: number | undefined = undefined;
   public ethereumSlotDuration: bigint;
-  public nextWait: { l1Timestamp: bigint } | { l1BlockNumber: bigint } | { indefinitely: true } | undefined = undefined;
+  public nextWait:
+    | { l1Timestamp: bigint }
+    | { l1BlockNumber: bigint }
+    | { indefinitely: true }
+    | { delay: bigint }
+    | undefined = undefined;
   public sentTxHashes: Hex[] = [];
   public cancelledTxs: Hex[] = [];
 
@@ -109,6 +116,10 @@ class DelayerImpl implements Delayer {
 
   pauseNextTxUntilTimestamp(l1Timestamp: number | bigint) {
     this.nextWait = { l1Timestamp: BigInt(l1Timestamp) };
+  }
+
+  delayBy(seconds: number | bigint) {
+    this.nextWait = { delay: BigInt(seconds) };
   }
 
   cancelNextTx() {
@@ -175,7 +186,9 @@ export function withDelayer<T extends ViemClient>(
               ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger)
               : 'l1Timestamp' in waitUntil
                 ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
-                : undefined;
+                : 'delay' in waitUntil
+                  ? waitUntilL1Timestamp(publicClient, BigInt(delayer.dateProvider.now()) + waitUntil.delay, logger)
+                  : undefined;
 
           logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
             argsLen: args.length,

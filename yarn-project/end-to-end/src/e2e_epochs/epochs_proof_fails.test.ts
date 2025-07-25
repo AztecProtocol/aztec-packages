@@ -58,7 +58,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
 
-    // We abuse that the blok can land early and that inbox hashes are prepared ahead of time
+    // We abuse that the block can land early and that inbox hashes are prepared ahead of time
     // to lower the anchor as soon as possible
     await test.waitUntilL2BlockNumber(1);
     await inbox.lowerAnchorForcefully(l1TxUtils);
