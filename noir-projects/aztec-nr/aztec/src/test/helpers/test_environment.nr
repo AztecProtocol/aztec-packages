@@ -341,28 +341,12 @@ impl TestEnvironment {
         test_account.address
     }
 
-    /// Prepares a contract deployment, so that its private, public and utility functions can be called. In order to
-    /// finalize the deployment, the proper initializer function must be specified via one of the associated methods.
+    /// Prepares a contract for deployment, so that its private, public and utility functions can be called. The
+    /// contract **must be already compiled** before tests are run, and **must be recompiled if changed** for the tests
+    /// to deploy the updated version.
     ///
-    /// ### Initialization
-    /// If no initializer function needs to be called, use `without_initializer`:
-    /// ```noir
-    /// let my_contract = TestEnvironment::new().deploy("MyContract").without_initializer;
-    /// ```
-    ///
-    /// For private initializers, use `with_private_initializer`:
-    /// ```noir
-    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_private_initializer(
-    ///   PrivateInitContract::interface().private_init_fn(init_args)
-    /// );
-    /// ```
-    ///
-    /// For public initializers, use `with_public_initializer`:
-    /// ```noir
-    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_public_initializer(
-    ///   PublicInitContract::interface().public_init_fn(init_args)
-    /// );
-    /// ```
+    /// In order to finalize the deployment, the proper initializer function must be specified via one of the associated
+    /// methods. For more information on how to specify the path and initialization, read the sections below.
     ///
     /// ### Path
     /// Contracts can be deployed from either the same crate as the test, from a different crate in the same workspace,
@@ -382,6 +366,26 @@ impl TestEnvironment {
     /// relative to the current workspace:
     /// ```noir
     /// TestEnvironment::new().deploy("../my_other_crate/MyContract");
+    /// ```
+    ///
+    /// ### Initialization
+    /// If no initializer function needs to be called, use `without_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").without_initializer;
+    /// ```
+    ///
+    /// For private initializers, use `with_private_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_private_initializer(
+    ///   PrivateInitContract::interface().private_init_fn(init_args)
+    /// );
+    /// ```
+    ///
+    /// For public initializers, use `with_public_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_public_initializer(
+    ///   PublicInitContract::interface().public_init_fn(init_args)
+    /// );
     /// ```
     pub unconstrained fn deploy<let N: u32>(&mut self, path: str<N>) -> ContractDeployment<N> {
         ContractDeployment { env: *self, path, secret: self.contract_deployment_secret.next() }
