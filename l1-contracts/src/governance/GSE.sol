@@ -255,7 +255,7 @@ contract GSECore is IGSECore, Ownable {
    *
    * @dev Transfers STAKING_ASSET from msg.sender to the GSE, and then into Governance.
    *
-   * @dev if _onBonus is true, then msg.sender must be the latest rollup.
+   * @dev if _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
    *
    * @dev The same attester may deposit on multiple *instances*, so long as the invariant described
    * above BONUS_INSTANCE_ADDRESS holds.
@@ -263,16 +263,16 @@ contract GSECore is IGSECore, Ownable {
    * E.g. Suppose the registered rollups are A, then B, then C, so C's effective attesters are
    * those associated with C and the bonus address.
    *
-   * Alice may come along now and deposit on A, and B, with _onBonus=false in both cases.
+   * Alice may come along now and deposit on A, and B, with _moveWithLatestRollup=false in both cases.
    *
-   * For depositing into C, she can deposit *either* with _onBonus = true OR false.
-   * If she deposits with _onBonus = false, then she is associated with C's address.
-   * If she deposits with _onBonus = true, then she is associated with the bonus address.
+   * For depositing into C, she can deposit *either* with _moveWithLatestRollup = true OR false.
+   * If she deposits with _moveWithLatestRollup = false, then she is associated with C's address.
+   * If she deposits with _moveWithLatestRollup = true, then she is associated with the bonus address.
    *
-   * Suppose she deposits with _onBonus = true, and a new rollup D is added to the rollups.
+   * Suppose she deposits with _moveWithLatestRollup = true, and a new rollup D is added to the rollups.
    *
    * Now she cannot deposit through D AT ALL, since she is already in D's effective attesters.
-   * But she CAN go back and deposit directly into C, with _onBonus = false.
+   * But she CAN go back and deposit directly into C, with _moveWithLatestRollup = false.
    *
    * @param _attester     - The attester address of the attester
    * @param _withdrawer   - The withdrawer address of the attester
@@ -285,7 +285,7 @@ contract GSECore is IGSECore, Ownable {
   {
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
-    // If _onBonus is true, then msg.sender must be the latest rollup.
+    // If _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
     require(
       !_moveWithLatestRollup || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender)
     );
@@ -302,7 +302,7 @@ contract GSECore is IGSECore, Ownable {
     );
 
     // Set the recipient instance address, i.e. the one that will receive the attester.
-    // From above, we know that if we are here, and _onBonus is true,
+    // From above, we know that if we are here, and _moveWithLatestRollup is true,
     // then msg.sender is the latest instance,
     // but the user is targeting the bonus address.
     // Otherwise, we use the msg.sender, which we know is a registered rollup
