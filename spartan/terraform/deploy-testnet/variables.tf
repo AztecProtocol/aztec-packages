@@ -38,7 +38,6 @@ variable "METRICS_NAMESPACE" {
   type        = string
   default     = "metrics"
 }
-
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string
@@ -49,6 +48,12 @@ variable "ARCHIVE_NODE_VALUES" {
   description = "The values file to apply"
   type        = string
   default     = "testnet-archive-node.yaml"
+}
+
+variable "BOT_VALUES" {
+  description = "The values file to apply"
+  type        = string
+  default     = "testnet-bot.yaml"
 }
 
 variable "PROVER_VALUES" {
