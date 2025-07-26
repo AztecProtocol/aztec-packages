@@ -163,6 +163,7 @@ function start_test_env {
   dump_fail "spartan/bootstrap.sh start_env" &
   spartan_pid=$!
 
+  txe_pids=""
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -178,11 +179,15 @@ function start_test_env {
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
+      local port=$((45730 + i))
+      echo "Checking TXE server $i on port $port..."
+      while ! nc -z 127.0.0.1 $port &>/dev/null; do
+        [ $j == 60 ] && echo_stderr "TXE $i on port $port took too long to start. Exiting." && exit 1
+        echo -n "."
         sleep 1
         j=$((j+1))
       done
+      echo " TXE $i started successfully on port $port."
   done
 
   echo "Waiting for spartan environment to complete setup..."
