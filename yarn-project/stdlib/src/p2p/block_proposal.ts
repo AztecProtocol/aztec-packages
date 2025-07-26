@@ -63,10 +63,6 @@ export class BlockProposal extends Gossipable {
     return Promise.resolve(new BlockProposalHash(keccak256(this.signature.toBuffer())));
   }
 
-  get archive(): Fr {
-    return this.payload.archive;
-  }
-
   get slotNumber(): Fr {
     return this.payload.header.slotNumber;
   }
@@ -75,7 +71,7 @@ export class BlockProposal extends Gossipable {
     return {
       blockNumber: this.blockNumber,
       slotNumber: this.slotNumber.toNumber(),
-      archive: this.archive.toString(),
+      headerHash: this.payload.header.hash().toString(),
       txCount: this.txHashes.length,
     };
   }

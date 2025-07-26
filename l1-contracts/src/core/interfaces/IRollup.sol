@@ -92,7 +92,10 @@ struct RollupStore {
 
 interface IRollupCore {
   event L2BlockProposed(
-    uint256 indexed blockNumber, bytes32 indexed headerHash, bytes32[] versionedBlobHashes
+    uint256 indexed blockNumber,
+    bytes32 indexed headerHash,
+    bytes32 indexed parentHeaderHash,
+    bytes32[] versionedBlobHashes
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event RewardConfigUpdated(RewardConfig rewardConfig);
@@ -137,7 +140,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     BlockHeaderValidationFlags memory _flags
   ) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
+  function canProposeAtTime(Timestamp _ts, bytes32 _headerHash) external returns (Slot, uint256);
 
   function getTips() external view returns (ChainTips memory);
 
@@ -148,10 +151,14 @@ interface IRollup is IRollupCore, IHaveVersion {
       uint256 provenBlockNumber,
       bytes32 provenArchive,
       uint256 pendingBlockNumber,
-      bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock,
+      bytes32 pendingHeaderHash,
+      bytes32 headerHashOfMyBlock,
+      // bytes32 pendingArchive,
+      // bytes32 archiveOfMyBlock,
       Epoch provenEpochNumber
     );
+
+  function isBlockHeaderHashStale(uint256 _blockNumber) external view returns (bool);
 
   function getEpochProofPublicInputs(
     uint256 _start,

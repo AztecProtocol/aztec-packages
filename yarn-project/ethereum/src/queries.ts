@@ -89,7 +89,7 @@ export async function getL1ContractsConfig(
 
 export type L2BlockProposedEvent = {
   versionedBlobHashes: readonly Hex[];
-  archive: Hex;
+  headerHash: Hex;
   blockNumber: bigint;
 };
 

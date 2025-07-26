@@ -186,18 +186,13 @@ describe('p2p client integration', () => {
     const dummyPayload: MakeConsensusPayloadOptions = {
       signer: Secp256k1Signer.random(),
       header: makeHeader(),
-      archive: Fr.random(),
       txHashes: [TxHash.random()],
     };
     const blockProposal = makeBlockProposal(dummyPayload);
     await client1.broadcastProposal(blockProposal);
 
     // client 1 sends an attestation
-    const attestation = mockAttestation(
-      Secp256k1Signer.random(),
-      Number(dummyPayload.header!.getSlot()),
-      dummyPayload.archive,
-    );
+    const attestation = mockAttestation(Secp256k1Signer.random(), Number(dummyPayload.header!.getSlot()));
     await (client1 as any).p2pService.broadcastAttestation(attestation);
 
     // Clients 2 and 3 should receive all messages
@@ -588,18 +583,13 @@ describe('p2p client integration', () => {
         const dummyPayload: MakeConsensusPayloadOptions = {
           signer: Secp256k1Signer.random(),
           header: makeHeader(),
-          archive: Fr.random(),
           txHashes: [TxHash.random()],
         };
         const blockProposal = makeBlockProposal(dummyPayload);
         await client1.client.broadcastProposal(blockProposal);
 
         // client 1 sends an attestation
-        const attestation = mockAttestation(
-          Secp256k1Signer.random(),
-          Number(dummyPayload.header!.getSlot()),
-          dummyPayload.archive,
-        );
+        const attestation = mockAttestation(Secp256k1Signer.random(), Number(dummyPayload.header!.getSlot()));
         await (client1.client as any).p2pService.broadcastAttestation(attestation);
 
         // Only client 2 should receive the messages
@@ -785,7 +775,6 @@ describe('p2p client integration', () => {
       return makeBlockProposal({
         signer: Secp256k1Signer.random(),
         header: makeHeader(1, blockNumber),
-        archive: blockHash,
         txHashes,
       });
     };

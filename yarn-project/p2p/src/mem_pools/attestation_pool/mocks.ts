@@ -1,5 +1,4 @@
 import type { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,
   ConsensusPayload,
@@ -26,14 +25,10 @@ export const generateAccount = (): LocalAccount => {
  * @param slot The slot number the attestation is for
  * @returns A Block Attestation
  */
-export const mockAttestation = (
-  signer: Secp256k1Signer,
-  slot: number = 0,
-  archive: Fr = Fr.random(),
-): BlockAttestation => {
+export const mockAttestation = (signer: Secp256k1Signer, slot: number = 0): BlockAttestation => {
   // Use arbitrary numbers for all other than slot
   const header = makeHeader(1, 2, slot);
-  const payload = new ConsensusPayload(header.toPropose(), archive, header.state);
+  const payload = new ConsensusPayload(header.toPropose(), header.state);
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
   const signature = signer.sign(hash);

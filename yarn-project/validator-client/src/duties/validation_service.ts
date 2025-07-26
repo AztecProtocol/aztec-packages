@@ -49,7 +49,8 @@ export class ValidationService {
 
     return BlockProposal.createProposalFromSigner(
       blockNumber,
-      new ConsensusPayload(header, archive, stateReference),
+      archive,
+      new ConsensusPayload(header, stateReference),
       txHashes,
       options.publishFullTxs ? txs : undefined,
       payloadSigner,

@@ -162,7 +162,9 @@ library ProposeLib {
 
     rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
 
-    emit IRollupCore.L2BlockProposed(blockNumber, v.headerHash, v.blobHashes);
+    bytes32 parentHeaderHash = STFLib.getHeaderHash(blockNumber - 1);
+
+    emit IRollupCore.L2BlockProposed(blockNumber, v.headerHash, parentHeaderHash, v.blobHashes);
   }
 
   // @note: not view as sampling validators uses tstore

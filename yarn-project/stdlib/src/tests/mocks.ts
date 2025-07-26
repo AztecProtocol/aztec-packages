@@ -255,11 +255,10 @@ const makeAndSignConsensusPayload = (
   options?: MakeConsensusPayloadOptions,
 ) => {
   const header = options?.header ?? makeHeader(1);
-  const { signer = Secp256k1Signer.random(), archive = Fr.random(), stateReference = header.state } = options ?? {};
+  const { signer = Secp256k1Signer.random(), stateReference = header.state } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
     header: header.toPropose(),
-    archive,
     stateReference,
   });
 
@@ -304,7 +303,6 @@ export async function randomPublishedL2Block(
       makeBlockAttestation({
         signer,
         header: block.header,
-        archive: block.archive.root,
         stateReference: block.header.state,
         txHashes: block.body.txEffects.map(tx => tx.txHash),
       }),

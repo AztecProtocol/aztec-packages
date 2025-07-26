@@ -185,11 +185,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
-    external
-    override(IRollup)
-    returns (Slot, uint256)
-  {
+  function canProposeAtTime_old(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256) {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -202,6 +198,41 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
     bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
+
+    address proposer = ExtRollupLib2.getProposerAt(slot);
+    require(
+      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
+    );
+
+    return (slot, pendingBlockNumber + 1);
+  }
+
+  /**
+   * @notice  Check if msg.sender can propose at a given time
+   *
+   * @param _ts - The timestamp to check
+   * @param _headerHash - The header hash to check
+   *
+   * @return uint256 - The slot at the given timestamp
+   * @return uint256 - The block number at the given timestamp
+   */
+  function canProposeAtTime(Timestamp _ts, bytes32 _headerHash)
+    external
+    override(IRollup)
+    returns (Slot, uint256)
+  {
+    Slot slot = _ts.slotFromTimestamp();
+
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
+    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
+
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+
+    // Use the header hash of the pending block as the check
+    bytes32 tipHeaderHash = STFLib.getHeaderHash(pendingBlockNumber);
+    require(
+      tipHeaderHash == _headerHash, Errors.Rollup__InvalidHeaderHash(tipHeaderHash, _headerHash)
+    );
 
     address proposer = ExtRollupLib2.getProposerAt(slot);
     require(
@@ -275,8 +306,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       uint256 provenBlockNumber,
       bytes32 provenArchive,
       uint256 pendingBlockNumber,
-      bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock,
+      bytes32 pendingHeaderHash,
+      bytes32 headerHashOfMyBlock,
+      // bytes32 pendingArchive,
+      // bytes32 archiveOfMyBlock,
       Epoch provenEpochNumber
     )
   {
@@ -285,12 +318,24 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
     return (
       tips.provenBlockNumber,
+      // Archive for proven block should be populated
       rollupStore.archives[tips.provenBlockNumber],
       tips.pendingBlockNumber,
-      rollupStore.archives[tips.pendingBlockNumber],
-      archiveAt(_myHeaderBlockNumber),
+      STFLib.getHeaderHash(tips.pendingBlockNumber),
+      STFLib.getHeaderHash(_myHeaderBlockNumber),
+      // rollupStore.archives[tips.pendingBlockNumber],
+      // archiveAt(_myHeaderBlockNumber),
       getEpochForBlock(tips.provenBlockNumber)
     );
+  }
+
+  function isBlockHeaderHashStale(uint256 _blockNumber)
+    external
+    view
+    override(IRollup)
+    returns (bool)
+  {
+    return STFLib.isTempStale(_blockNumber);
   }
 
   /**

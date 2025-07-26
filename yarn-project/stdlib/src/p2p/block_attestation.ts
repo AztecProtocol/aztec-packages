@@ -58,10 +58,6 @@ export class BlockAttestation extends Gossipable {
     return Promise.resolve(new BlockAttestationHash(keccak256(this.signature.toBuffer())));
   }
 
-  get archive(): Fr {
-    return this.payload.archive;
-  }
-
   get slotNumber(): Fr {
     return this.payload.header.slotNumber;
   }

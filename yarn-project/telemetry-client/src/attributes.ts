@@ -37,8 +37,10 @@ export const PROTOCOL_CIRCUIT_NAME = 'aztec.circuit.protocol_circuit_name';
  */
 export const APP_CIRCUIT_NAME = 'aztec.circuit.app_circuit_name';
 
-/** The block archive */
+/** The block archive - DEPRECATED */
 export const BLOCK_ARCHIVE = 'aztec.block.archive';
+/** The block's header hash */
+export const BLOCK_HEADER_HASH = 'aztec.block.header_hash';
 /** The block number */
 export const BLOCK_NUMBER = 'aztec.block.number';
 /** The slot number */

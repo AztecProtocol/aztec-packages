@@ -59,9 +59,15 @@ describe('Block Proposal serialization / deserialization', () => {
     const oldDeserializedWithTxs = BackwardsCompatibleBlockProposal.oldFromBuffer(serializedWithTxs);
     const oldDeserializedWithoutTxs = BackwardsCompatibleBlockProposal.oldFromBuffer(serializedWithoutTxs);
 
-    expect(deserializedWithTxs.archive).toEqual(deserializedWithoutTxs.archive);
-    expect(deserializedWithoutTxs.archive).toEqual(oldDeserializedWithTxs.archive);
-    expect(oldDeserializedWithTxs.archive).toEqual(oldDeserializedWithoutTxs.archive);
+    expect(deserializedWithTxs.payload.header.hash().toString()).toEqual(
+      deserializedWithoutTxs.payload.header.hash().toString(),
+    );
+    expect(deserializedWithoutTxs.payload.header.hash().toString()).toEqual(
+      oldDeserializedWithTxs.payload.header.hash().toString(),
+    );
+    expect(oldDeserializedWithTxs.payload.header.hash().toString()).toEqual(
+      oldDeserializedWithoutTxs.payload.header.hash().toString(),
+    );
   });
 
   it('Should serialize / deserialize + recover sender', async () => {
