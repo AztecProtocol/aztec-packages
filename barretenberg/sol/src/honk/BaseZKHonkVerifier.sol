@@ -27,6 +27,8 @@ import {RelationsLib} from "./Relations.sol";
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
 import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator, validateOnCurve} from "./utils.sol";
 
+import "forge-std/console.sol";
+
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
 
@@ -49,7 +51,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     error ConsistencyCheckFailed();
 
     // Number of field elements in a ultra honk zero knowledge proof
-    uint256 constant PROOF_SIZE = 508;
+    uint256 constant PROOF_SIZE = 426;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
