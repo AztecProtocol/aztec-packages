@@ -330,7 +330,14 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     void enable_manifest() { use_manifest = true; }
 
-    // TODO: doc
+    /**
+     * @brief Static hash method that forwards to TranscriptParams hash.
+     * @details This method allows hash to be called on the Transcript class directly,
+     * which is needed for verification key hashing.
+     *
+     * @param data Vector of field elements to hash
+     * @return Fr Hash result
+     */
     static Fr hash(const std::vector<Fr>& data) { return TranscriptParams::hash(data); }
 
     /**
