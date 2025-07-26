@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -15,7 +16,7 @@ import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
-import type { Libp2p, PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
@@ -24,6 +25,7 @@ import { generatePrivateKey } from 'viem/accounts';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
+import type { FullLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { AuthRequest, AuthResponse, GoodByeReason, StatusMessage } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
@@ -42,7 +44,6 @@ describe('PeerManager', () => {
   };
 
   const mockEpochCache = mock<EpochCache>();
-  mockEpochCache.getRegisteredValidators.mockResolvedValue([]);
 
   let mockReqResp: MockProxy<ReqResp>;
 
@@ -60,6 +61,8 @@ describe('PeerManager', () => {
     mockLibP2PNode.getPeers.mockReturnValue([]);
     mockLibP2PNode.getDialQueue.mockReturnValue([]);
     mockLibP2PNode.getConnections.mockReturnValue([]);
+
+    mockEpochCache.getRegisteredValidators.mockResolvedValue([]);
 
     // Capture the callback for discovered peers
     mockPeerDiscoveryService.on.mockImplementation((event: string, callback: any) => {
@@ -913,9 +916,12 @@ describe('PeerManager', () => {
       const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
+      const validatorAddress = [EthAddress.random()];
+      mockEpochCache.getRegisteredValidators.mockResolvedValue(validatorAddress);
       const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [enr]);
 
-      await newPeerManager.initializePeers();
+      newPeerManager.registerThisValidatorAddresses(validatorAddress);
+      await newPeerManager.heartbeat();
 
       const isPreferredPeer = (newPeerManager as any).isPreferredPeer.bind(newPeerManager);
 
@@ -943,6 +949,9 @@ describe('PeerManager', () => {
       const protocolVersion = '1.2.3';
       const blockHash = randomBytes(32).toString('hex');
 
+      const validatorAddress = [EthAddress.random()];
+      mockEpochCache.getRegisteredValidators.mockResolvedValue(validatorAddress);
+
       const newPeerManager = createMockPeerManager(
         'test',
         mockLibP2PNode,
@@ -955,7 +964,9 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.registerThisValidatorAddresses(validatorAddress);
+
+      await newPeerManager.heartbeat();
 
       // We should return a valid status message as this is a preferred peer
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
@@ -1114,6 +1125,9 @@ describe('PeerManager', () => {
       const preferredPeerEnr = SignableENR.createFromPeerId(preferredPeerId);
       preferredPeerEnr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8001'));
 
+      const validatorAddress = [EthAddress.random()];
+      mockEpochCache.getRegisteredValidators.mockResolvedValue(validatorAddress);
+
       const newPeerManager = createMockPeerManager(
         'test',
         mockLibP2PNode,
@@ -1126,7 +1140,8 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      await newPeerManager.initializePeers();
+      newPeerManager.registerThisValidatorAddresses(validatorAddress);
+      await newPeerManager.heartbeat();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1743,12 +1758,13 @@ describe('PeerManager', () => {
       peerStore: { merge: jest.fn() },
       dial: jest.fn().mockImplementation(() => Promise.resolve()),
       hangUp: jest.fn(),
+      services: { pubsub: { direct: new Set() } },
     };
   }
 
   function createMockPeerManager(
     name: string,
-    node: Libp2p,
+    node: FullLibp2p,
     maxPeerCount: number,
     trustedPeers?: SignableENR[],
     privatePeers?: SignableENR[],
@@ -1756,6 +1772,7 @@ describe('PeerManager', () => {
     additionalConfig: Partial<P2PConfig> = {},
     protocolVersion = 'Version 1.2',
     latestBlockHash = '0x1234567890abcdef',
+    epochCache = mockEpochCache,
   ): PeerManager {
     const config = {
       ...getP2PDefaultConfig(),
@@ -1789,7 +1806,7 @@ describe('PeerManager', () => {
       mockReqResp,
       mockWorldStateSynchronizer as WorldStateSynchronizer,
       protocolVersion,
-      mockEpochCache,
+      epochCache,
     );
   }
 });
