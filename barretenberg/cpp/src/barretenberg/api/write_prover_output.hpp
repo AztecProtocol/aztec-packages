@@ -24,9 +24,9 @@ inline std::string field_elements_to_json(const std::vector<bb::fr>& fields)
     return ss.str();
 }
 
-template <typename VK> struct PubInputsProofAndKey {
+template <typename VK, typename Transcript> struct PubInputsProofAndKey {
     PublicInputsVector public_inputs;
-    HonkProof proof;
+    Transcript::Proof proof;
     std::shared_ptr<VK> key;
     fr vk_hash;
 };
@@ -40,7 +40,7 @@ void write(const ProverOutput& prover_output,
     enum class ObjectToWrite : size_t { PUBLIC_INPUTS, PROOF, VK, VK_HASH };
     const bool output_to_stdout = output_dir == "-";
 
-    const auto to_json = [](const std::vector<bb::fr>& data) {
+    const auto to_json = [](const auto& data) {
         if (data.empty()) {
             return std::string("[]");
         }

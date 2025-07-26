@@ -56,7 +56,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     auto tube_proof = tube_prover.construct_proof();
     std::string tubePublicInputsPath = output_path + "/public_inputs";
     std::string tubeProofPath = output_path + "/proof";
-    PublicInputsAndProof public_inputs_and_proof{
+    PublicInputsAndProof<typename UltraRollupFlavor::Transcript> public_inputs_and_proof{
         PublicInputsVector(tube_proof.begin(),
                            tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
         HonkProof(tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs), tube_proof.end())
