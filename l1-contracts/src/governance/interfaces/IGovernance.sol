@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {BN254G1} from "@aztec/governance/libraries/BN254G1.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 // @notice if this changes, please update the enum in governance.ts
@@ -69,6 +70,10 @@ interface IGovernance {
   event WithdrawInitiated(uint256 indexed withdrawalId, address indexed recipient, uint256 amount);
   event WithdrawFinalised(uint256 indexed withdrawalId);
 
+  event BlsKeyRegistered(address indexed account, uint256 indexed x, uint256 indexed y);
+  event BlsKeyUpdated(address indexed account, uint256 indexed x, uint256 indexed y);
+  event BlsKeyRemoved(address indexed account);
+
   function addBeneficiary(address _beneficiary) external;
   function openFloodgates() external;
 
@@ -83,6 +88,10 @@ interface IGovernance {
   function execute(uint256 _proposalId) external returns (bool);
   function dropProposal(uint256 _proposalId) external returns (bool);
 
+  function registerBlsKey(uint256 _x, uint256 _y) external;
+  function updateBlsKey(uint256 _x, uint256 _y) external;
+  function removeBlsKey() external;
+
   function isPermittedInGovernance(address _caller) external view returns (bool);
   function isAllBeneficiariesAllowed() external view returns (bool);
 
@@ -92,4 +101,6 @@ interface IGovernance {
   function getConfiguration() external view returns (Configuration memory);
   function getProposal(uint256 _proposalId) external view returns (Proposal memory);
   function getWithdrawal(uint256 _withdrawalId) external view returns (Withdrawal memory);
+  function getBlsKey(address _account) external view returns (BN254G1.G1Point memory);
+  function hasBlsKey(address _account) external view returns (bool);
 }
