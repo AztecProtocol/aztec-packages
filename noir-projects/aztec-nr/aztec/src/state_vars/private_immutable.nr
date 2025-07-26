@@ -56,7 +56,7 @@ use crate::state_vars::storage::Storage;
 ///            value at the given storage_slot.
 /// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
-// docs:start:struct
+/// docs:start:struct
 pub struct PrivateImmutable<Note, Context> {
     context: Context,
     storage_slot: Field,
@@ -92,7 +92,7 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     ///                    dev shouldn't have to worry about this, as it's managed
     ///                    behind the scenes.
     ///
-    // docs:start:new
+    /// docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
@@ -177,7 +177,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// slot and can leak privacy information (see `compute_initialization_nullifier`
     /// documentation).
     ///
-    // docs:start:initialize
+    /// docs:start:initialize
     pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
     where
         Note: NoteType + NoteHash + Packable<N>,
@@ -214,7 +214,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// Since the note is immutable, there's no risk of reading stale data or
     /// race conditions - the note never changes after initialization.
     ///
-    // docs:start:get_note
+    /// docs:start:get_note
     pub fn get_note<let N: u32>(self) -> Note
     where
         Note: NoteType + NoteHash + Packable<N>,
@@ -245,7 +245,7 @@ where
     /// * `bool` - `true` if the PrivateImmutable has been initialized (the initialization
     ///            nullifier exists), `false` otherwise.
     ///
-    // docs:start:is_initialized
+    /// docs:start:is_initialized
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)
@@ -269,7 +269,7 @@ where
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
     ///
-    // docs:start:view_note
+    /// docs:start:view_note
     pub unconstrained fn view_note<let N: u32>(self) -> Note
     where
         Note: Packable<N>,
