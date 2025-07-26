@@ -6,8 +6,10 @@ import solc from "solc";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 383;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 426;
+
+// We read the public inputs from proof as fields - even if the proof is not serilaised as fields
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 457;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 508;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -244,6 +246,7 @@ try {
 
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
+  console.log(proofStr);
 
   let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
     "PUBLIC_INPUTS_AS_FIELDS"
