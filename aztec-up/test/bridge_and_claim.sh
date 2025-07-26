@@ -42,8 +42,7 @@ aztec-wallet \
   --register-only
 
 aztec-wallet \
-  bridge-fee-juice 1000000000000000000 accounts:main \
-  --mint \
+  bridge-fee-juice accounts:main \
   --no-wait
 
 # We need to send these transactions to advance the chain to claim our bridged funds.
