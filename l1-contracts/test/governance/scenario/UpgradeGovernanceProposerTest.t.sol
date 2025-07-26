@@ -102,6 +102,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
     address originalPayload = address(gsePayload.getOriginalPayload());
 
     assertEq(originalPayload, address(payload));
+    assertEq(gsePayload.getURI(), payload.getURI());
 
     vm.prank(token.owner());
     token.mint(EMPEROR, 10000 ether);
