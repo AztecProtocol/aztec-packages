@@ -185,6 +185,11 @@ resource "helm_release" "prover" {
   ]
 
   set {
+    name  = "node.node.env.NODE_HOSTS"
+    value = "${var.RELEASE_PREFIX}-validator-headless.${var.NAMESPACE}.svc.cluster.local"
+  }
+
+  set {
     name  = "global.aztecImage.repository"
     value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
   }
