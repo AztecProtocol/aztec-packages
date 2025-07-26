@@ -47,9 +47,8 @@ uint<Builder, Native> uint<Builder, Native>::operator>>(const size_t shift) cons
         return uint(context, (additive_constant >> shift) & MASK);
     }
 
-    if (witness_status != WitnessStatus::OK) {
-        normalize();
-    }
+    // Normalize before shifting.
+    normalize();
 
     if (shift == 0) {
         return *this;
@@ -105,7 +104,7 @@ uint<Builder, Native> uint<Builder, Native>::operator>>(const size_t shift) cons
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint result(context);
     result.witness_index = result_index;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
     return result;
 }
 
@@ -119,9 +118,8 @@ uint<Builder, Native> uint<Builder, Native>::operator<<(const size_t shift) cons
         return uint(context, (additive_constant << shift) & MASK);
     }
 
-    if (witness_status != WitnessStatus::OK) {
-        normalize();
-    }
+    // Normalize before shifting.
+    normalize();
 
     if (shift == 0) {
         return *this;
@@ -175,7 +173,7 @@ uint<Builder, Native> uint<Builder, Native>::operator<<(const size_t shift) cons
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint result(context);
     result.witness_index = result_index;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
     return result;
 }
 
@@ -195,9 +193,8 @@ uint<Builder, Native> uint<Builder, Native>::ror(const size_t target_rotation) c
         return uint(context, rotate(additive_constant, rotation));
     }
 
-    if (witness_status != WitnessStatus::OK) {
-        normalize();
-    }
+    // Normalize before ror.
+    normalize();
 
     if (rotation == 0) {
         return *this;
@@ -258,7 +255,7 @@ uint<Builder, Native> uint<Builder, Native>::ror(const size_t target_rotation) c
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint result(context);
     result.witness_index = result_index;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
     return result;
 }
 
@@ -364,8 +361,8 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
         }
     }
 
+    // Since we reconstruct accumulators from the lookup table, we don't need to normalize them here.
     result.witness_index = lookup[ColumnIdx::C3][0].get_witness_index();
-    result.witness_status = WitnessStatus::OK;
     return result;
 }
 

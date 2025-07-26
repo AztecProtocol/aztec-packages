@@ -510,18 +510,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_qu
     }
     check_selector_length_consistency();
     ++this->num_gates;
-    // Why 3? TODO: return to this
-    // The purpose of this gate is to do enable lazy 32-bit addition.
-    // Consider a + b = c mod 2^32
-    // We want the 4th wire to represent the quotient:
-    // w1 + w2 = w4 * 2^32 + w3
-    // If we allow this overflow 'flag' to range from 0 to 3, instead of 0 to 1,
-    // we can get away with chaining a few addition operations together with basic add gates,
-    // before having to use this gate.
-    // (N.B. a larger value would be better, the value '3' is for Turbo backwards compatibility.
-    // In Turbo this method uses a custom gate,
-    // where we were limited to a 2-bit range check by the degree of the custom gate identity.
-    create_new_range_constraint(in.d, 3);
+
+    // Range constrain the 4-th wire to {0, 1}. Since the inputs being added never exceed (2^x - 1)
+    // during uintx arithmetic, we can safely use a 1-bit range check here. In other words, we do not
+    // allow lazy uintx addition.
+    create_new_range_constraint(in.d, 1);
 }
 /**
  * @brief Create a multiplication gate with q_m * a * b + q_3 * c + q_const = 0
