@@ -114,7 +114,7 @@ template <typename T> T convert_from_uint256_t(std::span<const uint256_t> uint25
         return static_cast<T>(uint256_vec[0]);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
         using BaseField = typename T::Fq;
-        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<BaseField>();
+        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_uint256_t<BaseField>();
         BB_ASSERT_EQ(uint256_vec.size(), 2 * BASE_FIELD_SCALAR_SIZE);
         T val;
         val.x = convert_from_uint256_t<BaseField>(uint256_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));

@@ -712,7 +712,7 @@ using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
 
 // This is a compatible wrapper around the keccak256 function from ethash
 // inline uint256_t keccak_hash_uint256(std::vector<uint256_t> const& data)
-inline bb::fr keccak_hash_uint256(std::vector<uint256_t> const& data)
+inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
 // Losing 2 bits of this is not an issue -> we can just reduce mod p
 {
     // cast into uint256_t
@@ -733,14 +733,13 @@ inline bb::fr keccak_hash_uint256(std::vector<uint256_t> const& data)
         }
     }
 
-    // Using bb::fr here to reduce result mod p
     return from_buffer<bb::fr>(result);
 }
 
 struct KeccakTranscriptParams {
     using Fr = bb::fr;
-    using TranscriptType = uint256_t;
-    using Proof = std::vector<uint256_t>;
+    using TranscriptType = Fr;
+    using Proof = std::vector<Fr>;
 
     static inline Fr hash(const std::vector<TranscriptType>& data) { return keccak_hash_uint256(data); }
 
@@ -749,19 +748,21 @@ struct KeccakTranscriptParams {
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
 
-    // TOOD: clean up this
     template <typename T> static constexpr size_t calc_transcript_type_size()
     {
-        return bb::field_conversion::calc_num_uint256_t<T>();
+        // return bb::field_conversion::calc_num_uint256_t<T>();
+        return bb::field_conversion::calc_num_bn254_frs<T>();
     }
     template <typename T> static inline T deserialize(std::span<const TranscriptType> elements)
     {
-        return bb::field_conversion::convert_from_uint256_t<T>(elements);
+        // return bb::field_conversion::convert_from_uint256_t<T>(elements);
+        return bb::field_conversion::convert_from_bn254_frs<T>(elements);
     }
     template <typename T> static inline std::vector<TranscriptType> serialize(const T& element)
     {
         // Move to appropiate place
-        return bb::field_conversion::convert_to_uint256(element);
+        // return bb::field_conversion::convert_to_uint256(element);
+        return bb::field_conversion::convert_to_bn254_frs(element);
 
         // wont work as returning a vector
         // return from_buffer<TranscriptType>(to_buffer(element));
