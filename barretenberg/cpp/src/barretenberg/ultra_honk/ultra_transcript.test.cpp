@@ -67,10 +67,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
             manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         } else {
-            size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
-            manifest_expected.add_entry(round, "vk_log_circuit_size", frs_per_uint32);
-            manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_uint32);
-            manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_uint32);
+            manifest_expected.add_entry(round, "vk_hash", 1);
         }
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
