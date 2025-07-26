@@ -1295,6 +1295,7 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const s
                                                                          const size_t num_bits) const
 {
     ASSERT(lsb_index < num_bits);
+    ASSERT(num_bits <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
 
     const uint256_t value = get_value();
     const uint256_t hi = value >> lsb_index;
