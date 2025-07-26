@@ -620,6 +620,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardLib.getStorage().config;
   }
 
+  function getBlockReward() external view override(IRollup) returns (uint256) {
+    return RewardLib.getBlockReward();
+  }
+
   function getBurnAddress() external pure override(IRollup) returns (address) {
     return RewardLib.BURN_ADDRESS;
   }

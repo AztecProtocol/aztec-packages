@@ -240,9 +240,6 @@ contract RollupBuilder is Test {
     if (address(config.registry) == address(0)) {
       config.registry = new Registry(address(this), config.testERC20);
       config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
-      config.testERC20.mint(
-        address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
-      );
     } else {
       config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
     }
@@ -290,6 +287,8 @@ contract RollupBuilder is Test {
 
       vm.prank(config.testERC20.owner());
       config.testERC20.mint(feeAssetPortal, config.values.mintFeeAmount);
+
+      config.testERC20.mint(address(config.rewardDistributor), 1e6 * config.rollup.getBlockReward());
 
       vm.prank(config.registry.owner());
       config.registry.addRollup(config.rollup);

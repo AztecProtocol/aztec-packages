@@ -184,7 +184,8 @@ contract GovScript is Test {
       RewardDistributor(address(registry.getRewardDistributor()));
 
     TestERC20 asset = TestERC20(address(rewardDistributor.ASSET()));
-    uint256 blockReward = rewardDistributor.BLOCK_REWARD();
+    IRollup canonicalRollup = IRollup(address(registry.getCanonicalRollup()));
+    uint256 blockReward = canonicalRollup.getBlockReward();
 
     emit log_named_decimal_uint(
       "Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18

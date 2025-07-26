@@ -133,12 +133,14 @@ const LocalRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
 };
 
 const TestnetRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
+  blockReward: BigInt(50e18),
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
