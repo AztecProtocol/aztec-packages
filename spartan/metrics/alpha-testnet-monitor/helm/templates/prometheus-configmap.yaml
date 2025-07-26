@@ -1,0 +1,22 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "alpha-testnet-monitor.fullname" . }}-prometheus-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "alpha-testnet-monitor.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 30s
+    scrape_configs:
+      - job_name: 'alpha-testnet-monitor'
+        static_configs:
+          - targets: ['{{ include "alpha-testnet-monitor.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:80']
+    remote_write:
+      - url: https://prometheus-prod-55-prod-gb-south-1.grafana.net/api/prom/push
+        basic_auth:
+          username: 2476101
+          password: {{ .Values.secrets.grafanaCloudPassword | quote }}
+{{- end }}
