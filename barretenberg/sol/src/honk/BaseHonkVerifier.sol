@@ -27,6 +27,8 @@ import {RelationsLib} from "./Relations.sol";
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
 import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator} from "./utils.sol";
 
+import {logG, logFr} from "./Debug.sol";
+
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
 
@@ -405,6 +407,13 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
+
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2; ++i) {
+            logG("commitments", i, commitments[i]);
+        }
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2; ++i) {
+            logFr("scalars", i, scalars[i]);
+        }
 
         Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);

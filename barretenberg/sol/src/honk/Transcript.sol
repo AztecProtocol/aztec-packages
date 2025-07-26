@@ -11,8 +11,6 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1Point, bytesToFr} from "./utils.sol";
 
-import {logFr} from "./Debug.sol";
-
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     // Oink
@@ -254,7 +252,7 @@ library TranscriptLib {
         pure
         returns (Fr shplonkZ, Fr nextPreviousChallenge)
     {
-        uint256[5] memory shplonkZChallengeElements;
+        uint256[3] memory shplonkZChallengeElements;
         shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
 
         shplonkZChallengeElements[1] = proof.shplonkQ.x;
@@ -263,7 +261,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
         Fr unused;
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
-        logFr("shplonkZ", shplonkZ);
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1234)
