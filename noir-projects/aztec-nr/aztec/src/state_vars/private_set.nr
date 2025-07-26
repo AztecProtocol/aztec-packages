@@ -29,17 +29,6 @@ mod test;
 /// or:
 /// `your_mapping: Map<Field, PrivateSet<YourNote, Context>>`
 ///
-/// The PrivateSet state variable operate over notes, by facilitating: the insertion
-/// of new notes, the reading of existing notes, and the nullification of existing
-/// notes.
-///
-/// The methods of PrivateSet are:
-/// - `insert`
-/// - `pop_notes`
-/// - `get_notes`
-/// - `remove`
-/// (see the methods' own doc comments for more info).
-///
 /// The 'current' value of a PrivateSet state variable is represented as a
 /// _collection_ (or "Set") of multiple notes.
 ///
@@ -51,6 +40,16 @@ mod test;
 /// (Management of `storage_slot` is handled within the innards of the PrivateSet
 /// impl, so you shouldn't need to think about this any further).
 ///
+/// The PrivateSet type operates over notes, by facilitating: the insertion
+/// of new notes, the reading of existing notes, and the nullification of existing
+/// notes.
+///
+/// The methods of PrivateSet are:
+/// - `insert`
+/// - `pop_notes`
+/// - `get_notes`
+/// - `remove`
+/// (see the methods' own doc comments for more info).
 ///
 /// Example.
 ///
@@ -98,6 +97,14 @@ mod test;
 /// the set.
 /// "Other people" can `insert` notes into the set.
 ///
+/// It's important to notice that the "owner" of a state variable is an abstract
+/// concept which will differ depending on the rules of a smart contract. When we
+/// talk about the "owner" in the context of these aztec-nr files, we tend to mean
+/// "the person who has the ability to nullify the state variable's notes".
+/// Notice that the state variable abstractions of aztec-nr do not know what an
+/// "owner" is: they delegate responsibility of understanding who the "owner" of a
+/// note is to the note itself, via a `compute_nullifier` call.
+///
 ///
 /// Privacy
 ///
@@ -122,7 +129,7 @@ mod test;
 ///
 /// * `Note` - Many notes of this type will collectively form the PrivateSet at the
 ///            given storage_slot.
-/// * `Context`
+/// * `Context` - The execution context (PrivateContext or UtilityContext).
 ///
 /// docs:start:struct
 pub struct PrivateSet<Note, Context> {
@@ -145,6 +152,7 @@ impl<Note, Context> PrivateSet<Note, Context> {
     /// Initializes a new PrivateSet state variable.
     ///
     /// This function is usually automatically called within the #[storage] macro.
+    /// You typically don't need to call this directly when writing smart contracts.
     ///
     ///
     /// # Arguments
@@ -152,12 +160,14 @@ impl<Note, Context> PrivateSet<Note, Context> {
     /// * `context` - One of `PrivateContext`/`PublicContext`/`UtilityContext`. The
     ///               Context determines which methods of this struct will be made
     ///               available to the calling smart contract function.
-    /// * `storage_slot` - All notes that "belong" to a given PrivateSet state
-    ///                    variable are augmented with a common `storage_slot` field,
-    ///                    as a way of identifying which set they belong to.
+    /// * `storage_slot` - A unique identifier for this state variable within the
+    ///                    contract. All notes that "belong" to a given PrivateSet
+    ///                    state variable are augmented with a common `storage_slot`
+    ///                    field, as a way of identifying which set they belong to.
     ///                    Usually, the #[storage] macro will determine an appropriate
-    ///                    storage_slot. A smart contract dev shouldn't have to
-    ///                    worry about this, as it's managed behind the scenes.
+    ///                    storage_slot automatically. A smart contract dev shouldn't
+    ///                    have to worry about this, as it's managed behind the scenes.
+    ///
     /// docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -189,7 +199,9 @@ where
     ///   - What kind of encryption scheme to use? (Currently only AES128 is supported)
     ///   - Whether to _constrain_ delivery of the note, or not.
     ///   At the moment, aztec-nr provides limited options.
-    ///   See NoteEmission for further details.
+    ///   You can call `.emit()` on the returned type to encrypt and log the note, or
+    ///   `.discard()` to skip emission.
+    ///   See NoteEmission for more details.
     ///   > Note: We're planning a _significant_ refactor of this syntax, to make the
     ///     syntax of how to encrypt and deliver notes much clearer, and to make the
     ///     default options much clearer to developers. We will also be enabling
