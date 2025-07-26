@@ -111,6 +111,18 @@ library STFLib {
     return (isStale, size);
   }
 
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function innerIsStale(RollupStore storage _rollupStore, uint256 _blockNumber, bool _throw) internal view returns (bool, uint256) {
+    uint256 pending = _rollupStore.tips.getPendingBlockNumber();
+    uint256 size = roundaboutSize();
+
+    bool isStale = _blockNumber + size <= pending;
+
+    require(!_throw || !isStale, Errors.Rollup__StaleTempBlockLog(_blockNumber, pending, size));
+
+    return (isStale, size);
+  }
+
   function isTempStale(uint256 _blockNumber) internal view returns (bool) {
     (bool isStale,) = innerIsStale(_blockNumber, false);
     return isStale;
@@ -136,9 +148,21 @@ library STFLib {
     return getStorage().tempBlockLogs[_blockNumber % size].blobCommitmentsHash;
   }
 
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function getBlobCommitmentsHash(RollupStore storage _rollupStore, uint256 _blockNumber) internal view returns (bytes32) {
+    (, uint256 size) = innerIsStale(_rollupStore, _blockNumber, true);
+    return _rollupStore.tempBlockLogs[_blockNumber % size].blobCommitmentsHash;
+  }
+
   function getSlotNumber(uint256 _blockNumber) internal view returns (Slot) {
     (, uint256 size) = innerIsStale(_blockNumber, true);
     return getStorage().tempBlockLogs[_blockNumber % size].slotNumber.decompress();
+  }
+
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function getSlotNumber(RollupStore storage _rollupStore, uint256 _blockNumber) internal view returns (Slot) {
+    (, uint256 size) = innerIsStale(_rollupStore, _blockNumber, true);
+    return _rollupStore.tempBlockLogs[_blockNumber % size].slotNumber.decompress();
   }
 
   function getEffectivePendingBlockNumber(Timestamp _timestamp) internal view returns (uint256) {
@@ -146,6 +170,13 @@ library STFLib {
     return STFLib.canPruneAtTime(_timestamp)
       ? rollupStore.tips.getProvenBlockNumber()
       : rollupStore.tips.getPendingBlockNumber();
+  }
+
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function getEffectivePendingBlockNumber(RollupStore storage _rollupStore, Timestamp _timestamp) internal view returns (uint256) {
+    return STFLib.canPruneAtTime(_rollupStore, _timestamp)
+      ? _rollupStore.tips.getProvenBlockNumber()
+      : _rollupStore.tips.getPendingBlockNumber();
   }
 
   function getEpochForBlock(uint256 _blockNumber) internal view returns (Epoch) {
@@ -157,6 +188,15 @@ library STFLib {
     return getSlotNumber(_blockNumber).epochFromSlot();
   }
 
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function getEpochForBlock(RollupStore storage _rollupStore, uint256 _blockNumber) internal view returns (Epoch) {
+    require(
+      _blockNumber <= _rollupStore.tips.getPendingBlockNumber(),
+      Errors.Rollup__InvalidBlockNumber(_rollupStore.tips.getPendingBlockNumber(), _blockNumber)
+    );
+    return getSlotNumber(_rollupStore, _blockNumber).epochFromSlot();
+  }
+
   function canPruneAtTime(Timestamp _ts) internal view returns (bool) {
     RollupStore storage rollupStore = STFLib.getStorage();
     if (rollupStore.tips.getPendingBlockNumber() == rollupStore.tips.getProvenBlockNumber()) {
@@ -164,6 +204,18 @@ library STFLib {
     }
 
     Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.getProvenBlockNumber() + 1);
+    Epoch currentEpoch = _ts.epochFromTimestamp();
+
+    return !oldestPendingEpoch.isAcceptingProofsAtEpoch(currentEpoch);
+  }
+
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function canPruneAtTime(RollupStore storage _rollupStore, Timestamp _ts) internal view returns (bool) {
+    if (_rollupStore.tips.getPendingBlockNumber() == _rollupStore.tips.getProvenBlockNumber()) {
+      return false;
+    }
+
+    Epoch oldestPendingEpoch = getEpochForBlock(_rollupStore, _rollupStore.tips.getProvenBlockNumber() + 1);
     Epoch currentEpoch = _ts.epochFromTimestamp();
 
     return !oldestPendingEpoch.isAcceptingProofsAtEpoch(currentEpoch);

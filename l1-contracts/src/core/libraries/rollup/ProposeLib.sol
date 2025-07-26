@@ -88,7 +88,10 @@ library ProposeLib {
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
-    if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
+    // Pre-fetch storage to reuse throughout the function
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    if (STFLib.canPruneAtTime(rollupStore, Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
     FeeLib.updateL1GasFeeOracle();
@@ -105,11 +108,11 @@ library ProposeLib {
 
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setupEpoch(currentEpoch);
-
     ManaBaseFeeComponents memory components =
-      getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+      getManaBaseFeeComponentsAt(rollupStore, Timestamp.wrap(block.timestamp), true);
 
     validateHeader(
+      rollupStore,
       ValidateHeaderArgs({
         header: header,
         attestations: _attestations,
@@ -127,14 +130,13 @@ library ProposeLib {
       })
     );
 
-    RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = rollupStore.tips.getPendingBlockNumber() + 1;
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
     bool isFirstBlockOfEpoch =
-      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+      currentEpoch > STFLib.getEpochForBlock(rollupStore, blockNumber - 1) || blockNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
-      STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, isFirstBlockOfEpoch
+      STFLib.getBlobCommitmentsHash(rollupStore, blockNumber - 1), v.blobCommitments, isFirstBlockOfEpoch
     );
 
     FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
@@ -177,7 +179,7 @@ library ProposeLib {
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(rollupStore, currentTime);
 
     bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
     require(
@@ -186,7 +188,54 @@ library ProposeLib {
     );
 
     Slot slot = _args.header.slotNumber;
-    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
+    Slot lastSlot = STFLib.getSlotNumber(rollupStore, pendingBlockNumber);
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+
+    Slot currentSlot = currentTime.slotFromTimestamp();
+    require(slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot));
+
+    Timestamp timestamp = TimeLib.toTimestamp(slot);
+    require(
+      _args.header.timestamp == timestamp,
+      Errors.Rollup__InvalidTimestamp(timestamp, _args.header.timestamp)
+    );
+
+    require(timestamp <= currentTime, Errors.Rollup__TimestampInFuture(currentTime, timestamp));
+
+    require(
+      _args.flags.ignoreDA
+        || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
+      Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
+    );
+
+    require(_args.header.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
+    require(
+      _args.header.gasFees.feePerL2Gas == _args.manaBaseFee,
+      Errors.Rollup__InvalidManaBaseFee(_args.manaBaseFee, _args.header.gasFees.feePerL2Gas)
+    );
+
+    ValidatorSelectionLib.verify(
+      slot, slot.epochFromSlot(), _args.attestations, _args.digest, _args.flags
+    );
+  }
+
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function validateHeader(RollupStore storage _rollupStore, ValidateHeaderArgs memory _args) internal {
+    require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
+    require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
+
+    Timestamp currentTime = Timestamp.wrap(block.timestamp);
+
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_rollupStore, currentTime);
+
+    bytes32 tipArchive = _rollupStore.archives[pendingBlockNumber];
+    require(
+      tipArchive == _args.header.lastArchiveRoot,
+      Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchiveRoot)
+    );
+
+    Slot slot = _args.header.slotNumber;
+    Slot lastSlot = STFLib.getSlotNumber(_rollupStore, pendingBlockNumber);
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     Slot currentSlot = currentTime.slotFromTimestamp();
@@ -233,6 +282,16 @@ library ProposeLib {
     returns (ManaBaseFeeComponents memory)
   {
     uint256 blockOfInterest = STFLib.getEffectivePendingBlockNumber(_timestamp);
+    return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
+  }
+
+  // Optimized version that accepts storage to avoid redundant getStorage() calls
+  function getManaBaseFeeComponentsAt(RollupStore storage _rollupStore, Timestamp _timestamp, bool _inFeeAsset)
+    internal
+    view
+    returns (ManaBaseFeeComponents memory)
+  {
+    uint256 blockOfInterest = STFLib.getEffectivePendingBlockNumber(_rollupStore, _timestamp);
     return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
   }
 
