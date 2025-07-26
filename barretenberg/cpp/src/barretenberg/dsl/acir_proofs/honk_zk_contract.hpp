@@ -1719,7 +1719,6 @@ function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns 
 
 
 
-
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
 

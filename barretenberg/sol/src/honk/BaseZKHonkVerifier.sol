@@ -27,8 +27,6 @@ import {RelationsLib} from "./Relations.sol";
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
 import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator, validateOnCurve} from "./utils.sol";
 
-import "forge-std/console.sol";
-
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
 
