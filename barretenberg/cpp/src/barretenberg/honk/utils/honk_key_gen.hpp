@@ -74,6 +74,7 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_u256(1 << key->log_circuit_size, "circuitSize");
     print_u256(key->log_circuit_size, "logCircuitSize");
     print_u256(key->num_public_inputs, "publicInputsSize");
+    print_u256(key->hash(), "vkHash");
     print_g1(key->q_l, "ql");
     print_g1(key->q_r, "qr");
     print_g1(key->q_o, "qo");

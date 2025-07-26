@@ -197,9 +197,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @details Currently only used in testing.
      * @return FF
      */
-    fr hash()
+    fr hash() const
     {
-        fr vk_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
+        fr vk_hash = Transcript::hash(this->to_field_elements());
         return vk_hash;
     }
 

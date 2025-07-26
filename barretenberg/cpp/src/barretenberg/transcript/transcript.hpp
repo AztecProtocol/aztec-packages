@@ -330,6 +330,9 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     void enable_manifest() { use_manifest = true; }
 
+    // TODO: doc
+    static Fr hash(const std::vector<Fr>& data) { return TranscriptParams::hash(data); }
+
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
      * create the number of requested challenges.

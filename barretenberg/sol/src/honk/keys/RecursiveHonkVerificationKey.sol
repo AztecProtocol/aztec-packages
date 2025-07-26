@@ -14,6 +14,7 @@ library RecursiveHonkVerificationKey {
             circuitSize: uint256(1048576),
             logCircuitSize: uint256(20),
             publicInputsSize: uint256(16),
+            vkHash: uint256(0x0f71347a3acbefd3925c24fbe03c70d91a785109f77dc874c8cb7ab5c7da5ce0),
             ql: Honk.G1Point({
                 x: uint256(0x2d26dcedf30775b10b7b5d23a575efd46e95045fbcafedfb05e144c2aa7edf6d),
                 y: uint256(0x189bf6c6697af3d3a2067f655f5216cd2e97938d4797a6bfba0691fc0277fada)
@@ -95,8 +96,8 @@ library RecursiveHonkVerificationKey {
                 y: uint256(0x19f38f8e7cf18f375d75db06fca92a0cbfc1214af084c189478e34dc04c77419)
             }),
             t3: Honk.G1Point({
-                x: uint256(0x15642d62fc17d119ba4afb77ab424e0a771b5bbb501c75790a1a4e2906931045),
-                y: uint256(0x21cea98314ec6efc5f8f1f648f42a7a5c1396036397af54a729801cc1c37d4e2)
+                x: uint256(0x1800723660742a70c0cc9a984e30274444a587c93d9f4742a9b96cd3572365e1),
+                y: uint256(0x08a91d28a9c758fed327095e282375ce84640883f7755c7d95e7ccb31cdcfd4c)
             }),
             t4: Honk.G1Point({
                 x: uint256(0x1f3bd0ebf0709ac30745d0dafb183cdd5b4a42e59fe1e447cad24659049d13a7),
