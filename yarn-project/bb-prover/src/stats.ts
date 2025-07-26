@@ -33,6 +33,10 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':
       return 'private-kernel-tail-to-public';
+    case 'HidingKernelToRollup':
+      return 'hiding-kernel-to-rollup';
+    case 'HidingKernelToPublic':
+      return 'hiding-kernel-to-public';
     default: {
       if (artifact.startsWith('PrivateKernelReset')) {
         return 'private-kernel-reset';

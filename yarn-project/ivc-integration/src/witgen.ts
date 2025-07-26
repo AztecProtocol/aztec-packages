@@ -16,6 +16,7 @@ import MockAppCreatorCircuit from '../artifacts/app_creator.json' with { type: '
 import MockAppReaderCircuit from '../artifacts/app_reader.json' with { type: 'json' };
 import MockAppCreatorVk from '../artifacts/keys/app_creator.vk.data.json' with { type: 'json' };
 import MockAppReaderVk from '../artifacts/keys/app_reader.vk.data.json' with { type: 'json' };
+import MockHidingVk from '../artifacts/keys/mock_hiding.vk.data.json' with { type: 'json' };
 import MockPrivateKernelInitVk from '../artifacts/keys/mock_private_kernel_init.vk.data.json' with { type: 'json' };
 import MockPrivateKernelInnerVk from '../artifacts/keys/mock_private_kernel_inner.vk.data.json' with { type: 'json' };
 import MockPrivateKernelResetVk from '../artifacts/keys/mock_private_kernel_reset.vk.data.json' with { type: 'json' };
@@ -24,6 +25,7 @@ import MockRollupBasePrivateVk from '../artifacts/keys/mock_rollup_base_private.
 import MockRollupBasePublicVk from '../artifacts/keys/mock_rollup_base_public.vk.data.json' with { type: 'json' };
 import MockRollupMergeVk from '../artifacts/keys/mock_rollup_merge.vk.data.json' with { type: 'json' };
 import MockRollupRootVk from '../artifacts/keys/mock_rollup_root.vk.data.json' with { type: 'json' };
+import MockHidingCircuit from '../artifacts/mock_hiding.json' with { type: 'json' };
 import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' with { type: 'json' };
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' with { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' with { type: 'json' };
@@ -38,6 +40,7 @@ import type {
   AppReaderInputType,
   FixedLengthArray,
   KernelPublicInputs,
+  MockHidingInputType,
   MockPrivateKernelInitInputType,
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
@@ -64,6 +67,7 @@ export {
   MockPrivateKernelResetCircuit,
   MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
+  MockHidingCircuit,
   MockPrivateKernelTailVk,
   MockRollupBasePrivateCircuit,
   MockRollupBasePrivateVk,
@@ -175,6 +179,17 @@ export async function witnessGenMockPrivateKernelTailCircuit(
   };
 }
 
+export async function witnessGenMockHidingCircuit(
+  args: MockHidingInputType,
+): Promise<WitnessGenResult<KernelPublicInputs>> {
+  const program = new Noir(MockHidingCircuit);
+  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
+  return {
+    witness,
+    publicInputs: returnValue as KernelPublicInputs,
+  };
+}
+
 export async function witnessGenMockPublicBaseCircuit(
   args: MockRollupBasePublicInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
@@ -243,21 +258,34 @@ export async function generate3FunctionTestingIVCStack(): Promise<
   });
   log.debug('generated mock private kernel tail witness');
 
+  const hidingWitnessGenResult = await witnessGenMockHidingCircuit({
+    prev_kernel_public_inputs: tailWitnessGenResult.publicInputs,
+    kernel_vk: await getVkAsFields(MockPrivateKernelTailVk),
+  });
+  log.debug('generated mock hiding witness');
+
   // Create client IVC proof
   const bytecodes = [
     MockAppCreatorCircuit.bytecode,
     MockPrivateKernelInitCircuit.bytecode,
     MockPrivateKernelTailCircuit.bytecode,
+    MockHidingCircuit.bytecode,
   ];
-  const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+  const witnessStack = [
+    appWitnessGenResult.witness,
+    initWitnessGenResult.witness,
+    tailWitnessGenResult.witness,
+    hidingWitnessGenResult.witness,
+  ];
 
   const precomputedVks = [
     MockAppCreatorVk.keyAsBytes,
     MockPrivateKernelInitVk.keyAsBytes,
     MockPrivateKernelTailVk.keyAsBytes,
+    MockHidingVk.keyAsBytes,
   ];
 
-  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs, precomputedVks];
+  return [bytecodes, witnessStack, hidingWitnessGenResult.publicInputs, precomputedVks];
 }
 
 export async function generate6FunctionTestingIVCStack(): Promise<
@@ -298,6 +326,11 @@ export async function generate6FunctionTestingIVCStack(): Promise<
     kernel_vk: await getVkAsFields(MockPrivateKernelResetVk),
   });
 
+  const hidingWitnessGenResult = await witnessGenMockHidingCircuit({
+    prev_kernel_public_inputs: tailWitnessGenResult.publicInputs,
+    kernel_vk: await getVkAsFields(MockPrivateKernelTailVk),
+  });
+
   // Create client IVC proof
   const bytecodes = [
     MockAppCreatorCircuit.bytecode,
@@ -306,6 +339,7 @@ export async function generate6FunctionTestingIVCStack(): Promise<
     MockPrivateKernelInnerCircuit.bytecode,
     MockPrivateKernelResetCircuit.bytecode,
     MockPrivateKernelTailCircuit.bytecode,
+    MockHidingCircuit.bytecode,
   ];
   const witnessStack = [
     creatorAppWitnessGenResult.witness,
@@ -314,6 +348,7 @@ export async function generate6FunctionTestingIVCStack(): Promise<
     innerWitnessGenResult.witness,
     resetWitnessGenResult.witness,
     tailWitnessGenResult.witness,
+    hidingWitnessGenResult.witness,
   ];
 
   const precomputedVks = [
@@ -323,9 +358,10 @@ export async function generate6FunctionTestingIVCStack(): Promise<
     MockPrivateKernelInnerVk.keyAsBytes,
     MockPrivateKernelResetVk.keyAsBytes,
     MockPrivateKernelTailVk.keyAsBytes,
+    MockHidingVk.keyAsBytes,
   ];
 
-  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs, precomputedVks];
+  return [bytecodes, witnessStack, hidingWitnessGenResult.publicInputs, precomputedVks];
 }
 
 export function mapRecursiveProofToNoir<N extends number>(proof: RecursiveProof<N>): FixedLengthArray<string, N> {
