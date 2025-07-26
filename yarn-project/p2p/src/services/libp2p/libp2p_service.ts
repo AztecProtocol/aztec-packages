@@ -221,12 +221,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:discv5_service`),
     );
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
+    // Seed libp2p's bootstrap discovery with private and trusted peers
+    const bootstrapNodes = [...config.privatePeers, ...config.trustedPeers];
 
-    // If trusted peers are provided, also provide them to the p2p service
-    bootstrapNodes.push(...config.trustedPeers);
-
-    // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
     if (bootstrapNodes.length > 0) {
       peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
