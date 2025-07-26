@@ -58,7 +58,7 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
 
     fn validate_root_parity_proof_and_vk(self) {
         if !dep::std::runtime::is_unconstrained() {
-            self.data.l1_to_l2_roots.verify();
+            self.data.l1_to_l2_roots.verify(false);
             self.data.l1_to_l2_roots.validate_vk_in_vk_tree();
         }
     }
@@ -66,7 +66,7 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
     fn validate_rollup_proofs_and_vks(self) {
         if !dep::std::runtime::is_unconstrained() {
             for i in 0..NUM_ROLLUPS {
-                self.previous_rollups[i].verify();
+                self.previous_rollups[i].verify(false);
                 self.previous_rollups[i].validate_vk_in_vk_tree(self.allowed_vk_indices);
             }
         }

@@ -41,7 +41,7 @@ impl RootParityInputs {
     }
 
     fn verify_child_proofs(self) {
-        self.children[0].verify();
+        self.children[0].verify(false);
         // Since the vk hash and path have been checked to be consistent across all children,
         // it's sufficient to validate that one of them exists in the vk tree.
         self.children[0].validate_vk_in_vk_tree();
@@ -59,7 +59,7 @@ impl RootParityInputs {
                 self.children[0].vk_path,
                 "Inconsistent vk paths across base parity circuits",
             );
-            self.children[i].verify();
+            self.children[i].verify(false);
         }
     }
 }

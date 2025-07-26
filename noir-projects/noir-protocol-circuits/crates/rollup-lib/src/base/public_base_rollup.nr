@@ -109,7 +109,7 @@ impl PublicBaseRollupInputs {
 
         // TODO(#8470)
         if !dep::std::runtime::is_unconstrained() {
-            self.avm_proof_data.verify();
+            self.avm_proof_data.verify(false);
             // TODO: Add avm vk hash to the tree and uncomment this.
             // self.avm_proof_data.validate_vk_in_vk_tree(constants.vk_tree_root);
         }

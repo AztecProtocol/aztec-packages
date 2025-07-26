@@ -509,7 +509,7 @@ pub struct AvmProofData {
 impl Verifiable for AvmProofData {
     /// Verifies the proof against the verification key and public inputs.
     /// The vk hash is also checked in the backend to match the key.
-    fn verify(self) {
+    fn verify(self, _: bool) {
         std::verify_proof_with_type(
             self.vk_data.vk.key,
             self.proof.fields,
