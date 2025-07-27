@@ -1345,6 +1345,16 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant SCALAR_LOCATION = 0xa0;
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
+    // Field order constants
+    uint256 internal constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+    uint256 internal constant P_SUB_1 = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
+    uint256 internal constant P_SUB_2 = 21888242871839275222246405745257275088548364400416034343698204186575808495615;
+    uint256 internal constant P_SUB_3 = 21888242871839275222246405745257275088548364400416034343698204186575808495614;
+    uint256 internal constant P_SUB_4 = 21888242871839275222246405745257275088548364400416034343698204186575808495613;
+    uint256 internal constant P_SUB_5 = 21888242871839275222246405745257275088548364400416034343698204186575808495612;
+    uint256 internal constant P_SUB_6 = 21888242871839275222246405745257275088548364400416034343698204186575808495611;
+    uint256 internal constant P_SUB_7 = 21888242871839275222246405745257275088548364400416034343698204186575808495610;
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         ERRORS                             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -1581,17 +1591,18 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(ALPHA_CHALLENGE_0, alphas_0)
                 mstore(ALPHA_CHALLENGE_1, alphas_1)
 
-                let i := 1
                 // For number of alphas / 2 ( 26 /2 )
-                for {} lt(i, 13) { i := add(i, 1) } {
+                let alpha_off_set := ALPHA_CHALLENGE_2
+                for {} lt(alpha_off_set, ALPHA_CHALLENGE_26) {} {
                     prev_challenge := mod(keccak256(0x00, 0x20), p)
                     mstore(0x00, prev_challenge)
 
                     let alpha_even, alpha_odd := splitChallenge(prev_challenge)
 
-                    let alpha_off_set := add(ALPHA_CHALLENGE_0, mul(i, 0x40))
                     mstore(alpha_off_set, alpha_even)
                     mstore(add(alpha_off_set, 0x20), alpha_odd)
+
+                    alpha_off_set := add(alpha_off_set, 0x40)
                 }
 
                 // The final alpha challenge
@@ -1604,30 +1615,22 @@ contract BlakeOptHonkVerifier is IVerifier {
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                       GATE CHALLENGES                      */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-                // TODO: prose
-                i := 0
-                for {} lt(i, CONST_PROOF_SIZE_LOG_N) {} {
+                let gate_off := GATE_CHALLENGE_0
+                for {} lt(gate_off, SUM_U_CHALLENGE_0) {} {
                     prev_challenge := mod(keccak256(0x00, 0x20), p)
                     mstore(0x00, prev_challenge)
-                    let gate_off := add(GATE_CHALLENGE_0, mul(0x20, i))
                     let gate_challenge := and(prev_challenge, LOWER_128_MASK)
 
                     mstore(gate_off, gate_challenge)
-
-                    i := add(i, 1)
+                    gate_off := add(gate_off, 0x20)
                 }
 
 
-                // TODO: I think that the order of the values taken from the univariates is wrong
-                // it should be [proof_size, batched length]
-                // rather than as written above [batched_size]{proof_size}
-                // Total nuber of iterations is 28 ,with 8 for each univariate
-                i := 0
-                for {} lt(i, CONST_PROOF_SIZE_LOG_N) {} {
+                let read_off := SUMCHECK_UNIVARIATE_0_0_LOC
+                let write_off := SUM_U_CHALLENGE_0
+                for {} lt(read_off, QM_EVAL_LOC) {} {
                     // Increase by 20 * batched relation length (8)
                     // 20 * 8 = 160 (0xa0)
-                    let proof_off := mul(i, 0x100)
-                    let read_off := add(SUMCHECK_UNIVARIATE_0_0_LOC, proof_off)
 
                     mcopy(0x20, read_off, 0x100)
 
@@ -1636,11 +1639,10 @@ contract BlakeOptHonkVerifier is IVerifier {
                     mstore(0x00, prev_challenge)
 
                     let sumcheck_u_challenge := and(prev_challenge, LOWER_128_MASK)
-
-                    let write_off := add(SUM_U_CHALLENGE_0, mul(i, 0x20))
                     mstore(write_off, sumcheck_u_challenge)
 
-                    i := add(i, 1)
+                    read_off := add(read_off, 0x100)
+                    write_off := add(write_off, 0x20)
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1878,41 +1880,39 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Outside of assembly at the beginning of the verify function
                 // Attempt to allocate this variable, when it will codecopy it to the
                 // free memory pointer, - in the place we want it :)
-                function writeBarycentricTables() {
-                    // We write into hardcoded memory regions
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_0_LOC,
-                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51
-                    )
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_1_LOC,
-                        0x00000000000000000000000000000000000000000000000000000000000002d0
-                    )
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_2_LOC,
-                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11
-                    )
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_3_LOC,
-                        0x0000000000000000000000000000000000000000000000000000000000000090
-                    )
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_4_LOC,
-                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71
-                    )
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_5_LOC,
-                        0x00000000000000000000000000000000000000000000000000000000000000f0
-                    )
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_6_LOC,
-                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31
-                    )
-                    mstore(
-                        BARYCENTRIC_LAGRANGE_DENOMINATOR_7_LOC,
-                        0x00000000000000000000000000000000000000000000000000000000000013b0
-                    )
-                }
+
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_0_LOC,
+                    0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51
+                )
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_1_LOC,
+                    0x00000000000000000000000000000000000000000000000000000000000002d0
+                )
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_2_LOC,
+                    0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11
+                )
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_3_LOC,
+                    0x0000000000000000000000000000000000000000000000000000000000000090
+                )
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_4_LOC,
+                    0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71
+                )
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_5_LOC,
+                    0x00000000000000000000000000000000000000000000000000000000000000f0
+                )
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_6_LOC,
+                    0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31
+                )
+                mstore(
+                    BARYCENTRIC_LAGRANGE_DENOMINATOR_7_LOC,
+                    0x00000000000000000000000000000000000000000000000000000000000013b0
+                )
 
                 // Note: pass around p to keep it on the stack
                 function computeNextTargetSum(
@@ -1948,20 +1948,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     next_target := mulmod(next_target, numerator_value, p_clone)
                 }
-
-                function partiallyEvaluatePOW(
-                    round_challenge, /*: uint256 */ current_evaluation, /*: uint256 */ round, /*: uint256 */ p_clone
-                ) -> /*: uint256 */ next_evaluation /*: uint256 */ {
-                    let gate_challenge := mload(add(GATE_CHALLENGE_0, mul(round, 0x20)))
-                    let gate_challenge_minus_one := sub(gate_challenge, 1)
-
-                    let univariate_evaluation :=
-                        addmod(1, mulmod(round_challenge, gate_challenge_minus_one, p_clone), p_clone)
-
-                    next_evaluation := mulmod(current_evaluation, univariate_evaluation, p_clone)
-                }
-
-                writeBarycentricTables()
 
                 // Compute the target sums for each round of sumchec
                 {
@@ -2051,6 +2037,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let valid := true
                 let round_target := 0
                 let pow_partial_evaluation := 1
+                let gate_challenge_off := GATE_CHALLENGE_0
+                // let round_univariates_off := SUMCHECK_UNIVARIATE_0_0_LOC
+
+                // let challenge_off := SUM_U_CHALLENGE_0
+                // let bary_inverses_off := BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC
 
                 for {} lt(round, LOG_N) {} {
                     let round_univariates_off := add(SUMCHECK_UNIVARIATE_0_0_LOC, mul(round, 0x100))
@@ -2063,9 +2054,44 @@ contract BlakeOptHonkVerifier is IVerifier {
                     valid := and(valid, eq(total_sum, round_target))
 
                     round_target := computeNextTargetSum(round_univariates_off, round_challenge, round, p)
-                    pow_partial_evaluation := partiallyEvaluatePOW(round_challenge, pow_partial_evaluation, round, p)
+
+                    // Compute next target sum
+                    let numerator_value := round_challenge
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_1, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_2, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_3, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_4, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_5, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_6, p), p)
+                    numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_7, p), p)
+
+                    // // Compute the next round target
+                    // let i := 0
+                    // for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
+                    //     let term := mload(round_univariates_off)
+                    //     let inverse := mload(bary_inverses_off)
+
+                    //     term := mulmod(term, inverse, p)
+                    //     round_target := addmod(round_target, term, p)
+                    //     i := add(i, 1)
+                    //     round_univariates_off := add(round_univariates_off, 0x20)
+                    //     bary_inverses_off := add(bary_inverses_off, 0x20)
+                    // }
+
+                    // round_target := mulmod(round_target, numerator_value, p)
+
+                    // Partially evaluate POW
+                    let gate_challenge := mload(gate_challenge_off)
+                    let gate_challenge_minus_one := sub(gate_challenge, 1)
+
+                    let univariate_evaluation :=
+                    addmod(1, mulmod(round_challenge, gate_challenge_minus_one, p), p)
+
+                    pow_partial_evaluation := mulmod(pow_partial_evaluation, univariate_evaluation, p)
 
                     round := add(round, 1)
+                    gate_challenge_off := add(gate_challenge_off, 0x20)
+                    // challenge_off := add(challenge_off, 0x20)
                 }
 
                 if iszero(valid) {
@@ -2968,13 +2994,13 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // TODO(md): not optimal
                 for {let i:= 1} lt(i, NUMBER_OF_SUBRELATIONS) {i := add(i, 1)} {
                     let evaluation_off := mul(i, 0x20)
-                    let challenge_off := sub(evaluation_off , 0x20)
+                    let chall_off := sub(evaluation_off , 0x20)
 
                     accumulator := addmod(
                         accumulator,
                         mulmod(
                             mload(add(SUBRELATION_EVAL_0_LOC, evaluation_off)),
-                            mload(add(ALPHA_CHALLENGE_0, challenge_off)),
+                            mload(add(ALPHA_CHALLENGE_0, chall_off)),
                             p),
                         p)
                 }
