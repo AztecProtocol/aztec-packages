@@ -1529,32 +1529,12 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(LAGRANGE_LAST_Y_LOC, 0x10dd66d911bcc3d85f85797e451edfd1d98b78130650208c3f8cf586c9e902c4)
             }
 
+            // Prime field order
+            let p := 21888242871839275222246405745257275088548364400416034343698204186575808495617
 
-            /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-            /*                     Split Challenge                        */
-            /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-            /**We can reduce the amount of hashing done in the verifier by splitting the output of
-             * hash functions into two 128 bit values
-             */
-            function splitChallenge(challenge) -> first, second {
-                first := and(challenge, LOWER_128_MASK)
-                second := shr(128, challenge)
-            }
 
-            let p := 21888242871839275222246405745257275088548364400416034343698204186575808495617 // Prime field order
-
-            // Add the skip offset to the given pointer
-
-            // TODO(md): potential further optimisations
-            // Rather than mcpying the entire sections to be hashed, we would get away with copying the previous hash
-            // into the value before ( by caching the value we are swapping it with in scratch space ) and then
-            // copying the value back when we are done hashing
-            // rather than copying the entire section over to the lower registers
             {
                 let proof_ptr := add(calldataload(0x04), 0x24)
-
-                // TODO(md): IMPORTANT: Mod all of the base field items by q, and all prime field items by p
-                // for the sake of testing we are assuming that these are correct
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                    GENERATE CHALLENGES                     */
@@ -1587,21 +1567,15 @@ contract BlakeOptHonkVerifier is IVerifier {
                  * and w1,w2,w3 are all proof points values
                  */
 
-
-                // The use of mcpy will be a life saver here
-                // TODO: make sure that we have enough of a scratch space to work with here
-                // TODO: use an mcpy alternative once off plane - is it available in yul yet?
                 let number_of_public_inputs := NUMBER_PUBLIC_INPUTS
 
-                // Note: can be mcpyed from proof
-                // TODO: work what memory can be used here - if we use 0 solidity at all we can get
-                // away with ignoring free memory practices entirely
                 mstore(0x00, CIRCUIT_SIZE)
                 mstore(0x20, NUMBER_PUBLIC_INPUTS)
                 mstore(0x40, PUBLIC_INPUTS_OFFSET)
 
                 let public_inputs_start := add(calldataload(0x24), 0x24)
                 let public_inputs_size := mul(REAL_NUMBER_PUBLIC_INPUTS, 0x20)
+
                 // Copy the public inputs into the eta buffer
                 calldatacopy(0x60, public_inputs_start, public_inputs_size)
 
@@ -1622,7 +1596,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(0x00, prev_challenge)
 
                 // TODO: remember how to function jump - todo unroll function jumps???
-                let eta, etaTwo := splitChallenge(prev_challenge)
+                let eta := and(prev_challenge, LOWER_128_MASK)
+                let etaTwo := shr(128, prev_challenge)
 
                 mstore(ETA_CHALLENGE, eta)
                 mstore(ETA_TWO_CHALLENGE, etaTwo)
@@ -1640,7 +1615,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // calldatacopy to place all of our proof into the correct memory regions
                 // We copy the entire proof into memory as we must hash each proof section for challenge
                 // evaluation
-                // TODO: make sure this is evaluated as const before shipping
                 // The last item in the proof, and the first item in the proof (pairing point 0)
                 let proof_size := sub(ETA_CHALLENGE, PAIRING_POINT_0)
 
@@ -1655,7 +1629,8 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 prev_challenge := mod(keccak256(0x00, 0x1a0), p)
                 mstore(0x00, prev_challenge)
-                let beta, gamma := splitChallenge(prev_challenge)
+                let beta := and(prev_challenge, LOWER_128_MASK)
+                let gamma := shr(128, prev_challenge)
 
                 mstore(BETA_CHALLENGE, beta)
                 mstore(GAMMA_CHALLENGE, gamma)
@@ -1677,9 +1652,10 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 prev_challenge := mod(keccak256(0x00, 0x120), p)
                 mstore(0x00, prev_challenge)
-                let alphas_0, alphas_1 := splitChallenge(prev_challenge)
-                mstore(ALPHA_CHALLENGE_0, alphas_0)
-                mstore(ALPHA_CHALLENGE_1, alphas_1)
+                let alpha_0 := and(prev_challenge, LOWER_128_MASK)
+                let alpha_1 := shr(128, prev_challenge)
+                mstore(ALPHA_CHALLENGE_0, alpha_0)
+                mstore(ALPHA_CHALLENGE_1, alpha_1)
 
                 // For number of alphas / 2 ( 26 /2 )
                 let alpha_off_set := ALPHA_CHALLENGE_2
@@ -1687,7 +1663,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                     prev_challenge := mod(keccak256(0x00, 0x20), p)
                     mstore(0x00, prev_challenge)
 
-                    let alpha_even, alpha_odd := splitChallenge(prev_challenge)
+                    let alpha_even := and(prev_challenge, LOWER_128_MASK)
+                    let alpha_odd := shr(128, prev_challenge)
 
                     mstore(alpha_off_set, alpha_even)
                     mstore(add(alpha_off_set, 0x20), alpha_odd)
@@ -1863,7 +1840,6 @@ contract BlakeOptHonkVerifier is IVerifier {
              *
              */
 
-            // TODO: think about how to optimize this further
             {
                 let beta := mload(BETA_CHALLENGE)
                 let gamma := mload(GAMMA_CHALLENGE)
@@ -1890,8 +1866,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let endpoint_ptr := add(public_inputs_ptr, mul(REAL_NUMBER_PUBLIC_INPUTS, 0x20))
 
                 for {} lt(public_inputs_ptr, endpoint_ptr) { public_inputs_ptr := add(public_inputs_ptr, 0x20) } {
-                    /**
-                     */
+                    // Get public inputs from calldata
                     let input := calldataload(public_inputs_ptr)
 
                     valid_inputs := and(valid_inputs, lt(input, p_clone))
@@ -1927,7 +1902,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_CHALLENGE, numerator_value)
                 mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_CHALLENGE, denominator_value)
 
-                // TODO(md): optimise this by performing the inversion later - but just doing it here for now
+                // TODO: batch with barycentric inverses
                 let dom_inverse := 0
                 {
                     mstore(0, 0x20)
@@ -1957,20 +1932,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // We write the barycentric domain values into memory
                 // These are written once per program execution, and reused across all
                 // sumcheck rounds
-                // TODO: Optimisation: If we can write these into the program bytecode then
-                // we could use a codecopy to load them into memory as a single slab, rather than
-                // writing a series of individual values
-
-                // WORKTODO: The non-via ir compiler will be able to take a long bytes constant
-                // and it will write as a code copy, so we can optimise this table write further
-                // by writing it as a single large bytes constant
-
-                // TASK:
-                // Write to the free memory pointer where we want this to go
-                // Outside of assembly at the beginning of the verify function
-                // Attempt to allocate this variable, when it will codecopy it to the
-                // free memory pointer, - in the place we want it :)
-
                 mstore(
                     BARYCENTRIC_LAGRANGE_DENOMINATOR_0_LOC,
                     0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51
@@ -2004,10 +1965,10 @@ contract BlakeOptHonkVerifier is IVerifier {
                     0x00000000000000000000000000000000000000000000000000000000000013b0
                 )
 
-                // Compute the target sums for each round of sumchec
+                // Compute the target sums for each round of sumcheck
                 {
-                    // For each round of sumcheck, compute the target sum
                     // This requires the barycentric inverses to be computed for each round
+                    // TODO: PROSE
 
                     // Write all of the non inverted barycentric denominators into memory
                     let accumulator := 1
@@ -3132,20 +3093,200 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // linear combination of subrelations
                 let accumulator := mload(SUBRELATION_EVAL_0_LOC)
 
-                // TODO(md): unroll???
-                // TODO(md): not optimal
-                for {let i:= 1} lt(i, NUMBER_OF_SUBRELATIONS) {i := add(i, 1)} {
-                    let evaluation_off := mul(i, 0x20)
-                    let chall_off := sub(evaluation_off , 0x20)
+                // Below is an unrolled variant of the following loop
+                // for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; ++i) {
+                //     accumulator = accumulator + evaluations[i] * subrelationChallenges[i - 1];
+                // }
 
-                    accumulator := addmod(
-                        accumulator,
-                        mulmod(
-                            mload(add(SUBRELATION_EVAL_0_LOC, evaluation_off)),
-                            mload(add(ALPHA_CHALLENGE_0, chall_off)),
-                            p),
-                        p)
-                }
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_1_LOC),
+                        mload(ALPHA_CHALLENGE_0),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_2_LOC),
+                        mload(ALPHA_CHALLENGE_1),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_3_LOC),
+                        mload(ALPHA_CHALLENGE_2),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_4_LOC),
+                        mload(ALPHA_CHALLENGE_3),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_5_LOC),
+                        mload(ALPHA_CHALLENGE_4),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_6_LOC),
+                        mload(ALPHA_CHALLENGE_5),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_7_LOC),
+                        mload(ALPHA_CHALLENGE_6),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_8_LOC),
+                        mload(ALPHA_CHALLENGE_7),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_9_LOC),
+                        mload(ALPHA_CHALLENGE_8),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_10_LOC),
+                        mload(ALPHA_CHALLENGE_9),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_11_LOC),
+                        mload(ALPHA_CHALLENGE_10),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_12_LOC),
+                        mload(ALPHA_CHALLENGE_11),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_13_LOC),
+                        mload(ALPHA_CHALLENGE_12),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_14_LOC),
+                        mload(ALPHA_CHALLENGE_13),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_15_LOC),
+                        mload(ALPHA_CHALLENGE_14),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_16_LOC),
+                        mload(ALPHA_CHALLENGE_15),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_17_LOC),
+                        mload(ALPHA_CHALLENGE_16),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_18_LOC),
+                        mload(ALPHA_CHALLENGE_17),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_19_LOC),
+                        mload(ALPHA_CHALLENGE_18),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_20_LOC),
+                        mload(ALPHA_CHALLENGE_19),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_21_LOC),
+                        mload(ALPHA_CHALLENGE_20),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_22_LOC),
+                        mload(ALPHA_CHALLENGE_21),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_23_LOC),
+                        mload(ALPHA_CHALLENGE_22),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_24_LOC),
+                        mload(ALPHA_CHALLENGE_23),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_25_LOC),
+                        mload(ALPHA_CHALLENGE_24),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_26_LOC),
+                        mload(ALPHA_CHALLENGE_25),
+                        p),
+                    p)
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(
+                        mload(SUBRELATION_EVAL_27_LOC),
+                        mload(ALPHA_CHALLENGE_26),
+                        p),
+                    p)
 
                 let sumcheck_valid := eq(accumulator, mload(FINAL_ROUND_TARGET_LOC))
 
@@ -3188,7 +3329,6 @@ contract BlakeOptHonkVerifier is IVerifier {
             // TODO: unroll - can do in code gen - probably using handlebars???
 
             // In order to compute fold pos evaluations we need
-            // TODO: code generate the 14 - logN - 1 here
             let store_off := INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC
             let pow_off := POWERS_OF_EVALUATION_CHALLENGE_14_LOC
             let sumcheck_u_off := SUM_U_CHALLENGE_14
@@ -3207,7 +3347,6 @@ contract BlakeOptHonkVerifier is IVerifier {
             }
 
             // Compute
-            // pos inverted denom 0 does not get inverted - could be overwritten here???
             {
                 let pos_inverted_off := POS_INVERTED_DENOM_1_LOC
                 let neg_inverted_off := NEG_INVERTED_DENOM_1_LOC
@@ -3240,7 +3379,6 @@ contract BlakeOptHonkVerifier is IVerifier {
             // (shplonkZ + powers of evaluation challenge[i + 1])
 
             // Use scratch space for temps
-
 
             let accumulator := mload(GEMINI_R_CHALLENGE)
             // Add series of challenge power to accumulator
@@ -3682,27 +3820,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
             let inverted_gemini_r := accumulator
 
-
-
-
-            // Invert all of the round_inverted denominators AND invert the geminiR challenge
-            // ----------------
-            // To do this, we again use montgomery's batch inversion trick
-            // The following code will invert up until LOG_N scalars writing their result back into the memory
-            // location that they came from
-            // In this example, LOG_N + 1 is 16, plus an additional element for geminiR so we have 17 inversions
-            //
-            // REVIEWTODO: check that the comment made here is correct
-
-            // There will be 16 intermediate values
-            // So we will need to store many of the original accumulator values in memory
-            //
-            // Remark: We store the accumulator outside this scope, as it's final value is immediately used
-            // as soon as this current scope resumes - as geminiR challenge's inversion
-
-            // TODO: code generate unrolling the for loop here
-            // let accumulator := mload(GEMINI_R_CHALLENGE)
-
            let unshifted_scalar := 0
            let shifted_scalar := 0
            {
@@ -3742,19 +3859,11 @@ contract BlakeOptHonkVerifier is IVerifier {
             // into one large value that will be used on the rhs of the pairing check
 
             // Accumulators
-            // TODO: explain what these are for more in depth
             let batching_challenge := 1
             let batched_evaluation := 0
 
             let neg_unshifted_scalar := sub(p, unshifted_scalar)
             let neg_shifted_scalar := sub(p, shifted_scalar)
-
-            // TODO: there is a tradeoff between doing this in a loop / just unrolling the whole thing
-            // For now i have decided to calculate all of the scalars in this loop.
-            // But accumulate the commitments unrolled
-
-            // WORKTODO: THIS IS NOT USED, WE MANUALLY WRITE THIS AGAIN???
-
 
             mstore(BATCH_SCALAR_0_LOC, 1)
             let rho := mload(RHO_CHALLENGE)
@@ -4053,7 +4162,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let shplonk_nu_sqr := mulmod(shplonk_nu, shplonk_nu, p)
                 batching_challenge := shplonk_nu_sqr
 
-                // TODO: work out scheduling
+                // TODO: improve scheduling
                 mstore(SS_POS_INV_DENOM_LOC, POS_INVERTED_DENOM_1_LOC)
                 mstore(SS_NEG_INV_DENOM_LOC, NEG_INVERTED_DENOM_1_LOC)
 
@@ -4125,7 +4234,6 @@ contract BlakeOptHonkVerifier is IVerifier {
             // and write them into the scratch space in order to be accumulated with the
             // ecMul precompile
             //
-            // TODO: write in here where the scalar is expected in scratch space
             function writeProofPointIntoScratchSpace(proof_memory_location) {
                 let x_low := mload(proof_memory_location)
                 let x_high := mload(add(proof_memory_location, 0x20))
@@ -4145,7 +4253,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // 0x40: y_coordinate
             }
 
-            // TODO: cleanup multiple implementations
             function writeProofPointOntoStack(proof_point_memory_location) -> x, y {
                 let x_low := mload(proof_point_memory_location)
                 let x_high := mload(add(proof_point_memory_location, 0x20))
