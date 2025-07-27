@@ -89,6 +89,38 @@ awk '
     }
 ' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
 
+# Process the file to remove code inside UNROLL_SECTION blocks while preserving the markers
+awk '
+    BEGIN {
+        in_unroll = 0
+        unroll_label = ""
+    }
+
+    # Detect UNROLL_SECTION_START
+    /\{\{[[:space:]]*UNROLL_SECTION_START[[:space:]]+[^}]+\}\}/ {
+        print  # Print the start marker
+        in_unroll = 1
+        # Extract the label for matching with END
+        match($0, /UNROLL_SECTION_START[[:space:]]+([^[:space:]}\]]+)/, arr)
+        unroll_label = arr[1]
+        next
+    }
+
+    # Detect UNROLL_SECTION_END
+    /\{\{[[:space:]]*UNROLL_SECTION_END[[:space:]]+[^}]+\}\}/ {
+        print  # Print the end marker
+        in_unroll = 0
+        unroll_label = ""
+        next
+    }
+
+    # Skip lines inside unroll sections
+    in_unroll { next }
+
+    # Print all other lines
+    { print }
+' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
+
 # Process the file to replace hardcoded values in loadVk with templates
 awk '
 BEGIN { in_loadVk = 0 }

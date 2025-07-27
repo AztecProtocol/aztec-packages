@@ -3381,11 +3381,8 @@ contract BlakeOptHonkVerifier is IVerifier {
             // Use scratch space for temps
 
             let accumulator := mload(GEMINI_R_CHALLENGE)
-            // Add series of challenge power to accumulator
-            let temp := LATER_SCRATCH_SPACE // store intermediates in scratch space - using 0x00-0xa0 for result of modexp precompile
-            let challenge_power_loc := sub(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC, 0x20) // should be constant
 
-            /// {{ UNROLL_SECTION_START_ACCUMULATE_INVERSES }}
+            /// {{ UNROLL_SECTION_START ACCUMULATE_INVERSES }}
             // i = 0
             mstore(TEMP_0_LOC, accumulator)
             accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC), p)
@@ -3525,7 +3522,7 @@ contract BlakeOptHonkVerifier is IVerifier {
             // i = 14
             mstore(TEMP_44_LOC, accumulator)
             accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_14_LOC), p)
-            /// {{UNROLL_SECTION_END_ACCUMULATE_INVERSES }}
+            /// {{UNROLL_SECTION_END ACCUMULATE_INVERSES }}
 
             {
                 mstore(0, 0x20)
@@ -3541,7 +3538,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 accumulator := mload(0x00)
             }
 
-            // {{ UNROLL_SECTION_START_COLLECT_INVERSES }}
+            // {{ UNROLL_SECTION_START COLLECT_INVERSES }}
             // i = 15
             {
                 let tmp := mulmod(accumulator, mload(TEMP_44_LOC), p)
@@ -3816,7 +3813,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC), p)
                 mstore(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC, tmp)
             }
-            // {{ UNROLL_SECTION_END_COLLECT_INVERSES }}
+            // {{ UNROLL_SECTION_END COLLECT_INVERSES }}
 
             let inverted_gemini_r := accumulator
 
