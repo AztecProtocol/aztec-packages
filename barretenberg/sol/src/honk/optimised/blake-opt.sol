@@ -1914,67 +1914,39 @@ contract BlakeOptHonkVerifier is IVerifier {
                     0x00000000000000000000000000000000000000000000000000000000000013b0
                 )
 
-                // Note: pass around p to keep it on the stack
-                function computeNextTargetSum(
-                    round_univariates_ptr, /*: uint256[] */
-                    round_challenge, /*: uint256 */
-                    round,
-                    p_clone, /*: uint256 */ /* TEMP */
-                ) -> next_target /*: uint256 */ {
-                    // Next target sum, Barycentric evaluation at the given challenge point
-
-                    // Compute B(x)
-                    let i := 0
-                    let numerator_value := 1
-                    for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
-                        numerator_value :=
-                            mulmod(numerator_value, addmod(round_challenge, sub(p_clone, i), p_clone), p_clone)
-                        i := add(i, 1)
-                    }
-
-                    // Compute the next round target
-                    i := 0
-                    for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
-                        let off := mul(i, 0x20)
-                        // TODO: make this more efficient inverses are precomputed for each round - can just have it outside the loop and add 0x20
-                        let bary_off := add(mul(round, 0x100), mul(i, 0x20))
-                        let term := mload(add(round_univariates_ptr, off))
-                        let inverse := mload(add(BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC, bary_off))
-
-                        term := mulmod(term, inverse, p_clone)
-                        next_target := addmod(next_target, term, p_clone)
-                        i := add(i, 1)
-                    }
-
-                    next_target := mulmod(next_target, numerator_value, p_clone)
-                }
-
                 // Compute the target sums for each round of sumchec
                 {
                     // For each round of sumcheck, compute the target sum
                     // This requires the barycentric inverses to be computed for each round
 
                     // Write all of the non inverted barycentric denominators into memory
+                    let accumulator := 1
+                    let temp := LATER_SCRATCH_SPACE
+                    let bary_centric_inverses_off := BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC
                     {
-                        let round := 0
-                        let bary_centric_inverses_off := BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC
                         let round_challenge_off := SUM_U_CHALLENGE_0
-                        for {} lt(round, LOG_N) {round := add(round, 1)} {
+                        for {let round := 0} lt(round, LOG_N) {round := add(round, 1)} {
 
                             let round_challenge := mload(round_challenge_off)
                             let bary_lagrange_denominator_off := BARYCENTRIC_LAGRANGE_DENOMINATOR_0_LOC
-                            let bary_centric_index := 0
 
-                            for {} lt(bary_centric_index, BATCHED_RELATION_PARTIAL_LENGTH) {bary_centric_index := add(bary_centric_index, 1)} {
+                            // TODO: Could unroll this loop as it only has 8 iterations
+                            for {let barycentric_index := 0} lt(barycentric_index, BATCHED_RELATION_PARTIAL_LENGTH) {barycentric_index := add(barycentric_index, 1)} {
                                 let bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
 
-                                mstore(bary_centric_inverses_off,
-                                    mulmod(
+                                // TODO: if unrolling, we can pre compute sub(p, barycentric index)
+                                let pre_inv := mulmod(
                                         bary_lagrange_denominator,
-                                        addmod(round_challenge, sub(p, bary_centric_index), p),
+                                        addmod(round_challenge, sub(p, barycentric_index), p),
                                         p
                                     )
-                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+
+                                // Calculate accumulator
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
                                 bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
                                 bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
                             }
@@ -1982,30 +1954,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         }
                     }
 
-                    //////////////////////////////
-                    //////////////////////////////
-                    //////////////////////////////
-                    // TODO: could add them to the accumulator in the loop above
-                    //////////////////////////////
-                    //////////////////////////////
-                    //////////////////////////////
-                    // Invert all of the barycentric denominators
+                    // Invert all of the barycentric denominators as a single batch
                     {
-                        // TODO: can load in the first value automatically here
-                        let accumulator := 1
-                        let temp := LATER_SCRATCH_SPACE
-
-                        // TODO: can be a constant
-                        let bary_centric_inverses_off := sub(BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC, 0x20)
-
-                        for {let i := 0} lt(i, NUMBER_OF_BARYCENTRIC_INVERSES) {i := add(i, 1)} {
-                            temp := add(temp, 0x20)
-                            bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
-
-                            mstore(temp, accumulator)
-                            accumulator := mulmod(accumulator, mload(bary_centric_inverses_off), p)
-                        }
-
                         {
                             mstore(0, 0x20)
                             mstore(0x20, 0x20)
@@ -2021,39 +1971,34 @@ contract BlakeOptHonkVerifier is IVerifier {
                             accumulator := mload(0x00)
                         }
 
-                        for {let i := NUMBER_OF_BARYCENTRIC_INVERSES} gt(i, 0) {i := sub(i, 1)} {
+                        // Normalise as last loop will have incremented the offset
+                        bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
+                        for {} gt(bary_centric_inverses_off, BARYCENTRIC_LAGRANGE_DENOMINATOR_7_LOC) {bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)} {
                             let tmp := mulmod(accumulator, mload(temp), p)
                             accumulator := mulmod(accumulator, mload(bary_centric_inverses_off), p)
                             mstore(bary_centric_inverses_off, tmp)
 
                             temp := sub(temp, 0x20)
-                            bary_centric_inverses_off := sub(bary_centric_inverses_off, 0x20)
                         }
                     }
                 }
 
 
-                let round := 0
                 let valid := true
                 let round_target := 0
                 let pow_partial_evaluation := 1
                 let gate_challenge_off := GATE_CHALLENGE_0
-                // let round_univariates_off := SUMCHECK_UNIVARIATE_0_0_LOC
+                let round_univariates_off := SUMCHECK_UNIVARIATE_0_0_LOC
 
-                // let challenge_off := SUM_U_CHALLENGE_0
-                // let bary_inverses_off := BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC
+                let challenge_off := SUM_U_CHALLENGE_0
+                let bary_inverses_off := BARYCENTRIC_DENOMINATOR_INVERSES_0_0_LOC
 
-                for {} lt(round, LOG_N) {} {
-                    let round_univariates_off := add(SUMCHECK_UNIVARIATE_0_0_LOC, mul(round, 0x100))
-                    let challenge_off := add(SUM_U_CHALLENGE_0, mul(round, 0x20))
-
+                for {let round := 0} lt(round, LOG_N) {round := add(round, 1)} {
                     let round_challenge := mload(challenge_off)
 
                     // Total sum = u[0] + u[1]
                     let total_sum := addmod(mload(round_univariates_off), mload(add(round_univariates_off, 0x20)), p)
                     valid := and(valid, eq(total_sum, round_target))
-
-                    round_target := computeNextTargetSum(round_univariates_off, round_challenge, round, p)
 
                     // Compute next target sum
                     let numerator_value := round_challenge
@@ -2066,19 +2011,18 @@ contract BlakeOptHonkVerifier is IVerifier {
                     numerator_value := mulmod(numerator_value, addmod(round_challenge, P_SUB_7, p), p)
 
                     // // Compute the next round target
-                    // let i := 0
-                    // for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
-                    //     let term := mload(round_univariates_off)
-                    //     let inverse := mload(bary_inverses_off)
+                    round_target := 0
+                    for {let i := 0} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {i := add(i, 1)} {
+                        let term := mload(round_univariates_off)
+                        let inverse := mload(bary_inverses_off)
 
-                    //     term := mulmod(term, inverse, p)
-                    //     round_target := addmod(round_target, term, p)
-                    //     i := add(i, 1)
-                    //     round_univariates_off := add(round_univariates_off, 0x20)
-                    //     bary_inverses_off := add(bary_inverses_off, 0x20)
-                    // }
+                        term := mulmod(term, inverse, p)
+                        round_target := addmod(round_target, term, p)
+                        round_univariates_off := add(round_univariates_off, 0x20)
+                        bary_inverses_off := add(bary_inverses_off, 0x20)
+                    }
 
-                    // round_target := mulmod(round_target, numerator_value, p)
+                    round_target := mulmod(round_target, numerator_value, p)
 
                     // Partially evaluate POW
                     let gate_challenge := mload(gate_challenge_off)
@@ -2089,9 +2033,8 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     pow_partial_evaluation := mulmod(pow_partial_evaluation, univariate_evaluation, p)
 
-                    round := add(round, 1)
                     gate_challenge_off := add(gate_challenge_off, 0x20)
-                    // challenge_off := add(challenge_off, 0x20)
+                    challenge_off := add(challenge_off, 0x20)
                 }
 
                 if iszero(valid) {
