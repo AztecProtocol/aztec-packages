@@ -138,6 +138,9 @@ challenges = [
     "PUBLIC_INPUTS_DELTA_DENOMINATOR"
 ]
 
+START_POINTER = 0x1000
+SCRATCH_SPACE_POINTER = 0x100
+
 
 def print_header_centered(text: str):
     top = "/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/"
@@ -263,20 +266,18 @@ def print_challenges(pointer: int):
     return pointer
 
 BARYCENTRIC_DOMAIN_SIZE = 8
-def print_barycentric_domain(pointer: int):
+def print_barycentric_domain():
+    # use scratch space
+    bary_pointer = SCRATCH_SPACE_POINTER
     for i in range(0, BARYCENTRIC_DOMAIN_SIZE):
-        print_fr(pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + str(i) + "_LOC")
-        pointer += 32
+        print_fr(bary_pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + str(i) + "_LOC")
+        bary_pointer += 32
 
-    for i in range(0, BARYCENTRIC_DOMAIN_SIZE):
-        print_fr(pointer, "BARYCENTRIC_DOMAIN_" + str(i) + "_LOC")
-        pointer += 32
+    for i in range(0, PROOF_SIZE_LOG_N):
+        for j in range(0, BARYCENTRIC_DOMAIN_SIZE):
+            print_fr(bary_pointer, "BARYCENTRIC_DENOMINATOR_INVERSES_" + str(i) + "_" + str(j) + "_LOC")
+            bary_pointer += 32
 
-    for i in range(0, BARYCENTRIC_DOMAIN_SIZE):
-        print_fr(pointer, "BARYCENTRIC_DENOMINATOR_INVERSES_" + str(i) + "_LOC")
-        pointer += 32
-
-    return pointer
 
 def print_subrelation_eval(pointer: int):
     for i in range(0, NUMBER_OF_SUBRELATIONS):
@@ -330,13 +331,7 @@ def print_inverted_gemini_denominators(pointer: int):
         pointer += 32
     return pointer
 
-def print_batch_accumulators(pointer: int):
-    BATCH_SIZE = 9
-    for i in range(0, BATCH_SIZE):
-        print_fr(pointer, "BATCH_ACCUMULATOR_" + str(i) + "_LOC")
-        pointer += 32
-    return pointer
-
+# TODO: double check this value
 def print_batched_evaluation_accumulator_inversions(pointer: int):
     BATCH_SIZE = 15
     for i in range(0, BATCH_SIZE):
@@ -353,6 +348,35 @@ def print_constant_term_accumulator_location(pointer: int):
     print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC")
     pointer += 32
     return pointer
+
+def print_inversions():
+    pointer = SCRATCH_SPACE_POINTER
+    pointer = print_inverted_gemini_denominators(pointer)
+    pointer = print_batched_evaluation_accumulator_inversions(pointer)
+
+    print("")
+    pointer = print_batched_evaluation_location(pointer)
+    pointer = print_constant_term_accumulator_location(pointer)
+
+    print("")
+    pointer = print_pos_neg_inverted_denominators(pointer)
+
+    print("")
+    print("// LOG_N challenge pow minus u")
+    pointer = print_inverted_challenge_pow_minus_u(pointer)
+
+    print("")
+    print("// LOG_N pos_inverted_off")
+    pointer = print_pos_inverted_denom(pointer)
+
+    print("")
+    print("// LOG_N neg_inverted_off")
+    pointer = print_neg_inverted_denom(pointer)
+
+    print("")
+    pointer = print_fold_pos_evaluations(pointer)
+
+
 
 def print_pos_neg_inverted_denominators(pointer: int):
     print_fr(pointer, "POS_INVERTED_DENOMINATOR")
@@ -390,6 +414,12 @@ def print_later_scratch_space(pointer: int):
     pointer += 32
     return pointer
 
+def print_temp_space(pointer: int):
+    for i in range(0, 3 * PROOF_SIZE_LOG_N):
+        print_fr(pointer, "TEMP_" + str(i) + "_LOC")
+        pointer += 32
+    return pointer
+
 def print_scratch_space_aliases():
     print("")
     print("// Aliases for scratch space")
@@ -421,7 +451,7 @@ def print_ec_aliases():
 
 def main():
     # This is an arbitrary offset, but will need to be adjusted based on the
-    pointer = 0x380
+    pointer = 0x1000
 
     # Print the verification key indicies
     print_header_centered("VK INDICIES")
@@ -448,7 +478,7 @@ def main():
     print_header_centered("SUMCHECK - RUNTIME MEMORY")
 
     print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC")
-    pointer = print_barycentric_domain(pointer)
+    print_barycentric_domain()
     print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC COMPLETE")
 
     print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS")
@@ -465,13 +495,6 @@ def main():
     pointer = print_powers_of_evaluation_challenge(pointer)
     print_header_centered("SHPLEMINI - POWERS OF EVALUATION CHALLENGE COMPLETE")
 
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS")
-    pointer = print_inverted_gemini_denominators(pointer)
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS COMPLETE")
-
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH ACCUMULATORS")
-    pointer = print_batch_accumulators(pointer)
-
     # This is a temporary method to write where the batch scalars should be
     # But in reality it will overlap with the sumcheck univariates
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS")
@@ -479,35 +502,16 @@ def main():
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS COMPLETE")
 
     print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS")
-    pointer = print_batched_evaluation_accumulator_inversions(pointer)
-
-    print("")
-    pointer = print_batched_evaluation_location(pointer)
-    pointer = print_constant_term_accumulator_location(pointer)
-
-    print("")
-    pointer = print_pos_neg_inverted_denominators(pointer)
-
-    print("")
-    print("// LOG_N challenge pow minus u")
-    pointer = print_inverted_challenge_pow_minus_u(pointer)
-
-    print("")
-    print("// LOG_N pos_inverted_off")
-    pointer = print_pos_inverted_denom(pointer)
-
-    print("")
-    print("// LOG_N neg_inverted_off")
-    pointer = print_neg_inverted_denom(pointer)
-
-    print("")
-    pointer = print_fold_pos_evaluations(pointer)
-
+    print_inversions()
     print_header_centered("SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE")
     print_header_centered("SHPLEMINI RUNTIME MEMORY - COMPLETE")
 
     print("")
     pointer = print_later_scratch_space(pointer)
+
+    print_header_centered("Temporary space")
+    pointer = print_temp_space(pointer)
+    print_header_centered("Temporary space - COMPLETE")
 
     print_scratch_space_aliases()
     print_ec_aliases()

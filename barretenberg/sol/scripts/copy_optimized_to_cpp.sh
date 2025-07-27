@@ -65,6 +65,7 @@ sed -i 's/uint256 constant CIRCUIT_SIZE = 32768;/uint256 constant CIRCUIT_SIZE =
 sed -i 's/uint256 constant LOG_N = 15;/uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};/' "$TEMP_SOL"
 sed -i 's/uint256 constant NUMBER_PUBLIC_INPUTS = 20;/uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};/' "$TEMP_SOL"
 sed -i 's/uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 20 - 16;/uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }} - 16;/' "$TEMP_SOL"
+sed -i 's/uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = 120;/uint256 constant NUMBER_OF_BARYCENTRIC_INVERSES = {{ NUMBER_OF_BARYCENTRIC_INVERSES }};/' "$TEMP_SOL"
 
 # Replace the contract name
 sed -i 's/contract BlakeOptHonkVerifier/contract HonkVerifier/' "$TEMP_SOL"
@@ -76,7 +77,7 @@ awk '
         print
         next
     }
-    
+
     # For all other lines, replace the _14 values with templates
     {
         gsub(/POWERS_OF_EVALUATION_CHALLENGE_14_LOC/, "POWERS_OF_EVALUATION_CHALLENGE_{{ LOG_N_MINUS_ONE }}_LOC")
@@ -86,6 +87,38 @@ awk '
         gsub(/FOLD_POS_EVALUATIONS_14_LOC/, "FOLD_POS_EVALUATIONS_{{ LOG_N_MINUS_ONE }}_LOC")
         print
     }
+' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
+
+# Process the file to remove code inside UNROLL_SECTION blocks while preserving the markers
+awk '
+    BEGIN {
+        in_unroll = 0
+        unroll_label = ""
+    }
+
+    # Detect UNROLL_SECTION_START
+    /\{\{[[:space:]]*UNROLL_SECTION_START[[:space:]]+[^}]+\}\}/ {
+        print  # Print the start marker
+        in_unroll = 1
+        # Extract the label for matching with END
+        match($0, /UNROLL_SECTION_START[[:space:]]+([^[:space:]}\]]+)/, arr)
+        unroll_label = arr[1]
+        next
+    }
+
+    # Detect UNROLL_SECTION_END
+    /\{\{[[:space:]]*UNROLL_SECTION_END[[:space:]]+[^}]+\}\}/ {
+        print  # Print the end marker
+        in_unroll = 0
+        unroll_label = ""
+        next
+    }
+
+    # Skip lines inside unroll sections
+    in_unroll { next }
+
+    # Print all other lines
+    { print }
 ' "$TEMP_SOL" > "${TEMP_SOL}.tmp" && mv "${TEMP_SOL}.tmp" "$TEMP_SOL"
 
 # Process the file to replace hardcoded values in loadVk with templates
