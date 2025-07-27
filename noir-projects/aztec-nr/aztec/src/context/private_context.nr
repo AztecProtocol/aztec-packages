@@ -47,7 +47,124 @@ use dep::protocol_types::{
     utils::arrays::array_concat,
 };
 
-// When finished, one can call .finish() to convert back to the abi
+/// # PrivateContext
+///
+/// The **key interface** between a #[private] function and the Aztec blockchain.
+///
+/// An instance of the PrivateContext is initialized automatically at the outset
+/// of every private function, within the #[private] macro, so you'll never
+/// need to consciously instantiate this yourself.
+///
+/// The instance is always named `context`, and it is always be available within
+/// the body of every #[private] function in your smart contract.
+///
+/// > For those used to "vanilla" Noir, it might be jarring to have access to
+/// > `context` without seeing a declaration `let context = PrivateContext::new(...)`
+/// > within the body of your function. This is just a consequence of using
+/// > macros to tidy-up verbose boilerplate. You can use `nargo expand` to
+/// > expand all macros, if you dare.
+///
+/// Typical usage for a smart contract developer will be to call getter
+/// methods of the PrivateContext, to access contextual data relating to
+/// how this function was called. See the "Responsibilities" section below.
+///
+/// _Pushing_ data and requests to the context is mostly handled within
+/// aztec-nr's own functions, so typically a smart contract developer won't
+/// need to call any setter methods directly.
+///
+/// > Advanced users might occasionally wish to push data to the context
+/// > directly for lower-level control. If you find yourself doing this, please
+/// > open an issue on GitHub to describe your use case: it might be that
+/// > new functionality should be added to aztec-nr.
+///
+/// ## Responsibilities
+/// - Provides contextual data to a private function:
+///   - Data relating to how this private function was called.
+///     - msg_sender
+///     - this_address - (the contract address of the private function being
+///                      executed)
+///     - See `CallContext` for more data.
+///   - Data relating to the transaction in which this private function is
+///     being executed.
+///     - chain_id
+///     - version
+///     - gas_settings
+///   - Historical state access:
+///     Access to the historical block header that this private function is
+///     reading from.
+///     Recall, a private function cannot read from the "current" block header,
+///     but must read from some historical block header, because as soon as
+///     private function execution begins (asynchronously, on a user's device),
+///     the public state of the chain (the "current state") will have progressed
+///     forward. Hence we call it a "historical" block header to stress the
+///     outdated nature of the data being served by the PrivateContext.
+///     See `BlockHeader`.
+/// - Enables calls to functions of other smart contracts:
+///   - private function calls
+///   - enqueueing of public function call requests
+///     (Since public functions are executed at a later time, by a block
+///     proposer, we say they are "enqueued").
+/// - Writes data to the blockchain:
+///   - New notes, nullifiers, private logs, L2->L1 messages.
+/// - Requests work to be done by the protocol's kernel circuits:
+///   - Insertion of new state.
+///   - Execution of requested function calls.
+///   - Publishing of private logs to Ethereum's blobs.
+///   - Key Validation Requests. Private functions are not allowed to see master
+///     secret keys, because we do not trust them. They are instead given "app-
+///     siloed" secret keys with a claim that they relate to a master public key.
+///     They can then request validation of this claim, by making a "key
+///     validation request" to the protocol's kernel circuits (which _are_
+///     allowed to see certain master secret keys).
+/// - Provides args to the private function (handled by the #[private] macro).
+/// - Returns the return values of this private function (handled by the
+///   #[private] macro).
+///
+/// ## Advanced Responsibilities
+/// - Ultimately, the PrivateContext is responsible for constructing the
+///   `PrivateCircuitPublicInputs` of the private function being executed.
+///   All private functions on Aztec must have public inputs which adhere
+///   to the rigid layout of the PrivateCircuitPublicInputs, in order to be
+///   compatible with the protocol's kernel circuits.
+///   A well-known misnomer:
+///   - "public inputs" contain both inputs and outputs of this function.
+///     - By "outputs" we mean a lot more side-effects than just the
+///       "return values" of the function.
+///   - Most of the so-called "public inputs" are kept private, and never leak
+///     to the outside world, because they are 'swallowed' by the protocol's
+///     kernel circuits before the tx is sent to the network. Only the
+///     following are exposed to the outside world:
+///     - New note_hashes
+///     - New nullifiers
+///     - New private logs
+///     - New L2->L1 messages
+///     - New enqueued public function call requests
+///     All the above-listed arrays of side-effects can be padded by the
+///     user's wallet (through instructions to the kernel circuits, via the
+///     PXE) to obscure their true lengths.
+///
+///
+/// ## Syntax Justification
+///
+/// Both user-defined functions _and_ most functions in aztec-nr need access to
+/// the PrivateContext instance to read/write data. This is why you'll see the
+/// arguably-ugly pervasiveness of the "context" throughout your smart contract
+/// and the aztec-nr library.
+/// For example, `&mut context` is prevalent. In some languages, you can access
+/// and mutate a global variable (such as a PrivateContext instance) from a
+/// function without polluting the function's parameters. With Noir, a function
+/// must explicitly pass control of a mutable variable to another function, by
+/// reference. Since many functions in aztec-nr need to be able to push new data
+/// to the PrivateContext, they need to be handed a mutable reference _to_ the
+/// context as a parameter.
+/// For example, `Context` is prevalent as a generic parameter, to give better
+/// type safety at compile time. Many `aztec-nr` functions don't make sense if
+/// they're called in a particular runtime (private, public or utility), and so
+/// are intentionally only implemented over certain
+/// [Private|Public|Utility]Context structs. This gives smart contract
+/// developers a much faster feedback loop if they're making a mistake, as an
+/// error will be thrown by the LSP or when they compile their contract.
+///
 pub struct PrivateContext {
     // docs:start:private-context
     pub inputs: PrivateContextInputs,
@@ -112,38 +229,214 @@ impl PrivateContext {
         }
     }
 
+    /// Gets the contract address that initiated this function call.
+    ///
+    /// This is similar to `msg.sender` in Solidity (hence the name).
+    ///
+    /// Important Note: Since Aztec doesn't have a concept of an EoA (
+    /// Externally-owned Account), the msg_sender is "undefined" for the first
+    /// function call of every transaction. A value of `-1` is returned in such
+    /// cases, and is enforced by the protocol's kernel circuits.
+    /// The first function call of a tx is likely to be a call to the user's
+    /// account contract, so this quirk will most often be handled by account
+    /// contract developers.
+    ///
+    /// TODO(https://github.com/AztecProtocol/aztec-packages/issues/14025) - we
+    /// are considering making msg_sender: Option<AztecAddress>, since
+    /// a returned value of `Option:none` will be clearer to developers.
+    ///
+    /// # Returns
+    /// * `AztecAddress` - The address of the smart contract that called
+    ///   this function (be it an app contract or a user's account contract).
+    ///   Returns `-1` for the first function call of the tx.
+    ///
     pub fn msg_sender(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
 
+    /// Gets the contract address of the current function being executed.
+    ///
+    /// This is equivalent to `address(this)` in Solidity (hence the name).
+    /// Use this to identify the current contract's address, commonly needed for access
+    /// control or when interacting with other contracts.
+    ///
+    /// # Returns
+    /// * `AztecAddress` - The contract address of the current function being
+    ///                    executed.
+    ///
     pub fn this_address(self) -> AztecAddress {
         self.inputs.call_context.contract_address
     }
 
+    /// Gets the chain ID of the current network.
+    ///
+    /// This is equivalent to `block.chainid` in Solidity. Returns the unique
+    /// identifier for the blockchain network this transaction is executing on.
+    ///
+    /// Helps prevent cross-chain replay attacks. Useful if implementing
+    /// and multi-chain contract logic.
+    ///
+    /// # Returns
+    /// * `Field` - The chain ID as a field element
+    ///
     pub fn chain_id(self) -> Field {
         self.inputs.tx_context.chain_id
     }
 
+    /// Returns the Aztec protocol version that this transaction is executing
+    /// under. Different versions may have different rules, opcodes, or
+    /// cryptographic primitives.
+    ///
+    /// This is similar to how Ethereum has different EVM versions.
+    ///
+    /// Useful for forward/backward compatibility checks
+    ///
+    /// Not to be confused with contract versions; this is the protocol version.
+    ///
+    /// # Returns
+    /// * `Field` - The protocol version as a field element
+    ///
     pub fn version(self) -> Field {
         self.inputs.tx_context.version
     }
 
+    /// Gets the gas settings for the current transaction.
+    ///
+    /// This provides information about gas limits and pricing for the
+    /// transaction, similar to `tx.gasprice` and gas limits in Ethereum.
+    /// However, Aztec has a more sophisticated gas model with separate
+    /// accounting for L2 computation and data availability (DA) costs.
+    ///
+    /// # Returns
+    /// * `GasSettings` - Struct containing gas limits and fee information
+    ///
     pub fn gas_settings(self) -> GasSettings {
         self.inputs.tx_context.gas_settings
     }
 
+    /// Gets the function selector of the currently executing function.
+    ///
+    /// Ordinarily, smart contract developers will not need to access this.
+    ///
+    /// This is similar to `msg.sig` in Solidity, which returns the first 4
+    /// bytes of the function signature. In Aztec, the selector uniquely
+    /// identifies which function within the contract is being called.
+    ///
+    /// # Returns
+    /// * `FunctionSelector` - The 4-byte function identifier
+    ///
+    /// # Advanced
+    /// Only #[private] functions have a function selector as a protocol-
+    /// enshrined concept. The function selectors of private functions are
+    /// baked into the preimage of the contract address, and are used by the
+    /// protocol's kernel circuits to identify each private function and ensure
+    /// the correct one is being executed.
+    ///
+    /// Used internally for function dispatch and call verification.
+    ///
     pub fn selector(self) -> FunctionSelector {
         self.inputs.call_context.function_selector
     }
 
+    /// Gets the hash of the arguments passed to the current function.
+    ///
+    /// Ordinarily, smart contract developers will not need to access this:
+    /// arguments are already unpacked and made available to the body of a
+    /// private function via the #[private] macro.
+    ///
+    /// # Returns
+    /// * `Field` - Hash of the function arguments
+    ///
+    /// # Advanced
+    /// * Arguments are hashed to reduce proof size and verification time
+    /// * Enables efficient argument passing in recursive function calls
+    /// * The hash can be used to retrieve the original arguments from the PXE.
+    ///
     pub fn get_args_hash(self) -> Field {
         self.args_hash
     }
 
+    /// Pushes a new note_hash to the Aztec blockchain's global Note Hash Tree
+    /// (a state tree).
+    ///
+    /// A note_hash is a commitment to a piece of private state.
+    ///
+    /// Ordinarily, smart contract developers will not need to call this.
+    /// Aztec-nr's state variables (see `../state_vars/`) are designed to
+    /// handle the safe pushing of new notes for you.
+    ///
+    /// # Arguments
+    /// * `note_hash` - The new note_hash.
+    ///
+    /// # Advanced
+    /// From here, the protocol's kernel circuits will take over and insert the
+    /// note_hash into the protocol's "note hash tree" (in the Base Rollup
+    /// circuit).
+    /// Before insertion, the protocol will:
+    /// - "Silo" the `note_hash` with the contract address of this function,
+    ///   to yield a `siloed_note_hash`. This prevents state collisions
+    ///   between different smart contracts.
+    /// - Ensure uniqueness of the `siloed_note_hash`, to prevent Faerie-Gold
+    ///   attacks, by hashing the `siloed_note_hash` with a unique value, to
+    ///   yield a `unique_siloed_note_hash` (see the protocol spec for more).
+    ///
+    /// In addition to calling this function, aztec-nr provides the contents
+    /// of the newly-created note to the PXE, via the `notify_created_note`
+    /// oracle.
+    ///
+    /// > Advanced users might occasionally wish to push data to the context
+    /// > directly for lower-level control. If you find yourself doing this,
+    /// > please open an issue on GitHub to describe your use case: it might be
+    /// > that new functionality should be added to aztec-nr.
+    ///
     pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
     }
 
+    /// Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree
+    /// (a state tree).
+    ///
+    /// Ordinarily, smart contract developers will not need to call this.
+    /// Aztec-nr's state variables (see `../state_vars/`) are designed to
+    /// understand when to create new nullifiers, and how to safely push them.
+    ///
+    /// A nullifier can only be emitted once. Duplicate nullifier insertions are
+    /// rejected by the protocol.
+    ///
+    /// Generally, a nullifier is emitted to prevent an action from happening
+    /// more than once, in such a way that the action cannot be linked (by an
+    /// observer of the blockchain) to any earlier transactions.
+    ///
+    /// I.e. a nullifier is a randomised record of a private, one-time action,
+    /// which does not leak what action has been taken, and preserves the
+    /// property of "tx unlinkability".
+    ///
+    /// Usually, a nullifier will be emitted to "spend" a note (a piece of
+    /// private state), without revealing which specific note is being spent.
+    ///
+    /// > For that reason, most Note implementations implement a
+    /// > `compute_nullifier` function.
+    ///
+    /// Sometimes, a nullifier might be emitted completely unrelated to any
+    /// notes. Examples include initialization of a new contract; initialization
+    /// of a PrivateMutable, or signalling in Semaphore-like applications.
+    ///
+    /// # Arguments
+    /// * `nullifier` - A unique field element that represents the consumed
+    ///                 state.
+    ///
+    /// # Advanced
+    ///
+    /// From here, the protocol's kernel circuits will take over and insert the
+    /// nullifier into the protocol's "nullifier tree" (in the Base Rollup
+    /// circuit).
+    /// Before insertion, the protocol will:
+    /// - "Silo" the `nullifier` with the contract address of this function,
+    ///   to yield a `siloed_nullifier`. This prevents state collisions
+    ///   between different smart contracts.
+    /// - Ensure the `siloed_nullifier` is unique (the nullifier tree is an
+    ///   indexed merkle tree which supports efficient non-membership proofs).
+    ///
     pub fn push_nullifier(&mut self, nullifier: Field) {
         notify_created_nullifier(nullifier);
         self.nullifiers.push(
@@ -163,14 +456,33 @@ impl PrivateContext {
         );
     }
 
-    // Returns the header of a block whose state is used during private execution (not the block the transaction is
-    // included in).
+    /// Returns the historical block header that this private function is
+    /// reading from.
+    ///
+    /// Recall, a private function CANNOT read from the "current" block header,
+    /// but must read from some historical block header, because as soon as
+    /// private function execution begins (asynchronously, on a user's device),
+    /// the public state of the chain (the "current state") will have progressed
+    /// forward. Hence we call it a "historical" block header to stress the
+    /// outdated nature of the data being served by the PrivateContext.
+    ///
+    /// # Returns
+    /// * `BlockHeader` - The historical block header that this private function
+    ///                   is reading from.
+    ///
+    /// # Advanced
+    /// * All private functions of a tx read from the same historical block
+    ///   header.
+    /// * The protocol asserts that the `include_by_timestamp` of every tx
+    ///   is at most 24 hours beyond the timestamp of the tx's chosen historical
+    ///   block header. This enables the network's nodes to safely prune old txs
+    ///   from the mempool. Therefore, the chosen block header _must_ be one
+    ///   from "earlier today".
+    ///
     pub fn get_block_header(self) -> BlockHeader {
         self.historical_header
     }
 
-    // Returns the header of an arbitrary block whose block number is less than or equal to the block number
-    // of historical header.
     pub fn get_block_header_at(self, block_number: u32) -> BlockHeader {
         get_block_header_at(block_number, self)
     }
@@ -282,7 +594,6 @@ impl PrivateContext {
         }
     }
 
-    // docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         // docs:end:context_message_portal
         let message = L2ToL1Message { recipient, content };
