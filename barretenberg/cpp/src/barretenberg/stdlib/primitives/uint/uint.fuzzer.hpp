@@ -359,30 +359,6 @@ template <typename Builder> class UintFuzzBase {
                 return static_cast<T>(v >> bits);
             }
         }
-        template <class T> static T get_bit(const T v, const size_t bit)
-        {
-            if (bit >= sizeof(T) * 8) {
-                return 0;
-            } else {
-                return (v & (uint64_t(1) << bit)) ? 1 : 0;
-            }
-        }
-        template <class T> static std::vector<bool_t> to_bit_vector(const T& v)
-        {
-            std::vector<bool_t> bits;
-            for (size_t i = 0; i < v.get_width(); i++) {
-                bits.push_back(at<>(v, i));
-            }
-            return bits;
-        }
-        template <class T> static std::array<bool_t, T::width> to_bit_array(const T& v)
-        {
-            std::array<bool_t, T::width> bits;
-            for (size_t i = 0; i < T::width; i++) {
-                bits[i] = at<>(v, i);
-            }
-            return bits;
-        }
         template <class T> static uint256_t get_value(const T& v)
         {
             const auto ret = v.get_value();
@@ -827,7 +803,7 @@ template <typename Builder> class UintFuzzBase {
         /* Explicit re-instantiation using the various constructors */
         ExecutionHandler set(Builder* builder) const
         {
-            switch (VarianceRNG.next() % 7) {
+            switch (VarianceRNG.next() % 5) {
             case 0:
                 return ExecutionHandler(this->ref,
                                         Uint(uint_8_t(this->uint.v8),
@@ -853,18 +829,6 @@ template <typename Builder> class UintFuzzBase {
                                              uint_32_t(this->to_byte_array(this->uint.v32)),
                                              uint_64_t(this->to_byte_array(this->uint.v64))));
             case 4:
-                return ExecutionHandler(this->ref,
-                                        Uint(uint_8_t(builder, this->to_bit_vector(this->uint.v8)),
-                                             uint_16_t(builder, this->to_bit_vector(this->uint.v16)),
-                                             uint_32_t(builder, this->to_bit_vector(this->uint.v32)),
-                                             uint_64_t(builder, this->to_bit_vector(this->uint.v64))));
-            case 5:
-                return ExecutionHandler(this->ref,
-                                        Uint(uint_8_t(builder, this->to_bit_array(this->uint.v8)),
-                                             uint_16_t(builder, this->to_bit_array(this->uint.v16)),
-                                             uint_32_t(builder, this->to_bit_array(this->uint.v32)),
-                                             uint_64_t(builder, this->to_bit_array(this->uint.v64))));
-            case 6:
                 return ExecutionHandler(this->ref,
                                         Uint(uint_8_t(builder, this->ref.v8),
                                              uint_16_t(builder, this->ref.v16),
