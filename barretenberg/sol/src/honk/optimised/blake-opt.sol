@@ -1287,6 +1287,96 @@ contract BlakeOptHonkVerifier is IVerifier {
 
     uint256 internal constant  LATER_SCRATCH_SPACE  =  0x7460 ;
 
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                      Temporary space                       */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    // 3 x max proof size space to store intermediate values
+    uint256 internal constant  TEMP_0_LOC  =  0x7480 ;
+    uint256 internal constant  TEMP_1_LOC  =  0x74a0 ;
+    uint256 internal constant  TEMP_2_LOC  =  0x74c0 ;
+    uint256 internal constant  TEMP_3_LOC  =  0x74e0 ;
+    uint256 internal constant  TEMP_4_LOC  =  0x7500 ;
+    uint256 internal constant  TEMP_5_LOC  =  0x7520 ;
+    uint256 internal constant  TEMP_6_LOC  =  0x7540 ;
+    uint256 internal constant  TEMP_7_LOC  =  0x7560 ;
+    uint256 internal constant  TEMP_8_LOC  =  0x7580 ;
+    uint256 internal constant  TEMP_9_LOC  =  0x75a0 ;
+    uint256 internal constant  TEMP_10_LOC  =  0x75c0 ;
+    uint256 internal constant  TEMP_11_LOC  =  0x75e0 ;
+    uint256 internal constant  TEMP_12_LOC  =  0x7600 ;
+    uint256 internal constant  TEMP_13_LOC  =  0x7620 ;
+    uint256 internal constant  TEMP_14_LOC  =  0x7640 ;
+    uint256 internal constant  TEMP_15_LOC  =  0x7660 ;
+    uint256 internal constant  TEMP_16_LOC  =  0x7680 ;
+    uint256 internal constant  TEMP_17_LOC  =  0x76a0 ;
+    uint256 internal constant  TEMP_18_LOC  =  0x76c0 ;
+    uint256 internal constant  TEMP_19_LOC  =  0x76e0 ;
+    uint256 internal constant  TEMP_20_LOC  =  0x7700 ;
+    uint256 internal constant  TEMP_21_LOC  =  0x7720 ;
+    uint256 internal constant  TEMP_22_LOC  =  0x7740 ;
+    uint256 internal constant  TEMP_23_LOC  =  0x7760 ;
+    uint256 internal constant  TEMP_24_LOC  =  0x7780 ;
+    uint256 internal constant  TEMP_25_LOC  =  0x77a0 ;
+    uint256 internal constant  TEMP_26_LOC  =  0x77c0 ;
+    uint256 internal constant  TEMP_27_LOC  =  0x77e0 ;
+    uint256 internal constant  TEMP_28_LOC  =  0x7800 ;
+    uint256 internal constant  TEMP_29_LOC  =  0x7820 ;
+    uint256 internal constant  TEMP_30_LOC  =  0x7840 ;
+    uint256 internal constant  TEMP_31_LOC  =  0x7860 ;
+    uint256 internal constant  TEMP_32_LOC  =  0x7880 ;
+    uint256 internal constant  TEMP_33_LOC  =  0x78a0 ;
+    uint256 internal constant  TEMP_34_LOC  =  0x78c0 ;
+    uint256 internal constant  TEMP_35_LOC  =  0x78e0 ;
+    uint256 internal constant  TEMP_36_LOC  =  0x7900 ;
+    uint256 internal constant  TEMP_37_LOC  =  0x7920 ;
+    uint256 internal constant  TEMP_38_LOC  =  0x7940 ;
+    uint256 internal constant  TEMP_39_LOC  =  0x7960 ;
+    uint256 internal constant  TEMP_40_LOC  =  0x7980 ;
+    uint256 internal constant  TEMP_41_LOC  =  0x79a0 ;
+    uint256 internal constant  TEMP_42_LOC  =  0x79c0 ;
+    uint256 internal constant  TEMP_43_LOC  =  0x79e0 ;
+    uint256 internal constant  TEMP_44_LOC  =  0x7a00 ;
+    uint256 internal constant  TEMP_45_LOC  =  0x7a20 ;
+    uint256 internal constant  TEMP_46_LOC  =  0x7a40 ;
+    uint256 internal constant  TEMP_47_LOC  =  0x7a60 ;
+    uint256 internal constant  TEMP_48_LOC  =  0x7a80 ;
+    uint256 internal constant  TEMP_49_LOC  =  0x7aa0 ;
+    uint256 internal constant  TEMP_50_LOC  =  0x7ac0 ;
+    uint256 internal constant  TEMP_51_LOC  =  0x7ae0 ;
+    uint256 internal constant  TEMP_52_LOC  =  0x7b00 ;
+    uint256 internal constant  TEMP_53_LOC  =  0x7b20 ;
+    uint256 internal constant  TEMP_54_LOC  =  0x7b40 ;
+    uint256 internal constant  TEMP_55_LOC  =  0x7b60 ;
+    uint256 internal constant  TEMP_56_LOC  =  0x7b80 ;
+    uint256 internal constant  TEMP_57_LOC  =  0x7ba0 ;
+    uint256 internal constant  TEMP_58_LOC  =  0x7bc0 ;
+    uint256 internal constant  TEMP_59_LOC  =  0x7be0 ;
+    uint256 internal constant  TEMP_60_LOC  =  0x7c00 ;
+    uint256 internal constant  TEMP_61_LOC  =  0x7c20 ;
+    uint256 internal constant  TEMP_62_LOC  =  0x7c40 ;
+    uint256 internal constant  TEMP_63_LOC  =  0x7c60 ;
+    uint256 internal constant  TEMP_64_LOC  =  0x7c80 ;
+    uint256 internal constant  TEMP_65_LOC  =  0x7ca0 ;
+    uint256 internal constant  TEMP_66_LOC  =  0x7cc0 ;
+    uint256 internal constant  TEMP_67_LOC  =  0x7ce0 ;
+    uint256 internal constant  TEMP_68_LOC  =  0x7d00 ;
+    uint256 internal constant  TEMP_69_LOC  =  0x7d20 ;
+    uint256 internal constant  TEMP_70_LOC  =  0x7d40 ;
+    uint256 internal constant  TEMP_71_LOC  =  0x7d60 ;
+    uint256 internal constant  TEMP_72_LOC  =  0x7d80 ;
+    uint256 internal constant  TEMP_73_LOC  =  0x7da0 ;
+    uint256 internal constant  TEMP_74_LOC  =  0x7dc0 ;
+    uint256 internal constant  TEMP_75_LOC  =  0x7de0 ;
+    uint256 internal constant  TEMP_76_LOC  =  0x7e00 ;
+    uint256 internal constant  TEMP_77_LOC  =  0x7e20 ;
+    uint256 internal constant  TEMP_78_LOC  =  0x7e40 ;
+    uint256 internal constant  TEMP_79_LOC  =  0x7e60 ;
+    uint256 internal constant  TEMP_80_LOC  =  0x7e80 ;
+    uint256 internal constant  TEMP_81_LOC  =  0x7ea0 ;
+    uint256 internal constant  TEMP_82_LOC  =  0x7ec0 ;
+    uint256 internal constant  TEMP_83_LOC  =  0x7ee0 ;
+
     // Aliases for scratch space
     // TODO: work out the stack scheduling for these
     uint256 internal constant  CHALL_POW_LOC  =  0x0 ;
@@ -1930,23 +2020,132 @@ contract BlakeOptHonkVerifier is IVerifier {
                             let round_challenge := mload(round_challenge_off)
                             let bary_lagrange_denominator_off := BARYCENTRIC_LAGRANGE_DENOMINATOR_0_LOC
 
-                            // TODO: Could unroll this loop as it only has 8 iterations
-                            for {let barycentric_index := 0} lt(barycentric_index, BATCHED_RELATION_PARTIAL_LENGTH) {barycentric_index := add(barycentric_index, 1)} {
+                            // Unrolled as this loop as it only has 8 iterations
+                            {
                                 let bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
-
-                                // TODO: if unrolling, we can pre compute sub(p, barycentric index)
                                 let pre_inv := mulmod(
-                                        bary_lagrange_denominator,
-                                        addmod(round_challenge, sub(p, barycentric_index), p),
-                                        p
-                                    )
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, p, p), // sub(p, 0) = p
+                                    p
+                                )
                                 mstore(bary_centric_inverses_off, pre_inv)
-
-                                // Calculate accumulator
                                 temp := add(temp, 0x20)
                                 mstore(temp, accumulator)
                                 accumulator := mulmod(accumulator, pre_inv, p)
 
+                                // increase offsets
+                                bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
+                                bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
+
+                                // barycentric_index = 1
+                                bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
+                                pre_inv := mulmod(
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, P_SUB_1, p),
+                                    p
+                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
+                                // increase offsets
+                                bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
+                                bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
+
+                                // barycentric_index = 2
+                                bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
+                                pre_inv := mulmod(
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, P_SUB_2, p),
+                                    p
+                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
+                                // increase offsets
+                                bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
+                                bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
+
+                                // barycentric_index = 3
+                                bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
+                                pre_inv := mulmod(
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, P_SUB_3, p),
+                                    p
+                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
+                                // increase offsets
+                                bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
+                                bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
+
+                                // barycentric_index = 4
+                                bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
+                                pre_inv := mulmod(
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, P_SUB_4, p),
+                                    p
+                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
+                                // increase offsets
+                                bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
+                                bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
+
+                                // barycentric_index = 5
+                                bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
+                                pre_inv := mulmod(
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, P_SUB_5, p),
+                                    p
+                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
+                                // increase offsets
+                                bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
+                                bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
+
+                                // barycentric_index = 6
+                                bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
+                                pre_inv := mulmod(
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, P_SUB_6, p),
+                                    p
+                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
+                                // increase offsets
+                                bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
+                                bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
+
+                                // barycentric_index = 7
+                                bary_lagrange_denominator := mload(bary_lagrange_denominator_off)
+                                pre_inv := mulmod(
+                                    bary_lagrange_denominator,
+                                    addmod(round_challenge, P_SUB_7, p),
+                                    p
+                                )
+                                mstore(bary_centric_inverses_off, pre_inv)
+                                temp := add(temp, 0x20)
+                                mstore(temp, accumulator)
+                                accumulator := mulmod(accumulator, pre_inv, p)
+
+                                // increase offsets
                                 bary_lagrange_denominator_off := add(bary_lagrange_denominator_off, 0x20)
                                 bary_centric_inverses_off := add(bary_centric_inverses_off, 0x20)
                             }
@@ -3047,37 +3246,148 @@ contract BlakeOptHonkVerifier is IVerifier {
             // Add series of challenge power to accumulator
             let temp := LATER_SCRATCH_SPACE // store intermediates in scratch space - using 0x00-0xa0 for result of modexp precompile
             let challenge_power_loc := sub(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC, 0x20) // should be constant
-            for {let i := 0} lt(i, LOG_N) {i := add(i,1)} {
 
-                // Clean up the presetting of these values
-                temp := add(temp, 0x20) // add immediately
-                challenge_power_loc := add(challenge_power_loc, 0x20)
-
-                mstore(temp, accumulator)
-                accumulator := mulmod(accumulator, mload(challenge_power_loc), p)
-            }
+            /// {{ UNROLL_SECTION_START_ACCUMULATE_INVERSES }}
+            // i = 0
+            mstore(TEMP_0_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC), p)
+            // i = 1
+            mstore(TEMP_1_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_1_LOC), p)
+            // i = 2
+            mstore(TEMP_2_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_2_LOC), p)
+            // i = 3
+            mstore(TEMP_3_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_3_LOC), p)
+            // i = 4
+            mstore(TEMP_4_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_4_LOC), p)
+            // i = 5
+            mstore(TEMP_5_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_5_LOC), p)
+            // i = 6
+            mstore(TEMP_6_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_6_LOC), p)
+            // i = 7
+            mstore(TEMP_7_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_7_LOC), p)
+            // i = 8
+            mstore(TEMP_8_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_8_LOC), p)
+            // i = 9
+            mstore(TEMP_9_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_9_LOC), p)
+            // i = 10
+            mstore(TEMP_10_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_10_LOC), p)
+            // i = 11
+            mstore(TEMP_11_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_11_LOC), p)
+            // i = 12
+            mstore(TEMP_12_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_12_LOC), p)
+            // i = 13
+            mstore(TEMP_13_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_13_LOC), p)
+            // i = 14
+            mstore(TEMP_14_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC), p)
 
             // Accumulate pos inverted denom
-            // TODO: store these in series so it can be one single for loop
-            let pos_inverted_off := sub(POS_INVERTED_DENOM_0_LOC, 0x20)
-            for {let i:= 0} lt(i, LOG_N) {i := add(i, 1)} {
-                temp := add(temp, 0x20)
-                pos_inverted_off := add(pos_inverted_off, 0x20)
-
-                mstore(temp, accumulator)
-                accumulator := mulmod(accumulator, mload(pos_inverted_off), p)
-            }
+            // i = 0
+            mstore(TEMP_15_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_0_LOC), p)
+            // i = 1
+            mstore(TEMP_16_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_1_LOC), p)
+            // i = 2
+            mstore(TEMP_17_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_2_LOC), p)
+            // i = 3
+            mstore(TEMP_18_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_3_LOC), p)
+            // i = 4
+            mstore(TEMP_19_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_4_LOC), p)
+            // i = 5
+            mstore(TEMP_20_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_5_LOC), p)
+            // i = 6
+            mstore(TEMP_21_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_6_LOC), p)
+            // i = 7
+            mstore(TEMP_22_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_7_LOC), p)
+            // i = 8
+            mstore(TEMP_23_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_8_LOC), p)
+            // i = 9
+            mstore(TEMP_24_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_9_LOC), p)
+            // i = 10
+            mstore(TEMP_25_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_10_LOC), p)
+            // i = 11
+            mstore(TEMP_26_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_11_LOC), p)
+            // i = 12
+            mstore(TEMP_27_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_12_LOC), p)
+            // i = 13
+            mstore(TEMP_28_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_13_LOC), p)
+            // i = 14
+            mstore(TEMP_29_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_14_LOC), p)
 
             // Accumulate neg inverted denom
-            // TODO: like above, store in single loop
-            let neg_inverted_off := sub(NEG_INVERTED_DENOM_0_LOC,0x20)
-            for {let i:= 0} lt(i, LOG_N) {i := add(i, 1)} {
-                temp := add(temp, 0x20)
-                neg_inverted_off := add(neg_inverted_off , 0x20)
-
-                mstore(temp, accumulator)
-                accumulator := mulmod(accumulator, mload(neg_inverted_off), p)
-            }
+            // i = 0
+            mstore(TEMP_30_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_0_LOC), p)
+            // i = 1
+            mstore(TEMP_31_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_1_LOC), p)
+            // i = 2
+            mstore(TEMP_32_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_2_LOC), p)
+            // i = 3
+            mstore(TEMP_33_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_3_LOC), p)
+            // i = 4
+            mstore(TEMP_34_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_4_LOC), p)
+            // i = 5
+            mstore(TEMP_35_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_5_LOC), p)
+            // i = 6
+            mstore(TEMP_36_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_6_LOC), p)
+            // i = 7
+            mstore(TEMP_37_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_7_LOC), p)
+            // i = 8
+            mstore(TEMP_38_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_8_LOC), p)
+            // i = 9
+            mstore(TEMP_39_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_9_LOC), p)
+            // i = 10
+            mstore(TEMP_40_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_10_LOC), p)
+            // i = 11
+            mstore(TEMP_41_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_11_LOC), p)
+            // i = 12
+            mstore(TEMP_42_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_12_LOC), p)
+            // i = 13
+            mstore(TEMP_43_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_13_LOC), p)
+            // i = 14
+            mstore(TEMP_44_LOC, accumulator)
+            accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_14_LOC), p)
+            /// {{UNROLL_SECTION_END_ACCUMULATE_INVERSES }}
 
             {
                 mstore(0, 0x20)
@@ -3093,33 +3403,282 @@ contract BlakeOptHonkVerifier is IVerifier {
                 accumulator := mload(0x00)
             }
 
-            for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
-                let tmp := mulmod(accumulator, mload(temp), p)
-                accumulator := mulmod(accumulator, mload(neg_inverted_off), p)
-                mstore(neg_inverted_off, tmp)
-
-                temp := sub(temp, 0x20)
-                neg_inverted_off := sub(neg_inverted_off, 0x20)
+            // {{ UNROLL_SECTION_START_COLLECT_INVERSES }}
+            // i = 15
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_44_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_14_LOC), p)
+                mstore(NEG_INVERTED_DENOM_14_LOC, tmp)
+            }
+            // i = 14
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_43_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_13_LOC), p)
+                mstore(NEG_INVERTED_DENOM_13_LOC, tmp)
+            }
+            // i = 13
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_42_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_12_LOC), p)
+                mstore(NEG_INVERTED_DENOM_12_LOC, tmp)
+            }
+            // i = 12
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_41_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_11_LOC), p)
+                mstore(NEG_INVERTED_DENOM_11_LOC, tmp)
+            }
+            // i = 11
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_40_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_10_LOC), p)
+                mstore(NEG_INVERTED_DENOM_10_LOC, tmp)
+            }
+            // i = 10
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_39_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_9_LOC), p)
+                mstore(NEG_INVERTED_DENOM_9_LOC, tmp)
+            }
+            // i = 9
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_38_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_8_LOC), p)
+                mstore(NEG_INVERTED_DENOM_8_LOC, tmp)
+            }
+            // i = 8
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_37_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_7_LOC), p)
+                mstore(NEG_INVERTED_DENOM_7_LOC, tmp)
+            }
+            // i = 7
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_36_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_6_LOC), p)
+                mstore(NEG_INVERTED_DENOM_6_LOC, tmp)
+            }
+            // i = 6
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_35_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_5_LOC), p)
+                mstore(NEG_INVERTED_DENOM_5_LOC, tmp)
+            }
+            // i = 5
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_34_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_4_LOC), p)
+                mstore(NEG_INVERTED_DENOM_4_LOC, tmp)
+            }
+            // i = 4
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_33_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_3_LOC), p)
+                mstore(NEG_INVERTED_DENOM_3_LOC, tmp)
+            }
+            // i = 3
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_32_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_2_LOC), p)
+                mstore(NEG_INVERTED_DENOM_2_LOC, tmp)
+            }
+            // i = 2
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_31_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_1_LOC), p)
+                mstore(NEG_INVERTED_DENOM_1_LOC, tmp)
+            }
+            // i = 1
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_30_LOC), p)
+                accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_0_LOC), p)
+                mstore(NEG_INVERTED_DENOM_0_LOC, tmp)
             }
 
-            for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
-                let tmp := mulmod(accumulator, mload(temp), p)
-                accumulator := mulmod(accumulator, mload(pos_inverted_off), p)
-                mstore(pos_inverted_off, tmp)
-
-                temp := sub(temp, 0x20)
-                pos_inverted_off := sub(pos_inverted_off, 0x20)
+            // Unrolled for LOG_N = 15
+            // i = 15
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_29_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_14_LOC), p)
+                mstore(POS_INVERTED_DENOM_14_LOC, tmp)
+            }
+            // i = 14
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_28_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_13_LOC), p)
+                mstore(POS_INVERTED_DENOM_13_LOC, tmp)
+            }
+            // i = 13
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_27_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_12_LOC), p)
+                mstore(POS_INVERTED_DENOM_12_LOC, tmp)
+            }
+            // i = 12
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_26_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_11_LOC), p)
+                mstore(POS_INVERTED_DENOM_11_LOC, tmp)
+            }
+            // i = 11
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_25_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_10_LOC), p)
+                mstore(POS_INVERTED_DENOM_10_LOC, tmp)
+            }
+            // i = 10
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_24_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_9_LOC), p)
+                mstore(POS_INVERTED_DENOM_9_LOC, tmp)
+            }
+            // i = 9
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_23_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_8_LOC), p)
+                mstore(POS_INVERTED_DENOM_8_LOC, tmp)
+            }
+            // i = 8
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_22_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_7_LOC), p)
+                mstore(POS_INVERTED_DENOM_7_LOC, tmp)
+            }
+            // i = 7
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_21_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_6_LOC), p)
+                mstore(POS_INVERTED_DENOM_6_LOC, tmp)
+            }
+            // i = 6
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_20_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_5_LOC), p)
+                mstore(POS_INVERTED_DENOM_5_LOC, tmp)
+            }
+            // i = 5
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_19_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_4_LOC), p)
+                mstore(POS_INVERTED_DENOM_4_LOC, tmp)
+            }
+            // i = 4
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_18_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_3_LOC), p)
+                mstore(POS_INVERTED_DENOM_3_LOC, tmp)
+            }
+            // i = 3
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_17_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_2_LOC), p)
+                mstore(POS_INVERTED_DENOM_2_LOC, tmp)
+            }
+            // i = 2
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_16_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_1_LOC), p)
+                mstore(POS_INVERTED_DENOM_1_LOC, tmp)
+            }
+            // i = 1
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_15_LOC), p)
+                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_0_LOC), p)
+                mstore(POS_INVERTED_DENOM_0_LOC, tmp)
             }
 
             // Accumulate results
-            for {let i := LOG_N} gt(i, 0) {i := sub(i, 1)} {
-                let tmp := mulmod(accumulator, mload(temp), p)
-                accumulator := mulmod(accumulator, mload(challenge_power_loc), p)
-                mstore(challenge_power_loc, tmp)
-
-                temp := sub(temp, 0x20)
-                challenge_power_loc := sub(challenge_power_loc, 0x20)
+            // i = 15
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_14_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_14_LOC, tmp)
             }
+            // i = 14
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_13_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_13_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_13_LOC, tmp)
+            }
+            // i = 13
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_12_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_12_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_12_LOC, tmp)
+            }
+            // i = 12
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_11_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_11_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_11_LOC, tmp)
+            }
+            // i = 11
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_10_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_10_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_10_LOC, tmp)
+            }
+            // i = 10
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_9_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_9_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_9_LOC, tmp)
+            }
+            // i = 9
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_8_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_8_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_8_LOC, tmp)
+            }
+            // i = 8
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_7_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_7_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_7_LOC, tmp)
+            }
+            // i = 7
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_6_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_6_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_6_LOC, tmp)
+            }
+            // i = 6
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_5_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_5_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_5_LOC, tmp)
+            }
+            // i = 5
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_4_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_4_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_4_LOC, tmp)
+            }
+            // i = 4
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_3_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_3_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_3_LOC, tmp)
+            }
+            // i = 3
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_2_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_2_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_2_LOC, tmp)
+            }
+            // i = 2
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_1_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_1_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_1_LOC, tmp)
+            }
+            // i = 1
+            {
+                let tmp := mulmod(accumulator, mload(TEMP_0_LOC), p)
+                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC), p)
+                mstore(INVERTED_CHALLENEGE_POW_MINUS_U_0_LOC, tmp)
+            }
+            // {{ UNROLL_SECTION_END_COLLECT_INVERSES }}
 
             let inverted_gemini_r := accumulator
 
@@ -3198,30 +3757,228 @@ contract BlakeOptHonkVerifier is IVerifier {
 
 
             mstore(BATCH_SCALAR_0_LOC, 1)
-            let scalars_off := BATCH_SCALAR_1_LOC
-            let eval_off := QM_EVAL_LOC
             let rho := mload(RHO_CHALLENGE)
 
-            for {let i := 0} lt(i, NUMBER_OF_UNSHIFTED_ENTITIES) {i := add(i, 1)} {
-                mstore(scalars_off, mulmod(neg_unshifted_scalar, batching_challenge, p) )
+            // Unrolled for the loop below - where NUMBER_UNSHIFTED = 36
+            // for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
+            //     scalars[i] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
+            //     mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
+            //     mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+            // }
 
-                batched_evaluation := addmod(batched_evaluation, mulmod(mload(eval_off), batching_challenge, p), p)
-                batching_challenge := mulmod(batching_challenge, rho, p)
+            // Calculate the scalars and batching challenge for the unshifted entities
+            // 0: QM_EVAL_LOC
+            mstore(BATCH_SCALAR_1_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QM_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
 
-                // update pointer
-                scalars_off := add(scalars_off, 0x20)
-                eval_off := add(eval_off, 0x20)
-            }
-            for {let i := 0} lt(i, NUMBER_OF_SHIFTED_ENTITIES) {i := add(i, 1)} {
-                mstore(scalars_off, mulmod(neg_shifted_scalar, batching_challenge, p) )
+            // 1: QC_EVAL_LOC
+            mstore(BATCH_SCALAR_2_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QC_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
 
-                batched_evaluation := addmod(batched_evaluation, mulmod(mload(eval_off), batching_challenge, p), p)
-                batching_challenge := mulmod(batching_challenge, rho, p)
+            // 2: QL_EVAL_LOC
+            mstore(BATCH_SCALAR_3_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QL_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
 
-                // update pointer
-                scalars_off := add(scalars_off, 0x20)
-                eval_off := add(eval_off, 0x20)
-            }
+            // 3: QR_EVAL_LOC
+            mstore(BATCH_SCALAR_4_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QR_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 4: QO_EVAL_LOC
+            mstore(BATCH_SCALAR_5_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QO_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 5: Q4_EVAL_LOC
+            mstore(BATCH_SCALAR_6_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(Q4_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 6: QLOOKUP_EVAL_LOC
+            mstore(BATCH_SCALAR_7_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QLOOKUP_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 7: QARITH_EVAL_LOC
+            mstore(BATCH_SCALAR_8_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QARITH_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 8: QRANGE_EVAL_LOC
+            mstore(BATCH_SCALAR_9_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QRANGE_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 9: QELLIPTIC_EVAL_LOC
+            mstore(BATCH_SCALAR_10_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QELLIPTIC_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 10: QMEMORY_EVAL_LOC
+            mstore(BATCH_SCALAR_11_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QMEMORY_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 11: QNNF_EVAL_LOC
+            mstore(BATCH_SCALAR_12_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QNNF_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 12: QPOSEIDON2_EXTERNAL_EVAL_LOC
+            mstore(BATCH_SCALAR_13_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 13: QPOSEIDON2_INTERNAL_EVAL_LOC
+            mstore(BATCH_SCALAR_14_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(QPOSEIDON2_INTERNAL_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 14: SIGMA1_EVAL_LOC
+            mstore(BATCH_SCALAR_15_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA1_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 15: SIGMA2_EVAL_LOC
+            mstore(BATCH_SCALAR_16_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA2_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 16: SIGMA3_EVAL_LOC
+            mstore(BATCH_SCALAR_17_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA3_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 17: SIGMA4_EVAL_LOC
+            mstore(BATCH_SCALAR_18_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(SIGMA4_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 18: ID1_EVAL_LOC
+            mstore(BATCH_SCALAR_19_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID1_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 19: ID2_EVAL_LOC
+            mstore(BATCH_SCALAR_20_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID2_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 20: ID3_EVAL_LOC
+            mstore(BATCH_SCALAR_21_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID3_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 21: ID4_EVAL_LOC
+            mstore(BATCH_SCALAR_22_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(ID4_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 22: TABLE1_EVAL_LOC
+            mstore(BATCH_SCALAR_23_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE1_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 23: TABLE2_EVAL_LOC
+            mstore(BATCH_SCALAR_24_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE2_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 24: TABLE3_EVAL_LOC
+            mstore(BATCH_SCALAR_25_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE3_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 25: TABLE4_EVAL_LOC
+            mstore(BATCH_SCALAR_26_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(TABLE4_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 26: LAGRANGE_FIRST_EVAL_LOC
+            mstore(BATCH_SCALAR_27_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LAGRANGE_FIRST_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 27: LAGRANGE_LAST_EVAL_LOC
+            mstore(BATCH_SCALAR_28_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LAGRANGE_LAST_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 28: W1_EVAL_LOC
+            mstore(BATCH_SCALAR_29_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W1_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 29: W2_EVAL_LOC
+            mstore(BATCH_SCALAR_30_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W2_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 30: W3_EVAL_LOC
+            mstore(BATCH_SCALAR_31_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W3_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 31: W4_EVAL_LOC
+            mstore(BATCH_SCALAR_32_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W4_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 32: Z_PERM_EVAL_LOC
+            mstore(BATCH_SCALAR_33_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(Z_PERM_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 33: LOOKUP_INVERSES_EVAL_LOC
+            mstore(BATCH_SCALAR_34_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 34: LOOKUP_READ_COUNTS_EVAL_LOC
+            mstore(BATCH_SCALAR_35_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 35: LOOKUP_READ_TAGS_EVAL_LOC
+            mstore(BATCH_SCALAR_36_LOC, mulmod(neg_unshifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // Unrolled for NUMBER_OF_SHIFTED_ENTITIES = 5
+            // for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
+            //     scalars[i] = mem.shiftedScalar.neg() * mem.batchingChallenge;
+            //     mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
+            //     mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+            // }
+
+
+            // 0
+            mstore(BATCH_SCALAR_37_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W1_SHIFT_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 1
+            mstore(BATCH_SCALAR_38_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W2_SHIFT_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 2
+            mstore(BATCH_SCALAR_39_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W3_SHIFT_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 3
+            mstore(BATCH_SCALAR_40_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(W4_SHIFT_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
+
+            // 4
+            mstore(BATCH_SCALAR_41_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            batched_evaluation := addmod(batched_evaluation, mulmod(mload(Z_PERM_SHIFT_EVAL_LOC), batching_challenge, p), p)
+            batching_challenge := mulmod(batching_challenge, rho, p)
 
             mstore(BATCHED_EVALUATION_LOC, batched_evaluation)
 
