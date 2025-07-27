@@ -87,24 +87,25 @@ impl<K, T, Context> Storage<1> for Map<K, T, Context> {
 impl<K, V, Context> Map<K, V, Context> {
     /// Initializes a new Map state variable.
     ///
-    /// This function is usually automatically called within the #[storage] macro.
+    /// This function is usually automatically called within the #[storage]
+    /// macro.
     /// You typically don't need to call this directly when writing smart contracts.
     ///
     ///
     /// # Arguments
     ///
     /// * `context` - One of `PrivateContext`/`PublicContext`/`UtilityContext`.
-    ///               The Context determines which methods of this struct will be
-    ///               made available to the calling smart contract function.
+    ///               The Context determines which methods of this struct will
+    ///               be made available to the calling smart contract function.
     /// * `storage_slot` - A unique identifier for this Map within the contract.
     ///                    Usually, the #[storage] macro will determine an
-    ///                    appropriate storage_slot automatically. A smart contract
-    ///                    dev shouldn't have to worry about this, as it's managed
-    ///                    behind the scenes.
+    ///                    appropriate storage_slot automatically. A smart
+    ///                    contract dev shouldn't have to worry about this, as
+    ///                    it's managed behind the scenes.
     /// * `state_var_constructor` - A function that creates the value type (V)
     ///                             given a context and storage slot. This is
-    ///                             typically the constructor of the state variable
-    ///                             type being stored in the Map.
+    ///                             typically the constructor of the state
+    ///                             variable type being stored in the Map.
     ///
     // docs:start:new
     pub fn new(
