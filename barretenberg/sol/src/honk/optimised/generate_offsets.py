@@ -269,10 +269,6 @@ def print_barycentric_domain(pointer: int):
         pointer += 32
 
     for i in range(0, BARYCENTRIC_DOMAIN_SIZE):
-        print_fr(pointer, "BARYCENTRIC_DOMAIN_" + str(i) + "_LOC")
-        pointer += 32
-
-    for i in range(0, BARYCENTRIC_DOMAIN_SIZE):
         print_fr(pointer, "BARYCENTRIC_DENOMINATOR_INVERSES_" + str(i) + "_LOC")
         pointer += 32
 
