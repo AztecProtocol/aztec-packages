@@ -2,6 +2,8 @@ use crate::context::{PublicContext, UtilityContext};
 use crate::state_vars::storage::Storage;
 use dep::protocol_types::traits::Packable;
 
+/// # PublicMutable
+///
 /// PublicMutable is a public state variable type for values that can be read
 /// and written within #[public] functions of your smart contract.
 ///
@@ -18,7 +20,7 @@ use dep::protocol_types::traits::Packable;
 /// - `write`
 /// (see the methods' own doc comments for more info).
 ///
-/// Example.
+/// ## Example.
 ///
 /// A voting contract's proposal count can be represented as a PublicMutable<u64>.
 /// The count can be read by anyone to see how many proposals exist, and incremented

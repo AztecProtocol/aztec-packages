@@ -15,6 +15,8 @@ use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
+/// # PrivateMutable
+///
 /// PrivateMutable is a private state variable type, which enables you to read, mutate,
 /// and write private state within the #[private] functions of your smart contract.
 ///
@@ -49,7 +51,7 @@ use crate::state_vars::storage::Storage;
 /// - `get_note`
 /// (see the methods' own doc comments for more info).
 ///
-/// Example.
+/// ## Example.
 ///
 /// A user's account nonce can be represented as a PrivateMutable<NonceNote>.
 /// The "current value" of the user's nonce is the value contained within the
@@ -63,7 +65,7 @@ use crate::state_vars::storage::Storage;
 /// exactly one current value, and updating it overwrites the previous value.
 ///
 ///
-/// When to choose PrivateMutable vs PrivateSet:
+/// ## When to choose PrivateMutable vs PrivateSet:
 ///
 /// - Use PrivateMutable when you want exactly one note to represent the state
 ///   variable's current value, similar to regular variables in Ethereum.
@@ -79,7 +81,7 @@ use crate::state_vars::storage::Storage;
 /// knows the note's content can compute its nullifier.
 ///
 ///
-/// Privacy
+/// ## Privacy
 ///
 /// The methods of a PrivateMutable are only executable in a PrivateContext, and are
 /// designed to not leak anything about _which_ state variable was read/modified/
@@ -174,12 +176,12 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     /// improve this privacy footgun in future.
     ///
     ///
-    /// # Returns
+    /// ## Returns
     ///
     /// * `Field` - The nullifier that will be emitted when this PrivateMutable is
     ///             first initialized.
     ///
-    /// # Advanced
+    /// ## Advanced
     ///
     /// The computation uses the Poseidon2 hash function with a specific generator
     /// index to hash the storage slot, creating a deterministic nullifier based on
@@ -212,25 +214,24 @@ where
     /// as a private note.
     ///
     ///
-    /// # Arguments
+    /// ## Arguments
     ///
     /// * `note` - The initial note to store in this PrivateMutable. This note
     ///            becomes the "current value" of the state variable.
     ///
-    /// # Returns
+    /// ## Returns
     ///
     /// * `NoteEmission<Note>` - A type-safe wrapper that requires you to decide
     ///                          whether to encrypt and send the note to someone.
-    ///                          You can call `.emit()` on it to encrypt and log
-    ///                          the note, or `.discard()` to skip emission.
-    ///                          See NoteEmission for more details.
+    ///   You can call `.emit()` on it to encrypt and log the note, or `.discard()`
+    ///   to skip emission. See NoteEmission for more details.
     ///
-    /// # Generic Parameters
+    /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
     ///
     ///
-    /// # Advanced
+    /// ## Advanced
     ///
     /// This function performs the following operations:
     /// - Creates and emits an initialization nullifier to mark this storage slot
@@ -271,12 +272,12 @@ where
     /// no current note to replace.
     ///
     ///
-    /// # Arguments
+    /// ## Arguments
     ///
     /// * `new_note` - The new note that will replace the current note. This becomes
     ///                the new "current value" of the PrivateMutable.
     ///
-    /// # Returns
+    /// ## Returns
     ///
     /// * `NoteEmission<Note>` - A type-safe wrapper that requires you to decide
     ///                          whether to encrypt and send the note to someone.
@@ -284,12 +285,12 @@ where
     ///                          the note, or `.discard()` to skip emission.
     ///                          See NoteEmission documentation for more details.
     ///
-    /// # Generic Parameters
+    /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
     ///
     ///
-    /// # Advanced
+    /// ## Advanced
     ///
     /// This function performs the following operations:
     /// - Retrieves the current note from the PXE via an oracle call
@@ -331,12 +332,12 @@ where
     /// as in functions that may be called multiple times.
     ///
     ///
-    /// # Arguments
+    /// ## Arguments
     ///
     /// * `note` - The note to store. If initializing, this becomes the first note.
     ///            If replacing, this becomes the new current note.
     ///
-    /// # Returns
+    /// ## Returns
     ///
     /// * `NoteEmission<Note>` - A type-safe wrapper that requires you to decide
     ///                          whether to encrypt and send the note to someone.
@@ -344,7 +345,7 @@ where
     ///                          the note, or `.discard()` to skip emission.
     ///                          See NoteEmission documentation for more details.
     ///
-    /// # Generic Parameters
+    /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
     ///
@@ -392,7 +393,7 @@ where
     /// newly-created note.
     ///
     ///
-    /// # Returns
+    /// ## Returns
     ///
     /// * `NoteEmission<Note>` - A type-safe wrapper containing the newly-created note.
     ///                          You still need to decide whether to encrypt and send
@@ -400,12 +401,12 @@ where
     ///                          encrypt and log the note, or `.discard()` to skip
     ///                          emission. See NoteEmission documentation for more details.
     ///
-    /// # Generic Parameters
+    /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
     ///
     ///
-    /// # Advanced
+    /// ## Advanced
     ///
     /// This function performs the "nullify-and-recreate" pattern:
     /// - Retrieves the current note from the PXE via an oracle call
@@ -452,7 +453,7 @@ where
     /// is an unconstrained environment on the user's local device.
     ///
     ///
-    /// # Returns
+    /// ## Returns
     ///
     /// * `bool` - `true` if the PrivateMutable has been initialized (the initialization
     ///            nullifier exists), `false` otherwise.
@@ -475,11 +476,11 @@ where
     /// state.
     ///
     ///
-    /// # Returns
+    /// ## Returns
     ///
     /// * `Note` - The current note stored in this PrivateMutable.
     ///
-    /// # Generic Parameters
+    /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
     ///

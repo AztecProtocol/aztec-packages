@@ -14,6 +14,8 @@ use crate::note::{
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
+/// PrivateImmutable
+///
 /// PrivateImmutable is a private state variable type for values that are set once
 /// during initialization and remain permanently unchanged.
 ///
@@ -35,14 +37,14 @@ use crate::state_vars::storage::Storage;
 /// - `get_note`
 /// (see the methods' own doc comments for more info).
 ///
-/// Example.
+/// ## Example.
 ///
 /// A contract's configuration parameters can be represented as a PrivateImmutable.
 /// Once set during contract deployment or initial setup, these parameters remain
 /// constant for the lifetime of the contract.
 ///
 ///
-/// Privacy
+/// ## Privacy
 ///
 /// PrivateImmutable has the same privacy properties as PrivateMutable (see
 /// PrivateMutable documentation), including the same privacy considerations

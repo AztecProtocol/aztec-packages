@@ -18,6 +18,8 @@ use dep::protocol_types::{
 
 mod test;
 
+/// # PrivateSet
+///
 /// PrivateSet is a private state variable type, which enables you to read, mutate,
 /// and write private state within the #[private] functions of your smart contract.
 ///
@@ -28,17 +30,6 @@ mod test;
 /// `your_variable: PrivateSet<YourNote, Context>`
 /// or:
 /// `your_mapping: Map<Field, PrivateSet<YourNote, Context>>`
-///
-/// The 'current' value of a PrivateSet state variable is represented as a
-/// _collection_ (or "Set") of multiple notes.
-///
-/// > More exactly, the 'current value' is the collection of all
-/// > _not-yet-nullified_ notes in the set.
-///
-/// All notes that "belong" to a given PrivateSet state variable are augmented with
-/// a common `storage_slot` field, as a way of identifying which set they belong to.
-/// (Management of `storage_slot` is handled within the innards of the PrivateSet
-/// impl, so you shouldn't need to think about this any further).
 ///
 /// The PrivateSet type operates over notes, by facilitating: the insertion
 /// of new notes, the reading of existing notes, and the nullification of existing
@@ -51,7 +42,14 @@ mod test;
 /// - `remove`
 /// (see the methods' own doc comments for more info).
 ///
-/// Example.
+/// The "current value" of a PrivateSet state variable is represented as a
+/// _collection_ (or "Set") of multiple notes.
+///
+/// > More exactly, the 'current value' is the collection of all
+/// > _not-yet-nullified_ notes in the set.
+///
+///
+/// ## Example.
 ///
 /// A user's token balance can be represented as a PrivateSet of multiple notes,
 /// where the note type contains a value.
@@ -74,7 +72,7 @@ mod test;
 /// which are housed under the same "storage slot".
 ///
 ///
-/// When to choose PrivateSet vs PrivateMutable:
+/// ## When to choose PrivateSet vs PrivateMutable:
 ///
 /// - If you want _someone else_ (other than the owner of the private state) to be
 ///   able to make edits (insert notes).
@@ -82,7 +80,7 @@ mod test;
 ///   PrivateMutable file).
 /// - If you find yourself needing to re-initialize a PrivateMutable (see that file).
 ///
-/// The 'current' value of a PrivateMutable state variable is only ever represented
+/// The 'current' value of a _PrivateMutable_ state variable is only ever represented
 /// by _one_ note at a time. To mutate the current value of a PrivateMutable, the
 /// current note always gets nullified, and a new, replacement note gets inserted.
 /// So if nullification is always required to mutate a PrivateMutable, that means
@@ -106,7 +104,7 @@ mod test;
 /// note is to the note itself, via a `compute_nullifier` call.
 ///
 ///
-/// Privacy
+/// ## Privacy
 ///
 /// The methods of a PrivateSet are only executable in a PrivateContext, and are
 /// designed to not leak anything about _which_ state variable was read/modified/
@@ -123,6 +121,16 @@ mod test;
 /// The design of the note's custom `compute_nullifier` method will also impact the
 /// privacy of the note at the time it is nullified. (Note: all Notes must implement
 /// `compute_nullifier` to be compatible with PrivateSet). See the docs.
+///
+///
+/// # Struct Fields:
+///
+/// * context - The execution context (PrivateContext or UtilityContext).
+/// * storage_slot -  All notes that "belong" to a given PrivateSet state variable
+///                   are augmented with a common `storage_slot` field, as a way of
+///   identifying which set they belong to. (Management of `storage_slot` is handled
+///   within the innards of the PrivateSet impl, so you shouldn't need to think about
+///   this any further).
 ///
 ///
 /// # Generic Parameters:

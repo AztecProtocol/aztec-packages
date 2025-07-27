@@ -8,6 +8,8 @@ use protocol_types::{
     traits::Packable,
 };
 
+/// # PublicImmutable
+///
 /// PublicImmutable is a public state variable type for values that are set once
 /// during initialization and remain permanently unchanged.
 ///
