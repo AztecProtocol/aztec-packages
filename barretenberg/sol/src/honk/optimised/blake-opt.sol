@@ -1451,21 +1451,7 @@ contract BlakeOptHonkVerifier is IVerifier {
             // copying the value back when we are done hashing
             // rather than copying the entire section over to the lower registers
             {
-
-                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-                /*                  LOAD PROOF INTO MEMORY                    */
-                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-                // As all of our proof points are written in contiguous parts of memory, we call use a single
-                // calldatacopy to place all of our proof into the correct memory regions
-                // We copy the entire proof into memory as we must hash each proof section for challenge
-                // evaluation
                 let proof_ptr := add(calldataload(0x04), 0x24)
-
-                // TODO: make sure this is evaluated as const before shipping
-                // The last item in the proof, and the first item in the proof (pairing point 0)
-                let proof_size := sub(ETA_CHALLENGE, PAIRING_POINT_0)
-
-                calldatacopy(PAIRING_POINT_0, proof_ptr, proof_size)
 
                 // TODO(md): IMPORTANT: Mod all of the base field items by q, and all prime field items by p
                 // for the sake of testing we are assuming that these are correct
@@ -1521,35 +1507,21 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 // Copy Pairing points into eta buffer
                 let public_inputs_end := add(0x60, public_inputs_size)
-                mcopy(public_inputs_end, PAIRING_POINT_0, 0x200)
 
-                // 0x1e0 = 3 * 32 bytes + 4 * 96 bytes for (w1,w2,w3) + 0x200 for pairing points
-                let eta_input_length := add(0x3e0, public_inputs_size)
-
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                // TODO: BUG - if the number of public inputs is too large, this will overflow into the proof point locations
-                // update to read W_L etc from calldata, not from memory - then load the proof afterwards
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                calldatacopy(public_inputs_end, proof_ptr, 0x200)
 
                 // Note: size will change once proof points are made smaller for keccak flavor
                 // Right now it is 0x20 * 16 - should be 8
                 // End of public inputs + pairing point
-                mcopy(add(0x260, public_inputs_size), W_L_X0_LOC, 0x1a0)
+                calldatacopy(add(0x260, public_inputs_size), add(proof_ptr, 0x200), 0x1a0)
+
+                // 0x1e0 = 3 * 32 bytes + 4 * 96 bytes for (w1,w2,w3) + 0x200 for pairing points
+                let eta_input_length := add(0x3e0, public_inputs_size)
 
                 let prev_challenge := mod(keccak256(0x00, eta_input_length), p)
                 mstore(0x00, prev_challenge)
 
-                // TODO: remember how to function jump
+                // TODO: remember how to function jump - todo unroll function jumps???
                 let eta, etaTwo := splitChallenge(prev_challenge)
 
                 mstore(ETA_CHALLENGE, eta)
@@ -1560,6 +1532,19 @@ contract BlakeOptHonkVerifier is IVerifier {
                 mstore(0x00, prev_challenge)
                 let eta_three := and(prev_challenge, LOWER_128_MASK)
                 mstore(ETA_THREE_CHALLENGE, eta_three)
+
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                  LOAD PROOF INTO MEMORY                    */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // As all of our proof points are written in contiguous parts of memory, we call use a single
+                // calldatacopy to place all of our proof into the correct memory regions
+                // We copy the entire proof into memory as we must hash each proof section for challenge
+                // evaluation
+                // TODO: make sure this is evaluated as const before shipping
+                // The last item in the proof, and the first item in the proof (pairing point 0)
+                let proof_size := sub(ETA_CHALLENGE, PAIRING_POINT_0)
+
+                calldatacopy(PAIRING_POINT_0, proof_ptr, proof_size)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*             GENERATE BETA and GAMMAA  CHALLENGE            */
