@@ -414,6 +414,12 @@ def print_later_scratch_space(pointer: int):
     pointer += 32
     return pointer
 
+def print_temp_space(pointer: int):
+    for i in range(0, 3 * PROOF_SIZE_LOG_N):
+        print_fr(pointer, "TEMP_" + str(i) + "_LOC")
+        pointer += 32
+    return pointer
+
 def print_scratch_space_aliases():
     print("")
     print("// Aliases for scratch space")
@@ -502,6 +508,10 @@ def main():
 
     print("")
     pointer = print_later_scratch_space(pointer)
+
+    print_header_centered("Temporary space")
+    pointer = print_temp_space(pointer)
+    print_header_centered("Temporary space - COMPLETE")
 
     print_scratch_space_aliases()
     print_ec_aliases()
