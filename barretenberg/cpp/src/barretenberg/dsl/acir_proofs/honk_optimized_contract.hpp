@@ -34,6 +34,7 @@ uint256 constant NUMBER_UNSHIFTED = 36;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
 uint256 constant PAIRING_POINTS_SIZE = 16;
 
+uint256 constant VK_HASH = {{ VK_HASH }};
 uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
 uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
@@ -1343,21 +1344,19 @@ contract HonkVerifier is IVerifier {
                 // Note: can be mcpyed from proof
                 // TODO: work what memory can be used here - if we use 0 solidity at all we can get
                 // away with ignoring free memory practices entirely
-                mstore(0x00, CIRCUIT_SIZE)
-                mstore(0x20, NUMBER_PUBLIC_INPUTS)
-                mstore(0x40, PUBLIC_INPUTS_OFFSET)
+                mstore(0x00, VK_HASH)
 
                 let public_inputs_start := add(calldataload(0x24), 0x24)
                 let public_inputs_size := mul(REAL_NUMBER_PUBLIC_INPUTS, 0x20)
                 // Copy the public inputs into the eta buffer
-                calldatacopy(0x60, public_inputs_start, public_inputs_size)
+                calldatacopy(0x20, public_inputs_start, public_inputs_size)
 
                 // Copy Pairing points into eta buffer
-                let public_inputs_end := add(0x60, public_inputs_size)
+                let public_inputs_end := add(0x20, public_inputs_size)
                 mcopy(public_inputs_end, PAIRING_POINT_0, 0x200)
 
-                // 0x1e0 = 3 * 32 bytes + 4 * 96 bytes for (w1,w2,w3) + 0x200 for pairing points
-                let eta_input_length := add(0x3e0, public_inputs_size)
+                // 0x1e0 = 1 * 32 bytes + 4 * 96 bytes for (w1,w2,w3) + 0x200 for pairing points
+                let eta_input_length := add(0x3a0, public_inputs_size)
 
                 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
                 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1377,7 +1376,7 @@ contract HonkVerifier is IVerifier {
                 // Note: size will change once proof points are made smaller for keccak flavor
                 // Right now it is 0x20 * 16 - should be 8
                 // End of public inputs + pairing point
-                mcopy(add(0x260, public_inputs_size), W_L_X0_LOC, 0x1a0)
+                mcopy(add(0x220, public_inputs_size), W_L_X0_LOC, 0x1a0)
 
                 let prev_challenge := mod(keccak256(0x00, eta_input_length), p)
                 mstore(0x00, prev_challenge)
@@ -4231,6 +4230,7 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
         }
     };
 
+    set_template_param("VK_HASH", field_to_hex(verification_key->hash()));
     set_template_param("CIRCUIT_SIZE", std::to_string(1 << verification_key->log_circuit_size));
     set_template_param("LOG_CIRCUIT_SIZE", std::to_string(verification_key->log_circuit_size));
     set_template_param("NUM_PUBLIC_INPUTS", std::to_string(verification_key->num_public_inputs));
