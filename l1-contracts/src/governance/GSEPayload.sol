@@ -44,6 +44,10 @@ contract GSEPayload is IProposerPayload {
     return ORIGINAL;
   }
 
+  function getURI() external view override(IPayload) returns (string memory) {
+    return ORIGINAL.getURI();
+  }
+
   /**
    * @notice called by the Governance contract when executing the proposal.
    *
