@@ -1,8 +1,4 @@
-use bigcurve::{
-    BigCurveTrait,
-    curves::bls12_381::{BLS12_381, BLS12_381Scalar},
-    scalar_field::ScalarFieldTrait,
-};
+use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381, BLS12_381Scalar}};
 use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
 use std::ops::{Add, Mul};
 use types::{
@@ -432,11 +428,7 @@ mod tests {
         BatchingBlobCommitment, BlockBlobPublicInputs, BLSPoint, compress_to_blob_commitment,
         get_flags,
     };
-    use bigcurve::{
-        BigCurveTrait,
-        CurveParamsTrait,
-        curves::bls12_381::{BLS12_381 as Point, BLS12_381_Params},
-    };
+    use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381 as Point, BLS12_381_Params}};
     use bigint::{BigNum, BLS12_381_Fq as Q};
     use std::ops::Add;
     use types::constants::BLOCK_BLOB_PUBLIC_INPUTS;
