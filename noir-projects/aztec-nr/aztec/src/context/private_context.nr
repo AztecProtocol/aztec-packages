@@ -954,6 +954,16 @@ impl PrivateContext {
         self.private_logs.push(private_log);
     }
 
+    // TODO: rename.
+    /// Emits a private log _alongside_ a note_hash_counter, to convey to the
+    /// kernel "this log relates to this note".
+    /// This linkage is important in case the note gets squashed (due to being
+    /// read later in this same tx), since we can then squash the log as well.
+    ///
+    /// Important: Given tha a log for a note can be squashed, app developers
+    /// might find it important to emit events too, in cases where squashing of
+    /// the information would break the app.
+    ///
     pub fn emit_raw_note_log(
         &mut self,
         log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
@@ -1199,6 +1209,8 @@ impl PrivateContext {
         };
     }
 
+    /// Increments the side-effect counter.
+    ///
     /// Every side-effect of a private function is given a "side-effect counter",
     /// based on when it is created. This PrivateContext is in charge of
     /// assigning the counters.
