@@ -190,7 +190,6 @@ where
 {
     /// Inserts a new `note` into the PrivateSet.
     ///
-    ///
     /// # Arguments
     ///
     /// - `note` - A newly-created note that you would like to insert into this
@@ -218,7 +217,6 @@ where
     /// # Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields), when packed by the Packable trait.
-    ///
     ///
     /// # Advanced:
     ///
@@ -272,12 +270,11 @@ where
     ///
     /// This means that -- whilst the returned notes should be considered "current"
     /// within the currently-executing execution frame of the tx -- they will be not
-    /// be considered "current" by any _later_ execution from of this tx (or any
+    /// be considered "current" by any _later_ execution frame of this tx (or any
     /// future tx).
     ///
     /// Notes will be selected from the PXE's database, via an oracle call, according
     /// to the filtering `options` provided.
-    ///
     ///
     /// # Arguments
     ///
@@ -300,7 +297,6 @@ where
     /// * `PREPROCESSOR_ARGS` - See `NoteGetterOptions`.
     /// * `FILTER_ARGS` - See `NoteGetterOptions`.
     /// * `N` - The length of the note (in Fields), when packed by the Packable trait.
-    ///
     ///
     /// # Advanced:
     ///
@@ -397,7 +393,6 @@ where
     ///     default options much clearer to developers. We will also be enabling
     ///     easier ways to customize your own note encryption options.
     ///
-    ///
     /// # Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields), when packed by the Packable trait.
@@ -424,7 +419,6 @@ where
     /// Notes will be selected from the PXE's database, via an oracle call, according
     /// to the filtering `options` provided.
     ///
-    ///
     /// # Arguments
     ///
     /// - `options` - See NoteGetterOptions. Enables the caller to specify the
@@ -446,7 +440,6 @@ where
     /// * `PREPROCESSOR_ARGS` - See `NoteGetterOptions`.
     /// * `FILTER_ARGS` - See `NoteGetterOptions`.
     /// * `N` - The length of the note (in Fields), when packed by the Packable trait.
-    ///
     ///
     /// # Advanced:
     ///
@@ -489,13 +482,11 @@ where
     /// Notice that this function is executable only within a UtilityContext, which
     /// is an unconstrained environment on the user's local device.
     ///
-    ///
     /// # Arguments
     ///
     /// - `options` - See NoteGetterOptions. Enables the caller to specify the
     ///               properties of the notes that must be returned by the oracle
     ///               call to the PXE.
-    ///
     ///
     /// # Generic Parameters
     ///

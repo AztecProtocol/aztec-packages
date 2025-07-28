@@ -26,12 +26,10 @@ use dep::protocol_types::traits::Packable;
 /// The count can be read by anyone to see how many proposals exist, and incremented
 /// when new proposals are submitted.
 ///
-///
 /// # Generic Parameters:
 ///
 /// * `T` - The type of value stored (must implement Packable).
 /// * `Context` - The execution context (PublicContext or UtilityContext).
-///
 ///
 /// # Advanced
 ///
@@ -61,7 +59,6 @@ impl<T, Context> PublicMutable<T, Context> {
     /// This function is usually automatically called within the #[storage] macro.
     /// You typically don't need to call this directly when writing smart contracts.
     ///
-    ///
     /// # Arguments
     ///
     /// * `context` - One of `PublicContext`/`UtilityContext`. The Context determines
@@ -88,7 +85,6 @@ impl<T, Context> PublicMutable<T, Context> {
 impl<T> PublicMutable<T, &mut PublicContext> {
     /// Reads the current value stored in this PublicMutable state variable.
     ///
-    ///
     /// # Returns
     ///
     /// * `T` - The current value stored in this PublicMutable.
@@ -108,7 +104,6 @@ impl<T> PublicMutable<T, &mut PublicContext> {
 
     /// Writes a new value to this PublicMutable state variable.
     ///
-    ///
     /// # Arguments
     ///
     /// * `value` - The new value to store in this PublicMutable.
@@ -116,7 +111,6 @@ impl<T> PublicMutable<T, &mut PublicContext> {
     /// # Generic Parameters
     ///
     /// * `T_PACKED_LEN` - The length of the type T when packed by the Packable trait.
-    ///
     ///
     /// # Advanced
     ///
@@ -139,7 +133,6 @@ impl<T> PublicMutable<T, UtilityContext> {
     ///
     /// Notice that this function is executable only within a UtilityContext, which
     /// is an unconstrained environment on the user's local device.
-    ///
     ///
     /// # Returns
     ///

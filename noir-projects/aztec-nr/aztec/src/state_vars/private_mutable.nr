@@ -64,7 +64,6 @@ use crate::state_vars::storage::Storage;
 /// This is similar to how `uint256 nonce` would work in Solidity: there's always
 /// exactly one current value, and updating it overwrites the previous value.
 ///
-///
 /// ## When to choose PrivateMutable vs PrivateSet:
 ///
 /// - Use PrivateMutable when you want exactly one note to represent the state
@@ -79,7 +78,6 @@ use crate::state_vars::storage::Storage;
 /// Only the 'owner' of a PrivateMutable state variable can mutate it, because
 /// every mutation requires nullifying the current note, and only the owner who
 /// knows the note's content can compute its nullifier.
-///
 ///
 /// ## Privacy
 ///
@@ -96,7 +94,6 @@ use crate::state_vars::storage::Storage;
 /// should contain a `randomness` field so that, when hashed, the contents are
 /// private. The note's `compute_nullifier` method will also impact privacy when
 /// the note is nullified.
-///
 ///
 /// # Generic Parameters:
 ///
@@ -213,7 +210,6 @@ where
     /// Ethereum smart contracts, except that in Aztec the "value" is represented
     /// as a private note.
     ///
-    ///
     /// ## Arguments
     ///
     /// * `note` - The initial note to store in this PrivateMutable. This note
@@ -229,7 +225,6 @@ where
     /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
-    ///
     ///
     /// ## Advanced
     ///
@@ -271,7 +266,6 @@ where
     /// If called on an uninitialized PrivateMutable, it will fail because there is
     /// no current note to replace.
     ///
-    ///
     /// ## Arguments
     ///
     /// * `new_note` - The new note that will replace the current note. This becomes
@@ -288,7 +282,6 @@ where
     /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
-    ///
     ///
     /// ## Advanced
     ///
@@ -330,7 +323,6 @@ where
     /// and `replace` based on whether the PrivateMutable has been previously initialized.
     /// This is useful when you don't know the initialization state beforehand, such
     /// as in functions that may be called multiple times.
-    ///
     ///
     /// ## Arguments
     ///
@@ -392,7 +384,6 @@ where
     /// The returned note has the same content as the original but is actually the
     /// newly-created note.
     ///
-    ///
     /// ## Returns
     ///
     /// * `NoteEmission<Note>` - A type-safe wrapper containing the newly-created note.
@@ -404,7 +395,6 @@ where
     /// ## Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
-    ///
     ///
     /// ## Advanced
     ///
@@ -452,7 +442,6 @@ where
     /// Notice that this function is executable only within a UtilityContext, which
     /// is an unconstrained environment on the user's local device.
     ///
-    ///
     /// ## Returns
     ///
     /// * `bool` - `true` if the PrivateMutable has been initialized (the initialization
@@ -474,7 +463,6 @@ where
     ///
     /// This is conceptually similar to view functions in Ethereum that don't modify
     /// state.
-    ///
     ///
     /// ## Returns
     ///

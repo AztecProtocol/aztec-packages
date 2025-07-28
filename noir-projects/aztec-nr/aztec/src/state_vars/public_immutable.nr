@@ -27,12 +27,10 @@ use protocol_types::{
 /// - `read`
 /// (see the methods' own doc comments for more info).
 ///
-///
 /// # Generic Parameters:
 ///
 /// * `T` - The type of value stored (must implement Packable).
 /// * `Context` - The execution context (PublicContext, PrivateContext, or UtilityContext).
-///
 ///
 /// # Advanced
 ///
@@ -88,7 +86,6 @@ impl<T, Context> PublicImmutable<T, Context> {
     /// This function is usually automatically called within the #[storage] macro.
     /// You typically don't need to call this directly when writing smart contracts.
     ///
-    ///
     /// # Arguments
     ///
     /// * `context` - One of `PublicContext`/`PrivateContext`/`UtilityContext`. The
@@ -126,7 +123,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     /// be called once per PublicImmutable. Subsequent calls will fail because the
     /// initialization nullifier will already exist.
     ///
-    ///
     /// # Arguments
     ///
     /// * `value` - The permanent value to store in this PublicImmutable.
@@ -134,7 +130,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     /// # Generic Parameters
     ///
     /// * `T_PACKED_LEN` - The length of the type T when packed by the Packable trait.
-    ///
     ///
     /// # Advanced
     ///
@@ -160,7 +155,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
 
     /// Reads the permanent value stored in this PublicImmutable state variable.
     ///
-    ///
     /// # Returns
     ///
     /// * `T` - The permanent value stored in this PublicImmutable.
@@ -168,7 +162,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     /// # Generic Parameters
     ///
     /// * `T_PACKED_LEN` - The length of the type T when packed by the Packable trait.
-    ///
     ///
     /// # Advanced
     ///
@@ -196,7 +189,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     /// This function bypasses the initialization check and directly reads from storage.
     /// If the PublicImmutable has not been initialized, this will return whatever
     /// value is currently stored (likely empty/default values).
-    ///
     ///
     /// # Returns
     ///
@@ -226,7 +218,6 @@ impl<T> PublicImmutable<T, UtilityContext> {
     /// Notice that this function is executable only within a UtilityContext, which
     /// is an unconstrained environment on the user's local device.
     ///
-    ///
     /// # Returns
     ///
     /// * `T` - The permanent value stored in this PublicImmutable.
@@ -253,7 +244,6 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// privately. Therefore, private functions read from a historical snapshot of
     /// public state rather than the current state.
     ///
-    ///
     /// # Returns
     ///
     /// * `T` - The permanent value stored in this PublicImmutable at the historical
@@ -262,7 +252,6 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// # Generic Parameters
     ///
     /// * `T_PACKED_LEN` - The length of the type T when packed by the Packable trait.
-    ///
     ///
     /// # Advanced
     ///

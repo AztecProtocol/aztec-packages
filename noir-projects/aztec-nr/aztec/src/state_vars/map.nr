@@ -91,7 +91,6 @@ impl<K, V, Context> Map<K, V, Context> {
     /// macro.
     /// You typically don't need to call this directly when writing smart contracts.
     ///
-    ///
     /// # Arguments
     ///
     /// * `context` - One of `PrivateContext`/`PublicContext`/`UtilityContext`.

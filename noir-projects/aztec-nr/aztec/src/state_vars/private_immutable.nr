@@ -43,14 +43,12 @@ use crate::state_vars::storage::Storage;
 /// Once set during contract deployment or initial setup, these parameters remain
 /// constant for the lifetime of the contract.
 ///
-///
 /// ## Privacy
 ///
 /// PrivateImmutable has the same privacy properties as PrivateMutable (see
 /// PrivateMutable documentation), including the same privacy considerations
 /// regarding the initialization nullifier potentially leaking information about
 /// which storage slot was initialized.
-///
 ///
 /// # Generic Parameters:
 ///
@@ -79,7 +77,6 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     ///
     /// This function is usually automatically called within the #[storage] macro.
     /// You typically don't need to call this directly when writing smart contracts.
-    ///
     ///
     /// # Arguments
     ///
@@ -117,7 +114,6 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     /// See https://github.com/AztecProtocol/aztec-packages/issues/15568 for ideas to
     /// improve this privacy footgun in future.
     ///
-    ///
     /// # Returns
     ///
     /// * `Field` - The nullifier that will be emitted when this PrivateImmutable is
@@ -147,7 +143,6 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// Unlike PrivateMutable, this note will never be nullified or replaced through
     /// the state variable interface - it persists for the lifetime of the state variable.
     ///
-    ///
     /// # Arguments
     ///
     /// * `note` - The permanent note to store in this PrivateImmutable. This note
@@ -164,7 +159,6 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// # Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
-    ///
     ///
     /// # Advanced
     ///
@@ -195,7 +189,6 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
 
     /// Reads the permanent note of a PrivateImmutable state variable instance.
     ///
-    ///
     /// # Returns
     ///
     /// * `Note` - The permanent note stored in this PrivateImmutable.
@@ -203,7 +196,6 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// # Generic Parameters
     ///
     /// * `N` - The length of the note (in Fields) when packed by the Packable trait.
-    ///
     ///
     /// # Advanced
     ///
@@ -241,7 +233,6 @@ where
     /// Notice that this function is executable only within a UtilityContext, which
     /// is an unconstrained environment on the user's local device.
     ///
-    ///
     /// # Returns
     ///
     /// * `bool` - `true` if the PrivateImmutable has been initialized (the initialization
@@ -261,7 +252,6 @@ where
     ///
     /// Unlike the constrained `get_note()`, this function does not push read requests
     /// or perform validation. It simply reads the note from the PXE's database.
-    ///
     ///
     /// # Returns
     ///
