@@ -6,6 +6,7 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
+import type { P2PReqRespConfig } from './reqresp/config.js';
 import type { StatusMessage } from './reqresp/index.js';
 import type {
   ReqRespSubProtocol,
@@ -81,6 +82,8 @@ export interface P2PService {
   ): Promise<void>;
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
+
+  updateConfig(config: Partial<P2PReqRespConfig>): void;
 }
 
 /**

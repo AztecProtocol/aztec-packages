@@ -18,7 +18,12 @@ import {
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
-import type { P2PReqRespConfig } from './config.js';
+import {
+  DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
+  DEFAULT_OVERALL_REQUEST_TIMEOUT_MS,
+  DEFAULT_REQRESP_DIAL_TIMEOUT_MS,
+  type P2PReqRespConfig,
+} from './config.js';
 import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
@@ -57,8 +62,9 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
 export class ReqResp implements ReqRespInterface {
-  private overallRequestTimeoutMs: number;
-  private individualRequestTimeoutMs: number;
+  private overallRequestTimeoutMs: number = DEFAULT_OVERALL_REQUEST_TIMEOUT_MS;
+  private individualRequestTimeoutMs: number = DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS;
+  private dialTimeoutMs: number = DEFAULT_REQRESP_DIAL_TIMEOUT_MS;
 
   // Warning, if the `start` function is not called as the parent class constructor, then the default sub protocol handlers will be used ( not good )
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
@@ -79,8 +85,7 @@ export class ReqResp implements ReqRespInterface {
     rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
-    this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
-    this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
+    this.updateConfig(config);
 
     this.rateLimiter = new RequestResponseRateLimiter(peerScoring, rateLimits);
 
@@ -94,6 +99,20 @@ export class ReqResp implements ReqRespInterface {
 
     this.snappyTransform = new SnappyTransform();
     this.metrics = new ReqRespMetrics(telemetryClient);
+  }
+
+  public updateConfig(config: Partial<P2PReqRespConfig>): void {
+    if (typeof config.overallRequestTimeoutMs === 'number') {
+      this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
+    }
+
+    if (typeof config.individualRequestTimeoutMs === 'number') {
+      this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
+    }
+
+    if (typeof config.dialTimeoutMs === 'number') {
+      this.dialTimeoutMs = config.dialTimeoutMs;
+    }
   }
 
   get tracer() {
@@ -372,7 +391,7 @@ export class ReqResp implements ReqRespInterface {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
-    dialTimeout: number = 500,
+    dialTimeout: number = this.dialTimeoutMs,
   ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
