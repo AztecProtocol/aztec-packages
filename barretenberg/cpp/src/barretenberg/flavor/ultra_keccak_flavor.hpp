@@ -33,6 +33,8 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
     using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
 
+    static constexpr bool USE_PADDING = false;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
