@@ -1,5 +1,5 @@
 use crate::{test::utils, Token};
-use dep::aztec::oracle::random::random;
+use dep::aztec::{oracle::random::random, protocol_types::traits::Deserialize};
 use dep::uint_note::uint_note::PartialUintNote;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
@@ -82,7 +82,10 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the partial note
-    let partial_uint_note = PartialUintNote { commitment: random() };
+    // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
+    // letting devs manually construct it when they shouldn't be able to.
+    let commitment = random();
+    let partial_uint_note = PartialUintNote::deserialize([commitment]);
 
     // Try finalizing the transfer without preparing it
     let _ = env.call_public(
@@ -117,11 +120,11 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
 #[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
 unconstrained fn incorrect_completer_cannot_complete_partial_note() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
-    let (env, token_contract_address, owner, recipient, amount) =
+    let (mut env, token_contract_address, owner, recipient, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // We set up the completer
-    let completer = env.create_account(3);
+    let completer = env.create_light_account();
 
     // We prepare the partial note as a completer
     let partial_uint_note = env

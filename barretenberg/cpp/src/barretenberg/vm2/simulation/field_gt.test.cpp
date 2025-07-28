@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
-#include "barretenberg/vm2/simulation/lib/u256_decomposition.hpp"
+#include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
 #include <gmock/gmock.h>

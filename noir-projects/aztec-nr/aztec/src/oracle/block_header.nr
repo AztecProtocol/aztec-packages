@@ -86,7 +86,7 @@ mod test {
 
     #[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
     unconstrained fn fetching_a_valid_but_different_header_should_fail() {
-        let mut env = TestEnvironment::new();
+        let env = TestEnvironment::new();
 
         env.mine_block();
         env.mine_block();

@@ -104,6 +104,10 @@ impl UintNote {
         self.value
     }
 
+    pub fn get_owner(self) -> AztecAddress {
+        self.owner
+    }
+
     /// Creates a partial note that will hide the owner and storage slot but not the value, since the note will be later
     /// completed in public. This is a powerful technique for scenarios in which the value cannot be known in private
     /// (e.g. because it depends on some public state, such as a DEX).
@@ -329,7 +333,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
+        protocol_types::{address::AztecAddress, traits::{Deserialize, FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -373,7 +377,9 @@ mod test {
             randomness,
             public_log_tag: commitment,
         };
-        let partial_note = PartialUintNote { commitment };
+        // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
+        // letting devs manually construct it when they shouldn't be able to.
+        let partial_note = PartialUintNote::deserialize([commitment]);
 
         // The first field of the partial note private content is the public completion log tag, so it should match the
         // first field of the public log.

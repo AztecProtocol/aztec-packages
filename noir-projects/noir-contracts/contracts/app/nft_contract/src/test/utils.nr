@@ -1,26 +1,25 @@
 use crate::NFT;
 use aztec::{
-    oracle::{execution::get_contract_address, notes::set_sender_for_tags},
-    protocol_types::address::AztecAddress,
-    test::helpers::{test_environment::TestEnvironment, txe_oracles},
+    oracle::notes::set_sender_for_tags, protocol_types::address::AztecAddress,
+    test::helpers::test_environment::TestEnvironment,
 };
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
-        let owner = env.create_account_contract(1);
-        let recipient = env.create_account_contract(2);
+        let owner = env.create_contract_account();
+        let recipient = env.create_contract_account();
         (owner, recipient)
     } else {
-        let owner = env.create_account(1);
-        let recipient = env.create_account(2);
+        let owner = env.create_light_account();
+        let recipient = env.create_light_account();
 
         // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
         // usually done by account contract's entrypoint.
-        let sender = env.create_account(7097070);
+        let sender = env.create_light_account();
         set_sender_for_tags(sender);
 
         (owner, recipient)
@@ -33,15 +32,15 @@ pub unconstrained fn setup(
         "TN00000000000000000000000000000",
     );
     let nft_contract =
-        env.deploy_self("NFT").with_public_void_initializer(owner, initializer_call_interface);
+        env.deploy_self("NFT").with_public_initializer(owner, initializer_call_interface);
     let nft_contract_address = nft_contract.to_address();
 
-    (&mut env, nft_contract_address, owner, recipient)
+    (env, nft_contract_address, owner, recipient)
 }
 
 pub unconstrained fn setup_and_mint(
     with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, nft_contract_address, owner, recipient) = setup(with_account_contracts);
     let minted_token_id = 615;
@@ -53,7 +52,7 @@ pub unconstrained fn setup_and_mint(
 
 pub unconstrained fn setup_mint_and_transfer_to_private(
     with_account_contracts: bool,
-) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     let (env, nft_contract_address, owner, recipient, minted_token_id) =
         setup_and_mint(with_account_contracts);
 
@@ -67,7 +66,7 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
 }
 
 pub unconstrained fn assert_owns_public_nft(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     nft_contract_address: AztecAddress,
     owner: AztecAddress,
     token_id: Field,
@@ -77,7 +76,7 @@ pub unconstrained fn assert_owns_public_nft(
 }
 
 pub unconstrained fn assert_owns_private_nft(
-    env: &mut TestEnvironment,
+    env: TestEnvironment,
     nft_contract_address: AztecAddress,
     owner: AztecAddress,
     token_id: Field,
