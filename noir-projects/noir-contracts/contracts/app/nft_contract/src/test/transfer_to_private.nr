@@ -49,7 +49,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
     utils::assert_owns_public_nft(env, nft_contract_address, AztecAddress::zero(), token_id);
 }
 
-#[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, _, token_id) =
@@ -66,7 +66,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "invalid NFT owner"
+#[test(should_fail_with = "invalid NFT owner")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, not_owner, token_id) =
@@ -89,7 +89,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn incorrect_completer_cannot_complete_partial_note() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     let (env, nft_contract_address, owner, recipient, token_id) =

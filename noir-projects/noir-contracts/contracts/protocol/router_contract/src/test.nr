@@ -23,7 +23,7 @@ unconstrained fn check_block_number() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Block number mismatch."
+#[test(should_fail_with = "Block number mismatch.")]
 unconstrained fn check_block_number_fail() {
     let env = TestEnvironment::new();
 
@@ -54,7 +54,7 @@ unconstrained fn check_timestamp() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Timestamp mismatch."
+#[test(should_fail_with = "Timestamp mismatch.")]
 unconstrained fn check_timestamp_fail() {
     let env = TestEnvironment::new();
 

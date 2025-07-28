@@ -1330,8 +1330,15 @@ export class TXE {
     const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0 || !processedTx.revertCode.isOK()) {
-      throw new Error('Public execution has failed', processedTx.revertReason);
+    if (failedTxs.length !== 0) {
+      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+    } else if (!processedTx.revertCode.isOK()) {
+      if (processedTx.revertReason) {
+        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+      } else {
+        throw new Error('Contract execution has reverted');
+      }
     }
 
     if (isStaticCall) {
@@ -1483,11 +1490,18 @@ export class TXE {
 
     const results = await processor.process([tx]);
 
-    const processedTxs = results[0];
+    const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0 || !processedTxs[0].revertCode.isOK()) {
-      throw new Error('Public execution has failed');
+    if (failedTxs.length !== 0) {
+      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+    } else if (!processedTx.revertCode.isOK()) {
+      if (processedTx.revertReason) {
+        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+      } else {
+        throw new Error('Contract execution has reverted');
+      }
     }
 
     const returnValues = results[3][0].values;
@@ -1513,11 +1527,11 @@ export class TXE {
 
     const txEffect = TxEffect.empty();
 
-    txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
+    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
 
     txEffect.txHash = new TxHash(new Fr(this.blockNumber));
 
