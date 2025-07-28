@@ -284,9 +284,12 @@ contract TokenPortalTest is Test {
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
       _addWithdrawMessageInOutbox(address(this), l2BlockNumber);
 
+    uint256 leafIndex = 0;
+    uint256 leafId = 2 ** siblingPath.length;
+
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
-    tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
+    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, leafId);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
     assertEq(testERC20.balanceOf(recipient), withdrawAmount);
