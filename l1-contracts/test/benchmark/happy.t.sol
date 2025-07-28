@@ -76,8 +76,6 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 
 // solhint-disable comprehensive-interface
 
-uint256 constant MANA_TARGET = 1e8;
-
 contract FakeCanonical is IRewardDistributor {
   uint256 public constant BLOCK_REWARD = 50e18;
   IERC20 public immutable UNDERLYING;
@@ -118,11 +116,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     CommitteeAttestation[] attestations;
   }
 
-  DecoderBase.Full full = load("single_tx_block_1");
+  DecoderBase.Full internal full;
 
-  uint256 internal constant SLOT_DURATION = 36;
-  uint256 internal constant EPOCH_DURATION = 32;
-  uint256 internal constant VOTING_ROUND_SIZE = 500;
+  uint256 internal SLOT_DURATION;
+  uint256 internal EPOCH_DURATION;
+  uint256 internal MANA_TARGET;
+  uint256 internal TARGET_COMMITTEE_SIZE;
+  uint256 internal VOTING_ROUND_SIZE = 500;
 
   Rollup internal rollup;
 
@@ -138,7 +138,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   SlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
 
-  modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
+  modifier prepare(uint256 _validatorCount, bool _noValidators) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
@@ -158,7 +158,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
       .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
-      _targetCommitteeSize
+      _noValidators ? 0 : TARGET_COMMITTEE_SIZE
     ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
       .setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
@@ -181,28 +181,48 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     _;
   }
 
-  constructor() {
+  function setUp() public {
+    if (vm.envOr("IGNITION", false)) {
+      full = load("empty_block_1");
+
+      SLOT_DURATION = 60;
+      EPOCH_DURATION = 48;
+      MANA_TARGET = 0;
+      TARGET_COMMITTEE_SIZE = 24;
+    } else {
+      full = load("single_tx_block_1");
+
+      SLOT_DURATION = 36;
+      EPOCH_DURATION = 32;
+      MANA_TARGET = 1e8;
+      TARGET_COMMITTEE_SIZE = 48;
+    }
+
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
   }
 
+  // We manipulate the metadata time here in order to not run "out" of data
   function _loadL1Metadata(uint256 index) internal {
-    vm.roll(l1Metadata[index].block_number);
-    vm.warp(l1Metadata[index].timestamp);
+    vm.roll(l1Metadata[0].block_number + index);
+    vm.warp(l1Metadata[0].timestamp + index * SLOT_DURATION);
   }
 
-  function test_no_validators() public prepare(0, 0) {
+  function test_log_config() public {
+    emit log_named_uint("SLOT_DURATION", SLOT_DURATION);
+    emit log_named_uint("EPOCH_DURATION", EPOCH_DURATION);
+    emit log_named_uint("MANA_TARGET", MANA_TARGET);
+    emit log_named_uint("TARGET_COMMITTEE_SIZE", TARGET_COMMITTEE_SIZE);
+  }
+
+  function test_no_validators() public prepare(0, true) {
     benchmark(false);
   }
 
-  function test_48_validators() public prepare(48, 48) {
+  function test_100_validators() public prepare(100, false) {
     benchmark(false);
   }
 
-  function test_100_validators() public prepare(100, 48) {
-    benchmark(false);
-  }
-
-  function test_100_slashing_validators() public prepare(100, 48) {
+  function test_100_slashing_validators() public prepare(100, false) {
     benchmark(true);
   }
 
@@ -235,7 +255,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     header.coinbase = c;
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaBaseFee;
-    header.totalManaUsed = manaSpent;
+    if (MANA_TARGET > 0) {
+      header.totalManaUsed = manaSpent;
+    } else {
+      header.totalManaUsed = 0;
+    }
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
