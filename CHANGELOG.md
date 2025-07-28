@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.2.0](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.3...v1.2.0) (2025-07-28)
+
+
+### Features
+
+* cache bootnodes file (backport) ([#16035](https://github.com/AztecProtocol/aztec-packages/issues/16035)) ([dc72347](https://github.com/AztecProtocol/aztec-packages/commit/dc72347c553bc7e320dc168e01c63dfe1b5224e4))
+
+
+### Bug Fixes
+
+* **avm:** non-negative uint64 deserialization ([#16008](https://github.com/AztecProtocol/aztec-packages/issues/16008)) (backport) ([#16028](https://github.com/AztecProtocol/aztec-packages/issues/16028)) ([4ade4ba](https://github.com/AztecProtocol/aztec-packages/commit/4ade4bac60d3b949ddc7d7f527f46136976bc4b9))
+* increase dial timeout (backport) ([#16041](https://github.com/AztecProtocol/aztec-packages/issues/16041)) ([b54c5b2](https://github.com/AztecProtocol/aztec-packages/commit/b54c5b2b3e409c4870f3038b0ae8b87119e7add8))
+* Propose before voting in multicall ([#15920](https://github.com/AztecProtocol/aztec-packages/issues/15920)) ([#15927](https://github.com/AztecProtocol/aztec-packages/issues/15927)) ([01f901b](https://github.com/AztecProtocol/aztec-packages/commit/01f901be04dbe1f0f36cdd08e9e241e2e3482f58))
+* Rollback state on failed tx processing ([#16012](https://github.com/AztecProtocol/aztec-packages/issues/16012)) ([a7340d9](https://github.com/AztecProtocol/aztec-packages/commit/a7340d96fd2a61d109b5abc396aec07dc20f94c5))
+* throw when making Fr from negatives ([#15987](https://github.com/AztecProtocol/aztec-packages/issues/15987)) ([68b9752](https://github.com/AztecProtocol/aztec-packages/commit/68b97524142e49acc83f171176d42dcf629ffbec))
+
+
+### Miscellaneous
+
+* **backport-to-master:** chore: update zk passport version ([#15890](https://github.com/AztecProtocol/aztec-packages/issues/15890)) ([#15956](https://github.com/AztecProtocol/aztec-packages/issues/15956)) ([2b28dca](https://github.com/AztecProtocol/aztec-packages/commit/2b28dcac162be6192526a579a3b53f1958c154ed))
+* **backport-to-master:** fix: check fallback env vars ([#15904](https://github.com/AztecProtocol/aztec-packages/issues/15904)) ([#15910](https://github.com/AztecProtocol/aztec-packages/issues/15910)) ([a5d8556](https://github.com/AztecProtocol/aztec-packages/commit/a5d855625985e5ffa7ca84732eac30f27f119a35))
+* **backport-to-master:** fix: turn on sentinel by default ([#15900](https://github.com/AztecProtocol/aztec-packages/issues/15900)) ([#15905](https://github.com/AztecProtocol/aztec-packages/issues/15905)) ([962d60d](https://github.com/AztecProtocol/aztec-packages/commit/962d60de66260024e2a148d86730655daaceb099))
+* debug log for catch-all error ([#16053](https://github.com/AztecProtocol/aztec-packages/issues/16053)) ([b138e34](https://github.com/AztecProtocol/aztec-packages/commit/b138e342e86733dddfcecb073d390aeec127ab73))
+* demote log level ([#15989](https://github.com/AztecProtocol/aztec-packages/issues/15989)) ([2819582](https://github.com/AztecProtocol/aztec-packages/commit/2819582200585917ee9ab6c5f8214133ae2e9cd5))
+* demote verbose to "debug" severity ([#16047](https://github.com/AztecProtocol/aztec-packages/issues/16047)) ([84432a4](https://github.com/AztecProtocol/aztec-packages/commit/84432a40a96c62bb6e4ece226ed5eff308962491))
+* **docs:** rm old docs versions, updates to v1.1.2 ([#15926](https://github.com/AztecProtocol/aztec-packages/issues/15926)) ([77f344c](https://github.com/AztecProtocol/aztec-packages/commit/77f344c9fb4deae0c207d090d112e468fe8b96c4))
+* don't warn on exceeded rate limits ([#15983](https://github.com/AztecProtocol/aztec-packages/issues/15983)) ([c2e1a33](https://github.com/AztecProtocol/aztec-packages/commit/c2e1a3330a237880c7268a6cb75dc70b67628807))
+* more unlogging ([#16005](https://github.com/AztecProtocol/aztec-packages/issues/16005)) ([bddd4ee](https://github.com/AztecProtocol/aztec-packages/commit/bddd4ee07827d010a48cc4a73c092b7520a042dd))
+* update bb-versions.json ([#15960](https://github.com/AztecProtocol/aztec-packages/issues/15960)) ([2e3a039](https://github.com/AztecProtocol/aztec-packages/commit/2e3a039886f9334b4f68901d2979d16eb93bc83e))
+* update playground artifacts ([#15874](https://github.com/AztecProtocol/aztec-packages/issues/15874)) ([db506d8](https://github.com/AztecProtocol/aztec-packages/commit/db506d81eda12dddc71ce7f2691d007ec13bc497))
+
 ## [1.1.3](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.2...v1.1.3) (2025-07-21)
 
 
