@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: done, auditors: [suyash], date: 2025-07-23 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -50,12 +50,14 @@ template <typename Builder, typename Native> class uint {
     explicit operator byte_array<Builder>() const;
     explicit operator field_t<Builder>() const;
 
+    // Arithmetic operations
     uint operator+(const uint& other) const;
     uint operator-(const uint& other) const;
     uint operator*(const uint& other) const;
     uint operator/(const uint& other) const;
     uint operator%(const uint& other) const;
 
+    // Bitwise operations
     uint operator&(const uint& other) const;
     uint operator^(const uint& other) const;
     uint operator|(const uint& other) const;
@@ -69,6 +71,7 @@ template <typename Builder, typename Native> class uint {
     uint ror(const uint256_t target_rotation) const { return ror(static_cast<size_t>(target_rotation.data[0])); }
     uint rol(const uint256_t target_rotation) const { return rol(static_cast<size_t>(target_rotation.data[0])); }
 
+    // Comparison operations
     bool_t<Builder> operator>(const uint& other) const;
     bool_t<Builder> operator<(const uint& other) const;
     bool_t<Builder> operator>=(const uint& other) const;
@@ -77,6 +80,7 @@ template <typename Builder, typename Native> class uint {
     bool_t<Builder> operator!=(const uint& other) const;
     bool_t<Builder> operator!() const;
 
+    // Assignment operators
     uint operator+=(const uint& other)
     {
         *this = operator+(other);
@@ -130,6 +134,7 @@ template <typename Builder, typename Native> class uint {
         return *this;
     }
 
+    // Helper functions
     uint normalize() const;
 
     uint256_t get_value() const;
@@ -151,6 +156,8 @@ template <typename Builder, typename Native> class uint {
     mutable uint256_t additive_constant;
 
     // N.B. Not an accumulator! Contains 6-bit slices of input
+    // `accumulators` are used to store 6-bit slices of the value of the uint. This is done to
+    // range-constrain the uint by constraining individual slices.
     mutable std::vector<uint32_t> accumulators;
     mutable uint32_t witness_index;
 
