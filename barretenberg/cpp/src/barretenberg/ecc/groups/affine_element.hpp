@@ -183,10 +183,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         result.x = Fq::reconstruct_from_public(x_limbs);
         result.y = Fq::reconstruct_from_public(y_limbs);
 
-        if (result.x == Fq::zero() && result.y == Fq::zero()) {
-            result.self_set_infinity();
-        }
-
         ASSERT(result.on_curve());
         return result;
     }
