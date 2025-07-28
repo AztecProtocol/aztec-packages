@@ -504,13 +504,7 @@ export const deploySharedContracts = async (
 
   const rewardDistributorAddress = await registry.getRewardDistributor();
 
-  const rewardDistributor = getContract({
-    address: rewardDistributorAddress.toString(),
-    abi: l1Artifacts.rewardDistributor.contractAbi,
-    client: l1Client,
-  });
-
-  const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+  const blockReward = getRewardConfig(networkName).blockReward;
 
   const funding = blockReward * 200000n;
   const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({

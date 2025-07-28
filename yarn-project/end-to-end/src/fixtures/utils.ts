@@ -35,6 +35,7 @@ import {
   type DeployL1ContractsReturnType,
   NULL_KEY,
   type Operator,
+  RollupContract,
   createExtendedL1Client,
   deployL1Contracts,
   deployMulticall3,
@@ -483,13 +484,12 @@ export async function setup(
     if (opts.fundRewardDistributor) {
       // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-      const rewardDistributor = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-        abi: l1Artifacts.rewardDistributor.contractAbi,
-        client: deployL1ContractsValues.l1Client,
-      });
+      const rollup = new RollupContract(
+        deployL1ContractsValues.l1Client,
+        deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      );
 
-      const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+      const blockReward = await rollup.getBlockReward();
       const mintAmount = 10_000n * (blockReward as bigint);
 
       const feeJuice = getContract({
@@ -498,7 +498,10 @@ export async function setup(
         client: deployL1ContractsValues.l1Client,
       });
 
-      const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+      const rewardDistributorMintTxHash = await feeJuice.write.mint(
+        [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
+        {} as any,
+      );
       await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
       logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
     }

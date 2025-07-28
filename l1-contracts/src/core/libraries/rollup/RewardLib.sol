@@ -38,6 +38,7 @@ struct RewardConfig {
   IRewardDistributor rewardDistributor;
   Bps sequencerBps;
   IBoosterCore booster;
+  uint96 blockReward;
 }
 
 struct RewardStorage {
@@ -131,8 +132,6 @@ library RewardLib {
     RewardStorage storage rewardStorage = getStorage();
 
     // Determine if this rollup is canonical according to its RewardDistributor.
-    bool isCanonicalToRewardDistributor =
-      address(this) == rewardStorage.config.rewardDistributor.canonicalRollup();
 
     uint256 length = _args.end - _args.start + 1;
     EpochRewards storage $er = rewardStorage.epochRewards[_endEpoch];
@@ -157,9 +156,26 @@ library RewardLib {
 
       {
         uint256 added = length - $er.longestProvenLength;
-        uint256 blockRewardsAvailable = isCanonicalToRewardDistributor
-          ? rewardStorage.config.rewardDistributor.claimBlockRewards(address(this), added)
-          : 0;
+        uint256 blockRewardsDesired = added * getBlockReward();
+        uint256 blockRewardsAvailable = 0;
+
+        // Only if we require block rewards and are canonical will we claim.
+        if (blockRewardsDesired > 0) {
+          // Cache the reward distributor contract
+          IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
+
+          if (address(this) == distributor.canonicalRollup()) {
+            uint256 amountToClaim = Math.min(
+              blockRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor))
+            );
+
+            if (amountToClaim > 0) {
+              distributor.claim(address(this), amountToClaim);
+              blockRewardsAvailable = amountToClaim;
+            }
+          }
+        }
+
         uint256 sequencerShare =
           BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
         v.sequencerBlockReward = sequencerShare / added;
@@ -224,6 +240,10 @@ library RewardLib {
 
   function getHasClaimed(address _prover, Epoch _epoch) internal view returns (bool) {
     return getStorage().proverClaimed[_prover].get(Epoch.unwrap(_epoch));
+  }
+
+  function getBlockReward() internal view returns (uint256) {
+    return getStorage().config.blockReward;
   }
 
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)

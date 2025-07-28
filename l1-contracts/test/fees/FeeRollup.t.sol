@@ -403,7 +403,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         // The reward is not yet distributed, but only accumulated.
         {
-          uint256 newFees = rewardDistributor.BLOCK_REWARD() * epochSize / 2 + sequencerFees;
+          uint256 newFees = rollup.getBlockReward() * epochSize / 2 + sequencerFees;
           assertEq(
             rollup.getSequencerRewards(coinbase),
             sequencerRewardsBefore + newFees,
@@ -413,7 +413,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         {
           assertEq(
             rollup.getCollectiveProverRewardsForEpoch(rollup.getEpochForBlock(start)),
-            rewardDistributor.BLOCK_REWARD() * epochSize / 2 + proverFees,
+            rollup.getBlockReward() * epochSize / 2 + proverFees,
             "prover rewards"
           );
         }

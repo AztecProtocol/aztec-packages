@@ -92,14 +92,8 @@ contract FakeCanonical is IRewardDistributor {
     canonicalRollup = _rollup;
   }
 
-  function claim(address _recipient) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, BLOCK_REWARD);
-    return BLOCK_REWARD;
-  }
-
-  function claimBlockRewards(address _recipient, uint256 _blocks) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, _blocks * BLOCK_REWARD);
-    return _blocks * BLOCK_REWARD;
+  function claim(address _recipient, uint256 _amount) external {
+    TestERC20(address(UNDERLYING)).mint(_recipient, _amount);
   }
 
   function distributeFees(address _recipient, uint256 _amount) external {

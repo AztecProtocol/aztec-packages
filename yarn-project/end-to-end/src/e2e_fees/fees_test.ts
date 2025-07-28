@@ -10,13 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import {
-  type DeployL1ContractsArgs,
-  RollupContract,
-  createExtendedL1Client,
-  getPublicClient,
-  l1Artifacts,
-} from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -81,6 +75,8 @@ export class FeesTest {
 
   public gasSettings!: GasSettings;
 
+  public rollupContract!: RollupContract;
+
   public feeJuiceContract!: FeeJuiceContract;
   public bananaCoin!: BananaCoin;
   public bananaFPC!: FPCContract;
@@ -124,8 +120,8 @@ export class FeesTest {
     const context = await this.snapshotManager.setup();
     await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
-    const rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
-    this.chainMonitor = new ChainMonitor(rollupContract, context.dateProvider, this.logger, 200).start();
+    this.rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
+    this.chainMonitor = new ChainMonitor(this.rollupContract, context.dateProvider, this.logger, 200).start();
 
     return this;
   }
@@ -147,16 +143,10 @@ export class FeesTest {
   }
 
   async getBlockRewards() {
-    const rewardDistributor = getContract({
-      address: this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-      abi: l1Artifacts.rewardDistributor.contractAbi,
-      client: this.context.deployL1ContractsValues.l1Client,
-    });
-
-    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+    const blockReward = await this.rollupContract.getBlockReward();
 
     const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(
-      EthAddress.fromString(rewardDistributor.address),
+      this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress,
     );
 
     const toDistribute = balance > blockReward ? blockReward : balance;
@@ -304,19 +294,11 @@ export class FeesTest {
         };
 
         this.getCoinbaseSequencerRewards = async () => {
-          const l1Client = createExtendedL1Client(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
-          const rollup = new RollupContract(l1Client, data.rollupAddress);
-          return await rollup.getSequencerRewards(this.coinbase);
+          return await this.rollupContract.getSequencerRewards(this.coinbase);
         };
 
         this.getProverFee = async (blockNumber: number) => {
           const block = await this.pxe.getBlock(blockNumber);
-
-          const publicClient = getPublicClient({
-            l1RpcUrls: context.aztecNodeConfig.l1RpcUrls,
-            l1ChainId: context.aztecNodeConfig.l1ChainId,
-          });
-          const rollup = new RollupContract(publicClient, data.rollupAddress);
 
           // @todo @lherskind As we deal with #13601
           // Right now the value is from `FeeLib.sol`
@@ -325,15 +307,15 @@ export class FeesTest {
           // We round up
           const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
 
-          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp);
+          const { baseFee } = await this.rollupContract.getL1FeesAt(block!.header.globalVariables.timestamp);
           const proverCost =
             mulDiv(
-              mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await rollup.getEpochDuration()),
+              mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await this.rollupContract.getEpochDuration()),
               1n,
-              await rollup.getManaTarget(),
-            ) + (await rollup.getProvingCostPerMana());
+              await this.rollupContract.getManaTarget(),
+            ) + (await this.rollupContract.getProvingCostPerMana());
 
-          const price = await rollup.getFeeAssetPerEth();
+          const price = await this.rollupContract.getFeeAssetPerEth();
 
           const mana = block!.header.totalManaUsed.toBigInt();
           return mulDiv(mana * proverCost, price, 10n ** 9n);

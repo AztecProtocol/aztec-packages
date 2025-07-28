@@ -82,7 +82,8 @@ library TestConstants {
     return RewardConfig({
       rewardDistributor: IRewardDistributor(address(0)),
       sequencerBps: Bps.wrap(5000),
-      booster: IBoosterCore(address(0)) // Will cause a deployment
+      booster: IBoosterCore(address(0)), // Will cause a deployment
+      blockReward: 50e18
     });
   }
 
