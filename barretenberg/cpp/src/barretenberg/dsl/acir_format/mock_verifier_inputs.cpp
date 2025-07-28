@@ -47,39 +47,26 @@ template <typename Flavor> HonkProof create_mock_oink_proof(const bool is_kernel
 {
     HonkProof proof;
 
-    if (is_kernel) {
-    }
+    typename Flavor::CircuitBuilder builder;
 
+    // Populate mock public inputs
     if constexpr (IsMegaFlavor<Flavor>) {
-        MegaCircuitBuilder builder;
+        // When MegaFlavor, we either have the hiding kernel, another type of kernel, or an app
         if (is_hiding_kernel) {
             stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>::add_default(builder);
-            for (const auto& pub : builder.public_inputs()) {
-                proof.emplace_back(builder.get_variable(pub));
-            }
         } else if (is_kernel) {
             stdlib::recursion::honk::KernelIO::add_default(builder);
-            for (const auto& pub : builder.public_inputs()) {
-                proof.emplace_back(builder.get_variable(pub));
-            }
         } else {
             stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
-            for (const auto& pub : builder.public_inputs()) {
-                proof.emplace_back(builder.get_variable(pub));
-            }
         }
     } else if constexpr (HasIPAAccumulator<Flavor>) {
-        UltraCircuitBuilder builder;
         stdlib::recursion::honk::RollupIO::add_default(builder);
-        for (const auto& pub : builder.public_inputs()) {
-            proof.emplace_back(builder.get_variable(pub));
-        }
     } else {
-        UltraCircuitBuilder builder;
         stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
-        for (const auto& pub : builder.public_inputs()) {
-            proof.emplace_back(builder.get_variable(pub));
-        }
+    }
+
+    for (const auto& pub : builder.public_inputs()) {
+        proof.emplace_back(builder.get_variable(pub));
     }
 
     // Populate mock witness polynomial commitments
@@ -236,7 +223,6 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
                 return stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
             }
             return DefaultIO::PUBLIC_INPUTS_SIZE;
-
         } else if constexpr (HasIPAAccumulator<Flavor>) {
             return RollupIO::PUBLIC_INPUTS_SIZE;
         }
@@ -267,7 +253,7 @@ template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> crea
     // Set relevant VK metadata and commitments
     auto decider_verification_key = std::make_shared<DeciderVerificationKey_<Flavor>>();
     std::shared_ptr<typename Flavor::VerificationKey> vk =
-        create_mock_honk_vk<Flavor>(0, false, 0); // metadata does not need to be accurate
+        create_mock_honk_vk<Flavor>(0, 0, false); // metadata does not need to be accurate
     decider_verification_key->vk = vk;
     decider_verification_key->is_accumulator = true;
     decider_verification_key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);

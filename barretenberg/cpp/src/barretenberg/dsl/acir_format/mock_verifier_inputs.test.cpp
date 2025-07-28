@@ -18,6 +18,15 @@ using namespace bb;
 
 template <typename Flavor> class MockVerifierInputsTest : public ::testing::Test {
   public:
+    /**
+     * @brief Compute the number of public inputs in a proof based on Flavor and on kernel flags
+     *
+     * @details We have three possibilities based on Flavor:
+     *              1. IsMegaFlavor: a. HidingKernel, b. Another Kernel, c. App
+     *              2. HasIpaAccumulator: Rollup
+     *              3. Other: Default (PairingPoints)
+     * @return size_t
+     */
     size_t compute_num_public_inputs(const bool is_kernel, const bool is_hiding_kernel = false) const
     {
         if constexpr (IsMegaFlavor<Flavor>) {
