@@ -438,7 +438,7 @@ mod tests {
         curves::bls12_381::{BLS12_381 as Point, BLS12_381_Params},
     };
     use bigint::{BigNum, BLS12_381_Fq as Q};
-    use std::ops::{Add, Mul};
+    use std::ops::Add;
     use types::constants::BLOCK_BLOB_PUBLIC_INPUTS;
     use types::traits::{Deserialize, Empty, Serialize};
 
