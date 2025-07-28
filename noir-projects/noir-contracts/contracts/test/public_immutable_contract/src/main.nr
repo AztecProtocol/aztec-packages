@@ -49,14 +49,13 @@ mod tests {
 
         // set x to 10
         let x = 10;
-        let _ = env.call_public(contract_address, test_contract.initialize_value(x));
+        env.call_public(contract_address, test_contract.initialize_value(x));
 
         // We advance block to commit state and have the nullifier available for reading.
         env.mine_block();
 
         // Read value and verify it matches
-        let result = env.call_public(contract_address, test_contract.read_value());
-        assert(result.return_value == x);
+        assert_eq(env.call_public(contract_address, test_contract.read_value()), x);
     }
 
     #[test(should_fail)] // should_fail_with = "Trying to read from uninitialized PublicImmutable"
@@ -75,10 +74,12 @@ mod tests {
         let (env, contract_address) = setup();
 
         // Try to read uninitialized value - this should return 0 as it is the default public storage value
-        let result = env.call_public(
-            contract_address,
-            PublicImmutableContract::at(contract_address).read_value_unsafe(),
+        assert_eq(
+            env.call_public(
+                contract_address,
+                PublicImmutableContract::at(contract_address).read_value_unsafe(),
+            ),
+            0,
         );
-        assert(result.return_value == 0);
     }
 }

@@ -32,7 +32,7 @@ unconstrained fn non_admin_cannot_set_unauthorized() {
     let (env, auth_contract_address, _, _, other) = setup();
     let auth = Auth::at(auth_contract_address);
 
-    let _ = env.call_public(other, auth.set_authorized(other));
+    env.call_public(other, auth.set_authorized(other));
 }
 
 #[test]
@@ -40,7 +40,7 @@ unconstrained fn admin_can_schedule_set_authorized() {
     let (env, auth_contract_address, admin, to_authorize, _) = setup();
     let auth = Auth::at(auth_contract_address);
 
-    let _ = env.call_public(admin, auth.set_authorized(to_authorize));
+    env.call_public(admin, auth.set_authorized(to_authorize));
 
     let (scheduled_authorized, timestamp_of_change) =
         env.view_public(auth.get_scheduled_authorized());
@@ -53,7 +53,7 @@ unconstrained fn scheduled_authorized_is_not_immediately_effective() {
     let (env, auth_contract_address, admin, to_authorize, _) = setup();
     let auth = Auth::at(auth_contract_address);
 
-    let _ = env.call_public(admin, auth.set_authorized(to_authorize));
+    env.call_public(admin, auth.set_authorized(to_authorize));
     let (_, timestamp_of_change) = env.view_public(auth.get_scheduled_authorized());
 
     env.set_next_block_timestamp(timestamp_of_change - 1);
@@ -65,7 +65,7 @@ unconstrained fn scheduled_authorized_becomes_effective_after_delay() {
     let (env, auth_contract_address, admin, to_authorize, _) = setup();
     let auth = Auth::at(auth_contract_address);
 
-    let _ = env.call_public(admin, auth.set_authorized(to_authorize));
+    env.call_public(admin, auth.set_authorized(to_authorize));
     let (_, timestamp_of_change) = env.view_public(auth.get_scheduled_authorized());
 
     env.mine_block_at(timestamp_of_change);
@@ -73,5 +73,5 @@ unconstrained fn scheduled_authorized_becomes_effective_after_delay() {
     assert_eq(env.view_public(auth.get_authorized()), to_authorize);
     assert_eq(env.view_private(auth.get_authorized_in_private()), to_authorize);
 
-    let _ = env.call_private(to_authorize, auth.do_private_authorized_thing());
+    env.call_private(to_authorize, auth.do_private_authorized_thing());
 }
