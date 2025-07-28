@@ -14,6 +14,8 @@ class ToRadixTraceBuilder final {
   public:
     void process(const simulation::EventEmitterInterface<simulation::ToRadixEvent>::Container& events,
                  TraceContainer& trace);
+    void process_with_memory(const simulation::EventEmitterInterface<simulation::ToRadixMemoryEvent>::Container& events,
+                             TraceContainer& trace);
 
     static const InteractionDefinition interactions;
 };

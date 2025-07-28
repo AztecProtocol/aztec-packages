@@ -216,6 +216,65 @@ auto process_carry_add_with_tracegen(MemoryTag input_tag)
     return trace;
 }
 
+auto process_sub_trace(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    auto [_a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto a = MemoryValue::from_tag(input_tag, _a);
+    auto b = MemoryValue::from_tag(input_tag, _b);
+    auto c = a - b;
+    auto tag = static_cast<uint8_t>(input_tag);
+    auto trace = TestTraceContainer::from_rows({
+        {
+            .alu_cf = _a - _b != c.as_ff() ? 1 : 0,
+            .alu_ia = a,
+            .alu_ia_tag = tag,
+            .alu_ib = b,
+            .alu_ib_tag = tag,
+            .alu_ic = c,
+            .alu_ic_tag = tag,
+            .alu_max_bits = get_tag_bits(input_tag),
+            .alu_max_value = get_tag_max_value(input_tag),
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_SUB,
+            .alu_sel = 1,
+            .alu_sel_op_sub = 1,
+            .execution_mem_tag_reg_0_ = tag,                           // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,                           // = ib_tag
+            .execution_mem_tag_reg_2_ = tag,                           // = ic_tag
+            .execution_register_0_ = a,                                // = ia
+            .execution_register_1_ = b,                                // = ib
+            .execution_register_2_ = c,                                // = ic
+            .execution_sel_execute_alu = 1,                            // = sel
+            .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SUB, // = alu_op_id
+        },
+    });
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+auto process_sub_with_tracegen(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+    auto [_a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto a = MemoryValue::from_tag(input_tag, _a);
+    auto b = MemoryValue::from_tag(input_tag, _b);
+    auto c = a - b;
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::SUB, .a = a, .b = b, .c = MemoryValue::from_tag(input_tag, c) },
+        },
+        trace);
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
 TestTraceContainer process_mul_trace(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
@@ -601,7 +660,7 @@ TEST(AluConstrainingTest, NegativeBasicAdd)
 
     check_relation<alu>(trace);
     trace.set(Column::alu_ic, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
 }
 
 TEST(AluConstrainingTest, NegativeAddCarryU1)
@@ -612,12 +671,12 @@ TEST(AluConstrainingTest, NegativeAddCarryU1)
     check_relation<alu>(trace);
     trace.set(Column::alu_cf, 0, 0);
     // If we are overflowing, we need to set the carry flag...
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
 
     trace.set(Column::alu_cf, 0, 1);
     trace.set(Column::alu_max_value, 0, 0);
     // ...and the correct max_value:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
 }
 
 TEST(AluConstrainingTest, NegativeAddCarryU8)
@@ -629,7 +688,7 @@ TEST(AluConstrainingTest, NegativeAddCarryU8)
     // TODO(MW): The below should fail the range check on c in memory, but we cannot test this yet.
     // Instead, we assume the carry flag is correct and show an overflow fails:
     trace.set(Column::alu_ic, 0, 257);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
 }
 
 TEST(AluConstrainingTest, NegativeAddWrongTag)
@@ -669,6 +728,49 @@ TEST(AluConstrainingTest, NegativeAddWrongTagCMismatch)
     check_relation<alu>(trace);
     trace.set(Column::alu_ic_tag, 0, tag - 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
+}
+
+// SUB TESTS
+
+TEST_P(AluTagTest, AluSubTag)
+{
+    const auto tag = GetParam();
+    auto trace = process_sub_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluSubTagTraceGen)
+{
+    const auto tag = GetParam();
+    auto trace = process_sub_with_tracegen(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluSubTagNegative)
+{
+    const auto tag = GetParam();
+    auto trace = process_sub_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_alu_register_tag_value_settings>(trace);
+    check_relation<alu>(trace);
+
+    auto c = trace.get(Column::alu_ic, 0);
+
+    trace.set(Column::alu_ic, 0, c + 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+
+    trace.set(Column::alu_ic, 0, c);
+    check_relation<alu>(trace);
+
+    // We get the correct underflowed result 'for free' with FF whether cf is on or not
+    if (tag != MemoryTag::FF) {
+        trace.set(Column::alu_cf, 0, trace.get(Column::alu_cf, 0) == 1 ? 0 : 1);
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+    }
 }
 
 // MUL TESTS

@@ -1,0 +1,275 @@
+include "to_radix.pil";
+include "gt.pil";
+include "execution.pil";
+include "precomputed.pil";
+
+/**
+ * This handles the memory writes when the TORADIXBE opcode is executed by user code.
+ * The reads are loaded and tag validated by the registers in the execution trace.
+ * This trace writes a sequence of U1s or U8s (depending on the boolean is_output_bits) to the addresses
+ * {dst, dst + 1, ... , dst + num_limbs - 1 }.
+ * 
+ * This trace has a vertical layout, where a single write is performed per row. This is due
+ * to the dynamic amount of writes that can be performed. This has a benefit as we only require
+ * a single permutation to the memory trace.
+ *
+ * Opcode operands (relevant in EXECUTION when interacting with this gadget):
+ * - rop[0]: value_addr
+ * - rop[1]: radix_addr
+ * - rop[2]: num_limbs_addr
+ * - rop[3]: is_output_bits_addr
+ * - rop[4]: dst_addr
+ *
+ * Memory I/O:
+ * - register[0]: M[value_addr] aka value_to_decompose (value to be decomposed - read from memory by EXECUTION)
+ *     - value is tagged-checked by execution/registers to be FF based on instruction spec.
+ * - register[1]: M[radix_addr] aka radix (radix to decompose value by - read from memory by EXECUTION)
+ *     - radix is tagged-checked by execution/registers to be U32 based on instruction spec.
+ * - register[2]: M[num_limbs_addr] aka num_limbs (number of limbs to decompose into - read from memory by EXECUTION)
+ *     - num_limbs is tagged-checked by execution/registers to be U32 based on instruction spec.
+ * - register[3]: M[is_output_bits_addr] aka is_output_bits (boolean if output should be U1 or U8)
+ *     - is_output_bits is tagged-checked by execution/registers to be U1 based on instruction spec.
+ * - M[rop[6]]: M[dst_addr] aka limb_value_0 (the value of the first index of the big endian decomposition)
+ *     - guaranteed by this gadget to be U8 or U1 depending on is_output_bits
+ * - M[rop[6] + num_limbs - 1]: M[dst_offset + num_limbs - 1] aka limb_value_n (the value of the last index of the big endian decomposition)
+ *     - guaranteed by this gadget to be U8 or U1 depending on is_output_bits
+ *
+ * ERROR HANDLING:
+ * Two errors needs to be handled as part of this trace,
+ * (1) INVALID_RADIX_VALUE: The radix must be in the range [2, 256], if is_output_bits = 1, radix must be 2
+ * (2) INVALID_NUM_LIMBS: If num_limbs = 0 while value_to_decompose != 0.
+ * (3) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
+ *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
+ *
+ * N.B The radix is checked to be <= 256 in the execution trace (for dynamic gas computation)
+ *     we do not currently take advantage of any partial checks done but is a future optimisation
+ *     Finally, if is num_limbs = 0 && value_to_decompose = 0 (which are valid inputs), then no memory writes are performed
+ *
+ * This subtrace is connected to the TORADIX subtrace via a lookup. TORADIX is used by
+ * other subtraces internally (e.g., scalar mul ).
+ * 
+ * NOTE: The TORADIX subtrace performs the decomposition in LITTLE ENDIAN. This is more optimal
+ *       for the internal gadget use. Therefore this subtrace needs to reverse the output of TORADIX
+ *       since the opcode requires BIG ENDIAN.
+ */
+
+namespace to_radix_mem;
+
+    pol commit sel;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Memory Inputs
+    pol commit execution_clk;
+    pol commit space_id;
+    pol commit dst_addr;
+
+    // To Radix Inputs
+    pol commit value_to_decompose;
+    pol commit radix;
+    pol commit num_limbs;
+    pol commit is_output_bits;
+
+    // Control Flow
+    pol commit start;
+    start * (1 - start) = 0;
+    pol commit last; // Constrained in the Control flow section as depends on error
+    last * (1 - last) = 0;
+
+    // Since sel has a shifted column (see CONTINUITY checks), sel must equal 0 in the first row 
+    // Therefore, last must equal 0 in the first row as well.
+    #[LAST_HAS_SEL_ON] // sel = 1 when last = 1
+    last * (1 - sel) = 0;
+    // This is now guaranteed to be mututally exclusive because of the above condition
+    pol LATCH_CONDITION = last + precomputed.first_row; 
+    // If the next row is active and the current row is last or first, then start is active
+    // on the next row.
+    #[START_AFTER_LAST]
+    sel' * (start' - LATCH_CONDITION) = 0;
+    pol NOT_LAST = sel * (1 - LATCH_CONDITION);
+
+    // Continuity checks
+    #[SEL_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+    #[EXEC_CLK_CONTINUITY]
+    NOT_LAST * (execution_clk' - execution_clk) = 0;
+    #[SPACE_ID_CONTINUITY]
+    NOT_LAST * (space_id' - space_id) = 0;
+    #[VALUE_CONTNUITY]
+    NOT_LAST * (value_to_decompose' - value_to_decompose) = 0;
+    #[RADIX_CONTINUITY]
+    NOT_LAST * (radix' - radix) = 0;
+    #[IS_OUTPUT_BITS_CONTINUITY]
+    NOT_LAST * (is_output_bits' - is_output_bits) = 0;
+
+    ////////////////////////////////////////////////
+    // Error Handling - Out of Range Memory Access
+    ////////////////////////////////////////////////
+    pol commit sel_dst_out_of_range_err;
+    sel_dst_out_of_range_err * (1 - sel_dst_out_of_range_err) = 0;
+
+    // Use the comparison gadget to check that the max addresses are within range
+    // The comparison gadget provides the ability to test GreaterThan so we check
+    // max_write_addr > max_mem_addr
+    pol commit max_mem_addr; // Needed while we don't support constants in lookups
+    start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+
+    pol commit max_write_addr;
+    start * (max_write_addr - (dst_addr + num_limbs - 1)) = 0;
+
+    #[CHECK_DST_ADDR_IN_RANGE]
+    start { max_write_addr, max_mem_addr, sel_dst_out_of_range_err }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
+
+    ////////////////////////////////////////////////
+    // Error Handling - Check Radix is valid
+    ////////////////////////////////////////////////
+    // To check that 2 <= radix <= 256, we raise error flags if 2 > radix or radix > 256.
+    // We formulate them like this since we have access to a GT gadget.
+    pol commit sel_radix_lt_2_err; // Radix is < 2
+    sel_radix_lt_2_err * (1 - sel_radix_lt_2_err) = 0;
+
+    pol commit sel_radix_gt_256_err; // Radix is > 256
+    sel_radix_gt_256_err * (1 - sel_radix_gt_256_err) = 0;
+
+    pol commit sel_invalid_bitwise_radix; // Radix != 2 if output_bits = 1
+    sel_invalid_bitwise_radix * (1 - sel_invalid_bitwise_radix) = 0;
+
+    pol commit two; // While we do not have constants in lookups
+    start * (two - 2) = 0;
+    pol commit two_five_six; // While we do not have constants in lookups
+    start * (two_five_six - 256) = 0;
+
+    #[CHECK_RADIX_LT_2]
+    start { two, radix, sel_radix_lt_2_err }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
+
+    #[CHECK_RADIX_GT_256]
+    start { radix, two_five_six, sel_radix_gt_256_err }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
+
+    // is_output_bits already guaranteed to be boolean by execution trace tag validation
+    #[IS_OUTPUT_BITS_IMPLY_RADIX_2]
+    start * is_output_bits * (1 - sel_invalid_bitwise_radix) * (radix - 2) = 0;
+
+    /////////////////////////////////////////////////////////
+    // Error Handling - Check Num Limbs and Value are valid
+    /////////////////////////////////////////////////////////
+    // If num_limbs = 0, and value_to_decompose != 0, we throw an error
+    pol commit sel_num_limbs_is_zero; // We will re-use this later when gating dispatch to the to_radix gadget
+    sel_num_limbs_is_zero * (1 - sel_num_limbs_is_zero) = 0;
+    pol commit num_limbs_inv;
+    #[ZERO_CHECK_NUM_LIMBS] // sel_num_limbs_is_zero = 1 if num_limbs = 0
+    start * (num_limbs * (sel_num_limbs_is_zero * (1 - num_limbs_inv) + num_limbs_inv) - 1 + sel_num_limbs_is_zero) = 0;
+
+    pol commit sel_value_is_zero;
+    sel_value_is_zero * (1 - sel_value_is_zero) = 0;
+    pol commit value_inv;
+    #[ZERO_CHECK_VALUE] // sel_value_is_zero = 1 if value_to_decompose = 0
+    start * (value_to_decompose * (sel_value_is_zero * (1 - value_inv) + value_inv) - 1 + sel_value_is_zero) =0;
+
+    pol commit sel_invalid_num_limbs_err; // err = 1 if num_limbs == 0 while value != 0
+    sel_invalid_num_limbs_err = sel_num_limbs_is_zero * (1 - sel_value_is_zero);
+
+    pol commit err; // Consolidated error flag
+    err = 1 - (1 - sel_dst_out_of_range_err) * (1 - sel_radix_lt_2_err)
+        * (1 - sel_radix_gt_256_err) * (1 - sel_invalid_bitwise_radix)
+        * (1 - sel_invalid_num_limbs_err);
+
+    /////////////////////////////////////////////////////
+    // Control flow management and terminating trace
+    /////////////////////////////////////////////////////
+    // As we process the results from to_radix, we decrement the num of limbs
+    // and increment the dst address.
+    #[DECR_NUM_LIMBS]
+    NOT_LAST * (num_limbs' - (num_limbs - 1)) = 0;
+    #[INCR_DST_ADDRESS]
+    NOT_LAST * (dst_addr' - (dst_addr + 1)) = 0;
+
+    // Constraining last - the computation is terminated when: num_limbs = 1 or err = 1
+    pol SEL_NO_ERR = sel * (1 - err);
+    pol NUM_LIMBS_MINUS_ONE = num_limbs - 1;
+    pol commit num_limbs_minus_one_inv;
+
+
+    // todo(ilyas); there must be a nicer way to make these relations cleaner. Last needs to be set based on:
+    // 1) num_limbs - 1 = 0; part of a normal computation
+    // 2) num_limbs = 0; if the user-supplied num_limbs = 0 && value_to_decompose = 0
+    // 3) err = 1;
+    #[LAST_ROW_VALID_COMPUTATION] // last = 1 if num_limbs = 1 && err = 0 && num_limbs != 0
+    SEL_NO_ERR * (1 - sel_num_limbs_is_zero) * (NUM_LIMBS_MINUS_ONE * (last * (1 - num_limbs_minus_one_inv) + num_limbs_minus_one_inv) - 1 + last) = 0;
+
+    #[LAST_ROW_NUM_LIMBS_ZERO] // last = 1 if num_limbs = 0
+    sel * sel_num_limbs_is_zero * (last - 1) = 0;
+
+    #[LAST_ROW_ERR_COMPUTATION] // last = 1 if err = 1 && num_limbs != 0
+    sel * err * (1 - sel_num_limbs_is_zero) * (last - 1) = 0;
+    // The implication of the above condition is that LATCH_CONDITION = 1 if there is an error
+
+    /////////////////////////////////////////////////////
+    // Dispatch inputs to to_radix and retrieve outputs
+    /////////////////////////////////////////////////////
+    pol commit output_limb_value;
+    pol commit sel_should_exec;
+    // If the num limbs are zero, we don't dispatch to the gadget or write to memory.
+    sel_should_exec = sel * (1 - err) * (1 - sel_num_limbs_is_zero);
+
+    pol commit limb_index_to_lookup; // Need this since we want Big-Endian but the gadget is Little-Endian
+    limb_index_to_lookup = sel_should_exec * (num_limbs - 1);
+    #[INPUT_OUTPUT_TO_RADIX]
+    sel_should_exec { value_to_decompose, limb_index_to_lookup, radix, output_limb_value }
+    in
+    to_radix.sel {to_radix.value, to_radix.limb_index, to_radix.radix, to_radix.limb };
+
+    ////////////////////////////////////////////////
+    // Write output to memory
+    ////////////////////////////////////////////////
+    // TODO: These need to be changed to permutations once we have the custom permutation selectors impl
+    pol commit output_tag;
+    // Conditional Assignment: is_output_bits ? U1 : U8
+    output_tag = sel_should_exec * ((constants.MEM_TAG_U1 - constants.MEM_TAG_U8) * is_output_bits + constants.MEM_TAG_U8);
+
+    #[WRITE_MEM]
+    sel_should_exec { 
+        execution_clk,      dst_addr,
+        output_limb_value,  /*mem_tag*/ output_tag,
+        space_id,           /*rw=1*/ sel_should_exec
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+
+    ////////////////////////////////////////////////
+    // Dispatch from execution trace to TO RADIX
+    ////////////////////////////////////////////////
+    #[DISPATCH_EXEC_TO_RADIX]
+    execution.sel_execute_to_radix {
+        precomputed.clk,
+        execution.context_id,
+        execution.register[0],
+        execution.register[1],
+        execution.register[2],
+        execution.register[3],
+        execution.rop[4],
+        // Error
+        execution.sel_opcode_error
+    } is
+    start {
+        execution_clk,
+        space_id,
+        value_to_decompose,
+        radix,
+        num_limbs,
+        is_output_bits,
+        dst_addr,
+        // Error
+        err
+    };
+

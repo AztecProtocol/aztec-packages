@@ -285,4 +285,9 @@ void MerkleDB::revert_checkpoint()
     }
 }
 
+uint32_t MerkleDB::get_checkpoint_id() const
+{
+    return raw_merkle_db.get_checkpoint_id();
+}
+
 } // namespace bb::avm2::simulation

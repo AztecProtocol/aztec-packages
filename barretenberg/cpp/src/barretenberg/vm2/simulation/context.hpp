@@ -74,6 +74,8 @@ class ContextInterface {
 
     virtual Gas gas_left() const = 0;
 
+    virtual uint32_t get_checkpoint_id_at_creation() const = 0;
+
     // Events
     virtual ContextEvent serialize_context_event() = 0;
 };
@@ -95,6 +97,7 @@ class BaseContext : public ContextInterface {
                 HighLevelMerkleDBInterface& merkle_db,
                 WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree)
         : merkle_db(merkle_db)
+        , checkpoint_id_at_creation(merkle_db.get_checkpoint_id())
         , written_public_data_slots_tree(written_public_data_slots_tree)
         , address(address)
         , msg_sender(msg_sender)
@@ -156,11 +159,14 @@ class BaseContext : public ContextInterface {
 
     void set_gas_used(Gas gas_used) override { this->gas_used = gas_used; }
 
+    uint32_t get_checkpoint_id_at_creation() const override { return checkpoint_id_at_creation; }
+
     // Input / Output
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
   protected:
     HighLevelMerkleDBInterface& merkle_db;
+    uint32_t checkpoint_id_at_creation; // DB id when the context was created.
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
 
   private:

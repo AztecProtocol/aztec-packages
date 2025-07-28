@@ -15,6 +15,13 @@ template <typename FF_> class external_callImpl {
 
     static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 4, 4 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+
+        return (in.get(C::execution_sel_enter_call)).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,

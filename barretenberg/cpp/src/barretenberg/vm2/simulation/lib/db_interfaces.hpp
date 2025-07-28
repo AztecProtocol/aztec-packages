@@ -65,6 +65,9 @@ class LowLevelMerkleDBInterface {
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
     virtual void revert_checkpoint() = 0;
+    // Returns the id of the current checkpoint.
+    // This is a unique id for the lifetime of the db.
+    virtual uint32_t get_checkpoint_id() const = 0;
 };
 
 // High level access to a merkle db. In general these will be constrained.
@@ -95,6 +98,7 @@ class HighLevelMerkleDBInterface {
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
     virtual void revert_checkpoint() = 0;
+    virtual uint32_t get_checkpoint_id() const = 0;
 
     virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
