@@ -63,3 +63,4 @@ cli-wallet/test/data
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+.claude
