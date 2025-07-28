@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -876,6 +877,7 @@ TEST_F(ExecutionSimulationTest, ToRadixBE)
                                           MemoryValue::from<uint8_t>(0x00) };
     MemoryValue num_limbs = MemoryValue::from<uint32_t>(3);
     MemoryValue is_output_bits = MemoryValue::from<uint1_t>(false);
+    uint32_t num_p_limbs = 64;
 
     EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
     EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
@@ -883,7 +885,8 @@ TEST_F(ExecutionSimulationTest, ToRadixBE)
     EXPECT_CALL(memory, get(num_limbs_addr)).WillOnce(ReturnRef(num_limbs));
     EXPECT_CALL(memory, get(is_output_bits_addr)).WillOnce(ReturnRef(is_output_bits));
 
-    EXPECT_CALL(greater_than, gt(16, 256)).WillOnce(Return(false));
+    EXPECT_CALL(greater_than, gt(radix.as<uint32_t>(), /*max_radix/*/ 256)).WillOnce(Return(false));
+    EXPECT_CALL(greater_than, gt(num_limbs.as<uint32_t>(), num_p_limbs)).WillOnce(Return(false));
 
     EXPECT_CALL(gas_tracker, consume_gas);
     EXPECT_CALL(to_radix, to_be_radix);

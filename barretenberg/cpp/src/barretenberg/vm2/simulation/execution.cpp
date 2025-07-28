@@ -851,9 +851,13 @@ void Execution::to_radix_be(ContextInterface& context,
                                ? 32
                                : static_cast<uint32_t>(get_p_limbs_per_radix()[radix_value].size());
 
-    // Compute the dynamic gas factor - todo: this needs to trigger circuit interactions
-    uint32_t l2_dyn_gas_factor = std::max(num_limbs.as<uint32_t>(), num_p_limbs);
-    get_gas_tracker().consume_gas({ .l2Gas = l2_dyn_gas_factor, .daGas = 0 });
+    // Compute the dynamic gas factor - done this way to trigger relevant circuit interactions
+    if (greater_than.gt(num_limbs.as<uint32_t>(), num_p_limbs)) {
+        get_gas_tracker().consume_gas({ .l2Gas = num_limbs.as<uint32_t>(), .daGas = 0 });
+
+    } else {
+        get_gas_tracker().consume_gas({ .l2Gas = num_p_limbs, .daGas = 0 });
+    }
 
     try {
         // Call the gadget to perform the conversion.
@@ -1154,6 +1158,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::ECADD:
         call_with_operands(&Execution::ecc_add, context, resolved_operands);
+        break;
+    case ExecutionOpCode::TORADIXBE:
+        call_with_operands(&Execution::to_radix_be, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.
