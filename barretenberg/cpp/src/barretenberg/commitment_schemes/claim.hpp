@@ -116,7 +116,7 @@ template <typename Curve> class OpeningClaim {
         const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
         const std::span<const Fr, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
         const std::span<const Fr, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
-        const std::span<const Fr, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };                                           Commitment::PUBLIC_INPUTS_SIZE);
+        const std::span<const Fr, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };
 
         Fr challenge = Fr::reconstruct_from_public(challenge_limbs);
         Fr evaluation = Fr::reconstruct_from_public(evaluation_limbs);
