@@ -1,6 +1,5 @@
 #include "api_ultra_honk.hpp"
 
-#include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -304,25 +303,9 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
                                        const std::string& witness_path,
                                        const std::string& output_path)
 {
-    // Read input files
+    // Read input files directly as bytes
     auto bytecode = get_bytecode(bytecode_path);
-    auto witness_vector = get_witness(witness_path);
-    // Serialize witness to bytes - need to use Witnesses namespace types
-    Witnesses::WitnessStack witness_stack;
-    Witnesses::StackItem stack_item;
-    stack_item.index = 0;
-    // Convert WitnessVector to Witness map
-    for (size_t i = 0; i < witness_vector.size(); ++i) {
-        // Convert field element to hex string (64 chars = 32 bytes)
-        auto bytes = witness_vector[i].to_buffer();
-        std::stringstream ss;
-        for (const auto& byte : bytes) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
-        }
-        stack_item.witness.value[Witnesses::Witness{ static_cast<uint32_t>(i) }] = ss.str();
-    }
-    witness_stack.stack.push_back(stack_item);
-    auto witness = witness_stack.bincodeSerialize();
+    auto witness = get_bytecode(witness_path);
 
     // Determine settings based on flavor
     bbapi::ProofSystemSettings settings;
@@ -330,32 +313,32 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
         settings.ipa_accumulation = true;
     }
 
-    // Execute prove to get proof and VK
-    auto prove_response =
-        bbapi::CircuitProve{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
-                             .witness = witness,
-                             .settings = settings }
-            .execute();
-
-    // Get VK
+    // Get VK first (needed for proving)
     auto vk_response =
         bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = bytecode }, .settings = settings }
             .execute();
+
+    // Execute prove with the VK
+    auto prove_response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
+                                                            .bytecode = bytecode,
+                                                            .verification_key = vk_response.bytes },
+                                               .witness = witness,
+                                               .settings = settings }
+                              .execute();
 
     // Reconstruct full proof with public inputs
     std::vector<bb::fr> proof = prove_response.public_inputs;
     proof.insert(proof.end(), prove_response.proof.begin(), prove_response.proof.end());
 
+    // Deserialize VK for ProofSurgeon
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(
         from_buffer<typename Flavor::VerificationKey>(vk_response.bytes));
 
-    bool ipa_accumulation = false;
-    if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        ipa_accumulation = true;
-    }
-    const std::string toml_content =
-        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);
+    // Generate TOML content
+    const std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(
+        proof, verification_key, settings.ipa_accumulation);
 
+    // Write to file
     const std::string toml_path = output_path + "/Prover.toml";
     write_file(toml_path, { toml_content.begin(), toml_content.end() });
 }
