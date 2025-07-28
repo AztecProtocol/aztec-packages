@@ -6,15 +6,8 @@ import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
-import {
-  AuthRequest,
-  AuthResponse,
-  type P2P,
-  type PeerId,
-  StatusMessage,
-  type TxProvider,
-  createSecp256k1PeerId,
-} from '@aztec/p2p';
+import { AuthRequest, AuthResponse, type P2P, type PeerId, StatusMessage, type TxProvider } from '@aztec/p2p';
+import { createSecp256k1PeerId } from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import { Offense, type SlasherConfig, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
