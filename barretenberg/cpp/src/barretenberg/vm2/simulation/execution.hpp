@@ -55,6 +55,7 @@ class Execution : public ExecutionInterface {
               DataCopyInterface& data_copy,
               Poseidon2Interface& poseidon2,
               EccInterface& ecc,
+              ToRadixInterface& to_radix,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -71,6 +72,7 @@ class Execution : public ExecutionInterface {
         , bitwise(bitwise)
         , poseidon2(poseidon2)
         , embedded_curve(ecc)
+        , to_radix(to_radix)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
@@ -157,6 +159,12 @@ class Execution : public ExecutionInterface {
                  MemoryAddress q_y_addr,
                  MemoryAddress q_inf_addr,
                  MemoryAddress dst_addr);
+    void to_radix_be(ContextInterface& context,
+                     MemoryAddress value_addr,
+                     MemoryAddress radix_addr,
+                     MemoryAddress num_limbs_addr,
+                     MemoryAddress is_output_bits_addr,
+                     MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -192,6 +200,7 @@ class Execution : public ExecutionInterface {
     BitwiseInterface& bitwise;
     Poseidon2Interface& poseidon2;
     EccInterface& embedded_curve;
+    ToRadixInterface& to_radix;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;

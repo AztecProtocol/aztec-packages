@@ -33,6 +33,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
@@ -85,11 +86,13 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockGreaterThan> greater_than;
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockEcc> ecc;
+    StrictMock<MockToRadix> to_radix;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
                                                   poseidon2,
                                                   ecc,
+                                                  to_radix,
                                                   execution_components,
                                                   context_provider,
                                                   instruction_info_db,
@@ -856,6 +859,36 @@ TEST_F(ExecutionSimulationTest, EccAdd)
 
     // Execute the ECC add operation
     execution.ecc_add(context, p_x_addr, p_y_addr, p_is_inf_addr, q_x_addr, q_y_addr, q_is_inf_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, ToRadixBE)
+{
+    MemoryAddress value_addr = 5;
+    MemoryAddress radix_addr = 6;
+    MemoryAddress num_limbs_addr = 7;
+    MemoryAddress is_output_bits_addr = 8;
+
+    MemoryAddress dst_addr = 10;
+    MemoryValue value = MemoryValue::from<FF>(42069);
+    MemoryValue radix = MemoryValue::from<uint32_t>(16);
+    std::vector<MemoryValue> be_limbs = { MemoryValue::from<uint8_t>(0xa4),
+                                          MemoryValue::from<uint8_t>(0x55),
+                                          MemoryValue::from<uint8_t>(0x00) };
+    MemoryValue num_limbs = MemoryValue::from<uint32_t>(3);
+    MemoryValue is_output_bits = MemoryValue::from<uint1_t>(false);
+
+    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(memory, get(radix_addr)).WillOnce(ReturnRef(radix));
+    EXPECT_CALL(memory, get(num_limbs_addr)).WillOnce(ReturnRef(num_limbs));
+    EXPECT_CALL(memory, get(is_output_bits_addr)).WillOnce(ReturnRef(is_output_bits));
+
+    EXPECT_CALL(greater_than, gt(16, 256)).WillOnce(Return(false));
+
+    EXPECT_CALL(gas_tracker, consume_gas);
+    EXPECT_CALL(to_radix, to_be_radix);
+
+    execution.to_radix_be(context, value_addr, radix_addr, num_limbs_addr, is_output_bits_addr, dst_addr);
 }
 
 } // namespace
