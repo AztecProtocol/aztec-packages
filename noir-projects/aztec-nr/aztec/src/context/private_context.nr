@@ -203,6 +203,11 @@ pub struct PrivateContext {
     pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
+// TODO: rearrange functions into categories:
+// `new`
+// Getters (first the common getters for typical users, then the advanced getters)
+// Setters (first the common setters for typical users, then the advanced setters, then very low-level setters)
+// `finish` and other innards
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
@@ -257,8 +262,8 @@ impl PrivateContext {
     /// Gets the contract address of the current function being executed.
     ///
     /// This is equivalent to `address(this)` in Solidity (hence the name).
-    /// Use this to identify the current contract's address, commonly needed for access
-    /// control or when interacting with other contracts.
+    /// Use this to identify the current contract's address, commonly needed for
+    /// access control or when interacting with other contracts.
     ///
     /// # Returns
     /// * `AztecAddress` - The contract address of the current function being
@@ -316,7 +321,8 @@ impl PrivateContext {
 
     /// Gets the function selector of the currently executing function.
     ///
-    /// Ordinarily, smart contract developers will not need to access this.
+    /// Low-level function: Ordinarily, smart contract developers will not need
+    /// to access this.
     ///
     /// This is similar to `msg.sig` in Solidity, which returns the first 4
     /// bytes of the function signature. In Aztec, the selector uniquely
@@ -340,9 +346,9 @@ impl PrivateContext {
 
     /// Gets the hash of the arguments passed to the current function.
     ///
-    /// Ordinarily, smart contract developers will not need to access this:
-    /// arguments are already unpacked and made available to the body of a
-    /// private function via the #[private] macro.
+    /// Very low-level function: You shouldn't need to call this. The #[private]
+    /// macro calls this, and it makes the arguments neatly available to the
+    /// body of your private function.
     ///
     /// # Returns
     /// * `Field` - Hash of the function arguments
@@ -361,9 +367,9 @@ impl PrivateContext {
     ///
     /// A note_hash is a commitment to a piece of private state.
     ///
-    /// Ordinarily, smart contract developers will not need to call this.
-    /// Aztec-nr's state variables (see `../state_vars/`) are designed to
-    /// handle the safe pushing of new notes for you.
+    /// Low-level function: Ordinarily, smart contract developers will not need
+    /// to manually call this. Aztec-nr's state variables (see `../state_vars/`)
+    /// are designed to understand when to create and push new note hashes.
     ///
     /// # Arguments
     /// * `note_hash` - The new note_hash.
@@ -396,9 +402,11 @@ impl PrivateContext {
     /// Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree
     /// (a state tree).
     ///
-    /// Ordinarily, smart contract developers will not need to call this.
-    /// Aztec-nr's state variables (see `../state_vars/`) are designed to
-    /// understand when to create new nullifiers, and how to safely push them.
+    /// See also: `push_nullifier_for_note_hash`.
+    ///
+    /// Low-level function: Ordinarily, smart contract developers will not need
+    /// to manually call this. Aztec-nr's state variables (see `../state_vars/`)
+    /// are designed to understand when to create and push new nullifiers.
     ///
     /// A nullifier can only be emitted once. Duplicate nullifier insertions are
     /// rejected by the protocol.
@@ -407,26 +415,24 @@ impl PrivateContext {
     /// more than once, in such a way that the action cannot be linked (by an
     /// observer of the blockchain) to any earlier transactions.
     ///
-    /// I.e. a nullifier is a randomised record of a private, one-time action,
-    /// which does not leak what action has been taken, and preserves the
-    /// property of "tx unlinkability".
+    /// I.e. a nullifier is a random-looking, but deterministic record of a
+    /// private, one-time action, which does not leak what action has been
+    /// taken, and which preserves the property of "tx unlinkability".
     ///
     /// Usually, a nullifier will be emitted to "spend" a note (a piece of
     /// private state), without revealing which specific note is being spent.
     ///
-    /// > For that reason, most Note implementations implement a
-    /// > `compute_nullifier` function.
+    /// (Important: in such cases, use the below `push_nullifier_for_note_hash).
     ///
     /// Sometimes, a nullifier might be emitted completely unrelated to any
     /// notes. Examples include initialization of a new contract; initialization
     /// of a PrivateMutable, or signalling in Semaphore-like applications.
+    /// This `push_nullifier` function serves such use cases.
     ///
     /// # Arguments
-    /// * `nullifier` - A unique field element that represents the consumed
-    ///                 state.
+    /// * `nullifier`
     ///
     /// # Advanced
-    ///
     /// From here, the protocol's kernel circuits will take over and insert the
     /// nullifier into the protocol's "nullifier tree" (in the Base Rollup
     /// circuit).
@@ -444,6 +450,31 @@ impl PrivateContext {
         );
     }
 
+    /// Pushes a nullifier that corresponds to a specific note hash.
+    ///
+    /// Low-level function: Ordinarily, smart contract developers will not need
+    /// to manually call this. Aztec-nr's state variables (see `../state_vars/`)
+    /// are designed to understand when to create and push new nullifiers.
+    ///
+    /// This is a specialized version of `push_nullifier` that links a nullifier
+    /// to the specific note hash it's nullifying. This is the most common
+    /// usage pattern for nullifiers.
+    /// See `push_nullifier` for more explanation on nullifiers.
+    ///
+    /// # Arguments
+    /// * `nullifier`
+    /// * `nullified_note_hash` - The note hash of the note being nullified
+    ///
+    /// # Advanced
+    /// Important: usage of this function doesn't mean that the world will _see_
+    /// that this nullifier relates to the given nullified_note_hash (as that
+    /// would violate "tx unlinkability"); it simply informs the user's PXE
+    /// about the relationship (via `notify_nullified_note`). The PXE can then
+    /// use this information to feed hints to the kernel circuits for
+    /// "squashing" purposes: If a note is nullified during the same tx which
+    /// created it, we can "squash" (delete) the note and nullifier (and any
+    /// private logs associated with the note), to save on data emission costs.
+    ///
     pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
         let nullifier_counter = self.next_counter();
         notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
@@ -456,25 +487,22 @@ impl PrivateContext {
         );
     }
 
-    /// Returns the historical block header that this private function is
-    /// reading from.
+    /// Returns the anchor block header - the historical block header that this
+    /// private function is reading from.
     ///
     /// Recall, a private function CANNOT read from the "current" block header,
     /// but must read from some historical block header, because as soon as
     /// private function execution begins (asynchronously, on a user's device),
     /// the public state of the chain (the "current state") will have progressed
-    /// forward. Hence we call it a "historical" block header to stress the
-    /// outdated nature of the data being served by the PrivateContext.
+    /// forward.
     ///
     /// # Returns
-    /// * `BlockHeader` - The historical block header that this private function
-    ///                   is reading from.
+    /// * `BlockHeader` - The anchor block header.
     ///
     /// # Advanced
-    /// * All private functions of a tx read from the same historical block
-    ///   header.
+    /// * All private functions of a tx read from the same anchor block header.
     /// * The protocol asserts that the `include_by_timestamp` of every tx
-    ///   is at most 24 hours beyond the timestamp of the tx's chosen historical
+    ///   is at most 24 hours beyond the timestamp of the tx's chosen anchor
     ///   block header. This enables the network's nodes to safely prune old txs
     ///   from the mempool. Therefore, the chosen block header _must_ be one
     ///   from "earlier today".
@@ -483,10 +511,36 @@ impl PrivateContext {
         self.historical_header
     }
 
+    /// Returns the header of any historical block at or before the anchor
+    /// block.
+    ///
+    /// This enables private contracts to access information from even older
+    /// blocks than the anchor block header.
+    ///
+    /// # Arguments
+    /// * `block_number` - The block number to retrieve (must be <= anchor
+    ///                    block number)
+    ///
+    /// # Returns
+    /// * `BlockHeader` - The header of the requested historical block
+    ///
+    /// # Advanced
+    /// This function uses an oracle to fetch block header data from the client.
+    /// It's more expensive than using the default historical header, so use it
+    /// sparingly. Useful for time-based contract logic that needs to compare
+    /// against multiple historical points.
+    ///
     pub fn get_block_header_at(self, block_number: u32) -> BlockHeader {
         get_block_header_at(block_number, self)
     }
 
+    /// Sets the hash of the return values for this private function.
+    ///
+    /// Very low-level function: this is called by the #[private] macro.
+    ///
+    /// # Arguments
+    /// * `returns_hasher` - A hasher containing the return values to hash
+    ///
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
         self.return_hash = returns_hasher.hash();
         execution_cache::store(returns_hasher.fields, self.return_hash);
@@ -520,6 +574,19 @@ impl PrivateContext {
         }
     }
 
+    /// Designates this contract as the fee payer for the transaction.
+    ///
+    /// Unlike Ethereum, where the transaction sender always pays fees, Aztec
+    /// allows any contract to voluntarily pay transaction fees. This enables
+    /// patterns like sponsored transactions or fee abstraction where users
+    /// don't need to hold fee-juice themselves. (Fee juice is a fee-paying
+    /// asset for Aztec).
+    ///
+    /// Only one contract per transaction can declare itself as the fee payer,
+    /// and it must have sufficient fee-juice balance (>= the gas limits
+    /// specified in the TxContext) by the time we reach the public setup phase
+    /// of the tx.
+    ///
     pub fn set_as_fee_payer(&mut self) {
         dep::protocol_types::debug_log::debug_log_format(
             "Setting {0} as fee payer",
@@ -528,6 +595,35 @@ impl PrivateContext {
         self.is_fee_payer = true;
     }
 
+    /// Declares the end of the "setup phase" of this tx.
+    ///
+    /// Only one function per tx can declare the end of the setup phase.
+    ///
+    /// Niche function: Only wallet developers and paymaster contract developers
+    /// (aka Fee-payment contracts) will need to make use of this function.
+    ///
+    /// Aztec supports a three-phase execution model: setup, app logic, teardown.
+    /// The phases exist to enable a fee payer to take on the risk of paying
+    /// a transaction fee, safe in the knowledge that their payment (in whatever
+    /// token or method the user chooses) will succeed, regardless of whether
+    /// the app logic will succeed. The "setup" phase enables such a payment to
+    /// be made, because the setup phase _cannot revert_: a reverting function
+    /// within the setup phase would result in an invalid block which cannot
+    /// be proven. Any side-effects generated during that phase are guaranteed
+    /// to be inserted into Aztec's state trees (except for squashed notes &
+    /// nullifiers, of course).
+    ///
+    /// Even though the end of the setup phase is declared within a private
+    /// function, you might have noticed that _public_ functions can also
+    /// execute within the setup phase. This is because any public function
+    /// calls which were enqueued _within the setup phase_ by a private
+    /// function, are considered part of the setup phase.
+    ///
+    /// # Advanced
+    /// * Sets the minimum revertible side effect counter of this tx to be the
+    /// PrivateContext's _current_ side effect counter.
+    /// * The oracle notification optimizes transaction processing.
+    ///
     pub fn end_setup(&mut self) {
         // dep::protocol_types::debug_log::debug_log_format(
         //     "Ending setup at counter {0}",
@@ -537,6 +633,37 @@ impl PrivateContext {
         notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
 
+    /// Sets a deadline for when this transaction must be included in a block.
+    ///
+    /// You can think of it like a "tx expiry timestamp".
+    ///
+    /// If the transaction is not included in a block by the specified timestamp,
+    /// it becomes invalid, and it will never be included.
+    ///
+    /// This expiry timestamp is publicly visible. See the "Advanced" section
+    /// for privacy concerns.
+    ///
+    /// # Arguments
+    /// * `include_by_timestamp` - Unix timestamp (seconds) deadline for inclusion
+    ///
+    /// # Advanced
+    /// * If multiple functions set differing `include_by_timestamp`s, the
+    ///   kernel circuits will set it to be the _minimum_ of the two. This
+    ///   ensures the tx expiry requirements of all functions in the tx are met.
+    /// * Rollup circuits will reject expired txs.
+    /// * The protocol enforces that all transactions must be included within
+    ///   24 hours of their chosen anchor block's timestamp, to enable safe
+    ///   mempool pruning.
+    /// * The DelayedPublicMutable design makes heavy use of this functionality,
+    ///   to enable private functions to read public state.
+    /// * A sophisticated Wallet SHOULD cleverly set an expiry timestamp
+    ///   within the user's account contract, to improve the user's privacy.
+    ///   Otherwise, an observer might infer which function has been executed,
+    ///   based on the expiry timestamp that has been publicly emitted.
+    ///   * Ideally, all Wallets SHOULD standardise on an approach, so that all
+    ///     txs leak an expiry timestamp which conforms to a standardised
+    ///     anonymity set.
+    ///
     // docs:start:include-by-timestamp
     pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
         // docs:end:include-by-timestamp
@@ -544,24 +671,163 @@ impl PrivateContext {
             IncludeByTimestamp::min_with_u64(self.include_by_timestamp, include_by_timestamp);
     }
 
+    /// Makes a request to the protocol's kernel circuit to ensure a note_hash
+    /// actually exists.
+    ///
+    /// Read requests are used to prove that a note hash exists without
+    /// revealing which specific note was read.
+    ///
+    /// Low-level function. Ordinarily, smart contract developers will not need
+    /// to call this directly. Aztec-nr's state variables (see `../state_vars/`)
+    /// are designed to understand when to create and push new note_hash read
+    /// requests.
+    ///
+    /// # Arguments
+    /// * `note_hash` - The note hash to read and verify
+    ///
+    /// # Advanced
+    /// In "traditional" circuits for non-Aztec privacy applications, the merkle
+    /// membership proofs to check existence of a note are performed _within_
+    /// the application circuit.
+    ///
+    /// All Aztec private functions have access to the following constraint
+    /// optimisation:
+    /// In cases where the note being read was created earlier in the same tx,
+    /// the note wouldn't yet exist in the Note Hash Tree, so a hard-coded
+    /// merkle membership check which then gets ignored would be a waste of
+    /// constraints.
+    /// Instead, we can send read requests for all notes to the protocol's
+    /// kernel circuits, where we can conditionally assess which notes actually
+    /// need merkle membership proofs, and select an appropriately-sized
+    /// kernel circuit.
+    ///
+    /// For "settled notes" (which already existed in the Note Hash Tree of the
+    /// anchor block (i.e. before the tx began)), the kernel does a merkle
+    /// membership check.
+    ///
+    /// For "pending notes" (which were created earlier in _this_ tx), the
+    /// kernel will check that the note existed _before_ this read request was
+    /// made, by checking the side-effect counters of the note_hash and this
+    /// read request.
+    ///
+    /// This approach improves latency between writes and reads:
+    /// a function can read a note which was created earlier in the tx (rather
+    /// than performing the read in a later tx, after waiting for the earlier tx
+    /// to be included, to ensure the note is included in the tree).
+    ///
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
         let side_effect = ReadRequest { value: note_hash, counter: self.next_counter() };
         self.note_hash_read_requests.push(side_effect);
     }
 
+    /// Requests to read a specific nullifier from the nullifier tree.
+    ///
+    /// Nullifier read requests are used to prove that a nullifier exists without
+    /// revealing which specific nullifier preimage was read.
+    ///
+    /// Low-level function. Ordinarily, smart contract developers will not need
+    /// to call this directly. Aztec-nr's state variables (see `../state_vars/`)
+    /// are designed to understand when to create and push new nullifier read
+    /// requests.
+    ///
+    /// # Arguments
+    /// * `nullifier` - The nullifier to read and verify
+    ///
+    /// # Advanced
+    /// This approach improves latency between writes and reads:
+    /// a function can read a nullifier which was created earlier in the tx
+    /// (rather than performing the read in a later tx, after waiting for the
+    /// earlier tx to be included, to ensure the note is included in the tree).
+    ///
     pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
         let request = ReadRequest { value: nullifier, counter: self.next_counter() };
         self.nullifier_read_requests.push(request);
     }
 
+    /// Requests the app-siloed nullifier secret key (nsk_app) for the given
+    /// (hashed) master nullifier public key (npk_m), from the user's PXE.
+    ///
+    /// Advanced function: Only needed if you're designing your own notes and/or
+    /// nullifiers.
+    ///
+    /// The secret key is "app-siloed", because we do not trust apps with a
+    /// user's master secret keys, nor with each others' app-siloed secret keys.
+    ///
+    /// See `request_nsk_app` for more details.
+    ///
+    /// A common nullification scheme is to inject a nullifier secret key into
+    /// the preimage of a nullifier, to make the nullifier deterministic but
+    /// random-looking. This function enables that flow.
+    ///
+    /// # Arguments
+    /// * `npk_m_hash` - A hash of the master nullifier public key of the user
+    ///                  whose PXE is executing this function.
+    ///
+    /// # Returns
+    /// * The app-siloed nullifier secret key that corresponds to the given
+    ///   `npk_m_hash`.
+    ///
     pub fn request_nsk_app(&mut self, npk_m_hash: Field) -> Field {
         self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)
     }
 
+    /// Requests the app-siloed nullifier secret key (nsk_app) for the given
+    /// (hashed) master nullifier public key (npk_m), from the user's PXE.
+    ///
+    /// See `request_nsk_app` and `request_sk_app` for more info.
+    ///
+    /// The intention of the "outgoing" keypair is to provide a second secret
+    /// key for all of a user's outgoing activity (i.e. for notes that a user
+    /// creates, as opposed to notes that a user receives from others). The
+    /// separation of incoming and outgoing data was a distinction made by
+    /// zcash, with the intention of enabling a user to optionally share with a
+    /// 3rd party a controlled view of only incoming or outgoing notes.
+    /// Similar functionality of sharing select data can be achieved with
+    /// offchain zero-knowledge proofs. It is up to an app developer whether
+    /// they choose to make use of a user's outgoing keypair within their
+    /// application logic, or instead simply use the same keypair (the address
+    /// keypair (which is effectively the same as the "incooming" keypair)) for
+    /// all incoming & outgoing messages to a user.
+    ///
+    /// Currently, all of the exposed encryption functions in aztec-nr ignore
+    /// the outgoing viewing keys, and instead encrypt all note logs and event
+    /// logs to a user's address public key.
+    ///
+    /// # Arguments
+    /// * `ovpk_m_hash` - Hash of the outgoing viewing public key master
+    ///
+    /// # Returns
+    /// * The application-specific outgoing viewing secret key
+    ///
     pub fn request_ovsk_app(&mut self, ovpk_m_hash: Field) -> Field {
         self.request_sk_app(ovpk_m_hash, OUTGOING_INDEX)
     }
 
+    /// Pushes a Key Validation Request to the kernel.
+    ///
+    /// Private functions are not allowed to see a user's master secret keys,
+    /// because we do not trust them. They are instead given "app-siloed" secret
+    /// keys with a claim that they relate to a master public key.
+    /// They can then request validation of this claim, by making a "key
+    /// validation request" to the protocol's kernel circuits (which _are_
+    /// allowed to see certain master secret keys).
+    ///
+    /// When a Key Validation Request tuple of (sk_app, Pk_m, app_address) is
+    /// submitted to the kernel, it will perform the following derivations
+    /// to validate the relationship between the claimed sk_app and the user's
+    /// Pk_m:
+    ///
+    ///       (sk_m) ----> * G ----> Pk_m
+    ///         |                     |
+    ///         v                       We use the kernel to prove this
+    ///  h(sk_m, app_address)         | sk_app-Pk_m relationship, because app
+    ///         |                       circuits must not be trusted to see sk_m.
+    ///         v                     |
+    ///      sk_app - -  - - - - - - -
+    ///
+    /// The function is named "request_" instead of "get_" to remind the user
+    /// that a Key Validation Request will be emitted to the kernel.
+    ///
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
         let cached_request = self.last_key_validation_requests[key_index as u32].unwrap_or(
             KeyValidationRequest::empty(),
@@ -594,12 +860,62 @@ impl PrivateContext {
         }
     }
 
+    /// Sends a n "L2 -> L1 message" from this function (Aztec, L2) to a smart
+    /// contract on Ethereum (L1). L1 contracts which are designed to
+    /// send/receive messages to/from Aztec are called "Portal Contracts".
+    ///
+    /// Common use cases include withdrawals, cross-chain asset transfers, and
+    /// triggering L1 actions based on L2 state changes.
+    ///
+    /// The message will be inserted into an Aztec "Outbox" contract on L1,
+    /// when this transaction's block is proposed to L1.
+    /// Sending the message will not result in any immediate state changes in
+    /// the target portal contract. The message will need to be manually
+    /// consumed from the Outbox through a separate Ethereum transaction: a user
+    /// will need to call a function of the portal contract -- a function
+    /// specifically designed to make a call to the Outbox to consume the
+    /// message.
+    /// The message will only be available for consumption once the _epoch_
+    /// proof has been submitted. Given that there are multiple Aztec blocks
+    /// within an epoch, it might take some time for this epoch proof to be
+    /// submitted -- especially if the block was near the start of an epoch.
+    ///
+    /// # Arguments
+    /// * `recipient` - Ethereum address that will receive the message
+    /// * `content` - Message content (32 bytes as a Field element).
+    ///               This content has a very specific layout.
+    ///
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         // docs:end:context_message_portal
         let message = L2ToL1Message { recipient, content };
         self.l2_to_l1_msgs.push(message.count(self.next_counter()));
     }
 
+    /// Consumes a message sent from Ethereum (L1) to Aztec (L2).
+    ///
+    /// Common use cases include token bridging, cross-chain governance, and
+    /// triggering L2 actions based on L1 events.
+    ///
+    /// The message will first be inserted into an Aztec "Inbox" smart contract
+    /// on L1.
+    /// Sending the message will not result in any immediate state changes in
+    /// the target L2 contract. The message will need to be manually
+    /// consumed by the target contract through a separate Aztec transaction.
+    /// The message will not be available for consumption immediately. Messages
+    /// get copied over from the L1 Inbox to L2 by the next Proposer in batches.
+    /// So you will need to wait until the messages are copied before you can
+    /// consume them.
+    ///
+    /// # Arguments
+    /// * `content` - The message content that was sent from L1
+    /// * `secret` - Secret value used for message privacy (if needed)
+    /// * `sender` - Ethereum address that sent the message
+    /// * `leaf_index` - Index of the message in the L1-to-L2 message tree
+    ///
+    /// # Advanced
+    /// Validates message existence in the L1-to-L2 message tree and nullifies
+    /// the message to prevent double-consumption.
+    ///
     // docs:start:context_consume_l1_to_l2_message
     // docs:start:consume_l1_to_l2_message
     pub fn consume_l1_to_l2_message(
