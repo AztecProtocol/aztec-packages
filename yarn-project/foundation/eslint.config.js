@@ -8,6 +8,8 @@ import { globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+import noNonPrimitiveInCollections from './eslint-rules/no-non-primitive-in-collections.js';
+
 export default [
   globalIgnores([
     '**/node_modules/**',
@@ -47,6 +49,11 @@ export default [
       tsdoc,
       'no-only-tests': noOnlyTests,
       importPlugin,
+      'aztec-custom': {
+        rules: {
+          'no-non-primitive-in-collections': noNonPrimitiveInCollections,
+        },
+      },
     },
     rules: {
       // Disabled rules
@@ -106,6 +113,7 @@ export default [
       'import/no-extraneous-dependencies': 'error',
       // this unfortunately doesn't block `fit` and `fdescribe`
       'no-only-tests/no-only-tests': ['error'],
+      'aztec-custom/no-non-primitive-in-collections': 'error',
     },
   }),
   {

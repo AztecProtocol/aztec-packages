@@ -482,6 +482,7 @@ describe('TxCollection', () => {
 });
 
 class TestFastTxCollection extends FastTxCollection {
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   declare requests: Set<FastCollectionRequest>;
   declare collectFast: (
     request: FastCollectionRequest,
