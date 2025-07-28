@@ -216,6 +216,8 @@ class AvmGoblinRecursiveVerifier {
         // Public inputs
         IO inputs;
         inputs.pairing_inputs = points_accumulator;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1489): Can we avoid paying for these public inputs
+        // given that they are not used?
         inputs.ecc_op_tables = stdlib::recursion::honk::HidingKernelIO<MegaBuilder>::default_ecc_op_tables(
             mega_builder); // There is only one layer of Goblin, so the verifier will set T_prev
                            // to the empty table and disregard this value

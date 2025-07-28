@@ -11,6 +11,7 @@
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 namespace bb::stdlib::recursion::honk {
 
@@ -32,15 +33,16 @@ class KernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1490): Make PublicInputComponent work with arrays
+    using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
-    G1 kernel_return_data;        // Commitment to the return data of a kernel circuit
-    G1 app_return_data;           // Commitment to the return data of an app circuit
-    std::array<G1, Builder::NUM_WIRES>
-        ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
+    PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
+    G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
+    G1 app_return_data;             // Commitment to the return data of an app circuit
+    TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
     // FF pg_acc_hash;
 
     // Total size of the kernel IO public inputs
@@ -96,13 +98,11 @@ class KernelIO {
     static void add_default(Builder& builder)
     {
         PairingInputs::add_default_to_public_inputs(builder);
-        G1 kernel_return_data = G1(DEFAULT_ECC_COMMITMENT);
-        kernel_return_data.convert_constant_to_fixed_witness(&builder);
+        G1 kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         kernel_return_data.set_public();
-        G1 app_return_data = G1(DEFAULT_ECC_COMMITMENT);
-        app_return_data.convert_constant_to_fixed_witness(&builder);
+        G1 app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         app_return_data.set_public();
-        std::array<G1, Builder::NUM_WIRES> ecc_op_tables;
+        TableCommitments ecc_op_tables;
         for (auto& table_commitment : ecc_op_tables) {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);
@@ -175,13 +175,13 @@ template <class Builder_> class HidingKernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
-    PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
-    std::array<G1, Builder::NUM_WIRES>
-        ecc_op_tables; // commitments to merged tables obtained from final Merge verification
+    PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
+    TableCommitments ecc_op_tables; // commitments to merged tables obtained from final Merge verification
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE =
@@ -220,9 +220,9 @@ template <class Builder_> class HidingKernelIO {
         builder->finalize_public_inputs();
     }
 
-    static std::array<G1, Builder::NUM_WIRES> empty_ecc_op_tables(Builder& builder)
+    static TableCommitments empty_ecc_op_tables(Builder& builder)
     {
-        std::array<G1, Builder::NUM_WIRES> empty_tables;
+        TableCommitments empty_tables;
         for (auto& table_commitment : empty_tables) {
             table_commitment = G1::point_at_infinity(&builder);
         }
@@ -230,9 +230,9 @@ template <class Builder_> class HidingKernelIO {
         return empty_tables;
     }
 
-    static std::array<G1, Builder::NUM_WIRES> default_ecc_op_tables(Builder& builder)
+    static TableCommitments default_ecc_op_tables(Builder& builder)
     {
-        std::array<G1, Builder::NUM_WIRES> default_tables;
+        TableCommitments default_tables;
         for (auto& table_commitment : default_tables) {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);

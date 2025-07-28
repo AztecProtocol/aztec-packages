@@ -168,6 +168,9 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         kernel_input.reconstruct_from_public(public_inputs);
 
         nested_pairing_points = kernel_input.pairing_inputs;
+        // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
+        // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
+        // happens in K_{i}
         finalised_T_prev_commitments = kernel_input.ecc_op_tables;
 
         // Perform databus consistency checks
@@ -418,8 +421,11 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     // Extract the commitments to the subtable corresponding to the incoming circuit
     TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
     // Perform recursive verification of the last merge proof
-    auto [points_accumulator, merged_table_commitments] =
-        goblin.recursively_verify_merge(circuit, t_commitments, kernel_input.ecc_op_tables, pg_merge_transcript);
+    auto [points_accumulator, merged_table_commitments] = goblin.recursively_verify_merge(
+        circuit,
+        t_commitments,
+        kernel_input.ecc_op_tables, // Commitment to the status of the op_queue before folding the tail kernel
+        pg_merge_transcript);
 
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 
