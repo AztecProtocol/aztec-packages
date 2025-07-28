@@ -462,10 +462,7 @@ library BLS {
   }
 
   function isValidG2(uint256[4] memory g2) internal pure returns (bool) {
-    if (
-      (g2[0] >= N) || (g2[1] >= N)
-        || (g2[2] >= N || (g2[3] >= N))
-    ) {
+    if ((g2[0] >= N) || (g2[1] >= N) || (g2[2] >= N || (g2[3] >= N))) {
       return false;
     } else {
       return isOnCurveG2(g2);
