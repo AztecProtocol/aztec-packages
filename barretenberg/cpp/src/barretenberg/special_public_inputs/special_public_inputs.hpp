@@ -55,7 +55,7 @@ class HidingKernelIO {
     using PublicPairingPoints = PublicInputComponent<PairingPoints>;
     using PublicPoint = PublicInputComponent<G1>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE + NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingPoints::PUBLIC_INPUTS_SIZE + NUM_WIRES * G1::PUBLIC_INPUTS_SIZE;
 
     PairingPoints pairing_inputs;
     TableCommitments ecc_op_tables;
