@@ -19,7 +19,7 @@ import type { ApiSchemaFor, ZodFor } from '@aztec/stdlib/schemas';
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
 import { readFile, readdir } from 'fs/promises';
-import { join } from 'path';
+import { join, parse } from 'path';
 import { z } from 'zod';
 
 import { TXEService } from './txe_service/txe_service.js';
@@ -91,42 +91,43 @@ class TXEDispatcher {
   }
 
   async #processDeployInputs({ inputs, root_path: rootPath, package_name: packageName }: TXEForeignCallInput) {
-    const [pathStr, contractName, initializer] = inputs.slice(0, 3).map(input =>
+    const [contractPath, initializer] = inputs.slice(0, 2).map(input =>
       fromArray(input as ForeignCallArray)
         .map(char => String.fromCharCode(char.toNumber()))
         .join(''),
     );
 
-    const decodedArgs = fromArray(inputs[4] as ForeignCallArray);
-    const secret = fromSingle(inputs[5] as ForeignCallSingle);
+    const decodedArgs = fromArray(inputs[3] as ForeignCallArray);
+    const secret = fromSingle(inputs[4] as ForeignCallSingle);
     const publicKeys = secret.equals(Fr.ZERO) ? PublicKeys.default() : (await deriveKeys(secret)).publicKeys;
     const publicKeysHash = await publicKeys.hash();
 
     let artifactPath = '';
-    // We're deploying the contract under test
-    // env.deploy_self("contractName")
-    if (!pathStr) {
-      artifactPath = join(rootPath, './target', `${packageName}-${contractName}.json`);
-    } else {
-      // We're deploying a contract that belongs in a workspace
-      // env.deploy("../path/to/workspace/root@packageName", "contractName")
-      if (pathStr.includes('@')) {
-        const [workspace, pkg] = pathStr.split('@');
-        const targetPath = join(rootPath, workspace, './target');
+    const { dir: contractDirectory, base: contractFilename } = parse(contractPath);
+    if (contractDirectory) {
+      if (contractDirectory.includes('@')) {
+        // We're deploying a contract that belongs in a workspace
+        // env.deploy("../path/to/workspace/root@packageName/contractName")
+        const [workspace, pkg] = contractDirectory.split('@');
+        const targetPath = join(rootPath, workspace, '/target');
         this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
-        artifactPath = join(targetPath, `${pkg}-${contractName}.json`);
+        artifactPath = join(targetPath, `${pkg}-${contractFilename}.json`);
       } else {
-        // We're deploying a standalone contract
-        // env.deploy("../path/to/contract/root", "contractName")
-        const targetPath = join(rootPath, pathStr, './target');
+        // We're deploying a standalone external contract
+        // env.deploy("../path/to/contract/root/contractName")
+        const targetPath = join(rootPath, contractDirectory, '/target');
         this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
-        [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractName}.json`));
+        [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractFilename}.json`));
       }
+    } else {
+      // We're deploying a local contract
+      // env.deploy("contractName")
+      artifactPath = join(rootPath, './target', `${packageName}-${contractFilename}.json`);
     }
 
     const fileHash = await this.fastHashFile(artifactPath);
 
-    const cacheKey = `${pathStr}-${contractName}-${initializer}-${decodedArgs
+    const cacheKey = `${contractDirectory ?? ''}-${contractFilename}-${initializer}-${decodedArgs
       .map(arg => arg.toString())
       .join('-')}-${publicKeysHash}-${fileHash}`;
 
@@ -162,7 +163,7 @@ class TXEDispatcher {
       TXEArtifactsCache.set(cacheKey, { artifact, instance });
     }
 
-    inputs.splice(0, 2, artifact, instance, toSingle(secret));
+    inputs.splice(0, 1, artifact, instance, toSingle(secret));
   }
 
   async #processAddAccountInputs({ inputs }: TXEForeignCallInput) {

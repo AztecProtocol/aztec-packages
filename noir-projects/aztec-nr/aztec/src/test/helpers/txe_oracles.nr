@@ -10,14 +10,13 @@ use protocol_types::{
     utils::reader::Reader,
 };
 
-pub unconstrained fn deploy<let N: u32, let M: u32, let P: u32>(
+pub unconstrained fn deploy<let N: u32, let P: u32>(
     path: str<N>,
-    name: str<M>,
     initializer: str<P>,
     args: [Field],
     secret: Field,
 ) -> ContractInstance {
-    let instance_fields = deploy_oracle(path, name, initializer, args, secret);
+    let instance_fields = deploy_oracle(path, initializer, args, secret);
     ContractInstance::deserialize(instance_fields)
 }
 
@@ -96,9 +95,8 @@ pub unconstrained fn get_private_context_inputs(
 ) -> PrivateContextInputs {}
 
 #[oracle(deploy)]
-pub unconstrained fn deploy_oracle<let N: u32, let M: u32, let P: u32>(
+pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     path: str<N>,
-    name: str<M>,
     initializer: str<P>,
     args: [Field],
     secret: Field,
