@@ -7,7 +7,183 @@
 
 using namespace bb;
 
-TEST(stdlib_aes128, encrypt_64_bytes)
+// Helper function to create field element as either constant or witness
+stdlib::field_t<UltraCircuitBuilder> create_field_element(UltraCircuitBuilder& builder,
+                                                          const uint256_t& value,
+                                                          bool as_witness)
+{
+    if (as_witness) {
+        return stdlib::field_t<UltraCircuitBuilder>(stdlib::witness_t(&builder, fr(value)));
+    } else {
+        return stdlib::field_t<UltraCircuitBuilder>(value);
+    }
+}
+
+// Helper function to convert byte array to uint256_t
+uint256_t convert_bytes_to_uint256(const uint8_t* data)
+{
+    uint256_t converted(0);
+    for (uint64_t i = 0; i < 16; ++i) {
+        uint256_t to_add = uint256_t((uint64_t)(data[i])) << uint256_t((15 - i) * 8);
+        converted += to_add;
+    }
+    return converted;
+}
+
+// Test function for a specific combination of witness/constant inputs
+void test_aes128_combination(bool key_as_witness, bool iv_as_witness, bool input_as_witness)
+{
+    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
+
+    uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+    uint8_t out[64]{ 0x76, 0x49, 0xab, 0xac, 0x81, 0x19, 0xb2, 0x46, 0xce, 0xe9, 0x8e, 0x9b, 0x12, 0xe9, 0x19, 0x7d,
+                     0x50, 0x86, 0xcb, 0x9b, 0x50, 0x72, 0x19, 0xee, 0x95, 0xdb, 0x11, 0x3a, 0x91, 0x76, 0x78, 0xb2,
+                     0x73, 0xbe, 0xd6, 0xb8, 0xe3, 0xc1, 0x74, 0x3b, 0x71, 0x16, 0xe6, 0x9e, 0x22, 0x22, 0x95, 0x16,
+                     0x3f, 0xf1, 0xca, 0xa1, 0x68, 0x1f, 0xac, 0x09, 0x12, 0x0e, 0xca, 0x30, 0x75, 0x86, 0xe1, 0xa7 };
+    uint8_t iv[16]{ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+    uint8_t in[64]{ 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
+                    0xae, 0x2d, 0x8a, 0x57, 0x1e, 0x03, 0xac, 0x9c, 0x9e, 0xb7, 0x6f, 0xac, 0x45, 0xaf, 0x8e, 0x51,
+                    0x30, 0xc8, 0x1c, 0x46, 0xa3, 0x5c, 0xe4, 0x11, 0xe5, 0xfb, 0xc1, 0x19, 0x1a, 0x0a, 0x52, 0xef,
+                    0xf6, 0x9f, 0x24, 0x45, 0xdf, 0x4f, 0x9b, 0x17, 0xad, 0x2b, 0x41, 0x7b, 0xe6, 0x6c, 0x37, 0x10 };
+
+    auto builder = UltraCircuitBuilder();
+
+    // Create input blocks with specified witness/constant configuration
+    std::vector<field_pt> in_field;
+    for (size_t i = 0; i < 4; ++i) {
+        in_field.push_back(create_field_element(builder, convert_bytes_to_uint256(in + i * 16), input_as_witness));
+    }
+
+    // Create key and IV with specified witness/constant configuration
+    field_pt key_field = create_field_element(builder, convert_bytes_to_uint256(key), key_as_witness);
+    field_pt iv_field = create_field_element(builder, convert_bytes_to_uint256(iv), iv_as_witness);
+
+    // Expected results
+    std::vector<fr> expected{ convert_bytes_to_uint256(out),
+                              convert_bytes_to_uint256(out + 16),
+                              convert_bytes_to_uint256(out + 32),
+                              convert_bytes_to_uint256(out + 48) };
+
+    // Run AES encryption
+    const auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+
+    // Verify results
+    for (size_t i = 0; i < 4; ++i) {
+        EXPECT_EQ(result[i].get_value(), expected[i])
+            << "Combination: key=" << (key_as_witness ? "witness" : "constant")
+            << ", iv=" << (iv_as_witness ? "witness" : "constant")
+            << ", input=" << (input_as_witness ? "witness" : "constant");
+    }
+
+    // Verify circuit is valid (only if there are witnesses)
+    if (key_as_witness || iv_as_witness || input_as_witness) {
+        bool proof_result = CircuitChecker::check(builder);
+        EXPECT_EQ(proof_result, true) << "Circuit check failed for combination: key="
+                                      << (key_as_witness ? "witness" : "constant")
+                                      << ", iv=" << (iv_as_witness ? "witness" : "constant")
+                                      << ", input=" << (input_as_witness ? "witness" : "constant");
+    }
+}
+
+// Test function for mixed input blocks (some constant, some witness)
+void test_aes128_mixed_input(bool key_as_witness, bool iv_as_witness, const std::vector<bool>& input_block_config)
+{
+    typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
+
+    uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+    uint8_t out[64]{ 0x76, 0x49, 0xab, 0xac, 0x81, 0x19, 0xb2, 0x46, 0xce, 0xe9, 0x8e, 0x9b, 0x12, 0xe9, 0x19, 0x7d,
+                     0x50, 0x86, 0xcb, 0x9b, 0x50, 0x72, 0x19, 0xee, 0x95, 0xdb, 0x11, 0x3a, 0x91, 0x76, 0x78, 0xb2,
+                     0x73, 0xbe, 0xd6, 0xb8, 0xe3, 0xc1, 0x74, 0x3b, 0x71, 0x16, 0xe6, 0x9e, 0x22, 0x22, 0x95, 0x16,
+                     0x3f, 0xf1, 0xca, 0xa1, 0x68, 0x1f, 0xac, 0x09, 0x12, 0x0e, 0xca, 0x30, 0x75, 0x86, 0xe1, 0xa7 };
+    uint8_t iv[16]{ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+    uint8_t in[64]{ 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
+                    0xae, 0x2d, 0x8a, 0x57, 0x1e, 0x03, 0xac, 0x9c, 0x9e, 0xb7, 0x6f, 0xac, 0x45, 0xaf, 0x8e, 0x51,
+                    0x30, 0xc8, 0x1c, 0x46, 0xa3, 0x5c, 0xe4, 0x11, 0xe5, 0xfb, 0xc1, 0x19, 0x1a, 0x0a, 0x52, 0xef,
+                    0xf6, 0x9f, 0x24, 0x45, 0xdf, 0x4f, 0x9b, 0x17, 0xad, 0x2b, 0x41, 0x7b, 0xe6, 0x6c, 0x37, 0x10 };
+
+    auto builder = UltraCircuitBuilder();
+
+    // Create input blocks with mixed witness/constant configuration
+    std::vector<field_pt> in_field;
+    for (size_t i = 0; i < input_block_config.size(); ++i) {
+        in_field.push_back(create_field_element(builder, convert_bytes_to_uint256(in + i * 16), input_block_config[i]));
+    }
+
+    // Create key and IV with specified witness/constant configuration
+    field_pt key_field = create_field_element(builder, convert_bytes_to_uint256(key), key_as_witness);
+    field_pt iv_field = create_field_element(builder, convert_bytes_to_uint256(iv), iv_as_witness);
+
+    // Expected results
+    std::vector<fr> expected;
+    for (size_t i = 0; i < input_block_config.size(); ++i) {
+        expected.push_back(convert_bytes_to_uint256(out + i * 16));
+    }
+
+    // Run AES encryption
+    const auto result = stdlib::aes128::encrypt_buffer_cbc(in_field, iv_field, key_field);
+
+    // Verify results
+    for (size_t i = 0; i < result.size(); ++i) {
+        EXPECT_EQ(result[i].get_value(), expected[i]) << "Mixed input test failed for block " << i;
+    }
+
+    // Verify circuit is valid (only if there are witnesses)
+    bool has_witness = key_as_witness || iv_as_witness;
+    for (bool is_witness : input_block_config) {
+        if (is_witness) {
+            has_witness = true;
+            break;
+        }
+    }
+
+    if (has_witness) {
+        bool proof_result = CircuitChecker::check(builder);
+        EXPECT_EQ(proof_result, true) << "Circuit check failed for mixed input test";
+    }
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_all_witness)
+{
+    test_aes128_combination(true, true, true);
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_all_constant)
+{
+    test_aes128_combination(false, false, false);
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_key_witness_iv_constant_input_constant)
+{
+    test_aes128_combination(true, false, false);
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_key_constant_iv_witness_input_constant)
+{
+    test_aes128_combination(false, true, false);
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_key_constant_iv_constant_input_witness)
+{
+    test_aes128_combination(false, false, true);
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_key_witness_iv_witness_input_constant)
+{
+    test_aes128_combination(true, true, false);
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_key_witness_iv_constant_input_witness)
+{
+    test_aes128_combination(true, false, true);
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_key_constant_iv_witness_input_witness)
+{
+    test_aes128_combination(false, true, true);
+}
+
+// Original test for backward compatibility
+TEST(stdlib_aes128, encrypt_64_bytes_original)
 {
     typedef stdlib::field_t<UltraCircuitBuilder> field_pt;
     typedef stdlib::witness_t<bb::UltraCircuitBuilder> witness_pt;
@@ -58,4 +234,45 @@ TEST(stdlib_aes128, encrypt_64_bytes)
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
+}
+
+// Mixed input tests - different combinations of constant/witness blocks
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_first_witness_rest_constant)
+{
+    test_aes128_mixed_input(false, false, { true, false, false, false });
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_alternating_witness_constant)
+{
+    test_aes128_mixed_input(false, false, { true, false, true, false });
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_first_constant_rest_witness)
+{
+    test_aes128_mixed_input(false, false, { false, true, true, true });
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_key_witness_mixed_blocks)
+{
+    test_aes128_mixed_input(true, false, { true, false, true, false });
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_iv_witness_mixed_blocks)
+{
+    test_aes128_mixed_input(false, true, { false, true, false, true });
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_key_iv_witness_mixed_blocks)
+{
+    test_aes128_mixed_input(true, true, { true, false, true, false });
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_all_witness_blocks)
+{
+    test_aes128_mixed_input(false, false, { true, true, true, true });
+}
+
+TEST(stdlib_aes128, encrypt_64_bytes_mixed_input_all_constant_blocks)
+{
+    test_aes128_mixed_input(false, false, { false, false, false, false });
 }

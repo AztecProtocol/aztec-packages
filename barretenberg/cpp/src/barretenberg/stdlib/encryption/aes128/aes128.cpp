@@ -33,17 +33,19 @@ template <typename Builder> byte_pair<Builder> apply_aes_sbox_map(Builder*, fiel
 }
 
 template <typename Builder>
-std::array<field_t<Builder>, 16> convert_into_sparse_bytes(Builder*, const field_t<Builder>& block_data)
+std::array<field_t<Builder>, 16> convert_into_sparse_bytes(Builder* ctx, const field_t<Builder>& block_data)
 {
-    // `block_data` must be a 128 bit variable
     std::array<field_t<Builder>, 16> sparse_bytes;
-
-    auto lookup = plookup_read<Builder>::get_lookup_accumulators(AES_INPUT, block_data);
-
+    auto block_data_copy = block_data;
+    if (block_data.is_constant()) {
+        // The algorithm expects that the sparse bytes are witnesses, so the block_data_copy must be a witness
+        block_data_copy.convert_constant_to_fixed_witness(ctx);
+    }
+    // Existing lookup logic
+    auto lookup = plookup_read<Builder>::get_lookup_accumulators(AES_INPUT, block_data_copy);
     for (size_t i = 0; i < 16; ++i) {
         sparse_bytes[15 - i] = lookup[ColumnIdx::C2][i];
     }
-
     return sparse_bytes;
 }
 
@@ -264,7 +266,74 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
                                                  const field_t<Builder>& iv,
                                                  const field_t<Builder>& key)
 {
-    Builder* ctx = key.get_context();
+    // Check if all inputs are constants
+    bool all_constants = key.is_constant() && iv.is_constant();
+    for (const auto& input_block : input) {
+        if (!input_block.is_constant()) {
+            all_constants = false;
+            break;
+        }
+    }
+
+    if (all_constants) {
+        // Compute result directly using native crypto implementation
+        std::vector<field_t<Builder>> result;
+        std::vector<uint8_t> key_bytes(16);
+        std::vector<uint8_t> iv_bytes(16);
+        std::vector<uint8_t> input_bytes(input.size() * 16);
+
+        // Convert key to bytes
+        uint256_t key_value = key.get_value();
+        for (size_t i = 0; i < 16; ++i) {
+            key_bytes[15 - i] = static_cast<uint8_t>((key_value >> (i * 8)) & 0xFF);
+        }
+
+        // Convert IV to bytes
+        uint256_t iv_value = iv.get_value();
+        for (size_t i = 0; i < 16; ++i) {
+            iv_bytes[15 - i] = static_cast<uint8_t>((iv_value >> (i * 8)) & 0xFF);
+        }
+
+        // Convert input blocks to bytes
+        for (size_t block_idx = 0; block_idx < input.size(); ++block_idx) {
+            uint256_t block_value = input[block_idx].get_value();
+            for (size_t i = 0; i < 16; ++i) {
+                input_bytes[block_idx * 16 + 15 - i] = static_cast<uint8_t>((block_value >> (i * 8)) & 0xFF);
+            }
+        }
+
+        // Run native AES encryption
+        crypto::aes128_encrypt_buffer_cbc(input_bytes.data(), iv_bytes.data(), key_bytes.data(), input_bytes.size());
+
+        // Convert result back to field elements
+        for (size_t block_idx = 0; block_idx < input.size(); ++block_idx) {
+            uint256_t result_value = 0;
+            for (size_t i = 0; i < 16; ++i) {
+                result_value <<= 8;
+                result_value += input_bytes[block_idx * 16 + i];
+            }
+            result.push_back(field_t<Builder>(result_value));
+        }
+
+        return result;
+    }
+
+    // Find a valid context from any of the inputs
+    Builder* ctx = nullptr;
+    if (!key.is_constant()) {
+        ctx = key.get_context();
+    } else if (!iv.is_constant()) {
+        ctx = iv.get_context();
+    } else {
+        for (const auto& input_block : input) {
+            if (!input_block.is_constant()) {
+                ctx = input_block.get_context();
+                break;
+            }
+        }
+    }
+
+    ASSERT(ctx);
 
     auto round_key = expand_key(ctx, key);
 
