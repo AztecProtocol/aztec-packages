@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,17 @@ struct lookup_notehash_exists_note_hash_leaf_index_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTEHASH_EXISTS_NOTE_HASH_LEAF_INDEX_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "notehash_exists";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_notehash_exists;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_execute_notehash_exists);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_note_hash_tree_leaf_count),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_),
+                        ColumnExpression(ColumnAndShifts::execution_note_hash_leaf_in_range));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_notehash_exists_note_hash_leaf_index_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_notehash_exists_note_hash_leaf_index_in_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_note_hash_tree_leaf_count,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_note_hash_leaf_in_range
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_notehash_exists_note_hash_leaf_index_in_range_settings =
@@ -43,24 +43,22 @@ struct lookup_notehash_exists_note_hash_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTEHASH_EXISTS_NOTE_HASH_READ";
     static constexpr std::string_view RELATION_NAME = "notehash_exists";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_note_hash_leaf_in_range;
-    static constexpr Column DST_SELECTOR = Column::note_hash_tree_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_note_hash_leaf_in_range);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::note_hash_tree_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::execution_register_0_),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_),
+                        ColumnExpression(ColumnAndShifts::execution_prev_note_hash_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_register_2_));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::note_hash_tree_check_write),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_note_hash),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_leaf_index),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_prev_root),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_exists));
     static constexpr Column COUNTS = Column::lookup_notehash_exists_note_hash_read_counts;
     static constexpr Column INVERSES = Column::lookup_notehash_exists_note_hash_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_prev_note_hash_tree_root,
-        ColumnAndShifts::execution_register_2_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_write,
-        ColumnAndShifts::note_hash_tree_check_note_hash,
-        ColumnAndShifts::note_hash_tree_check_leaf_index,
-        ColumnAndShifts::note_hash_tree_check_prev_root,
-        ColumnAndShifts::note_hash_tree_check_exists
-    };
 };
 
 using lookup_notehash_exists_note_hash_read_settings = lookup_settings<lookup_notehash_exists_note_hash_read_settings_>;

@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,22 +18,22 @@ struct lookup_addressing_base_address_from_memory_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_BASE_ADDRESS_FROM_MEMORY";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_do_base_check;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_do_base_check);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::execution_base_address_val),
+                                                      ColumnExpression(ColumnAndShifts::execution_base_address_tag),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_base_address_from_memory_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_base_address_from_memory_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::execution_base_address_val,
-        ColumnAndShifts::execution_base_address_tag,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_base_address_from_memory_settings =
@@ -47,16 +48,16 @@ struct lookup_addressing_relative_overflow_range_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_0";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_0_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_0_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_0_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_0_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_0_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_0_settings =
@@ -71,16 +72,16 @@ struct lookup_addressing_relative_overflow_range_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_1";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_1_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_1_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_1_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_1_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_1_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_1_settings =
@@ -95,16 +96,16 @@ struct lookup_addressing_relative_overflow_range_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_2";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_2_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_2_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_2_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_2_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_2_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_2_settings =
@@ -119,16 +120,16 @@ struct lookup_addressing_relative_overflow_range_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_3";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_3_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_3_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_3_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_3_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_3_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_3_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_3_settings =
@@ -143,16 +144,16 @@ struct lookup_addressing_relative_overflow_range_4_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_4";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_4_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_4_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_4_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_4_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_4_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_4_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_4_settings =
@@ -167,16 +168,16 @@ struct lookup_addressing_relative_overflow_range_5_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_5";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_5_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_5_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_5_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_5_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_5_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_5_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_5_settings =
@@ -191,16 +192,16 @@ struct lookup_addressing_relative_overflow_range_6_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_6";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_6_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_6_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_6_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_6_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_6_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_6_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_6_settings =
@@ -215,22 +216,23 @@ struct lookup_addressing_indirect_from_memory_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_INDIRECT_FROM_MEMORY_0";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_apply_indirection_0_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_should_apply_indirection_0_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_after_relative_0_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_0_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_tag_0_),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_indirect_from_memory_0_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_indirect_from_memory_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_op_after_relative_0_,
-        ColumnAndShifts::execution_rop_0_,
-        ColumnAndShifts::execution_rop_tag_0_,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_indirect_from_memory_0_settings =
@@ -245,22 +247,23 @@ struct lookup_addressing_indirect_from_memory_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_INDIRECT_FROM_MEMORY_1";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_apply_indirection_1_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_should_apply_indirection_1_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_after_relative_1_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_1_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_tag_1_),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_indirect_from_memory_1_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_indirect_from_memory_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_op_after_relative_1_,
-        ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_rop_tag_1_,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_indirect_from_memory_1_settings =
@@ -275,22 +278,23 @@ struct lookup_addressing_indirect_from_memory_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_INDIRECT_FROM_MEMORY_2";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_apply_indirection_2_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_should_apply_indirection_2_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_after_relative_2_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_2_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_tag_2_),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_indirect_from_memory_2_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_indirect_from_memory_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_op_after_relative_2_,
-        ColumnAndShifts::execution_rop_2_,
-        ColumnAndShifts::execution_rop_tag_2_,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_indirect_from_memory_2_settings =
@@ -305,22 +309,23 @@ struct lookup_addressing_indirect_from_memory_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_INDIRECT_FROM_MEMORY_3";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_apply_indirection_3_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_should_apply_indirection_3_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_after_relative_3_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_3_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_tag_3_),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_indirect_from_memory_3_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_indirect_from_memory_3_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_op_after_relative_3_,
-        ColumnAndShifts::execution_rop_3_,
-        ColumnAndShifts::execution_rop_tag_3_,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_indirect_from_memory_3_settings =
@@ -335,22 +340,23 @@ struct lookup_addressing_indirect_from_memory_4_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_INDIRECT_FROM_MEMORY_4";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_apply_indirection_4_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_should_apply_indirection_4_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_after_relative_4_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_4_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_tag_4_),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_indirect_from_memory_4_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_indirect_from_memory_4_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_op_after_relative_4_,
-        ColumnAndShifts::execution_rop_4_,
-        ColumnAndShifts::execution_rop_tag_4_,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_indirect_from_memory_4_settings =
@@ -365,22 +371,23 @@ struct lookup_addressing_indirect_from_memory_5_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_INDIRECT_FROM_MEMORY_5";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_apply_indirection_5_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_should_apply_indirection_5_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_after_relative_5_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_5_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_tag_5_),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_indirect_from_memory_5_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_indirect_from_memory_5_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_op_after_relative_5_,
-        ColumnAndShifts::execution_rop_5_,
-        ColumnAndShifts::execution_rop_tag_5_,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_indirect_from_memory_5_settings =
@@ -395,22 +402,23 @@ struct lookup_addressing_indirect_from_memory_6_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_INDIRECT_FROM_MEMORY_6";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_apply_indirection_6_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_should_apply_indirection_6_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_after_relative_6_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_6_),
+                                                      ColumnExpression(ColumnAndShifts::execution_rop_tag_6_),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_addressing_indirect_from_memory_6_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_indirect_from_memory_6_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_op_after_relative_6_,
-        ColumnAndShifts::execution_rop_6_,
-        ColumnAndShifts::execution_rop_tag_6_,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_addressing_indirect_from_memory_6_settings =

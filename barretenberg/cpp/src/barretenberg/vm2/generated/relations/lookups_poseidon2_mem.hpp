@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,17 @@ struct lookup_poseidon2_mem_check_src_addr_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_CHECK_SRC_ADDR_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_read_address_3_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_max_mem_addr),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_src_out_of_range_err));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_check_src_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_check_src_addr_in_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_read_address_3_,
-        ColumnAndShifts::poseidon2_perm_mem_max_mem_addr,
-        ColumnAndShifts::poseidon2_perm_mem_sel_src_out_of_range_err
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_poseidon2_mem_check_src_addr_in_range_settings =
@@ -43,18 +43,17 @@ struct lookup_poseidon2_mem_check_dst_addr_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_CHECK_DST_ADDR_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_write_address_3_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_max_mem_addr),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_dst_out_of_range_err));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_check_dst_addr_in_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_write_address_3_,
-        ColumnAndShifts::poseidon2_perm_mem_max_mem_addr,
-        ColumnAndShifts::poseidon2_perm_mem_sel_dst_out_of_range_err
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_poseidon2_mem_check_dst_addr_in_range_settings =
@@ -69,19 +68,23 @@ struct lookup_poseidon2_mem_pos_read_mem_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_READ_MEM_0";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_read_mem;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_read_mem);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_read_address_0_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_0_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_tag_0_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_read_mem_0_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_read_mem_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_read_address_0_,
-        ColumnAndShifts::poseidon2_perm_mem_input_0_,      ColumnAndShifts::poseidon2_perm_mem_input_tag_0_,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_read_mem_0_settings = lookup_settings<lookup_poseidon2_mem_pos_read_mem_0_settings_>;
@@ -95,19 +98,23 @@ struct lookup_poseidon2_mem_pos_read_mem_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_READ_MEM_1";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_read_mem;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_read_mem);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_read_address_1_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_1_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_tag_1_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_read_mem_1_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_read_mem_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_read_address_1_,
-        ColumnAndShifts::poseidon2_perm_mem_input_1_,      ColumnAndShifts::poseidon2_perm_mem_input_tag_1_,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_read_mem_1_settings = lookup_settings<lookup_poseidon2_mem_pos_read_mem_1_settings_>;
@@ -121,19 +128,23 @@ struct lookup_poseidon2_mem_pos_read_mem_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_READ_MEM_2";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_read_mem;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_read_mem);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_read_address_2_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_2_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_tag_2_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_read_mem_2_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_read_mem_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_read_address_2_,
-        ColumnAndShifts::poseidon2_perm_mem_input_2_,      ColumnAndShifts::poseidon2_perm_mem_input_tag_2_,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_read_mem_2_settings = lookup_settings<lookup_poseidon2_mem_pos_read_mem_2_settings_>;
@@ -147,19 +158,23 @@ struct lookup_poseidon2_mem_pos_read_mem_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_READ_MEM_3";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_read_mem;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_read_mem);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_read_address_3_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_3_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_tag_3_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_read_mem_3_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_read_mem_3_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_read_address_3_,
-        ColumnAndShifts::poseidon2_perm_mem_input_3_,      ColumnAndShifts::poseidon2_perm_mem_input_tag_3_,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_read_mem_3_settings = lookup_settings<lookup_poseidon2_mem_pos_read_mem_3_settings_>;
@@ -173,21 +188,26 @@ struct lookup_poseidon2_mem_input_output_poseidon2_perm_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_INPUT_OUTPUT_POSEIDON2_PERM";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_perm_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_0_),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_1_),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_2_),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_input_3_),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_0_),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_1_),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_2_),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_3_));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_a_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_a_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_a_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_a_3),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_3));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_input_output_poseidon2_perm_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_input_output_poseidon2_perm_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_input_0_,  ColumnAndShifts::poseidon2_perm_mem_input_1_,
-        ColumnAndShifts::poseidon2_perm_mem_input_2_,  ColumnAndShifts::poseidon2_perm_mem_input_3_,
-        ColumnAndShifts::poseidon2_perm_mem_output_0_, ColumnAndShifts::poseidon2_perm_mem_output_1_,
-        ColumnAndShifts::poseidon2_perm_mem_output_2_, ColumnAndShifts::poseidon2_perm_mem_output_3_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_a_0, ColumnAndShifts::poseidon2_perm_a_1, ColumnAndShifts::poseidon2_perm_a_2,
-        ColumnAndShifts::poseidon2_perm_a_3, ColumnAndShifts::poseidon2_perm_b_0, ColumnAndShifts::poseidon2_perm_b_1,
-        ColumnAndShifts::poseidon2_perm_b_2, ColumnAndShifts::poseidon2_perm_b_3
-    };
 };
 
 using lookup_poseidon2_mem_input_output_poseidon2_perm_settings =
@@ -202,19 +222,23 @@ struct lookup_poseidon2_mem_pos_write_mem_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_WRITE_MEM_0";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_write_address_0_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_0_),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_write_mem_0_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_write_mem_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_write_address_0_,
-        ColumnAndShifts::poseidon2_perm_mem_output_0_,     ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::poseidon2_perm_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_write_mem_0_settings = lookup_settings<lookup_poseidon2_mem_pos_write_mem_0_settings_>;
@@ -228,19 +252,23 @@ struct lookup_poseidon2_mem_pos_write_mem_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_WRITE_MEM_1";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_write_address_1_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_1_),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_write_mem_1_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_write_mem_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_write_address_1_,
-        ColumnAndShifts::poseidon2_perm_mem_output_1_,     ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::poseidon2_perm_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_write_mem_1_settings = lookup_settings<lookup_poseidon2_mem_pos_write_mem_1_settings_>;
@@ -254,19 +282,23 @@ struct lookup_poseidon2_mem_pos_write_mem_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_WRITE_MEM_2";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_write_address_2_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_2_),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_write_mem_2_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_write_mem_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_write_address_2_,
-        ColumnAndShifts::poseidon2_perm_mem_output_2_,     ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::poseidon2_perm_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_write_mem_2_settings = lookup_settings<lookup_poseidon2_mem_pos_write_mem_2_settings_>;
@@ -280,19 +312,23 @@ struct lookup_poseidon2_mem_pos_write_mem_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_MEM_POS_WRITE_MEM_3";
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_execution_clk),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_write_address_3_),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_output_3_),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_space_id),
+                        ColumnExpression(ColumnAndShifts::poseidon2_perm_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_pos_write_mem_3_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_pos_write_mem_3_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk, ColumnAndShifts::poseidon2_perm_mem_write_address_3_,
-        ColumnAndShifts::poseidon2_perm_mem_output_3_,     ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,      ColumnAndShifts::poseidon2_perm_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_poseidon2_mem_pos_write_mem_3_settings = lookup_settings<lookup_poseidon2_mem_pos_write_mem_3_settings_>;

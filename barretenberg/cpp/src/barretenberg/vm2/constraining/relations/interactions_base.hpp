@@ -1,9 +1,13 @@
 #pragma once
 
 #include <cstddef>
+#include <type_traits>
+#include <utility>
 
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
+#include "barretenberg/vm2/common/expression_evaluation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
@@ -19,18 +23,35 @@ template <typename Settings_> struct lookup_settings : public Settings_ {
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
+    // TODO(fcarreiro): support any degree.
+    // static constexpr size_t MAX_DEGREE = std::max(
+    //     { DegreeExpressionEvaluator::evaluate(Settings_::SRC_SELECTOR_EXPR),
+    //       DegreeExpressionEvaluator::evaluate(Settings_::DST_SELECTOR_EXPR),
+    //       []<size_t... ISource, size_t... IDest>(std::index_sequence<ISource...>, std::index_sequence<IDest...>) {
+    //           return std::max(DegreeExpressionEvaluator::evaluate(std::get<ISource>(Settings_::SRC_EXPRS))...,
+    //                           DegreeExpressionEvaluator::evaluate(std::get<IDest>(Settings_::DST_EXPRS))...);
+    //       }(std::make_index_sequence<std::tuple_size_v<decltype(Settings_::SRC_EXPRS)>>{},
+    //         std::make_index_sequence<std::tuple_size_v<decltype(Settings_::DST_EXPRS)>>{}) });
+    // // The GenericLookupRelation only safely supports degree <= 1 for each expression.
+    // static_assert(MAX_DEGREE <= 1, "MAX_DEGREE of lookup must be less than 1");
+
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)) == 1 ||
-                in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)) == 1);
+        using RetType =
+            decltype(std::declval<const std::remove_reference_t<AllEntities>&>().get(std::declval<ColumnAndShifts>()));
+        auto ev =
+            ValueExpressionEvaluator<RetType>([&in](const ColumnExpression& expr) { return in.get(expr.column); });
+        return (ev.evaluate(Settings_::SRC_SELECTOR_EXPR) == 1 || ev.evaluate(Settings_::DST_SELECTOR_EXPR) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)));
-        const auto is_table_entry = View(in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)));
+        auto ev =
+            ValueExpressionEvaluator<View>([&in](const ColumnExpression& expr) { return View(in.get(expr.column)); });
+        const auto is_operation = ev.evaluate(Settings_::SRC_SELECTOR_EXPR);
+        const auto is_table_entry = ev.evaluate(Settings_::DST_SELECTOR_EXPR);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -38,15 +59,19 @@ template <typename Settings_> struct lookup_settings : public Settings_ {
     {
         return []<size_t... ISource, size_t... IDest>(
                    AllEntities&& in, std::index_sequence<ISource...>, std::index_sequence<IDest...>) {
+            using RetType = decltype(std::declval<const std::remove_reference_t<AllEntities>&>().get(
+                std::declval<ColumnAndShifts>()));
+            auto ev =
+                ValueExpressionEvaluator<RetType>([&in](const ColumnExpression& expr) { return in.get(expr.column); });
             return std::forward_as_tuple(in.get(static_cast<ColumnAndShifts>(Settings_::INVERSES)),
                                          in.get(static_cast<ColumnAndShifts>(Settings_::COUNTS)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::SRC_SELECTOR)),
-                                         in.get(static_cast<ColumnAndShifts>(Settings_::DST_SELECTOR)),
-                                         in.get(Settings_::SRC_COLUMNS[ISource])...,
-                                         in.get(Settings_::DST_COLUMNS[IDest])...);
+                                         ev.evaluate(Settings_::SRC_SELECTOR_EXPR),
+                                         ev.evaluate(Settings_::DST_SELECTOR_EXPR),
+                                         ev.evaluate(std::get<ISource>(Settings_::SRC_EXPRS))...,
+                                         ev.evaluate(std::get<IDest>(Settings_::DST_EXPRS))...);
         }(std::forward<AllEntities>(in),
-               std::make_index_sequence<Settings_::SRC_COLUMNS.size()>{},
-               std::make_index_sequence<Settings_::DST_COLUMNS.size()>{});
+               std::make_index_sequence<std::tuple_size_v<decltype(Settings_::SRC_EXPRS)>>{},
+               std::make_index_sequence<std::tuple_size_v<decltype(Settings_::DST_EXPRS)>>{});
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)

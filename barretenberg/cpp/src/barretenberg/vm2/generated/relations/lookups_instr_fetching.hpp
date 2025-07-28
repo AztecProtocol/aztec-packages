@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,16 +18,15 @@ struct lookup_instr_fetching_pc_abs_diff_positive_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_PC_ABS_DIFF_POSITIVE";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_pc_abs_diff),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_pc_size_in_bits));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_instr_fetching_pc_abs_diff_positive_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_pc_abs_diff_positive_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc_abs_diff, ColumnAndShifts::instr_fetching_pc_size_in_bits
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_instr_fetching_pc_abs_diff_positive_settings =
@@ -41,14 +41,12 @@ struct lookup_instr_fetching_instr_abs_diff_positive_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_INSTR_ABS_DIFF_POSITIVE";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_instr_abs_diff));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_instr_fetching_instr_abs_diff_positive_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_instr_abs_diff_positive_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_instr_abs_diff
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_instr_fetching_instr_abs_diff_positive_settings =
@@ -63,16 +61,16 @@ struct lookup_instr_fetching_tag_value_validation_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_TAG_VALUE_VALIDATION";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_has_tag;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel_has_tag);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_tag_value),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_tag_out_of_range));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_tag_out_of_range));
     static constexpr Column COUNTS = Column::lookup_instr_fetching_tag_value_validation_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_tag_value_validation_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_tag_value, ColumnAndShifts::instr_fetching_tag_out_of_range
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sel_mem_tag_out_of_range
-    };
 };
 
 using lookup_instr_fetching_tag_value_validation_settings =
@@ -87,20 +85,17 @@ struct lookup_instr_fetching_bytecode_size_from_bc_dec_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_BYTECODE_SIZE_FROM_BC_DEC";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
-    static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_decomposition_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_bytecode_id),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bytecode_size));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::bc_decomposition_id),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_pc),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_remaining));
     static constexpr Column COUNTS = Column::lookup_instr_fetching_bytecode_size_from_bc_dec_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_bytecode_size_from_bc_dec_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_bytecode_id,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::instr_fetching_bytecode_size
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_id,
-        ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_bytes_remaining
-    };
 };
 
 using lookup_instr_fetching_bytecode_size_from_bc_dec_settings =
@@ -115,74 +110,91 @@ struct lookup_instr_fetching_bytes_from_bc_dec_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_BYTES_FROM_BC_DEC";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 40;
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_pc_in_range;
-    static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel_pc_in_range);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_decomposition_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_bytecode_id),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_pc),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bytes_to_read),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd0),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd1),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd2),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd3),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd4),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd5),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd6),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd7),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd8),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd9),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd10),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd11),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd12),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd13),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd14),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd15),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd16),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd17),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd18),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd19),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd20),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd21),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd22),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd23),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd24),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd25),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd26),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd27),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd28),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd29),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd30),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd31),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd32),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd33),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd34),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd35),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bd36));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::bc_decomposition_id),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_pc),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_to_read),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_1),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_2),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_3),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_4),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_5),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_6),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_7),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_8),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_9),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_10),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_11),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_12),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_13),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_14),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_15),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_16),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_17),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_18),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_19),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_20),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_21),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_22),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_23),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_24),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_25),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_26),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_27),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_28),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_29),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_30),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_31),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_32),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_33),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_34),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_35),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_pc_plus_36));
     static constexpr Column COUNTS = Column::lookup_instr_fetching_bytes_from_bc_dec_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_bytes_from_bc_dec_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_bytecode_id,   ColumnAndShifts::instr_fetching_pc,
-        ColumnAndShifts::instr_fetching_bytes_to_read, ColumnAndShifts::instr_fetching_bd0,
-        ColumnAndShifts::instr_fetching_bd1,           ColumnAndShifts::instr_fetching_bd2,
-        ColumnAndShifts::instr_fetching_bd3,           ColumnAndShifts::instr_fetching_bd4,
-        ColumnAndShifts::instr_fetching_bd5,           ColumnAndShifts::instr_fetching_bd6,
-        ColumnAndShifts::instr_fetching_bd7,           ColumnAndShifts::instr_fetching_bd8,
-        ColumnAndShifts::instr_fetching_bd9,           ColumnAndShifts::instr_fetching_bd10,
-        ColumnAndShifts::instr_fetching_bd11,          ColumnAndShifts::instr_fetching_bd12,
-        ColumnAndShifts::instr_fetching_bd13,          ColumnAndShifts::instr_fetching_bd14,
-        ColumnAndShifts::instr_fetching_bd15,          ColumnAndShifts::instr_fetching_bd16,
-        ColumnAndShifts::instr_fetching_bd17,          ColumnAndShifts::instr_fetching_bd18,
-        ColumnAndShifts::instr_fetching_bd19,          ColumnAndShifts::instr_fetching_bd20,
-        ColumnAndShifts::instr_fetching_bd21,          ColumnAndShifts::instr_fetching_bd22,
-        ColumnAndShifts::instr_fetching_bd23,          ColumnAndShifts::instr_fetching_bd24,
-        ColumnAndShifts::instr_fetching_bd25,          ColumnAndShifts::instr_fetching_bd26,
-        ColumnAndShifts::instr_fetching_bd27,          ColumnAndShifts::instr_fetching_bd28,
-        ColumnAndShifts::instr_fetching_bd29,          ColumnAndShifts::instr_fetching_bd30,
-        ColumnAndShifts::instr_fetching_bd31,          ColumnAndShifts::instr_fetching_bd32,
-        ColumnAndShifts::instr_fetching_bd33,          ColumnAndShifts::instr_fetching_bd34,
-        ColumnAndShifts::instr_fetching_bd35,          ColumnAndShifts::instr_fetching_bd36
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_id,
-        ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_bytes_to_read,
-        ColumnAndShifts::bc_decomposition_bytes,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_1,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_2,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_3,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_4,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_5,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_6,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_7,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_8,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_9,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_10,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_11,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_12,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_13,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_14,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_15,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_16,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_17,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_18,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_19,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_20,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_21,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_22,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_23,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_24,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_25,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_26,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_27,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_28,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_29,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_30,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_31,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_32,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_33,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_34,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_35,
-        ColumnAndShifts::bc_decomposition_bytes_pc_plus_36
-    };
 };
 
 using lookup_instr_fetching_bytes_from_bc_dec_settings =
@@ -197,38 +209,58 @@ struct lookup_instr_fetching_wire_instruction_info_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_WIRE_INSTRUCTION_INFO";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 23;
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_pc_in_range;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel_pc_in_range);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_bd0),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_opcode_out_of_range),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_exec_opcode),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_instr_size),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_has_tag),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_tag_is_op2),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_0),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_1),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_2),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_3),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_4),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_5),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_6),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_7),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_8),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_9),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_10),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_11),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_12),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_13),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_14),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_15),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_op_dc_16));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::precomputed_opcode_out_of_range),
+                        ColumnExpression(ColumnAndShifts::precomputed_exec_opcode),
+                        ColumnExpression(ColumnAndShifts::precomputed_instr_size),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_has_tag),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_is_op2),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_0),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_1),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_2),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_3),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_4),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_5),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_6),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_7),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_8),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_9),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_10),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_11),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_12),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_13),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_14),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_15),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_dc_16));
     static constexpr Column COUNTS = Column::lookup_instr_fetching_wire_instruction_info_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_wire_instruction_info_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_bd0,          ColumnAndShifts::instr_fetching_opcode_out_of_range,
-        ColumnAndShifts::instr_fetching_exec_opcode,  ColumnAndShifts::instr_fetching_instr_size,
-        ColumnAndShifts::instr_fetching_sel_has_tag,  ColumnAndShifts::instr_fetching_sel_tag_is_op2,
-        ColumnAndShifts::instr_fetching_sel_op_dc_0,  ColumnAndShifts::instr_fetching_sel_op_dc_1,
-        ColumnAndShifts::instr_fetching_sel_op_dc_2,  ColumnAndShifts::instr_fetching_sel_op_dc_3,
-        ColumnAndShifts::instr_fetching_sel_op_dc_4,  ColumnAndShifts::instr_fetching_sel_op_dc_5,
-        ColumnAndShifts::instr_fetching_sel_op_dc_6,  ColumnAndShifts::instr_fetching_sel_op_dc_7,
-        ColumnAndShifts::instr_fetching_sel_op_dc_8,  ColumnAndShifts::instr_fetching_sel_op_dc_9,
-        ColumnAndShifts::instr_fetching_sel_op_dc_10, ColumnAndShifts::instr_fetching_sel_op_dc_11,
-        ColumnAndShifts::instr_fetching_sel_op_dc_12, ColumnAndShifts::instr_fetching_sel_op_dc_13,
-        ColumnAndShifts::instr_fetching_sel_op_dc_14, ColumnAndShifts::instr_fetching_sel_op_dc_15,
-        ColumnAndShifts::instr_fetching_sel_op_dc_16
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::precomputed_opcode_out_of_range,
-        ColumnAndShifts::precomputed_exec_opcode,  ColumnAndShifts::precomputed_instr_size,
-        ColumnAndShifts::precomputed_sel_has_tag,  ColumnAndShifts::precomputed_sel_tag_is_op2,
-        ColumnAndShifts::precomputed_sel_op_dc_0,  ColumnAndShifts::precomputed_sel_op_dc_1,
-        ColumnAndShifts::precomputed_sel_op_dc_2,  ColumnAndShifts::precomputed_sel_op_dc_3,
-        ColumnAndShifts::precomputed_sel_op_dc_4,  ColumnAndShifts::precomputed_sel_op_dc_5,
-        ColumnAndShifts::precomputed_sel_op_dc_6,  ColumnAndShifts::precomputed_sel_op_dc_7,
-        ColumnAndShifts::precomputed_sel_op_dc_8,  ColumnAndShifts::precomputed_sel_op_dc_9,
-        ColumnAndShifts::precomputed_sel_op_dc_10, ColumnAndShifts::precomputed_sel_op_dc_11,
-        ColumnAndShifts::precomputed_sel_op_dc_12, ColumnAndShifts::precomputed_sel_op_dc_13,
-        ColumnAndShifts::precomputed_sel_op_dc_14, ColumnAndShifts::precomputed_sel_op_dc_15,
-        ColumnAndShifts::precomputed_sel_op_dc_16
-    };
 };
 
 using lookup_instr_fetching_wire_instruction_info_settings =

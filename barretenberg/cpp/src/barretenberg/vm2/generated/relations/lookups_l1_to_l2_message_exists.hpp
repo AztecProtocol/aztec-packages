@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,18 @@ struct lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings_
     static constexpr std::string_view NAME = "LOOKUP_L1_TO_L2_MESSAGE_EXISTS_L1_TO_L2_MSG_LEAF_INDEX_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "l1_to_l2_message_exists";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_l1_to_l2_message_exists;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_execute_l1_to_l2_message_exists);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_l1_to_l2_msg_tree_leaf_count),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_),
+                        ColumnExpression(ColumnAndShifts::execution_l1_to_l2_msg_leaf_in_range));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_l1_to_l2_msg_tree_leaf_count,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_l1_to_l2_msg_leaf_in_range
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings =
@@ -43,22 +44,19 @@ struct lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_L1_TO_L2_MESSAGE_EXISTS_L1_TO_L2_MSG_READ";
     static constexpr std::string_view RELATION_NAME = "l1_to_l2_message_exists";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::execution_l1_to_l2_msg_leaf_in_range;
-    static constexpr Column DST_SELECTOR = Column::l1_to_l2_message_tree_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_l1_to_l2_msg_leaf_in_range);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::l1_to_l2_message_tree_check_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_register_0_),
+                                                      ColumnExpression(ColumnAndShifts::execution_register_1_),
+                                                      ColumnExpression(ColumnAndShifts::execution_prev_l1_l2_tree_root),
+                                                      ColumnExpression(ColumnAndShifts::execution_register_2_));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::l1_to_l2_message_tree_check_msg_hash),
+                        ColumnExpression(ColumnAndShifts::l1_to_l2_message_tree_check_leaf_index),
+                        ColumnExpression(ColumnAndShifts::l1_to_l2_message_tree_check_root),
+                        ColumnExpression(ColumnAndShifts::l1_to_l2_message_tree_check_exists));
     static constexpr Column COUNTS = Column::lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_counts;
     static constexpr Column INVERSES = Column::lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_prev_l1_l2_tree_root,
-        ColumnAndShifts::execution_register_2_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::l1_to_l2_message_tree_check_msg_hash,
-        ColumnAndShifts::l1_to_l2_message_tree_check_leaf_index,
-        ColumnAndShifts::l1_to_l2_message_tree_check_root,
-        ColumnAndShifts::l1_to_l2_message_tree_check_exists
-    };
 };
 
 using lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings =

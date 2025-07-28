@@ -8,6 +8,7 @@
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 
 namespace bb::{{snakeCase root_name}} {
 
@@ -18,20 +19,20 @@ struct {{lookup_name}}_settings_ {
     static constexpr std::string_view NAME = "{{shoutySnakeCase lookup_name}}";
     static constexpr std::string_view RELATION_NAME = "{{relation_name}}";
     static constexpr size_t LOOKUP_TUPLE_SIZE = {{lookup_tuple_size}};
-    static constexpr Column SRC_SELECTOR = Column::{{lhs_selector}};
-    static constexpr Column DST_SELECTOR = Column::{{rhs_selector}};
+    static constexpr auto SRC_SELECTOR_EXPR = {{lhs_selector}};
+    static constexpr auto DST_SELECTOR_EXPR = {{rhs_selector}};
+    static constexpr auto SRC_EXPRS = std::make_tuple(
+        {{#each lhs_exprs as |expr|}}
+        {{expr}}{{#unless @last}},{{/unless}}
+        {{/each}}
+    );
+    static constexpr auto DST_EXPRS = std::make_tuple(
+        {{#each rhs_exprs as |expr|}}
+        {{expr}}{{#unless @last}},{{/unless}}
+        {{/each}}
+    );
     static constexpr Column COUNTS = Column::{{counts_col}};
     static constexpr Column INVERSES = Column::{{inverses_col}};
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        {{#each lhs_cols as |col|}}
-        ColumnAndShifts::{{col}}{{#unless @last}},{{/unless}}
-        {{/each}}
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        {{#each rhs_cols as |col|}}
-        ColumnAndShifts::{{col}}{{#unless @last}},{{/unless}}
-        {{/each}}
-    };
 };
 
 using {{lookup_name}}_settings = lookup_settings<{{lookup_name}}_settings_>;

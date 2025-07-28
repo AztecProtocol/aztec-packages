@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,16 +18,14 @@ struct lookup_range_check_dyn_rng_chk_pow_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_DYN_RNG_CHK_POW_2";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_dyn_rng_chk_bits),
+                                                      ColumnExpression(ColumnAndShifts::range_check_dyn_rng_chk_pow_2));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_power_of_2));
     static constexpr Column COUNTS = Column::lookup_range_check_dyn_rng_chk_pow_2_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_dyn_rng_chk_pow_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_dyn_rng_chk_bits, ColumnAndShifts::range_check_dyn_rng_chk_pow_2
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_power_of_2
-    };
 };
 
 using lookup_range_check_dyn_rng_chk_pow_2_settings = lookup_settings<lookup_range_check_dyn_rng_chk_pow_2_settings_>;
@@ -40,14 +39,12 @@ struct lookup_range_check_dyn_diff_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_DYN_DIFF_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_dyn_diff));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_dyn_diff_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_dyn_diff_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_dyn_diff
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_dyn_diff_is_u16_settings = lookup_settings<lookup_range_check_dyn_diff_is_u16_settings_>;
@@ -61,14 +58,12 @@ struct lookup_range_check_r0_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R0_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_r0_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel_r0_16_bit_rng_lookup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r0));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r0_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r0_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r0
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r0_is_u16_settings = lookup_settings<lookup_range_check_r0_is_u16_settings_>;
@@ -81,14 +76,12 @@ struct lookup_range_check_r1_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R1_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_r1_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel_r1_16_bit_rng_lookup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r1));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r1_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r1_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r1
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r1_is_u16_settings = lookup_settings<lookup_range_check_r1_is_u16_settings_>;
@@ -101,14 +94,12 @@ struct lookup_range_check_r2_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R2_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_r2_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel_r2_16_bit_rng_lookup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r2));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r2_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r2_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r2
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r2_is_u16_settings = lookup_settings<lookup_range_check_r2_is_u16_settings_>;
@@ -121,14 +112,12 @@ struct lookup_range_check_r3_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R3_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_r3_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel_r3_16_bit_rng_lookup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r3));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r3_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r3_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r3
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r3_is_u16_settings = lookup_settings<lookup_range_check_r3_is_u16_settings_>;
@@ -141,14 +130,12 @@ struct lookup_range_check_r4_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R4_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_r4_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel_r4_16_bit_rng_lookup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r4));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r4_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r4_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r4
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r4_is_u16_settings = lookup_settings<lookup_range_check_r4_is_u16_settings_>;
@@ -161,14 +148,12 @@ struct lookup_range_check_r5_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R5_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_r5_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel_r5_16_bit_rng_lookup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r5));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r5_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r5_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r5
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r5_is_u16_settings = lookup_settings<lookup_range_check_r5_is_u16_settings_>;
@@ -181,14 +166,12 @@ struct lookup_range_check_r6_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R6_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel_r6_16_bit_rng_lookup;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel_r6_16_bit_rng_lookup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r6));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r6_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r6_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r6
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r6_is_u16_settings = lookup_settings<lookup_range_check_r6_is_u16_settings_>;
@@ -201,14 +184,12 @@ struct lookup_range_check_r7_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R7_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::range_check_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_16);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_u16_r7));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_range_check_r7_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r7_is_u16_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::range_check_u16_r7
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_range_check_r7_is_u16_settings = lookup_settings<lookup_range_check_r7_is_u16_settings_>;

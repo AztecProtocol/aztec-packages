@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,22 +18,19 @@ struct lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_SALTED_INITIALIZATION_HASH_POSEIDON2_0";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_start);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::address_derivation_partial_address_domain_separator),
+                        ColumnExpression(ColumnAndShifts::address_derivation_salt),
+                        ColumnExpression(ColumnAndShifts::address_derivation_init_hash),
+                        ColumnExpression(ColumnAndShifts::address_derivation_salted_init_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_salted_initialization_hash_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_salted_initialization_hash_poseidon2_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_partial_address_domain_separator,
-        ColumnAndShifts::address_derivation_salt,
-        ColumnAndShifts::address_derivation_init_hash,
-        ColumnAndShifts::address_derivation_salted_init_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings =
@@ -47,22 +45,19 @@ struct lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_SALTED_INITIALIZATION_HASH_POSEIDON2_1";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::address_derivation_deployer_addr),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_salted_init_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_salted_initialization_hash_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_salted_initialization_hash_poseidon2_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_deployer_addr,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_salted_init_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings =
@@ -77,22 +72,19 @@ struct lookup_address_derivation_partial_address_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PARTIAL_ADDRESS_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::address_derivation_partial_address_domain_separator),
+                        ColumnExpression(ColumnAndShifts::address_derivation_class_id),
+                        ColumnExpression(ColumnAndShifts::address_derivation_salted_init_hash),
+                        ColumnExpression(ColumnAndShifts::address_derivation_partial_address));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_partial_address_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_partial_address_poseidon2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_partial_address_domain_separator,
-        ColumnAndShifts::address_derivation_class_id,
-        ColumnAndShifts::address_derivation_salted_init_hash,
-        ColumnAndShifts::address_derivation_partial_address
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_partial_address_poseidon2_settings =
@@ -107,22 +99,19 @@ struct lookup_address_derivation_public_keys_hash_poseidon2_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PUBLIC_KEYS_HASH_POSEIDON2_0";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_start);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::address_derivation_public_keys_hash_domain_separator),
+                        ColumnExpression(ColumnAndShifts::address_derivation_nullifier_key_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_nullifier_key_y),
+                        ColumnExpression(ColumnAndShifts::address_derivation_public_keys_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_public_keys_hash_domain_separator,
-        ColumnAndShifts::address_derivation_nullifier_key_x,
-        ColumnAndShifts::address_derivation_nullifier_key_y,
-        ColumnAndShifts::address_derivation_public_keys_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_public_keys_hash_poseidon2_0_settings =
@@ -137,22 +126,19 @@ struct lookup_address_derivation_public_keys_hash_poseidon2_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PUBLIC_KEYS_HASH_POSEIDON2_1";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_incoming_viewing_key_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_incoming_viewing_key_y),
+                        ColumnExpression(ColumnAndShifts::address_derivation_public_keys_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_incoming_viewing_key_x,
-        ColumnAndShifts::address_derivation_incoming_viewing_key_y,
-        ColumnAndShifts::address_derivation_public_keys_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_public_keys_hash_poseidon2_1_settings =
@@ -167,22 +153,19 @@ struct lookup_address_derivation_public_keys_hash_poseidon2_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PUBLIC_KEYS_HASH_POSEIDON2_2";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_outgoing_viewing_key_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_outgoing_viewing_key_y),
+                        ColumnExpression(ColumnAndShifts::address_derivation_public_keys_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_2_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_outgoing_viewing_key_x,
-        ColumnAndShifts::address_derivation_outgoing_viewing_key_y,
-        ColumnAndShifts::address_derivation_public_keys_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_public_keys_hash_poseidon2_2_settings =
@@ -197,22 +180,19 @@ struct lookup_address_derivation_public_keys_hash_poseidon2_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PUBLIC_KEYS_HASH_POSEIDON2_3";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_tagging_key_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_tagging_key_y),
+                        ColumnExpression(ColumnAndShifts::address_derivation_public_keys_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_3_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_3_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_tagging_key_x,
-        ColumnAndShifts::address_derivation_tagging_key_y,
-        ColumnAndShifts::address_derivation_public_keys_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_public_keys_hash_poseidon2_3_settings =
@@ -227,22 +207,19 @@ struct lookup_address_derivation_public_keys_hash_poseidon2_4_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PUBLIC_KEYS_HASH_POSEIDON2_4";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_public_keys_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_4_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_4_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_public_keys_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_public_keys_hash_poseidon2_4_settings =
@@ -257,22 +234,19 @@ struct lookup_address_derivation_preaddress_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PREADDRESS_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::address_derivation_preaddress_domain_separator),
+                        ColumnExpression(ColumnAndShifts::address_derivation_public_keys_hash),
+                        ColumnExpression(ColumnAndShifts::address_derivation_partial_address),
+                        ColumnExpression(ColumnAndShifts::address_derivation_preaddress));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_address_derivation_preaddress_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_preaddress_poseidon2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_preaddress_domain_separator,
-        ColumnAndShifts::address_derivation_public_keys_hash,
-        ColumnAndShifts::address_derivation_partial_address,
-        ColumnAndShifts::address_derivation_preaddress
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_address_derivation_preaddress_poseidon2_settings =
@@ -287,24 +261,25 @@ struct lookup_address_derivation_preaddress_scalar_mul_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PREADDRESS_SCALAR_MUL";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::scalar_mul_start;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::scalar_mul_start);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::address_derivation_preaddress),
+                        ColumnExpression(ColumnAndShifts::address_derivation_g1_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_g1_y),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_preaddress_public_key_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_preaddress_public_key_y),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::scalar_mul_scalar),
+                                                      ColumnExpression(ColumnAndShifts::scalar_mul_point_x),
+                                                      ColumnExpression(ColumnAndShifts::scalar_mul_point_y),
+                                                      ColumnExpression(ColumnAndShifts::scalar_mul_point_inf),
+                                                      ColumnExpression(ColumnAndShifts::scalar_mul_res_x),
+                                                      ColumnExpression(ColumnAndShifts::scalar_mul_res_y),
+                                                      ColumnExpression(ColumnAndShifts::scalar_mul_res_inf));
     static constexpr Column COUNTS = Column::lookup_address_derivation_preaddress_scalar_mul_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_preaddress_scalar_mul_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_preaddress,
-        ColumnAndShifts::address_derivation_g1_x,
-        ColumnAndShifts::address_derivation_g1_y,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_preaddress_public_key_x,
-        ColumnAndShifts::address_derivation_preaddress_public_key_y,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::scalar_mul_scalar,    ColumnAndShifts::scalar_mul_point_x, ColumnAndShifts::scalar_mul_point_y,
-        ColumnAndShifts::scalar_mul_point_inf, ColumnAndShifts::scalar_mul_res_x,   ColumnAndShifts::scalar_mul_res_y,
-        ColumnAndShifts::scalar_mul_res_inf
-    };
 };
 
 using lookup_address_derivation_preaddress_scalar_mul_settings =
@@ -319,26 +294,29 @@ struct lookup_address_derivation_address_ecadd_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_ADDRESS_ECADD";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
-    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::ecc_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::address_derivation_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ecc_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::address_derivation_preaddress_public_key_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_preaddress_public_key_y),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_incoming_viewing_key_x),
+                        ColumnExpression(ColumnAndShifts::address_derivation_incoming_viewing_key_y),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::address_derivation_address),
+                        ColumnExpression(ColumnAndShifts::address_derivation_address_y),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ecc_p_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_p_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_p_is_inf),
+                                                      ColumnExpression(ColumnAndShifts::ecc_q_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_q_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_q_is_inf),
+                                                      ColumnExpression(ColumnAndShifts::ecc_r_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_r_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_r_is_inf));
     static constexpr Column COUNTS = Column::lookup_address_derivation_address_ecadd_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_address_ecadd_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_preaddress_public_key_x,
-        ColumnAndShifts::address_derivation_preaddress_public_key_y,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_incoming_viewing_key_x,
-        ColumnAndShifts::address_derivation_incoming_viewing_key_y,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::address_derivation_address,
-        ColumnAndShifts::address_derivation_address_y,
-        ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
-        ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf,
-        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf
-    };
 };
 
 using lookup_address_derivation_address_ecadd_settings =

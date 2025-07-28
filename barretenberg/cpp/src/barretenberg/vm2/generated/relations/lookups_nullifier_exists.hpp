@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,24 +18,21 @@ struct lookup_nullifier_exists_nullifier_exists_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_EXISTS_NULLIFIER_EXISTS_CHECK";
     static constexpr std::string_view RELATION_NAME = "nullifier_exists";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_nullifier_exists;
-    static constexpr Column DST_SELECTOR = Column::nullifier_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_execute_nullifier_exists);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::nullifier_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_register_2_),
+                        ColumnExpression(ColumnAndShifts::execution_register_0_),
+                        ColumnExpression(ColumnAndShifts::execution_prev_nullifier_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_sel_execute_nullifier_exists),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::nullifier_check_exists),
+                                                      ColumnExpression(ColumnAndShifts::nullifier_check_nullifier),
+                                                      ColumnExpression(ColumnAndShifts::nullifier_check_root),
+                                                      ColumnExpression(ColumnAndShifts::nullifier_check_should_silo),
+                                                      ColumnExpression(ColumnAndShifts::nullifier_check_address));
     static constexpr Column COUNTS = Column::lookup_nullifier_exists_nullifier_exists_check_counts;
     static constexpr Column INVERSES = Column::lookup_nullifier_exists_nullifier_exists_check_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_2_,
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_prev_nullifier_tree_root,
-        ColumnAndShifts::execution_sel_execute_nullifier_exists,
-        ColumnAndShifts::execution_register_1_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::nullifier_check_exists,
-        ColumnAndShifts::nullifier_check_nullifier,
-        ColumnAndShifts::nullifier_check_root,
-        ColumnAndShifts::nullifier_check_should_silo,
-        ColumnAndShifts::nullifier_check_address
-    };
 };
 
 using lookup_nullifier_exists_nullifier_exists_check_settings =
