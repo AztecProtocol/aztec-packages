@@ -26,7 +26,6 @@ class API {
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         bool update_inputs{ false };            // use file backed memory for polynomials
-        bool mega_honk{ false };                // flag for vk_as_fields to use MegaHonk format
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -46,7 +45,6 @@ class API {
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "  slow_low_memory " << flags.slow_low_memory << "\n"
-               << "  mega_honk " << flags.mega_honk << "\n"
                << "]" << std::endl;
             return os;
         }

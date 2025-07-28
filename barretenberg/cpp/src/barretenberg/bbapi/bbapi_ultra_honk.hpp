@@ -59,7 +59,8 @@ struct CircuitComputeVk {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVkResponse";
 
         std::vector<uint8_t> bytes; // Serialized verification key
-        MSGPACK_FIELDS(bytes);
+        std::vector<fr> fields;     // VK as field elements
+        MSGPACK_FIELDS(bytes, fields);
         bool operator==(const Response&) const = default;
     };
 

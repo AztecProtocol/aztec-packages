@@ -15,6 +15,7 @@
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <iomanip>
+#include <optional>
 #include <sstream>
 
 namespace bb {
@@ -27,36 +28,102 @@ bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
     return false;
 }
 
+// Helper function to write proof outputs from bbapi
+void write_bbapi_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
+                               const bbapi::CircuitComputeVk::Response* vk_response, // optional, only if write_vk
+                               const API::Flags& flags,
+                               const std::filesystem::path& output_dir)
+{
+    const bool output_to_stdout = output_dir == "-";
+
+    if (flags.output_format == "bytes") {
+        // Write bytes format
+        auto public_inputs_buf = to_buffer(prove_response.public_inputs);
+        auto proof_buf = to_buffer(prove_response.proof);
+
+        if (output_to_stdout) {
+            write_bytes_to_stdout(public_inputs_buf);
+            write_bytes_to_stdout(proof_buf);
+            if (flags.write_vk && vk_response) {
+                write_bytes_to_stdout(vk_response->bytes);
+                // For vk_hash, we need to deserialize
+                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
+                write_bytes_to_stdout(to_buffer(vk.hash()));
+            }
+        } else {
+            write_file(output_dir / "public_inputs", public_inputs_buf);
+            write_file(output_dir / "proof", proof_buf);
+            info("Public inputs saved to ", output_dir / "public_inputs");
+            info("Proof saved to ", output_dir / "proof");
+
+            if (flags.write_vk && vk_response) {
+                write_file(output_dir / "vk", vk_response->bytes);
+                info("VK saved to ", output_dir / "vk");
+                // For vk_hash
+                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
+                write_file(output_dir / "vk_hash", to_buffer(vk.hash()));
+                info("VK Hash saved to ", output_dir / "vk_hash");
+            }
+        }
+    } else if (flags.output_format == "fields") {
+        // Write fields format
+        std::string public_inputs_json = field_elements_to_json(prove_response.public_inputs);
+        std::string proof_json = field_elements_to_json(prove_response.proof);
+
+        if (output_to_stdout) {
+            std::cout << public_inputs_json;
+            std::cout << proof_json;
+            if (flags.write_vk && vk_response) {
+                // Use the fields directly from vk_response if available
+                if (!vk_response->fields.empty()) {
+                    std::cout << field_elements_to_json(vk_response->fields);
+                } else {
+                    // Fallback: deserialize and convert to fields
+                    auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
+                    std::cout << field_elements_to_json(vk.to_field_elements());
+                }
+                // For vk_hash
+                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
+                std::cout << format("\"", vk.hash(), "\"");
+            }
+        } else {
+            write_file(output_dir / "public_inputs_fields.json",
+                       { public_inputs_json.begin(), public_inputs_json.end() });
+            write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
+            info("Public inputs fields saved to ", output_dir / "public_inputs_fields.json");
+            info("Proof fields saved to ", output_dir / "proof_fields.json");
+
+            if (flags.write_vk && vk_response) {
+                // Use the fields directly from vk_response if available
+                std::string vk_json;
+                if (!vk_response->fields.empty()) {
+                    vk_json = field_elements_to_json(vk_response->fields);
+                } else {
+                    // Fallback: deserialize and convert to fields
+                    auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
+                    vk_json = field_elements_to_json(vk.to_field_elements());
+                }
+                write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
+                info("VK fields saved to ", output_dir / "vk_fields.json");
+
+                // For vk_hash
+                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
+                std::string vk_hash_json = format("\"", vk.hash(), "\"");
+                write_file(output_dir / "vk_hash_fields.json", { vk_hash_json.begin(), vk_hash_json.end() });
+                info("VK Hash fields saved to ", output_dir / "vk_hash_fields.json");
+            }
+        }
+    } else {
+        throw_or_abort("Invalid output_format: " + flags.output_format);
+    }
+}
+
 void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& bytecode_path,
                          const std::filesystem::path& witness_path,
                          const std::filesystem::path& vk_path,
                          const std::filesystem::path& output_dir)
 {
-    // Read input files
-    auto bytecode = get_bytecode(bytecode_path);
-    auto witness_vector = get_witness(witness_path);
-    // Serialize witness to bytes - need to use Witnesses namespace types
-    Witnesses::WitnessStack witness_stack;
-    Witnesses::StackItem stack_item;
-    stack_item.index = 0;
-    // Convert WitnessVector to Witness map
-    for (size_t i = 0; i < witness_vector.size(); ++i) {
-        // Convert field element to hex string (64 chars = 32 bytes)
-        auto bytes = witness_vector[i].to_buffer();
-        std::stringstream ss;
-        for (const auto& byte : bytes) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
-        }
-        stack_item.witness.value[Witnesses::Witness{ static_cast<uint32_t>(i) }] = ss.str();
-    }
-    witness_stack.stack.push_back(stack_item);
-    auto witness = witness_stack.bincodeSerialize();
-    std::vector<uint8_t> vk_bytes;
-    if (!vk_path.empty() && std::filesystem::exists(vk_path)) {
-        vk_bytes = read_file(vk_path);
-    }
-
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
@@ -64,31 +131,33 @@ void UltraHonkAPI::prove(const Flags& flags,
                                          .honk_recursion = flags.honk_recursion,
                                          .recursive = flags.recursive };
 
-    // Execute prove command and compute VK if needed
-    const auto _prove_with_bbapi = [&]() -> PubInputsProofAndKey<UltraFlavor::VerificationKey> {
-        auto response =
-            bbapi::CircuitProve{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = vk_bytes },
-                                 .witness = witness,
-                                 .settings = settings }
-                .execute();
+    // Read input files
+    auto bytecode = get_bytecode(bytecode_path);
+    auto witness = get_bytecode(witness_path);
 
-        // Always compute VK for the return value (write function will decide what to output)
-        auto vk_response =
+    // Handle VK
+    std::vector<uint8_t> vk_bytes;
+    std::optional<bbapi::CircuitComputeVk::Response> vk_response;
+
+    if (flags.write_vk) {
+        info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
+        vk_response =
             bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = bytecode }, .settings = settings }
                 .execute();
+        vk_bytes = vk_response->bytes;
+    } else {
+        vk_bytes = read_file(vk_path);
+    }
 
-        auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response.bytes);
-        return {
-            response.public_inputs, response.proof, std::make_shared<UltraFlavor::VerificationKey>(vk), vk.hash()
-        };
-    };
+    // Prove
+    auto prove_response =
+        bbapi::CircuitProve{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = vk_bytes },
+                             .witness = witness,
+                             .settings = settings }
+            .execute();
 
-    // Write output
-    const auto _write = [&](auto&& _prove_output) {
-        write(_prove_output, flags.output_format, flags.write_vk ? "proof_and_vk" : "proof", output_dir);
-    };
-
-    _write(_prove_with_bbapi());
+    // Write outputs using helper
+    write_bbapi_proof_outputs(prove_response, vk_response ? &(*vk_response) : nullptr, flags, output_dir);
 }
 
 bool UltraHonkAPI::verify(const Flags& flags,

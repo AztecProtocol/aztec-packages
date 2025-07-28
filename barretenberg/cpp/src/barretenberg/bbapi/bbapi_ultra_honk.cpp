@@ -191,28 +191,37 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     std::vector<uint8_t> vk_bytes;
+    std::vector<fr> vk_fields;
+
+    // Helper lambda to compute VK and fields for a given flavor
+    auto compute_vk_and_fields = [&]<typename Flavor>() {
+        auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
+        auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
+        vk_bytes = to_buffer(*vk);
+        vk_fields = vk->to_field_elements();
+    };
 
     if (settings.ipa_accumulation) {
-        vk_bytes = _compute_vk<UltraRollupFlavor>(circuit.bytecode);
+        compute_vk_and_fields.template operator()<UltraRollupFlavor>();
     } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
-        vk_bytes = _compute_vk<UltraZKFlavor>(circuit.bytecode);
+        compute_vk_and_fields.template operator()<UltraZKFlavor>();
     } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
-        vk_bytes = _compute_vk<UltraFlavor>(circuit.bytecode);
+        compute_vk_and_fields.template operator()<UltraFlavor>();
     } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
-        vk_bytes = _compute_vk<UltraKeccakZKFlavor>(circuit.bytecode);
+        compute_vk_and_fields.template operator()<UltraKeccakZKFlavor>();
     } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        vk_bytes = _compute_vk<UltraKeccakFlavor>(circuit.bytecode);
+        compute_vk_and_fields.template operator()<UltraKeccakFlavor>();
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        vk_bytes = _compute_vk<UltraStarknetZKFlavor>(circuit.bytecode);
+        compute_vk_and_fields.template operator()<UltraStarknetZKFlavor>();
     } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        vk_bytes = _compute_vk<UltraStarknetFlavor>(circuit.bytecode);
+        compute_vk_and_fields.template operator()<UltraStarknetFlavor>();
 #endif
     } else {
         throw_or_abort("invalid proof type in _write_vk");
     }
 
-    return { vk_bytes };
+    return { .bytes = vk_bytes, .fields = vk_fields };
 }
 
 CircuitInfo::Response CircuitInfo::execute(BB_UNUSED const BBApiRequest& request) &&

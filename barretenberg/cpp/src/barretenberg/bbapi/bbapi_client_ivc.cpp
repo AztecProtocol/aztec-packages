@@ -148,7 +148,6 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_
 
     Response response;
     response.bytes = to_buffer(*verification_key);
-    response.fields = verification_key->to_field_elements();
 
     info("ClientIvcComputeStandaloneVk - VK derived, size: ", response.bytes.size(), " bytes");
 
