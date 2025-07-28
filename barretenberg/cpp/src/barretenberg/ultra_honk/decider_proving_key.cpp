@@ -311,7 +311,14 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
                 }
                 wire.resize(fixed_block_size); // shrink the main block to its max capacity
             }
-            for (auto [selector, overflow_selector] : zip_view(block.selectors, overflow_block.selectors)) {
+            for (auto [selector, overflow_selector] :
+                 zip_view(block.non_zero_selectors, overflow_block.non_zero_selectors)) {
+                for (size_t i = overflow_start; i < overflow_end; ++i) {
+                    overflow_selector.push_back(selector[i]);
+                }
+                selector.resize(fixed_block_size); // shrink the main block to its max capacity
+            }
+            for (auto [selector, overflow_selector] : zip_view(block.zero_selectors, overflow_block.zero_selectors)) {
                 for (size_t i = overflow_start; i < overflow_end; ++i) {
                     overflow_selector.push_back(selector[i]);
                 }

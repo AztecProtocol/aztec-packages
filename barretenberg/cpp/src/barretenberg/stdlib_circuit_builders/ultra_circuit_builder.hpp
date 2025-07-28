@@ -48,7 +48,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
-    static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;

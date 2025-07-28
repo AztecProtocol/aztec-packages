@@ -1950,7 +1950,10 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
         blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
-        for (auto& selector : this->blocks.pub_inputs.selectors) {
+        for (auto& selector : this->blocks.pub_inputs.non_zero_selectors) {
+            selector.emplace_back(0);
+        }
+        for (auto& selector : this->blocks.pub_inputs.zero_selectors) {
             selector.emplace_back(0);
         }
     }
@@ -2509,7 +2512,8 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
 
     // Hash the selectors, the wires, and the variable index array (which captures information about copy constraints)
     for (auto& block : blocks.get()) {
-        std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert_selectors);
+        std::for_each(block.non_zero_selectors.begin(), block.non_zero_selectors.end(), convert_and_insert_selectors);
+        std::for_each(block.zero_selectors.begin(), block.zero_selectors.end(), convert_and_insert_selectors);
         std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert_vectors);
     }
     convert_and_insert_vectors(circuit.real_variable_index);

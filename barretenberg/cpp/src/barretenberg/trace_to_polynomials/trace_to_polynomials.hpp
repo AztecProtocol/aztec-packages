@@ -23,7 +23,8 @@ template <class Flavor> class TraceToPolynomials {
   public:
     static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
 
-    static constexpr size_t NUM_SELECTORS = Builder::ExecutionTrace::NUM_SELECTORS;
+    static constexpr size_t NUM_NON_ZERO_SELECTORS = Builder::ExecutionTrace::NUM_NON_ZERO_SELECTORS;
+    static constexpr size_t NUM_ZERO_SELECTORS = Builder::ExecutionTrace::NUM_ZERO_SELECTORS;
 
     /**
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys

@@ -49,11 +49,6 @@ template <typename FF> class Selector {
     virtual std::vector<uint8_t> to_buffer() const = 0;
 };
 
-// template <typename FF> std::vector<uint8_t> to_buffer(Selector<FF> const& selector)
-// {
-//     return selector.to_buffer();
-// }
-
 template <typename FF> class ZeroSelector : public Selector<FF> {
   public:
     using Selector<FF>::emplace_back;
@@ -128,14 +123,18 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
  * @tparam NUM_WIRES
  * @tparam NUM_SELECTORS
  */
-template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class ExecutionTraceBlock {
+template <typename FF, size_t NUM_WIRES_, size_t NUM_NON_ZERO_SELECTORS_, size_t NUM_ZERO_SELECTORS_>
+class ExecutionTraceBlock {
   public:
     static constexpr size_t NUM_WIRES = NUM_WIRES_;
-    static constexpr size_t NUM_SELECTORS = NUM_SELECTORS_;
+    static constexpr size_t NUM_NON_ZERO_SELECTORS = NUM_NON_ZERO_SELECTORS_;
+    static constexpr size_t NUM_ZERO_SELECTORS = NUM_ZERO_SELECTORS_;
 
-    using SelectorType = SlabVectorSelector<FF>;
+    using NonZeroSelectorType = SlabVectorSelector<FF>;
+    using ZeroSelectorType = ZeroSelector<FF>;
     using WireType = SlabVector<uint32_t>;
-    using Selectors = std::array<SelectorType, NUM_SELECTORS>;
+    using NonZeroSelectors = std::array<NonZeroSelectorType, NUM_NON_ZERO_SELECTORS>;
+    using ZeroSelectors = std::array<ZeroSelectorType, NUM_ZERO_SELECTORS>;
     using Wires = std::array<WireType, NUM_WIRES>;
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
@@ -156,7 +155,8 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
     }
 
     Wires wires; // vectors of indices into a witness variables array
-    Selectors selectors;
+    NonZeroSelectors non_zero_selectors;
+    ZeroSelectors zero_selectors;
     uint32_t trace_offset_ = std::numeric_limits<uint32_t>::max(); // where this block starts in the trace
 
     uint32_t trace_offset() const
@@ -174,7 +174,7 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
         for (auto& w : wires) {
             w.reserve(size_hint);
         }
-        for (auto& p : selectors) {
+        for (auto& p : non_zero_selectors) {
             p.reserve(size_hint);
         }
 #ifdef CHECK_CIRCUIT_STACKTRACES
@@ -200,8 +200,6 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
     }
 #endif
     uint32_t fixed_size = 0; // Fixed size for use in structured trace
-  protected:
-    ZeroSelector<FF> zero_selector;
 };
 
 } // namespace bb

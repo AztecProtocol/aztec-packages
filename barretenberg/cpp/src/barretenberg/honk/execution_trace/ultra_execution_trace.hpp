@@ -56,7 +56,8 @@ template <typename T> struct UltraTraceBlockData {
     bool operator==(const UltraTraceBlockData& other) const = default;
 };
 
-class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 7> {
+class UltraTraceBlock
+    : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_NON_ZERO_SELECTORS_*/ 7, /*NUM_ZERO_SELECTORS_*/ 8> {
   public:
     void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
@@ -75,12 +76,12 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_
     auto& w_o() { return std::get<2>(this->wires); };
     auto& w_4() { return std::get<3>(this->wires); };
 
-    SlabVectorSelector<fr>& q_m() { return this->selectors[0]; };
-    SlabVectorSelector<fr>& q_c() { return this->selectors[1]; };
-    SlabVectorSelector<fr>& q_1() { return this->selectors[2]; };
-    SlabVectorSelector<fr>& q_2() { return this->selectors[3]; };
-    SlabVectorSelector<fr>& q_3() { return this->selectors[4]; };
-    SlabVectorSelector<fr>& q_4() { return this->selectors[5]; };
+    SlabVectorSelector<fr>& q_m() { return non_zero_selectors[0]; };
+    SlabVectorSelector<fr>& q_c() { return non_zero_selectors[1]; };
+    SlabVectorSelector<fr>& q_1() { return non_zero_selectors[2]; };
+    SlabVectorSelector<fr>& q_2() { return non_zero_selectors[3]; };
+    SlabVectorSelector<fr>& q_3() { return non_zero_selectors[4]; };
+    SlabVectorSelector<fr>& q_4() { return non_zero_selectors[5]; };
 
     enum class Type {
         LOOKUP_TYPE,
@@ -96,58 +97,58 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_
     Selector<fr>& q_lookup_type()
     {
         if (type == Type::LOOKUP_TYPE) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[0];
     };
     Selector<fr>& q_arith()
     {
         if (type == Type::ARITHMETIC) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[1];
     }
     Selector<fr>& q_delta_range()
     {
         if (type == Type::DELTA_RANGE) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[2];
     }
     Selector<fr>& q_elliptic()
     {
         if (type == Type::ELLIPTIC) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[3];
     }
     Selector<fr>& q_memory()
     {
         if (type == Type::MEMORY) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[4];
     }
     Selector<fr>& q_nnf()
     {
         if (type == Type::NON_NATIVE_FIELD) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[5];
     }
     Selector<fr>& q_poseidon2_external()
     {
         if (type == Type::POSEIDON2_EXTERNAL) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[6];
     }
     Selector<fr>& q_poseidon2_internal()
     {
         if (type == Type::POSEIDON2_INTERNAL) {
-            return this->selectors[6];
+            return non_zero_selectors[6];
         }
-        return zero_selector;
+        return zero_selectors[7];
     }
 };
 
@@ -155,7 +156,8 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
 
   public:
     static constexpr size_t NUM_WIRES = UltraTraceBlock::NUM_WIRES;
-    static constexpr size_t NUM_SELECTORS = UltraTraceBlock::NUM_SELECTORS;
+    static constexpr size_t NUM_NON_ZERO_SELECTORS = UltraTraceBlock::NUM_NON_ZERO_SELECTORS;
+    static constexpr size_t NUM_ZERO_SELECTORS = UltraTraceBlock::NUM_ZERO_SELECTORS;
     using FF = fr;
 
     bool has_overflow = false;
