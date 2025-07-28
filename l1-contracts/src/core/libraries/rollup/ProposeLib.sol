@@ -44,11 +44,13 @@ struct InterimProposeValues {
   bytes[] blobCommitments;
   bytes32 inHash;
   bytes32 headerHash;
+  bytes32 attestationsHash;
+  bytes32 payloadDigest;
+  Epoch currentEpoch;
 }
 
 /**
  * @param header - The proposed block header
- * @param attestations - The signatures for the attestations
  * @param digest - The digest that signatures signed
  * @param currentTime - The time of execution
  * @param blobsHashesCommitment - The blobs hash for this block, provided for simpler future simulation
@@ -56,7 +58,6 @@ struct InterimProposeValues {
  */
 struct ValidateHeaderArgs {
   ProposedHeader header;
-  CommitteeAttestations attestations;
   bytes32 digest;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
@@ -76,6 +77,7 @@ library ProposeLib {
    *
    * @param _args - The arguments to propose the block
    * @param _attestations - Signatures (or empty) from the validators
+   * @param _signers - The addresses of the signers from the attestations
    * Input _blobsInput bytes:
    * input[:1] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
@@ -85,6 +87,7 @@ library ProposeLib {
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
+    address[] memory _signers,
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
@@ -103,28 +106,33 @@ library ProposeLib {
     ProposedHeader memory header = _args.header;
     v.headerHash = ProposedHeaderLib.hash(_args.header);
 
-    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setupEpoch(currentEpoch);
+    v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
 
+    v.payloadDigest = digest(
+      ProposePayload({
+        archive: _args.archive,
+        stateReference: _args.stateReference,
+        oracleInput: _args.oracleInput,
+        headerHash: v.headerHash
+      })
+    );
+
     validateHeader(
       ValidateHeaderArgs({
         header: header,
-        attestations: _attestations,
-        digest: digest(
-          ProposePayload({
-            archive: _args.archive,
-            stateReference: _args.stateReference,
-            oracleInput: _args.oracleInput,
-            headerHash: v.headerHash
-          })
-        ),
+        digest: v.payloadDigest,
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
-        flags: BlockHeaderValidationFlags({ignoreDA: false, ignoreSignatures: false})
+        flags: BlockHeaderValidationFlags({ignoreDA: false})
       })
+    );
+
+    ValidatorSelectionLib.verifyProposer(
+      header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest
     );
 
     RollupStore storage rollupStore = STFLib.getStorage();
@@ -132,7 +140,7 @@ library ProposeLib {
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
     bool isFirstBlockOfEpoch =
-      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+      v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
       STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, isFirstBlockOfEpoch
     );
@@ -145,6 +153,9 @@ library ProposeLib {
       components.proverCost
     );
 
+    // Compute attestationsHash from the attestations
+    v.attestationsHash = keccak256(abi.encode(_attestations));
+
     rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(blockNumber);
     rollupStore.archives[blockNumber] = _args.archive;
     STFLib.setTempBlockLog(
@@ -152,6 +163,8 @@ library ProposeLib {
       TempBlockLog({
         headerHash: v.headerHash,
         blobCommitmentsHash: blobCommitmentsHash,
+        attestationsHash: v.attestationsHash,
+        payloadDigest: v.payloadDigest,
         slotNumber: header.slotNumber,
         feeHeader: feeHeader
       })
@@ -169,8 +182,7 @@ library ProposeLib {
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }
 
-  // @note: not view as sampling validators uses tstore
-  function validateHeader(ValidateHeaderArgs memory _args) internal {
+  function validateHeader(ValidateHeaderArgs memory _args) internal view {
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
@@ -210,10 +222,6 @@ library ProposeLib {
     require(
       _args.header.gasFees.feePerL2Gas == _args.manaBaseFee,
       Errors.Rollup__InvalidManaBaseFee(_args.manaBaseFee, _args.header.gasFees.feePerL2Gas)
-    );
-
-    ValidatorSelectionLib.verify(
-      slot, slot.epochFromSlot(), _args.attestations, _args.digest, _args.flags
     );
   }
 
