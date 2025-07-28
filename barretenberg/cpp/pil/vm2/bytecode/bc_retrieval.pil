@@ -32,16 +32,16 @@ sel = 0;
 #[TRACE_CONTINUITY]
 (1 - sel) * (1 - precomputed.first_row) * sel' = 0;
 
-// This id is generated at runtime starting from zero and incremented by 1.
-// The primary source of bytecode_id is this sub-trace.
+// This id is now the bytecode commitment itself (for optimal deduplication).
+// The bytecode_id should equal the public_bytecode_commitment.
 pol commit bytecode_id;
 pol commit error;  // some error occurred.
 pol commit address;  // contract address.
 
-// `bytecode_id` starts from zero and incremented by 1.
-// Note: we only need to require TRACE_CONTINUITY because of this.
-((1 - sel) * sel') * bytecode_id = 0;  // First row that has sel = 1.
-sel * sel' * (bytecode_id' - bytecode_id) = 0;  // Next row.
+// Enforce that bytecode_id equals the public_bytecode_commitment (for optimal deduplication)
+// NOTE: we could just.... remove one of them of course....
+#[BYTECODE_ID_IS_COMMITMENT]
+instance_exists * (bytecode_id - public_bytecode_commitment) = 0;
 
 // contract instance members.
 //
@@ -110,6 +110,6 @@ instance_exists {
 // Note: we don't need to silo and check the class id because the deployer contract guarrantees
 // that if a contract instance exists, the class has been registered.
 
-// TODO: To ensure byetcode_id unicity inside of bc_decomposition.pil, we will have to introduce
-// a permutation of the form: sel_XXX {bytecode_id} is bc_decomposition.last_of_contract {bc_decomposition.id}
+// TODO: To ensure bytecode_id unicity inside of bc_decomposition.pil, we will have to introduce
+// a permutation of the form: sel_XXX {bytecode_id} is bc_decomposition.last_of_contract {bc_decomposition.bytecode_id}
 // sel_XXX will have to be picked so that it selects a bytecode_id iff it has an entry in bc_decomposition
