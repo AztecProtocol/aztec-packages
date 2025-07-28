@@ -391,6 +391,7 @@ export class RollupContract {
     args: readonly [
       ViemHeader,
       ViemCommitteeAttestations,
+      `0x${string}`[],
       `0x${string}`,
       `0x${string}`,
       {
@@ -404,7 +405,7 @@ export class RollupContract {
       await this.client.simulateContract({
         address: this.address,
         abi: RollupAbi,
-        functionName: 'validateHeader',
+        functionName: 'validateHeaderWithAttestations',
         args,
         account,
       });
@@ -503,6 +504,7 @@ export class RollupContract {
     }
     const latestBlock = await this.client.getBlock();
     const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
+    const who = typeof account === 'string' ? account : account.address;
 
     try {
       const {
@@ -511,7 +513,7 @@ export class RollupContract {
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
         account,
       });
 
