@@ -39,9 +39,9 @@ unconstrained fn transfer_in_private_to_self() {
 #[test]
 unconstrained fn transfer_in_private_to_non_deployed_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, nft_contract_address, sender, _, token_id) =
+    let (mut env, nft_contract_address, sender, _, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
-    let not_deployed = env.create_account(999);
+    let not_deployed = env.create_light_account();
 
     // Transfer the NFT to the recipient
     let _ = env.call_private(
