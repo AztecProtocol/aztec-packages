@@ -411,7 +411,7 @@ contract RollupTest is RollupBase {
     );
     proverFees *= 10; // the price conversion
 
-    uint256 expectedProverRewards = rewardDistributor.BLOCK_REWARD() / 2 * 2 + proverFees;
+    uint256 expectedProverRewards = rollup.getBlockReward() / 2 * 2 + proverFees;
 
     assertEq(
       rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
@@ -534,9 +534,9 @@ contract RollupTest is RollupBase {
         );
       }
 
-      uint256 expectedProverReward = rewardDistributor.BLOCK_REWARD() / 2
+      uint256 expectedProverReward = rollup.getBlockReward() / 2
         + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
-      uint256 expectedSequencerReward = rewardDistributor.BLOCK_REWARD() / 2 + interim.feeAmount
+      uint256 expectedSequencerReward = rollup.getBlockReward() / 2 + interim.feeAmount
         - FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
 
       assertEq(
