@@ -60,6 +60,25 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+void Execution::sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SUB;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.sub(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu sub operation failed");
+    }
+}
+
 void Execution::mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     constexpr auto opcode = ExecutionOpCode::MUL;
@@ -958,6 +977,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SUB:
+        call_with_operands(&Execution::sub, context, resolved_operands);
         break;
     case ExecutionOpCode::MUL:
         call_with_operands(&Execution::mul, context, resolved_operands);
