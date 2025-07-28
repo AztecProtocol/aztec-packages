@@ -340,6 +340,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         { // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
             AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
             Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
             ivc->accumulate(kernel);
         }
 

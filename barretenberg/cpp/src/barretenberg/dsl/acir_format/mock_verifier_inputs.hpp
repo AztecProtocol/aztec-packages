@@ -14,15 +14,15 @@
 
 namespace acir_format {
 
-template <typename Flavor> bb::HonkProof create_mock_oink_proof(const size_t num_public_inputs);
+template <typename Flavor> bb::HonkProof create_mock_oink_proof(const bool is_hiding_kernel);
 template <typename Flavor> bb::HonkProof create_mock_decider_proof();
-template <typename Flavor> bb::HonkProof create_mock_honk_proof(const size_t num_public_inputs);
-template <typename Flavor> bb::HonkProof create_mock_pg_proof(const size_t num_public_inputs);
+template <typename Flavor> bb::HonkProof create_mock_honk_proof(const bool is_hiding_kernel);
+template <typename Flavor> bb::HonkProof create_mock_pg_proof(const bool is_hiding_kernel);
 bb::Goblin::MergeProof create_mock_merge_proof();
 
 template <typename Flavor>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
-                                                                      const size_t num_public_inputs,
+                                                                      const bool is_hiding_kernel,
                                                                       const size_t pub_inputs_offset);
 template <typename Flavor> std::shared_ptr<bb::DeciderVerificationKey_<Flavor>> create_mock_decider_vk();
 

@@ -106,25 +106,25 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     blocks.compute_offsets(/*is_structured=*/true);
     size_t dyadic_size = blocks.get_structured_dyadic_size();
     size_t pub_inputs_offset = blocks.pub_inputs.trace_offset();
-    // All circuits have pairing point public inputs; kernels have additional public inputs for two databus commitments
-    size_t num_public_inputs = bb::PAIRING_POINTS_SIZE;
-    if (is_kernel) {
-        num_public_inputs += bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
-    }
 
-    // Construct a mock Oink or PG proof
+    // Construct a mock Oink or PG proof and mock MegaHonk verification key
     std::vector<FF> proof;
+    std::shared_ptr<MegaVerificationKey> verification_key;
     if (verification_type == ClientIVC::QUEUE_TYPE::OINK) {
-        proof = create_mock_oink_proof<ClientIVC::Flavor>(num_public_inputs);
-    } else if (verification_type == ClientIVC::QUEUE_TYPE::PG || verification_type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
-        proof = create_mock_pg_proof<ClientIVC::Flavor>(num_public_inputs);
+        proof = create_mock_oink_proof<ClientIVC::Flavor>(/*is_hiding_kernel=*/false);
+        verification_key =
+            create_mock_honk_vk<ClientIVC::Flavor>(dyadic_size, /*is_hiding_kernel=*/false, pub_inputs_offset);
+    } else if (verification_type == ClientIVC::QUEUE_TYPE::PG) {
+        proof = create_mock_pg_proof<ClientIVC::Flavor>(/*is_hiding_kernel=*/false);
+        verification_key =
+            create_mock_honk_vk<ClientIVC::Flavor>(dyadic_size, /*is_hiding_kernel=*/false, pub_inputs_offset);
+    } else if (verification_type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
+        proof = create_mock_pg_proof<ClientIVC::Flavor>(/*is_hiding_kernel=*/true);
+        verification_key =
+            create_mock_honk_vk<ClientIVC::Flavor>(dyadic_size, /*is_hiding_kernel=*/true, pub_inputs_offset);
     } else {
         throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
     }
-
-    // Construct a mock MegaHonk verification key
-    std::shared_ptr<MegaVerificationKey> verification_key =
-        create_mock_honk_vk<ClientIVC::Flavor>(dyadic_size, num_public_inputs, pub_inputs_offset);
 
     return ClientIVC::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
 }

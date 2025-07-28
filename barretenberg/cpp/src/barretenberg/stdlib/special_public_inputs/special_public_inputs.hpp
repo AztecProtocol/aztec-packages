@@ -55,6 +55,8 @@ class KernelIO {
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
+        info(public_inputs.size());
+        info(PUBLIC_INPUTS_SIZE);
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -88,6 +90,27 @@ class KernelIO {
         Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
+
+    /**
+     * @brief Add default public inputs when they are not present
+     *
+     */
+    static void add_default(Builder& builder)
+    {
+        PairingInputs::add_default_to_public_inputs(builder);
+        G1 kernel_return_data = G1(DEFAULT_ECC_COMMITMENT);
+        kernel_return_data.convert_constant_to_fixed_witness(&builder);
+        kernel_return_data.set_public();
+        G1 app_return_data = G1(DEFAULT_ECC_COMMITMENT);
+        app_return_data.convert_constant_to_fixed_witness(&builder);
+        app_return_data.set_public();
+        std::array<G1, Builder::NUM_WIRES> ecc_op_tables;
+        for (auto& table_commitment : ecc_op_tables) {
+            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment.convert_constant_to_fixed_witness(&builder);
+            table_commitment.set_public();
+        }
+    };
 };
 
 /**
