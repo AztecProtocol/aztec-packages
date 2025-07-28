@@ -653,8 +653,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
     }
 
     if (can_fuse_into_previous_gate) {
-        block.q_1()[block.size() - 1] = in.sign_coefficient;
-        block.q_elliptic()[block.size() - 1] = 1;
+        block.q_1().set(block.size() - 1, in.sign_coefficient);
+        block.q_elliptic().set(block.size() - 1, 1);
     } else {
         block.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
         block.q_3().emplace_back(0);
@@ -714,8 +714,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
     }
 
     if (can_fuse_into_previous_gate) {
-        block.q_elliptic()[block.size() - 1] = 1;
-        block.q_m()[block.size() - 1] = 1;
+        block.q_elliptic().set(block.size() - 1, 1);
+        block.q_m().set(block.size() - 1, 1);
     } else {
         block.populate_wires(this->zero_idx, in.x1, in.y1, this->zero_idx);
         block.q_elliptic().emplace_back(1);

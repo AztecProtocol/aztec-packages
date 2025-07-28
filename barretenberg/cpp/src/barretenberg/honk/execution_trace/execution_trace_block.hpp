@@ -43,19 +43,22 @@ template <typename FF> class Selector {
     virtual void emplace_back(int) = 0;
     virtual void push_back(const FF&) = 0;
     virtual void resize(size_t) = 0;
-    virtual FF& operator[](size_t) = 0;
+    virtual const FF& operator[](size_t) const = 0;
     virtual size_t size() const = 0;
-    virtual FF& back() = 0;
+    virtual const FF& back() const = 0;
     virtual bool empty() const = 0;
     virtual std::vector<uint8_t> to_buffer() const = 0;
+    virtual void set(size_t, int) = 0;
+    virtual void set_back(int) = 0;
+    virtual void set(size_t, const FF&) = 0;
 };
 
 template <typename FF> class ZeroSelector : public Selector<FF> {
   public:
     using Selector<FF>::emplace_back;
-    void emplace_back(int i) override
+    void emplace_back(int value) override
     {
-        BB_ASSERT_EQ(i, 0, "emplace_back non-zero to ZeroSelector is not allowed");
+        BB_ASSERT_EQ(value, 0, "emplace_back non-zero to ZeroSelector is not allowed");
         size_++;
     }
     void push_back(const FF& value) override
@@ -63,16 +66,31 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
         ASSERT(value.is_zero());
         size_++;
     }
-    void resize([[maybe_unused]] size_t new_size) override { size_ = new_size; }
+    void set_back(int value) override
+    {
+        BB_ASSERT_EQ(value, 0, "emplace_back non-zero to ZeroSelector is not allowed");
+    }
+    void set(size_t idx, int value) override
+    {
+        BB_ASSERT_LT(idx, size_);
+        BB_ASSERT_EQ(value, 0, "set non-zero to ZeroSelector is not allowed");
+    }
+    void set(size_t idx, const FF& value) override
+    {
+        BB_ASSERT_LT(idx, size_);
+        ASSERT(value.is_zero());
+        size_++;
+    }
+    void resize(size_t new_size) override { size_ = new_size; }
 
     bool operator==(const ZeroSelector& other) const { return size_ == other.size(); };
-    FF& operator[](size_t index) override
+    const FF& operator[](size_t index) const override
     {
         BB_ASSERT_LT(index, size_);
         ASSERT(zero.is_zero());
         return zero;
     };
-    FF& back() override
+    const FF& back() const override
     {
         ASSERT(zero.is_zero());
         return zero;
@@ -93,7 +111,7 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
     }
 
   private:
-    FF zero = 0;
+    static constexpr FF zero = 0;
     size_t size_ = 0;
 };
 
@@ -102,11 +120,14 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
     using Selector<FF>::emplace_back;
     void emplace_back(int i) override { data.emplace_back(i); }
     void push_back(const FF& value) override { data.push_back(value); }
+    void set_back(int value) override { data.back() = value; }
+    void set(size_t idx, int i) override { data[idx] = i; }
+    void set(size_t idx, const FF& value) override { data[idx] = value; }
     void resize(size_t new_size) override { data.resize(new_size); }
 
     bool operator==(const SlabVectorSelector& other) const { return data == other.data; }
-    FF& operator[](size_t i) override { return data[i]; };
-    FF& back() override { return data.back(); }
+    const FF& operator[](size_t i) const override { return data[i]; };
+    const FF& back() const override { return data.back(); }
 
     size_t size() const override { return data.size(); }
     bool empty() const override { return data.empty(); }
