@@ -80,10 +80,10 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
 {
     // If we are using the keccak flavor, then we use the log_circuit_size from the verification key, otherwise we use
     // the constant proof size log_n
-    const size_t log_n =
+    const uint64_t log_n =
         IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor> ? honk_vk->log_circuit_size : CONST_PROOF_SIZE_LOG_N;
 
-    std::vector<FF> gate_challenges(log_n);
+    std::vector<FF> gate_challenges(static_cast<size_t>(log_n));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }

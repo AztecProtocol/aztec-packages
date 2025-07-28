@@ -31,9 +31,9 @@ UltraVerifier_<Flavor>::verify_internal(const HonkProof& proof)
 
     // If we are using the keccak flavor, then we use the log_circuit_size from the verification key, otherwise we use
     // the constant proof size log_n
-    const size_t log_n = IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>
-                             ? verification_key->vk->log_circuit_size
-                             : CONST_PROOF_SIZE_LOG_N;
+    const uint64_t log_n = IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>
+                               ? verification_key->vk->log_circuit_size
+                               : CONST_PROOF_SIZE_LOG_N;
 
     for (size_t idx = 0; idx < log_n; idx++) {
         verification_key->gate_challenges.emplace_back(
@@ -61,7 +61,6 @@ bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProo
         info("Sumcheck failed!");
         return false;
     }
-    info("Sumcheck verified!");
     if (!decider_output.libra_evals_verified) {
         info("Libra evals failed!");
         return false;
@@ -87,9 +86,7 @@ bool UltraVerifier_<Flavor>::verify_proof(const HonkProof& proof, const HonkProo
         decider_output.pairing_points.aggregate(inputs.pairing_inputs);
     }
 
-    auto result = decider_output.check();
-    info("Decider output check: {}", result);
-    return result;
+    return decider_output.check();
 }
 
 /**
