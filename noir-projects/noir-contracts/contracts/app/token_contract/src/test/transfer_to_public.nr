@@ -10,8 +10,6 @@ unconstrained fn transfer_to_public_on_behalf_of_self() {
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
-    // foo
-
     let transfer_to_public_amount = mint_amount / (10 as u128);
     let _ = env.call_private(
         owner,
