@@ -5,9 +5,9 @@ pragma solidity >=0.8.27;
 // Code taken and updated from https://gist.github.com/kobigurk/257c1783ddf556e330f31ed57febc1d9
 // Add: hashToPoint, mapToPoint, hashtofield, constants, and helpers taken from
 // https://github.com/thehubbleproject/hubble-contracts/blob/master/contracts/libs/BLS.sol
-// Add: point at infinity check for valid G1/G2
 // Add: G1 Generator
 // Add: create gamma function of keccak reduced over field order
+// Add: Thin wrapper for pairing check
 
 import {ModexpInverse, ModexpSqrt} from "./ModExp.sol";
 
@@ -461,10 +461,9 @@ library BLS {
   }
 
   function isValidG2(uint256[4] memory g2) internal pure returns (bool) {
-    // Check is field element and not at point at infinity
     if (
       (g2[0] >= N) || (g2[1] >= N)
-        || (g2[2] >= N || (g2[3] >= N) || (g2[0] == 0 && g2[1] == 0 && g2[2] == 0 && g2[3] == 0))
+        || (g2[2] >= N || (g2[3] >= N))
     ) {
       return false;
     } else {
@@ -473,8 +472,7 @@ library BLS {
   }
 
   function isValidG1(uint256[2] memory g1) internal pure returns (bool) {
-    // Check is field element and not at point at infinity
-    if ((g1[0] >= N) || (g1[1] >= N) || (g1[0] == 0 && g1[1] == 0)) {
+    if ((g1[0] >= N) || (g1[1] >= N)) {
       return false;
     } else {
       return isOnCurveG1(g1);

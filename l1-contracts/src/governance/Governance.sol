@@ -562,7 +562,7 @@ contract Governance is IGovernance {
     uint256[4] calldata pk2, // G2
     uint256[2] calldata sigmaInit // G1
   ) external {
-    // Check points on curve, in field, not at infinity (Keep to save gas on bad keys)
+    // Check points on curve, in field (Keep to save gas on bad keys)
     require(BLS.isValidG1(pk1), Errors.Governance__BlsKeyInvalidG1Point(pk1));
     require(BLS.isValidG2(pk2), Errors.Governance__BlsKeyInvalidG2Point(pk2));
     require(BLS.isValidG1(sigmaInit), Errors.Governance__BlsKeyInvalidG1Point(sigmaInit));
