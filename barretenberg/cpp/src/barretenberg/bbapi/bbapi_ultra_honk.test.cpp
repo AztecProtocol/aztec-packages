@@ -48,6 +48,9 @@ TEST_F(BBApiUltraHonkTest, CircuitComputeVk)
 
     // Verify we got a non-empty verification key
     EXPECT_FALSE(response.bytes.empty());
+
+    // Verify that vk_hash is properly populated
+    EXPECT_FALSE(response.vk_hash.empty());
 }
 
 TEST_F(BBApiUltraHonkTest, CircuitProveAndVerify)
@@ -181,6 +184,39 @@ TEST_F(BBApiUltraHonkTest, ProveWithDifferentFlavors)
         auto response = std::move(command).execute();
         EXPECT_FALSE(response.proof.empty());
     }
+}
+
+TEST_F(BBApiUltraHonkTest, CircuitComputeVkHashConsistency)
+{
+    auto [bytecode, _] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    // Compute VK twice with same settings
+    CircuitComputeVk command1{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
+                               .settings = { .ipa_accumulation = false,
+                                             .oracle_hash_type = "poseidon2",
+                                             .disable_zk = false,
+                                             .honk_recursion = 1,
+                                             .recursive = false } };
+
+    CircuitComputeVk command2{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
+                               .settings = { .ipa_accumulation = false,
+                                             .oracle_hash_type = "poseidon2",
+                                             .disable_zk = false,
+                                             .honk_recursion = 1,
+                                             .recursive = false } };
+
+    auto response1 = std::move(command1).execute();
+    auto response2 = std::move(command2).execute();
+
+    // Verify both have non-empty vk_hash
+    EXPECT_FALSE(response1.vk_hash.empty());
+    EXPECT_FALSE(response2.vk_hash.empty());
+
+    // Verify that same circuit produces same vk_hash
+    EXPECT_EQ(response1.vk_hash, response2.vk_hash);
+
+    // Verify that the vk_hash has reasonable size (should be 32 bytes for a hash)
+    EXPECT_EQ(response1.vk_hash.size(), 32);
 }
 
 TEST_F(BBApiUltraHonkTest, ProofAsFields)

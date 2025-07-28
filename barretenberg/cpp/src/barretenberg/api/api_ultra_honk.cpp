@@ -28,21 +28,19 @@ void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
     if (output_format == "bytes" || output_format == "bytes_and_fields") {
         write_file(output_dir / "vk", vk_response.bytes);
         info("VK saved to ", output_dir / "vk");
-        // Also write vk_hash
-        auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response.bytes);
-        write_file(output_dir / "vk_hash", to_buffer(vk.hash()));
+        write_file(output_dir / "vk_hash", vk_response.vk_hash);
         info("VK Hash saved to ", output_dir / "vk_hash");
     }
 
     if (output_format == "fields" || output_format == "bytes_and_fields") {
-        // Use the fields directly from vk_response if available
+        // Use the fields directly from vk_response
         std::string vk_json = field_elements_to_json(vk_response.fields);
         write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
         info("VK fields saved to ", output_dir / "vk_fields.json");
 
-        // For vk_hash
-        auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response.bytes);
-        std::string vk_hash_json = format("\"", vk.hash(), "\"");
+        // For vk_hash fields - convert the bytes to fr and then to JSON
+        auto vk_hash_fr = from_buffer<fr>(vk_response.vk_hash);
+        std::string vk_hash_json = format("\"", vk_hash_fr, "\"");
         write_file(output_dir / "vk_hash_fields.json", { vk_hash_json.begin(), vk_hash_json.end() });
         info("VK Hash fields saved to ", output_dir / "vk_hash_fields.json");
     }

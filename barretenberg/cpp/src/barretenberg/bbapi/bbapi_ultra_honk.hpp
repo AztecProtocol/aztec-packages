@@ -61,7 +61,7 @@ struct CircuitComputeVk {
         std::vector<uint8_t> bytes;   // Serialized verification key
         std::vector<fr> fields;       // VK as field elements
         std::vector<uint8_t> vk_hash; // The VK hash
-        MSGPACK_FIELDS(bytes, fields);
+        MSGPACK_FIELDS(bytes, fields, vk_hash);
         bool operator==(const Response&) const = default;
     };
 

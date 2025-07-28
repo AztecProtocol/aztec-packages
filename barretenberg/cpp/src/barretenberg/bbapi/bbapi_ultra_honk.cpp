@@ -192,13 +192,15 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
 {
     std::vector<uint8_t> vk_bytes;
     std::vector<fr> vk_fields;
+    std::vector<uint8_t> vk_hash_bytes;
 
-    // Helper lambda to compute VK and fields for a given flavor
+    // Helper lambda to compute VK, fields, and hash for a given flavor
     auto compute_vk_and_fields = [&]<typename Flavor>() {
         auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
         vk_bytes = to_buffer(*vk);
         vk_fields = vk->to_field_elements();
+        vk_hash_bytes = to_buffer(vk->hash());
     };
 
     if (settings.ipa_accumulation) {
@@ -221,7 +223,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
         throw_or_abort("invalid proof type in _write_vk");
     }
 
-    return { .bytes = vk_bytes, .fields = vk_fields };
+    return { .bytes = vk_bytes, .fields = vk_fields, .vk_hash = vk_hash_bytes };
 }
 
 CircuitInfo::Response CircuitInfo::execute(BB_UNUSED const BBApiRequest& request) &&
