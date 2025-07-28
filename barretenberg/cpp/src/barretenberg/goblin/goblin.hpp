@@ -119,10 +119,10 @@ class Goblin {
      * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
      * verifier
      */
-    static std::pair<bool, TableCommitments> verify(const GoblinProof& proof,
-                                                    const TableCommitments& t_commitments,
-                                                    const TableCommitments& T_prev_commitments,
-                                                    const std::shared_ptr<Transcript>& transcript);
+    static bool verify(const GoblinProof& proof,
+                       const TableCommitments& t_commitments,
+                       const TableCommitments& T_prev_commitments,
+                       const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb

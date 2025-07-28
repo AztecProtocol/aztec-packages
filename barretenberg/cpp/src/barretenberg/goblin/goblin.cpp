@@ -94,10 +94,10 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     return { pairing_points, merged_table_commitments };
 }
 
-std::pair<bool, Goblin::TableCommitments> Goblin::verify(const GoblinProof& proof,
-                                                         const TableCommitments& t_commitments,
-                                                         const TableCommitments& T_prev_commitments,
-                                                         const std::shared_ptr<Transcript>& transcript)
+bool Goblin::verify(const GoblinProof& proof,
+                    const TableCommitments& t_commitments,
+                    const TableCommitments& T_prev_commitments,
+                    const std::shared_ptr<Transcript>& transcript)
 {
     MergeVerifier merge_verifier(MergeSettings::PREPEND, transcript);
     auto [merge_verified, merged_table_commitments] =
@@ -125,9 +125,8 @@ std::pair<bool, Goblin::TableCommitments> Goblin::verify(const GoblinProof& proo
     vinfo("translation verified?: ", translation_verified);
     vinfo("consistency verified?: ", op_queue_consistency_verified);
 
-    return { merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
-                 op_queue_consistency_verified,
-             merged_table_commitments };
+    return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
+           op_queue_consistency_verified;
 }
 
 } // namespace bb
