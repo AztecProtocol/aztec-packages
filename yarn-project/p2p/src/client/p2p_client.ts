@@ -154,6 +154,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
     this.txPool.updateConfig(config);
+    this.p2pService.updateConfig(config);
     return Promise.resolve();
   }
 
