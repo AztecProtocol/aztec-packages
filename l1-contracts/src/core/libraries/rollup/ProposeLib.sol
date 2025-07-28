@@ -47,6 +47,7 @@ struct InterimProposeValues {
   bytes32 attestationsHash;
   bytes32 payloadDigest;
   Epoch currentEpoch;
+  bool isFirstBlockOfEpoch;
 }
 
 /**
@@ -136,13 +137,16 @@ library ProposeLib {
     );
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 blockNumber = rollupStore.tips.getPendingBlockNumber() + 1;
+    CompressedChainTips tips = rollupStore.tips;
+
+    uint256 blockNumber = tips.getPendingBlockNumber() + 1;
+    tips = tips.updatePendingBlockNumber(blockNumber);
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
-    bool isFirstBlockOfEpoch =
+    v.isFirstBlockOfEpoch =
       v.currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
-      STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, isFirstBlockOfEpoch
+      STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
     );
 
     FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
@@ -156,7 +160,7 @@ library ProposeLib {
     // Compute attestationsHash from the attestations
     v.attestationsHash = keccak256(abi.encode(_attestations));
 
-    rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(blockNumber);
+    rollupStore.tips = tips;
     rollupStore.archives[blockNumber] = _args.archive;
     STFLib.setTempBlockLog(
       blockNumber,
