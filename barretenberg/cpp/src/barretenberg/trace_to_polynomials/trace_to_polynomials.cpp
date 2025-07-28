@@ -80,18 +80,11 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             }
         }
 
+        RefVector<Selector<FF>> block_selectors = block.get_selectors();
         // Insert the selector values for this block into the selector polynomials at the correct offset
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
-        for (size_t selector_idx = 0; selector_idx < NUM_NON_ZERO_SELECTORS; selector_idx++) {
-            auto& selector = block.non_zero_selectors[selector_idx];
-            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                size_t trace_row_idx = row_idx + offset;
-                selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
-            }
-        }
-        for (size_t selector_idx = NUM_NON_ZERO_SELECTORS; selector_idx < NUM_NON_ZERO_SELECTORS + NUM_ZERO_SELECTORS;
-             selector_idx++) {
-            auto& selector = block.zero_selectors[selector_idx];
+        for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
+            auto& selector = block_selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
                 selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);

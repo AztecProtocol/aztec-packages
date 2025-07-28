@@ -13,6 +13,7 @@
  */
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "rom_ram_logic.hpp"
 
@@ -1178,41 +1179,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         blocks.delta_range, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
-/**
- * @brief Create a gate with no constraints but with possibly non-trivial wire values
- * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it. The
- * dummy gate itself does not have to satisfy any constraints (all selectors are zero).
- *
- * @tparam ExecutionTrace
- * @param block Execution trace block into which the dummy gate is to be placed
- */
-template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_gate(
-    auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
-{
-    block.populate_wires(idx_1, idx_2, idx_3, idx_4);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_arith().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.q_delta_range().emplace_back(0);
-    block.q_elliptic().emplace_back(0);
-    block.q_lookup_type().emplace_back(0);
-    block.q_memory().emplace_back(0);
-    block.q_nnf().emplace_back(0);
-    block.q_poseidon2_external().emplace_back(0);
-    block.q_poseidon2_internal().emplace_back(0);
-
-    if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
-        block.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
-}
-
 // useful to put variables in the witness that aren't already used - e.g. the dummy variables of the range constraint in
 // multiples of three
 template <typename ExecutionTrace>
@@ -1950,10 +1916,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
         blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
-        for (auto& selector : this->blocks.pub_inputs.non_zero_selectors) {
-            selector.emplace_back(0);
-        }
-        for (auto& selector : this->blocks.pub_inputs.zero_selectors) {
+        for (auto& selector : this->blocks.pub_inputs.get_selectors()) {
             selector.emplace_back(0);
         }
     }
@@ -2512,8 +2475,8 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
 
     // Hash the selectors, the wires, and the variable index array (which captures information about copy constraints)
     for (auto& block : blocks.get()) {
-        std::for_each(block.non_zero_selectors.begin(), block.non_zero_selectors.end(), convert_and_insert_selectors);
-        std::for_each(block.zero_selectors.begin(), block.zero_selectors.end(), convert_and_insert_selectors);
+        auto selectors = block.get_selectors();
+        std::for_each(selectors.begin(), selectors.end(), convert_and_insert_selectors);
         std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert_vectors);
     }
     convert_and_insert_vectors(circuit.real_variable_index);

@@ -679,7 +679,40 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t variable_index,
         const size_t num_bits,
         std::string const& msg = "decompose_into_default_range_better_for_oddlimbnum");
-    void create_dummy_gate(auto& block, const uint32_t&, const uint32_t&, const uint32_t&, const uint32_t&);
+
+    /**
+     * @brief Create a gate with no constraints but with possibly non-trivial wire values
+     * @details A dummy gate can be used to provide wire values to be accessed via shifts by the gate that proceeds it.
+     * The dummy gate itself does not have to satisfy any constraints (all selectors are zero).
+     *
+     * @tparam ExecutionTrace
+     * @param block Execution trace block into which the dummy gate is to be placed
+     */
+    void create_dummy_gate(
+        auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+    {
+        block.populate_wires(idx_1, idx_2, idx_3, idx_4);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_arith().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_delta_range().emplace_back(0);
+        block.q_elliptic().emplace_back(0);
+        block.q_lookup_type().emplace_back(0);
+        block.q_memory().emplace_back(0);
+        block.q_nnf().emplace_back(0);
+        block.q_poseidon2_external().emplace_back(0);
+        block.q_poseidon2_internal().emplace_back(0);
+
+        if constexpr (HasAdditionalSelectors<ExecutionTrace>) {
+            block.pad_additional();
+        }
+        check_selector_length_consistency();
+        ++this->num_gates;
+    }
     void create_dummy_constraints(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);

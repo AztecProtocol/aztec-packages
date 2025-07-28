@@ -90,43 +90,29 @@ struct TraceSettings {
     size_t dyadic_size() const { return numeric::round_up_power_2(size()); }
 };
 
-class MegaTraceBlock
-    : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_NON_ZERO_SELECTORS_*/ 15, /*NUM_ZERO_SELECTORS_=*/0> {
-    using SelectorType = ExecutionTraceBlock<fr, 4, 15, 0>::NonZeroSelectorType;
+class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
+    using SelectorType = Selector<fr>;
 
   public:
-    void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
-    {
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        this->stack_traces.populate();
-#endif
-        this->tracy_gate();
-        this->wires[0].emplace_back(idx_1);
-        this->wires[1].emplace_back(idx_2);
-        this->wires[2].emplace_back(idx_3);
-        this->wires[3].emplace_back(idx_4);
-    }
+    SelectorType& q_busread() { return this->zero_selectors[0]; };
+    SelectorType& q_lookup_type() { return this->zero_selectors[1]; };
+    SelectorType& q_arith() { return this->zero_selectors[2]; };
+    SelectorType& q_delta_range() { return this->zero_selectors[3]; };
+    SelectorType& q_elliptic() { return this->zero_selectors[4]; };
+    SelectorType& q_memory() { return this->zero_selectors[5]; };
+    SelectorType& q_nnf() { return this->zero_selectors[6]; };
+    SelectorType& q_poseidon2_external() { return this->zero_selectors[7]; };
+    SelectorType& q_poseidon2_internal() { return this->zero_selectors[8]; };
 
-    auto& w_l() { return std::get<0>(this->wires); };
-    auto& w_r() { return std::get<1>(this->wires); };
-    auto& w_o() { return std::get<2>(this->wires); };
-    auto& w_4() { return std::get<3>(this->wires); };
-
-    auto& q_m() { return this->non_zero_selectors[0]; };
-    auto& q_c() { return this->non_zero_selectors[1]; };
-    auto& q_1() { return this->non_zero_selectors[2]; };
-    auto& q_2() { return this->non_zero_selectors[3]; };
-    auto& q_3() { return this->non_zero_selectors[4]; };
-    auto& q_4() { return this->non_zero_selectors[5]; };
-    auto& q_busread() { return this->non_zero_selectors[6]; };
-    auto& q_lookup_type() { return this->non_zero_selectors[7]; };
-    auto& q_arith() { return this->non_zero_selectors[8]; };
-    auto& q_delta_range() { return this->non_zero_selectors[9]; };
-    auto& q_elliptic() { return this->non_zero_selectors[10]; };
-    auto& q_memory() { return this->non_zero_selectors[11]; };
-    auto& q_nnf() { return this->non_zero_selectors[12]; };
-    auto& q_poseidon2_external() { return this->non_zero_selectors[13]; };
-    auto& q_poseidon2_internal() { return this->non_zero_selectors[14]; };
+    const SelectorType& q_busread() const { return this->zero_selectors[0]; };
+    const SelectorType& q_lookup_type() const { return this->zero_selectors[1]; };
+    const SelectorType& q_arith() const { return this->zero_selectors[2]; };
+    const SelectorType& q_delta_range() const { return this->zero_selectors[3]; };
+    const SelectorType& q_elliptic() const { return this->zero_selectors[4]; };
+    const SelectorType& q_memory() const { return this->zero_selectors[5]; };
+    const SelectorType& q_nnf() const { return this->zero_selectors[6]; };
+    const SelectorType& q_poseidon2_external() const { return this->zero_selectors[7]; };
+    const SelectorType& q_poseidon2_internal() const { return this->zero_selectors[8]; };
 
     RefVector<SelectorType> get_gate_selectors()
     {
@@ -134,6 +120,48 @@ class MegaTraceBlock
             q_busread(),     q_lookup_type(),        q_arith(),
             q_delta_range(), q_elliptic(),           q_memory(),
             q_nnf(),         q_poseidon2_external(), q_poseidon2_internal(),
+        };
+    }
+
+    RefVector<Selector<fr>> get_selectors() override
+    {
+        return RefVector{
+            q_m(),
+            q_c(),
+            q_1(),
+            q_2(),
+            q_3(),
+            q_4(),
+            q_busread(),
+            q_lookup_type(),
+            q_arith(),
+            q_delta_range(),
+            q_elliptic(),
+            q_memory(),
+            q_nnf(),
+            q_poseidon2_external(),
+            q_poseidon2_internal(),
+        };
+    }
+
+    RefVector<const Selector<fr>> get_selectors() const override
+    {
+        return RefVector{
+            q_m(),
+            q_c(),
+            q_1(),
+            q_2(),
+            q_3(),
+            q_4(),
+            q_busread(),
+            q_lookup_type(),
+            q_arith(),
+            q_delta_range(),
+            q_elliptic(),
+            q_memory(),
+            q_nnf(),
+            q_poseidon2_external(),
+            q_poseidon2_internal(),
         };
     }
 
@@ -152,6 +180,9 @@ class MegaTraceBlock
      * @param new_size
      */
     void resize_additional(size_t new_size) { q_busread().resize(new_size); };
+
+  protected:
+    std::array<ZeroSelector<fr>, 9> zero_selectors;
 };
 
 class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
@@ -166,8 +197,6 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
      */
 
     static constexpr size_t NUM_WIRES = MegaTraceBlock::NUM_WIRES;
-    static constexpr size_t NUM_NON_ZERO_SELECTORS = MegaTraceBlock::NUM_NON_ZERO_SELECTORS;
-    static constexpr size_t NUM_ZERO_SELECTORS = MegaTraceBlock::NUM_ZERO_SELECTORS;
 
     using FF = fr;
 

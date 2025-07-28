@@ -14,100 +14,63 @@
 
 namespace bb {
 
-class UltraTraceBlock
-    : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_NON_ZERO_SELECTORS_*/ 7, /*NUM_ZERO_SELECTORS_*/ 8> {
+class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
   public:
-    void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+    Selector<fr>& q_lookup_type() { return zero_selectors[0]; };
+    Selector<fr>& q_arith() { return zero_selectors[1]; }
+    Selector<fr>& q_delta_range() { return zero_selectors[2]; }
+    Selector<fr>& q_elliptic() { return zero_selectors[3]; }
+    Selector<fr>& q_memory() { return zero_selectors[4]; }
+    Selector<fr>& q_nnf() { return zero_selectors[5]; }
+    Selector<fr>& q_poseidon2_external() { return zero_selectors[6]; }
+    Selector<fr>& q_poseidon2_internal() { return zero_selectors[7]; }
+
+    const Selector<fr>& q_lookup_type() const { return zero_selectors[0]; };
+    const Selector<fr>& q_arith() const { return zero_selectors[1]; }
+    const Selector<fr>& q_delta_range() const { return zero_selectors[2]; }
+    const Selector<fr>& q_elliptic() const { return zero_selectors[3]; }
+    const Selector<fr>& q_memory() const { return zero_selectors[4]; }
+    const Selector<fr>& q_nnf() const { return zero_selectors[5]; }
+    const Selector<fr>& q_poseidon2_external() const { return zero_selectors[6]; }
+    const Selector<fr>& q_poseidon2_internal() const { return zero_selectors[7]; }
+
+    RefVector<Selector<fr>> get_selectors() override
     {
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        this->stack_traces.populate();
-#endif
-        this->tracy_gate();
-        this->wires[0].emplace_back(idx_1);
-        this->wires[1].emplace_back(idx_2);
-        this->wires[2].emplace_back(idx_3);
-        this->wires[3].emplace_back(idx_4);
+        return RefVector{ q_m(),
+                          q_c(),
+                          q_1(),
+                          q_2(),
+                          q_3(),
+                          q_4(),
+                          q_lookup_type(),
+                          q_arith(),
+                          q_delta_range(),
+                          q_elliptic(),
+                          q_memory(),
+                          q_nnf(),
+                          q_poseidon2_external(),
+                          q_poseidon2_internal() };
+    }
+    RefVector<const Selector<fr>> get_selectors() const override
+    {
+        return RefVector{ q_m(),
+                          q_c(),
+                          q_1(),
+                          q_2(),
+                          q_3(),
+                          q_4(),
+                          q_lookup_type(),
+                          q_arith(),
+                          q_delta_range(),
+                          q_elliptic(),
+                          q_memory(),
+                          q_nnf(),
+                          q_poseidon2_external(),
+                          q_poseidon2_internal() };
     }
 
-    auto& w_l() { return std::get<0>(this->wires); };
-    auto& w_r() { return std::get<1>(this->wires); };
-    auto& w_o() { return std::get<2>(this->wires); };
-    auto& w_4() { return std::get<3>(this->wires); };
-
-    SlabVectorSelector<fr>& q_m() { return non_zero_selectors[0]; };
-    SlabVectorSelector<fr>& q_c() { return non_zero_selectors[1]; };
-    SlabVectorSelector<fr>& q_1() { return non_zero_selectors[2]; };
-    SlabVectorSelector<fr>& q_2() { return non_zero_selectors[3]; };
-    SlabVectorSelector<fr>& q_3() { return non_zero_selectors[4]; };
-    SlabVectorSelector<fr>& q_4() { return non_zero_selectors[5]; };
-
-    enum class Type {
-        LOOKUP_TYPE,
-        ARITHMETIC,
-        DELTA_RANGE,
-        ELLIPTIC,
-        MEMORY,
-        NON_NATIVE_FIELD,
-        POSEIDON2_EXTERNAL,
-        POSEIDON2_INTERNAL,
-    } type;
-
-    Selector<fr>& q_lookup_type()
-    {
-        if (type == Type::LOOKUP_TYPE) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[0];
-    };
-    Selector<fr>& q_arith()
-    {
-        if (type == Type::ARITHMETIC) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[1];
-    }
-    Selector<fr>& q_delta_range()
-    {
-        if (type == Type::DELTA_RANGE) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[2];
-    }
-    Selector<fr>& q_elliptic()
-    {
-        if (type == Type::ELLIPTIC) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[3];
-    }
-    Selector<fr>& q_memory()
-    {
-        if (type == Type::MEMORY) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[4];
-    }
-    Selector<fr>& q_nnf()
-    {
-        if (type == Type::NON_NATIVE_FIELD) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[5];
-    }
-    Selector<fr>& q_poseidon2_external()
-    {
-        if (type == Type::POSEIDON2_EXTERNAL) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[6];
-    }
-    Selector<fr>& q_poseidon2_internal()
-    {
-        if (type == Type::POSEIDON2_INTERNAL) {
-            return non_zero_selectors[6];
-        }
-        return zero_selectors[7];
-    }
+  protected:
+    std::array<ZeroSelector<fr>, 8> zero_selectors;
 };
 
 /**
@@ -151,8 +114,6 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
 
   public:
     static constexpr size_t NUM_WIRES = UltraTraceBlock::NUM_WIRES;
-    static constexpr size_t NUM_NON_ZERO_SELECTORS = UltraTraceBlock::NUM_NON_ZERO_SELECTORS;
-    static constexpr size_t NUM_ZERO_SELECTORS = UltraTraceBlock::NUM_ZERO_SELECTORS;
     using FF = fr;
 
     bool has_overflow = false;
@@ -199,7 +160,7 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
     size_t get_structured_dyadic_size()
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
-        for (auto block : this->get()) {
+        for (auto& block : this->get()) {
             total_size += block.get_fixed_size();
         }
 

@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -123,19 +124,21 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
  * @tparam NUM_WIRES
  * @tparam NUM_SELECTORS
  */
-template <typename FF, size_t NUM_WIRES_, size_t NUM_NON_ZERO_SELECTORS_, size_t NUM_ZERO_SELECTORS_>
-class ExecutionTraceBlock {
+template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
   public:
     static constexpr size_t NUM_WIRES = NUM_WIRES_;
-    static constexpr size_t NUM_NON_ZERO_SELECTORS = NUM_NON_ZERO_SELECTORS_;
-    static constexpr size_t NUM_ZERO_SELECTORS = NUM_ZERO_SELECTORS_;
 
-    using NonZeroSelectorType = SlabVectorSelector<FF>;
-    using ZeroSelectorType = ZeroSelector<FF>;
+    using SelectorType = Selector<FF>;
     using WireType = SlabVector<uint32_t>;
-    using NonZeroSelectors = std::array<NonZeroSelectorType, NUM_NON_ZERO_SELECTORS>;
-    using ZeroSelectors = std::array<ZeroSelectorType, NUM_ZERO_SELECTORS>;
     using Wires = std::array<WireType, NUM_WIRES>;
+
+    ExecutionTraceBlock() = default;
+    ExecutionTraceBlock(const ExecutionTraceBlock&) = default;
+    ExecutionTraceBlock& operator=(const ExecutionTraceBlock&) = default;
+    ExecutionTraceBlock(ExecutionTraceBlock&&) noexcept = default;
+    ExecutionTraceBlock& operator=(ExecutionTraceBlock&&) noexcept = default;
+
+    virtual ~ExecutionTraceBlock() = default;
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
     // If enabled, we keep slow stack traces to be able to correlate gates with code locations where they were added
@@ -154,9 +157,7 @@ class ExecutionTraceBlock {
 #endif
     }
 
-    Wires wires; // vectors of indices into a witness variables array
-    NonZeroSelectors non_zero_selectors;
-    ZeroSelectors zero_selectors;
+    Wires wires;                                                   // vectors of indices into a witness variables array
     uint32_t trace_offset_ = std::numeric_limits<uint32_t>::max(); // where this block starts in the trace
 
     uint32_t trace_offset() const
@@ -174,7 +175,7 @@ class ExecutionTraceBlock {
         for (auto& w : wires) {
             w.reserve(size_hint);
         }
-        for (auto& p : non_zero_selectors) {
+        for (auto& p : get_selectors()) {
             p.reserve(size_hint);
         }
 #ifdef CHECK_CIRCUIT_STACKTRACES
@@ -200,6 +201,43 @@ class ExecutionTraceBlock {
     }
 #endif
     uint32_t fixed_size = 0; // Fixed size for use in structured trace
+
+    virtual RefVector<Selector<FF>> get_selectors() = 0;
+    virtual RefVector<const Selector<FF>> get_selectors() const = 0;
+
+    void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
+    {
+#ifdef CHECK_CIRCUIT_STACKTRACES
+        this->stack_traces.populate();
+#endif
+        this->tracy_gate();
+        this->wires[0].emplace_back(idx_1);
+        this->wires[1].emplace_back(idx_2);
+        this->wires[2].emplace_back(idx_3);
+        this->wires[3].emplace_back(idx_4);
+    }
+
+    auto& w_l() { return std::get<0>(this->wires); };
+    auto& w_r() { return std::get<1>(this->wires); };
+    auto& w_o() { return std::get<2>(this->wires); };
+    auto& w_4() { return std::get<3>(this->wires); };
+
+    Selector<FF>& q_m() { return non_gate_selectors[0]; };
+    Selector<FF>& q_c() { return non_gate_selectors[1]; };
+    Selector<FF>& q_1() { return non_gate_selectors[2]; };
+    Selector<FF>& q_2() { return non_gate_selectors[3]; };
+    Selector<FF>& q_3() { return non_gate_selectors[4]; };
+    Selector<FF>& q_4() { return non_gate_selectors[5]; };
+
+    const Selector<FF>& q_m() const { return non_gate_selectors[0]; };
+    const Selector<FF>& q_c() const { return non_gate_selectors[1]; };
+    const Selector<FF>& q_1() const { return non_gate_selectors[2]; };
+    const Selector<FF>& q_2() const { return non_gate_selectors[3]; };
+    const Selector<FF>& q_3() const { return non_gate_selectors[4]; };
+    const Selector<FF>& q_4() const { return non_gate_selectors[5]; };
+
+  protected:
+    std::array<SlabVectorSelector<FF>, 6> non_gate_selectors;
 };
 
 } // namespace bb
