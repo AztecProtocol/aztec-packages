@@ -56,6 +56,10 @@ library Errors {
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
+  error Rollup__InvalidAttestations();
+  error Rollup__AttestationsAreValid();
+  error Rollup__BlockAlreadyProven();
+  error Rollup__BlockNotInPendingChain();
   error Rollup__InvalidBlobHash(bytes32 expected, bytes32 actual); // 0x13031e6a
   error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
   error Rollup__NoEpochToProve(); // 0xcbaa3951
@@ -98,10 +102,12 @@ library Errors {
   // Sequencer Selection (ValidatorSelection)
   error ValidatorSelection__EpochNotSetup(); // 0x10816cae
   error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
+  error ValidatorSelection__MissingProposerSignature(address proposer, uint256 index);
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
   error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
+  error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);
