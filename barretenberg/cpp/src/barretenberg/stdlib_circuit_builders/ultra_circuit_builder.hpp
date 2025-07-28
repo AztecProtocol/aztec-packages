@@ -332,7 +332,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 #else
         for (auto& block : blocks.get()) {
             const auto& block_selectors = block.get_selectors();
-            size_t nominal_size = block_selectors.size();
+            size_t nominal_size = block_selectors[0].size();
             for (size_t idx = 1; idx < block_selectors.size(); ++idx) {
                 ASSERT_DEBUG(block_selectors[idx].size() == nominal_size);
             }
