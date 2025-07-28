@@ -5,7 +5,7 @@ use crate::EasyPrivateVoting;
 
 #[test]
 unconstrained fn test_initializer() {
-    let (env, voting_contract_address, admin) = utils::setup();
+    let (mut env, voting_contract_address, admin) = utils::setup();
 
     env.public_context_at(voting_contract_address, |context| {
         let current_admin = context.storage_read(EasyPrivateVoting::storage_layout().admin.slot);
@@ -15,7 +15,7 @@ unconstrained fn test_initializer() {
 
 #[test]
 unconstrained fn test_check_vote_status() {
-    let (env, voting_contract_address, _) = utils::setup();
+    let (mut env, voting_contract_address, _) = utils::setup();
 
     env.public_context_at(voting_contract_address, |context| {
         let vote_ended = context.storage_read(EasyPrivateVoting::storage_layout().vote_ended.slot);
@@ -37,16 +37,16 @@ unconstrained fn test_end_vote() {
 
 #[test(should_fail)]
 unconstrained fn test_fail_end_vote_by_non_admin() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
 
     let _ = env.call_public(alice, EasyPrivateVoting::at(voting_contract_address).end_vote());
 }
 
 #[test]
 unconstrained fn test_cast_vote() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
 
     let candidate = 1;
     let _ = env.call_private(
@@ -65,9 +65,9 @@ unconstrained fn test_cast_vote() {
 
 #[test]
 unconstrained fn test_cast_vote_with_separate_accounts() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
-    let bob = env.create_account(3);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let bob = env.create_light_account();
 
     let candidate = 101;
 
@@ -90,8 +90,8 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
 
 #[test(should_fail)]
 unconstrained fn test_fail_vote_twice() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
 
     let candidate = 101;
 
