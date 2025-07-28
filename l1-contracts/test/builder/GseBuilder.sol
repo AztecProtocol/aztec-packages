@@ -12,6 +12,7 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 struct Flags {
   bool openFloodgates;
@@ -73,9 +74,6 @@ contract GSEBuilder is TestBase {
     if (address(config.registry) == address(0)) {
       config.registry = new Registry(address(this), config.testERC20);
       config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
-      config.testERC20.mint(
-        address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
-      );
       vm.label(address(config.registry), "Registry");
       vm.label(address(config.rewardDistributor), "RewardDistributor");
     }

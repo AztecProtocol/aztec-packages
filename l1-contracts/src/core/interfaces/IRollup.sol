@@ -218,4 +218,5 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getOutbox() external view returns (IOutbox);
 
   function getRewardConfig() external view returns (RewardConfig memory);
+  function getBlockReward() external view returns (uint256);
 }
