@@ -57,7 +57,8 @@ library BLS {
 
   error verifySingleFail();
   error isNonResidueFPFail();
-  error temp();
+  error addPointFail();
+  error mulPointFail();
 
   /**
    * @notice Fouque-Tibouchi Hash to Curve
@@ -100,7 +101,7 @@ library BLS {
     assembly {
       success := staticcall(sub(gas(), 2000), 6, input, 0xc0, r, 0x60)
     }
-    require(success, temp());
+    require(success, addPointFail());
   }
 
   function mulPoint(uint256[2] memory p, uint256 s) internal view returns (uint256[2] memory r) {
@@ -112,7 +113,7 @@ library BLS {
     assembly {
       success := staticcall(sub(gas(), 2000), 7, input, 0x80, r, 0x60)
     }
-    require(success, temp());
+    require(success, mulPointFail());
   }
 
   function isValidCompressedPublicKey(uint256[2] memory publicKey) internal view returns (bool) {

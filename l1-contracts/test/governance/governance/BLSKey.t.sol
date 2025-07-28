@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
 import {BLS} from "@aztec/governance/libraries/BLS.sol";
+import {KeyStorage} from "@aztec/governance/libraries/KeyStorage.sol";
 import {console} from "forge-std/console.sol";
 
 contract BLSKeyTest is GovernanceBase {
@@ -90,7 +91,7 @@ contract BLSKeyTest is GovernanceBase {
     assertTrue(governance.isValidatorActive(keyId), "Key should be active");
 
     // Try to register the same key again (should fail)
-    vm.expectRevert("key already registered");
+    vm.expectRevert(KeyStorage.KeyAlreadyRegistered.selector);
     governance.registerKey(Pk1, Pk2, SigmaInit);
 
     // Remove the key and verify deactivation
@@ -103,7 +104,7 @@ contract BLSKeyTest is GovernanceBase {
     assertFalse(governance.isValidatorActive(keyId), "Key should be inactive");
 
     // Try to remove the key again (should fail since it's already inactive)
-    vm.expectRevert("already inactive");
+    vm.expectRevert(KeyStorage.AlreadyInactive.selector);
     governance.deactivateKey();
 
     // Try to register again after removal (should work)

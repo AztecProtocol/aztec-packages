@@ -53,6 +53,21 @@ struct Keys {
  * @dev Implements validator registration, activation control, and secure key tracking
  */
 library KeyStorage {
+  /// @notice Thrown when attempting to register a key that already exists
+  error KeyAlreadyRegistered();
+
+  /// @notice Thrown when caller is not a registered validator
+  error NotValidator();
+
+  /// @notice Thrown when attempting to deactivate an already inactive validator
+  error AlreadyInactive();
+
+  /// @notice Thrown when attempting to reactivate an already active validator
+  error AlreadyActive();
+
+  /// @notice Thrown when providing an invalid validator ID
+  error InvalidValidatorId();
+
   /**
    * @notice Register a new BLS key for the calling address
    * @dev Validates uniqueness constraints and initializes validator state.
@@ -63,8 +78,8 @@ library KeyStorage {
    */
   function addKey(Keys storage keys, uint256[2] memory pk1, uint256[4] memory pk2) internal {
     bytes32 keyHash = keccak256(abi.encodePacked(pk1, pk2));
-    require(keys.keyIdOf[keyHash] == 0, "key already registered");
-    require(keys.idOf[msg.sender] == 0, "key already registered");
+    if (keys.keyIdOf[keyHash] != 0) revert KeyAlreadyRegistered();
+    if (keys.idOf[msg.sender] != 0) revert KeyAlreadyRegistered();
 
     uint32 id = uint32(keys.validators.length) + 1; // Start IDs from 1, keep 0 as "not registered"
 
@@ -97,8 +112,8 @@ library KeyStorage {
    */
   function deactivateKey(Keys storage keys) internal {
     uint32 id = keys.idOf[msg.sender];
-    require(id != 0, "not validator");
-    require(keys.validators[id - 1].active, "already inactive"); // Convert ID to array index
+    if (id == 0) revert NotValidator();
+    if (!keys.validators[id - 1].active) revert AlreadyInactive(); // Convert ID to array index
 
     uint32 pos = keys.posInLive[id];
     uint32 last = uint32(keys.liveIds.length - 1);
@@ -120,9 +135,9 @@ library KeyStorage {
    */
   function reactivateKey(Keys storage keys) internal {
     uint32 id = keys.idOf[msg.sender];
-    require(id != 0, "not validator");
+    if (id == 0) revert NotValidator();
 
-    require(!keys.validators[id - 1].active, "already active");
+    if (keys.validators[id - 1].active) revert AlreadyActive();
 
     keys.validators[id - 1].active = true;
 
@@ -140,7 +155,7 @@ library KeyStorage {
    * @return Validator struct containing BLS key components and status
    */
   function getValidator(Keys storage keys, uint32 _id) external view returns (Validator memory) {
-    require(_id > 0 && _id <= keys.validators.length, "Invalid validator ID");
+    if (_id == 0 || _id > keys.validators.length) revert InvalidValidatorId();
     return keys.validators[_id - 1]; // Convert ID to array index
   }
 
@@ -214,7 +229,7 @@ library KeyStorage {
    * @return True if validator exists and is active
    */
   function isValidatorActive(Keys storage keys, uint32 _id) external view returns (bool) {
-    require(_id > 0 && _id <= keys.validators.length, "Invalid validator ID");
+    if (_id == 0 || _id > keys.validators.length) revert InvalidValidatorId();
     return keys.validators[_id - 1].active; // Convert ID to array index
   }
 }

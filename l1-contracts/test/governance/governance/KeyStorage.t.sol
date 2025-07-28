@@ -150,7 +150,7 @@ contract KeyStorageTest is Test {
   function test_CannotAddKeyTwice() public {
     h.addKey(pk1_alice, pk2_alice);
 
-    vm.expectRevert("key already registered");
+    vm.expectRevert(KeyStorage.KeyAlreadyRegistered.selector);
     h.addKey(pk1_alice, pk2_alice);
   }
 
@@ -164,7 +164,7 @@ contract KeyStorageTest is Test {
     assertTrue(h.isValidatorActive(firstUserId), "First user should be active");
 
     // Second user tries to register the same keys - should fail
-    vm.expectRevert("key already registered");
+    vm.expectRevert(KeyStorage.KeyAlreadyRegistered.selector);
     vm.prank(alice);
     h.addKey(pk1_alice, pk2_alice);
 
@@ -186,7 +186,7 @@ contract KeyStorageTest is Test {
     assertEq(h.getIdOf(address(this)), firstUserId, "First user should still have their ID");
 
     // Second user tries to register the same keys - should still fail
-    vm.expectRevert("key already registered");
+    vm.expectRevert(KeyStorage.KeyAlreadyRegistered.selector);
     vm.prank(alice);
     h.addKey(pk1_alice, pk2_alice);
 
@@ -228,7 +228,7 @@ contract KeyStorageTest is Test {
   }
 
   function test_CannotDeactivateUnregistered() public {
-    vm.expectRevert("not validator");
+    vm.expectRevert(KeyStorage.NotValidator.selector);
     h.deactivateKey();
   }
 
@@ -237,33 +237,33 @@ contract KeyStorageTest is Test {
 
     h.deactivateKey();
 
-    vm.expectRevert("already inactive");
+    vm.expectRevert(KeyStorage.AlreadyInactive.selector);
     h.deactivateKey();
   }
 
   function test_CannotReactivateUnregistered() public {
-    vm.expectRevert("not validator");
+    vm.expectRevert(KeyStorage.NotValidator.selector);
     h.reactivateKey();
   }
 
   function test_CannotReactivateAlreadyActive() public {
     h.addKey(pk1_alice, pk2_alice);
 
-    vm.expectRevert("already active");
+    vm.expectRevert(KeyStorage.AlreadyActive.selector);
     h.reactivateKey();
   }
 
   function test_InvalidValidatorIdReverts() public {
-    vm.expectRevert("Invalid validator ID");
+    vm.expectRevert(KeyStorage.InvalidValidatorId.selector);
     h.getValidator(0); // ID 0 is invalid
 
-    vm.expectRevert("Invalid validator ID");
+    vm.expectRevert(KeyStorage.InvalidValidatorId.selector);
     h.getValidator(999); // Non-existent ID
 
-    vm.expectRevert("Invalid validator ID");
+    vm.expectRevert(KeyStorage.InvalidValidatorId.selector);
     h.isValidatorActive(0); // ID 0 is invalid
 
-    vm.expectRevert("Invalid validator ID");
+    vm.expectRevert(KeyStorage.InvalidValidatorId.selector);
     h.isValidatorActive(999); // Non-existent ID
   }
 
