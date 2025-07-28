@@ -43,21 +43,27 @@ void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const
  * @brief Create a mock oink proof that has the correct structure but is not in general valid
  *
  */
-template <typename Flavor> HonkProof create_mock_oink_proof(const bool is_hiding_kernel)
+template <typename Flavor> HonkProof create_mock_oink_proof(const bool is_kernel, const bool is_hiding_kernel)
 {
     HonkProof proof;
 
-    // Populate mock public inputs based on the Flavor and kernel flags
+    if (is_kernel) {
+    }
+
     if constexpr (IsMegaFlavor<Flavor>) {
-        // When MegaFlavor, it is always either an init/inner/reset/tail kernel or an hiding kernel
         MegaCircuitBuilder builder;
         if (is_hiding_kernel) {
             stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>::add_default(builder);
             for (const auto& pub : builder.public_inputs()) {
                 proof.emplace_back(builder.get_variable(pub));
             }
-        } else {
+        } else if (is_kernel) {
             stdlib::recursion::honk::KernelIO::add_default(builder);
+            for (const auto& pub : builder.public_inputs()) {
+                proof.emplace_back(builder.get_variable(pub));
+            }
+        } else {
+            stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
             for (const auto& pub : builder.public_inputs()) {
                 proof.emplace_back(builder.get_variable(pub));
             }
@@ -125,10 +131,10 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
  * @brief Create a mock honk proof that has the correct structure but is not in general valid
  *
  */
-template <typename Flavor> HonkProof create_mock_honk_proof(const bool is_hiding_kernel)
+template <typename Flavor> HonkProof create_mock_honk_proof(const bool is_kernel, const bool is_hiding_kernel)
 {
     // Construct a Honk proof as the concatenation of an Oink proof and a Decider proof
-    HonkProof oink_proof = create_mock_oink_proof<Flavor>(is_hiding_kernel);
+    HonkProof oink_proof = create_mock_oink_proof<Flavor>(is_kernel, is_hiding_kernel);
     HonkProof decider_proof = create_mock_decider_proof<Flavor>();
     HonkProof proof;
     proof.reserve(oink_proof.size() + decider_proof.size());
@@ -141,10 +147,10 @@ template <typename Flavor> HonkProof create_mock_honk_proof(const bool is_hiding
  * @brief Create a mock PG proof that has the correct structure but is not in general valid
  *
  */
-template <typename Flavor> HonkProof create_mock_pg_proof(const bool is_hiding_kernel)
+template <typename Flavor> HonkProof create_mock_pg_proof(const bool is_kernel, const bool is_hiding_kernel)
 {
     // The first part of a PG proof is an Oink proof
-    HonkProof proof = create_mock_oink_proof<Flavor>(is_hiding_kernel);
+    HonkProof proof = create_mock_oink_proof<Flavor>(is_kernel, is_hiding_kernel);
 
     // Populate mock perturbator coefficients
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
@@ -217,15 +223,20 @@ Goblin::MergeProof create_mock_merge_proof()
  */
 template <typename Flavor>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,
-                                                                      const bool is_hiding_kernel,
-                                                                      const size_t pub_inputs_offset)
+                                                                      const size_t pub_inputs_offset,
+                                                                      const bool is_kernel,
+                                                                      const bool is_hiding_kernel)
 {
-    const auto NUM_PUBLIC_INPUTS = [&is_hiding_kernel]() -> size_t {
+    const auto NUM_PUBLIC_INPUTS = [&is_kernel, &is_hiding_kernel]() -> size_t {
         if constexpr (IsMegaFlavor<Flavor>) {
             if (is_hiding_kernel) {
                 return HidingKernelIO::PUBLIC_INPUTS_SIZE;
             }
-            return stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
+            if (is_kernel) {
+                return stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
+            }
+            return DefaultIO::PUBLIC_INPUTS_SIZE;
+
         } else if constexpr (HasIPAAccumulator<Flavor>) {
             return RollupIO::PUBLIC_INPUTS_SIZE;
         }
@@ -269,19 +280,20 @@ template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> crea
 }
 
 // Explicitly instantiate template functions
-template HonkProof create_mock_oink_proof<MegaFlavor>(const bool);
-template HonkProof create_mock_oink_proof<UltraFlavor>(const bool);
+template HonkProof create_mock_oink_proof<MegaFlavor>(const bool, const bool);
+template HonkProof create_mock_oink_proof<UltraFlavor>(const bool, const bool);
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<UltraFlavor>();
 
-template HonkProof create_mock_honk_proof<MegaFlavor>(const bool);
-template HonkProof create_mock_honk_proof<UltraFlavor>(const bool);
+template HonkProof create_mock_honk_proof<MegaFlavor>(const bool, const bool);
+template HonkProof create_mock_honk_proof<UltraFlavor>(const bool, const bool);
 
-template HonkProof create_mock_pg_proof<MegaFlavor>(const bool);
+template HonkProof create_mock_pg_proof<MegaFlavor>(const bool, const bool);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor>(const size_t,
+                                                                                      const size_t,
                                                                                       const bool,
-                                                                                      const size_t);
+                                                                                      const bool);
 template std::shared_ptr<DeciderVerificationKey_<MegaFlavor>> create_mock_decider_vk<MegaFlavor>();
 
 } // namespace acir_format

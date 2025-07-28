@@ -18,14 +18,16 @@ using namespace bb;
 
 template <typename Flavor> class MockVerifierInputsTest : public ::testing::Test {
   public:
-    size_t compute_num_public_inputs(const bool is_hiding_kernel) const
+    size_t compute_num_public_inputs(const bool is_kernel, const bool is_hiding_kernel = false) const
     {
         if constexpr (IsMegaFlavor<Flavor>) {
-            // When MegaFlavor, it is either an init/inner/reset/tail kernel or an hiding kernel
             if (is_hiding_kernel) {
                 return HidingKernelIO::PUBLIC_INPUTS_SIZE;
             }
-            return stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
+            if (is_kernel) {
+                return stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
+            }
+            return DefaultIO::PUBLIC_INPUTS_SIZE;
         } else if constexpr (HasIPAAccumulator<Flavor>) {
             return RollupIO::PUBLIC_INPUTS_SIZE;
         }
@@ -55,14 +57,30 @@ TYPED_TEST(MockVerifierInputsTest, MockOinkProofSize)
     using Flavor = TypeParam;
 
     {
-        const size_t NUM_PUBLIC_INPUTS = TestFixture::compute_num_public_inputs(/*is_hiding_kernel=*/false);
-        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_hiding_kernel=*/false);
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
+        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
         EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
     }
 
     {
-        const size_t NUM_PUBLIC_INPUTS = TestFixture::compute_num_public_inputs(/*is_hiding_kernel=*/true);
-        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_hiding_kernel=*/true);
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
+        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
+        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+    }
+
+    {
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
+        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
+        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+    }
+
+    {
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
+        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
         EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
     }
 }
@@ -88,14 +106,30 @@ TYPED_TEST(MockVerifierInputsTest, MockHonkProofSize)
     using Flavor = TypeParam;
 
     {
-        const size_t NUM_PUBLIC_INPUTS = TestFixture::compute_num_public_inputs(/*is_hiding_kernel=*/false);
-        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_hiding_kernel=*/false);
-        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
+        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
     }
 
     {
-        const size_t NUM_PUBLIC_INPUTS = TestFixture::compute_num_public_inputs(/*is_hiding_kernel=*/true);
-        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_hiding_kernel=*/true);
-        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
+        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+    }
+
+    {
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
+        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+    }
+
+    {
+        const size_t NUM_PUBLIC_INPUTS =
+            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
+        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
+        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
     }
 }
