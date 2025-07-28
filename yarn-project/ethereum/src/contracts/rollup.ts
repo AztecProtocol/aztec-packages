@@ -229,6 +229,10 @@ export class RollupContract {
     return EthAddress.fromString(await slasher.read.PROPOSER());
   }
 
+  getBlockReward() {
+    return this.rollup.read.getBlockReward();
+  }
+
   getBlockNumber() {
     return this.rollup.read.getPendingBlockNumber();
   }
