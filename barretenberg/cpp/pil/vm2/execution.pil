@@ -8,7 +8,7 @@ include "sha256.pil";
 include "ecc_mem.pil";
 include "poseidon2_mem.pil";
 include "scalar_mul.pil";
-include "to_radix.pil";
+include "to_radix_mem.pil";
 include "ff_gt.pil";
 include "gt.pil";
 include "context.pil";
@@ -288,16 +288,72 @@ pol commit expected_tag_reg[7];
 
 pol commit sel_should_check_gas;
 sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
-
 // NOTE: Gas is constrained in gas.pil.
 // The "output we want is" sel_out_of_gas from gas.pil.
 
+//////////////////////////////////////////
+// Bitwise, Dynamic L2 Gas Calculation
+//////////////////////////////////////////
 // For bitwise, the tag determines the dynamic_l2_gas_factor
 #[DYN_L2_FACTOR_BITWISE]
 sel_gas_bitwise { mem_tag_reg[0], dynamic_l2_gas_factor }
 in
 precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
 
+//////////////////////////////////////////
+// ToRadixBE, Dynamic L2 Gas Calculation
+//////////////////////////////////////////
+// The dynamic l2 gas factor depends on the number of limbs (located in register[2]) and
+// the number of limbs that the field modulus, p, decomposes into given a radix (num_p_limbs).
+
+// num_p_limbs is stored in a precomputed table that supports radix values in the range [0, 256].
+// To ensure the lookup never fails if radix > 256, we just set num_p_limbs to 32.
+// It is expected that an error will later be thrown when the to_radix subtrace validates the radix (located in register[1])
+
+// TODO: Theoretically, because we have access to a GreaterThan gadget - we could compare 257 > radix (instead of radix > 256)
+//       This potentially more optimal for the circuit as the boolen result of this can be used directly in the GET_SAFE_LIMBS lookup
+
+// In reality to keep the simulator cleaner and more sane, we will perform radix > 256.
+pol commit two_five_six;
+sel_gas_to_radix * (two_five_six - 256) = 0; // While we don't support constants in lookups
+
+pol commit sel_radix_gt_256; // sel_radix_gt_256 = 1 iff radix > 256
+#[CHECK_RADIX_GT_256]
+sel_gas_to_radix { /*radix=*/register[1], two_five_six, sel_radix_gt_256 }
+in
+gt.sel { gt.input_a, gt.input_b, gt.res };
+
+// Boolean for if we should look up the num_p_limbs value
+pol commit sel_lookup_num_p_limbs;
+sel_lookup_num_p_limbs = sel_gas_to_radix * (1 - sel_radix_gt_256);
+
+// If radix > 256, num_p_limbs has to equal 32 - otherwise we rely on the lookup
+pol commit num_p_limbs;
+#[NUM_P_LIMBS_CEIL]
+sel_gas_to_radix * (sel_radix_gt_256 * (num_p_limbs - 32)) = 0;
+
+#[GET_P_LIMBS]
+sel_lookup_num_p_limbs { /*radix=*/register[1], num_p_limbs }
+in
+precomputed.sel_to_radix_p_limb_counts
+    { precomputed.clk, precomputed.to_radix_num_limbs_for_p };
+
+// We now compute the dynamic l2 gas factor as max(num_limbs, num_p_limbs)
+// The easiest way to do this is to do check if num_limbs > num_p_limbs.
+// If so then dynamic_l2_gas_factor = num_limbs
+// Otherwise dynamic_l2_gas_factor = num_p_limbs
+pol commit sel_use_num_limbs;
+#[GET_MAX_LIMBS]
+sel_gas_to_radix { /*num_limbs=*/register[2], num_p_limbs, sel_use_num_limbs }
+in
+gt.sel { gt.input_a, gt.input_b, gt.res };
+
+#[DYN_L2_FACTOR_TO_RADIX_BE] // num_limbs > num_p_limbs ? num_limbs : num_p_limbs
+sel_gas_to_radix * ((/*num_limbs=*/register[2] - num_p_limbs) * sel_use_num_limbs + num_p_limbs - dynamic_l2_gas_factor) = 0;
+
+//////////////////////////////////////////
+// SSTORE, Dynamic L2 Gas Calculation
+//////////////////////////////////////////
 // We can probably unconditionally write to the written_public_data_slots_tree here
 // to avoid writing later in opcode execution, since the root would be reverted if it errors before
 // the opcode execution. However, this feels like an early optimization
@@ -315,6 +371,9 @@ sel_gas_sstore {
     written_public_data_slots_tree_check.root
 };
 
+// todo(ilyas): we are going to need these kinds of checks in general as well
+// i.e. opcodes without dynamic components need to assert dyn_l2 & dyn_da are zero
+// i.e. opcodes with only a single dynamic components need to assert the others are zero.
 #[SSTORE_DYN_L2_GAS_IS_ZERO]
 sel_execute_sstore * dynamic_l2_gas_factor = 0;
 
