@@ -10,6 +10,7 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {InboxAnchor} from "@aztec/core/libraries/crypto/InboxAnchorChain.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -64,6 +65,8 @@ library EpochProofLib {
     }
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
+
+    assertValidInHashes(_args.anchorChain, _args.start, _args.end);
 
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
@@ -242,6 +245,22 @@ library EpochProofLib {
     );
 
     return endEpoch;
+  }
+
+  function assertValidInHashes(InboxAnchor[] memory _anchorChain, uint256 _start, uint256 _end)
+    private
+    view
+  {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    bytes32[] memory inHashes = rollupStore.config.inbox.consume(_anchorChain, _start, _end);
+
+    for (uint256 i = 0; i < inHashes.length; i++) {
+      bytes32 expectedInHash = STFLib.getInHash(_start + i);
+      require(
+        expectedInHash == inHashes[i], Errors.Rollup__InvalidInHash(expectedInHash, inHashes[i])
+      );
+    }
   }
 
   function verifyEpochRootProof(SubmitEpochRootProofArgs calldata _args)

@@ -19,6 +19,7 @@ import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
  */
 struct BlockLog {
   bytes32 archive;
+  bytes32 inHash;
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
   Slot slotNumber;
@@ -26,6 +27,7 @@ struct BlockLog {
 }
 
 struct TempBlockLog {
+  bytes32 inHash;
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
   Slot slotNumber;
@@ -33,6 +35,7 @@ struct TempBlockLog {
 }
 
 struct CompressedTempBlockLog {
+  bytes32 inHash;
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
   CompressedSlot slotNumber;
@@ -51,6 +54,7 @@ library CompressedTempBlockLogLib {
     returns (CompressedTempBlockLog memory)
   {
     return CompressedTempBlockLog({
+      inHash: _blockLog.inHash,
       headerHash: _blockLog.headerHash,
       blobCommitmentsHash: _blockLog.blobCommitmentsHash,
       slotNumber: _blockLog.slotNumber.compress(),
@@ -64,6 +68,7 @@ library CompressedTempBlockLogLib {
     returns (TempBlockLog memory)
   {
     return TempBlockLog({
+      inHash: _compressedBlockLog.inHash,
       headerHash: _compressedBlockLog.headerHash,
       blobCommitmentsHash: _compressedBlockLog.blobCommitmentsHash,
       slotNumber: _compressedBlockLog.slotNumber.decompress(),

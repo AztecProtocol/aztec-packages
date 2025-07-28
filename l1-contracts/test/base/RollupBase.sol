@@ -27,6 +27,7 @@ import {
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {InboxAnchor} from "@aztec/core/libraries/crypto/InboxAnchorChain.sol";
 
 contract RollupBase is DecoderBase {
   IInstance internal rollup;
@@ -88,6 +89,8 @@ contract RollupBase is DecoderBase {
       fees[i * 2 + 1] = bytes32(uint256(blockFees[startBlockNumber + i]));
     }
 
+    InboxAnchor[] memory anchorChain = inbox.getAnchorChain(startBlockNumber, endBlockNumber);
+
     // All the way down here if reverting.
 
     if (_revertMsg.length > 0) {
@@ -99,6 +102,7 @@ contract RollupBase is DecoderBase {
         start: startBlockNumber,
         end: endBlockNumber,
         args: args,
+        anchorChain: anchorChain,
         fees: fees,
         blobInputs: endFull.block.batchedBlobInputs,
         proof: ""
@@ -207,6 +211,10 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       return;
     }
+
+    assertEq(
+      full.block.header.contentCommitment.inHash, rollup.getBlock(full.block.blockNumber).inHash
+    );
 
     bytes32 l2ToL1MessageTreeRoot;
     uint32 numTxs = full.block.numTxs;

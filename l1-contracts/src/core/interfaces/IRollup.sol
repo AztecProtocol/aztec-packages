@@ -11,6 +11,7 @@ import {
 } from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {InboxAnchor} from "@aztec/core/libraries/crypto/InboxAnchorChain.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -38,6 +39,7 @@ struct SubmitEpochRootProofArgs {
   bytes32[] fees;
   bytes blobInputs;
   bytes proof;
+  InboxAnchor[] anchorChain;
 }
 
 /**
