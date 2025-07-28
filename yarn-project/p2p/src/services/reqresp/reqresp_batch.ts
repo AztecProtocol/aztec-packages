@@ -2,7 +2,7 @@ import { chunk } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import type { TxHash } from '@aztec/stdlib/tx';
+import type { TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
@@ -28,9 +28,12 @@ class MissingTxMetadata {
 export class BatchTxRequester {
   private readonly peers: PeerId[];
   private readonly smartPeers = new Set<string>();
+  private readonly badPeers = new Set<string>();
   private readonly peersToTxMap = new Map<string, Array<TxHash>>();
 
   private readonly txsMetadata;
+
+  private readonly deadline = Date.now() + this.timeoutMs;
 
   private startSmartRequester: ((v: void) => void) | undefined = undefined;
 
@@ -38,6 +41,7 @@ export class BatchTxRequester {
     private readonly blockProposal: BlockProposal,
     private readonly missingTxs: TxHash[],
     private readonly pinnedPeer: PeerId | undefined,
+    private readonly timeoutMs: number,
     private readonly reqresp: ReqRespInterface,
     private readonly connectionSampler: ConnectionSampler,
     private logger = createLogger('p2p:reqresp_batch'),
@@ -58,18 +62,25 @@ export class BatchTxRequester {
     const { promise, resolve } = promiseWithResolvers<void>();
     this.startSmartRequester = resolve;
 
-    Promise.allSettled([this.smartRequester(promise), this.dumbRequester()]);
+    //TODO: executeTimeout?
+    await Promise.allSettled([this.smartRequester(promise), this.dumbRequester()]);
   }
 
   private async smartRequester(start: Promise<void>) {
-    const nextPeerIndex = this.makeRoundRobinIndexer(() => this.smartPeers.size);
+    const nextPeerIndex = this.makeRoundRobinIndexer(() => getPeers().length);
+    const getPeers = () => Array.from(this.smartPeers.difference(this.badPeers));
+
     // if we don't have a pinned peer we wait to start smart requester
     // otherwise we start immediately with the pinned peer
     if (!this.pinnedPeer) {
       await start;
     }
 
-    const nextPeer = () => peerIdFromString(Array.from(this.smartPeers)[nextPeerIndex()]);
+    const nextPeer = () => {
+      const idx = nextPeerIndex();
+      return idx === undefined ? undefined : peerIdFromString(getPeers()[idx]);
+    };
+
     const makeRequest = (pid: PeerId) => {
       //TODO: for this peer we have to make batch on the fly based on which txs peer has
       const txsPeerHas = this.peersToTxMap.get(pid.toString());
@@ -85,41 +96,57 @@ export class BatchTxRequester {
       return BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txsToRequest);
     };
 
-    // Kick off workers
-    const workers = Array.from({ length: Math.min(PEERS_TO_QUERY_IN_PARALLEL, this.smartPeers.size) }, () =>
-      this.workerLoop(nextPeer, makeRequest),
+    const workers = Array.from({ length: Math.min(PEERS_TO_QUERY_IN_PARALLEL, getPeers().length) }, () =>
+      this.workerLoop(nextPeer, makeRequest, 'smart'),
     );
     await Promise.allSettled(workers);
   }
 
   private async dumbRequester() {
-    const nextPeerIndex = this.makeRoundRobinIndexer(() => peers.length);
+    const peers = new Set(this.peers.map(peer => peer.toString()));
+    const nextPeerIndex = this.makeRoundRobinIndexer(() => getPeers().length);
     const nextBatchIndex = this.makeRoundRobinIndexer(() => txChunks.length);
+    const getPeers = () => Array.from(peers.difference(this.smartPeers.union(this.badPeers)));
 
-    const peers = [...this.peers];
     const txChunks = chunk<TxHash>(this.missingTxs, TX_BATCH_SIZE);
 
     //TODO: batches should be adaptive
     const makeRequest = (_pid: PeerId) => {
-      return BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txChunks[nextBatchIndex()]);
+      const idx = nextBatchIndex();
+      return idx === undefined
+        ? undefined
+        : BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txChunks[idx]);
     };
 
-    const nextPeer = () => peers.filter(pid => !this.smartPeers.has(pid.toString()))[nextPeerIndex()];
+    const nextPeer = () => {
+      const idx = nextPeerIndex();
+      return idx === undefined ? undefined : peerIdFromString(Array.from(getPeers())[idx]);
+    };
 
-    const workers = Array.from({ length: Math.min(PEERS_TO_QUERY_IN_PARALLEL, peers.length) }, () =>
-      this.workerLoop(nextPeer, makeRequest),
+    const workers = Array.from({ length: Math.min(PEERS_TO_QUERY_IN_PARALLEL, getPeers().length) }, () =>
+      this.workerLoop(nextPeer, makeRequest, 'dumb'),
     );
     await Promise.allSettled(workers);
   }
 
-  private async workerLoop(pickNextPeer: () => PeerId, request: (pid: PeerId) => BlockTxsRequest | undefined) {
+  private async workerLoop(
+    pickNextPeer: () => PeerId | undefined,
+    request: (pid: PeerId) => BlockTxsRequest | undefined,
+    type: 'smart' | 'dumb',
+  ) {
     while (!this.shouldStop()) {
       const peerId = pickNextPeer();
-      //
+      const weRanOutOfPeersToQuery = peerId === undefined;
+      if (weRanOutOfPeersToQuery) {
+        this.logger.debug(`Worker loop: ${type}: No more peers to query`);
+        return;
+      }
+
       // TODO: think about this a bit more what should we do in this case?
       const nextBatchTxRequest = request(peerId);
       if (!nextBatchTxRequest) {
-        this.logger.warn('No txs matched');
+        this.logger.warn(`Worker loop: ${type}: Could not create next batch request`);
+        // We retry with the next peer/batch
         continue;
       }
 
@@ -146,34 +173,16 @@ export class BatchTxRequester {
     }
   }
 
-  //TODO: 1 mark missing transactions as fetched
-  //TODO: 2 mark peer having this transactions
-  //TODO: 3 stream responses either via async generator or callbacks
   private handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
     if (!this.isBlockResponseValid(response)) {
       return;
     }
 
-    //TODO: yield txs
-    for (const tx of response.txs) {
-      const key = tx.txHash.toString();
-      let meta = this.txsMetadata.get(key);
+    this.smartPeers.add(peerId.toString());
 
-      if (!meta) {
-        meta = new MissingTxMetadata(tx.txHash, true);
-        this.txsMetadata.set(key, meta);
-      } else {
-        meta.fetched = true; // mutate in place; no need to re-set
-      }
-    }
-
-    const peerIdStr = peerId.toString();
-    this.smartPeers.add(peerIdStr);
-    const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
-    // NOTE: it's ok to override this and not make it union with previous data
-    // because the newer request contains most up to date info
-    this.peersToTxMap.set(peerIdStr, txsPeerHas);
+    this.markTxsPeerHas(peerId, response);
+    this.handleReceivedTxs(peerId, response.txs);
 
     //TODO: maybe wait for at least couple of peers so that we don't spam single one?
     if (this.startSmartRequester !== undefined) {
@@ -190,8 +199,42 @@ export class BatchTxRequester {
     return blockIdsMatch && peerHasSomeTxsFromProposal;
   }
 
-  //TODO:
-  private handleFailResponseFromPeer(peerId: PeerId) {}
+  private handleReceivedTxs(peerId: PeerId, txs: TxArray) {
+    //TODO: yield txs
+    for (const tx of txs) {
+      const key = tx.txHash.toString();
+      let txMeta = this.txsMetadata.get(key);
+      if (txMeta) {
+        txMeta.fetched = true;
+        txMeta.peers.add(peerId.toString());
+      } else {
+        //TODO: what to do about peer which sent txs we didn't request?
+        // 1. don't request from it in the scope of this batch request
+        // 2. ban it immediately?
+        // 3. track it and ban it?
+        //
+        // NOTE: don't break immediately peer still might have txs we need
+      }
+    }
+  }
+
+  private markTxsPeerHas(peerId: PeerId, response: BlockTxsResponse) {
+    const peerIdStr = peerId.toString();
+    const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
+    // NOTE: it's ok to override this and not make it union with previous data
+    // because the newer request contains most up to date info
+    this.peersToTxMap.set(peerIdStr, txsPeerHas);
+
+    this.txsMetadata.values().forEach(txMeta => {
+      txMeta.peers.add(peerIdStr);
+    });
+  }
+
+  //TODO: are we missing something here?
+  // banning the peers?
+  private handleFailResponseFromPeer(peerId: PeerId) {
+    this.badPeers.add(peerId.toString());
+  }
 
   private extractHashesPeerHasFromResponse(response: BlockTxsResponse): Array<TxHash> {
     const hashes: TxHash[] = [];
@@ -208,8 +251,13 @@ export class BatchTxRequester {
   private makeRoundRobinIndexer(size: () => number, start = 0) {
     let i = start;
     return () => {
+      const length = size();
+      if (length === 0) {
+        return undefined;
+      }
+
       const current = i;
-      i = (current + 1) % size();
+      i = (current + 1) % length;
       return current;
     };
   }
@@ -223,6 +271,6 @@ export class BatchTxRequester {
   //2. deadline
   //3. received all
   private shouldStop() {
-    return this.fetchedAllTxs() || this.txsMetadata.size === 0;
+    return this.txsMetadata.size === 0 || this.fetchedAllTxs() || Date.now() > this.deadline;
   }
 }
