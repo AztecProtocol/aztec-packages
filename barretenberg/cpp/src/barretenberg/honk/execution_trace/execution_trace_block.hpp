@@ -54,7 +54,7 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
     using Selector<FF>::emplace_back;
     void emplace_back(int i) override
     {
-        BB_ASSERT_EQ(i, 0);
+        BB_ASSERT_EQ(i, 0, "emplace_back non-zero to ZeroSelector is not allowed");
         size_++;
     }
     void push_back(const FF& value) override

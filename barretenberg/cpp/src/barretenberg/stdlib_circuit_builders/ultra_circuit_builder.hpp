@@ -331,9 +331,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // do nothing
 #else
         for (auto& block : blocks.get()) {
-            size_t nominal_size = block.selectors[0].size();
-            for (size_t idx = 1; idx < block.selectors.size(); ++idx) {
-                ASSERT_DEBUG(block.selectors[idx].size() == nominal_size);
+            size_t nominal_size = block.non_zero_selectors[0].size();
+            for (size_t idx = 1; idx < block.non_zero_selectors.size(); ++idx) {
+                ASSERT_DEBUG(block.non_zero_selectors[idx].size() == nominal_size);
+            }
+            for (auto& selector : block.zero_selectors) {
+                ASSERT_DEBUG(selector.size() == nominal_size);
             }
         }
 
