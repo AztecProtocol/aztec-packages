@@ -1738,7 +1738,7 @@ template <typename TestType> class stdlib_uint : public testing::Test {
     {
         Builder builder = Builder();
 
-        const auto bit_test = [&builder](const bool is_constant) {
+        const auto bit_test = [&builder](const bool is_constant, bool invert_bit = false) {
             // construct a sum of uint_ct's, where at least one is a constant,
             // and validate its correctness bitwise
             uint_native const_a = get_random();
@@ -1750,12 +1750,15 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             for (size_t i = 0; i < uint_native_width; ++i) {
                 bool_ct result = c.at(i);
                 bool expected = (((c_val >> i) & 1UL) == 1UL) ? true : false;
+                if (invert_bit) {
+                    expected = !expected;
+                }
                 EXPECT_EQ(result.get_value(), expected);
                 EXPECT_EQ(result.get_context(), c.get_context());
             }
         };
 
-        bit_test(false);
+        bit_test(false, true);
         bit_test(true);
 
         printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());

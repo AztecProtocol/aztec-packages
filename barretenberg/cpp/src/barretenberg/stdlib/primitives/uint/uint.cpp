@@ -240,7 +240,12 @@ template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Nativ
     if (slice_bit_position + 1 != bits_per_limb) {
         context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_limb - (slice_bit_position + 1))) - 1);
     }
-    bool_t<Builder> result = witness_t<Builder>(context, bit_value);
+
+    //! BUG: The `result` is created from the raw value `bit_value` and is not constrained to be the actual bit value at
+    //! `bit_index`. Hence, we can change it to be the inverse of the actual bit value, and the circuit will still be
+    //! valid. This is validated in `test_at` test.
+    bool bit_value_inverted = (bit_value == 0) ? true : false;
+    bool_t<Builder> result = witness_t<Builder>(context, bit_value_inverted);
     return result;
 }
 
