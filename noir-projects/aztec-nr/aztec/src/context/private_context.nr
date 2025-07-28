@@ -546,6 +546,11 @@ impl PrivateContext {
         execution_cache::store(returns_hasher.fields, self.return_hash);
     }
 
+    /// Builds the PrivateCircuitPublicInputs for this private function, to
+    /// ensure compatibility with the protocol's kernel circuits.
+    ///
+    /// Very low-level function: This function is automatically called by the
+    /// #[private] macro.
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
@@ -1060,7 +1065,7 @@ impl PrivateContext {
         //     > self.min_revertible_side_effect_counter {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
-        self.side_effect_counter = end_side_effect_counter + 1;
+        self.side_effect_counter = end_side_effect_counter + 1; // TODO: call `next_counter` instead, for consistency
         ReturnsHash::new(returns_hash)
     }
 
@@ -1133,6 +1138,30 @@ impl PrivateContext {
         self.public_call_requests.push(Counted::new(call_request, counter));
     }
 
+    /// Enqueues a public function call, and designates it to be the teardown
+    /// function for this tx. Only one teardown function call can be made by a
+    /// tx.
+    ///
+    /// Niche function: Only wallet developers and paymaster contract developers
+    /// (aka Fee-payment contracts) will need to make use of this function.
+    ///
+    /// Aztec supports a three-phase execution model: setup, app logic, teardown.
+    /// The phases exist to enable a fee payer to take on the risk of paying
+    /// a transaction fee, safe in the knowledge that their payment (in whatever
+    /// token or method the user chooses) will succeed, regardless of whether
+    /// the app logic will succeed. The "setup" phase ensures the fee payer
+    /// has sufficient balance to pay the proposer their fees.
+    /// The teardown phase is primarily intended to: calculate exactly
+    /// how much the user owes, based on gas consumption, and refund the user
+    /// any change.
+    ///
+    /// Note: in some cases, the cost of refunding the user (i.e. DA costs of
+    /// tx side-effects) might exceed the refund amount. For app logic with
+    /// fairly stable and predictable gas consumption, a material refund amount
+    /// is unlikely. For app logic with unpredictable gas consumption, a
+    /// refund might be important to the user (e.g. if a heft function reverts
+    /// very early). Wallet/FPC/Paymaster developers should be mindful of this.
+    ///
     pub fn set_public_teardown_function<let ARGS_COUNT: u32>(
         &mut self,
         contract_address: AztecAddress,
@@ -1170,6 +1199,58 @@ impl PrivateContext {
         };
     }
 
+    /// Every side-effect of a private function is given a "side-effect counter",
+    /// based on when it is created. This PrivateContext is in charge of
+    /// assigning the counters.
+    ///
+    /// Very low-level function.
+    ///
+    /// # Advanced
+    /// The reason we have side-effect counters is complicated. Consider this
+    /// illustrative pseudocode of inter-contract function calls:
+    /// ```
+    /// contract A {
+    ///    let x = 5; // pseudocode for storage var x.
+    ///    fn a1 {
+    ///        read x; // value: 5, counter: 1.
+    ///        x = x + 1;
+    ///        write x; // value: 6, counter: 2.
+    ///
+    ///        B.b(); // start_counter: 2, end_counter: 4
+    ///
+    ///        read x; // value: 36, counter: 5.
+    ///        x = x + 1;
+    ///        write x; // value: 37, counter: 6.
+    ///    }
+    ///
+    ///    fn a2 {
+    ///        read x; // value: 6, counter: 3.
+    ///        x = x * x;
+    ///        write x; // value: 36, counter: 4.
+    ///    }
+    /// }
+    ///
+    /// contract B {
+    ///     fn b() {
+    ///         A.a2();
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Suppose a1 is the first function called. The comments show the execution
+    /// counter of each side-effect, and what the new value of `x` is.
+    /// These (private) functions are processed by Aztec's kernel circuits in an
+    /// order that is different from execution order:
+    /// All of A.a1 is proven before B.b is proven, before A.a2 is proven.
+    /// So when we're in the 2nd execution frame of A.a1 (after the call to
+    /// B.b), the circuit needs to justify why x went from being `6` to `36`.
+    /// But the circuit doesn't know why, because it only has its local view of
+    /// things. Only the kernel circuit can reconcile this.
+    /// So every private function must correctly assign side-effect counters and
+    /// expose to the kernel its start and end counters. This gives the kernel
+    /// enough information to know whether a read_request is trying to access
+    /// a value that hasn't been written yet.
+    ///
     fn next_counter(&mut self) -> u32 {
         let counter = self.side_effect_counter;
         self.side_effect_counter += 1;
