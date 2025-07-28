@@ -1,0 +1,112 @@
+{
+  "ignition": {
+    "no_validators": {
+      "propose": {
+        "calls": 100,
+        "min": 172938,
+        "mean": 180182,
+        "median": 179484,
+        "max": 195380
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 37790,
+        "mean": 40785,
+        "median": 39790,
+        "max": 103864
+      },
+      "submitEpochRootProof": {
+        "calls": 2,
+        "min": 778752,
+        "mean": 799356,
+        "median": 799356,
+        "max": 819960
+      }
+    },
+    "validators": {
+      "propose": {
+        "calls": 100,
+        "min": 277179,
+        "mean": 284434,
+        "median": 283725,
+        "max": 300076
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 37790,
+        "mean": 48311,
+        "median": 39790,
+        "max": 354729
+      },
+      "submitEpochRootProof": {
+        "calls": 2,
+        "min": 778752,
+        "mean": 799356,
+        "median": 799356,
+        "max": 819960
+      },
+      "aggregate3": {
+        "calls": 100,
+        "min": 324429,
+        "mean": 331654,
+        "median": 326830,
+        "max": 351870
+      }
+    }
+  },
+  "alpha": {
+    "no_validators": {
+      "propose": {
+        "calls": 100,
+        "min": 209076,
+        "mean": 219022,
+        "median": 219062,
+        "max": 235012
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 37790,
+        "mean": 41912,
+        "median": 39790,
+        "max": 106381
+      },
+      "submitEpochRootProof": {
+        "calls": 3,
+        "min": 652535,
+        "mean": 671999,
+        "median": 652631,
+        "max": 710831
+      }
+    },
+    "validators": {
+      "propose": {
+        "calls": 100,
+        "min": 409332,
+        "mean": 419406,
+        "median": 419268,
+        "max": 435627
+      },
+      "setupEpoch": {
+        "calls": 100,
+        "min": 37790,
+        "mean": 61658,
+        "median": 39790,
+        "max": 600014
+      },
+      "submitEpochRootProof": {
+        "calls": 3,
+        "min": 652535,
+        "mean": 671999,
+        "median": 652631,
+        "max": 710831
+      },
+      "aggregate3": {
+        "calls": 100,
+        "min": 454901,
+        "mean": 471485,
+        "median": 472493,
+        "max": 495734
+      }
+    }
+  }
+}
