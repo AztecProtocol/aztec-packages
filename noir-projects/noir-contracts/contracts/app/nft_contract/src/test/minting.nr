@@ -13,7 +13,7 @@ unconstrained fn mint_success() {
     utils::assert_owns_public_nft(env, nft_contract_address, owner, token_id);
 }
 
-#[test(should_fail_with = "NFT minted by non-minter")]
+#[test(should_fail_with = "caller is not a minter")]
 unconstrained fn mint_as_non_minter_fails() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, other) = utils::setup(/* with_account_contracts */ false);
