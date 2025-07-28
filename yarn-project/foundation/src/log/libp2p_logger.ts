@@ -21,7 +21,7 @@ function replaceFormatting(message: string) {
     return message;
   }
 
-  return message.replace(/(%p|%a)/g, '%s');
+  return message.replace(/(%p|%a|%e)/g, '%s');
 }
 
 function createLibp2pLogger(component: string): Logger {

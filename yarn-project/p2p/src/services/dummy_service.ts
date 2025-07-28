@@ -192,9 +192,10 @@ export class DummyPeerManager implements PeerManagerInterface {
       }));
   }
 
-  public initializePeers(): Promise<void> {
-    return Promise.resolve();
+  public initializePeers(): void {
+    return;
   }
+
   public getPeerScore(_peerId: string): number {
     return 0;
   }

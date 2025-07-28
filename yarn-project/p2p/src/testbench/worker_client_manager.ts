@@ -4,6 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ChainConfig } from '@aztec/stdlib/config';
 
+import type { PrivateKey } from '@libp2p/interface';
 import { type ChildProcess, fork } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -12,6 +13,7 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
+import { privateKeyToHex } from '../util.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
@@ -26,7 +28,7 @@ const testChainConfig: ChainConfig = {
 
 class WorkerClientManager {
   public processes: ChildProcess[] = [];
-  public peerIdPrivateKeys: string[] = [];
+  public peerIdPrivateKeys: PrivateKey[] = [];
   public peerEnrs: string[] = [];
   public ports: number[] = [];
   private p2pConfig: Partial<P2PConfig>;
@@ -56,7 +58,7 @@ class WorkerClientManager {
     return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
-      peerIdPrivateKey: new SecretValue(this.peerIdPrivateKeys[clientIndex]),
+      peerIdPrivateKey: new SecretValue(privateKeyToHex(this.peerIdPrivateKeys[clientIndex])),
       listenAddress: '127.0.0.1',
       p2pIp: '127.0.0.1',
       p2pPort: port,
@@ -132,7 +134,7 @@ class WorkerClientManager {
       this.messageReceivedByClient = new Array(numberOfClients).fill(0);
       this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
       this.ports = await getPorts(numberOfClients);
-      this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
+      this.peerEnrs = makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
 
       this.processes = [];
       const readySignals: Promise<void>[] = [];
@@ -201,7 +203,7 @@ class WorkerClientManager {
       this.ports[clientIndex] = newPort;
 
       // Update the port in the peerEnrs array
-      this.peerEnrs[clientIndex] = await makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
+      this.peerEnrs[clientIndex] = makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
 
       // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
       const otherNodes = this.peerEnrs.filter(
