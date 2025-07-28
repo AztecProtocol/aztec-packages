@@ -5,17 +5,16 @@ use aztec::{
 };
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
 
-    let admin = env.create_account(1);
-    let to_authorize = env.create_account(2);
-    let other = env.create_account(3);
+    let admin = env.create_light_account();
+    let to_authorize = env.create_light_account();
+    let other = env.create_light_account();
 
     let initializer_call_interface = Auth::interface().constructor(admin);
 
-    let auth_contract =
-        env.deploy_self("Auth").with_public_initializer(admin, initializer_call_interface);
-    let auth_contract_address = auth_contract.to_address();
+    let auth_contract_address =
+        env.deploy("Auth").with_public_initializer(admin, initializer_call_interface);
 
     (env, auth_contract_address, admin, to_authorize, other)
 }

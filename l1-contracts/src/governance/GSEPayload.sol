@@ -29,7 +29,7 @@ import {IProposerPayload} from "./interfaces/IProposerPayload.sol";
  *
  * In such an event, your recourse is either:
  * - wait for the canonical rollup to have at least 2/3 of the total stake
- * - `GSE.proposeWithLock`, which bypasses the GovernaceProposer
+ * - `GSE.proposeWithLock`, which bypasses the GovernanceProposer
  */
 contract GSEPayload is IProposerPayload {
   IPayload public immutable ORIGINAL;

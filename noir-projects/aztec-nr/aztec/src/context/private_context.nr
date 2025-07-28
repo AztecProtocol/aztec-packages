@@ -550,7 +550,10 @@ impl PrivateContext {
         };
     }
 
-    fn next_counter(&mut self) -> u32 {
+    // This function got exposed publicly to be able to access it in ContractClassRegistry.
+    // TODO(#15980): Implement a method for pushing contract class log hashes to the context and un-expose this
+    // function.
+    pub fn next_counter(&mut self) -> u32 {
         let counter = self.side_effect_counter;
         self.side_effect_counter += 1;
         counter

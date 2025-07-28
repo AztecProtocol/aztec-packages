@@ -10,14 +10,40 @@ use crate::{
     },
     hash::hash_args,
     oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
-    test::helpers::{txe_oracles, utils::Deployer},
+    test::helpers::{txe_oracles, utils::ContractDeployment},
 };
 
 use super::txe_oracles::public_call_new_flow;
 
 mod test;
 
-pub struct TestEnvironment {}
+struct Counter {
+    next_value: Field,
+}
+
+impl Counter {
+    fn new() -> Self {
+        Self { next_value: 0 }
+    }
+
+    fn next(&mut self) -> Field {
+        let ret = self.next_value;
+        self.next_value += 1;
+        ret
+    }
+}
+
+pub struct TestEnvironment {
+    // The secrets to be used for light and contract account creation, as well as contract deployments. By keeping track
+    // of the last used secret we can issue new ones automatically without requiring the user to provide different ones.
+    //
+    // Additionally, having the secrets be deterministic for each set of accounts and all concurrent tests results in
+    // TXE being able to maximize cache usage and not have to recompute account addresses and contract artifacts, which
+    // are relatively expensive operations.
+    light_account_secret: Counter,
+    contract_account_secret: Counter,
+    contract_deployment_secret: Counter,
+}
 
 pub struct CallResult<T> {
     pub return_value: T,
@@ -47,12 +73,20 @@ impl PrivateContextOptions {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        Self {}
+        Self {
+            light_account_secret: Counter::new(),
+            contract_account_secret: Counter::new(),
+            contract_deployment_secret: Counter::new(),
+        }
     }
 
     pub unconstrained fn _new() -> Self {
         txe_oracles::enable_context_checks();
-        Self {}
+        Self {
+            light_account_secret: Counter::new(),
+            contract_account_secret: Counter::new(),
+            contract_deployment_secret: Counter::new(),
+        }
     }
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
@@ -262,13 +296,20 @@ impl TestEnvironment {
         txe_oracles::advance_timestamp_by(duration);
     }
 
-    pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
-        let test_account = txe_oracles::create_account(secret);
-        test_account.address
-    }
-
-    pub unconstrained fn create_account_contract(self, secret: Field) -> AztecAddress {
-        let test_account = txe_oracles::add_account(secret);
+    /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
+    /// `public_call`, or be made the owner or recipient of notes in `private_context`.
+    ///
+    /// The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It also has
+    /// an associated `SchnorrAccount` contract that can process authwit requests - the authwits can be added via the
+    /// `add_private_authwit_from_call_interface` and `add_public_authwit_from_call_interface` helper functions. If
+    /// authwits are not required, consider using `create_light_account` instead, which is a faster variant of this
+    /// function.
+    ///
+    /// Each call to `create_contract_account` will return a different address, and so it can be called repeatedly to
+    /// generate multiple addresses. These addresses are also different from the ones that `create_light_account`
+    /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
+    pub unconstrained fn create_contract_account(&mut self) -> AztecAddress {
+        let test_account = txe_oracles::add_account(self.contract_account_secret.next());
         let address = test_account.address;
 
         let _ = self.call_private(
@@ -285,16 +326,69 @@ impl TestEnvironment {
         address
     }
 
-    pub unconstrained fn deploy<let N: u32, let M: u32>(
-        self: Self,
-        path: str<N>,
-        name: str<M>,
-    ) -> Deployer<N, M> {
-        Deployer { env: self, path, name, secret: 0 }
+    /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
+    /// `public_call`, or be made the owner or recipient of notes in `private_context`. This is a faster variant of
+    /// `create_contract_account`, but comes with reduced capabilities.
+    ///
+    /// The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It doesn't
+    /// however have an associated account contract, so it cannot process private authwit requests.
+    ///
+    /// Each call to `create_light_account` will return a different address, and so it can be called repeatedly to
+    /// generate multiple addresses. These addresses are also different from the ones that `create_contract_account`
+    /// returns, and so these two functions can be mixed and match to create a set of unique accounts.
+    pub unconstrained fn create_light_account(&mut self) -> AztecAddress {
+        let test_account = txe_oracles::create_account(self.light_account_secret.next());
+        test_account.address
     }
 
-    pub unconstrained fn deploy_self<let M: u32>(self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { env: self, path: "", name, secret: 0 }
+    /// Prepares a contract for deployment, so that its private, public and utility functions can be called. The
+    /// contract **must be already compiled** before tests are run, and **must be recompiled if changed** for the tests
+    /// to deploy the updated version.
+    ///
+    /// In order to finalize the deployment, the proper initializer function must be specified via one of the associated
+    /// methods. For more information on how to specify the path and initialization, read the sections below.
+    ///
+    /// ### Path
+    /// Contracts can be deployed from either the same crate as the test, from a different crate in the same workspace,
+    /// or from an altogether independent crate.
+    ///
+    /// If deploying contracts from the same crate as the test, just refer to it by its name:
+    /// ```noir
+    /// TestEnvironment::new().deploy("MyContract");
+    /// ```
+    ///
+    /// If deploying contracts from a different crate in the same workspace, use `@crate_name/contract_name`:
+    /// ```noir
+    /// TestEnvironment::new().deploy("@my_contract_crate/MyContract");
+    /// ```
+    ///
+    /// If deploying contracts from a crate not in the workspace, use `path_to_crate/contract_name`, with the crate path
+    /// relative to the current workspace:
+    /// ```noir
+    /// TestEnvironment::new().deploy("../my_other_crate/MyContract");
+    /// ```
+    ///
+    /// ### Initialization
+    /// If no initializer function needs to be called, use `without_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").without_initializer();
+    /// ```
+    ///
+    /// For private initializers, use `with_private_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_private_initializer(
+    ///   PrivateInitContract::interface().private_init_fn(init_args)
+    /// );
+    /// ```
+    ///
+    /// For public initializers, use `with_public_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_public_initializer(
+    ///   PublicInitContract::interface().public_init_fn(init_args)
+    /// );
+    /// ```
+    pub unconstrained fn deploy<let N: u32>(&mut self, path: str<N>) -> ContractDeployment<N> {
+        ContractDeployment { env: *self, path, secret: self.contract_deployment_secret.next() }
     }
 
     pub unconstrained fn call_private<T, let M: u32>(
