@@ -431,6 +431,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::SUB,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_SUB_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
     { ExecutionOpCode::MUL,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_MUL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -629,7 +636,17 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                                                      /*q_x*/ ValueTag::FF,
                                                      /*q_y*/ ValueTag::FF,
                                                      /*q_inf*/ ValueTag::U1 }) } },
-
+    { ExecutionOpCode::TORADIXBE,
+      { .num_addresses = 5,
+        .gas_cost = { .opcode_gas = AVM_TORADIXBE_BASE_L2_GAS,
+                      .base_da = 0,
+                      .dyn_l2 = AVM_TORADIXBE_DYN_L2_GAS,
+                      .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_TORADIX,
+        .register_info = RegisterInfo().add_inputs({ /*value*/ ValueTag::FF,
+                                                     /*radix*/ ValueTag::U32,
+                                                     /*num_limbs*/ ValueTag::U32,
+                                                     /*is_output_bit*/ ValueTag::U1 }) } },
 };
 
 } // namespace bb::avm2
