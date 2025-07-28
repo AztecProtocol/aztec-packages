@@ -598,7 +598,7 @@ export class ReqResp implements ReqRespInterface {
     }
 
     // Catch all error
-    this.logger.error(`Unexpected error sending request to peer`, e, logTags);
+    this.logger.debug(`Unexpected error sending request to peer`, { err: e, logTags });
     return PeerErrorSeverity.HighToleranceError;
   }
 

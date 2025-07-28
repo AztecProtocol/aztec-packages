@@ -176,7 +176,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       offense: Offense.INACTIVITY,
     }));
 
-    this.logger.info(`Criminals: ${criminals.length}`, { args });
+    this.logger.info(`Criminals to slash: ${criminals.length}`, {
+      validators: args.map(({ validator, amount, offense }) => ({
+        validator,
+        amount,
+        offense: Offense[offense],
+      })),
+    });
 
     if (criminals.length > 0) {
       this.emit(WANT_TO_SLASH_EVENT, args);
