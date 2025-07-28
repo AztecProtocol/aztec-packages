@@ -7,6 +7,7 @@ import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
 import type { PeerManagerInterface } from './peer-manager/interface.js';
+import type { P2PReqRespConfig } from './reqresp/config.js';
 import type {
   ReqRespInterface,
   ReqRespResponse,
@@ -28,6 +29,8 @@ import {
  * A dummy implementation of the P2P Service.
  */
 export class DummyP2PService implements P2PService {
+  updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+
   /** Returns an empty array for peers. */
   getPeers(): PeerInfo[] {
     return [];
@@ -192,6 +195,7 @@ export class DummyPeerManager implements PeerManagerInterface {
 }
 
 export class DummyReqResp implements ReqRespInterface {
+  updateConfig(_config: Partial<P2PReqRespConfig>): void {}
   start(
     _subProtocolHandlers: ReqRespSubProtocolHandlers,
     _subProtocolValidators: ReqRespSubProtocolValidators,

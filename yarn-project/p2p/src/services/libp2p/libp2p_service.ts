@@ -64,6 +64,7 @@ import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
@@ -163,6 +164,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       );
       return undefined;
     };
+  }
+
+  public updateConfig(config: Partial<P2PReqRespConfig>) {
+    this.reqresp.updateConfig(config);
   }
 
   /**
