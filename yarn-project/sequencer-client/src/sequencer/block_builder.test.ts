@@ -106,7 +106,7 @@ describe('BlockBuilder', () => {
     fork = mock<MerkleTreeWriteOperations>({
       getInitialHeader: () => initialBlockHeader,
       getTreeInfo: (treeId: MerkleTreeId) =>
-        Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 }),
+        Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 64n, depth: 5 }),
       findLeafIndices: (_treeId: MerkleTreeId, _values: any[]) => Promise.resolve([undefined]),
       getStateReference: () => Promise.resolve(makeStateReference()),
     });
