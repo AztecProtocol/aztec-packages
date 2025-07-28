@@ -24,8 +24,6 @@ import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
-uint8 constant COMMITTEE_SIZE = 48;
-
 /**
  * @dev a whitelist, controlling who may have power in the governance contract.
  * That is, an address must be an approved beneficiary to receive power via `deposit`.

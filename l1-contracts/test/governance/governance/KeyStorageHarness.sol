@@ -13,15 +13,7 @@ import {KeyStorage, Keys, Validator} from "@aztec/governance/libraries/KeyStorag
 contract KeyStorageHarness {
   using KeyStorage for Keys;
 
-  /*---------------------------------------------------------------------*/
-  /*                               STORAGE                               */
-  /*---------------------------------------------------------------------*/
-
-  Keys internal ks; // the real registry struct lives here – never shrinks
-
-  /*---------------------------------------------------------------------*/
-  /*                               WRITES                                */
-  /*---------------------------------------------------------------------*/
+  Keys internal ks; // the real registry struct lives here
 
   function addKey(uint256[2] calldata pk1, uint256[4] calldata pk2) external {
     ks.addKey(pk1, pk2);
@@ -34,12 +26,6 @@ contract KeyStorageHarness {
   function reactivateKey() external {
     ks.reactivateKey();
   }
-
-  /*---------------------------------------------------------------------*/
-  /*                                READS                                */
-  /*---------------------------------------------------------------------*/
-
-  // Note: every getter just forwards to the library so the semantics stay 1:1
 
   function getValidator(uint32 id) external view returns (Validator memory) {
     return ks.getValidator(id);
