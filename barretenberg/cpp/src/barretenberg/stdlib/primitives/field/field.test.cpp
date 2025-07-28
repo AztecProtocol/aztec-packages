@@ -1309,7 +1309,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_origin_tag_consistency()
     {
         Builder builder = Builder();
-        auto a = field_ct(witness_ct(&builder, bb::fr::random_element()));
+        // Randomly generate a and b (a must ≤ 252 bits)
+        uint256_t a_val =
+            uint256_t(bb::fr::random_element()) & ((uint256_t(1) << grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) - 1);
+        auto a = field_ct(witness_ct(&builder, a_val));
         auto b = field_ct(witness_ct(&builder, bb::fr::random_element()));
         EXPECT_TRUE(a.get_origin_tag().is_empty());
         EXPECT_TRUE(b.get_origin_tag().is_empty());
