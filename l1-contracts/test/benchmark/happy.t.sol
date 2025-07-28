@@ -430,10 +430,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           });
           multicall.aggregate3(calls);
         } else {
+          CommitteeAttestations memory attestations = SignatureLib.packAttestations(b.attestations);
+
           vm.prank(proposer);
-          rollup.propose(
-            b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs
-          );
+          rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);
