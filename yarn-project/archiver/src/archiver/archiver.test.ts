@@ -397,9 +397,19 @@ describe('Archiver', () => {
 
     // And define a bad block 2 with attestations from random signers
     const badBlock2 = await makeBlock(2);
+    badBlock2.archive.root = new Fr(0x1002);
     const badBlock2RollupTx = await makeRollupTx(badBlock2, times(3, Secp256k1Signer.random));
     const badBlock2BlobHashes = await makeVersionedBlobHashes(badBlock2);
     const badBlock2Blobs = await makeBlobsFromBlock(badBlock2);
+
+    // Return the archive root for the bad block 2 when queried
+    mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
+      Promise.resolve((args[0] === 2n ? badBlock2 : blocks[Number(args[0] - 1n)]).archive.root.toString()),
+    );
+
+    logger.warn(`Created 3 valid blocks`);
+    blocks.forEach(block => logger.warn(`Block ${block.number} with root ${block.archive.root.toString()}`));
+    logger.warn(`Created invalid block 2 with root ${badBlock2.archive.root.toString()}`);
 
     // During the first archiver loop, we fetch block 1 and the block 2 with bad attestations
     publicClient.getBlockNumber.mockResolvedValue(85n);
@@ -429,6 +439,9 @@ describe('Archiver', () => {
     ]);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[1]).mockResolvedValueOnce(rollupTxs[2]);
     blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobsFromBlocks[1]).mockResolvedValueOnce(blobsFromBlocks[2]);
+    mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
+      Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
+    );
 
     // Now we should move to block 3
     await waitUntilArchiverBlock(3);
@@ -534,7 +547,7 @@ describe('Archiver', () => {
     // Lets take a look to see if we can find re-org stuff!
     await sleep(2000);
 
-    expect(loggerSpy).toHaveBeenCalledWith(`L2 prune has been detected.`);
+    expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`L2 prune has been detected`), expect.anything());
 
     // Should also see the block number be reduced
     latestBlockNum = await archiver.getBlockNumber();

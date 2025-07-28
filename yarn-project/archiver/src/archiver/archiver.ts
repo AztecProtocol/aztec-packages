@@ -703,7 +703,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         throw new Error(`Missing block ${localPendingBlockNumber}`);
       }
 
-      const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingBlock.archive.root.toString();
+      const localPendingArchiveRoot = localPendingBlock.archive.root.toString();
+      const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingArchiveRoot;
       if (noBlockSinceLast) {
         // We believe the following line causes a problem when we encounter L1 re-orgs.
         // Basically, by setting the synched L1 block number here, we are saying that we have
@@ -717,13 +718,16 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         return rollupStatus;
       }
 
-      const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingBlock.archive.root.toString();
+      const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingArchiveRoot;
       if (!localPendingBlockInChain) {
         // If our local pending block tip is not in the chain on L1 a "prune" must have happened
         // or the L1 have reorged.
         // In any case, we have to figure out how far into the past the action will take us.
         // For simplicity here, we will simply rewind until we end in a block that is also on the chain on L1.
-        this.log.debug(`L2 prune has been detected.`);
+        this.log.debug(
+          `L2 prune has been detected due to local pending block ${localPendingBlockNumber} not in chain`,
+          { localPendingBlockNumber, localPendingArchiveRoot, archiveForLocalPendingBlockNumber },
+        );
 
         let tipAfterUnwind = localPendingBlockNumber;
         while (true) {

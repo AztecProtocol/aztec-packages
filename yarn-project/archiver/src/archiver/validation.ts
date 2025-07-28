@@ -15,23 +15,24 @@ export async function validateBlockAttestations(
 ): Promise<boolean> {
   const attestations = getAttestationsFromPublishedL2Block(publishedBlock);
   const { block } = publishedBlock;
+  const blockHash = await block.hash().then(hash => hash.toString());
+  const archiveRoot = block.archive.root.toString();
   const slot = block.header.getSlot();
   const epoch = getEpochAtSlot(slot, constants);
   const { committee } = await epochCache.getCommitteeForEpoch(epoch);
-  logger?.debug(`Validating attestations for block at slot ${slot} in epoch ${epoch}`, {
+  const logData = { blockNumber: block.number, slot, epoch, blockHash, archiveRoot };
+  logger?.debug(`Validating attestations for block ${block.number} at slot ${slot} in epoch ${epoch}`, {
     committee: (committee ?? []).map(member => member.toString()),
     recoveredAttestors: attestations.map(a => a.getSender().toString()),
     postedAttestations: publishedBlock.attestations.map(a =>
       a.address.isZero() ? a.signature.toString() : a.address.toString(),
     ),
-    blockNumber: block.number,
-    slot,
-    epoch,
+    ...logData,
   });
 
   if (!committee || committee.length === 0) {
     // Q: Should we accept blocks with no committee?
-    logger?.warn(`No committee found for epoch ${epoch} at slot ${slot}`);
+    logger?.warn(`No committee found for epoch ${epoch} at slot ${slot}. Accepting block without validation.`, logData);
     return true;
   }
 
@@ -50,14 +51,11 @@ export async function validateBlockAttestations(
     logger?.warn(`Insufficient attestations for block at slot ${slot}`, {
       requiredAttestations: requiredAttestationCount,
       actualAttestations: attestations.length,
+      ...logData,
     });
     return false;
   }
 
-  logger?.debug(`Block attestations validated successfully for block at slot ${slot}`, {
-    blockNumber: block.number,
-    slot,
-    epoch,
-  });
+  logger?.debug(`Block attestations validated successfully for block ${block.number} at slot ${slot}`, logData);
   return true;
 }
