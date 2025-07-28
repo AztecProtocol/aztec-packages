@@ -87,21 +87,15 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
     const FF& operator[](size_t index) const override
     {
         BB_ASSERT_LT(index, size_);
-        ASSERT(zero.is_zero());
         return zero;
     };
-    const FF& back() const override
-    {
-        ASSERT(zero.is_zero());
-        return zero;
-    }
+    const FF& back() const override { return zero; }
 
     size_t size() const override { return size_; }
     bool empty() const override { return size_ == 0; }
 
     std::vector<uint8_t> to_buffer() const override
     {
-        ASSERT(zero.is_zero());
         using serialize::write;
         std::vector<uint8_t> buf;
         for (size_t i = 0; i < size_; i++) {
