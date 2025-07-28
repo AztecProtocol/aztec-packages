@@ -70,6 +70,14 @@ library STFLib {
         blockLog.blobCommitmentsHash = bytes32(uint256(0x1));
       }
 
+      if (blockLog.attestationsHash == bytes32(0)) {
+        blockLog.attestationsHash = bytes32(uint256(0x1));
+      }
+
+      if (blockLog.payloadDigest == bytes32(0)) {
+        blockLog.payloadDigest = bytes32(uint256(0x1));
+      }
+
       store.tempBlockLogs[i] = blockLog.compress();
     }
   }
@@ -119,6 +127,15 @@ library STFLib {
   function getTempBlockLog(uint256 _blockNumber) internal view returns (TempBlockLog memory) {
     (, uint256 size) = innerIsStale(_blockNumber, true);
     return getStorage().tempBlockLogs[_blockNumber % size].decompress();
+  }
+
+  function getStorageTempBlockLog(uint256 _blockNumber)
+    internal
+    view
+    returns (CompressedTempBlockLog storage)
+  {
+    (, uint256 size) = innerIsStale(_blockNumber, true);
+    return getStorage().tempBlockLogs[_blockNumber % size];
   }
 
   function getHeaderHash(uint256 _blockNumber) internal view returns (bytes32) {
