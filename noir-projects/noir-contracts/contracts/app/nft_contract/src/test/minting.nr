@@ -22,7 +22,7 @@ unconstrained fn mint_as_non_minter_fails() {
     let _ = env.call_public(other, NFT::at(nft_contract_address).mint(owner, token_id));
 }
 
-#[test(should_fail_with = "NFT not minted")]
+#[test(should_fail_with = "token already exists")]
 unconstrained fn mint_twice_fails() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
