@@ -16,23 +16,23 @@ namespace bb {
 
 class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
   public:
-    Selector<fr>& q_lookup_type() { return zero_selectors[0]; };
-    Selector<fr>& q_arith() { return zero_selectors[1]; }
-    Selector<fr>& q_delta_range() { return zero_selectors[2]; }
-    Selector<fr>& q_elliptic() { return zero_selectors[3]; }
-    Selector<fr>& q_memory() { return zero_selectors[4]; }
-    Selector<fr>& q_nnf() { return zero_selectors[5]; }
-    Selector<fr>& q_poseidon2_external() { return zero_selectors[6]; }
-    Selector<fr>& q_poseidon2_internal() { return zero_selectors[7]; }
+    virtual Selector<fr>& q_lookup_type() { return zero_selectors[0]; };
+    virtual Selector<fr>& q_arith() { return zero_selectors[1]; }
+    virtual Selector<fr>& q_delta_range() { return zero_selectors[2]; }
+    virtual Selector<fr>& q_elliptic() { return zero_selectors[3]; }
+    virtual Selector<fr>& q_memory() { return zero_selectors[4]; }
+    virtual Selector<fr>& q_nnf() { return zero_selectors[5]; }
+    virtual Selector<fr>& q_poseidon2_external() { return zero_selectors[6]; }
+    virtual Selector<fr>& q_poseidon2_internal() { return zero_selectors[7]; }
 
-    const Selector<fr>& q_lookup_type() const { return zero_selectors[0]; };
-    const Selector<fr>& q_arith() const { return zero_selectors[1]; }
-    const Selector<fr>& q_delta_range() const { return zero_selectors[2]; }
-    const Selector<fr>& q_elliptic() const { return zero_selectors[3]; }
-    const Selector<fr>& q_memory() const { return zero_selectors[4]; }
-    const Selector<fr>& q_nnf() const { return zero_selectors[5]; }
-    const Selector<fr>& q_poseidon2_external() const { return zero_selectors[6]; }
-    const Selector<fr>& q_poseidon2_internal() const { return zero_selectors[7]; }
+    virtual const Selector<fr>& q_lookup_type() const { return zero_selectors[0]; };
+    virtual const Selector<fr>& q_arith() const { return zero_selectors[1]; }
+    virtual const Selector<fr>& q_delta_range() const { return zero_selectors[2]; }
+    virtual const Selector<fr>& q_elliptic() const { return zero_selectors[3]; }
+    virtual const Selector<fr>& q_memory() const { return zero_selectors[4]; }
+    virtual const Selector<fr>& q_nnf() const { return zero_selectors[5]; }
+    virtual const Selector<fr>& q_poseidon2_external() const { return zero_selectors[6]; }
+    virtual const Selector<fr>& q_poseidon2_internal() const { return zero_selectors[7]; }
 
     RefVector<Selector<fr>> get_selectors() override
     {
@@ -73,38 +73,159 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
     std::array<ZeroSelector<fr>, 8> zero_selectors;
 };
 
+class UltraTracePublicInputBlock : public UltraTraceBlock {};
+
+class UltraTraceLookupBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_lookup_type() override { return gate_selector; }
+    const SelectorType& q_lookup_type() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceArithmeticBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_arith() override { return gate_selector; }
+    const SelectorType& q_arith() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_delta_range() override { return gate_selector; }
+    const SelectorType& q_delta_range() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceEllipticBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_elliptic() override { return gate_selector; }
+    const SelectorType& q_elliptic() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceMemoryBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_memory() override { return gate_selector; }
+    const SelectorType& q_memory() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceNonNativeFieldBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_nnf() override { return gate_selector; }
+    const SelectorType& q_nnf() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_poseidon2_external() override { return gate_selector; }
+    const SelectorType& q_poseidon2_external() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTracePoseidon2InternalBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_poseidon2_internal() override { return gate_selector; }
+    const SelectorType& q_poseidon2_internal() const override { return gate_selector; }
+
+  protected:
+    SlabVectorSelector<fr> gate_selector;
+};
+
+class UltraTraceOverflowBlock : public UltraTraceBlock {
+  public:
+    SelectorType& q_lookup_type() override { return gate_selectors[0]; };
+    SelectorType& q_arith() override { return gate_selectors[1]; }
+    SelectorType& q_delta_range() override { return gate_selectors[2]; }
+    SelectorType& q_elliptic() override { return gate_selectors[3]; }
+    SelectorType& q_memory() override { return gate_selectors[4]; }
+    SelectorType& q_nnf() override { return gate_selectors[5]; }
+    SelectorType& q_poseidon2_external() override { return gate_selectors[6]; }
+    SelectorType& q_poseidon2_internal() override { return gate_selectors[7]; }
+
+    const SelectorType& q_lookup_type() const override { return gate_selectors[0]; };
+    const SelectorType& q_arith() const override { return gate_selectors[1]; }
+    const SelectorType& q_delta_range() const override { return gate_selectors[2]; }
+    const SelectorType& q_elliptic() const override { return gate_selectors[3]; }
+    const SelectorType& q_memory() const override { return gate_selectors[4]; }
+    const SelectorType& q_nnf() const override { return gate_selectors[5]; }
+    const SelectorType& q_poseidon2_external() const override { return gate_selectors[6]; }
+    const SelectorType& q_poseidon2_internal() const override { return gate_selectors[7]; }
+
+  protected:
+    std::array<SlabVectorSelector<fr>, 8> gate_selectors;
+};
+
 /**
  * @brief Defines the circuit block types for the Ultra arithmetization
  */
 struct UltraTraceBlockData {
-    UltraTraceBlock pub_inputs; // Has to be the first block
-    UltraTraceBlock lookup;
-    UltraTraceBlock arithmetic;
-    UltraTraceBlock delta_range;
-    UltraTraceBlock elliptic;
-    UltraTraceBlock memory;
-    UltraTraceBlock nnf;
-    UltraTraceBlock poseidon2_external;
-    UltraTraceBlock poseidon2_internal;
-    UltraTraceBlock overflow;
+    UltraTracePublicInputBlock pub_inputs; // Has to be the first block
+    UltraTraceLookupBlock lookup;
+    UltraTraceArithmeticBlock arithmetic;
+    UltraTraceDeltaRangeBlock delta_range;
+    UltraTraceEllipticBlock elliptic;
+    UltraTraceMemoryBlock memory;
+    UltraTraceNonNativeFieldBlock nnf;
+    UltraTracePoseidon2ExternalBlock poseidon2_external;
+    UltraTracePoseidon2InternalBlock poseidon2_internal;
+    UltraTraceOverflowBlock overflow;
 
     auto get()
     {
-        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
-                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
+        return RefArray(std::array<UltraTraceBlock*, 10>{ &pub_inputs,
+                                                          &lookup,
+                                                          &arithmetic,
+                                                          &delta_range,
+                                                          &elliptic,
+                                                          &memory,
+                                                          &nnf,
+                                                          &poseidon2_external,
+                                                          &poseidon2_internal,
+                                                          &overflow });
     }
 
     auto get() const
     {
-        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
-                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
+        return RefArray(std::array<const UltraTraceBlock*, 10>{ &pub_inputs,
+                                                                &lookup,
+                                                                &arithmetic,
+                                                                &delta_range,
+                                                                &elliptic,
+                                                                &memory,
+                                                                &nnf,
+                                                                &poseidon2_external,
+                                                                &poseidon2_internal,
+                                                                &overflow });
     }
 
     auto get_gate_blocks() const
     {
-        return RefArray{
-            lookup, arithmetic, delta_range, elliptic, memory, nnf, poseidon2_external, poseidon2_internal
-        };
+        return RefArray(std::array<const UltraTraceBlock*, 8>{
+            &lookup,
+            &arithmetic,
+            &delta_range,
+            &elliptic,
+            &memory,
+            &nnf,
+            &poseidon2_external,
+            &poseidon2_internal,
+        });
     }
 
     bool operator==(const UltraTraceBlockData& other) const = default;
