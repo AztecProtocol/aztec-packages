@@ -84,7 +84,8 @@ library ProposeLib {
    * input[:1] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
-   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.
+   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob),
+   *                     exists only to be overridden in tests and during simulation.
    */
   function propose(
     ProposeArgs calldata _args,
