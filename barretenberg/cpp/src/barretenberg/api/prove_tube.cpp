@@ -33,7 +33,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
     // Exclude the pairing points which are handled separately.
-    auto num_inner_public_inputs = vk.mega->num_public_inputs - bb::PAIRING_POINTS_SIZE;
+    auto num_inner_public_inputs = vk.mega->num_public_inputs - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
         stdlib_proof.mega_proof[i].set_public();
     }
@@ -92,7 +92,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
-        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + bb::RollupIO::PUBLIC_INPUTS_SIZE;
     // The extra calculation is for the IPA proof length.
     BB_ASSERT_EQ(tube_proof.size(),
                  HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs,

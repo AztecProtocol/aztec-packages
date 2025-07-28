@@ -16,9 +16,6 @@
 
 namespace bb {
 
-// A point in Fr is represented with 1 public input
-static constexpr size_t FR_PUBLIC_INPUTS_SIZE = 1;
-
 class Bn254FrParams {
     // There is a helper script in ecc/fields/parameter_helper.py that can be used to extract these parameters from the
   public:
@@ -168,15 +165,15 @@ class Bn254FrParams {
     // This is a BN254 scalar, so it represents one BN254 scalar
     static constexpr size_t NUM_BN254_SCALARS = 1;
     static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
+
+    // A point in Fr is represented with 1 public input
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 1;
 };
 
 using fr = field<Bn254FrParams>;
 
-template <> template <> inline fr fr::reconstruct_from_public(const std::span<const fr>& limbs)
+template <> template <> inline fr fr::reconstruct_from_public(const std::span<const fr, PUBLIC_INPUTS_SIZE>& limbs)
 {
-
-    BB_ASSERT_EQ(limbs.size(), FR_PUBLIC_INPUTS_SIZE, "Incorrect number of limbs");
-
     return fr(limbs[0]);
 }
 
