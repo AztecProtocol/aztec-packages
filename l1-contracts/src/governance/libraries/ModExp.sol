@@ -1,7 +1,7 @@
-// Code Taken from https://github.com/thehubbleproject/hubble-contracts/blob/master/contracts/libs/ModExp.sol
-
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.27;
+
+// From https://github.com/thehubbleproject/hubble-contracts/blob/master/contracts/libs/ModExp.sol
 
 /**
  * @title Compute Inverse by Modular Exponentiation

@@ -12,9 +12,10 @@ import {
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-import {BLS} from "@aztec/governance/libraries/BLSBN254Helper.sol";
+import {BLS} from "@aztec/governance/libraries/BLS.sol";
 
-import {BLSCommittee, Validator, Committee} from "@aztec/governance/libraries/BLSCommittee.sol";
+import {KeyStorage, Keys} from "@aztec/governance/libraries/KeyStorage.sol";
+
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
@@ -132,7 +133,7 @@ contract Governance is IGovernance {
   using ProposalLib for Proposal;
   using UserLib for User;
   using ConfigurationLib for Configuration;
-  // using BLSCommittee for uint48;
+  using KeyStorage for Keys;
 
   IERC20 public immutable ASSET;
 
@@ -209,22 +210,14 @@ contract Governance is IGovernance {
    */
   uint256 public withdrawalCount;
 
-  // ValidatorPK[] public validators; // id == index
-  // mapping(address => uint32) public idOf; // addr -> id (for quick removal/slash)
-
-  /*  id == index in this array  */
-  Validator[]        public validators;      // stable, never shrinks
-
-  /*  Array of ONLY active ids, kept dense */
-  uint32[]           public liveIds;
-
-  /*  Reverse‑index: validator‑id  ➜  slot in liveIds[]  */
-  mapping(uint32 => uint32) public posInLive;
-
-  /*  Who owns which id (for deregistration) */
-  mapping(address => uint32) public idOf;
-
-  // Committee internal committee;
+  /**
+   * @dev Storage for BLS signature keys and validator management.
+   *
+   * Contains all registered validators (active and inactive), maintains a dense array
+   * of active validator IDs, and tracks key ownership. Keys are permanently bound
+   * to their original registrant and cannot be reused by other addresses.
+   */
+  Keys keys;
 
   /**
    * @dev Modifier to ensure that the caller is the governance contract itself.
@@ -557,19 +550,28 @@ contract Governance is IGovernance {
     return true;
   }
 
-  function register(
+  /**
+   * @notice Register a BLS signature key for the caller.
+   * @dev Validates the BLS key components and proof of possession and discrete log before registration.
+   *      Each unique key can only be registered once across all validators.
+   *
+   * @param pk1 The G1 point of the BLS public key (x, y coordinates)
+   * @param pk2 The G2 point of the BLS public key (x0, x1, y0, y1 coordinates)
+   * @param sigmaInit The proof of possession signature in G1 to prove key ownership
+   */
+  function registerKey(
     uint256[2] calldata pk1, // G1
     uint256[4] calldata pk2, // G2
     uint256[2] calldata sigmaInit // G1
   ) external {
-    // Check points on curve, in field, not at infinity (don't think we need)
-    // // require(BLS.isValidG1(pk1), Errors.Governance__BlsKeyInvalidG1Point(pk1));
-    // // require(BLS.isValidG2(pk2), Errors.Governance__BlsKeyInvalidG2Point(pk2));
-    // // require(BLS.isValidG1(sigmaInit), Errors.Governance__BlsKeyInvalidG1Point(sigmaInit));
+    // Check points on curve, in field, not at infinity (Keep to save gas on bad keys)
+    require(BLS.isValidG1(pk1), Errors.Governance__BlsKeyInvalidG1Point(pk1));
+    require(BLS.isValidG2(pk2), Errors.Governance__BlsKeyInvalidG2Point(pk2));
+    require(BLS.isValidG1(sigmaInit), Errors.Governance__BlsKeyInvalidG1Point(sigmaInit));
 
     // Recompute Htilde = H~1(Pk_(i,1)) with domain separator
-    bytes memory pkBytes = BLS.toBytes(pk1);
-    uint256[2] memory htilde = BLS.hashToPoint(BLS.DST_INIT, pkBytes);
+    bytes memory pkBytes = abi.encodePacked(pk1[0], pk1[1]);
+    uint256[2] memory hashTilde = BLS.hashToPoint(BLS.DST_INIT, pkBytes);
 
     // gamma = keccak(pk1, pk2, sigmaInit) mod r
     uint256 gamma = BLS.gammaOf(pk1, pk2, sigmaInit);
@@ -578,109 +580,39 @@ contract Governance is IGovernance {
     // Build G1 L = sigmaInit + gamma * pk1
     uint256[2] memory l = BLS.addPoints(sigmaInit, BLS.mulPoint(pk1, gamma));
 
-    // Build G1 R = htilde + gamma * -G1
-    uint256[2] memory nG1 = [BLS.G1x, BLS.G1y];
-    uint256[2] memory r = BLS.addPoints(htilde, BLS.mulPoint(nG1, gamma));
+    // Build G1 R = htilde + gamma * G1
+    uint256[2] memory G1 = [BLS.G1x, BLS.G1y];
+    uint256[2] memory r = BLS.addPoints(hashTilde, BLS.mulPoint(G1, gamma));
 
     // Pairing: e(L, -G2) * e(-R, pk2) == 1
     uint256[4] memory nG2 = [BLS.nG2x0, BLS.nG2x1, BLS.nG2y0, BLS.nG2y1];
-    require(BLS.pairingPublicKeys(l, nG2, r, pk2), "POP/dlog check failed");
+    BLS.pairingPublicKeys(l, nG2, r, pk2);
 
-    // Store PKs
-    // require(committee.slotOf[msg.sender] == 0, "already registered");
-
-    // uint8 slot = committee.activeMask.findFreeSlot(); // ← library call
-    // committee.slots[slot] =
-    //   ValidatorPK({x1: pk1[0], y1: pk1[1], x20: pk2[0], x21: pk2[1], y20: pk2[2], y21: pk2[3]});
-
-    // committee.activeMask = committee.activeMask.setBit(slot); // flip the bit
-    // committee.slotOf[msg.sender] = slot + 1; // +1 so 0 = “none”
-    // emit BlsKeyRegistered(msg.sender);
-
-    require(idOf[msg.sender] == 0, "already registered");
-    uint32 id = uint32(validators.length);
-
-    validators.push(Validator({x1: pk1[0], y1: pk1[1], x20: pk2[0], x21: pk2[1], y20: pk2[2], y21: pk2[3], active: true}));
-
-    /* add to liveIds */
-    posInLive[id] = uint32(liveIds.length);
-    liveIds.push(id);
-
-    idOf[msg.sender] = id;
+    keys.addKey(pk1, pk2);
+    emit BlsKeyActivated(msg.sender);
   }
 
-  function deactivate() external override(IGovernance) {
-    uint32 id = idOf[msg.sender];
-    require(validators[id].active, "already inactive");
-    require(idOf[msg.sender] != 0, "not validator");
-
-    uint32 pos  = posInLive[id];
-    uint32 last = uint32(liveIds.length - 1);
-    if (pos != last) {
-        uint32 movedId         = liveIds[last];
-        liveIds[pos]           = movedId;
-        posInLive[movedId]     = pos;
-    }
-    liveIds.pop();
-    delete posInLive[id];
-
-    validators[id].active = false;
-
-    // uint8 slotPlus = committee.slotOf[msg.sender];
-    // require(slotPlus != 0, "not validator");
-    // uint8 slot = slotPlus - 1;
-
-    // delete committee.slots[slot];
-    // committee.activeMask = committee.activeMask.clearBit(slot);
-    // delete committee.slotOf[msg.sender];
-
-    // emit BlsKeyRemoved(msg.sender);
+  /**
+   * @notice Deactivate the caller's registered BLS key.
+   * @dev Removes the key from the active validator set while preserving the key data.
+   *      The caller must have a registered key that is currently active.
+   *      Deactivated keys remain permanently bound to the original registrant.
+   */
+  function deactivateKey() external {
+    keys.deactivateKey();
+    emit BlsKeyDeactivated(msg.sender);
   }
 
-  // function verifyAggregateSignatures(uint48 bitmap, uint256[4] calldata PkA, bytes calldata m, uint256[2] calldata sigmaA) external override(IGovernance) {
-  //   // Verify threshold >= 33 bits set
-  //   require(bitmap.popcount() >= 33, "Less than 33 committee members");
-
-  //   // Recompute committee ids
-  //   bytes32 seed = blockhash(epochStartBlock - 1);
-  //   uint32[48] memory committee = getCommittee(seed);
-
-
-  //   // === Sum G1 keys of signers
-  //   uint256[2] memory sum; bool first;
-
-  //   for (uint8 i; i < 48; ++i) {
-  //       if ((bitmap & (1 << i)) == 0) continue;
-  //       uint32 id = ids[i];
-  //       Validator storage v = validators[id];
-  //       require(v.active, "inactive");
-
-  //       uint256[2] memory p = [v.x1, v.y1];
-  //       sum = first ? p : BLS.addPoints(sum, p);
-  //       first = true;
-  //   }
-  //   require(first, "no sigs");
-
-  //   // γ and pairing
-  //   uint256 gamma = BLS.keccakToFr(
-  //       abi.encodePacked(msgBytes, sum[0], sum[1], pkA2, sigmaA)
-  //   );
-
-  //   uint256[2] memory L = BLS.addPoints(
-  //       sigmaA,
-  //       BLS.mulPoint(sum, gamma)
-  //   );
-  //   uint256[2] memory R = BLS.addPoints(
-  //       BLS.hashToPoint(DST_SIG, msgBytes),
-  //       BLS.mulPoint(BLS.G1, gamma)
-  //   );
-
-  //   require(
-  //       BLS.pairingPublicKeys(L, BLS.nG2, R, pkA2),
-  //       "aggregate bad"
-  //   );
-  //   return true;
-  // }
+  /**
+   * @notice Reactivate the caller's previously registered BLS key.
+   * @dev Adds the key back to the active validator set.
+   *      The caller must have a registered key that is currently inactive.
+   *      Only the original key registrant can reactivate their own key.
+   */
+  function reactivateKey() external {
+    keys.reactivateKey();
+    emit BlsKeyActivated(msg.sender);
+  }
 
   /**
    * @notice Get the power of an address at a given timestamp.
@@ -776,6 +708,15 @@ contract Governance is IGovernance {
     returns (Withdrawal memory)
   {
     return withdrawals[_withdrawalId];
+  }
+
+  // Essential key getters (minimal interface for testing/external use)
+  function getIdOf(address _address) external view returns (uint32) {
+    return keys.getIdOf(_address);
+  }
+
+  function isValidatorActive(uint32 _id) external view returns (bool) {
+    return keys.isValidatorActive(_id);
   }
 
   /**
