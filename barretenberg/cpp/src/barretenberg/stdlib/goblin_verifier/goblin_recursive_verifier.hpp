@@ -21,7 +21,6 @@ struct GoblinRecursiveVerifierOutput {
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
     stdlib::Proof<Builder> ipa_proof;
-    TableCommitments merged_table_commitments;
 };
 
 class GoblinRecursiveVerifier {

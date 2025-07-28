@@ -513,7 +513,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
         verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
-    auto [goblin_verified, _] =
+    bool goblin_verified =
         Goblin::verify(proof.goblin_proof, t_commitments, T_prev_commitments, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
 
