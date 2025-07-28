@@ -68,6 +68,16 @@ export default {
         return true;
       }
 
+      // Check for template literal types (e.g., `0x${string}`)
+      if (flags & ts.TypeFlags.TemplateLiteral) {
+        return true;
+      }
+
+      // Check for string mapping types (template literal patterns)
+      if (flags & ts.TypeFlags.StringMapping) {
+        return true;
+      }
+
       // Check for enums
       if (flags & ts.TypeFlags.Enum) {
         return true;
