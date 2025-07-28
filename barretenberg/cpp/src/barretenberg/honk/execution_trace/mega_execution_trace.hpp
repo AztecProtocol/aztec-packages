@@ -12,6 +12,7 @@
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include <cstdint>
 
 namespace bb {
 
@@ -61,8 +62,36 @@ template <typename T> struct MegaTraceBlockData {
         };
     }
 
+    bool operator==(const MegaTraceBlockData& other) const = default;
+};
+
+struct TraceStructure {
+    uint32_t ecc_op;
+    uint32_t busread;
+    uint32_t lookup;
+    uint32_t pub_inputs;
+    uint32_t arithmetic;
+    uint32_t delta_range;
+    uint32_t elliptic;
+    uint32_t memory;
+    uint32_t nnf;
+    uint32_t poseidon2_external;
+    uint32_t poseidon2_internal;
+    uint32_t overflow; // block gates of arbitrary type that overflow their designated block
+
+    auto get()
+    {
+        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
+                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
+    }
+
+    auto get() const
+    {
+        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
+                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
+    }
+
     size_t size() const
-        requires std::same_as<T, uint32_t>
     {
         size_t result{ 0 };
         for (const auto& block_size : get()) {
@@ -70,11 +99,7 @@ template <typename T> struct MegaTraceBlockData {
         }
         return static_cast<size_t>(result);
     }
-
-    bool operator==(const MegaTraceBlockData& other) const = default;
 };
-
-using TraceStructure = MegaTraceBlockData<uint32_t>;
 
 struct TraceSettings {
     std::optional<TraceStructure> structure;
@@ -184,6 +209,104 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
   protected:
     std::array<ZeroSelector<fr>, 9> zero_selectors;
 };
+
+// class MegaTracePublicInputBlock : public MegaTraceBlock {};
+
+// class MegaTraceLookupBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_lookup_type() override { return gate_selector; }
+//     const SelectorType& q_lookup_type() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTraceArithmeticBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_arith() override { return gate_selector; }
+//     const SelectorType& q_arith() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_delta_range() override { return gate_selector; }
+//     const SelectorType& q_delta_range() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTraceEllipticBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_elliptic() override { return gate_selector; }
+//     const SelectorType& q_elliptic() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTraceMemoryBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_memory() override { return gate_selector; }
+//     const SelectorType& q_memory() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_nnf() override { return gate_selector; }
+//     const SelectorType& q_nnf() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_poseidon2_external() override { return gate_selector; }
+//     const SelectorType& q_poseidon2_external() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_poseidon2_internal() override { return gate_selector; }
+//     const SelectorType& q_poseidon2_internal() const override { return gate_selector; }
+
+//   protected:
+//     SlabVectorSelector<fr> gate_selector;
+// };
+
+// class MegaTraceOverflowBlock : public MegaTraceBlock {
+//   public:
+//     SelectorType& q_lookup_type() override { return gate_selectors[0]; };
+//     SelectorType& q_arith() override { return gate_selectors[1]; }
+//     SelectorType& q_delta_range() override { return gate_selectors[2]; }
+//     SelectorType& q_elliptic() override { return gate_selectors[3]; }
+//     SelectorType& q_memory() override { return gate_selectors[4]; }
+//     SelectorType& q_nnf() override { return gate_selectors[5]; }
+//     SelectorType& q_poseidon2_external() override { return gate_selectors[6]; }
+//     SelectorType& q_poseidon2_internal() override { return gate_selectors[7]; }
+
+//     const SelectorType& q_lookup_type() const override { return gate_selectors[0]; };
+//     const SelectorType& q_arith() const override { return gate_selectors[1]; }
+//     const SelectorType& q_delta_range() const override { return gate_selectors[2]; }
+//     const SelectorType& q_elliptic() const override { return gate_selectors[3]; }
+//     const SelectorType& q_memory() const override { return gate_selectors[4]; }
+//     const SelectorType& q_nnf() const override { return gate_selectors[5]; }
+//     const SelectorType& q_poseidon2_external() const override { return gate_selectors[6]; }
+//     const SelectorType& q_poseidon2_internal() const override { return gate_selectors[7]; }
+
+//   protected:
+//     std::array<SlabVectorSelector<fr>, 8> gate_selectors;
+// };
 
 class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
   public:
