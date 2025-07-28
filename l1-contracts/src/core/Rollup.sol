@@ -180,37 +180,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @notice  Check if msg.sender can propose at a given time
    *
    * @param _ts - The timestamp to check
-   * @param _archive - The archive to check (should be the latest archive)
-   *
-   * @return uint256 - The slot at the given timestamp
-   * @return uint256 - The block number at the given timestamp
-   */
-  function canProposeAtTime_old(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256) {
-    Slot slot = _ts.slotFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
-
-    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
-
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
-
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-
-    address proposer = ExtRollupLib2.getProposerAt(slot);
-    require(
-      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
-
-    return (slot, pendingBlockNumber + 1);
-  }
-
-  /**
-   * @notice  Check if msg.sender can propose at a given time
-   *
-   * @param _ts - The timestamp to check
    * @param _headerHash - The header hash to check
    *
    * @return uint256 - The slot at the given timestamp
@@ -308,8 +277,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       uint256 pendingBlockNumber,
       bytes32 pendingHeaderHash,
       bytes32 headerHashOfMyBlock,
-      // bytes32 pendingArchive,
-      // bytes32 archiveOfMyBlock,
       Epoch provenEpochNumber
     )
   {
@@ -323,8 +290,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       tips.pendingBlockNumber,
       STFLib.getHeaderHash(tips.pendingBlockNumber),
       STFLib.getHeaderHash(_myHeaderBlockNumber),
-      // rollupStore.archives[tips.pendingBlockNumber],
-      // archiveAt(_myHeaderBlockNumber),
       getEpochForBlock(tips.provenBlockNumber)
     );
   }

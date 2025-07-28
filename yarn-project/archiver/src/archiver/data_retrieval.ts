@@ -10,7 +10,7 @@ import type {
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -24,7 +24,6 @@ import {
   type GetContractReturnType,
   type Hex,
   decodeFunctionData,
-  getAbiItem,
   hexToBytes,
   multicall3Abi,
 } from 'viem';
@@ -418,37 +417,30 @@ function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 
 
 /** Retrieves L2ProofVerified events from the rollup contract. */
 export async function retrieveL2ProofVerifiedEvents(
-  publicClient: ViemPublicClient,
-  rollupAddress: EthAddress,
+  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
 ): Promise<{ l1BlockNumber: bigint; l2BlockNumber: number; proverId: Fr; txHash: Hex }[]> {
-  const logs = await publicClient.getLogs({
-    address: rollupAddress.toString(),
-    fromBlock: searchStartBlock,
-    toBlock: searchEndBlock ? searchEndBlock : undefined,
-    strict: true,
-    event: getAbiItem({ abi: RollupAbi, name: 'L2ProofVerified' }),
-  });
+  const logs = await rollup.getEvents.L2ProofVerified({}, { fromBlock: searchStartBlock, toBlock: searchEndBlock });
 
-  return logs.map(log => ({
+  return (logs || []).map(log => ({
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: Number(log.args.blockNumber),
-    proverId: Fr.fromHexString(log.args.proverId),
+    proverId: Fr.fromHexString(log.args.proverId ?? EthAddress.ZERO.toString()),
     txHash: log.transactionHash,
   }));
 }
 
 /** Retrieve submitted proofs from the rollup contract */
 export async function retrieveL2ProofsFromRollup(
+  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
-  rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
 ): Promise<
   DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}`; archiveRoot: Fr }>
 > {
-  const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
+  const logs = await retrieveL2ProofVerifiedEvents(rollup, searchStartBlock, searchEndBlock);
   const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}`; archiveRoot: Fr }[] =
     [];
   const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;

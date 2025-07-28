@@ -153,8 +153,6 @@ interface IRollup is IRollupCore, IHaveVersion {
       uint256 pendingBlockNumber,
       bytes32 pendingHeaderHash,
       bytes32 headerHashOfMyBlock,
-      // bytes32 pendingArchive,
-      // bytes32 archiveOfMyBlock,
       Epoch provenEpochNumber
     );
 

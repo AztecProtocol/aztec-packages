@@ -1,4 +1,5 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import {
   BlockTagTooOldError,
   InboxContract,
@@ -646,14 +647,20 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
       this.log.trace(
         `Header hash of local block at remote proven block #${provenBlockNumber} is ${
-          localBlockAtTargetProvenBlockNumber?.header.hash.toString() ?? 'undefined'
+          localBlockAtTargetProvenBlockNumber?.header.toPropose().hash().toString() ?? 'undefined'
         }`,
       );
-
-      if (
+      if (localBlockAtTargetProvenBlockNumber) {
+        this.log.trace(
+          `Archive root of local block at remote proven block #${provenBlockNumber} is ${localBlockAtTargetProvenBlockNumber.archive.root.toString()}`,
+        );
+        this.log.trace(`Remote proven archive root is ${provenArchive}`);
+      }
+      const localArchiveRootMatch =
         localBlockAtTargetProvenBlockNumber &&
-        provenArchive === localBlockAtTargetProvenBlockNumber.archive.root.toString()
-      ) {
+        provenArchive === localBlockAtTargetProvenBlockNumber.archive.root.toString();
+      this.log.trace(`Archive root comparison result: ${localArchiveRootMatch}`);
+      if (localArchiveRootMatch) {
         const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
         if (localProvenBlockNumber !== Number(provenBlockNumber)) {
           await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
@@ -696,7 +703,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         throw new Error(`Missing block ${localPendingBlockNumber}`);
       }
 
-      const noBlockSinceLast = localPendingBlock && pendingHeaderHash === localPendingBlock.header.hash.toString();
+      const noBlockSinceLast =
+        localPendingBlock && pendingHeaderHash === localPendingBlock.header.toPropose().hash().toString();
       if (noBlockSinceLast) {
         // We believe the following line causes a problem when we encounter L1 re-orgs.
         // Basically, by setting the synched L1 block number here, we are saying that we have processed
@@ -714,7 +722,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
       if (!isLocalPendingBlockHeaderHashStale) {
         // Use status() result for re-org detection when header hash is not stale
-        localPendingBlockInChain = headerHashForLocalPendingBlockNumber === localPendingBlock.header.hash.toString();
+        localPendingBlockInChain =
+          headerHashForLocalPendingBlockNumber === localPendingBlock.header.toPropose().hash().toString();
       } else {
         // If the header hash is stale, we can't reliably check for re-orgs using status().
         // Instead, use L2BlockProposed events with parent header hash to detect chain continuity.
@@ -722,8 +731,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         // When header hash is stale, it means:
         // 1. We haven't hit a prune yet (circular storage is long enough for recent blocks)
         // 2. But the specific block is too old to be in circular storage
-        // 3. However, we can still detect L1 re-orgs by checking if recent L2BlockProposed events
-        //    have parent header hashes that match our local chain
+        // However, we can still detect L1 re-orgs by checking if recent L2BlockProposed events
+        // have parent header hashes that match our local chain
 
         this.log.debug(
           `Header hash is stale for block ${localPendingBlockNumber}, checking re-org via parent header hashes in last ${Archiver.MAX_L1_REORG_DEPTH} L1 blocks`,
@@ -733,7 +742,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         const searchRangeStart = Math.max(0, Number(currentL1BlockNumber) - Archiver.MAX_L1_REORG_DEPTH);
         const searchRangeEnd = Number(currentL1BlockNumber);
 
-        localPendingBlockInChain = await this.checkL1ReorgUsingParentHashes(
+        localPendingBlockInChain = await this.checkForReorgUsingL2Events(
           localPendingBlockNumber,
           localPendingBlock,
           BigInt(searchRangeStart),
@@ -755,9 +764,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
             break;
           }
 
-          const archiveAtContract = await this.rollup.archiveAt(BigInt(candidateBlock.number));
+          // Use header hash comparison instead of archive root comparison
+          const [, , , , headerHashAtContract] = await this.rollup.status(BigInt(candidateBlock.number));
 
-          if (archiveAtContract === candidateBlock.archive.root.toString()) {
+          if (headerHashAtContract === candidateBlock.header.toPropose().hash().toString()) {
             break;
           }
           tipAfterUnwind--;
@@ -795,6 +805,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         this.log,
       );
 
+      this.log.trace(
+        `Retrieved blocks header hashes: ${retrievedBlocks.map(b => b.header.hash().toString()).join(', ')}`,
+      );
+
       if (retrievedBlocks.length === 0) {
         // We are not calling `setBlockSynchedL1BlockNumber` because it may cause sync issues if based off infura.
         // See further details in earlier comments.
@@ -809,8 +823,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
       // Find all proven blocks in the range
       const provenBlocks = await retrieveL2ProofsFromRollup(
+        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
-        EthAddress.fromString(this.rollup.getContract().address),
         searchStartBlock,
         searchEndBlock,
       );
@@ -825,6 +839,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         this.log.debug(`Ingesting new L2 block ${block.block.number} with ${block.block.body.txEffects.length} txs`, {
           blockHash: block.block.hash(),
           l1BlockNumber: block.l1.blockNumber,
+          headerHash: block.block.header.toPropose().hash().toString(),
           ...block.block.header.globalVariables.toInspect(),
           ...block.block.getStats(),
         });
@@ -1306,10 +1321,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /**
-   * Checks for L1 re-orgs by examining L2BlockProposed events and their parent header hash chain.
+   * Checks for L1/L2 re-orgs by examining L2BlockProposed events and reconstructing the chain.
    * This is used when the header hash is stale and we can't rely on status() for re-org detection.
    */
-  private async checkL1ReorgUsingParentHashes(
+  private async checkForReorgUsingL2Events(
     localPendingBlockNumber: number,
     localPendingBlock: L2Block,
     fromL1Block: bigint,
@@ -1329,44 +1344,119 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         this.log.debug(
           `No L2BlockProposed events found for re-org check between L1 blocks ${fromL1Block}-${toL1Block}`,
         );
-        return true; // Assume no re-org if no events found
+        return true; // Assume no re-org if no events found in recent range
       }
 
-      // Find the event for the block after our local pending block
-      const nextBlockEvent = l2BlockProposedLogs.find(
-        log => Number(log.args.blockNumber) === localPendingBlockNumber + 1,
-      );
+      // Sort events by block number (ascending) to build chain from genesis
+      const sortedLogs = l2BlockProposedLogs.sort((a, b) => Number(a.args.blockNumber) - Number(b.args.blockNumber));
 
-      if (!nextBlockEvent) {
-        this.log.debug(`No L2BlockProposed event found for block ${localPendingBlockNumber + 1}, assuming no re-org`);
-        return true; // No event means no new block, so no re-org detected
+      // Build a map of block number to most recent event (in case of multiple events for same block)
+      const blockEvents = new Map<number, (typeof sortedLogs)[0]>();
+      for (const log of sortedLogs) {
+        const blockNum = Number(log.args.blockNumber);
+        const existing = blockEvents.get(blockNum);
+        if (!existing || log.blockNumber! > existing.blockNumber!) {
+          blockEvents.set(blockNum, log);
+        }
       }
 
-      // Check if the parentHeaderHash in the next block's event matches our local block's header hash
-      const parentHeaderHashFromEvent = nextBlockEvent.args.parentHeaderHash;
-      const ourLocalHeaderHash = localPendingBlock.header.hash.toString();
+      // Find the event for our local pending block
+      const ourBlockEvent = blockEvents.get(localPendingBlockNumber);
+      if (!ourBlockEvent) {
+        this.log.debug(
+          `No L2BlockProposed event found for our block ${localPendingBlockNumber}, checking parent chain`,
+        );
+        return await this.checkParentChainContinuity(localPendingBlockNumber, localPendingBlock, blockEvents);
+      }
 
-      const chainContinuityValid = parentHeaderHashFromEvent === ourLocalHeaderHash;
+      // Check if our local block's header hash matches what's on L1
+      const ourLocalHeaderHash = localPendingBlock.header.toPropose().hash().toString();
+      const l1HeaderHash = ourBlockEvent.args.headerHash;
 
-      if (!chainContinuityValid) {
-        this.log.warn(`L1 re-org detected via parent header hash mismatch`, {
+      if (ourLocalHeaderHash !== l1HeaderHash) {
+        this.log.warn(`L2 re-org detected: header hash mismatch for block ${localPendingBlockNumber}`, {
           localPendingBlockNumber,
           ourLocalHeaderHash,
-          parentHeaderHashFromEvent,
-          nextBlockNumber: Number(nextBlockEvent.args.blockNumber),
+          l1HeaderHash,
+          l1BlockNumber: ourBlockEvent.blockNumber,
         });
-      } else {
-        this.log.debug(`Chain continuity confirmed via parent header hash`, {
-          localPendingBlockNumber,
-          headerHash: ourLocalHeaderHash,
-        });
+        return false;
       }
 
-      return chainContinuityValid;
+      // Verify parent chain continuity
+      return await this.checkParentChainContinuity(localPendingBlockNumber, localPendingBlock, blockEvents);
     } catch (error) {
-      this.log.warn(`Error checking L1 re-org using parent hashes, assuming re-org occurred`, { error });
+      this.log.warn(`Error checking for re-org using L2 events, assuming re-org occurred`, { error });
       return false; // Conservative: assume re-org if we can't check
     }
+  }
+
+  /**
+   * Verifies that the parent chain is consistent by checking parent header hashes.
+   */
+  private async checkParentChainContinuity(
+    localPendingBlockNumber: number,
+    localPendingBlock: L2Block,
+    blockEvents: Map<number, any>,
+  ): Promise<boolean> {
+    // Special case: block 1 should have GENESIS_BLOCK_HEADER_HASH as parent
+    if (localPendingBlockNumber === 1) {
+      const block1Event = blockEvents.get(1);
+      if (block1Event) {
+        const expectedGenesisHash = new Fr(GENESIS_BLOCK_HEADER_HASH).toString();
+        const actualParentHash = block1Event.args.parentHeaderHash;
+
+        if (actualParentHash !== expectedGenesisHash) {
+          this.log.warn(`Block 1 parent header hash mismatch`, {
+            expected: expectedGenesisHash,
+            actual: actualParentHash,
+          });
+          return false;
+        }
+      }
+      return true; // Block 1 is valid if it exists and has correct parent
+    }
+
+    // For other blocks, check if any subsequent block references our block as parent
+    const ourLocalHeaderHash = localPendingBlock.header.toPropose().hash().toString();
+
+    // Look for the next block that should reference our block as parent
+    const nextBlockEvent = blockEvents.get(localPendingBlockNumber + 1);
+    if (nextBlockEvent) {
+      const nextBlockParentHash = nextBlockEvent.args.parentHeaderHash;
+
+      if (nextBlockParentHash !== ourLocalHeaderHash) {
+        this.log.warn(`Parent chain discontinuity detected`, {
+          localPendingBlockNumber,
+          ourLocalHeaderHash,
+          nextBlockNumber: localPendingBlockNumber + 1,
+          nextBlockParentHash,
+        });
+        return false;
+      }
+    }
+
+    // Also check if our block's expected parent exists and matches
+    if (localPendingBlockNumber > 1) {
+      const parentBlock = await this.getBlock(localPendingBlockNumber - 1);
+      const parentEvent = blockEvents.get(localPendingBlockNumber - 1);
+
+      if (parentBlock && parentEvent) {
+        const expectedParentHash = parentBlock.header.toPropose().hash().toString();
+        const ourBlockEvent = blockEvents.get(localPendingBlockNumber);
+
+        if (ourBlockEvent && ourBlockEvent.args.parentHeaderHash !== expectedParentHash) {
+          this.log.warn(`Our block's parent header hash doesn't match expected parent`, {
+            localPendingBlockNumber,
+            expectedParentHash,
+            actualParentHash: ourBlockEvent.args.parentHeaderHash,
+          });
+          return false;
+        }
+      }
+    }
+
+    return true; // Chain continuity verified
   }
 }
 
