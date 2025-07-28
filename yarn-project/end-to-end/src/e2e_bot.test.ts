@@ -1,7 +1,7 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { PXE } from '@aztec/aztec.js';
 import { AmmBot, Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 
+import { getInitialTestAccounts } from '../../aztec.js/src/wallet/testing/index.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {

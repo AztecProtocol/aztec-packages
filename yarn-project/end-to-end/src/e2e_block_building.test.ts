@@ -1,4 +1,3 @@
-import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
@@ -31,6 +30,7 @@ import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
+import { type InitialAccountData, deployFundedSchnorrAccount } from '../../aztec.js/src/wallet/testing/index.js';
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 

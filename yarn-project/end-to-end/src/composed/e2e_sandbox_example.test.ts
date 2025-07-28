@@ -53,7 +53,6 @@ end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.t
 */
 // docs:start:imports1
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 // docs:end:imports1
 import {
   getDeployedBananaCoinAddress,
@@ -79,6 +78,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { format } from 'util';
 
+import { getDeployedTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 // docs:end:imports3
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 

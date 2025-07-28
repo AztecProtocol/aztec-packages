@@ -1,7 +1,8 @@
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { createPXEClient } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+
+import { getDeployedTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 
 const logger = createLogger('example:token');
 

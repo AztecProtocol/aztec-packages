@@ -1,4 +1,3 @@
-import { getInitialTestAccountsManagers } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   BatchCall,
@@ -24,6 +23,8 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+
+import { getInitialTestAccountsManagers } from '../../../../aztec.js/src/wallet/testing/index.js';
 
 type ContractDeploymentInfo = {
   address: AztecAddress;

@@ -1,6 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
@@ -34,6 +33,7 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, h
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '../../../aztec.js/src/wallet/testing/index.js';
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';

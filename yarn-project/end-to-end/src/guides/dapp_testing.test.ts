@@ -1,5 +1,4 @@
 // docs:start:imports
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { type AccountWallet, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -7,6 +6,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
+import { getDeployedTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 // docs:end:import_contract
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';

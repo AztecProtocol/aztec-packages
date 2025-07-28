@@ -1,5 +1,4 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   Fr,
@@ -22,6 +21,7 @@ import { Offense, OffenseToBigInt } from '@aztec/slasher';
 
 import type { GetContractReturnType } from 'viem';
 
+import type { InitialAccountData } from '../../../aztec.js/src/wallet/testing/index.js';
 import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
 

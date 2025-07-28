@@ -23,7 +23,8 @@
     "./tx_hash": "./dest/api/tx_hash.js",
     "./wallet": "./dest/api/wallet.js",
     "./utils": "./dest/api/utils.js",
-    "./fee/testing": "./dest/api/fee_testing.js"
+    "./fee/testing": "./dest/api/fee_testing.js",
+    "./wallet/testing": "./dest/api/wallet_testing.js"
   },
   "typedocOptions": {
     "entryPoints": [

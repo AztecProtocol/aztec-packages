@@ -1,5 +1,4 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
@@ -26,6 +25,7 @@ import { lookup } from 'node:dns/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
+import { getDeployedTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getLogger, setupPXEService } from '../fixtures/utils.js';

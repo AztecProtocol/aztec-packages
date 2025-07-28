@@ -1,4 +1,3 @@
-import { type InitialAccountData, getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { Wallet } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
@@ -7,6 +6,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
+
+import { type InitialAccountData, getInitialTestAccounts } from '../../../aztec.js/src/wallet/testing/index.js';
 
 const BANANA_COIN_SALT = new Fr(0);
 const bananaCoinArgs = {

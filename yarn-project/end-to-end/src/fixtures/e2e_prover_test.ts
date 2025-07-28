@@ -3,7 +3,6 @@ import {
   getSchnorrAccount,
   getSchnorrWalletWithSecretKey,
 } from '@aztec/accounts/schnorr';
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
@@ -36,6 +35,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
+import type { InitialAccountData } from '../../../aztec.js/src/wallet/testing/index.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';

@@ -1,4 +1,3 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY, getPublicClient } from '@aztec/ethereum';
@@ -19,6 +18,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
+import { getInitialTestAccounts } from '../../../../aztec.js/src/wallet/testing/index.js';
 import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions, preloadCrsDataForVerifying, setupUpdateMonitor } from '../util.js';
 import { getVersions } from '../versioning.js';

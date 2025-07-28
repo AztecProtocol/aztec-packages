@@ -1,5 +1,4 @@
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   type ContractInstanceWithAddress,
@@ -19,6 +18,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { type InitialAccountData, deployFundedSchnorrAccount } from '../../../aztec.js/src/wallet/testing/index.js';
 import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 

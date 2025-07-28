@@ -1,5 +1,4 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import {
   type AccountManager,
   type AccountWallet,
@@ -13,6 +12,7 @@ import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
+import { generateSchnorrAccounts } from '../../../aztec.js/src/wallet/testing/index.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees Fee Juice payments', () => {

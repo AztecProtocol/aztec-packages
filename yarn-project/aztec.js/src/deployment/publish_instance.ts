@@ -11,18 +11,12 @@ import type { Wallet } from '../wallet/index.js';
  * @param instance - The instance to publish.
  */
 export async function publishInstance(
-  account: Account,
   wallet: Wallet,
   instance: ContractInstanceWithAddress,
 ): Promise<ContractFunctionInteraction> {
   const contractInstanceRegistry = await getInstanceRegistryContract(wallet);
-  const { salt, currentContractClassId: contractClassId, publicKeys, deployer } = instance;
-  const isUniversalDeploy = deployer.isZero();
-  if (!isUniversalDeploy && !account.getAddress().equals(deployer)) {
-    throw new Error(
-      `Expected deployer ${deployer.toString()} does not match sender wallet ${account.getAddress().toString()}`,
-    );
-  }
+  const { salt, currentContractClassId: contractClassId, publicKeys, deployer: instanceDeployer } = instance;
+  const isUniversalDeploy = instanceDeployer.isZero();
   return contractInstanceRegistry.methods.publish_for_public_execution(
     salt,
     contractClassId,

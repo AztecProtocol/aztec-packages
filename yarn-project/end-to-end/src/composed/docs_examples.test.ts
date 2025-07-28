@@ -1,7 +1,6 @@
 /* eslint-disable import/no-duplicates */
 // docs:start:create_account_imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
 // docs:end:create_account_imports
 // docs:start:import_contract
@@ -9,6 +8,8 @@ import { Contract } from '@aztec/aztec.js';
 // docs:end:import_contract
 // docs:start:import_token_contract
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+
+import { getDeployedTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 
 // docs:end:import_token_contract
 

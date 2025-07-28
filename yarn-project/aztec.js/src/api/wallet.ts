@@ -1,1 +1,1 @@
-export { BaseWallet, type Wallet } from '../wallet/index.js';
+export { BaseWallet, type Wallet, AccountManager } from '../wallet/index.js';

@@ -32,7 +32,6 @@
  * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
@@ -72,6 +71,7 @@ import { createWorldStateSynchronizer } from '@aztec/world-state';
 import * as fs from 'fs';
 import { getContract } from 'viem';
 
+import { type InitialAccountData, deployFundedSchnorrAccounts } from '../../aztec.js/src/wallet/testing/index.js';
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';

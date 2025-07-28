@@ -1,9 +1,9 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type Operator, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
+import { getInitialTestAccounts } from '../../../../aztec.js/src/wallet/testing/index.js';
 import { deployNewRollupContracts } from '../../utils/aztec.js';
 import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
 

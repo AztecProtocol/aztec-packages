@@ -1,4 +1,3 @@
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { BatchCall, Fr, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
@@ -6,6 +5,7 @@ import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstruct
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
 
+import { getDeployedTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 import { DeployTest } from './deploy_test.js';
 
 describe('e2e_deploy_contract deploy method', () => {

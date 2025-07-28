@@ -1,5 +1,4 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
@@ -37,6 +36,11 @@ import os from 'os';
 import path from 'path';
 import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
 
+import {
+  type InitialAccountData,
+  deployFundedSchnorrAccount,
+  getInitialTestAccounts,
+} from '../../../aztec.js/src/wallet/testing/index.js';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';

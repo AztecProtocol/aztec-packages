@@ -3,7 +3,8 @@ import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import type { Account } from '../account/account.js';
-import { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
+import type { Wallet } from '../wallet/wallet.js';
+import { DefaultWaitOpts, SentTx, type WaitOpts } from './sent_tx.js';
 
 /** Extends a transaction receipt with a wallet instance for the newly deployed contract. */
 export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
@@ -16,11 +17,11 @@ export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
  */
 export class DeployAccountSentTx extends SentTx {
   constructor(
-    pxeOrNode: AztecNode | PXE,
+    pxeNodeOrWallet: Wallet | AztecNode | PXE,
     sendTx: () => Promise<TxHash>,
     private getAccountPromise: Promise<Account>,
   ) {
-    super(pxeOrNode, sendTx);
+    super(pxeNodeOrWallet, sendTx);
   }
 
   /**

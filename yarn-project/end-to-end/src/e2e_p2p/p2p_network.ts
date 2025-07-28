@@ -1,5 +1,4 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey, EthAddress } from '@aztec/aztec.js';
 import {
@@ -26,6 +25,7 @@ import getPort from 'get-port';
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import type { InitialAccountData } from '../../../aztec.js/src/wallet/testing/index.js';
 import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
   createValidatorConfig,

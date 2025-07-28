@@ -1,6 +1,5 @@
 // This test should only use packages that are published to npm
 // docs:start:imports
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   EthAddress,
   Fr,
@@ -23,6 +22,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { getContract } from 'viem';
+
+import { getInitialTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 
 // docs:end:imports
 // docs:start:utils

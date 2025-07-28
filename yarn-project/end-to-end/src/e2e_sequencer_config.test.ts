@@ -1,4 +1,3 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { PXE, TxReceipt } from '@aztec/aztec.js';
 import { Bot, type BotConfig, getBotDefaultConfig } from '@aztec/bot';
 import type { Logger } from '@aztec/foundation/log';
@@ -7,6 +6,7 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
+import { getInitialTestAccounts } from '../../aztec.js/src/wallet/testing/index.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_sequencer_config', () => {

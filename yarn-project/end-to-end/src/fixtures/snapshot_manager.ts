@@ -1,5 +1,5 @@
-import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAccounts } from '@aztec/accounts/testing';
+import { SchnorrAccountContract, SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AztecAddress,
@@ -8,6 +8,8 @@ import {
   type CompleteAddress,
   type ContractFunctionInteraction,
   DefaultWaitForProvenOpts,
+  Fq,
+  Fr,
   type Logger,
   type PXE,
   type Wallet,
@@ -15,6 +17,7 @@ import {
   waitForProven,
 } from '@aztec/aztec.js';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
+import { TestWallet } from '@aztec/aztec.js/wallet/testing';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
@@ -71,6 +74,7 @@ export type SubsystemsContext = {
   aztecNode: AztecNodeService;
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
+  wallet: TestWallet;
   deployL1ContractsValues: DeployL1ContractsReturnType;
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
@@ -461,7 +465,7 @@ async function setupFromFresh(
   // Only enable proving if specifically requested.
   pxeConfig.proverEnabled = !!opts.realProofs;
   const pxe = await createPXEService(aztecNode, pxeConfig);
-
+  const wallet = new TestWallet(pxe);
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
   if (statePath) {
@@ -474,6 +478,7 @@ async function setupFromFresh(
     anvil,
     aztecNode,
     pxe,
+    wallet,
     sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
@@ -585,7 +590,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const pxeConfig = getPXEServiceConfig();
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
-
+  const wallet = new TestWallet(pxe);
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
   return {
@@ -593,6 +598,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     anvil,
     aztecNode,
     pxe,
+    wallet,
     sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
@@ -617,19 +623,37 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
  */
 export const deployAccounts =
   (numberOfAccounts: number, logger: Logger, waitUntilProven = false) =>
-  async ({ pxe, initialFundedAccounts }: { pxe: PXE; initialFundedAccounts: InitialAccountData[] }) => {
+  async ({
+    wallet,
+    node,
+    initialFundedAccounts,
+  }: {
+    wallet: TestWallet;
+    node: AztecNode;
+    initialFundedAccounts: InitialAccountData[];
+  }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
       throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
     }
 
     logger.verbose('Deploying accounts funded with fee juice...');
     const deployedAccounts = initialFundedAccounts.slice(0, numberOfAccounts);
-    await deployFundedSchnorrAccounts(
-      pxe,
-      deployedAccounts,
-      undefined,
-      waitUntilProven ? DefaultWaitForProvenOpts : undefined,
-    );
+    // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
+    for (let i = 0; i < deployedAccounts.length; i++) {
+      const accountData = {
+        secret: deployedAccounts[i].secret,
+        salt: deployedAccounts[i].salt,
+        contract: new SchnorrAccountContract(deployedAccounts[i].signingKey),
+      };
+      await wallet.createAccount(
+        accountData,
+        {
+          skipClassPublication: i !== 0, // Publish the contract class at most once.
+        },
+        waitUntilProven ? DefaultWaitForProvenOpts : undefined,
+        node,
+      );
+    }
 
     return { deployedAccounts };
   };
@@ -643,25 +667,25 @@ export const deployAccounts =
  * @param pxeOrNode - PXE or AztecNode to wait for proven.
  */
 export async function publicDeployAccounts(
-  sender: Wallet,
+  wallet: Wallet,
   accountsToDeploy: (CompleteAddress | AztecAddress)[],
   waitUntilProven = false,
   pxeOrNode?: PXE | AztecNode,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = (
-    await Promise.all(accountAddressesToDeploy.map(account => sender.getContractMetadata(account)))
+    await Promise.all(accountAddressesToDeploy.map(account => wallet.getContractMetadata(account)))
   ).map(metadata => metadata.contractInstance);
 
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
+  const alreadyRegistered = (await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
   const calls: ContractFunctionInteraction[] = await Promise.all([
-    ...(!alreadyRegistered ? [publishContractClass(sender, SchnorrAccountContractArtifact)] : []),
-    ...instances.map(instance => publishInstance(sender, instance!)),
+    ...(!alreadyRegistered ? [publishContractClass(wallet, SchnorrAccountContractArtifact)] : []),
+    ...instances.map(instance => publishInstance(wallet, instance!)),
   ]);
 
-  const batch = new BatchCall(sender, calls);
+  const batch = new BatchCall(wallet, calls);
 
   const txReceipt = await batch.send().wait();
   if (waitUntilProven) {

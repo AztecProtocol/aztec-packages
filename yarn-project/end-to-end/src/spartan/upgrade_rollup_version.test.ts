@@ -1,4 +1,3 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { EthAddress, type NodeInfo, type PXE, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
 import {
   DefaultL1ContractsConfig,
@@ -18,6 +17,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import type { ChildProcess } from 'child_process';
 import omit from 'lodash.omit';
 
+import { getInitialTestAccounts } from '../../../aztec.js/src/wallet/testing/index.js';
 import { isK8sConfig, rollAztecPods, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);

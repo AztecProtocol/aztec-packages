@@ -12,12 +12,11 @@ import type { Salt } from '../account/index.js';
 import type { AccountInterface } from '../account/interface.js';
 import { SignerlessAccount } from '../account/signerless_account.js';
 import { Contract } from '../contract/contract.js';
+import { DeployAccountSentTx } from '../contract/deploy_account_sent_tx.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { AccountEntrypointMetaPaymentMethod } from '../fee/account_entrypoint_meta_payment_method.js';
 import { FeeJuicePaymentMethod, type FeePaymentMethod, type Wallet } from '../index.js';
-import { BaseWallet } from '../wallet/base_wallet.js';
-import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
 /**
  * Options to deploy an account contract.
@@ -37,9 +36,8 @@ export type DeployAccountOptions = Pick<
  * and creating and registering the user wallet in the PXE Service.
  */
 export class AccountManager {
-  private deployWallet: Wallet;
-
   private constructor(
+    private wallet: Wallet,
     private pxe: PXE,
     private secretKey: Fr,
     private accountContract: AccountContract,
@@ -48,11 +46,9 @@ export class AccountManager {
      * Contract instantiation salt for the account contract
      */
     public readonly salt: Salt,
-  ) {
-    this.deployWallet = new BaseWallet(pxe);
-  }
+  ) {}
 
-  static async create(pxe: PXE, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
+  static async create(wallet: Wallet, pxe: PXE, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
     const { publicKeys } = await deriveKeys(secretKey);
     salt = salt !== undefined ? new Fr(salt) : Fr.random();
 
@@ -69,7 +65,7 @@ export class AccountManager {
       publicKeys,
     });
 
-    return new AccountManager(pxe, secretKey, accountContract, instance, salt);
+    return new AccountManager(wallet, pxe, secretKey, accountContract, instance, salt);
   }
 
   protected getPublicKeys() {
@@ -123,8 +119,8 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async getAccount(): Promise<AccountWithSecretKey> {
-    const entrypoint = await this.getAccount();
-    return new AccountWithSecretKey(entrypoint, this.secretKey, this.salt);
+    const accountInterface = await this.getAccountInterface();
+    return new AccountWithSecretKey(accountInterface, this.secretKey, this.salt);
   }
 
   /**
@@ -174,9 +170,9 @@ export class AccountManager {
 
     return new DeployMethod(
       this.getPublicKeys(),
-      this.deployWallet,
+      this.wallet,
       artifact,
-      address => Contract.at(address, artifact, this.deployWallet),
+      address => Contract.at(address, artifact, this.wallet),
       constructorArgs,
       constructorName,
     );
@@ -239,7 +235,7 @@ export class AccountManager {
       });
       return tx.getTxHash();
     };
-    return new DeployAccountSentTx(this.pxe, sendTx, this.getAccount());
+    return new DeployAccountSentTx(this.wallet, sendTx, this.getAccount());
   }
 
   /**
@@ -247,7 +243,7 @@ export class AccountManager {
    * Uses the salt provided in the constructor or a randomly generated one. If no initialization
    * is required it skips the transaction, and only registers the account in the PXE Service.
    * @param opts - Options to wait for the tx to be mined.
-   * @returns A Wallet instance.
+   * @returns An Account instance.
    */
   public async waitSetup(opts: DeployAccountOptions & WaitOpts = DefaultWaitOpts): Promise<AccountWithSecretKey> {
     await ((await this.hasInitializer()) ? this.deploy(opts).wait(opts) : this.register());

@@ -1,9 +1,10 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
+
+import type { InitialAccountData } from '../../aztec.js/src/wallet/testing/index.js';
 
 /**
  * This test suit makes sure that the code in the monorepo is still compatible with the latest version of testnet

@@ -1,10 +1,4 @@
-import {
-  type AccountWallet,
-  type AuthWitnessProvider,
-  AztecAddress,
-  CompleteAddress,
-  type NodeInfo,
-} from '@aztec/aztec.js';
+import { type Account, type AuthWitnessProvider, AztecAddress, CompleteAddress, type NodeInfo } from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 
 import { DefaultAccountInterface } from '../defaults/account_interface.js';
@@ -29,10 +23,10 @@ export class DefaultDappInterface extends DefaultAccountInterface {
     );
   }
 
-  static createFromUserWallet(wallet: AccountWallet, dappAddress: AztecAddress): DefaultDappInterface {
-    return new DefaultDappInterface(wallet, wallet.getCompleteAddress(), dappAddress, {
-      l1ChainId: wallet.getChainId().toNumber(),
-      rollupVersion: wallet.getVersion().toNumber(),
+  static createFromUserWallet(account: Account, dappAddress: AztecAddress): DefaultDappInterface {
+    return new DefaultDappInterface(account, account.getCompleteAddress(), dappAddress, {
+      l1ChainId: account.getChainId().toNumber(),
+      rollupVersion: account.getVersion().toNumber(),
     });
   }
 }

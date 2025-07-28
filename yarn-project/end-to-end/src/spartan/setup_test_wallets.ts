@@ -1,5 +1,4 @@
 import { getSchnorrAccount, getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { generateSchnorrAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   type AccountWalletWithSecretKey,
   type AztecAddress,
@@ -20,6 +19,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { createPXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { generateSchnorrAccounts, getDeployedTestAccountsWallets } from '../../../aztec.js/src/wallet/testing/index.js';
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
