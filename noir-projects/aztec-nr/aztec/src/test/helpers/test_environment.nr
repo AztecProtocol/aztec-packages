@@ -33,6 +33,26 @@ impl Counter {
     }
 }
 
+/// This represents an Aztec test run, and contains all the methods utilized during one. Each test is expected to have
+/// its own instance of `TestEnvironment`, as tests execute in parallel and so cannot share this object.
+///
+/// Most tests will begin by creating a `TestEnvironment` variable, and then consist of multiple calls to its different
+/// methods. E.g.:
+/// ```noir
+/// #[test]
+/// fn sample_test() {
+///     let mut env = TestEnvironment::new();
+///
+///     // Create an account to call contracts from
+///     let account = env.create_light_account();
+///     // Deploy a compiled contract
+///     let contract_addr = env.deploy("MyContract").without_initializer();
+///
+///     // Call a contract private function and get the return value
+///     let result = env.private_call(account, MyContract::at(contract_addr).sample_private_function());
+///     assert_eq(result, expected);
+/// }
+/// ```
 pub struct TestEnvironment {
     // The secrets to be used for light and contract account creation, as well as contract deployments. By keeping track
     // of the last used secret we can issue new ones automatically without requiring the user to provide different ones.
