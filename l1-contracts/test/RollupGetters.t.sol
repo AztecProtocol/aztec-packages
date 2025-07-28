@@ -139,7 +139,8 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     RewardConfig memory updated = RewardConfig({
       sequencerBps: Bps.wrap(1),
       rewardDistributor: IRewardDistributor(address(2)),
-      booster: IBoosterCore(address(3))
+      booster: IBoosterCore(address(3)),
+      blockReward: 100e18
     });
 
     assertNotEq(
@@ -153,6 +154,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       Bps.unwrap(defaultConfig.sequencerBps),
       "invalid sequencerBps"
     );
+    assertEq(config.blockReward, defaultConfig.blockReward, "invalid initial blockReward");
 
     address owner = rollup.owner();
 
@@ -171,5 +173,6 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       "invalid reward distributor"
     );
     assertEq(address(config.booster), address(updated.booster), "invalid booster");
+    assertEq(config.blockReward, updated.blockReward, "invalid blockReward");
   }
 }
