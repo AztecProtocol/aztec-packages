@@ -182,8 +182,6 @@ describe('p2p client integration status handshake', () => {
     expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1
 
     const expectedHandshakeCount = peerTestCount - 1;
-    // c2 established connection exactly once with both c0 and c1
-    expect(statusHandshakeSpies[2]).toHaveBeenCalledTimes(expectedHandshakeCount);
 
     // c1 received invalid status from c0 exactly once
     // the connection between c0 and c1 might have been retried in the meantime
@@ -191,5 +189,7 @@ describe('p2p client integration status handshake', () => {
     // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
     expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
     expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
+    // c2 established connection exactly once with both c0 and c1
+    expect(statusHandshakeSpies[2]).toHaveBeenCalledTimes(expectedHandshakeCount);
   });
 });
