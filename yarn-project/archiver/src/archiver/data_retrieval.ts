@@ -311,7 +311,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
+  const [decodedArgs, attestations, _signers, _blobInput] = rollupArgs! as readonly [
     {
       archive: Hex;
       stateReference: ViemStateReference;
@@ -322,6 +322,7 @@ async function getBlockFromRollupTx(
       txHashes: readonly Hex[];
     },
     ViemCommitteeAttestations,
+    Hex[],
     Hex,
   ];
 

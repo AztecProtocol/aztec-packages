@@ -306,8 +306,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const txs = await this.gatherTxs(epochNumber, blocks);
     const l1ToL2Messages = await this.gatherMessages(epochNumber, blocks);
     const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, blocks[0]);
+    const [lastBlock] = await this.l2BlockSource.getPublishedBlocks(blocks.at(-1)!.number, 1);
+    const attestations = lastBlock?.attestations ?? [];
 
-    return { blocks, txs, l1ToL2Messages, epochNumber, previousBlockHeader };
+    return { blocks, txs, l1ToL2Messages, epochNumber, previousBlockHeader, attestations };
   }
 
   private async gatherBlocks(epochNumber: bigint) {

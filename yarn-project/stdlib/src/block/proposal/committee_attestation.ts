@@ -36,7 +36,7 @@ export class CommitteeAttestation {
     return new CommitteeAttestation(EthAddress.fromString(viem.addr), Signature.fromViemSignature(viem.signature));
   }
 
-  static fromBuffer(buffer: Buffer): CommitteeAttestation {
+  static fromBuffer(buffer: Buffer | BufferReader): CommitteeAttestation {
     const reader = BufferReader.asReader(buffer);
     const address = reader.readObject(EthAddress);
     const signature = reader.readObject(Signature);

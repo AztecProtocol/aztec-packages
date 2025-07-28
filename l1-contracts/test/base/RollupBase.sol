@@ -11,6 +11,7 @@ import {
   PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -35,6 +36,7 @@ contract RollupBase is DecoderBase {
   MerkleTestUtil internal merkleTestUtil = new MerkleTestUtil();
 
   CommitteeAttestation[] internal attestations;
+  address[] internal signers;
 
   mapping(uint256 => uint256) internal blockFees;
 
@@ -100,6 +102,7 @@ contract RollupBase is DecoderBase {
         end: endBlockNumber,
         args: args,
         fees: fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: endFull.block.batchedBlobInputs,
         proof: ""
       })
@@ -202,7 +205,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, SignatureLib.packAttestations(attestations), blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;
