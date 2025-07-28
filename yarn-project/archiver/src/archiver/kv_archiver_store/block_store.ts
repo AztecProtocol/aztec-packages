@@ -89,11 +89,10 @@ export class BlockStore {
         throw new InitialBlockNumberNotSequentialError(firstBlockNumber, previousBlockNumber);
       }
 
-      // Iterate over blocks array and insert them, checking that the block numbers have no gaps.
-      // We do accept repeated blocks in case there was a prune and a block with the same number is added.
+      // Iterate over blocks array and insert them, checking that the block numbers are sequential.
       let previousBlock: PublishedL2Block | undefined = undefined;
       for (const block of blocks) {
-        if (!opts.force && previousBlock && previousBlock.block.number + 1 < block.block.number) {
+        if (!opts.force && previousBlock && previousBlock.block.number + 1 !== block.block.number) {
           throw new BlockNumberNotSequentialError(block.block.number, previousBlock.block.number);
         }
         previousBlock = block;
