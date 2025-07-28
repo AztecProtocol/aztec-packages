@@ -329,10 +329,9 @@ struct MegaTraceBlockData {
 
     auto get_gate_blocks() const
     {
-        return RefArray(std::array<const MegaTraceBlock*, 10>{
+        return RefArray(std::array<const MegaTraceBlock*, 9>{
             &busread,
             &lookup,
-            &pub_inputs,
             &arithmetic,
             &delta_range,
             &elliptic,
