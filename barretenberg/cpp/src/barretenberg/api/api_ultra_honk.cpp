@@ -250,9 +250,9 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
     } else {
         write_file(output_path, { response.solidity_code.begin(), response.solidity_code.end() });
         if (flags.disable_zk) {
-            info("ZK Honk solidity verifier saved to ", output_path);
-        } else {
             info("Honk solidity verifier saved to ", output_path);
+        } else {
+            info("ZK Honk solidity verifier saved to ", output_path);
         }
     }
 }

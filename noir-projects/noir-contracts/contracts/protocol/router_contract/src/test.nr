@@ -12,8 +12,7 @@ use aztec::utils::comparison::Comparator;
 unconstrained fn check_block_number() {
     let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_number = env.next_block_number();
@@ -27,8 +26,7 @@ unconstrained fn check_block_number() {
 unconstrained fn check_block_number_fail() {
     let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_number = env.next_block_number();
@@ -42,8 +40,7 @@ unconstrained fn check_block_number_fail() {
 unconstrained fn check_timestamp() {
     let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
@@ -58,8 +55,7 @@ unconstrained fn check_timestamp() {
 unconstrained fn check_timestamp_fail() {
     let mut env = TestEnvironment::new();
 
-    let router_contract = env.deploy_self("Router").without_initializer();
-    let router_contract_address = router_contract.to_address();
+    let router_contract_address = env.deploy("Router").without_initializer();
     let router = Router::at(router_contract_address);
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
