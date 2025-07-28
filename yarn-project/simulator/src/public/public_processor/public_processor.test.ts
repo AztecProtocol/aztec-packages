@@ -10,7 +10,7 @@ import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { GlobalVariables, Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -43,6 +43,8 @@ describe('public_processor', () => {
     contractsDB = mock<PublicContractsDB>();
     publicTxSimulator = mock();
 
+    const stateReference = StateReference.empty();
+
     const avmCircuitInputs = AvmCircuitInputs.empty();
     mockedEnqueuedCallsResult = {
       avmProvingRequest: {
@@ -66,6 +68,7 @@ describe('public_processor', () => {
     merkleTree.getLeafPreimage.mockResolvedValue(
       new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO), /*nextKey=*/ Fr.ZERO, /*nextIndex=*/ 0n),
     );
+    merkleTree.getStateReference.mockResolvedValue(stateReference);
 
     publicTxSimulator.simulate.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
