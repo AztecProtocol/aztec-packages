@@ -428,28 +428,18 @@ abstract contract BaseHonkVerifier is IVerifier {
         view
         returns (Honk.G1Point memory result)
     {
-        uint256 limit = NUMBER_OF_ENTITIES + $LOG_N + 3;
+        uint256 limit = NUMBER_OF_ENTITIES + $LOG_N + 2;
 
         // Validate all points are on the curve
-        for (uint256 i = 0; i < limit - 1; ++i) {
+        for (uint256 i = 0; i < limit; ++i) {
             validateOnCurve(base[i]);
         }
-
         assembly {
             let success := 0x01
             let free := mload(0x40)
 
-            // Write the original into the accumulator
-            // Load into memory for ecMUL, leave offset for eccAdd result
-            // base is an array of pointers, so we have to dereference them
-            mstore(add(free, 0x40), mload(mload(base)))
-            mstore(add(free, 0x60), mload(add(0x20, mload(base))))
-            // Add scalar
-            mstore(add(free, 0x80), mload(scalars))
-            success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, free, 0x40))
-
             let count := 0x01
-            for {} lt(count, limit) { count := add(count, 1) } {
+            for {} lt(count, add(limit, 1)) { count := add(count, 1) } {
                 // Get loop offsets
                 let base_base := add(base, mul(count, 0x20))
                 let scalar_base := add(scalars, mul(count, 0x20))
