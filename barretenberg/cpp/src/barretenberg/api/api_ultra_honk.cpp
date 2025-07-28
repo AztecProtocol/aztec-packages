@@ -3,7 +3,6 @@
 #include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
-#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -20,6 +19,62 @@
 
 namespace bb {
 
+namespace {
+
+void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
+                      const std::string& output_format,
+                      const std::filesystem::path& output_dir)
+{
+    if (output_format == "bytes" || output_format == "bytes_and_fields") {
+        write_file(output_dir / "vk", vk_response.bytes);
+        info("VK saved to ", output_dir / "vk");
+        // Also write vk_hash
+        auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response.bytes);
+        write_file(output_dir / "vk_hash", to_buffer(vk.hash()));
+        info("VK Hash saved to ", output_dir / "vk_hash");
+    }
+
+    if (output_format == "fields" || output_format == "bytes_and_fields") {
+        // Use the fields directly from vk_response if available
+        std::string vk_json = field_elements_to_json(vk_response.fields);
+        write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
+        info("VK fields saved to ", output_dir / "vk_fields.json");
+
+        // For vk_hash
+        auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response.bytes);
+        std::string vk_hash_json = format("\"", vk.hash(), "\"");
+        write_file(output_dir / "vk_hash_fields.json", { vk_hash_json.begin(), vk_hash_json.end() });
+        info("VK Hash fields saved to ", output_dir / "vk_hash_fields.json");
+    }
+}
+
+void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
+                         const std::string& output_format,
+                         const std::filesystem::path& output_dir)
+{
+    if (output_format == "bytes" || output_format == "bytes_and_fields") {
+        auto public_inputs_buf = to_buffer(prove_response.public_inputs);
+        auto proof_buf = to_buffer(prove_response.proof);
+
+        write_file(output_dir / "public_inputs", public_inputs_buf);
+        write_file(output_dir / "proof", proof_buf);
+        info("Public inputs saved to ", output_dir / "public_inputs");
+        info("Proof saved to ", output_dir / "proof");
+    }
+
+    if (output_format == "fields" || output_format == "bytes_and_fields") {
+        std::string public_inputs_json = field_elements_to_json(prove_response.public_inputs);
+        std::string proof_json = field_elements_to_json(prove_response.proof);
+
+        write_file(output_dir / "public_inputs_fields.json", { public_inputs_json.begin(), public_inputs_json.end() });
+        write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
+        info("Public inputs fields saved to ", output_dir / "public_inputs_fields.json");
+        info("Proof fields saved to ", output_dir / "proof_fields.json");
+    }
+}
+
+} // anonymous namespace
+
 bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path,
                          [[maybe_unused]] const std::filesystem::path& witness_path)
@@ -28,102 +83,17 @@ bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
     return false;
 }
 
-// Helper function to write proof outputs from bbapi
-void write_bbapi_proof_outputs(const bbapi::CircuitProve::Response& prove_response,
-                               const bbapi::CircuitComputeVk::Response* vk_response, // optional, only if write_vk
-                               const API::Flags& flags,
-                               const std::filesystem::path& output_dir)
-{
-    const bool output_to_stdout = output_dir == "-";
-
-    if (flags.output_format == "bytes") {
-        // Write bytes format
-        auto public_inputs_buf = to_buffer(prove_response.public_inputs);
-        auto proof_buf = to_buffer(prove_response.proof);
-
-        if (output_to_stdout) {
-            write_bytes_to_stdout(public_inputs_buf);
-            write_bytes_to_stdout(proof_buf);
-            if (flags.write_vk && vk_response) {
-                write_bytes_to_stdout(vk_response->bytes);
-                // For vk_hash, we need to deserialize
-                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
-                write_bytes_to_stdout(to_buffer(vk.hash()));
-            }
-        } else {
-            write_file(output_dir / "public_inputs", public_inputs_buf);
-            write_file(output_dir / "proof", proof_buf);
-            info("Public inputs saved to ", output_dir / "public_inputs");
-            info("Proof saved to ", output_dir / "proof");
-
-            if (flags.write_vk && vk_response) {
-                write_file(output_dir / "vk", vk_response->bytes);
-                info("VK saved to ", output_dir / "vk");
-                // For vk_hash
-                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
-                write_file(output_dir / "vk_hash", to_buffer(vk.hash()));
-                info("VK Hash saved to ", output_dir / "vk_hash");
-            }
-        }
-    } else if (flags.output_format == "fields") {
-        // Write fields format
-        std::string public_inputs_json = field_elements_to_json(prove_response.public_inputs);
-        std::string proof_json = field_elements_to_json(prove_response.proof);
-
-        if (output_to_stdout) {
-            std::cout << public_inputs_json;
-            std::cout << proof_json;
-            if (flags.write_vk && vk_response) {
-                // Use the fields directly from vk_response if available
-                if (!vk_response->fields.empty()) {
-                    std::cout << field_elements_to_json(vk_response->fields);
-                } else {
-                    // Fallback: deserialize and convert to fields
-                    auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
-                    std::cout << field_elements_to_json(vk.to_field_elements());
-                }
-                // For vk_hash
-                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
-                std::cout << format("\"", vk.hash(), "\"");
-            }
-        } else {
-            write_file(output_dir / "public_inputs_fields.json",
-                       { public_inputs_json.begin(), public_inputs_json.end() });
-            write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
-            info("Public inputs fields saved to ", output_dir / "public_inputs_fields.json");
-            info("Proof fields saved to ", output_dir / "proof_fields.json");
-
-            if (flags.write_vk && vk_response) {
-                // Use the fields directly from vk_response if available
-                std::string vk_json;
-                if (!vk_response->fields.empty()) {
-                    vk_json = field_elements_to_json(vk_response->fields);
-                } else {
-                    // Fallback: deserialize and convert to fields
-                    auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
-                    vk_json = field_elements_to_json(vk.to_field_elements());
-                }
-                write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
-                info("VK fields saved to ", output_dir / "vk_fields.json");
-
-                // For vk_hash
-                auto vk = from_buffer<UltraFlavor::VerificationKey>(vk_response->bytes);
-                std::string vk_hash_json = format("\"", vk.hash(), "\"");
-                write_file(output_dir / "vk_hash_fields.json", { vk_hash_json.begin(), vk_hash_json.end() });
-                info("VK Hash fields saved to ", output_dir / "vk_hash_fields.json");
-            }
-        }
-    } else {
-        throw_or_abort("Invalid output_format: " + flags.output_format);
-    }
-}
-
 void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& bytecode_path,
                          const std::filesystem::path& witness_path,
                          const std::filesystem::path& vk_path,
                          const std::filesystem::path& output_dir)
 {
+    // Validate output directory
+    if (output_dir == "-") {
+        throw_or_abort("Stdout output is not supported. Please specify an output directory.");
+    }
+
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
@@ -137,27 +107,31 @@ void UltraHonkAPI::prove(const Flags& flags,
 
     // Handle VK
     std::vector<uint8_t> vk_bytes;
-    std::optional<bbapi::CircuitComputeVk::Response> vk_response;
 
     if (flags.write_vk) {
-        info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
-        vk_response =
+        info("WARNING: computing verification key while proving due to write_vk. Precompute the VK and don't pass "
+             "--write_vk for better performance.");
+        auto vk_response =
             bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = bytecode }, .settings = settings }
                 .execute();
-        vk_bytes = vk_response->bytes;
+
+        // Write VK outputs separately
+        write_vk_outputs(vk_response, flags.output_format, output_dir);
+        vk_bytes = std::move(vk_response.bytes);
     } else {
         vk_bytes = read_file(vk_path);
     }
 
     // Prove
-    auto prove_response =
-        bbapi::CircuitProve{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = vk_bytes },
-                             .witness = witness,
-                             .settings = settings }
-            .execute();
+    auto prove_response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
+                                                            .bytecode = std::move(bytecode),
+                                                            .verification_key = std::move(vk_bytes) },
+                                               .witness = std::move(witness),
+                                               .settings = std::move(settings) }
+                              .execute();
 
-    // Write outputs using helper
-    write_bbapi_proof_outputs(prove_response, vk_response ? &(*vk_response) : nullptr, flags, output_dir);
+    // Write proof outputs (not VK - that's handled above)
+    write_proof_outputs(prove_response, flags.output_format, output_dir);
 }
 
 bool UltraHonkAPI::verify(const Flags& flags,
@@ -197,8 +171,13 @@ bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
 
 void UltraHonkAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
-                            const std::filesystem::path& output_path)
+                            const std::filesystem::path& output_dir)
 {
+    // Validate output directory
+    if (output_dir == "-") {
+        throw_or_abort("Stdout output is not supported. Please specify an output directory.");
+    }
+
     // Read bytecode
     auto bytecode = get_bytecode(bytecode_path);
 
@@ -214,12 +193,8 @@ void UltraHonkAPI::write_vk(const Flags& flags,
         bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = bytecode }, .settings = settings }
             .execute();
 
-    // Get the VK and write output
-    auto vk = from_buffer<UltraFlavor::VerificationKey>(response.bytes);
-    PubInputsProofAndKey<UltraFlavor::VerificationKey> output{
-        {}, {}, std::make_shared<UltraFlavor::VerificationKey>(vk), vk.hash()
-    };
-    write(output, flags.output_format, "vk", output_path);
+    // Write VK outputs using the helper function
+    write_vk_outputs(response, flags.output_format, output_dir);
 }
 
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
