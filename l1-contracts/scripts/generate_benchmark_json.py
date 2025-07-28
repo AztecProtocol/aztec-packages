@@ -104,6 +104,7 @@ def generate_flat_benchmark_list(gas_results: Dict[str, Any]) -> List[Dict[str, 
                 if config:
                     slot_duration = config.get("SLOT_DURATION", 36 if mode == "alpha" else 60)
                     epoch_duration = config.get("EPOCH_DURATION", 32 if mode == "alpha" else 48)
+                    proofs_per_epoch = config.get("PROOFS_PER_EPOCH", 200) / 100  # Convert from e2 to decimal
                     
                     # Get average gas values
                     setup_epoch_gas = config_data["setupEpoch"].get("mean", 0)
@@ -111,7 +112,7 @@ def generate_flat_benchmark_list(gas_results: Dict[str, Any]) -> List[Dict[str, 
                     submit_proof_gas = config_data["submitEpochRootProof"].get("mean", 0)
                     
                     # Calculate gas cost per second
-                    total_epoch_gas = setup_epoch_gas + (propose_gas * epoch_duration) + submit_proof_gas
+                    total_epoch_gas = setup_epoch_gas + (propose_gas * epoch_duration) + (submit_proof_gas * proofs_per_epoch)
                     epoch_duration_seconds = slot_duration * epoch_duration
                     gas_per_second = total_epoch_gas / epoch_duration_seconds if epoch_duration_seconds > 0 else 0
                     

@@ -10,6 +10,7 @@
 | Epoch Duration        |    48 |
 | Target Committee Size |    24 |
 | Mana Target           |     0 |
+| Proofs per Epoch      |  2.00 |
 
 ### No Validators (IGNITION)
 
@@ -19,8 +20,8 @@
 | setupEpoch           |  40,785 | 103,864 |
 | submitEpochRootProof | 799,356 | 819,960 |
 
-**Avg Gas Cost per Second**: 3,294.7 gas/second
-*(Epoch duration: 0h 48m 0s)*
+**Avg Gas Cost per Second**: 3,572.3 gas/second
+*Epoch duration*: 0h 48m 0s
 
 ### Validators (IGNITION)
 
@@ -31,8 +32,8 @@
 | submitEpochRootProof | 799,356 | 819,960 |
 | aggregate3           | 331,654 | 351,870 |
 
-**Avg Gas Cost per Second**: 5,034.9 gas/second
-*(Epoch duration: 0h 48m 0s)*
+**Avg Gas Cost per Second**: 5,312.4 gas/second
+*Epoch duration*: 0h 48m 0s
 
 
 ## Alpha
@@ -45,6 +46,7 @@
 | Epoch Duration        |          32 |
 | Target Committee Size |          48 |
 | Mana Target           | 100,000,000 |
+| Proofs per Epoch      |        2.00 |
 
 ### No Validators (Alpha)
 
@@ -54,8 +56,8 @@
 | setupEpoch           |  41,912 | 106,381 |
 | submitEpochRootProof | 671,999 | 710,831 |
 
-**Gas Cost per Second**: 6,703.7 gas/second
-*(Epoch duration: 0h 19m 12s)*
+**Avg Gas Cost per Second**: 7,287.0 gas/second
+*Epoch duration*: 0h 19m 12s
 
 ### Validators (Alpha)
 
@@ -66,6 +68,6 @@
 | submitEpochRootProof | 671,999 | 710,831 |
 | aggregate3           | 471,485 | 495,734 |
 
-**Gas Cost per Second**: 12,287.0 gas/second
-*(Epoch duration: 0h 19m 12s)*
+**Avg Gas Cost per Second**: 12,870.4 gas/second
+*Epoch duration*: 0h 19m 12s
 

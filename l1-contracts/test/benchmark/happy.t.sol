@@ -122,6 +122,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   uint256 internal EPOCH_DURATION;
   uint256 internal MANA_TARGET;
   uint256 internal TARGET_COMMITTEE_SIZE;
+  uint256 internal PROOFS_PER_EPOCH; // given as e2, for simple decimals, e.g., 200 = 2.00
   uint256 internal VOTING_ROUND_SIZE = 500;
 
   Rollup internal rollup;
@@ -189,6 +190,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       EPOCH_DURATION = 48;
       MANA_TARGET = 0;
       TARGET_COMMITTEE_SIZE = 24;
+      PROOFS_PER_EPOCH = 200; // 2.00
     } else {
       full = load("single_tx_block_1");
 
@@ -196,6 +198,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       EPOCH_DURATION = 32;
       MANA_TARGET = 1e8;
       TARGET_COMMITTEE_SIZE = 48;
+      PROOFS_PER_EPOCH = 200; // 2.00
     }
 
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
@@ -212,6 +215,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     emit log_named_uint("EPOCH_DURATION", EPOCH_DURATION);
     emit log_named_uint("MANA_TARGET", MANA_TARGET);
     emit log_named_uint("TARGET_COMMITTEE_SIZE", TARGET_COMMITTEE_SIZE);
+    emit log_named_uint("PROOFS_PER_EPOCH", PROOFS_PER_EPOCH);
   }
 
   function test_no_validators() public prepare(0, true) {

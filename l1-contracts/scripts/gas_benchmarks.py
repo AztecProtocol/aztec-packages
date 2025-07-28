@@ -302,6 +302,10 @@ def generate_markdown_report(
                 ignition_config.get("TARGET_COMMITTEE_SIZE", "N/A"),
             ),
             ("Mana Target", f"{ignition_config.get('MANA_TARGET', 0):,}"),
+            (
+                "Proofs per Epoch",
+                f"{ignition_config.get('PROOFS_PER_EPOCH', 200) / 100:.2f}",
+            ),
         ]
 
         # Calculate column widths
@@ -376,6 +380,9 @@ def generate_markdown_report(
         ):
             slot_duration = ignition_config.get("SLOT_DURATION", 1)
             epoch_duration = ignition_config.get("EPOCH_DURATION", 1)
+            proofs_per_epoch = (
+                ignition_config.get("PROOFS_PER_EPOCH", 200) / 100
+            )  # Convert from e2 to decimal
 
             # Get average gas values
             setup_epoch_gas = gas_data["setupEpoch"].get("mean", 0)
@@ -384,7 +391,9 @@ def generate_markdown_report(
 
             # Calculate gas cost per second
             total_epoch_gas = (
-                setup_epoch_gas + (propose_gas * epoch_duration) + submit_proof_gas
+                setup_epoch_gas
+                + (propose_gas * epoch_duration)
+                + (submit_proof_gas * proofs_per_epoch)
             )
             epoch_duration_seconds = slot_duration * epoch_duration
             gas_per_second = (
@@ -396,9 +405,7 @@ def generate_markdown_report(
             lines.append(
                 f"**Avg Gas Cost per Second**: {gas_per_second:,.1f} gas/second"
             )
-            lines.append(
-                f"*(Epoch duration: {seconds_to_hms(epoch_duration_seconds)})*"
-            )
+            lines.append(f"*Epoch duration*: {seconds_to_hms(epoch_duration_seconds)}")
             lines.append("")
 
     # Then, add all Alpha results
@@ -414,6 +421,10 @@ def generate_markdown_report(
             ("Epoch Duration", alpha_config.get("EPOCH_DURATION", "N/A")),
             ("Target Committee Size", alpha_config.get("TARGET_COMMITTEE_SIZE", "N/A")),
             ("Mana Target", f"{alpha_config.get('MANA_TARGET', 0):,}"),
+            (
+                "Proofs per Epoch",
+                f"{alpha_config.get('PROOFS_PER_EPOCH', 200) / 100:.2f}",
+            ),
         ]
 
         # Calculate column widths
@@ -488,6 +499,9 @@ def generate_markdown_report(
         ):
             slot_duration = alpha_config.get("SLOT_DURATION", 1)
             epoch_duration = alpha_config.get("EPOCH_DURATION", 1)
+            proofs_per_epoch = (
+                alpha_config.get("PROOFS_PER_EPOCH", 200) / 100
+            )  # Convert from e2 to decimal
 
             # Get average gas values
             setup_epoch_gas = gas_data["setupEpoch"].get("mean", 0)
@@ -496,7 +510,9 @@ def generate_markdown_report(
 
             # Calculate gas cost per second
             total_epoch_gas = (
-                setup_epoch_gas + (propose_gas * epoch_duration) + submit_proof_gas
+                setup_epoch_gas
+                + (propose_gas * epoch_duration)
+                + (submit_proof_gas * proofs_per_epoch)
             )
             epoch_duration_seconds = slot_duration * epoch_duration
             gas_per_second = (
@@ -505,10 +521,11 @@ def generate_markdown_report(
                 else 0
             )
 
-            lines.append(f"**Gas Cost per Second**: {gas_per_second:,.1f} gas/second")
             lines.append(
-                f"*(Epoch duration: {seconds_to_hms(epoch_duration_seconds)})*"
+                f"**Avg Gas Cost per Second**: {gas_per_second:,.1f} gas/second"
             )
+            lines.append(f"*Epoch duration*: {seconds_to_hms(epoch_duration_seconds)}")
+
             lines.append("")
 
     # Write to file
