@@ -1,5 +1,6 @@
 use crate::test::helpers::test_environment::TestEnvironment;
 
+mod accounts;
 mod private_context;
 mod public_context;
 

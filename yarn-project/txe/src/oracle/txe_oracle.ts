@@ -1211,7 +1211,13 @@ export class TXE {
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
 
     if (artifact === undefined) {
-      throw new Error('Function Artifact does not exist');
+      if (functionSelector.equals(await FunctionSelector.fromSignature('verify_private_authwit(Field)'))) {
+        throw new Error(
+          'Found no account contract artifact for a private authwit check - use `create_contract_account` instead of `create_light_account` for authwit support.',
+        );
+      } else {
+        throw new Error('Function Artifact does not exist');
+      }
     }
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);

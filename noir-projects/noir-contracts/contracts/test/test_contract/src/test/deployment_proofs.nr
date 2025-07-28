@@ -19,8 +19,8 @@ global CONTRACT_DEPLOYED_AT: u32 = 2;
 global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
 
 pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
-    let env = TestEnvironment::new();
-    let owner = env.create_account(1);
+    let mut env = TestEnvironment::new();
+    let owner = env.create_light_account();
 
     // We sanity check that the deployment block will be the next one
     assert_eq(env.next_block_number(), CONTRACT_DEPLOYED_AT);
