@@ -14,48 +14,6 @@
 
 namespace bb {
 
-/**
- * @brief Defines the circuit block types for the Ultra arithmetization
- * @note Its useful to define this as a template since it is used to actually store gate data (T = UltraTraceBlock)
- * but also to store corresponding block sizes (T = uint32_t) for the structured trace or dynamic block size
- * tracking in ClientIvc.
- *
- * @tparam T
- */
-template <typename T> struct UltraTraceBlockData {
-    T pub_inputs; // Has to be the first block
-    T lookup;
-    T arithmetic;
-    T delta_range;
-    T elliptic;
-    T memory;
-    T nnf;
-    T poseidon2_external;
-    T poseidon2_internal;
-    T overflow;
-
-    auto get()
-    {
-        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
-                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
-    }
-
-    auto get() const
-    {
-        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
-                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
-    }
-
-    auto get_gate_blocks() const
-    {
-        return RefArray{
-            lookup, arithmetic, delta_range, elliptic, memory, nnf, poseidon2_external, poseidon2_internal
-        };
-    }
-
-    bool operator==(const UltraTraceBlockData& other) const = default;
-};
-
 class UltraTraceBlock
     : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_NON_ZERO_SELECTORS_*/ 7, /*NUM_ZERO_SELECTORS_*/ 8> {
   public:
@@ -152,7 +110,44 @@ class UltraTraceBlock
     }
 };
 
-class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
+/**
+ * @brief Defines the circuit block types for the Ultra arithmetization
+ */
+struct UltraTraceBlockData {
+    UltraTraceBlock pub_inputs; // Has to be the first block
+    UltraTraceBlock lookup;
+    UltraTraceBlock arithmetic;
+    UltraTraceBlock delta_range;
+    UltraTraceBlock elliptic;
+    UltraTraceBlock memory;
+    UltraTraceBlock nnf;
+    UltraTraceBlock poseidon2_external;
+    UltraTraceBlock poseidon2_internal;
+    UltraTraceBlock overflow;
+
+    auto get()
+    {
+        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
+                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
+    }
+
+    auto get() const
+    {
+        return RefArray{ pub_inputs, lookup, arithmetic,         delta_range,        elliptic,
+                         memory,     nnf,    poseidon2_external, poseidon2_internal, overflow };
+    }
+
+    auto get_gate_blocks() const
+    {
+        return RefArray{
+            lookup, arithmetic, delta_range, elliptic, memory, nnf, poseidon2_external, poseidon2_internal
+        };
+    }
+
+    bool operator==(const UltraTraceBlockData& other) const = default;
+};
+
+class UltraExecutionTraceBlocks : public UltraTraceBlockData {
 
   public:
     static constexpr size_t NUM_WIRES = UltraTraceBlock::NUM_WIRES;
