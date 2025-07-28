@@ -452,7 +452,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(vk_as_fields, output_path);
     add_verbose_flag(vk_as_fields);
     add_debug_flag(vk_as_fields);
-    vk_as_fields->add_flag("--mega_honk", flags.mega_honk, "Use MegaHonk verification key format.");
 
     /***************************************************************************************************************
      * Subcommand: OLD_API
@@ -746,7 +745,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         } else if (vk_as_fields->parsed()) {
             auto vk_bytes = read_file(vk_path);
-            bbapi::VkAsFields cmd{ .verification_key = vk_bytes, .is_mega_honk = flags.mega_honk };
+            bbapi::VkAsFields cmd{ .verification_key = vk_bytes };
             auto response = std::move(cmd).execute();
             std::string json = field_elements_to_json(response.fields);
             write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));

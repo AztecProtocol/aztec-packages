@@ -300,15 +300,9 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
 {
     std::vector<bb::fr> fields;
 
-    if (is_mega_honk) {
-        // MegaHonk uses MegaFlavor
-        auto vk = from_buffer<MegaFlavor::VerificationKey>(verification_key);
-        fields = vk.to_field_elements();
-    } else {
-        // Standard UltraHonk flavors
-        auto vk = from_buffer<UltraFlavor::VerificationKey>(verification_key);
-        fields = vk.to_field_elements();
-    }
+    // Standard UltraHonk flavors
+    auto vk = from_buffer<UltraFlavor::VerificationKey>(verification_key);
+    fields = vk.to_field_elements();
 
     return { fields };
 }

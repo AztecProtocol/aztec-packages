@@ -170,6 +170,9 @@ struct ProofAsFields {
 /**
  * @struct VkAsFields
  * @brief Convert a verification key to field elements representation.
+ * WORKTODO(bbapi): this should become mostly obsolete with having the verification keys always reported as field
+elements as well,
+ * and having a simpler serialization method.
  */
 struct VkAsFields {
     static constexpr const char* MSGPACK_SCHEMA_NAME = "VkAsFields";
@@ -183,8 +186,7 @@ struct VkAsFields {
     };
 
     std::vector<uint8_t> verification_key;
-    bool is_mega_honk = false;
-    MSGPACK_FIELDS(verification_key, is_mega_honk);
+    MSGPACK_FIELDS(verification_key);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const VkAsFields&) const = default;
 };
