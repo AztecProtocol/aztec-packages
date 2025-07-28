@@ -1,5 +1,5 @@
 use crate::{NFT, test::utils, types::nft_note::PartialNFTNote};
-use dep::aztec::{oracle::random::random, protocol_types::address::AztecAddress};
+use aztec::{oracle::random::random, protocol_types::{address::AztecAddress, traits::Deserialize}};
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.
@@ -56,7 +56,8 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
         utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the partial note
-    let partial_note = PartialNFTNote { commitment: random() };
+    let commitment = random();
+    let partial_note = PartialNFTNote::deserialize([commitment]);
 
     // Try finalizing the transfer without preparing it
     let _ = env.call_public(

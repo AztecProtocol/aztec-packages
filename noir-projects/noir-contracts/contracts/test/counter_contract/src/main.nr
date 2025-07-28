@@ -8,11 +8,11 @@ pub contract Counter {
     // docs:start:imports
     use aztec::{
         macros::{functions::{initializer, private, public, utility}, storage::storage},
+        oracle::debug_log::debug_log_format,
         protocol_types::{address::AztecAddress, traits::ToField},
         state_vars::Map,
     };
     use easy_private_state::EasyPrivateUint;
-    use value_note::{balance_utils, value_note::ValueNote};
     // docs:end:imports
 
     // docs:start:storage_struct
@@ -35,12 +35,7 @@ pub contract Counter {
     // docs:start:increment
     #[private]
     fn increment(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing counter for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
 
         Counter::at(context.this_address()).emit_in_public(12345).enqueue(&mut context);
 
@@ -51,12 +46,10 @@ pub contract Counter {
 
     #[private]
     fn increment_twice(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing counter twice for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format(
+            "Incrementing counter twice for owner {0}",
+            [owner.to_field()],
+        );
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
         counters.at(owner).add(1, owner);
@@ -64,12 +57,10 @@ pub contract Counter {
 
     #[private]
     fn increment_and_decrement(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing and decrementing counter for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format(
+            "Incrementing and decrementing counter for owner {0}",
+            [owner.to_field()],
+        );
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
         counters.at(owner).sub(1, owner);
@@ -77,12 +68,7 @@ pub contract Counter {
 
     #[private]
     fn decrement(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Decrementing counter for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format("Decrementing counter for owner {0}", [owner.to_field()]);
         let counters = storage.counters;
         counters.at(owner).sub(1, owner);
     }
@@ -90,18 +76,12 @@ pub contract Counter {
     // docs:start:get_counter
     #[utility]
     unconstrained fn get_counter(owner: AztecAddress) -> Field {
-        let counters = storage.counters;
-        balance_utils::get_balance(counters.at(owner).set)
+        storage.counters.at(owner).get_value()
     }
 
     #[private]
     fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing counter for other {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format("Incrementing counter for other {0}", [owner.to_field()]);
 
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
