@@ -2,7 +2,7 @@ import { chunk } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import type { TxArray, TxHash } from '@aztec/stdlib/tx';
+import type { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
@@ -15,25 +15,14 @@ import { ReqRespStatus } from './status.js';
 const TX_BATCH_SIZE = 8;
 const PEERS_TO_QUERY_IN_PARALLEL = 10;
 
-class MissingTxMetadata {
-  constructor(
-    public readonly txHash: TxHash,
-    public fetched = false,
-    public inFlight = false,
-    public requestedTimes = 0,
-    public readonly peers = new Set<string>(),
-  ) {}
-}
-
 export class BatchTxRequester {
   private readonly peers: PeerId[];
   private readonly smartPeers = new Set<string>();
   private readonly badPeers = new Set<string>();
-  private readonly peersToTxMap = new Map<string, Array<TxHash>>();
 
   private readonly txsMetadata;
 
-  private readonly deadline = Date.now() + this.timeoutMs;
+  private readonly deadline;
 
   private startSmartRequester: ((v: void) => void) | undefined = undefined;
 
@@ -46,11 +35,15 @@ export class BatchTxRequester {
     private readonly connectionSampler: ConnectionSampler,
     private logger = createLogger('p2p:reqresp_batch'),
   ) {
-    this.txsMetadata = new Map(this.missingTxs.map(txHash => [txHash.toString(), new MissingTxMetadata(txHash)]));
+    this.txsMetadata = new MissingTxMetadataCollection(
+      this.missingTxs.map(txHash => [txHash.toString(), new MissingTxMetadata(txHash)]),
+    );
     this.peers = this.connectionSampler.getPeerListSortedByConnectionCountAsc();
     if (this.pinnedPeer) {
       this.smartPeers.add(this.pinnedPeer.toString());
     }
+
+    this.deadline = Date.now() + this.timeoutMs;
   }
 
   public async run() {
@@ -64,6 +57,9 @@ export class BatchTxRequester {
 
     //TODO: executeTimeout?
     await Promise.allSettled([this.smartRequester(promise), this.dumbRequester()]);
+
+    //TODO: handle this via async iter
+    return this.txsMetadata.getFetchedTxs();
   }
 
   private async smartRequester(start: Promise<void>) {
@@ -82,16 +78,8 @@ export class BatchTxRequester {
     };
 
     const makeRequest = (pid: PeerId) => {
-      //TODO: for this peer we have to make batch on the fly based on which txs peer has
-      const txsPeerHas = this.peersToTxMap.get(pid.toString());
-      const peerHasTxs = txsPeerHas && txsPeerHas.length > 0;
-      if (!peerHasTxs) {
-        return undefined;
-      }
-
-      //TODO: make this smarter, we should only request txs that we don't have
-      // and we should request txs that have been requested the least times
-      const txsToRequest = txsPeerHas.slice(0, TX_BATCH_SIZE);
+      const txsToRequest = this.txsMetadata.getTxsToRequestFromThePeer(pid).slice(0, TX_BATCH_SIZE);
+      txsToRequest.forEach(tx => this.txsMetadata.markRequested(tx));
 
       return BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txsToRequest);
     };
@@ -105,17 +93,24 @@ export class BatchTxRequester {
   private async dumbRequester() {
     const peers = new Set(this.peers.map(peer => peer.toString()));
     const nextPeerIndex = this.makeRoundRobinIndexer(() => getPeers().length);
-    const nextBatchIndex = this.makeRoundRobinIndexer(() => txChunks.length);
+    const nextBatchIndex = this.makeRoundRobinIndexer(() => txChunks().length);
     const getPeers = () => Array.from(peers.difference(this.smartPeers.union(this.badPeers)));
 
-    const txChunks = chunk<TxHash>(this.missingTxs, TX_BATCH_SIZE);
+    const txChunks = () =>
+      chunk<TxHash>(
+        this.missingTxs.filter(t => !this.txsMetadata.isFetched(t)),
+        TX_BATCH_SIZE,
+      );
 
-    //TODO: batches should be adaptive
     const makeRequest = (_pid: PeerId) => {
       const idx = nextBatchIndex();
-      return idx === undefined
-        ? undefined
-        : BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txChunks[idx]);
+      if (idx === undefined) {
+        return undefined;
+      }
+
+      const txs = txChunks()[idx];
+      txs.forEach(tx => this.txsMetadata.markRequested(tx));
+      return BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
     };
 
     const nextPeer = () => {
@@ -201,33 +196,14 @@ export class BatchTxRequester {
 
   private handleReceivedTxs(peerId: PeerId, txs: TxArray) {
     //TODO: yield txs
-    for (const tx of txs) {
-      const key = tx.txHash.toString();
-      let txMeta = this.txsMetadata.get(key);
-      if (txMeta) {
-        txMeta.fetched = true;
-        txMeta.peers.add(peerId.toString());
-      } else {
-        //TODO: what to do about peer which sent txs we didn't request?
-        // 1. don't request from it in the scope of this batch request
-        // 2. ban it immediately?
-        // 3. track it and ban it?
-        //
-        // NOTE: don't break immediately peer still might have txs we need
-      }
-    }
+    txs.forEach(tx => {
+      this.txsMetadata.markFetched(peerId, tx);
+    });
   }
 
   private markTxsPeerHas(peerId: PeerId, response: BlockTxsResponse) {
-    const peerIdStr = peerId.toString();
     const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
-    // NOTE: it's ok to override this and not make it union with previous data
-    // because the newer request contains most up to date info
-    this.peersToTxMap.set(peerIdStr, txsPeerHas);
-
-    this.txsMetadata.values().forEach(txMeta => {
-      txMeta.peers.add(peerIdStr);
-    });
+    this.txsMetadata.markPeerHas(peerId, txsPeerHas);
   }
 
   //TODO: are we missing something here?
@@ -266,11 +242,119 @@ export class BatchTxRequester {
     return this.txsMetadata.values().every(tx => tx.fetched);
   }
 
-  //TODO: stop on:
-  //1. abort signal
-  //2. deadline
-  //3. received all
+  //TODO: abort signal here?
   private shouldStop() {
     return this.txsMetadata.size === 0 || this.fetchedAllTxs() || Date.now() > this.deadline;
+  }
+}
+
+class MissingTxMetadata {
+  constructor(
+    public readonly txHash: TxHash,
+    public fetched = false,
+    public requestedTimes = 0,
+    public tx: Tx | undefined = undefined,
+    public readonly peers = new Set<string>(),
+  ) {}
+
+  public markAsRequested() {
+    this.requestedTimes++;
+  }
+
+  public markAsFetched(peerId: PeerId, tx: Tx) {
+    this.fetched = true;
+    this.tx = tx;
+
+    this.peers.add(peerId.toString());
+  }
+
+  public toString() {
+    return this.txHash.toString();
+  }
+}
+
+/*
+ * Single source or truth for transactions we are fetching
+ * This could be better optimized but given expected count of missing txs (N < 100)
+ * At the moment there is no need for it. And benefit is that we have everything in single store*/
+class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> {
+  public getSortedByRequestedTimesAsc(): MissingTxMetadata[] {
+    return Array.from(this.values()).sort((a, b) => a.requestedTimes - b.requestedTimes);
+  }
+
+  public isFetched(txHash: TxHash): boolean {
+    //If something went' wrong and we don't have txMeta for this hash
+    // We should not request it, so here we "pretend" that it was fetched
+    return this.get(txHash.toString())?.fetched ?? true;
+  }
+
+  public getFetchedTxHashes(): Set<TxHash> {
+    return new Set(
+      this.values()
+        .filter(t => t.fetched)
+        .map(t => t.txHash),
+    );
+  }
+
+  public getFetchedTxs(): Tx[] {
+    return Array.from(
+      this.values()
+        .map(t => t.tx)
+        .filter(t => !!t),
+    );
+  }
+
+  public getTxsPeerHas(peer: PeerId): Set<TxHash> {
+    const peerIdStr = peer.toString();
+    const txsPeerHas = new Set<TxHash>();
+
+    this.values().forEach(txMeta => {
+      if (txMeta.peers.has(peerIdStr)) {
+        txsPeerHas.add(txMeta.txHash);
+      }
+    });
+
+    return txsPeerHas;
+  }
+
+  //TODO: sort by least requested
+  public getTxsToRequestFromThePeer(peer: PeerId): TxHash[] {
+    const txsPeerHas = this.getTxsPeerHas(peer);
+    const fetchedTxs = this.getFetchedTxHashes();
+
+    return Array.from(txsPeerHas.difference(fetchedTxs));
+  }
+
+  public markRequested(txHash: TxHash) {
+    this.get(txHash.toString())?.markAsRequested();
+  }
+
+  public markFetched(peerId: PeerId, tx: Tx) {
+    const txHashStr = tx.txHash.toString();
+    const txMeta = this.get(txHashStr);
+    if (!txMeta) {
+      //TODO: what to do about peer which sent txs we didn't request?
+      // 1. don't request from it in the scope of this batch request
+      // 2. ban it immediately?
+      // 3. track it and ban it?
+      //
+      return;
+    }
+
+    txMeta.markAsFetched(peerId, tx);
+
+    txMeta.fetched = true;
+  }
+
+  public markPeerHas(peerId: PeerId, txHash: TxHash[]) {
+    const peerIdStr = peerId.toString();
+    txHash
+      .map(t => t.toString())
+      .forEach(txh => {
+        const txMeta = this.get(txh);
+        if (txMeta) {
+          txMeta.peers.add(peerIdStr);
+        }
+      });
   }
 }
