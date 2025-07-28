@@ -38,6 +38,23 @@ describe('MetadataTxValidator', () => {
     });
   };
 
+  const setValidatorAtBlockWithSandboxMode = (blockNumber: number, sandboxMode: boolean) => {
+    chainId = new Fr(1);
+    timestamp = 10n;
+    rollupVersion = new Fr(2);
+    vkTreeRoot = new Fr(3);
+    protocolContractTreeRoot = new Fr(4);
+    validator = new MetadataTxValidator({
+      l1ChainId: chainId,
+      rollupVersion,
+      timestamp,
+      blockNumber,
+      vkTreeRoot,
+      protocolContractTreeRoot,
+      sandboxMode,
+    });
+  };
+
   beforeEach(() => {
     setValidatorAtBlock(3);
   });
@@ -133,5 +150,40 @@ describe('MetadataTxValidator', () => {
     badTx.data.includeByTimestamp = timestamp - 1n;
 
     await expectValid(badTx);
+  });
+
+  describe('sandbox mode', () => {
+    it('accepts txs with slightly expired timestamps in sandbox mode', async () => {
+      // Set timestamp to 10, validator will have effective timestamp of 10 + 300 = 310 in sandbox mode
+      setValidatorAtBlockWithSandboxMode(3, true);
+
+      const [tx] = await makeTxs();
+      // Set includeByTimestamp to 250, which is less than current timestamp (10) but within sandbox buffer
+      tx.data.includeByTimestamp = 250n;
+
+      await expectValid(tx);
+    });
+
+    it('rejects txs with slightly expired timestamps in production mode', async () => {
+      // Production mode - no buffer
+      setValidatorAtBlockWithSandboxMode(3, false);
+
+      const [tx] = await makeTxs();
+      // Set includeByTimestamp to 9, which is less than current timestamp (10)
+      tx.data.includeByTimestamp = 9n;
+
+      await expectInvalid(tx, TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+    });
+
+    it('rejects txs with timestamps outside sandbox buffer', async () => {
+      // Even in sandbox mode, transactions too far in the past should be rejected
+      setValidatorAtBlockWithSandboxMode(3, true);
+
+      const [tx] = await makeTxs();
+      // Set includeByTimestamp to much less than current timestamp + buffer would allow
+      tx.data.includeByTimestamp = 1n;
+
+      await expectInvalid(tx, TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+    });
   });
 });

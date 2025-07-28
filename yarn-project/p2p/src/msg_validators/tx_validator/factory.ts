@@ -40,6 +40,7 @@ export function createTxMessageValidators(
   contractDataSource: ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   allowedInSetup: AllowedElement[] = [],
+  sandboxMode: boolean = false,
 ): Record<string, MessageValidator>[] {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
@@ -57,6 +58,7 @@ export function createTxMessageValidators(
           blockNumber,
           protocolContractTreeRoot,
           vkTreeRoot: getVKTreeRoot(),
+          sandboxMode,
         }),
         severity: PeerErrorSeverity.HighToleranceError,
       },

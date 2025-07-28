@@ -135,6 +135,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     aztecNodeConfig.slasherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
 
+  // Enable sandbox mode for relaxed timestamp validation
+  aztecNodeConfig.sandboxMode = true;
+
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
       if (aztecNodeConfig.p2pEnabled) {
