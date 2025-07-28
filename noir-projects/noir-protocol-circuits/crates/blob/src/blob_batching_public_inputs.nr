@@ -428,9 +428,9 @@ mod tests {
         BatchingBlobCommitment, BlockBlobPublicInputs, BLSPoint, compress_to_blob_commitment,
         get_flags,
     };
-    use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381 as Point, BLS12_381_Params}};
+    use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381 as Point, BLS12_381_PARAMS}};
     use bigint::{BigNum, BLS12_381_Fq as Q};
-    use std::ops::Add;
+    use std::ops::{Add, Mul};
     use types::constants::BLOCK_BLOB_PUBLIC_INPUTS;
     use types::traits::{Deserialize, Empty, Serialize};
 
@@ -450,7 +450,7 @@ mod tests {
         bytes[0] &= 31;
         let reconstructed_x = Q::from_be_bytes(bytes);
         assert_eq(reconstructed_x, x);
-        let (a, b) = (BLS12_381_Params::a(), BLS12_381_Params::b());
+        let (a, b) = (BLS12_381_PARAMS.a, BLS12_381_PARAMS.b);
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(Q::from(3)).add(a.mul(reconstructed_x)).add(b);
