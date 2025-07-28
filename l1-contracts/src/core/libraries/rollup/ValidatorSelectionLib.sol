@@ -143,18 +143,18 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice  Propose a pending block from the point-of-view of sequencer selection. Will:
-   *          - Setup the epoch if needed (if epoch committee is empty skips the rest)
-   *          - Validate that the signatures for attestations are indeed from the validatorset
-   *          - Validate that the number of valid attestations is sufficient
+   * Verifies the committee attestations for a given slot and epoch. Throws on validation failure.
    *
-   * @dev     Cases where errors are thrown:
-   *          - If the epoch is not setup
-   *          - If the number of valid attestations is insufficient
+   * - Computes the committee commitment for the epoch from storage as source of truth.
+   * - Recomputes the commitment from the signatures and compares with the stored one.
+   * - Sets the proposer in temporary storage.
+   * - Validates the signatures for the attestations.
+   * - Checks the number of valid attestations.
    *
    * @param _slot - The slot of the block
+   * @param _epochNumber - The epoch of the block
    * @param _attestations - The signatures (or empty; just address is provided) of the committee members
-   * @param _digest - The digest of the block
+   * @param _digest - The digest of the block that the attestations are signed over
    */
   function verifyAttestations(
     Slot _slot,

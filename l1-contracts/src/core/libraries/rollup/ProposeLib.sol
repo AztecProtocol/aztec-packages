@@ -182,8 +182,7 @@ library ProposeLib {
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }
 
-  // @note: not view as sampling validators uses tstore
-  function validateHeader(ValidateHeaderArgs memory _args) internal {
+  function validateHeader(ValidateHeaderArgs memory _args) internal view {
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
