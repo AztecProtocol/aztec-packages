@@ -35,7 +35,7 @@ describe('TxProvider', () => {
   };
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
-    const payload = new ConsensusPayload(ProposedBlockHeader.empty(), Fr.random(), StateReference.empty());
+    const payload = new ConsensusPayload(ProposedBlockHeader.empty(), StateReference.empty());
     return new BlockProposal(1, payload, Signature.empty(), txHashes, txs);
   };
 

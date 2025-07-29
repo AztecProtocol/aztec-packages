@@ -701,7 +701,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const proposal = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
       block.header.toPropose(),
-      block.archive.root,
       block.header.state,
       txs,
       proposerAddress,
