@@ -6,10 +6,7 @@ unconstrained fn mint_to_public_success() {
     let (env, token_contract_address, owner, _) = utils::setup(/* with_account_contracts */ false);
 
     let mint_amount = 10_000 as u128;
-    let _ = env.call_public(
-        owner,
-        Token::at(token_contract_address).mint_to_public(owner, mint_amount),
-    );
+    env.call_public(owner, Token::at(token_contract_address).mint_to_public(owner, mint_amount));
 
     utils::check_public_balance(env, token_contract_address, owner, mint_amount);
 
@@ -25,7 +22,7 @@ unconstrained fn mint_as_non_minter() {
 
     // As non-minter
     let mint_amount = 10_000 as u128;
-    let _ = env.call_public(
+    env.call_public(
         recipient,
         Token::at(token_contract_address).mint_to_public(recipient, mint_amount),
     );
@@ -41,11 +38,8 @@ unconstrained fn mint_overflow() {
     let amount_until_overflow = 1000 as u128;
     let mint_amount = (2.pow_32(128) - amount_until_overflow as Field) as u128;
 
-    let _ = env.call_public(
-        owner,
-        Token::at(token_contract_address).mint_to_public(recipient, mint_amount),
-    );
-    let _ = env.call_public(
+    env.call_public(owner, Token::at(token_contract_address).mint_to_public(recipient, mint_amount));
+    env.call_public(
         owner,
         Token::at(token_contract_address).mint_to_public(recipient, amount_until_overflow),
     );

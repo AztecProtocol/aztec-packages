@@ -46,10 +46,7 @@ pub unconstrained fn setup_and_mint_to_public(
     let mint_amount = 10000 as u128;
 
     // Mint some tokens
-    let _ = env.call_public(
-        owner,
-        Token::at(token_contract_address).mint_to_public(owner, mint_amount),
-    );
+    env.call_public(owner, Token::at(token_contract_address).mint_to_public(owner, mint_amount));
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
@@ -62,10 +59,7 @@ pub unconstrained fn setup_and_mint_amount_to_private(
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
 
     // Mint some tokens
-    let _ = env.call_private(
-        owner,
-        Token::at(token_contract_address).mint_to_private(owner, mint_amount),
-    );
+    env.call_private(owner, Token::at(token_contract_address).mint_to_private(owner, mint_amount));
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
