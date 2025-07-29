@@ -140,7 +140,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
     }
     /**
-     * @brief Return the evaluations of the univariate round polynomials. Toggles between multi-threaded computation
+     * @brief Return the evaluations of the univariate round polynomials. Toggles between chunked computation
      * (designed with the AVM in mind) and a version which intelligently allows from row-skipped functionality
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
@@ -150,7 +150,7 @@ template <typename Flavor> class SumcheckProverRound {
                                                const SubrelationSeparators& alphas)
     {
         if constexpr (specifiesUnivariateChunks<Flavor>) {
-            return compute_univariate_multithreaded(polynomials, relation_parameters, gate_separators, alphas);
+            return compute_univariate_with_chunking(polynomials, relation_parameters, gate_separators, alphas);
         }
         return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
     }
@@ -179,13 +179,13 @@ template <typename Flavor> class SumcheckProverRound {
      method \ref extend_and_batch_univariates "extend and batch univariates".
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_univariate_multithreaded(
+    SumcheckRoundUnivariate compute_univariate_with_chunking(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alphas)
     {
-        PROFILE_THIS_NAME("compute_univariate");
+        PROFILE_THIS_NAME("compute_univariate_with_chunking");
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
