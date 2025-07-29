@@ -98,15 +98,15 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         const TableCommitments& T_prev_commitments,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
+    using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
+
     // Witness commitments and public inputs corresponding to the incoming instance
     WitnessCommitments witness_commitments;
     std::vector<StdlibFF> public_inputs;
 
-    // Commitments to the previous status of the op_queue, to be finalized according to the recursive verification we
-    // are performing
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1492): Change Merge verifier API and improve the name
-    // of the following variable.
-    TableCommitments finalised_T_prev_commitments = T_prev_commitments;
+    // Input commitments to be passed to the merge recursive verification
+    MergeCommitments merge_commitments;
+    merge_commitments.T_prev_commitments = T_prev_commitments;
 
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG: {
@@ -146,7 +146,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         public_inputs = std::move(verifier.public_inputs);
 
         // T_prev = 0 in the first recursive verification
-        finalised_T_prev_commitments = HidingKernelIO::empty_ecc_op_tables(circuit);
+        merge_commitments.T_prev_commitments = HidingKernelIO::empty_ecc_op_tables(circuit);
 
         break;
     }
@@ -173,7 +173,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
         // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
         // happens in K_{i}
-        finalised_T_prev_commitments = kernel_input.ecc_op_tables;
+        merge_commitments.T_prev_commitments = kernel_input.ecc_op_tables;
 
         // Perform databus consistency checks
         kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
@@ -192,11 +192,11 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     }
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+    merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
 
     // Recursively verify the corresponding merge proof
-    auto [pairing_points, merged_table_commitments] = goblin.recursively_verify_merge(
-        circuit, t_commitments, finalised_T_prev_commitments, accumulation_recursive_transcript);
+    auto [pairing_points, merged_table_commitments] =
+        goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
 
     pairing_points.aggregate(nested_pairing_points);
 
@@ -381,6 +381,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
     ClientCircuit& circuit)
 {
+    using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
+
     // Shared transcript between PG and Merge
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
     // share a transcript
@@ -421,13 +423,13 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+    MergeCommitments merge_commitments;
+    merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+    merge_commitments.T_prev_commitments = std::move(
+        kernel_input.ecc_op_tables); // Commitment to the status of the op_queue before folding the tail kernel
     // Perform recursive verification of the last merge proof
-    auto [points_accumulator, merged_table_commitments] = goblin.recursively_verify_merge(
-        circuit,
-        t_commitments,
-        kernel_input.ecc_op_tables, // Commitment to the status of the op_queue before folding the tail kernel
-        pg_merge_transcript);
+    auto [points_accumulator, merged_table_commitments] =
+        goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
 
     points_accumulator.aggregate(kernel_input.pairing_inputs);
 
@@ -509,6 +511,7 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
+    using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
@@ -517,12 +520,11 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     vinfo("Mega verified: ", mega_verified);
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    MergeVerifier::TableCommitments t_commitments =
-        verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
+    TableCommitments t_commitments = verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified =
-        Goblin::verify(proof.goblin_proof, t_commitments, T_prev_commitments, civc_verifier_transcript);
+        Goblin::verify(proof.goblin_proof, { t_commitments, T_prev_commitments }, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
