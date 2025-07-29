@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -32,6 +33,8 @@ template <typename FF_> class bc_decompositionImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/bc_decomposition");
 
         const auto bc_decomposition_WINDOW_SIZE = FF(37);
         const auto bc_decomposition_FIRST_OR_LAST_CONTRACT =

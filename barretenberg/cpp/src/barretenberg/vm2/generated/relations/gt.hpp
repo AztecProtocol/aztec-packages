@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -29,6 +30,8 @@ template <typename FF_> class gtImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/gt");
 
         const auto gt_A_LTE_B = (in.get(C::gt_input_b) - in.get(C::gt_input_a));
         const auto gt_A_GT_B = ((in.get(C::gt_input_a) - in.get(C::gt_input_b)) - FF(1));

@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -35,6 +36,8 @@ template <typename FF_> class addressingImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/addressing");
 
         const auto constants_MEM_TAG_U32 = FF(4);
         const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_0_ =

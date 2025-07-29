@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -38,6 +39,8 @@ template <typename FF_> class poseidon2_permImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/poseidon2_perm");
 
         const auto poseidon2_params_MU_0 =
             FF(uint256_t{ 13071735289386612455UL, 937867514930142591UL, 338297992309721356UL, 1214967615784395659UL });
