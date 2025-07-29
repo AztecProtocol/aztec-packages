@@ -114,8 +114,16 @@ export class UltraHonkBackend {
     for (let i = 0; i < proofData.proof.length; i += 32) {
       proofFrs.push(proofData.proof.slice(i, i + 32));
     }
+    // TODO reconsider API - computing the VK at this point is not optimal
+    const vkResult = await this.api.circuitComputeVk({
+      circuit: {
+        name: 'circuit',
+        bytecode: this.acirUncompressedBytecode,
+      },
+      settings: this.getProofSettingsFromOptions(options),
+    });
     const {verified} = await this.api.circuitVerify({
-      verificationKey: Buffer.from([]), // Empty VK - lower performance.
+      verificationKey: vkResult.bytes,
       publicInputs: proofData.publicInputs.map(hexToUint8Array),
       proof: proofFrs,
       settings: this.getProofSettingsFromOptions(options),
