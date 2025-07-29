@@ -434,7 +434,6 @@ case "$cmd" in
     release-image/bootstrap.sh push
     test
     release
-    docs/bootstrap.sh release-docs
     ;;
   "ci-release")
     export CI=1
@@ -444,6 +443,7 @@ case "$cmd" in
     fi
     build
     release
+    docs/bootstrap.sh release-docs
     ;;
   "ci-docs")
     export CI=1
