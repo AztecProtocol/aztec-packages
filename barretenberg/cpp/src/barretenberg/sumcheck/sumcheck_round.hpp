@@ -91,8 +91,7 @@ template <typename Flavor> class SumcheckProverRound {
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1484): should we get rid of this function, given
-    // `compute_univariates_with_row_skipping()`?
+
     /**
      * @brief  To compute the round univariate in Round \f$i\f$, the prover first computes the values of Honk
      polynomials \f$ P_1,\ldots, P_N \f$ at the points of the form \f$ (u_0,\ldots, u_{i-1}, k, \vec \ell)\f$ for \f$
@@ -140,9 +139,25 @@ template <typename Flavor> class SumcheckProverRound {
             }
         }
     }
-
     /**
-     * @brief Non-ZK version: Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$
+     * @brief Return the evaluations of the univariate round polynomials. Toggles between chunked computation
+     * (designed with the AVM in mind) and a version which intelligently allows from row-skipped functionality
+     */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                               const bb::RelationParameters<FF>& relation_parameters,
+                                               const bb::GateSeparatorPolynomial<FF>& gate_separators,
+                                               const SubrelationSeparators& alphas)
+    {
+        if constexpr (specifiesUnivariateChunks<Flavor>) {
+            return compute_univariate_with_chunking(polynomials, relation_parameters, gate_separators, alphas);
+        }
+        return compute_univariate_with_row_skipping(polynomials, relation_parameters, gate_separators, alphas);
+    }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1484): should we more intelligently incorporate the two
+    // `compute_univariate` types of functions?
+    /**
+     * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$
      at \f$ X_{i } = 0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the
      * end, reset all
      * univariate accumulators to be zero.
@@ -164,12 +179,13 @@ template <typename Flavor> class SumcheckProverRound {
      method \ref extend_and_batch_univariates "extend and batch univariates".
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                               const bb::RelationParameters<FF>& relation_parameters,
-                                               const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                               const SubrelationSeparators& alphas)
+    SumcheckRoundUnivariate compute_univariate_with_chunking(
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+        const bb::RelationParameters<FF>& relation_parameters,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
+        const SubrelationSeparators& alphas)
     {
-        PROFILE_THIS_NAME("compute_univariate");
+        PROFILE_THIS_NAME("compute_univariate_with_chunking");
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
