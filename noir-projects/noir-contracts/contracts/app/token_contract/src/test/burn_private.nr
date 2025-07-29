@@ -11,10 +11,7 @@ unconstrained fn burn_private_on_behalf_of_self() {
     let burn_amount = mint_amount / (10 as u128);
 
     // Burn less than balance
-    let _ = env.call_private(
-        owner,
-        Token::at(token_contract_address).burn_private(owner, burn_amount, 0),
-    );
+    env.call_private(owner, Token::at(token_contract_address).burn_private(owner, burn_amount, 0));
     utils::check_private_balance(
         env,
         token_contract_address,
@@ -34,7 +31,7 @@ unconstrained fn burn_private_on_behalf_of_other() {
         Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call_interface(owner, recipient, burn_call_interface);
     // Burn tokens
-    let _ = env.call_private(recipient, burn_call_interface);
+    env.call_private(recipient, burn_call_interface);
     utils::check_private_balance(
         env,
         token_contract_address,
@@ -50,10 +47,7 @@ unconstrained fn burn_private_failure_more_than_balance() {
 
     // Burn more than balance
     let burn_amount = mint_amount * (10 as u128);
-    let _ = env.call_private(
-        owner,
-        Token::at(token_contract_address).burn_private(owner, burn_amount, 0),
-    );
+    env.call_private(owner, Token::at(token_contract_address).burn_private(owner, burn_amount, 0));
 }
 
 #[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
@@ -62,10 +56,7 @@ unconstrained fn burn_private_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     let burn_amount = mint_amount;
-    let _ = env.call_private(
-        owner,
-        Token::at(token_contract_address).burn_private(owner, burn_amount, 1),
-    );
+    env.call_private(owner, Token::at(token_contract_address).burn_private(owner, burn_amount, 1));
 }
 
 #[test(should_fail_with = "Balance too low")]
@@ -80,7 +71,7 @@ unconstrained fn burn_private_failure_on_behalf_of_other_more_than_balance() {
         Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call_interface(owner, recipient, burn_call_interface);
 
-    let _ = env.call_private(recipient, burn_call_interface);
+    env.call_private(recipient, burn_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -94,7 +85,7 @@ unconstrained fn burn_private_failure_on_behalf_of_other_without_approval() {
     let burn_call_interface =
         Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
 
-    let _ = env.call_private(recipient, burn_call_interface);
+    env.call_private(recipient, burn_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -109,5 +100,5 @@ unconstrained fn burn_private_failure_on_behalf_of_other_wrong_designated_caller
         Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call_interface(owner, owner, burn_call_interface);
 
-    let _ = env.call_private(recipient, burn_call_interface);
+    env.call_private(recipient, burn_call_interface);
 }

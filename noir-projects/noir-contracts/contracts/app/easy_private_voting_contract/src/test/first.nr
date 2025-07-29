@@ -27,7 +27,7 @@ unconstrained fn test_check_vote_status() {
 unconstrained fn test_end_vote() {
     let (env, voting_contract_address, admin) = utils::setup();
 
-    let _ = env.call_public(admin, EasyPrivateVoting::at(voting_contract_address).end_vote());
+    env.call_public(admin, EasyPrivateVoting::at(voting_contract_address).end_vote());
 
     env.public_context_at(voting_contract_address, |context| {
         let vote_ended = context.storage_read(EasyPrivateVoting::storage_layout().vote_ended.slot);
@@ -40,7 +40,7 @@ unconstrained fn test_fail_end_vote_by_non_admin() {
     let (mut env, voting_contract_address, _) = utils::setup();
     let alice = env.create_light_account();
 
-    let _ = env.call_public(alice, EasyPrivateVoting::at(voting_contract_address).end_vote());
+    env.call_public(alice, EasyPrivateVoting::at(voting_contract_address).end_vote());
 }
 
 #[test]
@@ -49,10 +49,7 @@ unconstrained fn test_cast_vote() {
     let alice = env.create_light_account();
 
     let candidate = 1;
-    let _ = env.call_private(
-        alice,
-        EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate),
-    );
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 
     env.public_context_at(voting_contract_address, |context| {
         let vote_count = context.storage_read(derive_storage_slot_in_map(
@@ -71,10 +68,7 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
 
     let candidate = 101;
 
-    let _ = env.call_private(
-        alice,
-        EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate),
-    );
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 
     let _ =
         env.call_private(bob, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
@@ -95,13 +89,7 @@ unconstrained fn test_fail_vote_twice() {
 
     let candidate = 101;
 
-    let _ = env.call_private(
-        alice,
-        EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate),
-    );
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 
-    let _ = env.call_private(
-        alice,
-        EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate),
-    );
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 }

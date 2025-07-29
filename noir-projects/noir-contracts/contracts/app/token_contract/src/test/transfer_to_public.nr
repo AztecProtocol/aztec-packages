@@ -11,7 +11,7 @@ unconstrained fn transfer_to_public_on_behalf_of_self() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     let transfer_to_public_amount = mint_amount / (10 as u128);
-    let _ = env.call_private(
+    env.call_private(
         owner,
         Token::at(token_contract_address).transfer_to_public(
             owner,
@@ -48,7 +48,7 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
     );
     add_private_authwit_from_call_interface(owner, recipient, transfer_to_public_call_interface);
     // transfer_to_public tokens
-    let _ = env.call_private(recipient, transfer_to_public_call_interface);
+    env.call_private(recipient, transfer_to_public_call_interface);
     utils::check_private_balance(
         env,
         token_contract_address,
@@ -70,7 +70,7 @@ unconstrained fn transfer_to_public_failure_more_than_balance() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let _ = env.call_private(
+    env.call_private(
         owner,
         Token::at(token_contract_address).transfer_to_public(
             owner,
@@ -88,7 +88,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     let transfer_to_public_amount = mint_amount + (1 as u128);
-    let _ = env.call_private(
+    env.call_private(
         owner,
         Token::at(token_contract_address).transfer_to_public(
             owner,
@@ -114,7 +114,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_more_than_balance
     add_private_authwit_from_call_interface(owner, recipient, transfer_to_public_call_interface);
 
     // transfer_to_public tokens
-    let _ = env.call_private(recipient, transfer_to_public_call_interface);
+    env.call_private(recipient, transfer_to_public_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -132,7 +132,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
     add_private_authwit_from_call_interface(owner, owner, transfer_to_public_call_interface);
 
     // transfer_to_public tokens
-    let _ = env.call_private(recipient, transfer_to_public_call_interface);
+    env.call_private(recipient, transfer_to_public_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -149,5 +149,5 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
     );
 
     // transfer_to_public tokens
-    let _ = env.call_private(recipient, transfer_to_public_call_interface);
+    env.call_private(recipient, transfer_to_public_call_interface);
 }
