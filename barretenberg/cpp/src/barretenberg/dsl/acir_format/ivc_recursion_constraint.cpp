@@ -117,9 +117,11 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         switch (verification_type) {
         case ClientIVC::QUEUE_TYPE::OINK:
             proof = create_mock_oink_proof<Flavor, KernelIO>();
+            break;
         case ClientIVC::QUEUE_TYPE::PG:
         case ClientIVC::QUEUE_TYPE::PG_FINAL:
             proof = create_mock_pg_proof<Flavor, KernelIO>();
+            break;
         default:
             throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
         }
@@ -129,9 +131,11 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         switch (verification_type) {
         case ClientIVC::QUEUE_TYPE::OINK:
             proof = create_mock_oink_proof<Flavor, AppIO>();
+            break;
         case ClientIVC::QUEUE_TYPE::PG:
         case ClientIVC::QUEUE_TYPE::PG_FINAL:
             proof = create_mock_pg_proof<Flavor, AppIO>();
+            break;
         default:
             throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
         }
