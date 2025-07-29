@@ -32,6 +32,10 @@ export class CommitteeAttestation {
     return new CommitteeAttestation(address, signature);
   }
 
+  static fromSignature(signature: Signature): CommitteeAttestation {
+    return new CommitteeAttestation(EthAddress.ZERO, signature);
+  }
+
   static fromViem(viem: ViemCommitteeAttestation): CommitteeAttestation {
     return new CommitteeAttestation(EthAddress.fromString(viem.addr), Signature.fromViemSignature(viem.signature));
   }
