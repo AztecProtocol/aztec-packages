@@ -44,7 +44,7 @@ export class WriteTransaction extends ReadTransaction {
   remove(key: Uint8Array): Promise<void> {
     const removeEntryIndex = findIndexInSortedArray(this.dataBatch.removeEntries, key, singleKeyCmp);
     if (removeEntryIndex === -1) {
-      this.dataBatch.removeEntries.push([key, null]);
+      insertIntoSortedArray(this.dataBatch.removeEntries, [key, null], keyCmp);
     }
 
     const addEntryIndex = findIndexInSortedArray(this.dataBatch.addEntries, key, singleKeyCmp);
@@ -218,8 +218,9 @@ export class WriteTransaction extends ReadTransaction {
   ): AsyncIterable<[Uint8Array, T]> {
     this.assertIsOpen();
 
-    // make a copy of this in case we're running in reverse
+    // Snapshot both add and remove entries at the start of iteration to ensure consistency
     const uncommittedEntries = [...batch.addEntries];
+    const removeEntries = [...batch.removeEntries];
     // used to check we're in the right order when comparing between a key and uncommittedEntries
     let cmpDirection = -1;
     if (reverse) {
@@ -262,7 +263,7 @@ export class WriteTransaction extends ReadTransaction {
         break;
       }
 
-      const toRemove = findInSortedArray(batch.removeEntries, key, singleKeyCmp);
+      const toRemove = findInSortedArray(removeEntries, key, singleKeyCmp);
 
       // at this point we've either exhausted all uncommitted entries,
       // we reached a key strictly greater/smaller than `key`

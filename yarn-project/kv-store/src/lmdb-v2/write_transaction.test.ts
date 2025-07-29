@@ -326,4 +326,33 @@ describe('WriteTransaction', () => {
     tx.close();
     await expect(tx.commit()).eventually.to.be.rejectedWith(Error, 'Transaction is closed');
   });
+
+  it('maintains sorted order in removeEntries for consistent reads', async () => {
+    channel.sendMessage.resolves({ values: [null] });
+
+    // Set up multiple keys
+    await tx.set(Buffer.from('aaa'), Buffer.from('1'));
+    await tx.set(Buffer.from('bbb'), Buffer.from('2'));
+    await tx.set(Buffer.from('ccc'), Buffer.from('3'));
+    await tx.set(Buffer.from('ddd'), Buffer.from('4'));
+
+    // Remove them in an order that would break sorting if using push()
+    await tx.remove(Buffer.from('ddd')); // This should be inserted at end of sorted array
+    await tx.remove(Buffer.from('aaa')); // This should be inserted at beginning
+    await tx.remove(Buffer.from('ccc')); // This should be inserted in middle
+
+    // Verify removeEntries is properly sorted
+    expect(tx.dataBatch.removeEntries).to.have.lengthOf(3);
+    expect(tx.dataBatch.removeEntries[0][0]).to.deep.equal(Buffer.from('aaa'));
+    expect(tx.dataBatch.removeEntries[1][0]).to.deep.equal(Buffer.from('ccc'));
+    expect(tx.dataBatch.removeEntries[2][0]).to.deep.equal(Buffer.from('ddd'));
+
+    // All reads should return undefined due to removal
+    expect(await tx.get(Buffer.from('aaa'))).to.be.undefined;
+    expect(await tx.get(Buffer.from('ccc'))).to.be.undefined;
+    expect(await tx.get(Buffer.from('ddd'))).to.be.undefined;
+
+    // Existing key should still be readable
+    expect(await tx.get(Buffer.from('bbb'))).to.deep.equal(Buffer.from('2'));
+  });
 });
