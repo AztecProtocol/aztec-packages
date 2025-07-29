@@ -234,7 +234,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
         throw_or_abort("invalid proof type in _write_vk");
     }
 
-    return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .vk_hash = std::move(vk_hash_bytes) };
+    return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .hash = std::move(vk_hash_bytes) };
 }
 
 CircuitGates::Response CircuitGates::execute(BB_UNUSED const BBApiRequest& request) &&
@@ -244,31 +244,19 @@ CircuitGates::Response CircuitGates::execute(BB_UNUSED const BBApiRequest& reque
 
     acir_format::ProgramMetadata metadata = _create_program_metadata<UltraCircuitBuilder>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;
+    CircuitGates::Response response;
+    response.num_acir_opcodes = static_cast<uint32_t>(constraint_system.num_acir_opcodes);
 
-    acir_format::AcirProgram program{ constraint_system };
+    acir_format::AcirProgram program{ std::move(constraint_system) };
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 
-    CircuitGates::Response response;
-    response.total_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
-    response.subgroup_size = static_cast<uint32_t>(builder.get_circuit_subgroup_size(response.total_gates));
-
-    if (include_gates_per_opcode) {
-        // Convert gates_per_opcode vector to map
-        for (size_t i = 0; i < program.constraints.gates_per_opcode.size(); i++) {
-            if (program.constraints.gates_per_opcode[i] > 0) {
-                response.gates_per_opcode["opcode_" + std::to_string(i)] =
-                    static_cast<uint32_t>(program.constraints.gates_per_opcode[i]);
-            }
-        }
-    }
+    response.num_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
+    response.num_gates_dyadic = static_cast<uint32_t>(builder.get_circuit_subgroup_size(response.num_gates));
+    // note: will be empty if collect_gates_per_opcode is false
+    response.gates_per_opcode = std::move(program.constraints.gates_per_opcode);
 
     return response;
-}
-
-CircuitCheck::Response CircuitCheck::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    throw_or_abort("not implemented yet!");
 }
 
 CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& request) &&

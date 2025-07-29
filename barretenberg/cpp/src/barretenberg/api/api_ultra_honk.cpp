@@ -27,7 +27,7 @@ void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
     if (output_format == "bytes" || output_format == "bytes_and_fields") {
         write_file(output_dir / "vk", vk_response.bytes);
         info("VK saved to ", output_dir / "vk");
-        write_file(output_dir / "vk_hash", vk_response.vk_hash);
+        write_file(output_dir / "vk_hash", vk_response.hash);
         info("VK Hash saved to ", output_dir / "vk_hash");
     }
 
@@ -38,7 +38,7 @@ void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response,
         info("VK fields saved to ", output_dir / "vk_fields.json");
 
         // For vk_hash fields - convert the bytes to fr and then to JSON
-        auto vk_hash_fr = from_buffer<fr>(vk_response.vk_hash);
+        auto vk_hash_fr = from_buffer<fr>(vk_response.hash);
         std::string vk_hash_json = format("\"", vk_hash_fr, "\"");
         write_file(output_dir / "vk_hash_fields.json", { vk_hash_json.begin(), vk_hash_json.end() });
         info("VK Hash fields saved to ", output_dir / "vk_hash_fields.json");
@@ -145,9 +145,9 @@ bool UltraHonkAPI::verify(const Flags& flags,
                                          .disable_zk = flags.disable_zk };
 
     // Execute verify command
-    auto response = bbapi::CircuitVerify{ .verification_key = vk_bytes,
-                                          .public_inputs = public_inputs,
-                                          .proof = proof,
+    auto response = bbapi::CircuitVerify{ .verification_key = std::move(vk_bytes),
+                                          .public_inputs = std::move(public_inputs),
+                                          .proof = std::move(proof),
                                           .settings = settings }
                         .execute();
 
@@ -199,64 +199,43 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
 
     // For now, treat the entire bytecode as a single circuit
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Handle multi-circuit programs properly
-    {
+    // Convert flags to ProofSystemSettings
+    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                         .oracle_hash_type = flags.oracle_hash_type,
+                                         .disable_zk = flags.disable_zk };
 
-        // Convert flags to ProofSystemSettings
-        bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
-                                             .oracle_hash_type = flags.oracle_hash_type,
-                                             .disable_zk = flags.disable_zk };
+    // Execute CircuitGates command
+    auto response = bbapi::CircuitGates{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
+                                         .include_gates_per_opcode = flags.include_gates_per_opcode,
+                                         .settings = settings }
+                        .execute();
 
-        // Execute CircuitGates command
-        auto response =
-            bbapi::CircuitGates{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
-                                 .include_gates_per_opcode = flags.include_gates_per_opcode,
-                                 .settings = settings }
-                .execute();
+    vinfo("Calculated circuit size in gate_count: ", response.num_gates);
 
-        vinfo("Calculated circuit size in gate_count: ", response.total_gates);
-
-        // Build individual circuit report to match original gate_count output
-        std::string gates_per_opcode_str;
-        if (flags.include_gates_per_opcode) {
-            bool first = true;
-            // CircuitGates returns a map, we need to convert back to array format
-            // Note: This assumes opcodes are stored as "opcode_N" in order
-            size_t max_opcode = 0;
-            for (const auto& [key, value] : response.gates_per_opcode) {
-                if (key.starts_with("opcode_")) {
-                    size_t opcode_idx = std::stoull(key.substr(7));
-                    max_opcode = std::max(max_opcode, opcode_idx);
-                }
+    // Build individual circuit report to match original gate_count output
+    std::string gates_per_opcode_str;
+    if (flags.include_gates_per_opcode) {
+        size_t i = 0;
+        for (size_t count : response.gates_per_opcode) {
+            if (i != 0) {
+                gates_per_opcode_str += ",";
             }
-
-            for (size_t j = 0; j <= max_opcode; j++) {
-                if (!first) {
-                    gates_per_opcode_str += ",";
-                }
-                first = false;
-
-                auto it = response.gates_per_opcode.find("opcode_" + std::to_string(j));
-                if (it != response.gates_per_opcode.end()) {
-                    gates_per_opcode_str += std::to_string(it->second);
-                } else {
-                    gates_per_opcode_str += "0";
-                }
-            }
+            gates_per_opcode_str += std::to_string(count);
+            i++;
         }
-
-        // For now, we'll use the CircuitGates response which includes circuit statistics
-        // The num_acir_opcodes is not directly available from bytecode alone
-        auto result_string = format(
-            "{\n        \"acir_opcodes\": ",
-            1, // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Get actual opcode count from bytecode
-            ",\n        \"circuit_size\": ",
-            response.total_gates,
-            (flags.include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]")
-                                            : ""),
-            "\n  }");
-
-        functions_string = format(functions_string, result_string);
     }
+
+    // For now, we'll use the CircuitGates response which includes circuit statistics
+    // The num_acir_opcodes is not directly available from bytecode alone
+    auto result_string = format(
+        "{\n        \"acir_opcodes\": ",
+        response.num_acir_opcodes,
+        ",\n        \"circuit_size\": ",
+        response.num_gates,
+        (flags.include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+        "\n  }");
+
+    functions_string = format(functions_string, result_string);
     std::cout << format(functions_string, "\n]}");
 }
 
@@ -310,9 +289,9 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
 
     // Execute prove with the VK
     auto prove_response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
-                                                            .bytecode = bytecode,
-                                                            .verification_key = vk_response.bytes },
-                                               .witness = witness,
+                                                            .bytecode = std::move(bytecode),
+                                                            .verification_key = std::move(vk_response.bytes) },
+                                               .witness = std::move(witness),
                                                .settings = settings }
                               .execute();
 

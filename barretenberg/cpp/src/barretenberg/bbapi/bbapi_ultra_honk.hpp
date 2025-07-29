@@ -58,10 +58,10 @@ struct CircuitComputeVk {
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVkResponse";
 
-        std::vector<uint8_t> bytes;   // Serialized verification key
-        std::vector<fr> fields;       // VK as field elements
-        std::vector<uint8_t> vk_hash; // The VK hash
-        MSGPACK_FIELDS(bytes, fields, vk_hash);
+        std::vector<uint8_t> bytes; // Serialized verification key
+        std::vector<fr> fields;     // VK as field elements
+        std::vector<uint8_t> hash;  // The VK hash
+        MSGPACK_FIELDS(bytes, fields, hash);
         bool operator==(const Response&) const = default;
     };
 
@@ -83,10 +83,11 @@ struct CircuitGates {
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitInfoResponse";
 
-        uint32_t total_gates;
-        uint32_t subgroup_size;
-        std::map<std::string, uint32_t> gates_per_opcode; // Optional: gate counts per opcode
-        MSGPACK_FIELDS(total_gates, subgroup_size, gates_per_opcode);
+        uint32_t num_gates;
+        uint32_t num_gates_dyadic;
+        uint32_t num_acir_opcodes;
+        std::vector<size_t> gates_per_opcode;
+        MSGPACK_FIELDS(num_gates, num_gates_dyadic, num_acir_opcodes, gates_per_opcode);
         bool operator==(const Response&) const = default;
     };
 
@@ -96,30 +97,6 @@ struct CircuitGates {
     MSGPACK_FIELDS(circuit, include_gates_per_opcode, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitGates&) const = default;
-};
-
-/**
- * @struct CircuitCheck
- * @brief Verify that a witness satisfies a circuit's constraints.
- * For debugging and validation purposes.
- */
-struct CircuitCheck {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitCheck";
-
-    struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitCheckResponse";
-
-        bool satisfied;
-        MSGPACK_FIELDS(satisfied);
-        bool operator==(const Response&) const = default;
-    };
-
-    CircuitInput circuit;
-    std::vector<uint8_t> witness;
-    ProofSystemSettings settings;
-    MSGPACK_FIELDS(circuit, witness, settings);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitCheck&) const = default;
 };
 
 /**
