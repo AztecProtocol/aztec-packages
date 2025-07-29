@@ -4390,8 +4390,85 @@ contract HonkVerifier is IVerifier {
                 mstore(0xc0, x)
                 mstore(0xe0, sub(q, y))
 
+                // p_0_agg
+                // 0x80 - p_0_agg x
+                // 0xa0 - p_0_agg y
+                mcopy(0x80, ACCUMULATOR, 0x40)
+
+
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                   PAIRING AGGREGATION                      */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                // Read the pairing encoded in the first 16 field elements of the proof
+                let p0_other_x := mload(PAIRING_POINT_0)
+                p0_other_x := or(shl(68, mload(PAIRING_POINT_1)), p0_other_x)
+                p0_other_x := or(shl(136, mload(PAIRING_POINT_2)), p0_other_x)
+                p0_other_x := or(shl(204, mload(PAIRING_POINT_3)), p0_other_x)
+
+                let p0_other_y := mload(PAIRING_POINT_4)
+                p0_other_y := or(shl(68, mload(PAIRING_POINT_5)), p0_other_y)
+                p0_other_y := or(shl(136, mload(PAIRING_POINT_6)), p0_other_y)
+                p0_other_y := or(shl(204, mload(PAIRING_POINT_7)), p0_other_y)
+
+                let p1_other_x := mload(PAIRING_POINT_8)
+                p1_other_x := or(shl(68, mload(PAIRING_POINT_9)), p1_other_x)
+                p1_other_x := or(shl(136, mload(PAIRING_POINT_10)), p1_other_x)
+                p1_other_x := or(shl(204, mload(PAIRING_POINT_11)), p1_other_x)
+
+                let p1_other_y := mload(PAIRING_POINT_12)
+                p1_other_y := or(shl(68, mload(PAIRING_POINT_13)), p1_other_y)
+                p1_other_y := or(shl(136, mload(PAIRING_POINT_14)), p1_other_y)
+                p1_other_y := or(shl(204, mload(PAIRING_POINT_15)), p1_other_y)
+
+                // Validate p_0_other on curve
+                let xx := mulmod(p0_other_x, p0_other_x, q)
+                let xxx := mulmod(xx, p0_other_x, q)
+                let yy := mulmod(p0_other_y, p0_other_y, q)
+
+                let success := eq(yy, addmod(xxx, 3, q))
+
+                // Validate p_1_other on curve
+                xx := mulmod(p1_other_x, p1_other_x, q)
+                xxx := mulmod(xx, p1_other_x, q)
+                yy := mulmod(p1_other_y, p1_other_y, q)
+
+                success := and(success, eq(yy, addmod(xxx, 3, q)))
+
                 // p_0
-                mcopy(0x00, ACCUMULATOR, 0x40)
+                mstore(0x00, p0_other_x)
+                mstore(0x20, p0_other_y)
+
+                // p_1
+                mstore(0x40, p1_other_x)
+                mstore(0x60, p1_other_y)
+
+                // p_1_agg is already in the correct location
+
+                let recursion_separator := keccak256(0x00, 0x100)
+
+                // Write separator back to scratch space
+                mstore(0x00, p0_other_x)
+
+                mstore(0x40, recursion_separator)
+                // recursion_separator * p_0_other
+                success := and(success, staticcall(gas(), 0x07, 0x00, 0x60, 0x00, 0x40))
+
+                // (recursion_separator * p_0_other) + p_0_agg
+                mcopy(0x40, 0x80, 0x40)
+                // p_0 = (recursion_separator * p_0_other) + p_0_agg
+                success := and(success, staticcall(gas(), 6, 0x00, 0x80, 0x00, 0x40))
+
+                mstore(0x40, p1_other_x)
+                mstore(0x60, p1_other_y)
+                mstore(0x80, recursion_separator)
+
+                success := and(success, staticcall(gas(), 7, 0x40, 0x60, 0x40, 0x40))
+
+                // Write p_1_agg back to scratch space
+                mcopy(0x80, 0xc0, 0x40)
+
+                // 0xc0 - (recursion_separator * p_1_other) + p_1_agg
+                success := and(success, staticcall(gas(), 6, 0x40, 0x80, 0xc0, 0x40))
 
                 // G2 [1]
                 mstore(0x40, 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2)
@@ -4405,7 +4482,7 @@ contract HonkVerifier is IVerifier {
                 mstore(0x140, 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4)
                 mstore(0x160, 0x22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55)
 
-                let pairing_success := staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20)
+                let pairing_success := and(success, staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20))
                 if iszero(and(pairing_success, mload(0x00))) {
                     mstore(0x00, PAIRING_FAILED_SELECTOR)
                     revert(0x00, 0x04)
