@@ -6,7 +6,9 @@
         "min": 184955,
         "mean": 192119,
         "median": 191501,
-        "max": 207397
+        "max": 207397,
+        "calldata_size": 1060,
+        "calldata_gas": 16960
       },
       "setupEpoch": {
         "calls": 100,
@@ -20,7 +22,9 @@
         "min": 792817,
         "mean": 813442,
         "median": 813442,
-        "max": 834067
+        "max": 834067,
+        "calldata_size": 3812,
+        "calldata_gas": 60992
       }
     },
     "validators": {
@@ -29,7 +33,9 @@
         "min": 240190,
         "mean": 250072,
         "median": 250717,
-        "max": 265515
+        "max": 265515,
+        "calldata_size": 2852,
+        "calldata_gas": 45632
       },
       "setupEpoch": {
         "calls": 100,
@@ -43,7 +49,9 @@
         "min": 903249,
         "mean": 923880,
         "median": 923880,
-        "max": 944511
+        "max": 944511,
+        "calldata_size": 5092,
+        "calldata_gas": 81472
       },
       "aggregate3": {
         "calls": 100,
@@ -61,7 +69,9 @@
         "min": 221051,
         "mean": 230021,
         "median": 229305,
-        "max": 246987
+        "max": 246987,
+        "calldata_size": 1060,
+        "calldata_gas": 16960
       },
       "setupEpoch": {
         "calls": 100,
@@ -75,7 +85,9 @@
         "min": 667274,
         "mean": 686752,
         "median": 667370,
-        "max": 725612
+        "max": 725612,
+        "calldata_size": 3812,
+        "calldata_gas": 60992
       }
     },
     "validators": {
@@ -84,7 +96,9 @@
         "min": 322686,
         "mean": 337105,
         "median": 336752,
-        "max": 355679
+        "max": 355679,
+        "calldata_size": 4580,
+        "calldata_gas": 73280
       },
       "setupEpoch": {
         "calls": 100,
@@ -98,7 +112,9 @@
         "min": 874205,
         "mean": 894446,
         "median": 876710,
-        "max": 932423
+        "max": 932423,
+        "calldata_size": 6308,
+        "calldata_gas": 100928
       },
       "aggregate3": {
         "calls": 100,
