@@ -17,9 +17,9 @@ namespace bb::stdlib {
 /**
  * @brief A logical AND or XOR over a variable number of bits.
  *
- * @details Defaults to basic Builder method if not using plookup-compatible builder. If the left and right operands
- * are larger than num_bit, the result will be truncated to num_bits. However, the two operands could be
- * range-constrained to num_bits before the call, which would remove the need to range constrain inside this function.
+ * @details If the left and right operands are larger than num_bit, the result will be truncated to num_bits.
+ * However, the two operands could be range-constrained to num_bits before the call, which would remove the need to
+ * range constrain inside this function.
  *
  * @tparam Builder
  * @param a
@@ -36,8 +36,8 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
     bool is_xor_gate,
     const std::function<std::pair<uint256_t, uint256_t>(uint256_t, uint256_t, size_t)>& get_chunk)
 {
-    // ensure the number of bits doesn't exceed field size and is not negatove
-    BB_ASSERT_LT(num_bits, 254U);
+    // ensure the number of bits doesn't exceed field size and is not negative
+    BB_ASSERT_LTE(num_bits, grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
     BB_ASSERT_GT(num_bits, 0U);
 
     if (a.is_constant() && !b.is_constant()) {
