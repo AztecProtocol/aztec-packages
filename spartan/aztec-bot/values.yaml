@@ -1,0 +1,69 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: ""
+  customAztecNetwork:
+    enabled: false
+
+bot:
+  mnemonic: "test test test test test test test test test test test junk"
+  mnemonicStartIndex: 3000
+  txIntervalSeconds: 1
+  privateTransfersPerTx: 0
+  publicTransfersPerTx: 1
+  # Do not wait for transactions
+  followChain: "NONE"
+  botNoStart: false
+  feePaymentMethod: "fee_juice"
+  ammTxs: false
+  maxErrors: 3
+  stopIfUnhealthy: true
+  nodeUrl: ""
+  testAccounts: false
+  botPrivateKey: "0xcafe"
+
+  persistence:
+    enabled: false
+  statefulSet:
+    enabled: true
+
+  replicaCount: 1
+
+  node:
+    configMap:
+      envEnabled: true
+    secret:
+      envEnabled: true
+
+    preStartScript: |
+      source /scripts/get-private-key.sh
+
+      export BOT_ACCOUNT_SALT=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF+1}') # +1 so that salt is not 0
+
+      # set this to a folder in order to capture simulation recordings for later debug
+      # be sure to set it to a persistent volume
+      export CIRCUIT_RECORD_DIR=""
+
+      # a crude way to avoid a race condition that could arise if more than one bot is started:
+      # the bots need to register contract classes, if they all start at the same time (or close to it) then multiple of them might try to register the same class leading to failed txs due to duplicate nullifiers
+      # instead lets allow the first bot to start immediately giving it the responsibility to register the classes
+      # every other bot after that will sleep at least a slot before starting up
+      if [[ "$BOT_ACCOUNT_SALT" != "1" ]]; then
+        sleep_duration=$(({{ .Values.aztec.slotDuration }} + ($RANDOM % 10)))
+        echo "Sleeping for $sleep_duration seconds"
+        sleep $sleep_duration
+      fi
+
+    startCmd:
+      - --bot
+      - --pxe
+
+    hostNetwork: true
+
+  service:
+    p2p:
+      enabled: false
+      nodePortEnabled: false
+    admin:
+      enabled: false
+    headless:
+      enabled: false
