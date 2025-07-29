@@ -449,6 +449,7 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(metadata.dyadic_size);
             this->num_public_inputs = metadata.num_public_inputs;
             this->pub_inputs_offset = metadata.pub_inputs_offset;
+            info(this->log_circuit_size, " ", this->num_public_inputs, " ", this->pub_inputs_offset);
         }
 
         VerificationKey(const PrecomputedData& precomputed)
