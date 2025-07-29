@@ -779,15 +779,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param latestBlock - The block number the chain was pruned to.
    */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
-    // NOTE: temporary fix for alphanet, deleting ALL txs that were in the epoch from the pool #13723
-    // TODO: undo once fixed: #13770
     const txsToDelete = new Map<string, TxHash>();
     const minedTxs = await this.txPool.getMinedTxHashes();
-    for (const [txHash, blockNumber] of minedTxs) {
-      if (blockNumber > latestBlock) {
-        txsToDelete.set(txHash.toString(), txHash);
-      }
-    }
 
     // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
@@ -812,17 +805,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
 
-    // NOTE: given current fix for alphanet, the code below is redundant as all these txs will be deleted.
-    // TODO: bring back once fixed: #13770
-    // const txsToMoveToPending: TxHash[] = [];
-    // for (const [txHash, blockNumber] of minedTxs) {
-    //   if (blockNumber > latestBlock) {
-    //     txsToMoveToPending.push(txHash);
-    //   }
-    // }
+    const txsToMoveToPending: TxHash[] = [];
+    for (const [txHash, blockNumber] of minedTxs) {
+      if (blockNumber > latestBlock) {
+        txsToMoveToPending.push(txHash);
+      }
+    }
 
-    // this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    // await this.txPool.markMinedAsPending(txsToMoveToPending);
+    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
+    await this.txPool.markMinedAsPending(txsToMoveToPending);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added
