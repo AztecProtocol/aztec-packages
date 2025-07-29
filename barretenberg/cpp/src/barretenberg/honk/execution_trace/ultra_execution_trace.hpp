@@ -69,7 +69,7 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
                           q_poseidon2_internal() };
     }
 
-  protected:
+  private:
     std::array<ZeroSelector<fr>, 8> zero_selectors;
 };
 
@@ -80,7 +80,7 @@ class UltraTraceLookupBlock : public UltraTraceBlock {
     SelectorType& q_lookup_type() override { return gate_selector; }
     const SelectorType& q_lookup_type() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -89,7 +89,7 @@ class UltraTraceArithmeticBlock : public UltraTraceBlock {
     SelectorType& q_arith() override { return gate_selector; }
     const SelectorType& q_arith() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -98,7 +98,7 @@ class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
     SelectorType& q_delta_range() override { return gate_selector; }
     const SelectorType& q_delta_range() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -107,7 +107,7 @@ class UltraTraceEllipticBlock : public UltraTraceBlock {
     SelectorType& q_elliptic() override { return gate_selector; }
     const SelectorType& q_elliptic() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -116,7 +116,7 @@ class UltraTraceMemoryBlock : public UltraTraceBlock {
     SelectorType& q_memory() override { return gate_selector; }
     const SelectorType& q_memory() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -125,7 +125,7 @@ class UltraTraceNonNativeFieldBlock : public UltraTraceBlock {
     SelectorType& q_nnf() override { return gate_selector; }
     const SelectorType& q_nnf() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -134,7 +134,7 @@ class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
     SelectorType& q_poseidon2_external() override { return gate_selector; }
     const SelectorType& q_poseidon2_external() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -143,7 +143,7 @@ class UltraTracePoseidon2InternalBlock : public UltraTraceBlock {
     SelectorType& q_poseidon2_internal() override { return gate_selector; }
     const SelectorType& q_poseidon2_internal() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -167,7 +167,7 @@ class UltraTraceOverflowBlock : public UltraTraceBlock {
     const SelectorType& q_poseidon2_external() const override { return gate_selectors[6]; }
     const SelectorType& q_poseidon2_internal() const override { return gate_selectors[7]; }
 
-  protected:
+  private:
     std::array<SlabVectorSelector<fr>, 8> gate_selectors;
 };
 

@@ -157,7 +157,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
      */
     void resize_additional(size_t new_size) { q_busread().resize(new_size); };
 
-  protected:
+  private:
     std::array<ZeroSelector<fr>, 9> zero_selectors;
 };
 
@@ -168,7 +168,7 @@ class MegaTraceBusReadBlock : public MegaTraceBlock {
     SelectorType& q_busread() override { return gate_selector; }
     const SelectorType& q_busread() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -177,7 +177,7 @@ class MegaTraceLookupBlock : public MegaTraceBlock {
     SelectorType& q_lookup_type() override { return gate_selector; }
     const SelectorType& q_lookup_type() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -186,7 +186,7 @@ class MegaTraceArithmeticBlock : public MegaTraceBlock {
     SelectorType& q_arith() override { return gate_selector; }
     const SelectorType& q_arith() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -195,7 +195,7 @@ class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
     SelectorType& q_delta_range() override { return gate_selector; }
     const SelectorType& q_delta_range() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -204,7 +204,7 @@ class MegaTraceEllipticBlock : public MegaTraceBlock {
     SelectorType& q_elliptic() override { return gate_selector; }
     const SelectorType& q_elliptic() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -213,7 +213,7 @@ class MegaTraceMemoryBlock : public MegaTraceBlock {
     SelectorType& q_memory() override { return gate_selector; }
     const SelectorType& q_memory() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -222,7 +222,7 @@ class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
     SelectorType& q_nnf() override { return gate_selector; }
     const SelectorType& q_nnf() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -231,7 +231,7 @@ class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
     SelectorType& q_poseidon2_external() override { return gate_selector; }
     const SelectorType& q_poseidon2_external() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -240,7 +240,7 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
     SelectorType& q_poseidon2_internal() override { return gate_selector; }
     const SelectorType& q_poseidon2_internal() const override { return gate_selector; }
 
-  protected:
+  private:
     SlabVectorSelector<fr> gate_selector;
 };
 
@@ -264,7 +264,7 @@ class MegaTraceOverflowBlock : public MegaTraceBlock {
     const SelectorType& q_poseidon2_external() const override { return gate_selectors[6]; }
     const SelectorType& q_poseidon2_internal() const override { return gate_selectors[7]; }
 
-  protected:
+  private:
     std::array<SlabVectorSelector<fr>, 8> gate_selectors;
 };
 
