@@ -1786,6 +1786,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 508;
+    uint256 constant SHIFTED_COMMITMENTS_START = 30;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -2010,15 +2011,18 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
-        // Add for the to be shifted commitments over writing the to be shifted commitments
-        // Their sum ends up contributing scalar times some amount in the batch opening, so their scalars can be added together
+        // For each of the to be shifted commitments perform the shift in place by
+        // adding to the unshifted value.
+        // We do so, as the values are to be used in batchMul later, and as
+        // `a * c + b * c = (a + b) * c` this will allow us to reduce memory and compute.
         // Applied to w1, w2, w3, w4 and zPerm
         for (uint256 i = 0; i < NUMBER_TO_BE_SHIFTED; ++i) {
-            uint256 scalarOff = i + 30;
+            uint256 scalarOff = i + SHIFTED_COMMITMENTS_START;
             uint256 evaluationOff = i + NUMBER_UNSHIFTED;
 
             scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalar.neg() * mem.batchingChallenge);
-            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
+            mem.batchedEvaluation =
+                mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 

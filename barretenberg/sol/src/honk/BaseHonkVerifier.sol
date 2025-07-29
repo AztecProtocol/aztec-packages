@@ -49,6 +49,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk proof, including pairing point object.
     uint256 constant PROOF_SIZE = 457;
+    uint256 constant SHIFTED_COMMITMENTS_START = 29;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -279,15 +280,18 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
-        // Add for the to be shifted commitments over writing the to be shifted commitments
-        // Their sum ends up contributing scalar times some amount in the batch opening, so their scalars can be added together
+        // For each of the to be shifted commitments perform the shift in place by
+        // adding to the unshifted value.
+        // We do so, as the values are to be used in batchMul later, and as
+        // `a * c + b * c = (a + b) * c` this will allow us to reduce memory and compute.
         // Applied to w1, w2, w3, w4 and zPerm
         for (uint256 i = 0; i < NUMBER_TO_BE_SHIFTED; ++i) {
-            uint256 scalarOff = i + 29;
+            uint256 scalarOff = i + SHIFTED_COMMITMENTS_START;
             uint256 evaluationOff = i + NUMBER_UNSHIFTED;
 
             scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalar.neg() * mem.batchingChallenge);
-            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
+            mem.batchedEvaluation =
+                mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
@@ -383,8 +387,7 @@ abstract contract BaseHonkVerifier is IVerifier {
                 mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
                 mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
                 // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
-                scalars[NUMBER_UNSHIFTED + 1 + i] =
-                    mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+                scalars[NUMBER_UNSHIFTED + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
 
                 // Accumulate the const term contribution given by
                 // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
