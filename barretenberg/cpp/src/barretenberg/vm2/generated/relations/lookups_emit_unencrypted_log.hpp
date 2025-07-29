@@ -135,8 +135,8 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
         ColumnAndShifts::execution_rop_0_,
         ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_num_logs_emitted,
-        ColumnAndShifts::execution_next_num_logs_emitted,
+        ColumnAndShifts::execution_num_unencrypted_logs,
+        ColumnAndShifts::execution_next_num_unencrypted_logs,
         ColumnAndShifts::execution_is_static,
         ColumnAndShifts::execution_sel_opcode_error
     };
@@ -146,8 +146,8 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
         ColumnAndShifts::emit_unencrypted_log_log_offset,
         ColumnAndShifts::emit_unencrypted_log_log_size,
         ColumnAndShifts::emit_unencrypted_log_contract_address,
-        ColumnAndShifts::emit_unencrypted_log_prev_num_logs_emitted,
-        ColumnAndShifts::emit_unencrypted_log_next_num_logs_emitted,
+        ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_logs,
+        ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_logs,
         ColumnAndShifts::emit_unencrypted_log_is_static,
         ColumnAndShifts::emit_unencrypted_log_error
     };

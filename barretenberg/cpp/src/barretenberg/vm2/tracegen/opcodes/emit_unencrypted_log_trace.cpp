@@ -49,7 +49,7 @@ void EmitUnencryptedLogTraceBuilder::process(
             uint8_t numeric_tag = static_cast<uint8_t>(tag);
             FF tag_inv = correct_tag ? 0 : FF(numeric_tag).invert();
 
-            uint32_t max_logs_minus_emitted = MAX_PUBLIC_LOGS_PER_TX - event.prev_num_logs_emitted;
+            uint32_t max_logs_minus_emitted = MAX_PUBLIC_LOGS_PER_TX - event.prev_num_unencrypted_logs;
             FF max_logs_minus_emitted_inv = max_logs_minus_emitted == 0 ? 0 : FF(max_logs_minus_emitted).invert();
 
             uint32_t remaining_log_size = event.log_size > i ? event.log_size - i : 0;
@@ -63,8 +63,8 @@ void EmitUnencryptedLogTraceBuilder::process(
                           { C::emit_unencrypted_log_log_offset, log_offset + i },
                           { C::emit_unencrypted_log_log_size, event.log_size },
                           { C::emit_unencrypted_log_contract_address, event.contract_address },
-                          { C::emit_unencrypted_log_prev_num_logs_emitted, event.prev_num_logs_emitted },
-                          { C::emit_unencrypted_log_next_num_logs_emitted, event.next_num_logs_emitted },
+                          { C::emit_unencrypted_log_prev_num_unencrypted_logs, event.prev_num_unencrypted_logs },
+                          { C::emit_unencrypted_log_next_num_unencrypted_logs, event.next_num_unencrypted_logs },
                           { C::emit_unencrypted_log_is_static, event.is_static },
                           { C::emit_unencrypted_log_error, error },
                           { C::emit_unencrypted_log_start, i == 0 },
@@ -94,7 +94,7 @@ void EmitUnencryptedLogTraceBuilder::process(
                           { C::emit_unencrypted_log_tag_inv, tag_inv },
                           { C::emit_unencrypted_log_public_inputs_index,
                             AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX +
-                                event.prev_num_logs_emitted * PUBLIC_LOG_SIZE_IN_FIELDS + i },
+                                event.prev_num_unencrypted_logs * PUBLIC_LOG_SIZE_IN_FIELDS + i },
                       } });
 
             row++;

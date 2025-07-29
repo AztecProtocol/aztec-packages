@@ -416,8 +416,9 @@ void ExecutionTraceBuilder::process(
                 { C::execution_l1_l2_tree_size,
                   ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
                 // Context - side effects
-                { C::execution_num_logs_emitted, ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
-                { C::execution_next_num_logs_emitted,
+                { C::execution_num_unencrypted_logs,
+                  ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
+                { C::execution_next_num_unencrypted_logs,
                   ex_event.after_context_event.side_effect_states.numUnencryptedLogs },
                 // Other.
                 { C::execution_bytecode_id, ex_event.bytecode_id },

@@ -1035,9 +1035,12 @@ void Execution::handle_exit_call()
         parent_context.set_last_rd_addr(result.rd_offset);
         parent_context.set_last_rd_size(result.rd_size);
         parent_context.set_last_success(result.success);
-        parent_context.set_child_context(std::move(child_context));
         // Safe since the nested context gas limit should be clamped to the available gas.
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
+        if (result.success) {
+            parent_context.set_side_effect_states(child_context->get_side_effect_states());
+        }
+        parent_context.set_child_context(std::move(child_context));
 
         // TODO(fcarreiro): move somewhere else.
         if (parent_context.get_checkpoint_id_at_creation() != merkle_db.get_checkpoint_id()) {

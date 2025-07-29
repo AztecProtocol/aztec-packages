@@ -38,8 +38,8 @@ namespace emit_unencrypted_log;
     pol commit log_offset;
     pol commit log_size;
     pol commit contract_address;
-    pol commit prev_num_logs_emitted;
-    pol commit next_num_logs_emitted;
+    pol commit prev_num_unencrypted_logs;
+    pol commit next_num_unencrypted_logs;
     pol commit is_static;
     pol commit error;
     error * (1 - error) = 0;
@@ -120,7 +120,7 @@ namespace emit_unencrypted_log;
     pol commit error_too_many_logs;
     error_too_many_logs * (1 - error_too_many_logs) = 0;
 
-    pol MAX_LOGS_MINUS_EMITTED = constants.MAX_PUBLIC_LOGS_PER_TX - prev_num_logs_emitted;
+    pol MAX_LOGS_MINUS_EMITTED = constants.MAX_PUBLIC_LOGS_PER_TX - prev_num_unencrypted_logs;
     pol commit max_logs_minus_emitted_inv;
     start * (MAX_LOGS_MINUS_EMITTED * (error_too_many_logs * (1 - max_logs_minus_emitted_inv) + max_logs_minus_emitted_inv) - 1 + error_too_many_logs) = 0;
 
@@ -162,7 +162,7 @@ namespace emit_unencrypted_log;
     NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
 
     // Increase next num logs emitted if error is off
-    sel * (prev_num_logs_emitted + (1 - error) - next_num_logs_emitted) = 0;
+    sel * (prev_num_unencrypted_logs + (1 - error) - next_num_unencrypted_logs) = 0;
 
     // =============== PADDING ROWS ==============
     pol commit is_padding_row;
@@ -221,8 +221,8 @@ namespace emit_unencrypted_log;
     // =============== WRITE TO PI ===============
     pol commit public_inputs_index;
 
-    // Public inputs index starts at base index + prev_num_logs_emitted * PUBLIC_LOG_SIZE_IN_FIELDS
-    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + prev_num_logs_emitted * constants.PUBLIC_LOG_SIZE_IN_FIELDS - public_inputs_index) = 0;
+    // Public inputs index starts at base index + prev_num_unencrypted_logs * PUBLIC_LOG_SIZE_IN_FIELDS
+    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + prev_num_unencrypted_logs * constants.PUBLIC_LOG_SIZE_IN_FIELDS - public_inputs_index) = 0;
     // Increment public inputs index until end
     NOT_END * (public_inputs_index + 1 - public_inputs_index') = 0;
 
@@ -259,8 +259,8 @@ namespace emit_unencrypted_log;
         execution.register[1],
         execution.contract_address,
         // Context
-        execution.num_logs_emitted,
-        execution.next_num_logs_emitted,
+        execution.num_unencrypted_logs,
+        execution.next_num_unencrypted_logs,
         execution.is_static,
         // Error
         execution.sel_opcode_error
@@ -271,8 +271,8 @@ namespace emit_unencrypted_log;
         log_offset,
         log_size,
         contract_address,
-        prev_num_logs_emitted,
-        next_num_logs_emitted,
+        prev_num_unencrypted_logs,
+        next_num_unencrypted_logs,
         is_static,
         error
     };

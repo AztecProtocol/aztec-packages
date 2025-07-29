@@ -43,7 +43,7 @@ template <typename FF_> class emit_unencrypted_logImpl {
         const auto emit_unencrypted_log_LATCH_CONDITION =
             in.get(C::emit_unencrypted_log_end) + in.get(C::precomputed_first_row);
         const auto emit_unencrypted_log_MAX_LOGS_MINUS_EMITTED =
-            (constants_MAX_PUBLIC_LOGS_PER_TX - in.get(C::emit_unencrypted_log_prev_num_logs_emitted));
+            (constants_MAX_PUBLIC_LOGS_PER_TX - in.get(C::emit_unencrypted_log_prev_num_unencrypted_logs));
         const auto emit_unencrypted_log_WRONG_TAG = (FF(1) - in.get(C::emit_unencrypted_log_correct_tag));
 
         {
@@ -267,9 +267,10 @@ template <typename FF_> class emit_unencrypted_logImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = in.get(C::emit_unencrypted_log_sel) * ((in.get(C::emit_unencrypted_log_prev_num_logs_emitted) +
-                                                               (FF(1) - in.get(C::emit_unencrypted_log_error))) -
-                                                              in.get(C::emit_unencrypted_log_next_num_logs_emitted));
+            auto tmp =
+                in.get(C::emit_unencrypted_log_sel) * ((in.get(C::emit_unencrypted_log_prev_num_unencrypted_logs) +
+                                                        (FF(1) - in.get(C::emit_unencrypted_log_error))) -
+                                                       in.get(C::emit_unencrypted_log_next_num_unencrypted_logs));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
@@ -373,10 +374,11 @@ template <typename FF_> class emit_unencrypted_logImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-            auto tmp = in.get(C::emit_unencrypted_log_start) *
-                       ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX +
-                         in.get(C::emit_unencrypted_log_prev_num_logs_emitted) * constants_PUBLIC_LOG_SIZE_IN_FIELDS) -
-                        in.get(C::emit_unencrypted_log_public_inputs_index));
+            auto tmp =
+                in.get(C::emit_unencrypted_log_start) *
+                ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX +
+                  in.get(C::emit_unencrypted_log_prev_num_unencrypted_logs) * constants_PUBLIC_LOG_SIZE_IN_FIELDS) -
+                 in.get(C::emit_unencrypted_log_public_inputs_index));
             tmp *= scaling_factor;
             std::get<42>(evals) += typename Accumulator::View(tmp);
         }

@@ -215,7 +215,7 @@ namespace tx;
     //     execution.prev_written_public_data_slots_tree_root,
     //     execution.prev_written_public_data_slots_tree_size,
     //     // Side Effect States
-    //     execution.num_logs_emitted,
+    //     execution.num_unencrypted_logs,
     //     execution.num_l2_to_l1_messages,
     //     // Gas Info
     //     execution.prev_l2_gas_used_sent_to_enqueued_call,
@@ -269,7 +269,7 @@ namespace tx;
     //    execution.l1_l2_tree_root,
     //    execution.l1_l2_tree_size,
     //    // Side Effect States
-    //    execution.next_num_logs_emitted,
+    //    execution.next_num_unencrypted_logs,
     //    execution.next_num_l2_to_l1_messages,
     //    // Gas Info
     //    execution.l2_gas_used_sent_to_enqueued_call,

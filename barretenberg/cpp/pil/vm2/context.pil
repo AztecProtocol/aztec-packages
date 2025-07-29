@@ -88,10 +88,10 @@ namespace execution;
     pol commit l1_l2_tree_size;
 
     // Side effects state
-    pol commit num_logs_emitted;
+    pol commit num_unencrypted_logs;
 
     // Next side effects state
-    pol commit next_num_logs_emitted;
+    pol commit next_num_unencrypted_logs;
 
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs

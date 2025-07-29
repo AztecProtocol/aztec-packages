@@ -22,8 +22,8 @@ struct EmitUnencryptedLogEvent {
     uint32_t space_id;
     MemoryAddress log_offset;
     uint32_t log_size;
-    uint32_t prev_num_logs_emitted;
-    uint32_t next_num_logs_emitted;
+    uint32_t prev_num_unencrypted_logs;
+    uint32_t next_num_unencrypted_logs;
     bool is_static;
     std::vector<MemoryValue> values;
 
