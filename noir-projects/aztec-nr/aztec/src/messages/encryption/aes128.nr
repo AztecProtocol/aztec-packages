@@ -383,47 +383,54 @@ mod test {
     unconstrained fn encrypt_decrypt_log() {
         let env = TestEnvironment::new();
 
-        let plaintext = [1, 2, 3];
+        // Log decryption requires oracles that are only available during private execution
+        env.private_context(|_| {
+            let plaintext = [1, 2, 3];
 
-        let recipient = AztecAddress::from_field(
-            0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
-        );
+            let recipient = AztecAddress::from_field(
+                0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
+            );
 
-        // Mock random values for deterministic test
-        let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-        let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
+            // Mock random values for deterministic test
+            let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
+            let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
 
-        let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-        let _ = OracleMock::mock("getRandomField").returns(randomness).times(1000000);
+            let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
+            let _ = OracleMock::mock("getRandomField").returns(randomness).times(1000000);
 
-        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(
-            IndexedTaggingSecret::deserialize([69420, 1337]),
-        );
-        let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
+            let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(
+                IndexedTaggingSecret::deserialize([69420, 1337]),
+            );
+            let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
-        // Encrypt the log
-        let encrypted_log = BoundedVec::from_array(AES128::encrypt_log(plaintext, recipient));
+            // Encrypt the log
+            let encrypted_log = BoundedVec::from_array(AES128::encrypt_log(plaintext, recipient));
 
-        // Mock shared secret for deterministic test
-        let shared_secret = derive_ecdh_shared_secret_using_aztec_address(
-            EmbeddedCurveScalar::from_field(eph_sk),
-            recipient,
-        );
-        let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
+            // Mock shared secret for deterministic test
+            let shared_secret = derive_ecdh_shared_secret_using_aztec_address(
+                EmbeddedCurveScalar::from_field(eph_sk),
+                recipient,
+            );
+            let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
 
-        // Decrypt the log
-        let decrypted = AES128::decrypt_log(encrypted_log, recipient);
+            // Decrypt the log
+            let decrypted = AES128::decrypt_log(encrypted_log, recipient);
 
-        // The decryption function spits out a BoundedVec because it's designed to work with logs with unknown length
-        // at compile time. For this reason we need to convert the original input to a BoundedVec.
-        let plaintext_bvec =
-            BoundedVec::<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>::from_array(plaintext);
+            // The decryption function spits out a BoundedVec because it's designed to work with logs with unknown length
+            // at compile time. For this reason we need to convert the original input to a BoundedVec.
+            let plaintext_bvec =
+                BoundedVec::<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>::from_array(plaintext);
 
-        // Verify decryption matches original plaintext
-        assert_eq(decrypted, plaintext_bvec, "Decrypted bytes should match original plaintext");
+            // Verify decryption matches original plaintext
+            assert_eq(
+                decrypted,
+                plaintext_bvec,
+                "Decrypted bytes should match original plaintext",
+            );
 
-        // The following is a workaround of "struct is never constructed" Noir compilation error (we only ever use
-        // static methods of the struct).
-        let _ = AES128 {};
+            // The following is a workaround of "struct is never constructed" Noir compilation error (we only ever use
+            // static methods of the struct).
+            let _ = AES128 {};
+        });
     }
 }
