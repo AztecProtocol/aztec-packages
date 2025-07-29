@@ -16,10 +16,11 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof,
-                                                              const TableCommitments& t_commitments)
+                                                              const TableCommitments& t_commitments,
+                                                              const TableCommitments& T_prev_commitments)
 {
     StdlibProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof, t_commitments);
+    return verify(stdlib_proof, t_commitments, T_prev_commitments);
 }
 
 /**
@@ -29,13 +30,16 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1492): Modify Merge verifier API and package inputs in a
+// single struct
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof& proof,
-                                                              const TableCommitments& t_commitments)
+                                                              const TableCommitments& t_commitments,
+                                                              const TableCommitments& T_prev_commitments)
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, MergeSettings::PREPEND, transcript };
     auto [merge_pairing_points, merged_table_commitments] =
-        merge_verifier.verify_proof(proof.merge_proof, t_commitments);
+        merge_verifier.verify_proof(proof.merge_proof, t_commitments, T_prev_commitments);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
@@ -56,6 +60,6 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
     // and final merge verifier
     translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
 
-    return { translator_pairing_points, opening_claim, ipa_proof, merged_table_commitments };
+    return { translator_pairing_points, opening_claim, ipa_proof };
 }
 } // namespace bb::stdlib::recursion::honk

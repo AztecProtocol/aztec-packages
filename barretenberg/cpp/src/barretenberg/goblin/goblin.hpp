@@ -96,12 +96,14 @@ class Goblin {
      * @param builder The circuit in which the recursive verification will be performed.
      * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the
      * transcript by the PG verifier with which the Merge verifier shares a transcript
+     * @param T_prev_commitments The full op_queue table commitments after the previous iteration of merge
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
     std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
         MegaBuilder& builder,
         const RecursiveTableCommitments& t_commitments,
+        const RecursiveTableCommitments& T_prev_commitments,
         const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
@@ -110,15 +112,17 @@ class Goblin {
      * @param proof
      * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the
      * transcript by the PG verifier with which the Merge verifier shares a transcript
+     * @param T_prev_commitments The full op_queue table commitments after the previous iteration of merge
      * @param merged_table_commitment The commitment to the merged table as read from the proof
      * @param transcript
      *
      * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
      * verifier
      */
-    static std::pair<bool, TableCommitments> verify(const GoblinProof& proof,
-                                                    const TableCommitments& t_commitments,
-                                                    const std::shared_ptr<Transcript>& transcript);
+    static bool verify(const GoblinProof& proof,
+                       const TableCommitments& t_commitments,
+                       const TableCommitments& T_prev_commitments,
+                       const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb

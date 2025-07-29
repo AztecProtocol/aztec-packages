@@ -21,7 +21,6 @@ struct GoblinRecursiveVerifierOutput {
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
     stdlib::Proof<Builder> ipa_proof;
-    TableCommitments merged_table_commitments;
 };
 
 class GoblinRecursiveVerifier {
@@ -67,9 +66,9 @@ class GoblinRecursiveVerifier {
         , transcript(transcript){};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&, const TableCommitments& t_commitments);
+        const GoblinProof&, const TableCommitments& t_commitments, const TableCommitments& T_prev_commitments);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibProof&, const TableCommitments& t_commitments);
+        const StdlibProof&, const TableCommitments& t_commitments, const TableCommitments& T_prev_commitments);
 
   private:
     Builder* builder;
