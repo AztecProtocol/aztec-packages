@@ -49,7 +49,7 @@ use dep::protocol_types::{
 
 /// # PrivateContext
 ///
-/// The **key interface** between a #[private] function and the Aztec blockchain.
+/// The **main interface** between a #[private] function and the Aztec blockchain.
 ///
 /// An instance of the PrivateContext is initialized automatically at the outset
 /// of every private function, within the #[private] macro, so you'll never
@@ -65,8 +65,7 @@ use dep::protocol_types::{
 /// > expand all macros, if you dare.
 ///
 /// Typical usage for a smart contract developer will be to call getter
-/// methods of the PrivateContext, to access contextual data relating to
-/// how this function was called. See the "Responsibilities" section below.
+/// methods of the PrivateContext.
 ///
 /// _Pushing_ data and requests to the context is mostly handled within
 /// aztec-nr's own functions, so typically a smart contract developer won't
@@ -78,7 +77,7 @@ use dep::protocol_types::{
 /// > new functionality should be added to aztec-nr.
 ///
 /// ## Responsibilities
-/// - Provides contextual data to a private function:
+/// - Exposes contextual data to a private function:
 ///   - Data relating to how this private function was called.
 ///     - msg_sender
 ///     - this_address - (the contract address of the private function being
@@ -89,23 +88,25 @@ use dep::protocol_types::{
 ///     - chain_id
 ///     - version
 ///     - gas_settings
-///   - Historical state access:
-///     Access to the historical block header that this private function is
-///     reading from.
+/// - Provides state access:
+///   - Access to the "Anchor block" header.
 ///     Recall, a private function cannot read from the "current" block header,
 ///     but must read from some historical block header, because as soon as
 ///     private function execution begins (asynchronously, on a user's device),
 ///     the public state of the chain (the "current state") will have progressed
-///     forward. Hence we call it a "historical" block header to stress the
-///     outdated nature of the data being served by the PrivateContext.
+///     forward. We call this reference the "Anchor block".
 ///     See `BlockHeader`.
+///   - Enables consumption of L1->L2 messages.
 /// - Enables calls to functions of other smart contracts:
-///   - private function calls
-///   - enqueueing of public function call requests
+///   - Private function calls
+///   - Enqueueing of public function call requests
 ///     (Since public functions are executed at a later time, by a block
 ///     proposer, we say they are "enqueued").
 /// - Writes data to the blockchain:
-///   - New notes, nullifiers, private logs, L2->L1 messages.
+///   - New notes
+///   - New nullifiers
+///   - Private logs (for sending encrypted note contents or encrypted events)
+///   - New L2->L1 messages.
 /// - Requests work to be done by the protocol's kernel circuits:
 ///   - Insertion of new state.
 ///   - Execution of requested function calls.
@@ -130,7 +131,7 @@ use dep::protocol_types::{
 ///   - "public inputs" contain both inputs and outputs of this function.
 ///     - By "outputs" we mean a lot more side-effects than just the
 ///       "return values" of the function.
-///   - Most of the so-called "public inputs" are kept private, and never leak
+///   - Most of the so-called "public inputs" are kept _private_, and never leak
 ///     to the outside world, because they are 'swallowed' by the protocol's
 ///     kernel circuits before the tx is sent to the network. Only the
 ///     following are exposed to the outside world:
@@ -142,7 +143,6 @@ use dep::protocol_types::{
 ///     All the above-listed arrays of side-effects can be padded by the
 ///     user's wallet (through instructions to the kernel circuits, via the
 ///     PXE) to obscure their true lengths.
-///
 ///
 /// ## Syntax Justification
 ///
@@ -865,7 +865,7 @@ impl PrivateContext {
         }
     }
 
-    /// Sends a n "L2 -> L1 message" from this function (Aztec, L2) to a smart
+    /// Sends an "L2 -> L1 message" from this function (Aztec, L2) to a smart
     /// contract on Ethereum (L1). L1 contracts which are designed to
     /// send/receive messages to/from Aztec are called "Portal Contracts".
     ///
@@ -900,6 +900,13 @@ impl PrivateContext {
     ///
     /// Common use cases include token bridging, cross-chain governance, and
     /// triggering L2 actions based on L1 events.
+    ///
+    /// Use this function if you only want the message to ever be "referred to"
+    /// once. Once consumed using this method, the message cannot be consumed
+    /// again, because a nullifier is emitted.
+    /// If your use case wants for the message to be read unlimited times, then
+    /// you can always read any historic message from the L1-to-L2 messages tree;
+    /// messages never technically get deleted from that tree.
     ///
     /// The message will first be inserted into an Aztec "Inbox" smart contract
     /// on L1.
@@ -1211,13 +1218,14 @@ impl PrivateContext {
 
     /// Increments the side-effect counter.
     ///
+    /// Very low-level function.
+    ///
+    /// #Advanced
+    ///
     /// Every side-effect of a private function is given a "side-effect counter",
     /// based on when it is created. This PrivateContext is in charge of
     /// assigning the counters.
     ///
-    /// Very low-level function.
-    ///
-    /// # Advanced
     /// The reason we have side-effect counters is complicated. Consider this
     /// illustrative pseudocode of inter-contract function calls:
     /// ```
@@ -1251,17 +1259,64 @@ impl PrivateContext {
     ///
     /// Suppose a1 is the first function called. The comments show the execution
     /// counter of each side-effect, and what the new value of `x` is.
+    ///
     /// These (private) functions are processed by Aztec's kernel circuits in an
     /// order that is different from execution order:
     /// All of A.a1 is proven before B.b is proven, before A.a2 is proven.
     /// So when we're in the 2nd execution frame of A.a1 (after the call to
     /// B.b), the circuit needs to justify why x went from being `6` to `36`.
-    /// But the circuit doesn't know why, because it only has its local view of
-    /// things. Only the kernel circuit can reconcile this.
-    /// So every private function must correctly assign side-effect counters and
-    /// expose to the kernel its start and end counters. This gives the kernel
-    /// enough information to know whether a read_request is trying to access
-    /// a value that hasn't been written yet.
+    /// But the circuit doesn't know why, and given the order of proving, the
+    /// kernel hasn't _seen_ a value of 36 get written yet.
+    /// The kernel needs to track big arrays of all side-effects of all
+    /// private functions in a tx. Then, as it recurses and processes B.b(), it
+    /// will eventually see a value of 36 get written.
+    ///
+    /// Suppose side-effect counters weren't exposed:
+    /// The kernel would only see this ordering (in order of proof verification):
+    /// [ A.a1.read, A.a1.write, A.a1.read, A.a1.write, A.a2.read, A.a2.write ]
+    /// [         5,          6,        36,         37,         6,         36 ]
+    /// The kernel wouldn't know _when_ B.b() was called within A.a1(), because
+    /// it can't see what's going on within an app circuit. So the kernel
+    /// wouldn't know that the ordering of reads and writes should actually be:
+    /// [ A.a1.read, A.a1.write, A.a2.read, A.a2.write, A.a1.read, A.a1.write ]
+    /// [         5,          6,        6,         36,         36,         37 ]
+    ///
+    /// And so, we introduced side-effect counters: every private function must
+    /// assign side-effect counters alongside every side-effect that it emits,
+    /// and also expose to the kernel the counters that it started and ended
+    /// with.
+    /// This gives the kernel enough information to arrange all side-effects in
+    /// the correct order.
+    /// It can then catch (for example) if a function tries to read state
+    /// before it has been written (e.g. if A.a2() maliciously tried to read
+    /// a value of x=37) (e.g. if A.a1() maliciously tried to read x=6).
+    ///
+    /// If a malicious app contract _lies_ and does not count correctly:
+    /// - It cannot lie about its start and end counters because the kernel
+    ///   will catch this.
+    /// - It _could_ lie about its intermediate counters:
+    ///   - 1. It could not increment its side-effects correctly
+    ///   - 2. It could label its side-effects with counters outside of its
+    ///        start and end counters' range.
+    ///   The kernel will catch 2.
+    ///   The kernel will not catch 1., but this would only cause corruption
+    ///   to the private state of the malicious contract, and not any other
+    ///   contracts (because a contract can only modify its own state). If
+    ///   a "good" contract is given _read access_ to a maliciously-counting
+    ///   contract (via an external getter function, or by reading historic
+    ///   state from the archive tree directly), and they then make state
+    ///   changes to their _own_ state accordingly, that could be dangerous.
+    ///   Developers should be mindful not to trust the claimed innards of
+    ///   external contracts unless they have audited/vetted the contracts
+    ///   including vetting the side-effect counter incrementation.
+    ///   This is a similar paradigm to Ethereum smart contract development:
+    ///   you must vet external contracts that your contract relies upon, and
+    ///   you must not make any presumptions about their claimed behaviour.
+    ///   (Hopefully if a contract imports a version of aztec-nr, we will get
+    ///   contract verification tooling that can validate the authenticity
+    ///   of the imported aztec-nr package, and hence infer that the side-
+    ///   effect counting will be correct, without having to re-audit such logic
+    ///   for every contract).
     ///
     fn next_counter(&mut self) -> u32 {
         let counter = self.side_effect_counter;
