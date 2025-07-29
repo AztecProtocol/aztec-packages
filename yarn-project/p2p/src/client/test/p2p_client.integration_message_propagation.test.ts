@@ -28,7 +28,6 @@ import {
   startTestP2PClients,
 } from '../../test-helpers/make-test-p2p-clients.js';
 import { MockGossipSubNetwork } from '../../test-helpers/mock-pubsub.js';
-import { privateKeyToHex } from '../../util.js';
 
 const TEST_TIMEOUT = 120000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -274,11 +273,11 @@ describe('p2p client integration message propagation', () => {
 
       // We re-create client 2 as before, but client 3 moves to a new rollup version
       const newEnrs = [client1.enr, client2.enr, client3.enr];
-      const newClient2 = await makeTestP2PClient(privateKeyToHex(client2.peerPrivateKey), client2.port, newEnrs, {
+      const newClient2 = await makeTestP2PClient(client2.peerPrivateKey, client2.port, newEnrs, {
         ...testConfig,
         logger: createLogger(`p2p:new-client-2`),
       });
-      const newClient3 = await makeTestP2PClient(privateKeyToHex(client3.peerPrivateKey), client3.port, newEnrs, {
+      const newClient3 = await makeTestP2PClient(client3.peerPrivateKey, client3.port, newEnrs, {
         ...testConfig,
         p2pBaseConfig: newP2PConfig,
         logger: createLogger(`p2p:new-client-3`),
