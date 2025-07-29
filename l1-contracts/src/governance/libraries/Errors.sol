@@ -86,4 +86,7 @@ library Errors {
   error GSE__FatalError(string);
 
   error Delegation__InsufficientPower(address, uint256, uint256);
+
+  error Governance__BlsKeyInvalidG1Point(uint256[2]);
+  error Governance__BlsKeyInvalidG2Point(uint256[4]);
 }

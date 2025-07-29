@@ -69,6 +69,9 @@ interface IGovernance {
   event WithdrawInitiated(uint256 indexed withdrawalId, address indexed recipient, uint256 amount);
   event WithdrawFinalised(uint256 indexed withdrawalId);
 
+  event BlsKeyActivated(address indexed account);
+  event BlsKeyDeactivated(address indexed account);
+
   function addBeneficiary(address _beneficiary) external;
   function openFloodgates() external;
 
@@ -82,6 +85,14 @@ interface IGovernance {
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external returns (bool);
   function execute(uint256 _proposalId) external returns (bool);
   function dropProposal(uint256 _proposalId) external returns (bool);
+
+  function registerKey(
+    uint256[2] calldata pk1,
+    uint256[4] calldata pk2,
+    uint256[2] calldata sigmaInit
+  ) external;
+  function deactivateKey() external;
+  function reactivateKey() external;
 
   function isPermittedInGovernance(address _caller) external view returns (bool);
   function isAllBeneficiariesAllowed() external view returns (bool);

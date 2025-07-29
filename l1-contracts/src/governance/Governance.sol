@@ -11,6 +11,11 @@ import {
   Withdrawal
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+
+import {BLS} from "@aztec/governance/libraries/BLS.sol";
+
+import {KeyStorage, Keys} from "@aztec/governance/libraries/KeyStorage.sol";
+
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
@@ -126,6 +131,7 @@ contract Governance is IGovernance {
   using ProposalLib for Proposal;
   using UserLib for User;
   using ConfigurationLib for Configuration;
+  using KeyStorage for Keys;
 
   IERC20 public immutable ASSET;
 
@@ -201,6 +207,15 @@ contract Governance is IGovernance {
    * `withdrawalCount` is only updated during `initiateWithdraw` and `proposeWithLock`.
    */
   uint256 public withdrawalCount;
+
+  /**
+   * @dev Storage for BLS signature keys and validator management.
+   *
+   * Contains all registered validators (active and inactive), maintains a dense array
+   * of active validator IDs, and tracks key ownership. Keys are permanently bound
+   * to their original registrant and cannot be reused by other addresses.
+   */
+  Keys keys;
 
   /**
    * @dev Modifier to ensure that the caller is the governance contract itself.
@@ -534,6 +549,70 @@ contract Governance is IGovernance {
   }
 
   /**
+   * @notice Register a BLS signature key for the caller.
+   * @dev Validates the BLS key components and proof of possession and discrete log before registration.
+   *      Each unique key can only be registered once across all validators.
+   *
+   * @param pk1 The G1 point of the BLS public key (x, y coordinates)
+   * @param pk2 The G2 point of the BLS public key (x0, x1, y0, y1 coordinates)
+   * @param sigmaInit The proof of possession signature in G1 to prove key ownership
+   */
+  function registerKey(
+    uint256[2] calldata pk1, // G1
+    uint256[4] calldata pk2, // G2
+    uint256[2] calldata sigmaInit // G1
+  ) external {
+    // Check points on curve, in field (Keep to save gas on bad keys)
+    require(BLS.isValidG1(pk1), Errors.Governance__BlsKeyInvalidG1Point(pk1));
+    require(BLS.isValidG2(pk2), Errors.Governance__BlsKeyInvalidG2Point(pk2));
+    require(BLS.isValidG1(sigmaInit), Errors.Governance__BlsKeyInvalidG1Point(sigmaInit));
+
+    // Recompute Htilde = H~1(Pk_(i,1)) with domain separator
+    bytes memory pkBytes = abi.encodePacked(pk1[0], pk1[1]);
+    uint256[2] memory hashTilde = BLS.hashToPoint(BLS.DST_INIT, pkBytes);
+
+    // gamma = keccak(pk1, pk2, sigmaInit) mod r
+    uint256 gamma = BLS.gammaOf(pk1, pk2, sigmaInit);
+    require(gamma != 0, "gamma=0");
+
+    // Build G1 L = sigmaInit + gamma * pk1
+    uint256[2] memory l = BLS.addPoints(sigmaInit, BLS.mulPoint(pk1, gamma));
+
+    // Build G1 R = htilde + gamma * G1
+    uint256[2] memory G1 = [BLS.G1x, BLS.G1y];
+    uint256[2] memory r = BLS.addPoints(hashTilde, BLS.mulPoint(G1, gamma));
+
+    // Pairing: e(L, -G2) * e(-R, pk2) == 1
+    uint256[4] memory nG2 = [BLS.nG2x0, BLS.nG2x1, BLS.nG2y0, BLS.nG2y1];
+    BLS.pairingPublicKeys(l, nG2, r, pk2);
+
+    keys.addKey(pk1, pk2);
+    emit BlsKeyActivated(msg.sender);
+  }
+
+  /**
+   * @notice Deactivate the caller's registered BLS key.
+   * @dev Removes the key from the active validator set while preserving the key data.
+   *      The caller must have a registered key that is currently active.
+   *      Deactivated keys remain permanently bound to the original registrant.
+   */
+  function deactivateKey() external {
+    keys.deactivateKey();
+    emit BlsKeyDeactivated(msg.sender);
+  }
+
+  /**
+   * @notice Reactivate the caller's previously registered BLS key.
+   * @dev Adds the key back to the active validator set.
+   *      The caller must have a registered key that is currently inactive.
+   *      Only the original key registrant can reactivate their own key.
+   */
+  function reactivateKey() external {
+    keys.reactivateKey();
+    emit BlsKeyActivated(msg.sender);
+  }
+
+  /**
    * @notice Get the power of an address at a given timestamp.
    * @dev If the timestamp is the current block timestamp, we return the powerNow.
    * Otherwise, we return the powerAt the timestamp.
@@ -627,6 +706,15 @@ contract Governance is IGovernance {
     returns (Withdrawal memory)
   {
     return withdrawals[_withdrawalId];
+  }
+
+  // Essential key getters (minimal interface for testing/external use)
+  function getIdOf(address _address) external view returns (uint32) {
+    return keys.getIdOf(_address);
+  }
+
+  function isValidatorActive(uint32 _id) external view returns (bool) {
+    return keys.isValidatorActive(_id);
   }
 
   /**
