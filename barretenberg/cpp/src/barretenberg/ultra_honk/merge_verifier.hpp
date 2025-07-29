@@ -34,6 +34,7 @@ class MergeVerifier {
     using Commitment = typename Curve::AffineElement;
     using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
 
+    // Commitments used by the Merge verifier to perfom merge verification
     struct InputCommitments {
         TableCommitments t_commitments;
         TableCommitments T_prev_commitments;

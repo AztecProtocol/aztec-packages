@@ -55,9 +55,10 @@ MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr
  * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
  * @param proof
- * @param t_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
- * by the PG verifier with which the Merge verifier shares a transcript
- * @param T_prev_commitments The full op_queue table commitments after the previous iteration of merge
+ * @param inputs_commitments Commitments used by the verifier to run the verification algorithm. They contain the
+ * subtable commitments data, containing the commitments to t_j read from the transcript by the PG verifier with which
+ * the Merge verifier shares a transcript, and the commitments to the full op_queue table after the previous iteration
+ * of merge
  * @return std::pair<bool, TableCommitments> Pair of verification result and the commitments to the merged tables as
  * read from the proof
  */

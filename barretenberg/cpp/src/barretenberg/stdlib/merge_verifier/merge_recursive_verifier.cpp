@@ -62,9 +62,10 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @param proof
  * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
  * by the PG verifier with which the Merge verifier shares a transcript
- * @param t_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
- * by the PG verifier with which the Merge verifier shares a transcript
- * @param T_prev_commitments The full op_queue table commitments after the previous iteration of merge
+ * @param inputs_commitments Commitments used by the verifier to run the verification algorithm. They contain the
+ * subtable commitments data, containing the commitments to t_j read from the transcript by the PG verifier with which
+ * the Merge verifier shares a transcript, and the commitments to the full op_queue table after the previous iteration
+ * of merge
  * @return std::pair<PairingPoints, TableCommitments> Pair of the pairing inputs for final verification and the
  * commitments to the merged tables as read from the proof
  */
