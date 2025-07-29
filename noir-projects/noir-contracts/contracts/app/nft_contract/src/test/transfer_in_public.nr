@@ -55,7 +55,7 @@ unconstrained fn transfer_in_public_on_behalf_of_other() {
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
 
-#[test(should_fail)] // should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero"
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -70,7 +70,7 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "invalid owner"
+#[test(should_fail_with = "invalid owner")]
 unconstrained fn transfer_in_public_non_existent_nft() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, recipient) =
@@ -83,7 +83,7 @@ unconstrained fn transfer_in_public_non_existent_nft() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "unauthorized"
+#[test(should_fail_with = "unauthorized")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, nft_contract_address, sender, recipient, token_id) =
@@ -95,7 +95,7 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_without_approval(
     );
 }
 
-#[test(should_fail)] // should_fail_with = "unauthorized"
+#[test(should_fail_with = "unauthorized")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, nft_contract_address, sender, recipient, token_id) =
