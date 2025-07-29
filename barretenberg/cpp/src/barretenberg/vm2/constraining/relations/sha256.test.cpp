@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 // Temporary imports, see comment in test.
@@ -31,8 +32,14 @@ using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
 using simulation::EventEmitter;
+using simulation::FieldGreaterThan;
+using simulation::FieldGreaterThanEvent;
+using simulation::GreaterThan;
+using simulation::GreaterThanEvent;
 using simulation::MemoryStore;
 using simulation::MockExecutionIdManager;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
@@ -43,6 +50,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sha256 = bb::avm2::sha256<FF>;
+using sha256_mem = bb::avm2::sha256_mem<FF>;
 
 TEST(Sha256ConstrainingTest, EmptyRow)
 {
@@ -78,8 +86,7 @@ TEST(Sha256ConstrainingTest, Basic)
 
     // We do two compression operations just to ensure the "after-latch" relations are correct
     sha256_gadget.compression(mem, state_addr, input_addr, dst_addr);
-    info("Emit event");
-    // sha256_gadget.compression(mem, state_addr, input_addr, dst_addr);
+    sha256_gadget.compression(mem, state_addr, input_addr, dst_addr);
     TestTraceContainer trace;
     trace.set(C::precomputed_first_row, 0, 1);
     tracegen::Sha256TraceBuilder builder;
@@ -129,6 +136,61 @@ TEST(Sha256ConstrainingTest, Interaction)
     check_interaction<Sha256TraceBuilder, lookup_sha256_round_constant_settings>(trace);
 
     check_relation<sha256>(trace);
+}
+
+//////////////////////////////////////////
+/// SHA256 Memory Constraining Test
+//////////////////////////////////////////
+
+TEST(Sha256MemoryConstrainingTest, Basic)
+{
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    EventEmitter<GreaterThanEvent> gt_event_emitter;
+
+    RangeCheck range_check(range_check_event_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+    GreaterThan gt(field_gt, range_check, gt_event_emitter);
+    simulation::FakeBitwise bitwise;
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    MemoryAddress input_addr = 8;
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress dst_addr = 25;
+
+    // We do two compression operations just to ensure the "after-latch" relations are correct
+    sha256_gadget.compression(mem, state_addr, input_addr, dst_addr);
+    sha256_gadget.compression(mem, state_addr, input_addr, dst_addr);
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+
+    tracegen::Sha256TraceBuilder builder;
+    const auto sha256_event_container = sha256_event_emitter.dump_events();
+    builder.process(sha256_event_container, trace);
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<sha256_mem>(trace);
+    check_relation<sha256>(trace);
+    check_interaction<Sha256TraceBuilder,
+                      lookup_sha256_mem_check_state_addr_in_range_settings,
+                      lookup_sha256_mem_check_input_addr_in_range_settings,
+                      lookup_sha256_mem_check_dst_addr_in_range_settings>(trace);
 }
 
 } // namespace
