@@ -23,11 +23,10 @@ export function dedupeSortedArray<T>(arr: T[], cmp: Cmp<T>): void {
 export function insertIntoSortedArray<T>(arr: T[], item: T, cmp: Cmp<T>, allowDuplicates = true): boolean {
   let left = 0;
   let right = arr.length;
-  let comparison: -1 | 0 | 1 | undefined;
 
   while (left < right) {
     const mid = (left + right) >> 1;
-    comparison = cmp(arr[mid], item);
+    const comparison = cmp(arr[mid], item);
 
     if (comparison < 0) {
       left = mid + 1;
@@ -36,7 +35,8 @@ export function insertIntoSortedArray<T>(arr: T[], item: T, cmp: Cmp<T>, allowDu
     }
   }
 
-  if (comparison === 0 && !allowDuplicates) {
+  // Check if we're trying to insert a duplicate
+  if (!allowDuplicates && left < arr.length && cmp(arr[left], item) === 0) {
     return false;
   }
 

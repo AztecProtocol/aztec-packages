@@ -823,8 +823,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       this.log.info(`Deleting ${minedTxsFromReorg.length} mined txs from reorg`);
       await this.txPool.deleteTxs(minedTxsFromReorg);
     } else {
+      const blockHeader = await this.l2BlockSource.getBlockHeader(latestBlock);
+      if (!blockHeader) {
+        throw new Error(`Block header for ${latestBlock} not found`);
+      }
       this.log.info(`Moving ${minedTxsFromReorg.length} mined txs from reorg back to pending`);
-      await this.txPool.markMinedAsPending(minedTxsFromReorg);
+      await this.txPool.markMinedAsPending(minedTxsFromReorg, latestBlock);
     }
 
     await this.synchedLatestBlockNumber.set(latestBlock);

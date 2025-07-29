@@ -3,7 +3,6 @@ import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export type TxPoolOptions = {
   maxTxPoolSize?: number;
-  txPoolOverflowFactor?: number;
   archivedTxLimit?: number;
 };
 
@@ -61,8 +60,9 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * Moves mined txs back to the pending set in the case of a reorg.
    * Note: txs not known by this peer will be ignored.
    * @param txHashes - Hashes of the txs to flag as pending.
+   * @param blockNumber - The latest pending tip.
    */
-  markMinedAsPending(txHashes: TxHash[]): Promise<void>;
+  markMinedAsPending(txHashes: TxHash[], blockNumber: number): Promise<void>;
 
   /**
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.

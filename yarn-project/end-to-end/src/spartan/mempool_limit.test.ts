@@ -90,7 +90,6 @@
 //     await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
 
 //     const pxe = await createPXEService(node, pxeOptions);
-
 //     await registerSponsoredFPC(pxe);
 //     fee = {
 //       paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
