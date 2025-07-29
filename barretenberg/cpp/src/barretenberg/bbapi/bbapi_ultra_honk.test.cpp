@@ -12,75 +12,46 @@ class BBApiUltraHonkTest : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
-
 TEST_F(BBApiUltraHonkTest, CircuitProveAndVerify)
 {
     auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
-    // First prove
-    CircuitProve prove_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
-                                .witness = witness,
-                                .settings = {
-                                    .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false } };
-
-    auto prove_response = std::move(prove_command).execute();
-
-    // Compute VK
-    CircuitComputeVk vk_command{
-        .circuit = { .name = "test_circuit", .bytecode = bytecode },
-        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
+    // Test different combinations of settings
+    const std::vector<bbapi::ProofSystemSettings> test_settings = {
+        // ipa_accumulation = true (other values don't matter)
+        { .ipa_accumulation = true, .oracle_hash_type = "poseidon2", .disable_zk = false },
+        // ipa_accumulation = false cases (test both disable_zk values)
+        { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false },
+        { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = true },
+        { .ipa_accumulation = false, .oracle_hash_type = "keccak", .disable_zk = false },
+        { .ipa_accumulation = false, .oracle_hash_type = "keccak", .disable_zk = true }
     };
 
-    auto vk_response = std::move(vk_command).execute();
+    for (const bbapi::ProofSystemSettings& settings : test_settings) {
+        // Compute VK
+        auto vk_response =
+            CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }
+                .execute();
 
-    // Verify the proof
-    CircuitVerify verify_command{
-        .verification_key = vk_response.bytes,
-        .public_inputs = prove_response.public_inputs,
-        .proof = prove_response.proof,
-        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
-    };
+        // First prove
+        auto prove_response = CircuitProve{ .circuit = { .name = "test_circuit",
+                                                         .bytecode = bytecode,
+                                                         .verification_key = vk_response.bytes },
+                                            .witness = witness,
+                                            .settings = settings }
+                                  .execute();
 
-    auto verify_response = std::move(verify_command).execute();
+        // Verify the proof
+        auto verify_response = CircuitVerify{ .verification_key = vk_response.bytes,
+                                              .public_inputs = prove_response.public_inputs,
+                                              .proof = prove_response.proof,
+                                              .settings = settings }
+                                   .execute();
 
-    EXPECT_TRUE(verify_response.verified);
-}
-
-TEST_F(BBApiUltraHonkTest, ProveWithPrecomputedVK)
-{
-    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-
-    // First compute the VK
-    CircuitComputeVk vk_command{
-        .circuit = { .name = "test_circuit", .bytecode = bytecode },
-        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
-    };
-
-    auto vk_response = std::move(vk_command).execute();
-
-    // Now prove with the precomputed VK
-    CircuitProve prove_command{
-        .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = vk_response.bytes },
-        .witness = witness,
-        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
-    };
-
-    auto prove_response = std::move(prove_command).execute();
-
-    // Verify response has valid proof
-    EXPECT_FALSE(prove_response.proof.empty());
-    EXPECT_EQ(prove_response.public_inputs.size(), 0);
-
-    // Verify the proof with the same VK
-    CircuitVerify verify_command{
-        .verification_key = vk_response.bytes,
-        .public_inputs = prove_response.public_inputs,
-        .proof = prove_response.proof,
-        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
-    };
-
-    auto verify_response = std::move(verify_command).execute();
-    EXPECT_TRUE(verify_response.verified);
+        EXPECT_TRUE(verify_response.verified)
+            << "Failed with ipa_accumulation=" << settings.ipa_accumulation
+            << ", oracle_hash_type=" << settings.oracle_hash_type << ", disable_zk=" << settings.disable_zk;
+    }
 }
 
 } // namespace bb::bbapi
