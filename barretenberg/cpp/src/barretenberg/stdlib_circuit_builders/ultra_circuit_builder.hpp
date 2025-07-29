@@ -398,13 +398,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         }
     }
 
-    accumulator_triple_<FF> create_logic_constraint(const uint32_t a,
-                                                    const uint32_t b,
-                                                    const size_t num_bits,
-                                                    bool is_xor_gate);
-    accumulator_triple_<FF> create_and_constraint(const uint32_t a, const uint32_t b, const size_t num_bits);
-    accumulator_triple_<FF> create_xor_constraint(const uint32_t a, const uint32_t b, const size_t num_bits);
-
     uint32_t put_constant_variable(const FF& variable);
 
     size_t get_num_constant_gates() const override { return 0; }
