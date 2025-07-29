@@ -92,7 +92,7 @@ contract Outbox is IOutbox {
 
     require(blockRoot != bytes32(0), Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber));
 
-    uint256 leafId = (1 << (_path.length)) + _leafIndex;
+    uint256 leafId = (1 << _path.length) + _leafIndex;
 
     require(
       !rootData.nullified.get(leafId), Errors.Outbox__AlreadyNullified(_l2BlockNumber, leafId)
