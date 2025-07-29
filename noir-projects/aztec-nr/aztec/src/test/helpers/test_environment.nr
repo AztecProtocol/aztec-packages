@@ -45,11 +45,6 @@ pub struct TestEnvironment {
     contract_deployment_secret: Counter,
 }
 
-pub struct CallResult<T> {
-    pub return_value: T,
-    pub tx_hash: Field,
-}
-
 pub struct PrivateContextOptions {
     contract_address: Option<AztecAddress>,
     historical_block_number: Option<u32>,
@@ -395,14 +390,14 @@ impl TestEnvironment {
         _self: Self,
         from: AztecAddress,
         call_interface: PrivateCallInterface<M, T>,
-    ) -> CallResult<T>
+    ) -> T
     where
         T: Deserialize,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
+        let (_, returns_hash, _) = txe_oracles::private_call_new_flow(
             from,
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -411,8 +406,7 @@ impl TestEnvironment {
             call_interface.get_is_static(),
         );
 
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        CallResult { return_value: returns, tx_hash }
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn view_private<T, let M: u32>(
@@ -425,7 +419,7 @@ impl TestEnvironment {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
 
-        let (_end_side_effect_counter, returns_hash, _) = txe_oracles::private_call_new_flow(
+        let (_, returns_hash, _) = txe_oracles::private_call_new_flow(
             std::mem::zeroed(), // The 'from' address is currently not manually set
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -434,8 +428,7 @@ impl TestEnvironment {
             call_interface.get_is_static(),
         );
 
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        returns
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn simulate_utility<T, let M: u32>(
@@ -455,19 +448,18 @@ impl TestEnvironment {
             args_hash,
         );
 
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        returns
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn call_public<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
         call_interface: PublicCallInterface<M, T>,
-    ) -> CallResult<T>
+    ) -> T
     where
         T: Deserialize,
     {
-        let (returns_hash, tx_hash) = public_call_new_flow(
+        let (returns_hash, _) = public_call_new_flow(
             from,
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -476,8 +468,7 @@ impl TestEnvironment {
         );
 
         // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        CallResult { return_value: returns, tx_hash }
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn view_public<T, let M: u32>(
