@@ -120,13 +120,14 @@ impl TestEnvironment {
     /// for low-level testing of public state variables and utilities.
     ///
     /// A new block is automatically mined once `public_context` returns, containing all of the side effects caused by
-    /// its execution (e.g. public storage writes). It is **NOT** possible to make any contract calls from this public
-    /// context.
+    /// its execution (e.g. public storage writes). It is however **NOT** possible to make any contract calls from this
+    /// public context - use `call_public` for testing contract calls (though usage of `call_public` is forbidden while
+    /// inside `public_context`).
     ///
-    /// Receives a callback function which is called with the created `PublicContext`. Any values returned by said
-    /// function are bubbled-up and returned to the caller of `public_context`. Do **NOT** return the `PublicContext`
-    /// from the callback function, or use it in any way outside of it - it becomes invalid once `public_context`
-    /// returns.
+    /// Receives a callback function which is called with the created `PublicContext` - this function is where testing
+    /// logic is expected to reside. Any values returned by it are bubbled-up and returned to the caller of
+    /// `public_context`. Do **NOT** return the `PublicContext` from the callback function, or use it in any way outside
+    /// of it - it becomes invalid once `public_context` returns.
     ///
     /// See `public_context_at` for a variant that allows specifying the contract address.
     ///
@@ -182,13 +183,14 @@ impl TestEnvironment {
     /// Useful for low-level testing of private state variables and utilities.
     ///
     /// A new block is automatically mined once `private_context` returns, containing all of the side effects caused by
-    /// its execution (e.g. note and nullifier emission). It is **NOT** possible to make any contract calls from this
-    /// private context, neither private nor enqueued public calls.
+    /// its execution (e.g. note and nullifier emission). It is however **NOT** possible to make any contract calls from this
+    /// private context, neither private nor enqueued public calls - use `call_private` and `call_public` for testing
+    /// contract calls (though usage of these is forbidden while inside `private_context`).
     ///
-    /// Receives a callback function which is called with the created `PrivateContext`. Any values returned by said
-    /// function are bubbled-up and returned to the caller of `private_context`. Do **NOT** return the `PrivateContext`
-    /// from the callback function, or use it in any way outside of it - it becomes invalid once `private_context`
-    /// returns.
+    /// Receives a callback function which is called with the created `PrivateContext` - this function is where testing
+    /// logic is expected to reside. Any values returned by it are bubbled-up and returned to the caller of
+    /// `private_context`. Do **NOT** return the `PrivateContext` from the callback function, or use it in any way
+    /// outside of it - it becomes invalid once `private_context` returns.
     ///
     /// See `private_context_at` for a variant that allows specifying the contract address, or `private_context_opts`
     /// for even more configurability.
@@ -287,10 +289,10 @@ impl TestEnvironment {
     /// Creates a `UtilityContext`, which allows using aztec-nr features as if inside a utility contract function.
     /// Useful for low-level testing of private and public state variable utilities.
     ///
-    /// Receives a callback function which is called with the created `Utility`. Any values returned by said
-    /// function are bubbled-up and returned to the caller of `utility_context`. Do **NOT** return the `Utility`
-    /// from the callback function, or use it in any way outside of it - it becomes invalid once `utility_context`
-    /// returns.
+    /// Receives a callback function which is called with the created `Utility` - this function is where testing
+    /// logic is expected to reside. Any values returned by it are bubbled-up and returned to the caller of
+    /// `utility_context`. Do **NOT** return the `Utility` from the callback function, or use it in any way outside of
+    /// it - it becomes invalid once `utility_context` returns.
     ///
     /// See `utility_context_at` for a variant that allows specifying the contract address.
     ///
@@ -349,18 +351,22 @@ impl TestEnvironment {
         get_block_number() - 1
     }
 
-    /// Returns the timestamp of the last mined block.
+    /// Returns the timestamp of the last mined block. Note that block timestamps do not automatically advance - this
+    /// must be done by calling `mine_block_at` or `set_next_block_timestamp`.
     pub unconstrained fn last_block_timestamp(_self: Self) -> u64 {
         txe_oracles::get_last_block_timestamp()
     }
 
-    /// Mines an empty block (i.e. with no transactions) at `timestamp`.
+    /// Mines an empty block (i.e. with no transactions) at `timestamp`, causing followup public executions to occur at
+    /// that timestamp (e.g. via `call_public` or `public_context`), and making it possible to create private executions
+    /// at the specified timestamp (e.g. via `call_private` or `private_context`).
     pub unconstrained fn mine_block_at(self, timestamp: u64) {
         self.set_next_block_timestamp(timestamp);
         self.mine_block();
     }
 
-    /// Sets the timestamp of the next block to be mined.
+    /// Sets the timestamp of the next block to be mined, causing followup public executions to occur at that timestamp
+    /// (e.g. via `call_public` or `public_context`).
     pub unconstrained fn set_next_block_timestamp(self, timestamp: u64) {
         let pending_timestamp = get_timestamp();
         assert(
@@ -371,7 +377,8 @@ impl TestEnvironment {
         self.advance_next_block_timestamp_by(difference);
     }
 
-    /// Mines an empty block (i.e. with no transactions).
+    /// Mines an empty block (i.e. with no transactions). Note that block timestamps do not automatically advance - this
+    /// must be done by calling `mine_block_at` or `set_next_block_timestamp`.
     pub unconstrained fn mine_block(_self: Self) {
         txe_oracles::advance_blocks_by(1);
     }
@@ -416,7 +423,8 @@ impl TestEnvironment {
     /// `create_contract_account`, but comes with reduced capabilities.
     ///
     /// The returned account has a full set of privacy keys, so it can nullify notes, receive messages, etc. It doesn't
-    /// however have an associated account contract, so it cannot process private authwit requests.
+    /// however have an associated account contract, so it cannot process private authwit requests. If calling contracts
+    /// that rely on private authwits, use `create_contract_account` instead.
     ///
     /// Each call to `create_light_account` will return a different address, and so it can be called repeatedly to
     /// generate multiple addresses. These addresses are also different from the ones that `create_contract_account`
