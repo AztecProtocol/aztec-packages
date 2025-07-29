@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -29,6 +30,8 @@ template <typename FF_> class l1_to_l2_message_existsImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/l1_to_l2_message_exists");
 
         const auto constants_L1_TO_L2_MSG_TREE_LEAF_COUNT = FF(549755813888UL);
         const auto constants_MEM_TAG_U1 = FF(1);
