@@ -26,6 +26,7 @@ import {
   PrivateEventDataProvider,
   SyncDataProvider,
   TaggingDataProvider,
+  enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
