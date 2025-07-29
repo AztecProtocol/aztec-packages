@@ -55,6 +55,9 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
+
+    static constexpr size_t IPA_CLAIM_SIZE = bb::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // a lambda that adds dummy commitments (libra and gemini)
@@ -83,10 +86,8 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // Third key field is the pub inputs offset
     uint32_t pub_inputs_offset = NativeFlavor::has_zero_row ? 1 : 0;
     builder.set_variable(key_fields[offset++].witness_index, pub_inputs_offset);
-    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINTS_SIZE;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
-    }
+    size_t num_inner_public_inputs = HasIPAAccumulator<Flavor> ? public_inputs_size - bb::RollupIO::PUBLIC_INPUTS_SIZE
+                                                               : public_inputs_size - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         set_dummy_commitment(offset);
@@ -110,7 +111,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // IPA claim
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
+        for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
             set_dummy_evaluation(offset);
         }
     }
@@ -257,11 +258,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         size_t size_of_proof_with_no_pub_inputs = input.proof.size();
         size_t total_num_public_inputs = input.public_inputs.size();
         if constexpr (HasIPAAccumulator<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
+            size_of_proof_with_no_pub_inputs -= stdlib::recursion::honk::RollupIO::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += stdlib::recursion::honk::RollupIO::PUBLIC_INPUTS_SIZE;
         } else {
-            size_of_proof_with_no_pub_inputs -= DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
+            size_of_proof_with_no_pub_inputs -= stdlib::recursion::honk::DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += stdlib::recursion::honk::DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
         }
 
         create_dummy_vkey_and_proof<Flavor>(

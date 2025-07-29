@@ -9,6 +9,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -102,18 +103,20 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+    using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
+    using RollupIO = stdlib::recursion::honk::RollupIO;
 
-    auto builder = typename Flavor::CircuitBuilder{};
+    auto builder = Builder{};
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof ultra_proof = prover.construct_proof();
-    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE;
-    if (HasIPAAccumulator<Flavor>) {
-        expected_proof_length += IPA_CLAIM_SIZE;
-    }
+    static constexpr size_t expected_proof_length =
+        HasIPAAccumulator<Flavor> ? Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + RollupIO::PUBLIC_INPUTS_SIZE
+                                  : Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + DefaultIO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 
