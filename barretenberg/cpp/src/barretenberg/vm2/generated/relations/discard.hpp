@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -29,6 +30,8 @@ template <typename FF_> class discardImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/discard");
 
         const auto execution_DYING_CONTEXT_DIFF =
             (in.get(C::execution_context_id) - in.get(C::execution_dying_context_id));
