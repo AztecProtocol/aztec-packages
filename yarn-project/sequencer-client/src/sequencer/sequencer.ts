@@ -288,7 +288,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     this.setState(SequencerState.PROPOSER_CHECK, undefined);
 
-    const chainTipArchive = syncedTo.archive;
     const newBlockNumber = syncedTo.blockNumber + 1;
 
     const { slot, ts, now } = this.publisher.epochCache.getEpochAndSlotInNextL1Slot();
@@ -362,7 +361,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
 
-    const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
+    const chainTipHeaderHash = syncedTo.block!.header.toPropose().hash();
+    const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(
+      chainTipHeaderHash.toBuffer(),
+      proposerAddress,
+    );
     if (canProposeCheck === undefined) {
       this.log.warn(
         `Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`,
@@ -420,16 +423,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
       globalVariables: newGlobalVariables.toInspect(),
-      chainTipArchive,
+      chainTipHeaderHash,
       blockNumber: newBlockNumber,
       slot,
     });
+
+    // Get the actual archive root from world state (authoritative source)
+    // The stored block might have Fr.ZERO if unproven, but we need the real archive for the next block
+    const lastArchiveRoot = syncedTo.archive.equals(Fr.ZERO)
+      ? new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root)
+      : syncedTo.archive;
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = ProposedBlockHeader.from({
       ...newGlobalVariables,
       timestamp: newGlobalVariables.timestamp,
-      lastArchiveRoot: chainTipArchive,
+      lastArchiveRoot,
       contentCommitment: ContentCommitment.empty(),
       totalManaUsed: Fr.ZERO,
     });
@@ -462,7 +471,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     } else {
       this.log.verbose(
         `Not enough txs to build block ${newBlockNumber} at slot ${slot} (got ${pendingTxCount} txs, need ${this.minTxsPerBlock})`,
-        { chainTipArchive, blockNumber: newBlockNumber, slot },
+        { chainTipArchive: syncedTo.archive, chainTipHeaderHash, blockNumber: newBlockNumber, slot },
       );
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
