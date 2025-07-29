@@ -13,10 +13,9 @@ template <typename T> class BBApiSerializationTest : public ::testing::Test {};
 // Enumerate each command type
 using Commands = ::testing::Types<bbapi::CircuitProve,
                                   bbapi::CircuitComputeVk,
-                                  bbapi::CircuitInfo,
+                                  bbapi::CircuitGates,
                                   bbapi::CircuitCheck,
                                   bbapi::CircuitVerify,
-                                  bbapi::ProofAsFields,
                                   bbapi::VkAsFields,
                                   bbapi::CircuitWriteSolidityVerifier,
                                   bbapi::CircuitProveAndVerify,

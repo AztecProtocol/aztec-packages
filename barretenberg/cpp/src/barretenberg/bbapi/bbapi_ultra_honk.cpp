@@ -30,19 +30,14 @@
 
 namespace bb::bbapi {
 
-template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
-Circuit _compute_circuit(const std::vector<uint8_t>& bytecode, const std::vector<uint8_t>& witness)
+template <typename Flavor> acir_format::ProgramMetadata _create_program_metadata()
 {
     uint32_t honk_recursion = 0;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1326): Get rid of honk_recursion and just use
-    // ipa_accumulation.
-    // bool ipa_accumulation = false;
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
-        // ipa_accumulation = true;
     }
 #ifdef STARKNET_GARAGA_FLAVORS
     if constexpr (IsAnyOf<Flavor, UltraStarknetFlavor, UltraStarknetZKFlavor>) {
@@ -50,9 +45,13 @@ Circuit _compute_circuit(const std::vector<uint8_t>& bytecode, const std::vector
     }
 #endif
 
-    const acir_format::ProgramMetadata metadata{
-        .honk_recursion = honk_recursion,
-    };
+    return acir_format::ProgramMetadata{ .honk_recursion = honk_recursion };
+}
+
+template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
+Circuit _compute_circuit(const std::vector<uint8_t>& bytecode, const std::vector<uint8_t>& witness)
+{
+    const acir_format::ProgramMetadata metadata = _create_program_metadata<Flavor>();
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(bytecode)) };
 
     if (!witness.empty()) {
@@ -228,23 +227,22 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
         throw_or_abort("invalid proof type in _write_vk");
     }
 
-    return { .bytes = vk_bytes, .fields = vk_fields, .vk_hash = vk_hash_bytes };
+    return { .bytes = std::move(vk_bytes), .fields = std::move(vk_fields), .vk_hash = std::move(vk_hash_bytes) };
 }
 
-CircuitInfo::Response CircuitInfo::execute(BB_UNUSED const BBApiRequest& request) &&
+CircuitGates::Response CircuitGates::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     // Parse the circuit to get gate count information
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(circuit.bytecode));
 
-    const acir_format::ProgramMetadata metadata{ .recursive = settings.recursive,
-                                                 .honk_recursion = settings.honk_recursion,
-                                                 .collect_gates_per_opcode = include_gates_per_opcode };
+    acir_format::ProgramMetadata metadata = _create_program_metadata<UltraCircuitBuilder>();
+    metadata.collect_gates_per_opcode = include_gates_per_opcode;
 
     acir_format::AcirProgram program{ constraint_system };
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 
-    CircuitInfo::Response response;
+    CircuitGates::Response response;
     response.total_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
     response.subgroup_size = static_cast<uint32_t>(builder.get_circuit_subgroup_size(response.total_gates));
 
@@ -293,12 +291,6 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
     }
 
     return { verified };
-}
-
-ProofAsFields::Response ProofAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    // Proof is already a vector of field elements
-    return { proof };
 }
 
 VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&

@@ -73,12 +73,12 @@ struct CircuitComputeVk {
 };
 
 /**
- * @struct CircuitInfo
+ * @struct CircuitGates
  * @brief Consolidated command for retrieving circuit information.
  * Combines gate count, circuit size, and other metadata into a single command.
  */
-struct CircuitInfo {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitInfo";
+struct CircuitGates {
+    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitGates";
 
     struct Response {
         static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitInfoResponse";
@@ -95,7 +95,7 @@ struct CircuitInfo {
     ProofSystemSettings settings;
     MSGPACK_FIELDS(circuit, include_gates_per_opcode, settings);
     Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const CircuitInfo&) const = default;
+    bool operator==(const CircuitGates&) const = default;
 };
 
 /**
@@ -144,27 +144,6 @@ struct CircuitVerify {
     MSGPACK_FIELDS(verification_key, public_inputs, proof, settings);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitVerify&) const = default;
-};
-
-/**
- * @struct ProofAsFields
- * @brief Convert a proof to field elements representation.
- */
-struct ProofAsFields {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "ProofAsFields";
-
-    struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "ProofAsFieldsResponse";
-
-        std::vector<bb::fr> fields;
-        MSGPACK_FIELDS(fields);
-        bool operator==(const Response&) const = default;
-    };
-
-    HonkProof proof;
-    MSGPACK_FIELDS(proof);
-    Response execute(const BBApiRequest& request = {}) &&;
-    bool operator==(const ProofAsFields&) const = default;
 };
 
 /**

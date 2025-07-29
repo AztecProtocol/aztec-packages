@@ -94,9 +94,7 @@ void UltraHonkAPI::prove(const Flags& flags,
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk,
-                                         .honk_recursion = flags.honk_recursion,
-                                         .recursive = flags.recursive };
+                                         .disable_zk = flags.disable_zk };
 
     // Read input files
     auto bytecode = get_bytecode(bytecode_path);
@@ -144,9 +142,7 @@ bool UltraHonkAPI::verify(const Flags& flags,
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk,
-                                         .honk_recursion = flags.honk_recursion,
-                                         .recursive = flags.recursive };
+                                         .disable_zk = flags.disable_zk };
 
     // Execute verify command
     auto response = bbapi::CircuitVerify{ .verification_key = vk_bytes,
@@ -181,9 +177,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk,
-                                         .honk_recursion = flags.honk_recursion,
-                                         .recursive = flags.recursive };
+                                         .disable_zk = flags.disable_zk };
 
     // Execute compute VK command
     auto response =
@@ -210,15 +204,13 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
         // Convert flags to ProofSystemSettings
         bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                              .oracle_hash_type = flags.oracle_hash_type,
-                                             .disable_zk = flags.disable_zk,
-                                             .honk_recursion = flags.honk_recursion,
-                                             .recursive = flags.recursive };
+                                             .disable_zk = flags.disable_zk };
 
-        // Execute CircuitInfo command
+        // Execute CircuitGates command
         auto response =
-            bbapi::CircuitInfo{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
-                                .include_gates_per_opcode = flags.include_gates_per_opcode,
-                                .settings = settings }
+            bbapi::CircuitGates{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
+                                 .include_gates_per_opcode = flags.include_gates_per_opcode,
+                                 .settings = settings }
                 .execute();
 
         vinfo("Calculated circuit size in gate_count: ", response.total_gates);
@@ -227,7 +219,7 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
         std::string gates_per_opcode_str;
         if (flags.include_gates_per_opcode) {
             bool first = true;
-            // CircuitInfo returns a map, we need to convert back to array format
+            // CircuitGates returns a map, we need to convert back to array format
             // Note: This assumes opcodes are stored as "opcode_N" in order
             size_t max_opcode = 0;
             for (const auto& [key, value] : response.gates_per_opcode) {
@@ -252,7 +244,7 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
             }
         }
 
-        // For now, we'll use the CircuitInfo response which includes circuit statistics
+        // For now, we'll use the CircuitGates response which includes circuit statistics
         // The num_acir_opcodes is not directly available from bytecode alone
         auto result_string = format(
             "{\n        \"acir_opcodes\": ",
@@ -278,9 +270,7 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk,
-                                         .honk_recursion = flags.honk_recursion,
-                                         .recursive = flags.recursive };
+                                         .disable_zk = flags.disable_zk };
 
     // Execute solidity verifier command
     auto response = bbapi::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute();
