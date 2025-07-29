@@ -20,5 +20,4 @@ class MockEcc : public EccInterface {
         (MemoryInterface & memory, const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q, MemoryAddress dst_address),
         (override));
 };
-
 } // namespace bb::avm2::simulation
