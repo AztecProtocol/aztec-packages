@@ -26,7 +26,7 @@ class ECCVMTranscriptBuilder {
         /////////////////////////////////////
 
         bool transcript_msm_infinity = false; // are we at the end of an MSM *and* is the output the point at infinity?
-        bool accumulator_not_empty = false;
+        bool accumulator_not_empty = false;   // is the accumulator either empty or point-at-infinity?
         bool q_add = false;
         bool q_mul = false;
         bool q_eq = false;
@@ -34,14 +34,15 @@ class ECCVMTranscriptBuilder {
         bool msm_transition = false;
         uint32_t pc = 0;
         uint32_t msm_count = 0;
-        bool msm_count_zero_at_transition = false; // how many MSMs have we done when we finish
-        FF base_x = 0;                             // [P] = (base_x, base_y)
-        FF base_y = 0;                             // [P] = (base_x, base_y)
-        bool base_infinity = false;                // is [P] == neutral element?
-        uint256_t z1 = 0;                          // `scalar` = z1 + \zeta_3 * z2
-        uint256_t z2 = 0;                          // `scalar` = z1 + \zeta_3 * z2
-        bool z1_zero = false;                      // `z1 == 0`
-        bool z2_zero = false;                      // `z2 == 0`
+        bool msm_count_zero_at_transition =
+            false;     // is the number of scalar muls we have completed at the end of our "MSM block" zero?
+        FF base_x = 0; // [P] = (base_x, base_y)
+        FF base_y = 0; // [P] = (base_x, base_y)
+        bool base_infinity = false; // is [P] == neutral element?
+        uint256_t z1 = 0;           // `scalar` = z1 + \zeta_3 * z2
+        uint256_t z2 = 0;           // `scalar` = z1 + \zeta_3 * z2
+        bool z1_zero = false;       // `z1 == 0`
+        bool z2_zero = false;       // `z2 == 0`
         uint32_t opcode = 0; // opcode value, in {0, .., 15}, given by 8 * q_add + 4 * q_mul + 2 * q_eq + q_reset.
 
         /////////////////////////////////////
@@ -195,7 +196,6 @@ class ECCVMTranscriptBuilder {
             // if we are at a `reset` or null op, reset the state.
             // logically, we should add `updated_state.count = 0`, but this is taken care of later by conditional
             // logic and hence is unnecessary here.
-            //  RAJU: check that op_code.value() == 0 is a nullop.
             if (entry.op_code.reset || entry.op_code.value() == 0) {
                 updated_state.is_accumulator_empty = true;
                 updated_state.accumulator = CycleGroup::point_at_infinity;

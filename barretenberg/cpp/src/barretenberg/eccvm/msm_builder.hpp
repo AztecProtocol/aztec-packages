@@ -30,20 +30,22 @@ class ECCVMMSMMBuilder {
         uint32_t pc = 0;        // counter over all half-length (128 bit) scalar muls used to compute the required MSMs
         uint32_t msm_size = 0;  // the number of points that will be scaled and summed
         uint32_t msm_count = 0; // number of multiplications processed so far in current MSM round
-        uint32_t msm_round = 0; // current "round" of MSM, in {0, ..., 31} RAJU: or 32? test.
+        uint32_t msm_round = 0; // current "round" of MSM, in {0, ..., 32}. (final round deals with the `skew` bit.)
+                                // here, 32 = `NUM_WNAF_DIGITS_PER_SCALAR`. RAJU: check.
         bool msm_transition = false; // is 1 if the next row starts the processing of a different MSM, else 0.
         bool q_add = false;
         bool q_double = false;
         bool q_skew = false;
 
-        // The MSM part of the VM can evaluate up to 4 point additions.
+        // The MSM part of the VM can evaluate up to 4 point additions. RAJU: rewrite this to be more clear.
         // For each row in the VM we represent the possible point addition data via a size-4 array of
         // AddState objects.
         struct AddState {
             bool add = false; // are we adding a point at this location in the VM?
                               // e.g if the MSM is of size-2 then the 3rd and 4th AddState objects will have this set
                               // to `false`.  (4th AddState objects will always (?) have this bool set to `false`.)
-            int slice = 0;    // WNAF slice value
+                              // RAJU: check this, not sure?
+            int slice = 0;    // wNAF slice value
 
             AffineElement point{ 0, 0 }; // point being added into the accumulator
             FF lambda = 0; // when adding `point` into the accumulator via Affine point addition, the value of `lambda`
@@ -75,11 +77,11 @@ class ECCVMMSMMBuilder {
     static std::tuple<std::vector<MSMRow>, std::array<std::vector<size_t>, 2>> compute_rows(
         const std::vector<MSM>& msms, const uint32_t total_number_of_muls, const size_t num_msm_rows)
     {
-        // RAJU: THIS COMMENT BLOCK MIGHT BE INACCURATE. Checking now. RAJU.
         // To perform a scalar multiplication of a point P by a scalar x, we precompute a table of points
         //                           -15P, -13P, ..., -3P, -P, P, 3P, ..., 15P
         // When we perform a scalar multiplication, we decompose x into base-16 wNAF digits then look these precomputed
-        // values up with digit-by-digit. We record read counts in a table with the following structure:
+        // values up with digit-by-digit. As we are performing lookups with the log-derivative argument, we have to
+        // record read counts. We record read counts in a table with the following structure:
         //   1st write column = positive wNAF digits
         //   2nd write column = negative wNAF digits
         // the row number is a function of pc and wnaf digit:
@@ -100,7 +102,10 @@ class ECCVMMSMMBuilder {
         //   15 | # | # | -15
 
         const size_t num_rows_in_read_counts_table =
-            static_cast<size_t>(total_number_of_muls) * (eccvm::POINT_TABLE_SIZE >> 1);
+            static_cast<size_t>(total_number_of_muls) *
+            (eccvm::POINT_TABLE_SIZE >> 1); // `POINT_TABLE_SIZE` is 2ʷ, where in our case w = 4. As noted above, with
+                                            // respect to *read counts*, we are record looking up the positive and
+                                            // negative odd multiples of [P] in two separate columns, each of size 2ʷ⁻¹.
         std::array<std::vector<size_t>, 2> point_table_read_counts;
         point_table_read_counts[0].reserve(num_rows_in_read_counts_table);
         point_table_read_counts[1].reserve(num_rows_in_read_counts_table);
@@ -212,8 +217,14 @@ class ECCVMMSMMBuilder {
         //   Step 2: use batch inversion trick to convert all points into affine coordinates
         //   Step 3: populate the full execution trace, including the intermediate values from affine group operations
         // This section sets up the data structures we need to store all intermediate ECC operations in projective form
-        const size_t num_point_adds_and_doubles = (num_msm_rows - 2) * 4;
-        const size_t num_accumulators = num_msm_rows - 1;
+        const size_t num_point_adds_and_doubles =
+            (num_msm_rows - 2) *
+            4; // `num_msm_rows - 2` is the actual number of rows in the table required to compute
+               // the MSM; the msm table itself has a dummy row at the beginning and an extra row
+               // with the answer at the end. RAJU: Questions.
+               //   1: what is the final row? (I.e., I guess it contains the accumulated value?) (will this be answered
+               //   somewhere here?) 2: why multiply by 4 rather than 5 (1 add + 4 doubles)?
+        const size_t num_accumulators = num_msm_rows - 1; // for every row after the first row, we have an accumulator.
         // In what follows, either p1 + p2 = p3, or p1.dbl() = p3
         // We create 1 vector to store the entire point trace. We split into multiple containers using std::span
         // (we want 1 vector object to more efficiently batch normalize points)
@@ -248,12 +259,12 @@ class ECCVMMSMMBuilder {
             size_t trace_index = (msm_row_counts[msm_idx] - 1) * 4;
 
             for (size_t digit_idx = 0; digit_idx < NUM_WNAF_DIGITS_PER_SCALAR; ++digit_idx) {
-                const auto pc = static_cast<uint32_t>(pc_values[msm_idx]);
+                const auto pc = static_cast<uint32_t>(pc_values[msm_idx]); // RAJU: move outside loop?
                 for (size_t row_idx = 0; row_idx < num_rows_per_digit; ++row_idx) {
                     const size_t num_points_in_row = (row_idx + 1) * ADDITIONS_PER_ROW > msm_size
                                                          ? (msm_size % ADDITIONS_PER_ROW)
                                                          : ADDITIONS_PER_ROW;
-                    auto& row = msm_rows[msm_row_index];
+                    auto& row = msm_rows[msm_row_index]; // RAJU: move outside loop?
                     const size_t offset = row_idx * ADDITIONS_PER_ROW;
                     row.msm_transition = (digit_idx == 0) && (row_idx == 0);
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
