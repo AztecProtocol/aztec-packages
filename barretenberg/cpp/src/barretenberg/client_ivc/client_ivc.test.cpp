@@ -436,7 +436,7 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
 //     auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
 //     perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
 //     EXPECT_ANY_THROW(ivc.prove());
-// }
+// }x
 
 /**
  * @brief Test use of structured trace overflow block mechanism
