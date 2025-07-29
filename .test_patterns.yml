@@ -250,7 +250,7 @@ tests:
     owners:
       - *mitch
   - regex: "src/e2e_block_building"
-    error_regex: "detects an upcoming reorg and builds a block for the correct slot"
+    error_regex: "✕ detects an upcoming reorg and builds a block for the correct slot"
     owners:
       - *palla
 
