@@ -77,9 +77,9 @@ template <typename Flavor> std::vector<uint8_t> _compute_vk(const std::vector<ui
 }
 
 template <typename Flavor>
-CircuitProve::Response _prove(const std::vector<uint8_t>& bytecode,
-                              const std::vector<uint8_t>& witness,
-                              const std::vector<uint8_t>& vk_bytes)
+CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
+                              std::vector<uint8_t>&& witness,
+                              std::vector<uint8_t>&& vk_bytes)
 {
     auto proving_key = _compute_proving_key<Flavor>(bytecode, witness);
     std::shared_ptr<typename Flavor::VerificationKey> vk;
@@ -162,31 +162,40 @@ bool _verify(const bool ipa_accumulation,
 
 CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    ASSERT(!circuit.verification_key.empty(),
+           "CircuitProve requires a verification key to be passed in the circuit object.");
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (settings.ipa_accumulation) {
-        return _prove<UltraRollupFlavor>(circuit.bytecode, witness, circuit.verification_key);
+        return _prove<UltraRollupFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is poseidon2, we are using the UltraZKFlavor
-        return _prove<UltraZKFlavor>(circuit.bytecode, witness, circuit.verification_key);
+        return _prove<UltraZKFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
         // if we are disabling ZK and the oracle hash type is poseidon2, we are using the UltraFlavor
-        return _prove<UltraFlavor>(circuit.bytecode, witness, circuit.verification_key);
+        return _prove<UltraFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is keccak, we are using the UltraKeccakZKFlavor
-        return _prove<UltraKeccakZKFlavor>(circuit.bytecode, witness, circuit.verification_key);
+        return _prove<UltraKeccakZKFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
-        return _prove<UltraKeccakFlavor>(circuit.bytecode, witness, circuit.verification_key);
+        return _prove<UltraKeccakFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
 #ifdef STARKNET_GARAGA_FLAVORS
     }
     if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
-        return _prove<UltraStarknetFlavor>(circuit.bytecode, witness, circuit.verification_key);
+        return _prove<UltraStarknetFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key()));
     }
     if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
-        return _prove<UltraStarknetZKFlavor>(circuit.bytecode, witness, circuit.verification_key);
+        return _prove<UltraStarknetZKFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key()));
 #endif
     }
     throw_or_abort("Invalid proving options specified in CircuitProve!");

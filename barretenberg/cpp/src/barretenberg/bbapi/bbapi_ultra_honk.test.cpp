@@ -12,7 +12,7 @@ class BBApiUltraHonkTest : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
-TEST_F(BBApiUltraHonkTest, CircuitProveAndVerify)
+TEST_F(BBApiUltraHonkTest, CircuitProve)
 {
     auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
