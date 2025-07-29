@@ -22,6 +22,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
+import { orderAttestations } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -51,7 +52,7 @@ import { type Action, type SequencerPublisher, SignalType } from '../publisher/s
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
-import { SequencerState, type SequencerStateWithSlot, orderAttestations } from './utils.js';
+import { SequencerState, type SequencerStateWithSlot } from './utils.js';
 
 export { SequencerState };
 
@@ -577,6 +578,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
   ): Promise<L2Block> {
+    // TODO(palla/sigs): We need to simulate the previous block being removed if invalid!
     await this.publisher.validateBlockHeader(proposalHeader);
 
     const blockNumber = newGlobalVariables.blockNumber;

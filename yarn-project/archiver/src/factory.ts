@@ -1,4 +1,3 @@
-import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -10,9 +9,8 @@ import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { ArchiverApi, Service } from '@aztec/stdlib/interfaces/server';
 import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { Archiver } from './archiver/archiver.js';
+import { Archiver, type ArchiverDeps } from './archiver/archiver.js';
 import type { ArchiverConfig } from './archiver/config.js';
 import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './archiver/kv_archiver_store/kv_archiver_store.js';
 import { createArchiverClient } from './rpc/index.js';
@@ -41,13 +39,12 @@ export async function createArchiverStore(
  */
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
-  blobSinkClient: BlobSinkClientInterface,
+  deps: ArchiverDeps,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
-  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
   const archiverStore = await createArchiverStore(config);
   await registerProtocolContracts(archiverStore);
-  return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
+  return Archiver.createAndSync(config, archiverStore, deps, opts.blockUntilSync);
 }
 
 /**
