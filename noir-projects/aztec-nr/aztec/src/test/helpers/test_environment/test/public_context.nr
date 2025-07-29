@@ -1,5 +1,10 @@
-use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct};
-use protocol_types::{address::AztecAddress, traits::FromField};
+use crate::{
+    context::gas::GasOpts,
+    test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
+};
+use protocol_types::{
+    abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField,
+};
 
 use dep::std::mem::zeroed;
 
@@ -110,5 +115,19 @@ unconstrained fn read_private_nullifier() {
 
     env.public_context(|context| {
         assert(context.nullifier_exists(nullifier, context.this_address()));
+    });
+}
+
+#[test(should_fail_with = "Contract calls are forbidden")]
+unconstrained fn public_calls_fails() {
+    let env = TestEnvironment::new();
+
+    env.public_context(|context| {
+        let _ = context.call_public_function(
+            AztecAddress::zero(),
+            FunctionSelector::zero(),
+            [],
+            GasOpts::default(),
+        );
     });
 }

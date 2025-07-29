@@ -1,5 +1,7 @@
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
-use protocol_types::{address::AztecAddress, traits::FromField};
+use protocol_types::{
+    abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField,
+};
 
 #[test]
 unconstrained fn at_sets_contract_address() {
@@ -47,4 +49,37 @@ unconstrained fn opts_sets_contract_address_and_historical_block_number() {
             );
         },
     );
+}
+
+#[test(should_fail_with = "Contract calls are forbidden")]
+unconstrained fn private_calls_fails() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let _ =
+            context.call_private_function_no_args(AztecAddress::zero(), FunctionSelector::zero());
+    });
+}
+
+#[test(should_fail_with = "Enqueueing public calls is not supported")]
+unconstrained fn public_calls_fails() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let _ =
+            context.call_public_function_no_args(AztecAddress::zero(), FunctionSelector::zero());
+    });
+}
+
+#[test(should_fail_with = "Enqueueing public calls is not supported")]
+unconstrained fn set_teardown_fails() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let _ = context.set_public_teardown_function(
+            AztecAddress::zero(),
+            FunctionSelector::zero(),
+            [],
+        );
+    });
 }

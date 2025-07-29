@@ -3,7 +3,7 @@ use crate::history::test;
 
 use crate::test::helpers::test_environment::PrivateContextOptions;
 
-#[test(should_fail_with = "not found in NOTE_HASH_TREE at block 1")]
+#[test(should_fail_with = "not found in tree NOTE_HASH_TREE at block")]
 unconstrained fn fails_on_blocks_before_note_creation() {
     let (env, retrieved_note) = test::create_note_and_nullify_it();
 

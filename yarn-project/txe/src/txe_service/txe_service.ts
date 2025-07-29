@@ -4,10 +4,8 @@ import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
-import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -144,11 +142,6 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async deriveKeys(secret: ForeignCallSingle) {
-    const keys = await this.txe.deriveKeys(fromSingle(secret));
-    return toForeignCallResult(keys.publicKeys.toFields().map(toSingle));
-  }
-
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     // Emit deployment nullifier
     await this.txe.noteCache.nullifierCreated(
@@ -178,28 +171,6 @@ export class TXEService {
         ...instance.publicKeys.toFields(),
       ]),
     ]);
-  }
-
-  async directStorageWrite(
-    contractAddress: ForeignCallSingle,
-    startStorageSlot: ForeignCallSingle,
-    values: ForeignCallArray,
-  ) {
-    const startStorageSlotFr = fromSingle(startStorageSlot);
-    const valuesFr = fromArray(values);
-    const contractAddressFr = addressFromSingle(contractAddress);
-
-    const publicDataWrites = await Promise.all(
-      valuesFr.map(async (value, i) => {
-        const storageSlot = startStorageSlotFr.add(new Fr(i));
-        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-        return new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
-      }),
-    );
-
-    await this.txe.addPublicDataWrites(publicDataWrites);
-
-    return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
   }
 
   async createAccount(secret: ForeignCallSingle) {
@@ -234,11 +205,6 @@ export class TXEService {
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
     ]);
-  }
-
-  getSideEffectsCounter() {
-    const counter = this.txe.getSideEffectsCounter();
-    return toForeignCallResult([toSingle(new Fr(counter))]);
   }
 
   async addAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
@@ -593,57 +559,26 @@ export class TXEService {
     return toForeignCallResult([toArray(authWitness)]);
   }
 
-  public async notifyEnqueuedPublicFunctionCall(
-    targetContractAddress: ForeignCallSingle,
-    calldataHash: ForeignCallSingle,
-    sideEffectCounter: ForeignCallSingle,
-    isStaticCall: ForeignCallSingle,
+  public notifyEnqueuedPublicFunctionCall(
+    _targetContractAddress: ForeignCallSingle,
+    _calldataHash: ForeignCallSingle,
+    _sideEffectCounter: ForeignCallSingle,
+    _isStaticCall: ForeignCallSingle,
   ) {
-    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
-    }
-
-    await this.txe.notifyEnqueuedPublicFunctionCall(
-      addressFromSingle(targetContractAddress),
-      fromSingle(calldataHash),
-      fromSingle(sideEffectCounter).toNumber(),
-      fromSingle(isStaticCall).toBool(),
-    );
-    return toForeignCallResult([]);
+    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public async notifySetPublicTeardownFunctionCall(
-    targetContractAddress: ForeignCallSingle,
-    calldataHash: ForeignCallSingle,
-    sideEffectCounter: ForeignCallSingle,
-    isStaticCall: ForeignCallSingle,
+  public notifySetPublicTeardownFunctionCall(
+    _targetContractAddress: ForeignCallSingle,
+    _calldataHash: ForeignCallSingle,
+    _sideEffectCounter: ForeignCallSingle,
+    _isStaticCall: ForeignCallSingle,
   ) {
-    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
-    }
-
-    await this.txe.notifySetPublicTeardownFunctionCall(
-      addressFromSingle(targetContractAddress),
-      fromSingle(calldataHash),
-      fromSingle(sideEffectCounter).toNumber(),
-      fromSingle(isStaticCall).toBool(),
-    );
-    return toForeignCallResult([]);
+    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
-    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
-    }
-
-    await this.txe.notifySetMinRevertibleSideEffectCounter(fromSingle(minRevertibleSideEffectCounter).toNumber());
-    return toForeignCallResult([]);
+  public notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: ForeignCallSingle) {
+    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
   async getChainId() {
@@ -892,16 +827,7 @@ export class TXEService {
   }
 
   emitOffchainEffect(_data: ForeignCallArray) {
-    if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
-    }
-
-    // Offchain effects are currently discarded in the TXE tests.
-    // TODO: Expose this to the tests.
-
-    return toForeignCallResult([]);
+    throw new Error('Offchain effects are not yet supported in the TestEnvironment');
   }
 
   // AVM opcodes
@@ -1061,7 +987,8 @@ export class TXEService {
       );
     }
 
-    const isStaticCall = this.txe.getIsStaticCall();
+    // TestEnvironment::public_context is always static
+    const isStaticCall = true;
     return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
   }
 
