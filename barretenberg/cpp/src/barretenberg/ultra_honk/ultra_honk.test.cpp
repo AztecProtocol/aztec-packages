@@ -3,7 +3,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"

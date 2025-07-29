@@ -6,7 +6,6 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"

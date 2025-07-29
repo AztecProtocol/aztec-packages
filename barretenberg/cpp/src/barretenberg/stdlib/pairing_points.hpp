@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"

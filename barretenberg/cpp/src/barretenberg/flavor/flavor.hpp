@@ -78,7 +78,6 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
