@@ -33,6 +33,7 @@ import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
+  FeeAssetArtifact,
   NULL_KEY,
   type Operator,
   RollupContract,
@@ -41,7 +42,6 @@ import {
   deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
@@ -494,7 +494,7 @@ export async function setup(
 
       const feeJuice = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-        abi: l1Artifacts.feeAsset.contractAbi,
+        abi: FeeAssetArtifact.contractAbi,
         client: deployL1ContractsValues.l1Client,
       });
 
@@ -903,7 +903,7 @@ export function createAndSyncProverNode(
 
     // Creating temp store and archiver for simulated prover node
     const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(archiverConfig, blobSinkClient, { blockUntilSync: true });
+    const archiver = await createArchiver(archiverConfig, { blobSinkClient }, { blockUntilSync: true });
 
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {

@@ -253,6 +253,10 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
+  - regex: "src/e2e_block_building"
+    error_regex: "✕ detects an upcoming reorg and builds a block for the correct slot"
+    owners:
+      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"

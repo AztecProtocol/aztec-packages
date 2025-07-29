@@ -60,18 +60,16 @@ unconstrained fn light_accounts_fail_on_private_authwit_checks() {
     let inner_hash = 13;
     let caller = AztecAddress::zero();
 
-    let _: Field = env
-        .call_private(
-            caller,
-            PrivateCallInterface::new(
-                light_account,
-                comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
-                "verify_private_authwit",
-                [inner_hash],
-                true,
-            ),
-        )
-        .return_value;
+    env.call_private(
+        caller,
+        PrivateCallInterface::new(
+            light_account,
+            comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
+            "verify_private_authwit",
+            [inner_hash],
+            true,
+        ),
+    );
 }
 
 #[test(should_fail_with = "Unknown auth witness")]
@@ -82,18 +80,16 @@ unconstrained fn contract_accounts_reject_invalid_private_authwits() {
     let inner_hash = 13;
     let caller = AztecAddress::zero();
 
-    let _: Field = env
-        .call_private(
-            caller,
-            PrivateCallInterface::new(
-                contract_account,
-                comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
-                "verify_private_authwit",
-                [inner_hash],
-                true,
-            ),
-        )
-        .return_value;
+    env.call_private(
+        caller,
+        PrivateCallInterface::new(
+            contract_account,
+            comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
+            "verify_private_authwit",
+            [inner_hash],
+            true,
+        ),
+    );
 }
 
 #[test]
@@ -114,17 +110,15 @@ unconstrained fn contract_accounts_accept_valid_private_authwits() {
         txe_oracles::add_authwit(contract_account, message_hash);
     });
 
-    let result = env
-        .call_private(
-            caller,
-            PrivateCallInterface::new(
-                contract_account,
-                comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
-                "verify_private_authwit",
-                [inner_hash],
-                true,
-            ),
-        )
-        .return_value;
+    let result = env.call_private(
+        caller,
+        PrivateCallInterface::new(
+            contract_account,
+            comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
+            "verify_private_authwit",
+            [inner_hash],
+            true,
+        ),
+    );
     assert_eq(result, IS_VALID_SELECTOR);
 }
