@@ -361,32 +361,35 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
 
-    const chainTipHeaderHash = syncedTo.block!.header.toPropose().hash();
-    const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(
-      chainTipHeaderHash.toBuffer(),
-      proposerAddress,
-    );
-    if (canProposeCheck === undefined) {
-      this.log.warn(
-        `Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`,
-        syncLogData,
+    // Skip L1 validation for genesis case (no previous block to validate against)
+    if (syncedTo.block) {
+      const chainTipHeaderHash = syncedTo.block.header.toPropose().hash();
+      const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(
+        chainTipHeaderHash.toBuffer(),
+        proposerAddress,
       );
-      this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed' });
-      return;
-    } else if (canProposeCheck.slot !== slot) {
-      this.log.warn(
-        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${canProposeCheck.slot}.`,
-        { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
-      return;
-    } else if (canProposeCheck.blockNumber !== BigInt(newBlockNumber)) {
-      this.log.warn(
-        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.blockNumber}.`,
-        { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
-      return;
+      if (canProposeCheck === undefined) {
+        this.log.warn(
+          `Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`,
+          syncLogData,
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed' });
+        return;
+      } else if (canProposeCheck.slot !== slot) {
+        this.log.warn(
+          `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${canProposeCheck.slot}.`,
+          { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
+        return;
+      } else if (canProposeCheck.blockNumber !== BigInt(newBlockNumber)) {
+        this.log.warn(
+          `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.blockNumber}.`,
+          { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
+        return;
+      }
     }
 
     this.log.debug(
@@ -423,22 +426,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
       globalVariables: newGlobalVariables.toInspect(),
-      chainTipHeaderHash,
+      chainTipHeaderHash: syncedTo.block?.header.toPropose().hash().toString(),
       blockNumber: newBlockNumber,
       slot,
     });
-
-    // Get the actual archive root from world state (authoritative source)
-    // The stored block might have Fr.ZERO if unproven, but we need the real archive for the next block
-    const lastArchiveRoot = syncedTo.archive.equals(Fr.ZERO)
-      ? new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root)
-      : syncedTo.archive;
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = ProposedBlockHeader.from({
       ...newGlobalVariables,
       timestamp: newGlobalVariables.timestamp,
-      lastArchiveRoot,
+      lastArchiveRoot: syncedTo.archive,
       contentCommitment: ContentCommitment.empty(),
       totalManaUsed: Fr.ZERO,
     });
@@ -471,7 +468,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     } else {
       this.log.verbose(
         `Not enough txs to build block ${newBlockNumber} at slot ${slot} (got ${pendingTxCount} txs, need ${this.minTxsPerBlock})`,
-        { chainTipArchive: syncedTo.archive, chainTipHeaderHash, blockNumber: newBlockNumber, slot },
+        {
+          chainTipArchive: syncedTo.archive,
+          chainTipHeaderHash: syncedTo.block?.header.toPropose().hash().toString(),
+          blockNumber: newBlockNumber,
+          slot,
+        },
       );
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
@@ -828,10 +830,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         return undefined;
       }
 
+      // Always get the real archive from world state (like the old system)
+      // This avoids having to handle Fr.ZERO archives throughout the sequencer
+      const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+
       return {
         block,
         blockNumber: block.number,
-        archive: block.archive.root,
+        archive,
         l1Timestamp,
       };
     } else {
