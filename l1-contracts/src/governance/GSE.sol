@@ -522,7 +522,7 @@ contract GSECore is IGSECore, Ownable {
   }
 
   /**
-   * @notice  Votes at the governance using the power delegated the bonus instance
+   * @notice  Votes at the governance using the power delegated to the bonus instance.
    *          Only callable by the rollup that was the latest rollup at the time of the proposal.
    *
    * @param _proposalId - The id of the proposal in the governance to vote on

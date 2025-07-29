@@ -1,4 +1,15 @@
-# FULL FLOW
+Historical Consistency: The GSE uses checkpointed history (via the OpenZeppelin Checkpoints library) to answer
+questions about which rollup was "latest" at any given timestamp. Removing a rollup could break the ability to
+reconstruct historical state, which is critical for governance and dispute resolution.
+Attester State: Attesters may have staked on the rollup, and their stake, voting power, and withdrawal rights
+are tied to the rollup's existence in the system. Removing the rollup could orphan these stakes or make them
+inaccessible.
+Bonus Instance Logic: The logic for the "bonus instance" depends on the sequence of rollups. Removing a rollup
+could disrupt the correct assignment of attesters and voting power.
+
+
+
+#  FULL FLOW
 Only GovernanceProposer contract can propose in the Governance contract.
 Only current block proposer can signal on a payload when he's the current signaler.
 Only block producers can stake in the GSE, and only GSE can vote in Governance, hence only block producers are voting.
@@ -59,18 +70,8 @@ Who is typically the owner of the GSE in Aztec's mainnet deployment? Docs like t
 
 ## setGovernance
 ## addRollup
-- we have no way of removing a rollup from GSE instances, what if that rollup has critical vulnerability?
-would it somehow break the system if a rollup is removed?
-or maybe this just doesn't matter?
-
-Historical Consistency: The GSE uses checkpointed history (via the OpenZeppelin Checkpoints library) to answer
-questions about which rollup was "latest" at any given timestamp. Removing a rollup could break the ability to
-reconstruct historical state, which is critical for governance and dispute resolution.
-Attester State: Attesters may have staked on the rollup, and their stake, voting power, and withdrawal rights
-are tied to the rollup's existence in the system. Removing the rollup could orphan these stakes or make them
-inaccessible.
-Bonus Instance Logic: The logic for the "bonus instance" depends on the sequence of rollups. Removing a rollup
-could disrupt the correct assignment of attesters and voting power.
+- Sometimes the same thing is either called an instance or a rollup.
+Using 2 names to mean point to the same things is unnecessary complexity.
 
 ## deposit
 - in other place the _onBonus flag is still called _onCanonical. Look for all the occurrences
@@ -85,10 +86,6 @@ and internally `delegate(...)` moves all voting power and `increaseBalance` move
 Given that we have only 1 callsite of `increaseBalance` I think it would make sense to instead have increaseBalanceAndDelegate
 that would move the voting power only once by internally calling delegate. Open to discussion here though. My it's just my taste.
 
-- Re argument comment:
-   "* @param _withdrawer   - The withdrawer address of the attester"
-Docs like this are almost useless.
-
 ## withdraw
 
 TODO:
@@ -101,6 +98,22 @@ Why is it fine to delegate the voting power to address zero when withdrawing?
 
 ## proposeWithLock
 
+## delegate
+
+TODO: What was the reasoning for having delegate function of GSE be callable by the withdrawer instead of attester?
+My mental model of attester was that of Ethereum's validating keys which are expected to be hot and of withdrawer
+to be cold storage keys to which you only withdraw.
+
+## vote
+
+## voteWithBonus
+- Has it been considered that it's a quite cumbersome that the instance cannot vote with the full voting power
+delegated to it? (e.g. bonus + the one associated to the instance directly)
+Or is the idea that this is fine because it is expected that all the block proposers will basically choose
+to follow the bonus instance?
+
+If the instance wanting to use its full voting power than it would need to handle the calls to GSE::vote
+and GSE::voteWithBonus on its own which feels like an incorrect complexity leak from GSE to the instance itself.
 
 
 
@@ -110,12 +123,29 @@ Agree with the TODO in the beginning that the naming should be changed (there ar
 Since it's inspired by OpenZeppelin's `Votes.sol` with the difference of our lib supporting multiple completely separate
 voting sets maybe we could call it `MultiVotes` and explain why it's called "Multi" in the code docs (i.e. that we track voting per instance).
 
-Once the code docs are done would dump them to LLM and generate function code docs.
-Think AI should mostly get it right with that info.
+Functions and structs documentation.
 
-### allowing for zero address in moveVotingPower feels strange (especially for "from" address)
+## allowing for zero address in moveVotingPower feels strange (especially for "from" address)
 Being able to call the function with zero "from" address is weird as it implies you are moving voting power from zero address.
 It would improve readability if we had mintVotingPower, burnVotingPower and use those instead.
+
+
+## Weird struct naming
+We have there a few structs in which we use the User struct and then it looks e.g. something like `User supply` or `User votingPower`.
+Why call something that is representing a user power a user? Just call it UserPower.
+
+## What is a balance and what is a voting power
+We have there `increaseBalance` function that increases the voting power and it also automatically delegates it.
+We don't have there explained the difference between balance and a voting power.
+Does it even make sense to have these as 2 separate concepts? And balance of what it even is?
+This needs to be explained.
+
+## usePower function
+
+"Use power on a specific proposal and use its time as balance"
+
+I don't understand this ^
+
 
 
 
