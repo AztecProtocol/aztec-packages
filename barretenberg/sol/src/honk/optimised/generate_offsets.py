@@ -312,7 +312,7 @@ def print_subrelation_intermediates(pointer: int):
     return pointer
 
 def print_batch_scalars(pointer: int):
-    BATCH_SIZE = 74
+    BATCH_SIZE = 69
     for i in range(0, BATCH_SIZE):
         print_fr(pointer, "BATCH_SCALAR_" + str(i) + "_LOC")
         pointer += 32

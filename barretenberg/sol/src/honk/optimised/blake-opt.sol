@@ -1092,11 +1092,6 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant BATCH_SCALAR_66_LOC = 0x7360;
     uint256 internal constant BATCH_SCALAR_67_LOC = 0x7380;
     uint256 internal constant BATCH_SCALAR_68_LOC = 0x73a0;
-    uint256 internal constant BATCH_SCALAR_69_LOC = 0x73c0;
-    uint256 internal constant BATCH_SCALAR_70_LOC = 0x73e0;
-    uint256 internal constant BATCH_SCALAR_71_LOC = 0x7400;
-    uint256 internal constant BATCH_SCALAR_72_LOC = 0x7420;
-    uint256 internal constant BATCH_SCALAR_73_LOC = 0x7440;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*    SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS COMPLETE     */
@@ -1283,96 +1278,99 @@ contract BlakeOptHonkVerifier is IVerifier {
     /*            SHPLEMINI RUNTIME MEMORY - COMPLETE             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    uint256 internal constant LATER_SCRATCH_SPACE = 0x7460;
+    uint256 internal constant LATER_SCRATCH_SPACE = 0x73c0;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      Temporary space                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    // 3 x max proof size space to store intermediate values
-    uint256 internal constant TEMP_0_LOC = 0x7480;
-    uint256 internal constant TEMP_1_LOC = 0x74a0;
-    uint256 internal constant TEMP_2_LOC = 0x74c0;
-    uint256 internal constant TEMP_3_LOC = 0x74e0;
-    uint256 internal constant TEMP_4_LOC = 0x7500;
-    uint256 internal constant TEMP_5_LOC = 0x7520;
-    uint256 internal constant TEMP_6_LOC = 0x7540;
-    uint256 internal constant TEMP_7_LOC = 0x7560;
-    uint256 internal constant TEMP_8_LOC = 0x7580;
-    uint256 internal constant TEMP_9_LOC = 0x75a0;
-    uint256 internal constant TEMP_10_LOC = 0x75c0;
-    uint256 internal constant TEMP_11_LOC = 0x75e0;
-    uint256 internal constant TEMP_12_LOC = 0x7600;
-    uint256 internal constant TEMP_13_LOC = 0x7620;
-    uint256 internal constant TEMP_14_LOC = 0x7640;
-    uint256 internal constant TEMP_15_LOC = 0x7660;
-    uint256 internal constant TEMP_16_LOC = 0x7680;
-    uint256 internal constant TEMP_17_LOC = 0x76a0;
-    uint256 internal constant TEMP_18_LOC = 0x76c0;
-    uint256 internal constant TEMP_19_LOC = 0x76e0;
-    uint256 internal constant TEMP_20_LOC = 0x7700;
-    uint256 internal constant TEMP_21_LOC = 0x7720;
-    uint256 internal constant TEMP_22_LOC = 0x7740;
-    uint256 internal constant TEMP_23_LOC = 0x7760;
-    uint256 internal constant TEMP_24_LOC = 0x7780;
-    uint256 internal constant TEMP_25_LOC = 0x77a0;
-    uint256 internal constant TEMP_26_LOC = 0x77c0;
-    uint256 internal constant TEMP_27_LOC = 0x77e0;
-    uint256 internal constant TEMP_28_LOC = 0x7800;
-    uint256 internal constant TEMP_29_LOC = 0x7820;
-    uint256 internal constant TEMP_30_LOC = 0x7840;
-    uint256 internal constant TEMP_31_LOC = 0x7860;
-    uint256 internal constant TEMP_32_LOC = 0x7880;
-    uint256 internal constant TEMP_33_LOC = 0x78a0;
-    uint256 internal constant TEMP_34_LOC = 0x78c0;
-    uint256 internal constant TEMP_35_LOC = 0x78e0;
-    uint256 internal constant TEMP_36_LOC = 0x7900;
-    uint256 internal constant TEMP_37_LOC = 0x7920;
-    uint256 internal constant TEMP_38_LOC = 0x7940;
-    uint256 internal constant TEMP_39_LOC = 0x7960;
-    uint256 internal constant TEMP_40_LOC = 0x7980;
-    uint256 internal constant TEMP_41_LOC = 0x79a0;
-    uint256 internal constant TEMP_42_LOC = 0x79c0;
-    uint256 internal constant TEMP_43_LOC = 0x79e0;
-    uint256 internal constant TEMP_44_LOC = 0x7a00;
-    uint256 internal constant TEMP_45_LOC = 0x7a20;
-    uint256 internal constant TEMP_46_LOC = 0x7a40;
-    uint256 internal constant TEMP_47_LOC = 0x7a60;
-    uint256 internal constant TEMP_48_LOC = 0x7a80;
-    uint256 internal constant TEMP_49_LOC = 0x7aa0;
-    uint256 internal constant TEMP_50_LOC = 0x7ac0;
-    uint256 internal constant TEMP_51_LOC = 0x7ae0;
-    uint256 internal constant TEMP_52_LOC = 0x7b00;
-    uint256 internal constant TEMP_53_LOC = 0x7b20;
-    uint256 internal constant TEMP_54_LOC = 0x7b40;
-    uint256 internal constant TEMP_55_LOC = 0x7b60;
-    uint256 internal constant TEMP_56_LOC = 0x7b80;
-    uint256 internal constant TEMP_57_LOC = 0x7ba0;
-    uint256 internal constant TEMP_58_LOC = 0x7bc0;
-    uint256 internal constant TEMP_59_LOC = 0x7be0;
-    uint256 internal constant TEMP_60_LOC = 0x7c00;
-    uint256 internal constant TEMP_61_LOC = 0x7c20;
-    uint256 internal constant TEMP_62_LOC = 0x7c40;
-    uint256 internal constant TEMP_63_LOC = 0x7c60;
-    uint256 internal constant TEMP_64_LOC = 0x7c80;
-    uint256 internal constant TEMP_65_LOC = 0x7ca0;
-    uint256 internal constant TEMP_66_LOC = 0x7cc0;
-    uint256 internal constant TEMP_67_LOC = 0x7ce0;
-    uint256 internal constant TEMP_68_LOC = 0x7d00;
-    uint256 internal constant TEMP_69_LOC = 0x7d20;
-    uint256 internal constant TEMP_70_LOC = 0x7d40;
-    uint256 internal constant TEMP_71_LOC = 0x7d60;
-    uint256 internal constant TEMP_72_LOC = 0x7d80;
-    uint256 internal constant TEMP_73_LOC = 0x7da0;
-    uint256 internal constant TEMP_74_LOC = 0x7dc0;
-    uint256 internal constant TEMP_75_LOC = 0x7de0;
-    uint256 internal constant TEMP_76_LOC = 0x7e00;
-    uint256 internal constant TEMP_77_LOC = 0x7e20;
-    uint256 internal constant TEMP_78_LOC = 0x7e40;
-    uint256 internal constant TEMP_79_LOC = 0x7e60;
-    uint256 internal constant TEMP_80_LOC = 0x7e80;
-    uint256 internal constant TEMP_81_LOC = 0x7ea0;
-    uint256 internal constant TEMP_82_LOC = 0x7ec0;
-    uint256 internal constant TEMP_83_LOC = 0x7ee0;
+    uint256 internal constant TEMP_0_LOC = 0x73e0;
+    uint256 internal constant TEMP_1_LOC = 0x7400;
+    uint256 internal constant TEMP_2_LOC = 0x7420;
+    uint256 internal constant TEMP_3_LOC = 0x7440;
+    uint256 internal constant TEMP_4_LOC = 0x7460;
+    uint256 internal constant TEMP_5_LOC = 0x7480;
+    uint256 internal constant TEMP_6_LOC = 0x74a0;
+    uint256 internal constant TEMP_7_LOC = 0x74c0;
+    uint256 internal constant TEMP_8_LOC = 0x74e0;
+    uint256 internal constant TEMP_9_LOC = 0x7500;
+    uint256 internal constant TEMP_10_LOC = 0x7520;
+    uint256 internal constant TEMP_11_LOC = 0x7540;
+    uint256 internal constant TEMP_12_LOC = 0x7560;
+    uint256 internal constant TEMP_13_LOC = 0x7580;
+    uint256 internal constant TEMP_14_LOC = 0x75a0;
+    uint256 internal constant TEMP_15_LOC = 0x75c0;
+    uint256 internal constant TEMP_16_LOC = 0x75e0;
+    uint256 internal constant TEMP_17_LOC = 0x7600;
+    uint256 internal constant TEMP_18_LOC = 0x7620;
+    uint256 internal constant TEMP_19_LOC = 0x7640;
+    uint256 internal constant TEMP_20_LOC = 0x7660;
+    uint256 internal constant TEMP_21_LOC = 0x7680;
+    uint256 internal constant TEMP_22_LOC = 0x76a0;
+    uint256 internal constant TEMP_23_LOC = 0x76c0;
+    uint256 internal constant TEMP_24_LOC = 0x76e0;
+    uint256 internal constant TEMP_25_LOC = 0x7700;
+    uint256 internal constant TEMP_26_LOC = 0x7720;
+    uint256 internal constant TEMP_27_LOC = 0x7740;
+    uint256 internal constant TEMP_28_LOC = 0x7760;
+    uint256 internal constant TEMP_29_LOC = 0x7780;
+    uint256 internal constant TEMP_30_LOC = 0x77a0;
+    uint256 internal constant TEMP_31_LOC = 0x77c0;
+    uint256 internal constant TEMP_32_LOC = 0x77e0;
+    uint256 internal constant TEMP_33_LOC = 0x7800;
+    uint256 internal constant TEMP_34_LOC = 0x7820;
+    uint256 internal constant TEMP_35_LOC = 0x7840;
+    uint256 internal constant TEMP_36_LOC = 0x7860;
+    uint256 internal constant TEMP_37_LOC = 0x7880;
+    uint256 internal constant TEMP_38_LOC = 0x78a0;
+    uint256 internal constant TEMP_39_LOC = 0x78c0;
+    uint256 internal constant TEMP_40_LOC = 0x78e0;
+    uint256 internal constant TEMP_41_LOC = 0x7900;
+    uint256 internal constant TEMP_42_LOC = 0x7920;
+    uint256 internal constant TEMP_43_LOC = 0x7940;
+    uint256 internal constant TEMP_44_LOC = 0x7960;
+    uint256 internal constant TEMP_45_LOC = 0x7980;
+    uint256 internal constant TEMP_46_LOC = 0x79a0;
+    uint256 internal constant TEMP_47_LOC = 0x79c0;
+    uint256 internal constant TEMP_48_LOC = 0x79e0;
+    uint256 internal constant TEMP_49_LOC = 0x7a00;
+    uint256 internal constant TEMP_50_LOC = 0x7a20;
+    uint256 internal constant TEMP_51_LOC = 0x7a40;
+    uint256 internal constant TEMP_52_LOC = 0x7a60;
+    uint256 internal constant TEMP_53_LOC = 0x7a80;
+    uint256 internal constant TEMP_54_LOC = 0x7aa0;
+    uint256 internal constant TEMP_55_LOC = 0x7ac0;
+    uint256 internal constant TEMP_56_LOC = 0x7ae0;
+    uint256 internal constant TEMP_57_LOC = 0x7b00;
+    uint256 internal constant TEMP_58_LOC = 0x7b20;
+    uint256 internal constant TEMP_59_LOC = 0x7b40;
+    uint256 internal constant TEMP_60_LOC = 0x7b60;
+    uint256 internal constant TEMP_61_LOC = 0x7b80;
+    uint256 internal constant TEMP_62_LOC = 0x7ba0;
+    uint256 internal constant TEMP_63_LOC = 0x7bc0;
+    uint256 internal constant TEMP_64_LOC = 0x7be0;
+    uint256 internal constant TEMP_65_LOC = 0x7c00;
+    uint256 internal constant TEMP_66_LOC = 0x7c20;
+    uint256 internal constant TEMP_67_LOC = 0x7c40;
+    uint256 internal constant TEMP_68_LOC = 0x7c60;
+    uint256 internal constant TEMP_69_LOC = 0x7c80;
+    uint256 internal constant TEMP_70_LOC = 0x7ca0;
+    uint256 internal constant TEMP_71_LOC = 0x7cc0;
+    uint256 internal constant TEMP_72_LOC = 0x7ce0;
+    uint256 internal constant TEMP_73_LOC = 0x7d00;
+    uint256 internal constant TEMP_74_LOC = 0x7d20;
+    uint256 internal constant TEMP_75_LOC = 0x7d40;
+    uint256 internal constant TEMP_76_LOC = 0x7d60;
+    uint256 internal constant TEMP_77_LOC = 0x7d80;
+    uint256 internal constant TEMP_78_LOC = 0x7da0;
+    uint256 internal constant TEMP_79_LOC = 0x7dc0;
+    uint256 internal constant TEMP_80_LOC = 0x7de0;
+    uint256 internal constant TEMP_81_LOC = 0x7e00;
+    uint256 internal constant TEMP_82_LOC = 0x7e20;
+    uint256 internal constant TEMP_83_LOC = 0x7e40;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                 Temporary space - COMPLETE                 */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     // Aliases for scratch space
     // TODO: work out the stack scheduling for these
@@ -1448,7 +1446,6 @@ contract BlakeOptHonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         ERRORS                             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    // TODO: abi
     uint256 internal constant PUBLIC_INPUT_TOO_LARGE_SELECTOR = 0x803bff7c;
     uint256 internal constant SUMCHECK_FAILED_SELECTOR = 0x7d06dd7fa;
     uint256 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd2634;
@@ -1459,8 +1456,7 @@ contract BlakeOptHonkVerifier is IVerifier {
     // TOOD: maybe verify vk points are on curve in constructor
     constructor() {}
 
-    // function verify(bytes calldata, bytes32[] calldata) public view override returns (bool) {
-    function verify(bytes calldata, bytes32[] calldata) public override returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) public view override returns (bool) {
         // Load the proof from calldata in one large chunk
         assembly {
             // Inline the verification key code here for the meantime
@@ -3921,28 +3917,43 @@ contract BlakeOptHonkVerifier is IVerifier {
             //     mem.batchingChallenge = mem.batchingChallenge * tp.rho;
             // }
 
-            // 0
-            mstore(BATCH_SCALAR_37_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            // 28: W1_EVAL_LOC
+            mstore(
+                BATCH_SCALAR_29_LOC,
+                addmod(mload(BATCH_SCALAR_29_LOC), mulmod(neg_shifted_scalar, batching_challenge, p), p)
+            )
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(W1_SHIFT_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 1
-            mstore(BATCH_SCALAR_38_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            // 29: W2_EVAL_LOC
+            mstore(
+                BATCH_SCALAR_30_LOC,
+                addmod(mload(BATCH_SCALAR_30_LOC), mulmod(neg_shifted_scalar, batching_challenge, p), p)
+            )
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(W2_SHIFT_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 2
-            mstore(BATCH_SCALAR_39_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            // 30: W3_EVAL_LOC
+            mstore(
+                BATCH_SCALAR_31_LOC,
+                addmod(mload(BATCH_SCALAR_31_LOC), mulmod(neg_shifted_scalar, batching_challenge, p), p)
+            )
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(W3_SHIFT_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 3
-            mstore(BATCH_SCALAR_40_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            // 31: W4_EVAL_LOC
+            mstore(
+                BATCH_SCALAR_32_LOC,
+                addmod(mload(BATCH_SCALAR_32_LOC), mulmod(neg_shifted_scalar, batching_challenge, p), p)
+            )
             batched_evaluation := addmod(batched_evaluation, mulmod(mload(W4_SHIFT_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
 
-            // 4
-            mstore(BATCH_SCALAR_41_LOC, mulmod(neg_shifted_scalar, batching_challenge, p))
+            // 32: Z_PERM_EVAL_LOC
+            mstore(
+                BATCH_SCALAR_33_LOC,
+                addmod(mload(BATCH_SCALAR_33_LOC), mulmod(neg_shifted_scalar, batching_challenge, p), p)
+            )
             batched_evaluation :=
                 addmod(batched_evaluation, mulmod(mload(Z_PERM_SHIFT_EVAL_LOC), batching_challenge, p), p)
             batching_challenge := mulmod(batching_challenge, rho, p)
@@ -4016,7 +4027,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let fold_pos_evals_loc := FOLD_POS_EVALUATIONS_1_LOC
 
                 let shplonk_z := mload(SHPLONK_Z_CHALLENGE)
-                let scalars_loc := BATCH_SCALAR_42_LOC
+                let scalars_loc := BATCH_SCALAR_37_LOC
 
                 for { let i := 0 } lt(i, sub(LOG_N, 1)) { i := add(i, 1) } {
                     let scaling_factor_pos := mulmod(batching_challenge, mload(mload(SS_POS_INV_DENOM_LOC)), p)
@@ -4460,432 +4471,390 @@ contract BlakeOptHonkVerifier is IVerifier {
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                // To be shifted accumulators
-                // Accumulator = accumulator + scalar[37] * w_l
-                writeProofPointIntoScratchSpace(W_L_X0_LOC)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_37_LOC))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                // TODO(md): there is no reason that this isnt done before the accumulation above
+                // Batch gemini claims from the prover
 
-                // Accumulator = accumulator + scalar[38] * w_r
-                writeProofPointIntoScratchSpace(W_R_X0_LOC)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_38_LOC))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                // WORKTODO: note we can reuse all of the batch scalar memory locations up to 40 at this point
+                // We can also accumulate commitments in place
 
-                // Accumulator = accumulator + scalar[39] * w_o
-                writeProofPointIntoScratchSpace(W_O_X0_LOC)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_39_LOC))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                // Accumulator = accumulator + scalar[40] * w_4
-                writeProofPointIntoScratchSpace(W_4_X0_LOC)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_40_LOC))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                // accumulator = accumulator + scalar[41] * z_perm
-                writeProofPointIntoScratchSpace(Z_PERM_X0_LOC)
-                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_41_LOC))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-            }
-
-            // TODO(md): there is no reason that this isnt done before the accumulation above
-            // Batch gemini claims from the prover
-
-            // WORKTODO: note we can reuse all of the batch scalar memory locations up to 40 at this point
-            // We can also accumulate commitments in place
-
-            // Accumulate these LOG_N scalars with the gemini fold univariates
-            {
+                // Accumulate these LOG_N scalars with the gemini fold univariates
                 {
-                    // accumulator = accumulator + scalar[42] * gemini_fold_univariates[0]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_0_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_42_LOC))
+                    {
+                        // accumulator = accumulator + scalar[37] * gemini_fold_univariates[0]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_0_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_37_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[38] * gemini_fold_univariates[1]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_1_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_38_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[39] * gemini_fold_univariates[2]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_2_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_39_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[40] * gemini_fold_univariates[3]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_3_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_40_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[41] * gemini_fold_univariates[4]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_4_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_41_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                    }
+
+                    {
+                        // accumulator = accumulator + scalar[42] * gemini_fold_univariates[5]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_5_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_42_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[43] * gemini_fold_univariates[6]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_6_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_43_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[44] * gemini_fold_univariates[7]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_7_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_44_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[45] * gemini_fold_univariates[8]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_8_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_45_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[46] * gemini_fold_univariates[9]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_9_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_46_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[47] * gemini_fold_univariates[10]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_10_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_47_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                    }
+
+                    {
+                        // accumulator = accumulator + scalar[48] * gemini_fold_univariates[11]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_11_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_48_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[49] * gemini_fold_univariates[12]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_12_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_49_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[50] * gemini_fold_univariates[13]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_13_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_50_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[51] * gemini_fold_univariates[14]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_14_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_51_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[52] * gemini_fold_univariates[15]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_15_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_52_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                    }
+
+                    {
+                        // accumulator = accumulator + scalar[53] * gemini_fold_univariates[16]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_16_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_53_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[54] * gemini_fold_univariates[17]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_17_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_54_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[55] * gemini_fold_univariates[18]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_18_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_55_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[56] * gemini_fold_univariates[19]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_19_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_56_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[57] * gemini_fold_univariates[20]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_20_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_57_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                    }
+
+                    {
+                        // accumulator = accumulator + scalar[58] * gemini_fold_univariates[21]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_21_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_58_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[59] * gemini_fold_univariates[22]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_22_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_59_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[60] * gemini_fold_univariates[23]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_23_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_60_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[61] * gemini_fold_univariates[24]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_24_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_61_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[62] * gemini_fold_univariates[25]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_25_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_62_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+
+                        // accumulator = accumulator + scalar[63] * gemini_fold_univariates[26]
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_26_X0_LOC)
+                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_63_LOC))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
+                        precomp_success_flag :=
+                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                    }
+                }
+
+                {
+                    // Accumulate the constant term accumulator
+                    // Accumulator = accumulator + 1 * costant term accumulator
+                    mstore(G1_LOCATION, 0x01)
+                    mstore(add(G1_LOCATION, 0x20), 0x02)
+                    mstore(SCALAR_LOCATION, constant_term_acc)
                     precomp_success_flag :=
                         and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                     precomp_success_flag :=
                         and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
-                    // accumulator = accumulator + scalar[43] * gemini_fold_univariates[1]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_1_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_43_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                    // Accumlate final quotient commitment into shplonk check
+                    // Accumulator = accumulator + shplonkZ * quotient commitment
+                    writeProofPointIntoScratchSpace(KZG_QUOTIENT_X0_LOC)
+                    let x := mload(0x60)
+                    let y := mload(0x80)
 
-                    // accumulator = accumulator + scalar[44] * gemini_fold_univariates[2]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_2_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_44_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[45] * gemini_fold_univariates[3]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_3_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_45_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[46] * gemini_fold_univariates[4]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_4_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_46_LOC))
+                    mstore(SCALAR_LOCATION, mload(SHPLONK_Z_CHALLENGE))
                     precomp_success_flag :=
                         and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
                     precomp_success_flag :=
                         and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
                 }
 
-                {
-                    // accumulator = accumulator + scalar[47] * gemini_fold_univariates[5]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_5_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_47_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[48] * gemini_fold_univariates[6]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_6_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_48_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[49] * gemini_fold_univariates[7]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_7_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_49_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[50] * gemini_fold_univariates[8]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_8_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_50_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[51] * gemini_fold_univariates[9]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_9_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_51_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[52] * gemini_fold_univariates[10]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_10_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_52_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                }
-
-                {
-                    // accumulator = accumulator + scalar[53] * gemini_fold_univariates[11]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_11_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_53_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[54] * gemini_fold_univariates[12]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_12_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_54_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[55] * gemini_fold_univariates[13]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_13_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_55_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[56] * gemini_fold_univariates[14]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_14_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_56_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[57] * gemini_fold_univariates[15]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_15_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_57_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                }
-
-                {
-                    // accumulator = accumulator + scalar[58] * gemini_fold_univariates[16]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_16_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_58_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[59] * gemini_fold_univariates[17]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_17_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_59_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[60] * gemini_fold_univariates[18]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_18_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_60_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[61] * gemini_fold_univariates[19]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_19_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_61_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[62] * gemini_fold_univariates[20]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_20_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_62_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                }
-
-                {
-                    // accumulator = accumulator + scalar[63] * gemini_fold_univariates[21]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_21_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_63_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[64] * gemini_fold_univariates[22]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_22_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_64_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[65] * gemini_fold_univariates[23]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_23_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_65_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[66] * gemini_fold_univariates[24]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_24_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_66_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[67] * gemini_fold_univariates[25]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_25_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_67_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                    // accumulator = accumulator + scalar[68] * gemini_fold_univariates[26]
-                    writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_26_X0_LOC)
-                    mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_68_LOC))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                    precomp_success_flag :=
-                        and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                }
-            }
-
-            {
-                // Accumulate the constant term accumulator
-                // Accumulator = accumulator + 1 * costant term accumulator
-                mstore(G1_LOCATION, 0x01)
-                mstore(add(G1_LOCATION, 0x20), 0x02)
-                mstore(SCALAR_LOCATION, constant_term_acc)
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                // Accumlate final quotient commitment into shplonk check
-                // Accumulator = accumulator + shplonkZ * quotient commitment
-                writeProofPointIntoScratchSpace(KZG_QUOTIENT_X0_LOC)
-                let x := mload(0x60)
-                let y := mload(0x80)
-
-                mstore(SCALAR_LOCATION, mload(SHPLONK_Z_CHALLENGE))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                precomp_success_flag :=
-                    and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-            }
-
-            if iszero(precomp_success_flag) {
-                mstore(0x00, BATCH_ACCUMULATION_FAILED_SELECTOR)
-                revert(0x00, 0x04)
-            }
-
-            /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-            /*                  SHPLEMINI - complete                      */
-            /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-            /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-            /*                       PAIRING CHECK                        */
-            /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-            {
-                let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
-                // NOTE: this was written to scratch space above, OPT?
-                // P_1
-                let x, y := writeProofPointOntoStack(KZG_QUOTIENT_X0_LOC)
-                mstore(0xc0, x)
-                mstore(0xe0, sub(q, y))
-
-                // p_0_agg
-                // 0x80 - p_0_agg x
-                // 0xa0 - p_0_agg y
-                mcopy(0x80, ACCUMULATOR, 0x40)
-
-
-                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-                /*                   PAIRING AGGREGATION                      */
-                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-                // Read the pairing encoded in the first 16 field elements of the proof
-                let p0_other_x := mload(PAIRING_POINT_0)
-                p0_other_x := or(shl(68, mload(PAIRING_POINT_1)), p0_other_x)
-                p0_other_x := or(shl(136, mload(PAIRING_POINT_2)), p0_other_x)
-                p0_other_x := or(shl(204, mload(PAIRING_POINT_3)), p0_other_x)
-
-                let p0_other_y := mload(PAIRING_POINT_4)
-                p0_other_y := or(shl(68, mload(PAIRING_POINT_5)), p0_other_y)
-                p0_other_y := or(shl(136, mload(PAIRING_POINT_6)), p0_other_y)
-                p0_other_y := or(shl(204, mload(PAIRING_POINT_7)), p0_other_y)
-
-                let p1_other_x := mload(PAIRING_POINT_8)
-                p1_other_x := or(shl(68, mload(PAIRING_POINT_9)), p1_other_x)
-                p1_other_x := or(shl(136, mload(PAIRING_POINT_10)), p1_other_x)
-                p1_other_x := or(shl(204, mload(PAIRING_POINT_11)), p1_other_x)
-
-                let p1_other_y := mload(PAIRING_POINT_12)
-                p1_other_y := or(shl(68, mload(PAIRING_POINT_13)), p1_other_y)
-                p1_other_y := or(shl(136, mload(PAIRING_POINT_14)), p1_other_y)
-                p1_other_y := or(shl(204, mload(PAIRING_POINT_15)), p1_other_y)
-
-                // Validate p_0_other on curve
-                let xx := mulmod(p0_other_x, p0_other_x, q)
-                let xxx := mulmod(xx, p0_other_x, q)
-                let yy := mulmod(p0_other_y, p0_other_y, q)
-
-                let success := eq(yy, addmod(xxx, 3, q))
-
-                // Validate p_1_other on curve
-                xx := mulmod(p1_other_x, p1_other_x, q)
-                xxx := mulmod(xx, p1_other_x, q)
-                yy := mulmod(p1_other_y, p1_other_y, q)
-
-                success := and(success, eq(yy, addmod(xxx, 3, q)))
-
-                // p_0
-                mstore(0x00, p0_other_x)
-                mstore(0x20, p0_other_y)
-
-                // p_1
-                mstore(0x40, p1_other_x)
-                mstore(0x60, p1_other_y)
-
-                // p_1_agg is already in the correct location
-
-                let recursion_separator := keccak256(0x00, 0x100)
-
-                // Write separator back to scratch space
-                mstore(0x00, p0_other_x)
-
-                mstore(0x40, recursion_separator)
-                // recursion_separator * p_0_other
-                success := and(success, staticcall(gas(), 0x07, 0x00, 0x60, 0x00, 0x40))
-
-                // (recursion_separator * p_0_other) + p_0_agg
-                mcopy(0x40, 0x80, 0x40)
-                // p_0 = (recursion_separator * p_0_other) + p_0_agg
-                success := and(success, staticcall(gas(), 6, 0x00, 0x80, 0x00, 0x40))
-
-                mstore(0x40, p1_other_x)
-                mstore(0x60, p1_other_y)
-                mstore(0x80, recursion_separator)
-
-                success := and(success, staticcall(gas(), 7, 0x40, 0x60, 0x40, 0x40))
-
-                // Write p_1_agg back to scratch space
-                mcopy(0x80, 0xc0, 0x40)
-
-                // 0xc0 - (recursion_separator * p_1_other) + p_1_agg
-                success := and(success, staticcall(gas(), 6, 0x40, 0x80, 0xc0, 0x40))
-
-                // G2 [1]
-                mstore(0x40, 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2)
-                mstore(0x60, 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed)
-                mstore(0x80, 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b)
-                mstore(0xa0, 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa)
-
-                // G2 [x]
-                mstore(0x100, 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1)
-                mstore(0x120, 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0)
-                mstore(0x140, 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4)
-                mstore(0x160, 0x22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55)
-
-                let pairing_success := and(success, staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20))
-                if iszero(and(pairing_success, mload(0x00))) {
-                    mstore(0x00, PAIRING_FAILED_SELECTOR)
+                if iszero(precomp_success_flag) {
+                    mstore(0x00, BATCH_ACCUMULATION_FAILED_SELECTOR)
                     revert(0x00, 0x04)
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-                /*                PAIRING CHECK - Complete                    */
+                /*                  SHPLEMINI - complete                      */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-            }
-            {
-                mstore(0x00, 0x01)
-                return(0x00, 0x20) // Proof succeeded!
+
+                /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                /*                       PAIRING CHECK                        */
+                /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                {
+                    let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
+                    // NOTE: this was written to scratch space above, OPT?
+                    // P_1
+                    let x, y := writeProofPointOntoStack(KZG_QUOTIENT_X0_LOC)
+                    mstore(0xc0, x)
+                    mstore(0xe0, sub(q, y))
+
+                    // p_0_agg
+                    // 0x80 - p_0_agg x
+                    // 0xa0 - p_0_agg y
+                    mcopy(0x80, ACCUMULATOR, 0x40)
+
+                    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                    /*                   PAIRING AGGREGATION                      */
+                    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                    // Read the pairing encoded in the first 16 field elements of the proof
+                    let p0_other_x := mload(PAIRING_POINT_0)
+                    p0_other_x := or(shl(68, mload(PAIRING_POINT_1)), p0_other_x)
+                    p0_other_x := or(shl(136, mload(PAIRING_POINT_2)), p0_other_x)
+                    p0_other_x := or(shl(204, mload(PAIRING_POINT_3)), p0_other_x)
+
+                    let p0_other_y := mload(PAIRING_POINT_4)
+                    p0_other_y := or(shl(68, mload(PAIRING_POINT_5)), p0_other_y)
+                    p0_other_y := or(shl(136, mload(PAIRING_POINT_6)), p0_other_y)
+                    p0_other_y := or(shl(204, mload(PAIRING_POINT_7)), p0_other_y)
+
+                    let p1_other_x := mload(PAIRING_POINT_8)
+                    p1_other_x := or(shl(68, mload(PAIRING_POINT_9)), p1_other_x)
+                    p1_other_x := or(shl(136, mload(PAIRING_POINT_10)), p1_other_x)
+                    p1_other_x := or(shl(204, mload(PAIRING_POINT_11)), p1_other_x)
+
+                    let p1_other_y := mload(PAIRING_POINT_12)
+                    p1_other_y := or(shl(68, mload(PAIRING_POINT_13)), p1_other_y)
+                    p1_other_y := or(shl(136, mload(PAIRING_POINT_14)), p1_other_y)
+                    p1_other_y := or(shl(204, mload(PAIRING_POINT_15)), p1_other_y)
+
+                    // Validate p_0_other on curve
+                    let xx := mulmod(p0_other_x, p0_other_x, q)
+                    let xxx := mulmod(xx, p0_other_x, q)
+                    let yy := mulmod(p0_other_y, p0_other_y, q)
+
+                    let success := eq(yy, addmod(xxx, 3, q))
+
+                    // Validate p_1_other on curve
+                    xx := mulmod(p1_other_x, p1_other_x, q)
+                    xxx := mulmod(xx, p1_other_x, q)
+                    yy := mulmod(p1_other_y, p1_other_y, q)
+
+                    success := and(success, eq(yy, addmod(xxx, 3, q)))
+
+                    // p_0
+                    mstore(0x00, p0_other_x)
+                    mstore(0x20, p0_other_y)
+
+                    // p_1
+                    mstore(0x40, p1_other_x)
+                    mstore(0x60, p1_other_y)
+
+                    // p_1_agg is already in the correct location
+
+                    let recursion_separator := keccak256(0x00, 0x100)
+
+                    // Write separator back to scratch space
+                    mstore(0x00, p0_other_x)
+
+                    mstore(0x40, recursion_separator)
+                    // recursion_separator * p_0_other
+                    success := and(success, staticcall(gas(), 0x07, 0x00, 0x60, 0x00, 0x40))
+
+                    // (recursion_separator * p_0_other) + p_0_agg
+                    mcopy(0x40, 0x80, 0x40)
+                    // p_0 = (recursion_separator * p_0_other) + p_0_agg
+                    success := and(success, staticcall(gas(), 6, 0x00, 0x80, 0x00, 0x40))
+
+                    mstore(0x40, p1_other_x)
+                    mstore(0x60, p1_other_y)
+                    mstore(0x80, recursion_separator)
+
+                    success := and(success, staticcall(gas(), 7, 0x40, 0x60, 0x40, 0x40))
+
+                    // Write p_1_agg back to scratch space
+                    mcopy(0x80, 0xc0, 0x40)
+
+                    // 0xc0 - (recursion_separator * p_1_other) + p_1_agg
+                    success := and(success, staticcall(gas(), 6, 0x40, 0x80, 0xc0, 0x40))
+
+                    // G2 [1]
+                    mstore(0x40, 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2)
+                    mstore(0x60, 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed)
+                    mstore(0x80, 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b)
+                    mstore(0xa0, 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa)
+
+                    // G2 [x]
+                    mstore(0x100, 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1)
+                    mstore(0x120, 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0)
+                    mstore(0x140, 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4)
+                    mstore(0x160, 0x22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55)
+
+                    let pairing_success := and(success, staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20))
+                    if iszero(and(pairing_success, mload(0x00))) {
+                        mstore(0x00, PAIRING_FAILED_SELECTOR)
+                        revert(0x00, 0x04)
+                    }
+
+                    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+                    /*                PAIRING CHECK - Complete                    */
+                    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+                }
+                {
+                    mstore(0x00, 0x01)
+                    return(0x00, 0x20) // Proof succeeded!
+                }
             }
         }
     }
