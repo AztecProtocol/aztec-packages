@@ -1,16 +1,16 @@
-import { type Batch, Database, LMDBMessageType } from './message.js';
-import { ReadTransaction } from './read_transaction.js';
 import {
   dedupeSortedArray,
   findInSortedArray,
   findIndexInSortedArray,
   insertIntoSortedArray,
-  keyCmp,
   merge,
   removeAnyOf,
   removeFromSortedArray,
-  singleKeyCmp,
-} from './utils.js';
+} from '@aztec/foundation/array';
+
+import { type Batch, Database, LMDBMessageType } from './message.js';
+import { ReadTransaction } from './read_transaction.js';
+import { keyCmp, singleKeyCmp } from './utils.js';
 
 export class WriteTransaction extends ReadTransaction {
   // exposed for tests
