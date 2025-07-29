@@ -113,12 +113,18 @@ export class BlockProposal extends Gossipable {
 
   toBuffer(): Buffer {
     const buffer: any[] = [this.blockNumber, this.payload, this.signature, this.txHashes.length, this.txHashes];
+
+    // Always include a flag for parentHeaderHash presence and the value if present
+    if (this.parentHeaderHash) {
+      buffer.push(1); // flag: 1 if present, 0 if not
+      buffer.push(this.parentHeaderHash);
+    } else {
+      buffer.push(0);
+    }
+
     if (this.txs) {
       buffer.push(this.txs.length);
       buffer.push(this.txs);
-    }
-    if (this.parentHeaderHash) {
-      buffer.push(this.parentHeaderHash);
     }
     return serializeToBuffer(buffer);
   }
@@ -131,16 +137,16 @@ export class BlockProposal extends Gossipable {
     const sig = reader.readObject(Signature);
     const txHashes = reader.readArray(reader.readNumber(), TxHash);
 
-    let txs: Tx[] | undefined;
+    // Always read parentHeaderHash flag since we always write it
+    const hasParentHeaderHash = reader.readNumber(); // Read the flag
     let parentHeaderHash: Fr | undefined;
+    if (hasParentHeaderHash === 1) {
+      parentHeaderHash = reader.readObject(Fr);
+    }
 
+    let txs: Tx[] | undefined;
     if (!reader.isEmpty()) {
       txs = reader.readArray(reader.readNumber(), Tx);
-
-      // Check if there's still data for parentHeaderHash
-      if (!reader.isEmpty()) {
-        parentHeaderHash = reader.readObject(Fr);
-      }
     }
 
     return new BlockProposal(blockNumber, payload, sig, txHashes, txs, parentHeaderHash);
@@ -154,6 +160,7 @@ export class BlockProposal extends Gossipable {
       4 /* txHashes.length */ +
       this.txHashes.length * TxHash.SIZE +
       (this.txs ? 4 /* txs.length */ + this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0) +
+      4 /* parentHeaderHash flag */ +
       (this.parentHeaderHash ? Fr.SIZE_IN_BYTES : 0)
     );
   }
