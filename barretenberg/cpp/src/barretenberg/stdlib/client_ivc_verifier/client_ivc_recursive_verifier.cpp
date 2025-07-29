@@ -27,9 +27,14 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
 
     // Perform Goblin recursive verification
     GoblinVerificationKey goblin_verification_key{};
-    TableCommitments t_commitments = verifier.key->witness_commitments.get_ecc_op_wires().get_copy();
+    TableCommitments t_commitments = verifier.key->witness_commitments.get_ecc_op_wires()
+                                         .get_copy(); // Commitments to subtables added by the hiding kernel
     GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key, civc_rec_verifier_transcript };
-    GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof, t_commitments);
+    GoblinRecursiveVerifierOutput output = goblin_verifier.verify(
+        proof.goblin_proof,
+        t_commitments,
+        mega_output.ecc_op_tables // Commitments to the state of the ecc op_queue as computed insided the hiding kernel
+    );
     output.points_accumulator.aggregate(mega_output.points_accumulator);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers
     return { output };
