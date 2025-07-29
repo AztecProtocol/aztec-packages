@@ -16,6 +16,9 @@
       "path": "../constants"
     },
     {
+      "path": "../epoch-cache"
+    },
+    {
       "path": "../ethereum"
     },
     {

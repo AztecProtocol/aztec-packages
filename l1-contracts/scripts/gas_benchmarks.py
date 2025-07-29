@@ -25,17 +25,17 @@ BENCHMARK_CONFIGS = {
                     "test_no_validators",
                     "--fuzz-seed",
                     "42",
+                    "-vv",
                     "--json",
                 ],
                 "priority": 1,
             }
         ],
-        "focus_functions": ["propose", "setupEpoch", "submitEpochRootProof"],
-        "tx_divisor": {
-            "propose": 360,
-            "setupEpoch": 11520,
-            "submitEpochRootProof": 11520,
-        },
+        "focus_functions": [
+            "propose",
+            "setupEpoch",
+            "submitEpochRootProof",
+        ],
     },
     "validators": {
         "name": "Validators",
@@ -50,6 +50,7 @@ BENCHMARK_CONFIGS = {
                     "test_100_validators",
                     "--fuzz-seed",
                     "42",
+                    "-vv",
                     "--json",
                 ],
                 "priority": 1,
@@ -64,6 +65,7 @@ BENCHMARK_CONFIGS = {
                     "test_100_slashing_validators",
                     "--fuzz-seed",
                     "42",
+                    "-vv",
                     "--json",
                 ],
                 "priority": 2,  # Lower priority - only use if function not in priority 1
@@ -75,12 +77,6 @@ BENCHMARK_CONFIGS = {
             "submitEpochRootProof",
             "aggregate3",
         ],
-        "tx_divisor": {
-            "propose": 360,
-            "setupEpoch": 11520,
-            "submitEpochRootProof": 11520,
-            "aggregate3": 360,
-        },
     },
 }
 
@@ -166,6 +162,67 @@ def extract_config(ignition: bool = False) -> Dict[str, int]:
         return {}
 
 
+def extract_calldata_sizes_from_logs(forge_output: Any) -> Dict[str, int]:
+    """Extract calldata sizes from log_named_uint logs."""
+    calldata_sizes = {}
+
+    if isinstance(forge_output, dict):
+        for contract_name, contract_data in forge_output.items():
+            if not isinstance(contract_data, dict):
+                continue
+
+            # Check if we have gas report data (no test_results) vs full test data
+            if "test_results" not in contract_data:
+                # This is gas report format, skip
+                continue
+
+            if "test_results" in contract_data:
+                for test_data in contract_data["test_results"].values():
+                    if "decoded_logs" in test_data:
+                        for log in test_data["decoded_logs"]:
+                            # Look for log_named_uint with calldata_size suffix
+                            # Format examples: "propose_calldata_size: 1234"
+                            if "_calldata_size:" in log:
+                                try:
+                                    parts = log.split(":", 1)
+                                    if len(parts) == 2:
+                                        key = parts[0].strip()
+                                        value = parts[1].strip()
+                                        # Extract function name from key
+                                        if key.endswith("_calldata_size"):
+                                            func_name = key[
+                                                :-14
+                                            ]  # Remove "_calldata_size"
+                                            # We overwrite to keep the last occurrence
+                                            calldata_sizes[func_name] = int(value)
+                                except (ValueError, IndexError):
+                                    pass
+
+    return calldata_sizes
+
+
+def calculate_eip7623_calldata_gas(calldata_size: int, total_gas_cost: int) -> int:
+    """
+    Calculate calldata gas cost under EIP-7623.
+    https://eips.ethereum.org/EIPS/eip-7623
+
+    For simplicity, we assume that there are no zero bytes.
+    """
+
+    nonzero_bytes = calldata_size
+    zero_bytes = calldata_size - nonzero_bytes
+
+    # Standard calldata cost
+    standard_calldata_cost = 4 * (4 * nonzero_bytes + zero_bytes)
+
+    floor_price = 10 * (4 * nonzero_bytes + zero_bytes)
+
+    if total_gas_cost >= floor_price:
+        return standard_calldata_cost
+
+    return floor_price
+
+
 def extract_gas_data_from_forge_output(
     forge_output: Any, target_functions: List[str]
 ) -> Dict[str, Dict]:
@@ -247,13 +304,41 @@ def run_benchmark_config(
     priorities = []
 
     for test in config["tests"]:
-        # Run the forge test with ignition parameter
+        # First run without FORGE_GAS_REPORT to get decoded logs with calldata sizes
+        env = os.environ.copy()
+        env["IGNITION"] = "true" if ignition else "false"
+        env.pop("FORGE_GAS_REPORT", None)  # Remove to get decoded_logs
+
+        print(f"Extracting calldata sizes for: {' '.join(test['command'])}")
+
+        calldata_sizes = {}
+        try:
+            result = subprocess.run(
+                test["command"], capture_output=True, text=True, check=True, env=env
+            )
+            logs_output = json.loads(result.stdout)
+            calldata_sizes = extract_calldata_sizes_from_logs(logs_output)
+            print(f"Found calldata sizes: {calldata_sizes}")
+        except Exception as e:
+            print(f"Error extracting calldata sizes: {e}")
+
+        # Then run with gas report to get gas data
         forge_output = run_forge_test(test["command"], ignition)
 
         # Extract gas data
         gas_data = extract_gas_data_from_forge_output(
             forge_output, config["focus_functions"]
         )
+
+        # Add calldata sizes to gas data
+        for func_name, size in calldata_sizes.items():
+            if func_name in gas_data:
+                gas_data[func_name]["calldata_size"] = size
+                # Use the mean gas value as total gas cost for EIP-7623 calculation
+                mean_gas = gas_data[func_name].get("mean", 0)
+                gas_data[func_name]["calldata_gas"] = calculate_eip7623_calldata_gas(
+                    size, mean_gas
+                )
 
         all_gas_data.append(gas_data)
         priorities.append(test["priority"])
@@ -281,7 +366,12 @@ def generate_markdown_report(
     lines = []
 
     # Sort functions in desired order
-    function_order = ["propose", "setupEpoch", "submitEpochRootProof", "aggregate3"]
+    function_order = [
+        "propose",
+        "submitEpochRootProof",
+        "aggregate3",
+        "setupEpoch",
+    ]
 
     # Add header
     lines.append("# Gas Benchmark Report\n")
@@ -344,17 +434,41 @@ def generate_markdown_report(
         # Calculate column widths for proper alignment
         func_col_width = max(len("Function"), max(len(f) for f in config_functions))
         avg_col_width = max(
-            len("Avg"),
+            len("Avg Gas"),
             max(len(f"{gas_data[f].get('mean', 0):,}") for f in config_functions),
         )
         max_col_width = max(
-            len("Max"),
+            len("Max Gas"),
             max(len(f"{gas_data[f].get('max', 0):,}") for f in config_functions),
         )
 
+        # Calldata columns - check if any function has calldata size
+        has_calldata = any("calldata_size" in gas_data[f] for f in config_functions)
+        if has_calldata:
+            calldata_size_col_width = max(
+                len("Calldata Size"),
+                max(
+                    len(f"{gas_data[f].get('calldata_size', 0):,}")
+                    for f in config_functions
+                    if "calldata_size" in gas_data[f]
+                ),
+            )
+            calldata_gas_col_width = max(
+                len("Calldata Gas"),
+                max(
+                    len(f"{gas_data[f].get('calldata_gas', 0):,}")
+                    for f in config_functions
+                    if "calldata_gas" in gas_data[f]
+                ),
+            )
+
         # Table header with proper spacing
-        header = f"| {'Function':<{func_col_width}} | {'Avg':>{avg_col_width}} | {'Max':>{max_col_width}} |"
-        separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|"
+        if has_calldata:
+            header = f"| {'Function':<{func_col_width}} | {'Avg Gas':>{avg_col_width}} | {'Max Gas':>{max_col_width}} | {'Calldata Size':>{calldata_size_col_width}} | {'Calldata Gas':>{calldata_gas_col_width}} |"
+            separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|{'-' * (calldata_size_col_width + 2)}|{'-' * (calldata_gas_col_width + 2)}|"
+        else:
+            header = f"| {'Function':<{func_col_width}} | {'Avg Gas':>{avg_col_width}} | {'Max Gas':>{max_col_width}} |"
+            separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|"
 
         lines.append(header)
         lines.append(separator)
@@ -365,7 +479,15 @@ def generate_markdown_report(
             avg_value = func_data.get("mean", 0)
             max_value = func_data.get("max", 0)
 
-            row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} |"
+            if has_calldata and "calldata_size" in func_data:
+                calldata_size = func_data["calldata_size"]
+                calldata_gas = func_data.get("calldata_gas", 0)
+                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} | {calldata_size:>{calldata_size_col_width},} | {calldata_gas:>{calldata_gas_col_width},} |"
+            elif has_calldata:
+                # Add empty cells for functions without calldata info
+                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} | {'-':>{calldata_size_col_width}} | {'-':>{calldata_gas_col_width}} |"
+            else:
+                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} |"
             lines.append(row)
 
         lines.append("")  # Empty line between tables
@@ -463,17 +585,41 @@ def generate_markdown_report(
         # Calculate column widths for proper alignment
         func_col_width = max(len("Function"), max(len(f) for f in config_functions))
         avg_col_width = max(
-            len("Avg"),
+            len("Avg Gas"),
             max(len(f"{gas_data[f].get('mean', 0):,}") for f in config_functions),
         )
         max_col_width = max(
-            len("Max"),
+            len("Max Gas"),
             max(len(f"{gas_data[f].get('max', 0):,}") for f in config_functions),
         )
 
+        # Calldata columns - check if any function has calldata size
+        has_calldata = any("calldata_size" in gas_data[f] for f in config_functions)
+        if has_calldata:
+            calldata_size_col_width = max(
+                len("Calldata Size"),
+                max(
+                    len(f"{gas_data[f].get('calldata_size', 0):,}")
+                    for f in config_functions
+                    if "calldata_size" in gas_data[f]
+                ),
+            )
+            calldata_gas_col_width = max(
+                len("Calldata Gas"),
+                max(
+                    len(f"{gas_data[f].get('calldata_gas', 0):,}")
+                    for f in config_functions
+                    if "calldata_gas" in gas_data[f]
+                ),
+            )
+
         # Table header with proper spacing
-        header = f"| {'Function':<{func_col_width}} | {'Avg':>{avg_col_width}} | {'Max':>{max_col_width}} |"
-        separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|"
+        if has_calldata:
+            header = f"| {'Function':<{func_col_width}} | {'Avg Gas':>{avg_col_width}} | {'Max Gas':>{max_col_width}} | {'Calldata Size':>{calldata_size_col_width}} | {'Calldata Gas':>{calldata_gas_col_width}} |"
+            separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|{'-' * (calldata_size_col_width + 2)}|{'-' * (calldata_gas_col_width + 2)}|"
+        else:
+            header = f"| {'Function':<{func_col_width}} | {'Avg Gas':>{avg_col_width}} | {'Max Gas':>{max_col_width}} |"
+            separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|"
 
         lines.append(header)
         lines.append(separator)
@@ -484,7 +630,15 @@ def generate_markdown_report(
             avg_value = func_data.get("mean", 0)
             max_value = func_data.get("max", 0)
 
-            row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} |"
+            if has_calldata and "calldata_size" in func_data:
+                calldata_size = func_data["calldata_size"]
+                calldata_gas = func_data.get("calldata_gas", 0)
+                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} | {calldata_size:>{calldata_size_col_width},} | {calldata_gas:>{calldata_gas_col_width},} |"
+            elif has_calldata:
+                # Add empty cells for functions without calldata info
+                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} | {'-':>{calldata_size_col_width}} | {'-':>{calldata_gas_col_width}} |"
+            else:
+                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} |"
             lines.append(row)
 
         lines.append("")  # Empty line between tables
@@ -563,8 +717,13 @@ def main():
         # Show summary
         print(f"\nExtracted gas data for {config['name']} (IGNITION):")
         for func_name, data in gas_data.items():
+            calldata_info = (
+                f", calldata_size={data.get('calldata_size', 'N/A')}"
+                if "calldata_size" in data
+                else ""
+            )
             print(
-                f"  - {func_name}: max={data.get('max', 'N/A'):,}, mean={data.get('mean', 'N/A'):,}"
+                f"  - {func_name}: max={data.get('max', 'N/A'):,}, mean={data.get('mean', 'N/A'):,}{calldata_info}"
             )
 
     # Then, run all configurations with IGNITION=false (Alpha)
@@ -583,8 +742,13 @@ def main():
         # Show summary
         print(f"\nExtracted gas data for {config['name']} (Alpha):")
         for func_name, data in gas_data.items():
+            calldata_info = (
+                f", calldata_size={data.get('calldata_size', 'N/A')}"
+                if "calldata_size" in data
+                else ""
+            )
             print(
-                f"  - {func_name}: max={data.get('max', 'N/A'):,}, mean={data.get('mean', 'N/A'):,}"
+                f"  - {func_name}: max={data.get('max', 'N/A'):,}, mean={data.get('mean', 'N/A'):,}{calldata_info}"
             )
 
     # Save raw results
