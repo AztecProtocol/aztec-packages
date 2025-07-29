@@ -144,6 +144,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Register the slasher on the publisher to fetch slashing payloads
     this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
+
+    // Initialize config
+    this.updateConfig(this.config);
   }
 
   get tracer(): Tracer {
@@ -229,7 +232,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Starts the sequencer and moves to IDLE state.
    */
   public start() {
-    this.updateConfig(this.config);
     this.metrics.start();
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, undefined, { force: true });
@@ -430,7 +432,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
-    this.log.info(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+    this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
       globalVariables: newGlobalVariables.toInspect(),
       chainTipArchive,
@@ -715,9 +717,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposerAddress,
       blockProposalOptions,
     );
+
     if (!proposal) {
-      const msg = `Failed to create block proposal`;
-      throw new Error(msg);
+      throw new Error(`Failed to create block proposal`);
+    }
+
+    if (this.config.skipCollectingAttestations) {
+      this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
+      const attestations = await this.validatorClient?.collectOwnAttestations(proposal);
+      return orderAttestations(attestations ?? [], committee);
     }
 
     this.log.debug('Broadcasting block proposal to validators');
@@ -747,7 +755,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       if (err && err instanceof AttestationTimeoutError) {
         collectedAttestionsCount = err.collectedCount;
       }
-
       throw err;
     } finally {
       this.metrics.recordCollectedAttestations(collectedAttestionsCount, timer.ms());
