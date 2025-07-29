@@ -1,4 +1,4 @@
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, sha256Trunc } from '@aztec/foundation/crypto';
 
 import type { AsyncHasher } from './hasher.js';
 import { MerkleTree } from './merkle_tree.js';
@@ -68,5 +68,30 @@ export class MerkleTreeCalculator {
     }
 
     return leaves[0];
+  }
+
+  static computeTreeRootSync(
+    leaves: Buffer[],
+    height = Math.log2(leaves.length),
+    zeroLeaf = Buffer.alloc(32),
+    hasher = sha256Trunc,
+  ): Buffer {
+    if (leaves.length === 0) {
+      return zeroLeaf;
+    }
+
+    let nodes = leaves.slice();
+
+    for (let i = 0; i < height; ++i) {
+      let j = 0;
+      for (; j < nodes.length / 2; ++j) {
+        const l = nodes[j * 2];
+        const r = nodes[j * 2 + 1] || zeroLeaf;
+        nodes[j] = hasher(Buffer.concat([l, r]));
+      }
+      nodes = nodes.slice(0, j);
+    }
+
+    return nodes[0];
   }
 }
