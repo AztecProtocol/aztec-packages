@@ -55,6 +55,7 @@ class Execution : public ExecutionInterface {
               DataCopyInterface& data_copy,
               Poseidon2Interface& poseidon2,
               EccInterface& ecc,
+              ToRadixInterface& to_radix,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
@@ -71,6 +72,7 @@ class Execution : public ExecutionInterface {
         , bitwise(bitwise)
         , poseidon2(poseidon2)
         , embedded_curve(ecc)
+        , to_radix(to_radix)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
@@ -86,6 +88,7 @@ class Execution : public ExecutionInterface {
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void sub(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void mul(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -156,6 +159,12 @@ class Execution : public ExecutionInterface {
                  MemoryAddress q_y_addr,
                  MemoryAddress q_inf_addr,
                  MemoryAddress dst_addr);
+    void to_radix_be(ContextInterface& context,
+                     MemoryAddress value_addr,
+                     MemoryAddress radix_addr,
+                     MemoryAddress num_limbs_addr,
+                     MemoryAddress is_output_bits_addr,
+                     MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -175,6 +184,7 @@ class Execution : public ExecutionInterface {
 
     void handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context);
     void handle_exit_call();
+    void handle_exceptional_halt(ContextInterface& context);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
@@ -190,6 +200,7 @@ class Execution : public ExecutionInterface {
     BitwiseInterface& bitwise;
     Poseidon2Interface& poseidon2;
     EccInterface& embedded_curve;
+    ToRadixInterface& to_radix;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;

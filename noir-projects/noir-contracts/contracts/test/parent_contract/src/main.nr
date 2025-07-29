@@ -279,42 +279,32 @@ pub contract Parent {
 
         // Set value in child through parent
         let value_to_set = 7;
-        let result = env
-            .call_private(
-                from,
-                Parent::at(parent_contract_address).private_call(
-                    child_contract_address,
-                    comptime {
-                        FunctionSelector::from_signature("private_set_value(Field,(Field))")
-                    },
-                    [value_to_set, owner.to_field()],
-                ),
-            )
-            .return_value;
+        let result = env.call_private(
+            from,
+            Parent::at(parent_contract_address).private_call(
+                child_contract_address,
+                comptime { FunctionSelector::from_signature("private_set_value(Field,(Field))") },
+                [value_to_set, owner.to_field()],
+            ),
+        );
         assert(result == value_to_set);
 
         // Read the stored value in the note.
-        let note_value = env
-            .call_private(
-                from,
-                Child::at(child_contract_address).private_get_value(value_to_set, owner),
-            )
-            .return_value;
+        let note_value = env.call_private(
+            from,
+            Child::at(child_contract_address).private_get_value(value_to_set, owner),
+        );
         assert(note_value == value_to_set);
 
         // Get value from child through parent
-        let read_result = env
-            .call_private(
-                from,
-                Parent::at(parent_contract_address).private_call(
-                    child_contract_address,
-                    comptime {
-                        FunctionSelector::from_signature("private_get_value(Field,(Field))")
-                    },
-                    [7, owner.to_field()],
-                ),
-            )
-            .return_value;
+        let read_result = env.call_private(
+            from,
+            Parent::at(parent_contract_address).private_call(
+                child_contract_address,
+                comptime { FunctionSelector::from_signature("private_get_value(Field,(Field))") },
+                [7, owner.to_field()],
+            ),
+        );
         assert(note_value == read_result);
     }
 }

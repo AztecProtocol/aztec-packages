@@ -105,6 +105,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
+  using TimeLib for Timestamp;
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
@@ -114,6 +115,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs proposeArgs;
     bytes blobInputs;
     CommitteeAttestation[] attestations;
+    address[] signers;
   }
 
   DecoderBase.Full internal full;
@@ -133,6 +135,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
+
+  // Track attestations by block number for proof submission
+  mapping(uint256 => CommitteeAttestations) internal blockAttestations;
 
   Multicall3 internal multicall = new Multicall3();
 
@@ -273,11 +278,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     });
 
     CommitteeAttestation[] memory attestations;
+    address[] memory signers;
 
     {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       uint256 needed = validators.length * 2 / 3 + 1;
       attestations = new CommitteeAttestation[](validators.length);
+      signers = new address[](needed);
 
       bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
@@ -297,15 +304,19 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         }
       }
 
-      // loop through again to get to the required number of attestations.
+      // loop to get to the required number of attestations.
       // yes, inefficient, but it's simple, clear, and is a test.
       uint256 sigCount = 1;
+      uint256 signersIndex = 0;
       for (uint256 i = 0; i < validators.length; i++) {
         if (validators[i] == proposer) {
-          continue;
+          signers[signersIndex] = validators[i];
+          signersIndex++;
         } else if (sigCount < needed) {
           attestations[i] = createAttestation(validators[i], digest);
+          signers[signersIndex] = validators[i];
           sigCount++;
+          signersIndex++;
         } else {
           attestations[i] = createEmptyAttestation(validators[i]);
         }
@@ -315,7 +326,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
-      attestations: attestations
+      attestations: attestations,
+      signers: signers
     });
   }
 
@@ -396,6 +408,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
+        // Store the attestations for the current block number
+        uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
+        blockAttestations[currentBlockNumber] = SignatureLib.packAttestations(b.attestations);
+
         if (_slashing) {
           Signature memory sig = createSignalSignature(proposer, slashPayload, round);
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
@@ -403,7 +419,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             target: address(rollup),
             callData: abi.encodeCall(
               rollup.propose,
-              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs)
+              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs)
             ),
             allowFailure: false
           });
@@ -414,8 +430,15 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           });
           multicall.aggregate3(calls);
         } else {
+          CommitteeAttestations memory attestations = SignatureLib.packAttestations(b.attestations);
+
+          // Emit calldata size for propose
+          bytes memory proposeCalldata =
+            abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs));
+          emit log_named_uint("propose_calldata_size", proposeCalldata.length);
+
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
+          rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);
@@ -454,16 +477,21 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         });
 
         {
-          rollup.submitEpochRootProof(
-            SubmitEpochRootProofArgs({
-              start: start,
-              end: start + epochSize - 1,
-              args: args,
-              fees: fees,
-              blobInputs: full.block.batchedBlobInputs,
-              proof: ""
-            })
-          );
+          SubmitEpochRootProofArgs memory submitArgs = SubmitEpochRootProofArgs({
+            start: start,
+            end: start + epochSize - 1,
+            args: args,
+            fees: fees,
+            attestations: blockAttestations[start + epochSize - 1],
+            blobInputs: full.block.batchedBlobInputs,
+            proof: ""
+          });
+
+          // Emit calldata size for submitEpochRootProof
+          bytes memory submitCalldata = abi.encodeCall(rollup.submitEpochRootProof, (submitArgs));
+          emit log_named_uint("submitEpochRootProof_calldata_size", submitCalldata.length);
+
+          rollup.submitEpochRootProof(submitArgs);
         }
       }
     }
