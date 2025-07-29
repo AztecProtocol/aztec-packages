@@ -67,7 +67,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
             manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         } else {
-            manifest_expected.add_entry(round, "vk_hash", 1);
+            manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         }
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
