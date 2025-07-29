@@ -162,8 +162,6 @@ bool _verify(const bool ipa_accumulation,
 
 CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    ASSERT(!circuit.verification_key.empty(),
-           "CircuitProve requires a verification key to be passed in the circuit object.");
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (settings.ipa_accumulation) {
         return _prove<UltraRollupFlavor>(
