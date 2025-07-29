@@ -55,6 +55,9 @@ export class BlockProposal extends Gossipable {
     // Note(md): this is placed after the txs payload in order to be backwards compatible with previous versions
     /** The transactions in the block */
     public readonly txs?: Tx[],
+
+    /** Hash of the parent block header for p2p validation - not sent to L1 */
+    public readonly parentHeaderHash?: Fr,
   ) {
     super();
   }
@@ -83,11 +86,12 @@ export class BlockProposal extends Gossipable {
     // Note(md): Provided separately to tx hashes such that this function can be optional
     txs: Tx[] | undefined,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
+    parentHeaderHash?: Fr,
   ) {
     const hashed = getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
     const sig = await payloadSigner(hashed);
 
-    return new BlockProposal(blockNumber, payload, sig, txHashes, txs);
+    return new BlockProposal(blockNumber, payload, sig, txHashes, txs, parentHeaderHash);
   }
 
   /**Get Sender
@@ -113,6 +117,9 @@ export class BlockProposal extends Gossipable {
       buffer.push(this.txs.length);
       buffer.push(this.txs);
     }
+    if (this.parentHeaderHash) {
+      buffer.push(this.parentHeaderHash);
+    }
     return serializeToBuffer(buffer);
   }
 
@@ -124,12 +131,19 @@ export class BlockProposal extends Gossipable {
     const sig = reader.readObject(Signature);
     const txHashes = reader.readArray(reader.readNumber(), TxHash);
 
+    let txs: Tx[] | undefined;
+    let parentHeaderHash: Fr | undefined;
+
     if (!reader.isEmpty()) {
-      const txs = reader.readArray(reader.readNumber(), Tx);
-      return new BlockProposal(blockNumber, payload, sig, txHashes, txs);
+      txs = reader.readArray(reader.readNumber(), Tx);
+
+      // Check if there's still data for parentHeaderHash
+      if (!reader.isEmpty()) {
+        parentHeaderHash = reader.readObject(Fr);
+      }
     }
 
-    return new BlockProposal(blockNumber, payload, sig, txHashes);
+    return new BlockProposal(blockNumber, payload, sig, txHashes, txs, parentHeaderHash);
   }
 
   getSize(): number {
@@ -139,7 +153,8 @@ export class BlockProposal extends Gossipable {
       this.signature.getSize() +
       4 /* txHashes.length */ +
       this.txHashes.length * TxHash.SIZE +
-      (this.txs ? 4 /* txs.length */ + this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0)
+      (this.txs ? 4 /* txs.length */ + this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0) +
+      (this.parentHeaderHash ? Fr.SIZE_IN_BYTES : 0)
     );
   }
 }

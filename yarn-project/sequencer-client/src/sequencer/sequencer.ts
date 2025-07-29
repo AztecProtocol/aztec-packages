@@ -708,14 +708,31 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
+
+    let parentHeaderHash: Fr | undefined;
+    const blockNumber = block.header.globalVariables.blockNumber;
+    if (blockNumber > 1) {
+      const parentBlock = await this.l2BlockSource.getBlock(blockNumber - 1);
+      if (parentBlock) {
+        parentHeaderHash = parentBlock.header.toPropose().hash();
+        this.log.debug(`Including parent header hash in proposal`, {
+          parentBlockNumber: blockNumber - 1,
+          parentHeaderHash: parentHeaderHash.toString(),
+        });
+      } else {
+        this.log.warn(`Parent block ${blockNumber - 1} not found when creating proposal`);
+      }
+    }
+
     const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
     const proposal = await this.validatorClient.createBlockProposal(
-      block.header.globalVariables.blockNumber,
+      blockNumber,
       block.header.toPropose(),
       block.header.state,
       txs,
       proposerAddress,
       blockProposalOptions,
+      parentHeaderHash,
     );
     if (!proposal) {
       const msg = `Failed to create block proposal`;

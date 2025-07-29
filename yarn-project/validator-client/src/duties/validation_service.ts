@@ -2,6 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,
   BlockProposal,
@@ -33,6 +34,7 @@ export class ValidationService {
     txs: Tx[],
     proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
+    parentHeaderHash?: Fr,
   ): Promise<BlockProposal> {
     let payloadSigner: (payload: Buffer32) => Promise<Signature>;
     if (proposerAttesterAddress !== undefined) {
@@ -51,6 +53,7 @@ export class ValidationService {
       txHashes,
       options.publishFullTxs ? txs : undefined,
       payloadSigner,
+      parentHeaderHash,
     );
   }
 

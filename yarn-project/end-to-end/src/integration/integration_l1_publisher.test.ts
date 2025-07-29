@@ -3,7 +3,7 @@ import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   type ExtendedViemWalletClient,
@@ -354,9 +354,6 @@ describe('L1Publisher integration', () => {
     };
 
     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
-      const archiveInRollup_ = await rollup.archive();
-      expect(hexToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
-
       const blockNumber = await l1Client.getBlockNumber();
 
       // random recipient address, just kept consistent for easy testing ts/sol.
@@ -533,9 +530,6 @@ describe('L1Publisher integration', () => {
 
   describe('error handling', () => {
     const buildSingleBlock = async (opts: { l1ToL2Messages?: Fr[] } = {}) => {
-      const archiveInRollup = await rollup.archive();
-      expect(hexToBuffer(archiveInRollup.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
-
       const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
 
       const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);

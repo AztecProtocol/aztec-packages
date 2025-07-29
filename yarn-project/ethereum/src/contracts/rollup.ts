@@ -547,10 +547,6 @@ export class RollupContract {
     return this.rollup.read.canPruneAtTime([timestamp], options);
   }
 
-  archive() {
-    return this.rollup.read.archive();
-  }
-
   archiveAt(blockNumber: bigint) {
     return this.rollup.read.archiveAt([blockNumber]);
   }
