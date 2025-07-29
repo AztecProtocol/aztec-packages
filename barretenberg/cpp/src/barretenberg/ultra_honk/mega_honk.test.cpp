@@ -112,16 +112,18 @@ TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 TYPED_TEST(MegaHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+    using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
 
-    auto builder = typename Flavor::CircuitBuilder{};
-    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+    auto builder = Builder{};
+    DefaultIO::add_default(builder);
 
     // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof mega_proof = prover.construct_proof();
-    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
+    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + DefaultIO::PUBLIC_INPUTS_SIZE);
 }
 
 /**
