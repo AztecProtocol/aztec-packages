@@ -254,10 +254,6 @@ contract GSECore is IGSECore, Ownable {
    *
    * @dev rollups only have access to the "bonus instance" while they are the most recent rollup.
    *
-   * @dev The GSE only supports adding rollups, not removing them. This design is intentional - if a rollup becomes
-   * compromised, governance can simply add a new rollup and the bonus instance mechanism ensures a smooth transition
-   * by allowing the new rollup to immediately inherit attesters.
-   *
    * @param _rollup - The address of the rollup to add
    */
   function addRollup(address _rollup) external override(IGSECore) onlyOwner {
