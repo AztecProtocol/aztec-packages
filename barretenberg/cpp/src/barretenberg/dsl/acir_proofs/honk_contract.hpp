@@ -208,13 +208,6 @@ library Honk {
         uint256 y;
     }
 
-    struct G1ProofPoint {
-        uint256 x_0;
-        uint256 x_1;
-        uint256 y_0;
-        uint256 y_1;
-    }
-
     struct VerificationKey {
         // Misc Params
         uint256 circuitSize;
@@ -270,55 +263,55 @@ library Honk {
         // Pairing point object
         Fr[PAIRING_POINTS_SIZE] pairingPointObject;
         // Free wires
-        Honk.G1ProofPoint w1;
-        Honk.G1ProofPoint w2;
-        Honk.G1ProofPoint w3;
-        Honk.G1ProofPoint w4;
+        G1Point w1;
+        G1Point w2;
+        G1Point w3;
+        G1Point w4;
         // Lookup helpers - Permutations
-        Honk.G1ProofPoint zPerm;
+        G1Point zPerm;
         // Lookup helpers - logup
-        Honk.G1ProofPoint lookupReadCounts;
-        Honk.G1ProofPoint lookupReadTags;
-        Honk.G1ProofPoint lookupInverses;
+        G1Point lookupReadCounts;
+        G1Point lookupReadTags;
+        G1Point lookupInverses;
         // Sumcheck
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Shplemini
-        Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
+        G1Point[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
         Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
-        Honk.G1ProofPoint shplonkQ;
-        Honk.G1ProofPoint kzgQuotient;
+        G1Point shplonkQ;
+        G1Point kzgQuotient;
     }
 
     struct ZKProof {
         // Pairing point object
         Fr[PAIRING_POINTS_SIZE] pairingPointObject;
         // Commitments to wire polynomials
-        Honk.G1ProofPoint w1;
-        Honk.G1ProofPoint w2;
-        Honk.G1ProofPoint w3;
-        Honk.G1ProofPoint w4;
+        G1Point w1;
+        G1Point w2;
+        G1Point w3;
+        G1Point w4;
         // Commitments to logup witness polynomials
-        Honk.G1ProofPoint lookupReadCounts;
-        Honk.G1ProofPoint lookupReadTags;
-        Honk.G1ProofPoint lookupInverses;
+        G1Point lookupReadCounts;
+        G1Point lookupReadTags;
+        G1Point lookupInverses;
         // Commitment to grand permutation polynomial
-        Honk.G1ProofPoint zPerm;
-        Honk.G1ProofPoint[3] libraCommitments;
+        G1Point zPerm;
+        G1Point[3] libraCommitments;
         // Sumcheck
         Fr libraSum;
         Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         Fr libraEvaluation;
         // ZK
-        Honk.G1ProofPoint geminiMaskingPoly;
+        G1Point geminiMaskingPoly;
         Fr geminiMaskingEval;
         // Shplemini
-        Honk.G1ProofPoint[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
+        G1Point[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
         Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
         Fr[4] libraPolyEvals;
-        Honk.G1ProofPoint shplonkQ;
-        Honk.G1ProofPoint kzgQuotient;
+        G1Point shplonkQ;
+        G1Point kzgQuotient;
     }
 }
 
@@ -397,7 +390,7 @@ library TranscriptLib {
         uint256 publicInputsSize,
         uint256 pubInputsOffset
     ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
-        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
+        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 6);
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
@@ -411,18 +404,12 @@ library TranscriptLib {
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + publicInputsSize] = bytes32(proof.w1.x_0);
-        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.x_1);
-        round0[3 + publicInputsSize + 2] = bytes32(proof.w1.y_0);
-        round0[3 + publicInputsSize + 3] = bytes32(proof.w1.y_1);
-        round0[3 + publicInputsSize + 4] = bytes32(proof.w2.x_0);
-        round0[3 + publicInputsSize + 5] = bytes32(proof.w2.x_1);
-        round0[3 + publicInputsSize + 6] = bytes32(proof.w2.y_0);
-        round0[3 + publicInputsSize + 7] = bytes32(proof.w2.y_1);
-        round0[3 + publicInputsSize + 8] = bytes32(proof.w3.x_0);
-        round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
-        round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
-        round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
+        round0[3 + publicInputsSize] = bytes32(proof.w1.x);
+        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.y);
+        round0[3 + publicInputsSize + 2] = bytes32(proof.w2.x);
+        round0[3 + publicInputsSize + 3] = bytes32(proof.w2.y);
+        round0[3 + publicInputsSize + 4] = bytes32(proof.w3.x);
+        round0[3 + publicInputsSize + 5] = bytes32(proof.w3.y);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -437,20 +424,14 @@ library TranscriptLib {
         pure
         returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
     {
-        bytes32[13] memory round1;
+        bytes32[7] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
-        round1[1] = bytes32(proof.lookupReadCounts.x_0);
-        round1[2] = bytes32(proof.lookupReadCounts.x_1);
-        round1[3] = bytes32(proof.lookupReadCounts.y_0);
-        round1[4] = bytes32(proof.lookupReadCounts.y_1);
-        round1[5] = bytes32(proof.lookupReadTags.x_0);
-        round1[6] = bytes32(proof.lookupReadTags.x_1);
-        round1[7] = bytes32(proof.lookupReadTags.y_0);
-        round1[8] = bytes32(proof.lookupReadTags.y_1);
-        round1[9] = bytes32(proof.w4.x_0);
-        round1[10] = bytes32(proof.w4.x_1);
-        round1[11] = bytes32(proof.w4.y_0);
-        round1[12] = bytes32(proof.w4.y_1);
+        round1[1] = bytes32(proof.lookupReadCounts.x);
+        round1[2] = bytes32(proof.lookupReadCounts.y);
+        round1[3] = bytes32(proof.lookupReadTags.x);
+        round1[4] = bytes32(proof.lookupReadTags.y);
+        round1[5] = bytes32(proof.w4.x);
+        round1[6] = bytes32(proof.w4.y);
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
         (beta, gamma) = splitChallenge(nextPreviousChallenge);
@@ -463,16 +444,12 @@ library TranscriptLib {
         returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
-        uint256[9] memory alpha0;
+        uint256[5] memory alpha0;
         alpha0[0] = Fr.unwrap(previousChallenge);
-        alpha0[1] = proof.lookupInverses.x_0;
-        alpha0[2] = proof.lookupInverses.x_1;
-        alpha0[3] = proof.lookupInverses.y_0;
-        alpha0[4] = proof.lookupInverses.y_1;
-        alpha0[5] = proof.zPerm.x_0;
-        alpha0[6] = proof.zPerm.x_1;
-        alpha0[7] = proof.zPerm.y_0;
-        alpha0[8] = proof.zPerm.y_1;
+        alpha0[1] = proof.lookupInverses.x;
+        alpha0[2] = proof.lookupInverses.y;
+        alpha0[3] = proof.zPerm.x;
+        alpha0[4] = proof.zPerm.y;
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
         (alphas[0], alphas[1]) = splitChallenge(nextPreviousChallenge);
@@ -542,14 +519,12 @@ library TranscriptLib {
         pure
         returns (Fr geminiR, Fr nextPreviousChallenge)
     {
-        uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
+        uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 2 + 1] memory gR;
         gR[0] = Fr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
-            gR[2 + i * 4] = proof.geminiFoldComms[i].x_1;
-            gR[3 + i * 4] = proof.geminiFoldComms[i].y_0;
-            gR[4 + i * 4] = proof.geminiFoldComms[i].y_1;
+            gR[1 + i * 2] = proof.geminiFoldComms[i].x;
+            gR[2 + i * 2] = proof.geminiFoldComms[i].y;
         }
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
@@ -579,13 +554,11 @@ library TranscriptLib {
         pure
         returns (Fr shplonkZ, Fr nextPreviousChallenge)
     {
-        uint256[5] memory shplonkZChallengeElements;
+        uint256[3] memory shplonkZChallengeElements;
         shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
 
-        shplonkZChallengeElements[1] = proof.shplonkQ.x_0;
-        shplonkZChallengeElements[2] = proof.shplonkQ.x_1;
-        shplonkZChallengeElements[3] = proof.shplonkQ.y_0;
-        shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
+        shplonkZChallengeElements[1] = proof.shplonkQ.x;
+        shplonkZChallengeElements[2] = proof.shplonkQ.y;
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
         Fr unused;
@@ -593,7 +566,7 @@ library TranscriptLib {
     }
 
     function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory p) {
-        uint256 boundary = 0x0;
+        uint256 boundary = 0x00;
 
         // Pairing point object
         for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
@@ -601,24 +574,24 @@ library TranscriptLib {
             boundary += 0x20;
         }
         // Commitments
-        p.w1 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.w2 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.w3 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
+        p.w1 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.w2 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.w3 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
 
         // Lookup / Permutation Helper Commitments
-        p.lookupReadCounts = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.lookupReadTags = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.w4 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.lookupInverses = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.zPerm = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
+        p.lookupReadCounts = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.lookupReadTags = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.w4 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.lookupInverses = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.zPerm = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
 
         // Sumcheck univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
@@ -636,8 +609,8 @@ library TranscriptLib {
         // Gemini
         // Read gemini fold univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            p.geminiFoldComms[i] = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-            boundary += 0x80;
+            p.geminiFoldComms[i] = bytesToG1Point(proof[boundary:boundary + 0x40]);
+            boundary += 0x40;
         }
 
         // Read gemini a evaluations
@@ -647,10 +620,10 @@ library TranscriptLib {
         }
 
         // Shplonk
-        p.shplonkQ = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
+        p.shplonkQ = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
         // KZG
-        p.kzgQuotient = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        p.kzgQuotient = bytesToG1Point(proof[boundary:boundary + 0x40]);
     }
 }
 
@@ -1449,23 +1422,14 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
 // Fr utility
 
 function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
-    require(proofSection.length == 0x20, "invalid number of bytes to construct Fr scalar");
     scalar = FrLib.fromBytes32(bytes32(proofSection));
 }
 
 // EC Point utilities
-
-function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory point) {
-    point = Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
-}
-
-function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1ProofPoint memory point) {
-    require(proofSection.length == 0x80, "invalid number of bytes to construct a G1 point");
-    point = Honk.G1ProofPoint({
-        x_0: uint256(bytes32(proofSection[0x00:0x20])),
-        x_1: uint256(bytes32(proofSection[0x20:0x40])),
-        y_0: uint256(bytes32(proofSection[0x40:0x60])),
-        y_1: uint256(bytes32(proofSection[0x60:0x80]))
+function bytesToG1Point(bytes calldata proofSection) pure returns (Honk.G1Point memory point) {
+    point = Honk.G1Point({
+        x: uint256(bytes32(proofSection[0x00:0x20])) % Q,
+        y: uint256(bytes32(proofSection[0x20:0x40])) % Q
     });
 }
 
@@ -1723,7 +1687,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     error ShpleminiFailed();
 
     // Number of field elements in a ultra honk proof, including pairing point object.
-    uint256 constant PROOF_SIZE = 457;
+    uint256 constant PROOF_SIZE = 383;
     uint256 constant SHIFTED_COMMITMENTS_START = 29;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
@@ -1911,7 +1875,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = ONE;
-        commitments[0] = convertProofPoint(proof.shplonkQ);
+        commitments[0] = proof.shplonkQ;
 
         /* Batch multivariate opening claims, shifted and unshifted
         * The vector of scalars is populated as follows:
@@ -1994,14 +1958,14 @@ abstract contract BaseHonkVerifier is IVerifier {
         commitments[28] = vk.lagrangeLast;
 
         // Accumulate proof points
-        commitments[29] = convertProofPoint(proof.w1);
-        commitments[30] = convertProofPoint(proof.w2);
-        commitments[31] = convertProofPoint(proof.w3);
-        commitments[32] = convertProofPoint(proof.w4);
-        commitments[33] = convertProofPoint(proof.zPerm);
-        commitments[34] = convertProofPoint(proof.lookupInverses);
-        commitments[35] = convertProofPoint(proof.lookupReadCounts);
-        commitments[36] = convertProofPoint(proof.lookupReadTags);
+        commitments[29] = proof.w1;
+        commitments[30] = proof.w2;
+        commitments[31] = proof.w3;
+        commitments[32] = proof.w4;
+        commitments[33] = proof.zPerm;
+        commitments[34] = proof.lookupInverses;
+        commitments[35] = proof.lookupReadCounts;
+        commitments[36] = proof.lookupReadTags;
 
         /* Batch gemini claims from the prover
          * place the commitments to gemini aᵢ to the vector of commitments, compute the contributions from
@@ -2066,14 +2030,14 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            commitments[NUMBER_UNSHIFTED + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
+            commitments[NUMBER_UNSHIFTED + 1 + i] = proof.geminiFoldComms[i];
         }
 
         // Finalise the batch opening claim
         commitments[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
         scalars[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
 
-        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
+        Honk.G1Point memory quotient_commitment = proof.kzgQuotient;
 
         commitments[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
         scalars[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
