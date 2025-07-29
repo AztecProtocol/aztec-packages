@@ -15,7 +15,6 @@ import type { P2PConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
-import { privateKeyToHex } from '../util.js';
 import { getPorts } from './get-ports.js';
 import { makeEnrs } from './make-enrs.js';
 import { type MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from './mock-pubsub.js';
@@ -140,10 +139,10 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
     }
   }
 
-  const peerEnrs = makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
+  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
-    const client = await makeAndStartTestP2PClient(privateKeyToHex(peerIdPrivateKeys[i]), ports[i], peerEnrs, {
+    const client = await makeAndStartTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
       ...testConfig,
       logger: createLogger(`p2p:${i}`),
     });
@@ -187,10 +186,10 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
     }
   }
 
-  const peerEnrs = makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
+  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
-    const client = await makeTestP2PClient(privateKeyToHex(peerIdPrivateKeys[i]), ports[i], peerEnrs, {
+    const client = await makeTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {
       ...testConfig,
       logger: createLogger(`p2p:${i}`),
     });
