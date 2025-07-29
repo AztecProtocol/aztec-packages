@@ -334,7 +334,7 @@ export class PeerManager implements PeerManagerInterface {
    * @param reason - The reason for the goodbye.
    */
   public goodbyeReceived(peerId: PeerId, reason: GoodByeReason) {
-    this.logger.debug(`Goodbye received from peer ${peerId.toString()} with reason ${prettyGoodbyeReason(reason)}`);
+    this.logger.verbose(`Goodbye received from peer ${peerId.toString()} with reason ${prettyGoodbyeReason(reason)}`);
 
     this.metrics.recordGoodbyeReceived(reason);
 
@@ -558,7 +558,7 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
-    this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
+    this.logger.verbose(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
 
     this.metrics.recordGoodbyeSent(reason);
 
@@ -571,16 +571,16 @@ export class PeerManager implements PeerManagerInterface {
       );
 
       if (resp.status === ReqRespStatus.FAILURE) {
-        this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}`);
+        this.logger.verbose(`Failed to send goodbye to peer ${peer.toString()}`);
       } else if (resp.status === ReqRespStatus.SUCCESS) {
         this.logger.verbose(`Sent goodbye to peer ${peer.toString()}`);
       } else {
-        this.logger.debug(
+        this.logger.verbose(
           `Unexpected status sending goodbye to peer ${peer.toString()}: ${ReqRespStatus[resp.status]}`,
         );
       }
     } catch (error) {
-      this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}: ${error}`);
+      this.logger.verbose(`Failed to send goodbye to peer ${peer.toString()}: ${error}`);
     } finally {
       this.markPeerForDisconnect(peer);
     }
@@ -771,7 +771,7 @@ export class PeerManager implements PeerManagerInterface {
         //TODO: maybe hard ban these peers in the future.
         //We could allow this to happen up to N times, and then hard ban?
         //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond status handshake`, {
+        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, {
           peerId,
           status: ReqRespStatus[status],
         });
@@ -783,14 +783,14 @@ export class PeerManager implements PeerManagerInterface {
       const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
       const peerStatusMessage = StatusMessage.fromBuffer(data);
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.debug(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
         this.markPeerForDisconnect(peerId);
         return;
       }
-      this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
+      this.logger.warn(`Successfully completed status handshake with peer ${peerId}`, logData);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.debug(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
+      this.logger.warn(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
         peerId,
       });
       this.markPeerForDisconnect(peerId);
@@ -814,7 +814,7 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
+        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
           peerId,
           status: ReqRespStatus[status],
         });
@@ -829,7 +829,7 @@ export class PeerManager implements PeerManagerInterface {
 
       const peerStatusMessage = peerAuthResponse.status;
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.debug(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
         this.markPeerForDisconnect(peerId);
         return;
       }
@@ -840,7 +840,7 @@ export class PeerManager implements PeerManagerInterface {
       const registeredValidators = await this.epochCache.getRegisteredValidators();
       const found = registeredValidators.find(v => v.toString() === sender.toString()) !== undefined;
       if (!found) {
-        this.logger.debug(
+        this.logger.warn(
           `Disconnecting peer ${peerId} due to failed auth handshake, peer is not a registered validator.`,
           {
             peerId,
@@ -870,7 +870,7 @@ export class PeerManager implements PeerManagerInterface {
       );
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.debug(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
+      this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
       });
       this.markPeerForDisconnect(peerId);
@@ -882,6 +882,7 @@ export class PeerManager implements PeerManagerInterface {
    * Removing all event listeners.
    */
   public async stop() {
+    this.logger.verbose('Stopping PeerManager');
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.handlers.handleDiscoveredPeer);
 
