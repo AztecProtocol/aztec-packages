@@ -17,7 +17,7 @@ struct lookup_sha256_mem_check_state_addr_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SHA256_MEM_CHECK_STATE_ADDR_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "sha256_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_sel;
+    static constexpr Column SRC_SELECTOR = Column::sha256_start;
     static constexpr Column DST_SELECTOR = Column::gt_sel;
     static constexpr Column COUNTS = Column::lookup_sha256_mem_check_state_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_mem_check_state_addr_in_range_inv;
@@ -43,7 +43,7 @@ struct lookup_sha256_mem_check_input_addr_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SHA256_MEM_CHECK_INPUT_ADDR_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "sha256_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_sel;
+    static constexpr Column SRC_SELECTOR = Column::sha256_start;
     static constexpr Column DST_SELECTOR = Column::gt_sel;
     static constexpr Column COUNTS = Column::lookup_sha256_mem_check_input_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_mem_check_input_addr_in_range_inv;
@@ -69,7 +69,7 @@ struct lookup_sha256_mem_check_dst_addr_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SHA256_MEM_CHECK_DST_ADDR_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "sha256_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::sha256_sel;
+    static constexpr Column SRC_SELECTOR = Column::sha256_start;
     static constexpr Column DST_SELECTOR = Column::gt_sel;
     static constexpr Column COUNTS = Column::lookup_sha256_mem_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_mem_check_dst_addr_in_range_inv;

@@ -66,9 +66,16 @@ namespace sha256;
     // Inputs
     pol commit execution_clk;
     pol commit space_id;
+    pol commit dst_addr;
     pol commit state_addr;
     pol commit input_addr;
-    pol commit dst_addr;
+
+    #[CONTINUITY_EXEC_CLK] // Gotta propagate exec clk
+    sel * (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
+    #[CONTINUITY_SPACE_ID] // Gotta propagate space id down
+    sel * (1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
+    #[CONTINUITY_DST_ADDR] // Gotta propagate dst addr down
+    sel * (1 - LATCH_CONDITION) * (dst_addr' - dst_addr) = 0;
 
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
@@ -83,26 +90,26 @@ namespace sha256;
     // (2) input_addr + 15 > max_mem_addr
     // (3) dst_addr + 7 > max_mem_addr
     pol commit max_mem_addr; // While we do not support constants
-    sel * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+    start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 
     pol commit max_state_addr;
-    max_state_addr = sel * (state_addr + 7); // We read 8 elements for the state
+    max_state_addr = start * (state_addr + 7); // We read 8 elements for the state
     #[CHECK_STATE_ADDR_IN_RANGE]
-    sel { max_state_addr, max_mem_addr, sel_state_out_of_range_err }
+    start { max_state_addr, max_mem_addr, sel_state_out_of_range_err }
     in
     gt.sel { gt.input_a, gt.input_b, gt.res };
 
     pol commit max_input_addr;
-    max_input_addr = sel * (input_addr + 15); // We read 16 elements for inputs
+    max_input_addr = start * (input_addr + 15); // We read 16 elements for inputs
     #[CHECK_INPUT_ADDR_IN_RANGE]
-    sel { max_input_addr, max_mem_addr, sel_input_out_of_range_err }
+    start { max_input_addr, max_mem_addr, sel_input_out_of_range_err }
     in
     gt.sel { gt.input_a, gt.input_b, gt.res };
 
     pol commit max_dst_addr;
-    max_dst_addr = sel * (dst_addr + 7); // We write 8 elements for the output
+    max_dst_addr = start * (dst_addr + 7); // We write 8 elements for the output
     #[CHECK_DST_ADDR_IN_RANGE]
-    sel { max_dst_addr, max_mem_addr, sel_dst_out_of_range_err }
+    start { max_dst_addr, max_mem_addr, sel_dst_out_of_range_err }
     in
     gt.sel { gt.input_a, gt.input_b, gt.res };
 
@@ -116,12 +123,12 @@ namespace sha256;
 
     // Read if we did not have an out of range error
     pol commit sel_should_read_mem;
-    sel_should_read_mem = sel * (1 - MEM_OUT_OF_RANGE_ERR);
+    sel_should_read_mem = 1 - (1 - sel_mem_start_and_last) * (1 - sel_read_input_from_memory);
 
     // At the start/end of the sha256 computation, we activate read/write of the state memory columns
     // Start and last mutually exclusive
     pol commit sel_mem_start_and_last;
-    sel_mem_start_and_last = sel_should_read_mem * (start + latch);
+    sel_mem_start_and_last = sel * (1 - MEM_OUT_OF_RANGE_ERR) * (start + latch);
  
     pol commit u32_tag;
     u32_tag = sel_should_read_mem * constants.MEM_TAG_U32;
@@ -273,7 +280,7 @@ namespace sha256;
     pol commit input_rounds_rem_minus_one_inv;
     pol READ_INPUT_ROUNDS_MINUS_ONE = input_rounds_rem - 1;
     #[SEL_IS_INPUT_END]
-    sel_is_input_round * (READ_INPUT_ROUNDS_MINUS_ONE * (sel_is_input_round' * (1 - input_rounds_rem_minus_one_inv) + input_rounds_rem_minus_one_inv) - 1 + sel_is_input_round') = 0;
+    sel_is_input_round * (READ_INPUT_ROUNDS_MINUS_ONE * ((1 - sel_is_input_round') * (1 - input_rounds_rem_minus_one_inv) + input_rounds_rem_minus_one_inv) - 1 + (1 - sel_is_input_round')) = 0;
 
     // (3) Otherwise propagate sel_is_input_round value to the next row. Note that if sel_is_input_round = 0
     // then sel_is_input_round' = 0 based on this relation
@@ -281,7 +288,7 @@ namespace sha256;
     (1 - start') * (1 - sel_is_input_round) * sel_is_input_round' = 0;
 
     pol commit sel_read_input_from_memory; 
-    sel_read_input_from_memory = sel_should_read_mem * sel_is_input_round;
+    sel_read_input_from_memory = sel * (1 - MEM_OUT_OF_RANGE_ERR) * sel_is_input_round;
 
     // Put the result of the input loads
     pol commit input;
@@ -302,7 +309,7 @@ namespace sha256;
     ////////////////////////////////////////////////
     // Error Handling - Invalid Input Tag (not FF)
     ////////////////////////////////////////////////
-    pol commit sel_invalid_tag_err;
+    pol commit sel_invalid_row_tag_err;
     pol STATE_TAG_DIFF_0 = sel_mem_start_and_last * (memory_tag[0] - constants.MEM_TAG_U32);
     pol STATE_TAG_DIFF_1 = sel_mem_start_and_last * (memory_tag[1] - constants.MEM_TAG_U32);
     pol STATE_TAG_DIFF_2 = sel_mem_start_and_last * (memory_tag[2] - constants.MEM_TAG_U32);
@@ -322,7 +329,14 @@ namespace sha256;
     pol commit batch_tag_inv;
     // BATCHED_TAG_CHECK != 0, sel_invalid_tag_err = 1 
     #[BATCH_ZERO_CHECK]
-    BATCHED_TAG_CHECK * ((1 - sel_invalid_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_tag_err = 0;
+    BATCHED_TAG_CHECK * ((1 - sel_invalid_row_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_row_tag_err = 0;
+
+    pol commit sel_invalid_tag_err;
+    #[TAG_ERROR_INIT]
+    latch * (sel_invalid_tag_err - sel_invalid_row_tag_err) = 0;
+
+    #[TAG_ERROR_PROPAGATION]
+    (1 - latch) * (sel_invalid_row_tag_err - sel_invalid_row_tag_err') = 0;
 
     // Consolidated error flag
     pol commit err;

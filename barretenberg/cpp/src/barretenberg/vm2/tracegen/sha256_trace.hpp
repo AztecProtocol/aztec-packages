@@ -37,6 +37,7 @@ class Sha256TraceBuilder final {
     void compute_sha256_output(const std::array<uint32_t, 8>& out_state,
                                const std::array<uint32_t, 8>& init_state,
                                TraceContainer& trace);
+    void set_mem_cols(const simulation::Sha256CompressionEvent& event, TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen
