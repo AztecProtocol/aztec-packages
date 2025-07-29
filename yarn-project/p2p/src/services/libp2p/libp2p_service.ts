@@ -732,7 +732,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       {
         p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
         slot: attestation.slotNumber.toNumber(),
-        archive: attestation.archive.toString(),
+        headerHash: attestation.payload.header.hash().toString(),
         block: attestation.blockNumber,
         source: source.toString(),
       },
@@ -768,7 +768,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   @trackSpan('Libp2pService.processValidBlockProposal', async block => ({
     [Attributes.BLOCK_NUMBER]: block.blockNumber,
     [Attributes.SLOT_NUMBER]: block.slotNumber.toNumber(),
-    [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
+    [Attributes.BLOCK_HEADER_HASH]: block.payload.header.hash().toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
   }))
   private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
@@ -780,7 +780,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),
-        archive: block.archive.toString(),
+        headerHash: block.payload.header.hash().toString(),
         block: block.blockNumber,
         source: sender.toString(),
       },
@@ -804,7 +804,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           {
             p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
             slot: attestation.slotNumber.toNumber(),
-            archive: attestation.archive.toString(),
+            headerHash: attestation.payload.header.hash().toString(),
             block: attestation.blockNumber,
           },
         );
@@ -820,7 +820,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
     [Attributes.BLOCK_NUMBER]: attestation.blockNumber,
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
-    [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
+    [Attributes.BLOCK_HEADER_HASH]: attestation.payload.header.hash().toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
   }))
   private async broadcastAttestation(attestation: BlockAttestation) {

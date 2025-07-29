@@ -152,10 +152,10 @@ export class L2Block {
     };
   }
 
-  async toBlockInfo(): Promise<BlockInfo> {
+  toBlockInfo(): BlockInfo {
     return {
       archive: this.archive.root.toString(),
-      headerHash: (await this.header.hash()).toString(),
+      headerHash: this.header.toPropose().hash().toString(),
       blockNumber: this.number,
       slotNumber: Number(this.header.getSlot()),
       txCount: this.body.txEffects.length,

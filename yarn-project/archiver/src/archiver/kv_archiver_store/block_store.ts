@@ -166,6 +166,36 @@ export class BlockStore {
   }
 
   /**
+   * Updates an existing block with its archive root when it gets proven.
+   * @param blockNumber - The block number to update.
+   * @param archiveRoot - The proven archive root.
+   * @returns True if the operation is successful.
+   */
+  async updateBlockArchive(blockNumber: number, archiveRoot: Fr): Promise<boolean> {
+    return await this.db.transactionAsync(async () => {
+      const blockStorage = await this.#blocks.getAsync(blockNumber);
+      if (!blockStorage || !blockStorage.header) {
+        this.#log.warn(`Cannot update archive for block ${blockNumber} - block not found`);
+        return false;
+      }
+
+      // Create new archive snapshot with the proven archive root
+      const newArchive = new AppendOnlyTreeSnapshot(archiveRoot, blockNumber + 1);
+
+      // Update the block storage with the new archive
+      const updatedBlockStorage: BlockStorage = {
+        ...blockStorage,
+        archive: newArchive.toBuffer(),
+      };
+
+      await this.#blocks.set(blockNumber, updatedBlockStorage);
+
+      this.#log.debug(`Updated block ${blockNumber} with proven archive root ${archiveRoot.toString()}`);
+      return true;
+    });
+  }
+
+  /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param start - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.

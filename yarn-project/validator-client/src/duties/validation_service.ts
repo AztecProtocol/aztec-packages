@@ -30,7 +30,6 @@ export class ValidationService {
   async createBlockProposal(
     blockNumber: number,
     header: ProposedBlockHeader,
-    archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
     proposerAttesterAddress: EthAddress | undefined,
@@ -49,7 +48,6 @@ export class ValidationService {
 
     return BlockProposal.createProposalFromSigner(
       blockNumber,
-      archive,
       new ConsensusPayload(header, stateReference),
       txHashes,
       options.publishFullTxs ? txs : undefined,

@@ -350,6 +350,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
+    // Handle retroactive proof updates for existing blocks (always check, even if no new blocks)
+    await this.handleRetroactiveProofUpdates(blocksSynchedTo, currentL1BlockNumber);
+
     // After syncing has completed, update the current l1 block number and timestamp,
     // otherwise we risk announcing to the world that we've synced to a given point,
     // but the corresponding blocks have not been processed (see #12631).
@@ -884,6 +887,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       }
       lastRetrievedBlock = publishedBlocks.at(-1) ?? lastRetrievedBlock;
     } while (searchEndBlock < currentL1BlockNumber);
+
+    // Handle retroactive proof updates for existing blocks
+    await this.handleRetroactiveProofUpdates(blocksSynchedTo, currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
     await updateProvenBlock();
@@ -1458,6 +1464,49 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     return true; // Chain continuity verified
   }
+
+  /**
+   * Handles retroactive proof updates for blocks that were synced before they were proven.
+   * When blocks are initially synced without proofs, they get stored with archive.root = Fr.ZERO.
+   * Later when they get proven, we need to update the stored blocks with the real archive roots.
+   */
+  private async handleRetroactiveProofUpdates(blocksSynchedTo: bigint, currentL1BlockNumber: bigint): Promise<void> {
+    try {
+      // Get all proof events from the current L1 range
+      const provenBlocks = await retrieveL2ProofsFromRollup(
+        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+        this.publicClient,
+        blocksSynchedTo + 1n,
+        currentL1BlockNumber,
+      );
+
+      if (provenBlocks.retrievedData.length === 0) {
+        return;
+      }
+
+      this.log.debug(`Found ${provenBlocks.retrievedData.length} proof events, checking for retroactive updates`);
+
+      // Check each proven block to see if we need to update it
+      for (const provenBlock of provenBlocks.retrievedData) {
+        const existingBlock = await this.store.getPublishedBlock(provenBlock.l2BlockNumber);
+
+        if (existingBlock && existingBlock.block.archive.root.equals(Fr.ZERO)) {
+          // Block exists but has zero archive - update it with the proven archive
+          await this.store.updateBlockArchive(provenBlock.l2BlockNumber, provenBlock.archiveRoot);
+
+          this.log.info(
+            `Updated block ${provenBlock.l2BlockNumber} with proven archive root ${provenBlock.archiveRoot.toString()}`,
+            {
+              blockNumber: provenBlock.l2BlockNumber,
+              archiveRoot: provenBlock.archiveRoot.toString(),
+            },
+          );
+        }
+      }
+    } catch (error) {
+      this.log.warn(`Error handling retroactive proof updates`, { error });
+    }
+  }
 }
 
 enum Operation {
@@ -1791,5 +1840,9 @@ export class ArchiverStoreHelper
   }
   getLastL1ToL2Message(): Promise<InboxMessage | undefined> {
     return this.store.getLastL1ToL2Message();
+  }
+
+  updateBlockArchive(blockNumber: number, archiveRoot: Fr): Promise<boolean> {
+    return this.store.updateBlockArchive(blockNumber, archiveRoot);
   }
 }

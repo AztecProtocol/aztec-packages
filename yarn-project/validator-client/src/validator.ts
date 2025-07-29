@@ -56,7 +56,6 @@ export interface Validator {
   createBlockProposal(
     blockNumber: number,
     header: ProposedBlockHeader,
-    archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
@@ -424,13 +423,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
-
+    console.log('block.header.toPropose().hash()', block.header.toPropose().hash().toString());
+    console.log('proposal.payload.header.hash()', proposal.payload.header.hash().toString());
     // This function will throw an error if state updates do not match
-    if (!block.archive.root.equals(proposal.archive)) {
+    if (!block.header.toPropose().hash().equals(proposal.payload.header.hash())) {
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError(
-        proposal.archive,
-        block.archive.root,
+        proposal.payload.header.hash(),
+        block.header.toPropose().hash(),
         proposal.payload.stateReference,
         block.header.state,
       );
@@ -481,7 +481,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async createBlockProposal(
     blockNumber: number,
     header: ProposedBlockHeader,
-    archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
@@ -495,7 +494,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const newProposal = await this.validationService.createBlockProposal(
       blockNumber,
       header,
-      archive,
       stateReference,
       txs,
       proposerAddress,
@@ -521,7 +519,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       throw new AttestationTimeoutError(0, required, slot);
     }
 
-    const proposalId = proposal.archive.toString();
+    const proposalId = proposal.payload.header.hash().toString();
     // adds attestations for all of my addresses locally
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
     await this.doAttestToProposal(proposal, inCommittee);

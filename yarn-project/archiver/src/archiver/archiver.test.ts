@@ -622,7 +622,7 @@ describe('Archiver', () => {
       const index = Number(indexAndType?.[0]);
       const type = indexAndType?.[1];
       if (type === 'proof') {
-        return null;
+        throw new Error(`No proof transaction found: ${args.hash}`);
       } else {
         return Promise.resolve(rollupTxs[index - 1]);
       }
@@ -707,6 +707,125 @@ describe('Archiver', () => {
       [msg50, msg51].map(leaf => leaf.toString()),
     );
   });
+
+  it('handles retroactive proof updates for existing blocks', async () => {
+    const loggerSpy = jest.spyOn((archiver as any).log, 'info');
+
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const numL2BlocksInTest = 2;
+
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const submitProofTxs = await Promise.all(
+      blocks.map(b => {
+        const previousArchive =
+          b.header.getBlockNumber() <= 1
+            ? Fr.fromHexString(GENESIS_ROOT)
+            : blocks[b.header.getBlockNumber() - 2].archive.root;
+        return makeProofSubmissionTx(b, previousArchive, proverIds[b.header.getBlockNumber() - 1]);
+      }),
+    );
+    const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
+
+    // Phase 1: Sync blocks WITHOUT proofs (they'll get stored with Fr.ZERO archive roots)
+    mockL1BlockNumbers(100n, 200n);
+
+    makeL2BlockProposedEvent(
+      150n,
+      1n,
+      headerHashes[0].toString() as `0x${string}`,
+      GENESIS_HEADER_HASH as `0x${string}`,
+      blobHashes[0],
+    );
+    makeL2BlockProposedEvent(
+      160n,
+      2n,
+      headerHashes[1].toString() as `0x${string}`,
+      headerHashes[0].toString() as `0x${string}`,
+      blobHashes[1],
+    );
+
+    // No proof events yet - blocks will be stored with Fr.ZERO archive roots
+    mockRollup.read.status.mockResolvedValue([
+      0n,
+      GENESIS_ROOT,
+      2n,
+      headerHashes[1].toString(),
+      GENESIS_HEADER_HASH,
+      0n,
+    ]);
+
+    makeMessageSentEvent(140n, 1, 0n);
+    makeMessageSentEvent(145n, 1, 1n);
+    mockInbox.read.getState.mockResolvedValue(makeInboxStateFromMsgCount(2));
+
+    publicClient.getTransaction.mockImplementation(((args: { hash?: `0x${string}` }) => {
+      const indexAndType = args.hash?.split('-');
+      const index = Number(indexAndType?.[0]);
+      const type = indexAndType?.[1];
+      if (type === 'proof') {
+        // No proof transactions available yet
+        throw new Error(`No proof transaction found: ${args.hash}`);
+      } else {
+        return Promise.resolve(rollupTxs[index - 1]);
+      }
+    }) as any);
+
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
+    blobsFromBlocks.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+    await archiver.start(false);
+    await waitUntilArchiverBlock(numL2BlocksInTest);
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(numL2BlocksInTest);
+
+    // Verify blocks were stored with zero archive roots initially
+    const block1 = await archiver.getBlock(1);
+    const block2 = await archiver.getBlock(2);
+    expect(block1?.archive.root.equals(Fr.ZERO)).toBe(true);
+    expect(block2?.archive.root.equals(Fr.ZERO)).toBe(true);
+
+    // Phase 2: Now proof events come in for the existing blocks
+    mockL1BlockNumbers(250n);
+
+    // Add proof events for blocks that were already synced
+    makeL2ProofVerifiedEvent(220n, 1, proverIds[0]);
+    makeL2ProofVerifiedEvent(230n, 2, proverIds[1]);
+
+    // Mock proof transactions to be available now
+    publicClient.getTransaction.mockImplementation(((args: { hash?: `0x${string}` }) => {
+      const indexAndType = args.hash?.split('-');
+      const index = Number(indexAndType?.[0]);
+      const type = indexAndType?.[1];
+      if (type === 'proof') {
+        return Promise.resolve(submitProofTxs[index - 1]);
+      } else {
+        return Promise.resolve(rollupTxs[index - 1]);
+      }
+    }) as any);
+
+    // Trigger another sync to process the proof events
+    await archiver.syncImmediate();
+    await sleep(200); // Allow time for the sync to complete
+
+    // Verify blocks were updated with the correct archive roots
+    const updatedBlock1 = await archiver.getBlock(1);
+    const updatedBlock2 = await archiver.getBlock(2);
+    expect(updatedBlock1?.archive.root.equals(blocks[0].archive.root)).toBe(true);
+    expect(updatedBlock2?.archive.root.equals(blocks[1].archive.root)).toBe(true);
+
+    // Verify we got the log messages about updating the blocks
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/Updated block 1 with proven archive root/),
+      expect.any(Object),
+    );
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/Updated block 2 with proven archive root/),
+      expect.any(Object),
+    );
+  }, 10_000);
 
   it('reports an epoch as pending if the current L2 block is not in the last slot of the epoch', async () => {
     const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
@@ -878,7 +997,7 @@ describe('Archiver', () => {
   });
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/13604
-  it.only('handles a block gap due to a spurious L2 prune', async () => {
+  it('handles a block gap due to a spurious L2 prune', async () => {
     expect(await archiver.getBlockNumber()).toEqual(0);
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
