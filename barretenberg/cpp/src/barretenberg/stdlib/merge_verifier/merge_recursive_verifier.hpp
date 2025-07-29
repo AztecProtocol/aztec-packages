@@ -32,12 +32,17 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
 
+    struct InputCommitments {
+        TableCommitments t_commitments;
+        TableCommitments T_prev_commitments;
+    };
+
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
                                      const MergeSettings settings = MergeSettings::PREPEND,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments> verify_proof(
-        const stdlib::Proof<CircuitBuilder>& proof, const TableCommitments& t_commitments);
+        const stdlib::Proof<CircuitBuilder>& proof, const InputCommitments& input_commitments);
 };
 
 } // namespace bb::stdlib::recursion::goblin

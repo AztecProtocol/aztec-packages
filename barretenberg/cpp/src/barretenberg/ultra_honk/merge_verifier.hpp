@@ -34,12 +34,17 @@ class MergeVerifier {
     using Commitment = typename Curve::AffineElement;
     using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
 
+    struct InputCommitments {
+        TableCommitments t_commitments;
+        TableCommitments T_prev_commitments;
+    };
+
     std::shared_ptr<Transcript> transcript;
     MergeSettings settings;
 
     explicit MergeVerifier(const MergeSettings settings = MergeSettings::PREPEND,
                            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    std::pair<bool, TableCommitments> verify_proof(const HonkProof& proof, const TableCommitments& t_commitments);
+    std::pair<bool, TableCommitments> verify_proof(const HonkProof& proof, const InputCommitments& input_commitments);
 };
 
 } // namespace bb

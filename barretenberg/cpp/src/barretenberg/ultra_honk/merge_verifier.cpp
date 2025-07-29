@@ -61,7 +61,7 @@ MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr
  * read from the proof
  */
 std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_proof(
-    const HonkProof& proof, const TableCommitments& t_commitments)
+    const HonkProof& proof, const InputCommitments& input_commitments)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -76,8 +76,9 @@ std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
         auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
-        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
-        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+        auto left_table = settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx] : T_prev_commitment;
+        auto right_table =
+            settings == MergeSettings::PREPEND ? T_prev_commitment : input_commitments.t_commitments[idx];
 
         table_commitments.emplace_back(left_table);
         table_commitments.emplace_back(right_table);
