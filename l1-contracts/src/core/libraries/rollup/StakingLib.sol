@@ -353,6 +353,14 @@ library StakingLib {
     );
   }
 
+  function getAttesterFromIndexAtTime(uint256 _index, Timestamp _timestamp)
+    internal
+    view
+    returns (address)
+  {
+    return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, _timestamp);
+  }
+
   function getAttestersFromIndicesAtTime(Timestamp _timestamp, uint256[] memory _indices)
     internal
     view

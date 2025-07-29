@@ -8,18 +8,18 @@ pub unconstrained fn setup(
     with_account_contracts: bool,
 ) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
-    let env = TestEnvironment::new();
+    let mut env = TestEnvironment::new();
     let (owner, recipient) = if with_account_contracts {
-        let owner = env.create_account_contract(1);
-        let recipient = env.create_account_contract(2);
+        let owner = env.create_contract_account();
+        let recipient = env.create_contract_account();
         (owner, recipient)
     } else {
-        let owner = env.create_account(1);
-        let recipient = env.create_account(2);
+        let owner = env.create_light_account();
+        let recipient = env.create_light_account();
 
         // We are not deploying any account contracts and so we need to manually set the sender for tags. This is
         // usually done by account contract's entrypoint.
-        let sender = env.create_account(7097070);
+        let sender = env.create_light_account();
         set_sender_for_tags(sender);
 
         (owner, recipient)
@@ -32,9 +32,8 @@ pub unconstrained fn setup(
         "TT00000000000000000000000000000",
         18,
     );
-    let token_contract =
-        env.deploy_self("Token").with_public_initializer(owner, initializer_call_interface);
-    let token_contract_address = token_contract.to_address();
+    let token_contract_address =
+        env.deploy("Token").with_public_initializer(owner, initializer_call_interface);
     env.mine_block();
     (env, token_contract_address, owner, recipient)
 }
@@ -47,10 +46,7 @@ pub unconstrained fn setup_and_mint_to_public(
     let mint_amount = 10000 as u128;
 
     // Mint some tokens
-    let _ = env.call_public(
-        owner,
-        Token::at(token_contract_address).mint_to_public(owner, mint_amount),
-    );
+    env.call_public(owner, Token::at(token_contract_address).mint_to_public(owner, mint_amount));
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
@@ -63,10 +59,7 @@ pub unconstrained fn setup_and_mint_amount_to_private(
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
 
     // Mint some tokens
-    let _ = env.call_private(
-        owner,
-        Token::at(token_contract_address).mint_to_private(owner, mint_amount),
-    );
+    env.call_private(owner, Token::at(token_contract_address).mint_to_private(owner, mint_amount));
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }

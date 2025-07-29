@@ -37,7 +37,7 @@ import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
+import {SignatureLib, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -250,7 +250,7 @@ contract RollupTest is RollupBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash)
     );
-    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
   }
 
   function testExtraBlobs() public setUpFor("mixed_block_1") {
@@ -332,7 +332,7 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -360,7 +360,7 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -411,7 +411,7 @@ contract RollupTest is RollupBase {
     );
     proverFees *= 10; // the price conversion
 
-    uint256 expectedProverRewards = rewardDistributor.BLOCK_REWARD() / 2 * 2 + proverFees;
+    uint256 expectedProverRewards = rollup.getBlockReward() / 2 * 2 + proverFees;
 
     assertEq(
       rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
@@ -471,7 +471,9 @@ contract RollupTest is RollupBase {
         stateReference: EMPTY_STATE_REFERENCE,
         oracleInput: OracleInput(0)
       });
-      rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
+      rollup.propose(
+        args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments
+      );
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -534,9 +536,9 @@ contract RollupTest is RollupBase {
         );
       }
 
-      uint256 expectedProverReward = rewardDistributor.BLOCK_REWARD() / 2
+      uint256 expectedProverReward = rollup.getBlockReward() / 2
         + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
-      uint256 expectedSequencerReward = rewardDistributor.BLOCK_REWARD() / 2 + interim.feeAmount
+      uint256 expectedSequencerReward = rollup.getBlockReward() / 2 + interim.feeAmount
         - FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
 
       assertEq(
@@ -643,6 +645,7 @@ contract RollupTest is RollupBase {
         end: 2,
         args: args,
         fees: fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: data.batchedBlobInputs,
         proof: proof
       })
@@ -728,7 +731,7 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
   }
 
   function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
@@ -751,7 +754,7 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
+    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -861,6 +864,7 @@ contract RollupTest is RollupBase {
         end: _end,
         args: args,
         fees: fees,
+        attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: _blobInputs,
         proof: ""
       })

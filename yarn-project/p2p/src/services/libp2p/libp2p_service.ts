@@ -41,10 +41,9 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
+import { type Message, type PeerId, type PrivateKey, TopicValidatorResult } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
-import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
@@ -65,6 +64,7 @@ import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
@@ -173,6 +173,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
   }
 
+  public updateConfig(config: Partial<P2PReqRespConfig>) {
+    this.reqresp.updateConfig(config);
+  }
+
   /**
    * Creates an instance of the LibP2P service.
    * @param config - The configuration to use when creating the service.
@@ -182,7 +186,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public static async new<T extends P2PClientType>(
     clientType: T,
     config: P2PConfig,
-    peerId: PeerId,
+    privateKey: PrivateKey,
     deps: {
       mempools: MemPools<T>;
       l2BlockSource: L2BlockSource & ContractDataSource;
@@ -214,19 +218,16 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
     const peerDiscoveryService = new DiscV5Service(
-      peerId,
+      privateKey,
       config,
       packageVersion,
       telemetry,
       createLogger(`${logger.module}:discv5_service`),
     );
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
+    // Seed libp2p's bootstrap discovery with private and trusted peers
+    const bootstrapNodes = [...config.privatePeers, ...config.trustedPeers];
 
-    // If trusted peers are provided, also provide them to the p2p service
-    bootstrapNodes.push(...config.trustedPeers);
-
-    // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
     if (bootstrapNodes.length > 0) {
       peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
@@ -240,21 +241,19 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
 
     const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
-    const directPeers = (
-      await Promise.all(
-        preferredPeersEnrs.map(async enr => {
-          const peerId = await enr.peerId();
-          const address = enr.getLocationMultiaddr('tcp');
-          if (address === undefined) {
-            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
-          }
-          return {
-            id: peerId,
-            addrs: [address],
-          };
-        }),
-      )
-    ).filter(peer => peer !== undefined);
+    const directPeers = preferredPeersEnrs
+      .map(enr => {
+        const peerId = enr.peerId;
+        const address = enr.getLocationMultiaddr('tcp');
+        if (address === undefined) {
+          throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+        }
+        return {
+          id: peerId,
+          addrs: [address],
+        };
+      })
+      .filter(peer => peer !== undefined);
 
     if (directPeers.length > 0) {
       logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
@@ -262,7 +261,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const node = await createLibp2p({
       start: false,
-      peerId,
+      privateKey,
       addresses: {
         listen: [bindAddrTcp],
         announce: [], // announce is handled by the peer discovery service
@@ -291,15 +290,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       ],
       datastore,
       peerDiscovery,
-      streamMuxers: [yamux(), mplex()],
-      connectionEncryption: [noise()],
+      streamMuxers: [yamux()],
+      connectionEncrypters: [noise()],
       connectionManager: {
-        minConnections: 0,
         maxConnections: maxPeerCount,
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
         maxIncomingPendingConnections: 5,
+      },
+      connectionMonitor: {
+        protocolPrefix: 'aztec',
       },
       services: {
         identify: identify({
@@ -414,7 +415,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
 
-    await this.peerManager.initializePeers();
+    this.peerManager.initializePeers();
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
     }

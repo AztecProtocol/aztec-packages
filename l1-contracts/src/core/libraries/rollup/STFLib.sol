@@ -70,20 +70,29 @@ library STFLib {
         blockLog.blobCommitmentsHash = bytes32(uint256(0x1));
       }
 
+      if (blockLog.attestationsHash == bytes32(0)) {
+        blockLog.attestationsHash = bytes32(uint256(0x1));
+      }
+
+      if (blockLog.payloadDigest == bytes32(0)) {
+        blockLog.payloadDigest = bytes32(uint256(0x1));
+      }
+
       store.tempBlockLogs[i] = blockLog.compress();
     }
   }
 
   function prune() internal {
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pending = rollupStore.tips.getPendingBlockNumber();
+    CompressedChainTips tips = rollupStore.tips;
+    uint256 pending = tips.getPendingBlockNumber();
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
     //        We can do because any new block proposed will overwrite a previous block in the block log,
     //        so no values should "survive".
     //        People must therefore read the chain using the pendingTip as a boundary.
-    uint256 proven = rollupStore.tips.getProvenBlockNumber();
-    rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(proven);
+    uint256 proven = tips.getProvenBlockNumber();
+    rollupStore.tips = tips.updatePendingBlockNumber(proven);
 
     emit IRollupCore.PrunedPending(proven, pending);
   }
@@ -121,6 +130,15 @@ library STFLib {
     return getStorage().tempBlockLogs[_blockNumber % size].decompress();
   }
 
+  function getStorageTempBlockLog(uint256 _blockNumber)
+    internal
+    view
+    returns (CompressedTempBlockLog storage)
+  {
+    (, uint256 size) = innerIsStale(_blockNumber, true);
+    return getStorage().tempBlockLogs[_blockNumber % size];
+  }
+
   function getHeaderHash(uint256 _blockNumber) internal view returns (bytes32) {
     (, uint256 size) = innerIsStale(_blockNumber, true);
     return getStorage().tempBlockLogs[_blockNumber % size].headerHash;
@@ -143,9 +161,9 @@ library STFLib {
 
   function getEffectivePendingBlockNumber(Timestamp _timestamp) internal view returns (uint256) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return STFLib.canPruneAtTime(_timestamp)
-      ? rollupStore.tips.getProvenBlockNumber()
-      : rollupStore.tips.getPendingBlockNumber();
+    CompressedChainTips tips = rollupStore.tips;
+    return
+      STFLib.canPruneAtTime(_timestamp) ? tips.getProvenBlockNumber() : tips.getPendingBlockNumber();
   }
 
   function getEpochForBlock(uint256 _blockNumber) internal view returns (Epoch) {
@@ -159,11 +177,14 @@ library STFLib {
 
   function canPruneAtTime(Timestamp _ts) internal view returns (bool) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    if (rollupStore.tips.getPendingBlockNumber() == rollupStore.tips.getProvenBlockNumber()) {
+
+    CompressedChainTips tips = rollupStore.tips;
+
+    if (tips.getPendingBlockNumber() == tips.getProvenBlockNumber()) {
       return false;
     }
 
-    Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.getProvenBlockNumber() + 1);
+    Epoch oldestPendingEpoch = getEpochForBlock(tips.getProvenBlockNumber() + 1);
     Epoch currentEpoch = _ts.epochFromTimestamp();
 
     return !oldestPendingEpoch.isAcceptingProofsAtEpoch(currentEpoch);

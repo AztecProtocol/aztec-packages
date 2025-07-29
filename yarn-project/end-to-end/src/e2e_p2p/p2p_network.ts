@@ -5,17 +5,18 @@ import { type AccountWalletWithSecretKey, EthAddress } from '@aztec/aztec.js';
 import {
   type ExtendedViemWalletClient,
   L1TxUtils,
+  MultiAdderArtifact,
   type Operator,
   RollupContract,
   type ViemClient,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { privateKeyFromHex } from '@aztec/p2p';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -154,7 +155,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const bootstrapNodeENR = await getBootstrapNodeEnr(BOOTSTRAP_NODE_PRIVATE_KEY, port);
+    const bootstrapNodeENR = getBootstrapNodeEnr(privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY), port);
     const bootstrapNodeEnr = bootstrapNodeENR.encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig(
@@ -186,7 +187,7 @@ export class P2PNetworkTest {
     await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
       const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
       this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
-        BOOTSTRAP_NODE_PRIVATE_KEY,
+        privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY),
         this.bootNodePort,
         telemetry,
         aztecNodeConfig,
@@ -234,14 +235,14 @@ export class P2PNetworkTest {
 
         const { address: multiAdderAddress } = await deployL1Contract(
           deployL1ContractsValues.l1Client,
-          l1Artifacts.multiAdder.contractAbi,
-          l1Artifacts.multiAdder.contractBytecode,
+          MultiAdderArtifact.contractAbi,
+          MultiAdderArtifact.contractBytecode,
           [rollup.address, deployL1ContractsValues.l1Client.account.address],
         );
 
         const multiAdder = getContract({
           address: multiAdderAddress.toString(),
-          abi: l1Artifacts.multiAdder.contractAbi,
+          abi: MultiAdderArtifact.contractAbi,
           client: deployL1ContractsValues.l1Client,
         });
 

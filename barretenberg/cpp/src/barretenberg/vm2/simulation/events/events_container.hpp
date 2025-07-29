@@ -56,6 +56,7 @@ struct EventsContainer {
     EventEmitterInterface<Poseidon2PermutationMemoryEvent>::Container poseidon2_permutation_mem;
     EventEmitterInterface<KeccakF1600Event>::Container keccakf1600;
     EventEmitterInterface<ToRadixEvent>::Container to_radix;
+    EventEmitterInterface<ToRadixMemoryEvent>::Container to_radix_memory;
     EventEmitterInterface<FieldGreaterThanEvent>::Container field_gt;
     EventEmitterInterface<GreaterThanEvent>::Container gt_events;
     EventEmitterInterface<MerkleCheckEvent>::Container merkle_check;
