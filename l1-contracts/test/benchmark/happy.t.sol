@@ -432,6 +432,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         } else {
           CommitteeAttestations memory attestations = SignatureLib.packAttestations(b.attestations);
 
+          // Emit calldata size for propose
+          bytes memory proposeCalldata =
+            abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs));
+          emit log_named_uint("propose_calldata_size", proposeCalldata.length);
+
           vm.prank(proposer);
           rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
         }
@@ -472,17 +477,21 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         });
 
         {
-          rollup.submitEpochRootProof(
-            SubmitEpochRootProofArgs({
-              start: start,
-              end: start + epochSize - 1,
-              args: args,
-              fees: fees,
-              attestations: blockAttestations[start + epochSize - 1],
-              blobInputs: full.block.batchedBlobInputs,
-              proof: ""
-            })
-          );
+          SubmitEpochRootProofArgs memory submitArgs = SubmitEpochRootProofArgs({
+            start: start,
+            end: start + epochSize - 1,
+            args: args,
+            fees: fees,
+            attestations: blockAttestations[start + epochSize - 1],
+            blobInputs: full.block.batchedBlobInputs,
+            proof: ""
+          });
+
+          // Emit calldata size for submitEpochRootProof
+          bytes memory submitCalldata = abi.encodeCall(rollup.submitEpochRootProof, (submitArgs));
+          emit log_named_uint("submitEpochRootProof_calldata_size", submitCalldata.length);
+
+          rollup.submitEpochRootProof(submitArgs);
         }
       }
     }
