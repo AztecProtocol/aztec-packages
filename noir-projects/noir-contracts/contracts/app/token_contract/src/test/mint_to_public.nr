@@ -14,7 +14,7 @@ unconstrained fn mint_to_public_success() {
     assert(total_supply == mint_amount);
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "caller is not minter")]
 unconstrained fn mint_as_non_minter() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, recipient) =

@@ -67,7 +67,7 @@ unconstrained fn public_transfer_on_behalf_of_other() {
     utils::check_public_balance(env, token_contract_address, recipient, transfer_amount);
 }
 
-#[test(should_fail)] // should_fail_with = "Assertion failed: attempt to subtract with overflow"
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn public_transfer_failure_more_than_balance() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) =
@@ -80,7 +80,7 @@ unconstrained fn public_transfer_failure_more_than_balance() {
     env.call_public(owner, public_transfer_call_interface);
 }
 
-#[test(should_fail)] // should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero"
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) =
@@ -94,7 +94,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     env.call_public(owner, public_transfer_call_interface);
 }
 
-#[test(should_fail)] // should_fail_with = "unauthorized"
+#[test(should_fail_with = "unauthorized")]
 unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, mint_amount) =
@@ -107,7 +107,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
     env.call_public(recipient, public_transfer_in_private_call_interface);
 }
 
-#[test(should_fail)] // should_fail_with = "Assertion failed: attempt to subtract with overflow"
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, mint_amount) =
@@ -128,7 +128,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
     env.call_public(recipient, public_transfer_in_private_call_interface);
 }
 
-#[test(should_fail)] // should_fail_with = "unauthorized"
+#[test(should_fail_with = "unauthorized")]
 unconstrained fn public_transfer_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, mint_amount) =

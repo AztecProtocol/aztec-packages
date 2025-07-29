@@ -311,7 +311,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
+  const [decodedArgs, packedAttestations, _signers, _blobInput] = rollupArgs! as readonly [
     {
       archive: Hex;
       stateReference: ViemStateReference;
@@ -322,8 +322,22 @@ async function getBlockFromRollupTx(
       txHashes: readonly Hex[];
     },
     ViemCommitteeAttestations,
+    Hex[],
     Hex,
   ];
+
+  const attestations = CommitteeAttestation.fromPacked(packedAttestations, targetCommitteeSize);
+
+  logger.trace(`Recovered propose calldata from tx ${txHash}`, {
+    l2BlockNumber,
+    archive: decodedArgs.archive,
+    stateReference: decodedArgs.stateReference,
+    header: decodedArgs.header,
+    blobHashes,
+    attestations,
+    packedAttestations,
+    targetCommitteeSize,
+  });
 
   // TODO(md): why is the proposed block header different to the actual block header?
   // This is likely going to be a footgun
@@ -358,7 +372,7 @@ async function getBlockFromRollupTx(
     stateReference,
     header,
     body,
-    attestations: CommitteeAttestation.fromPacked(attestations, targetCommitteeSize),
+    attestations,
   };
 }
 

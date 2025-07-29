@@ -58,7 +58,7 @@ mod tests {
         assert_eq(env.call_public(contract_address, test_contract.read_value()), x);
     }
 
-    #[test(should_fail)] // should_fail_with = "Trying to read from uninitialized PublicImmutable"
+    #[test(should_fail_with = "Trying to read from uninitialized PublicImmutable")]
     unconstrained fn reading_uninitialized_immutable_fails() {
         let (env, contract_address) = setup();
 

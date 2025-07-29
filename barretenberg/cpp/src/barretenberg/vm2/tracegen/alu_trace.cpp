@@ -31,6 +31,10 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  // I think the only situation in which a + b != c as fields is when c overflows the bit size
                  // if this in unclear, I can use > or actually check bit sizes:
                  { Column::alu_cf, event.a.as_ff() + event.b.as_ff() != event.c.as_ff() } };
+    case simulation::AluOperation::SUB:
+        return { { Column::alu_sel_op_sub, 1 },
+                 { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SUB).subtrace_operation_id },
+                 { Column::alu_cf, event.a.as_ff() - event.b.as_ff() != event.c.as_ff() } };
     case simulation::AluOperation::MUL: {
         bool is_u128 = event.a.get_tag() == ValueTag::U128;
         uint256_t a_int = static_cast<uint256_t>(event.a.as_ff());

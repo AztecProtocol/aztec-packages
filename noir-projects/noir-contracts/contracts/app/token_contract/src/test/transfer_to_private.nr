@@ -71,7 +71,7 @@ unconstrained fn transfer_to_private_from_private_external_orchestration() {
     utils::check_private_balance(env, token_contract_address, owner, 0);
 }
 
-#[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, amount) =
@@ -90,7 +90,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Assertion failed: attempt to subtract with overflow"
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, not_owner, amount) =
@@ -111,7 +111,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Invalid partial note or completer"
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn incorrect_completer_cannot_complete_partial_note() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     let (mut env, token_contract_address, owner, recipient, amount) =
