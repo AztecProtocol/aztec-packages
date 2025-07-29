@@ -1,21 +1,28 @@
-import { timesAsync } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { map, sort, toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
-import { BlockHeader, GlobalVariables, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import {
+  MerkleTreeId,
+  NullifierLeaf,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { ArchiveCache, GasTxValidator } from '../../msg_validators/index.js';
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
 import { describeTxPool } from './tx_pool_test_suite.js';
 
 describe('KV TX pool', () => {
-  let txPool: TestAztecKVTxPool;
+  let txPool: AztecKVTxPool;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
   let nextTxSeed: number;
@@ -41,12 +48,24 @@ describe('KV TX pool', () => {
     worldState = worldState = mock<WorldStateSynchronizer>();
     db = mock<MerkleTreeReadOperations>();
     worldState.getCommitted.mockReturnValue(db);
+    worldState.getSnapshot.mockReturnValue(db);
 
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
-    txPool.mockGasTxValidator.validateTxFee.mockImplementation(() =>
-      Promise.resolve({ result: 'valid' } as TxValidationResult),
-    );
-    txPool.mockArchiveCache.getArchiveIndices.mockImplementation(() => Promise.resolve([BigInt(1)]));
+    db.findLeafIndices.mockImplementation((tree, leaves) => {
+      return Promise.resolve(times(leaves.length, () => 1n));
+    });
+
+    db.getPreviousValueIndex.mockImplementation((tree, slot) => {
+      return Promise.resolve({ index: slot, alreadyPresent: true });
+    });
+    db.getLeafPreimage.mockImplementation((tree, index) => {
+      return Promise.resolve(
+        tree === MerkleTreeId.NULLIFIER_TREE
+          ? new NullifierLeafPreimage(new NullifierLeaf(new Fr(index)), Fr.ONE, 1n)
+          : new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(new Fr(index), new Fr(1e18)), Fr.ONE, 1n),
+      );
+    });
+
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
   });
 
   afterEach(checkPendingTxConsistency);
@@ -61,7 +80,7 @@ describe('KV TX pool', () => {
 
   it('Returns archived txs and purges archived txs once the archived tx limit is reached', async () => {
     // set the archived tx limit to 2
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       archivedTxLimit: 2,
     });
 
@@ -93,7 +112,7 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts low priority txs to satisfy the pending tx size limit', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       maxTxPoolSize: 15000,
     });
 
@@ -139,7 +158,7 @@ describe('KV TX pool', () => {
   });
 
   it('respects the overflow factor configured', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
       txPoolOverflowFactor: 1.5, // but allow it to grow up to 15, but then when it evicts, it evicts until it's left to 10
     });
@@ -195,7 +214,7 @@ describe('KV TX pool', () => {
   });
 
   it('evicts based on the updated size limit', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
     });
 
@@ -273,10 +292,17 @@ describe('KV TX pool', () => {
 
     // modify tx1 to have the same fee payer as the mined tx and an insufficient fee payer balance
     tx1.data.feePayer = tx4.data.feePayer;
-    txPool.mockGasTxValidator.validateTxFee.mockImplementation((tx: Tx) => {
-      return Promise.resolve({
-        result: tx.getTxHash().equals(tx1.getTxHash()) ? 'invalid' : 'valid',
-      } as TxValidationResult);
+    const prev = db.getLeafPreimage.getMockImplementation()!;
+    const expectedSlot = await computeFeePayerBalanceLeafSlot(tx1.data.feePayer);
+    db.getLeafPreimage.mockImplementation((tree, index) => {
+      if (index === expectedSlot.toBigInt() && tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+        return Promise.resolve(
+          // this feePayer has a balance of 0 now
+          new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(tx1.data.feePayer.toField(), Fr.ZERO), Fr.ONE, 1n),
+        );
+      } else {
+        return prev(tree, index);
+      }
     });
 
     await txPool.addTxs([tx1, tx2, tx3, tx4]);
@@ -308,17 +334,17 @@ describe('KV TX pool', () => {
     // modify tx1 to return no archive indices
     tx1.data.constants.historicalHeader.globalVariables.blockNumber = 1;
     const tx1HeaderHash = await tx1.data.constants.historicalHeader.hash();
-    txPool.mockArchiveCache.getArchiveIndices.mockImplementation((archives: Fr[]) => {
-      if (archives[0].equals(tx1HeaderHash)) {
-        return Promise.resolve([]);
+    db.findLeafIndices.mockImplementation((tree, leaves) => {
+      if (tree === MerkleTreeId.ARCHIVE) {
+        return Promise.resolve((leaves as Fr[]).map(l => (l.equals(tx1HeaderHash) ? undefined : 1n)));
       }
-      return Promise.resolve([BigInt(1)]);
+      return Promise.resolve([]);
     });
 
     await txPool.addTxs([tx1, tx2, tx3]);
     const txHashes = [tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()];
     await txPool.markAsMined(txHashes, block1Header);
-    await txPool.markMinedAsPending(txHashes);
+    await txPool.markMinedAsPending(tx2.data.constants.historicalHeader, txHashes);
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([tx2.getTxHash(), tx3.getTxHash()]));
@@ -334,13 +360,20 @@ describe('KV TX pool', () => {
     await txPool.markAsMined([tx2.getTxHash()], block1Header);
     await checkPendingTxConsistency();
 
-    // modify tx1 to have an insufficient fee payer balance after the reorg
-    txPool.mockGasTxValidator.validateTxFee.mockImplementation((tx: Tx) => {
-      return Promise.resolve({
-        result: tx.getTxHash().equals(tx1.getTxHash()) ? 'invalid' : 'valid',
-      } as TxValidationResult);
+    const prev = db.getLeafPreimage.getMockImplementation()!;
+    const expectedSlot = await computeFeePayerBalanceLeafSlot(tx1.data.feePayer);
+    db.getLeafPreimage.mockImplementation((tree, index) => {
+      if (index === expectedSlot.toBigInt() && tree === MerkleTreeId.PUBLIC_DATA_TREE) {
+        return Promise.resolve(
+          // this feePayer has a balance of 0 now
+          new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(tx1.data.feePayer.toField(), Fr.ZERO), Fr.ONE, 1n),
+        );
+      } else {
+        return prev(tree, index);
+      }
     });
-    await txPool.markMinedAsPending([tx2.getTxHash()]);
+
+    await txPool.markMinedAsPending(BlockHeader.empty(), [tx2.getTxHash()]);
     await checkPendingTxConsistency();
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
@@ -348,7 +381,7 @@ describe('KV TX pool', () => {
     expect(pendingTxHashes).toHaveLength(2);
   });
   it('Does not evict low priority txs marked as non-evictable', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       maxTxPoolSize: 15000,
     });
 
@@ -369,7 +402,7 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts low priority txs after block is mined', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       maxTxPoolSize: 15000,
     });
 
@@ -401,16 +434,3 @@ describe('KV TX pool', () => {
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx6.getTxHash(), tx5.getTxHash(), tx4.getTxHash()]);
   });
 });
-
-class TestAztecKVTxPool extends AztecKVTxPool {
-  public mockGasTxValidator: MockProxy<GasTxValidator> = mock<GasTxValidator>();
-  public mockArchiveCache: MockProxy<ArchiveCache> = mock<ArchiveCache>();
-
-  protected override createGasTxValidator(_db: MerkleTreeReadOperations): GasTxValidator {
-    return this.mockGasTxValidator;
-  }
-
-  protected override createArchiveCache(_db: MerkleTreeReadOperations): ArchiveCache {
-    return this.mockArchiveCache;
-  }
-}

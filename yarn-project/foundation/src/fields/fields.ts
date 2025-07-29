@@ -139,6 +139,10 @@ abstract class BaseField {
     return lhsBigInt === rhsBigInt ? 0 : lhsBigInt < rhsBigInt ? -1 : 1;
   }
 
+  static cmp(lhs: BaseField, rhs: BaseField): -1 | 0 | 1 {
+    return lhs.cmp(rhs);
+  }
+
   isZero(): boolean {
     return this.toBuffer().equals(ZERO_BUFFER);
   }

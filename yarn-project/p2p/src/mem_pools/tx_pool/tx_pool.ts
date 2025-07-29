@@ -62,7 +62,7 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * Note: txs not known by this peer will be ignored.
    * @param txHashes - Hashes of the txs to flag as pending.
    */
-  markMinedAsPending(txHashes: TxHash[]): Promise<void>;
+  markMinedAsPending(block: BlockHeader, txHashes: TxHash[]): Promise<void>;
 
   /**
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.

@@ -821,7 +821,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    await this.txPool.markMinedAsPending(txsToMoveToPending);
+    const blockHeader = await this.l2BlockSource.getBlockHeader(latestBlock);
+    if (!blockHeader) {
+      throw new Error(`Block header for ${latestBlock} not found`);
+    }
+    await this.txPool.markMinedAsPending(blockHeader, txsToMoveToPending);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added
