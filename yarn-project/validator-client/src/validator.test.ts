@@ -300,7 +300,7 @@ describe('ValidatorClient', () => {
       // We "remember" that we want to slash this person, up to the max penalty...
       await expect(
         validatorClient.shouldSlash({
-          validator: proposer,
+          validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
           amount: config.slashInvalidBlockMaxPenalty,
           offense: Offense.INVALID_BLOCK,
         }),
@@ -309,7 +309,7 @@ describe('ValidatorClient', () => {
       // ...but no more than that
       await expect(
         validatorClient.shouldSlash({
-          validator: proposer,
+          validator: EthAddress.fromString(proposer.toString()),
           amount: config.slashInvalidBlockMaxPenalty + 1n,
           offense: Offense.INVALID_BLOCK,
         }),

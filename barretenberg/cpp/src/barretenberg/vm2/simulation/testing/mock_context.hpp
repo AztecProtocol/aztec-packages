@@ -65,6 +65,8 @@ class MockContext : public ContextInterface {
 
     MOCK_METHOD(Gas, gas_left, (), (const, override));
 
+    MOCK_METHOD(uint32_t, get_checkpoint_id_at_creation, (), (const, override));
+
     // Event Emitting
     MOCK_METHOD(ContextEvent, serialize_context_event, (), (override));
 };
