@@ -66,11 +66,11 @@ export enum SignalType {
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
 const Actions = [
-  'invalidate-by-invalid-attestation',
-  'invalidate-by-insufficient-attestations',
   'propose',
   'governance-signal',
   'slashing-signal',
+  'invalidate-by-invalid-attestation',
+  'invalidate-by-insufficient-attestations',
 ] as const;
 export type Action = (typeof Actions)[number];
 
@@ -382,7 +382,7 @@ export class SequencerPublisher {
       return undefined;
     }
 
-    const request = this.getInvalidateBlockRequest(validationResult);
+    const request = this.buildInvalidateBlockRequest(validationResult);
     const { reason, block } = validationResult;
     const blockNumber = block.block.number;
     const logData = { ...block.block.toBlockInfo(), reason };
@@ -425,7 +425,7 @@ export class SequencerPublisher {
     }
   }
 
-  private getInvalidateBlockRequest(validationResult: ValidateBlockResult) {
+  private buildInvalidateBlockRequest(validationResult: ValidateBlockResult) {
     if (validationResult.valid) {
       throw new Error('Cannot invalidate a valid block');
     }
@@ -435,14 +435,14 @@ export class SequencerPublisher {
     this.log.debug(`Simulating invalidate block ${block.block.number}`, logData);
 
     if (reason === 'invalid-attestation') {
-      return this.rollupContract.getInvalidateBadAttestationRequest(
+      return this.rollupContract.buildInvalidateBadAttestationRequest(
         block.block.number,
         block.attestations.map(a => a.toViem()),
         committee,
         validationResult.invalidIndex,
       );
     } else if (reason === 'insufficient-attestations') {
-      return this.rollupContract.getInvalidateInsufficientAttestationsRequest(
+      return this.rollupContract.buildInvalidateInsufficientAttestationsRequest(
         block.block.number,
         block.attestations.map(a => a.toViem()),
         committee,
@@ -678,6 +678,7 @@ export class SequencerPublisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       const attestationData = { digest: digest.toBuffer(), attestations: attestations ?? [] };
+      // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
       ts = await this.validateBlockForSubmission(block, attestationData, opts);
     } catch (err: any) {
       this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
@@ -832,7 +833,7 @@ export class SequencerPublisher {
 
     // override the pending block number if requested
     const forcePendingBlockNumberStateDiff = (
-      options.forcePendingBlockNumber
+      options.forcePendingBlockNumber !== undefined
         ? await this.rollupContract.makePendingBlockNumberOverride(options.forcePendingBlockNumber)
         : []
     ).flatMap(override => override.stateDiff ?? []);
@@ -942,7 +943,7 @@ export class SequencerPublisher {
           return true;
         } else {
           this.metrics.recordFailedTx('process');
-          this.log.error(`Rollup process tx failed. ${errorMsg ?? 'No error message'}`, undefined, {
+          this.log.error(`Rollup process tx failed: ${errorMsg ?? 'no error message'}`, undefined, {
             ...block.getStats(),
             receipt,
             txHash: receipt.transactionHash,

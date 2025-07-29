@@ -563,7 +563,7 @@ export class RollupContract {
   }
 
   /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
-  public getInvalidateBadAttestationRequest(
+  public buildInvalidateBadAttestationRequest(
     blockNumber: number,
     attestations: ViemCommitteeAttestation[],
     committee: EthAddress[],
@@ -585,7 +585,7 @@ export class RollupContract {
   }
 
   /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
-  public getInvalidateInsufficientAttestationsRequest(
+  public buildInvalidateInsufficientAttestationsRequest(
     blockNumber: number,
     attestations: ViemCommitteeAttestation[],
     committee: EthAddress[],

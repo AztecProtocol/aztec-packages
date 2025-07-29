@@ -1,4 +1,4 @@
-import type { ArchiveSource } from '@aztec/archiver';
+import type { ArchiveSource, L1PublishedData } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
@@ -6,6 +6,7 @@ import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  type DeployL1ContractsArgs,
   type ExtendedViemWalletClient,
   GovernanceProposerContract,
   type L1ContractAddresses,
@@ -15,11 +16,12 @@ import {
   createExtendedL1Client,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
-import { timesParallel } from '@aztec/foundation/collection';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto';
+import { SHA256Trunc, Secp256k1Signer, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -31,9 +33,10 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
 import { SequencerPublisher, SignalType } from '@aztec/sequencer-client';
-import type { L2Tips } from '@aztec/stdlib/block';
+import { type CommitteeAttestation, type L2Tips, PublishedL2Block } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
-import { fr, makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import { orderAttestations } from '@aztec/stdlib/p2p';
+import { fr, makeBloatedProcessedTx, makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
@@ -44,7 +47,6 @@ import {
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
-import { writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type Address,
@@ -60,6 +62,11 @@ import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { setupL1Contracts } from '../fixtures/utils.js';
+import { writeJson } from './write_json.js';
+
+// To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
+// If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
+// If running ANVIL locally, you can use ETHEREUM_HOSTS="http://0.0.0.0:8545"
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -101,40 +108,44 @@ describe('L1Publisher integration', () => {
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
   let version: number;
+  let validators: Secp256k1Signer[];
+  let committee: EthAddress[] | undefined;
+  let proposer: EthAddress | undefined;
 
+  let dateProvider: TestDateProvider;
   let ethCheatCodes: EthCheatCodesWithState;
+  let rollupCheatCodes: RollupCheatCodes;
   let worldStateSynchronizer: ServerWorldStateSynchronizer;
+  let epochCache: EpochCache;
 
   let rpcUrl: string;
   let anvil: Anvil;
-
-  // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
-  // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
-  // If running ANVIL locally, you can use ETHEREUM_HOSTS="http://0.0.0.0:8545"
-  const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
   const progressTimeBySlot = async (slotsToJump = 1n) => {
     const currentTime = (await l1Client.getBlock()).timestamp;
     const currentSlot = await rollup.getSlotNumber();
     const timestamp = await rollup.getTimestampForSlot(currentSlot + slotsToJump);
     if (timestamp > currentTime) {
-      await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
+      await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true, updateDateProvider: dateProvider });
     }
   };
 
-  beforeEach(async () => {
+  const setup = async (deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {}) => {
     ({ rpcUrl, anvil } = await startAnvil());
     config.l1RpcUrls = [rpcUrl];
 
     deployerAccount = privateKeyToAccount(deployerPK);
     ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
       aztecTargetCommitteeSize: 0,
+      ...deployL1ContractsArgs,
     }));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
+
+    rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
 
     // Set up contract instances
     rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
@@ -143,6 +154,8 @@ describe('L1Publisher integration', () => {
       abi: OutboxAbi,
       client: l1Client,
     });
+
+    dateProvider = new TestDateProvider();
 
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
@@ -187,7 +200,6 @@ describe('L1Publisher integration', () => {
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
-    const dateProvider = new TestDateProvider();
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
     const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, dateProvider, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
@@ -200,7 +212,7 @@ describe('L1Publisher integration', () => {
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
-    const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
+    epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
     const blobSinkClient = createBlobSinkClient();
 
     publisher = new SequencerPublisher(
@@ -238,9 +250,12 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
-    const timeToJump = (await rollup.getEpochDuration()) * 2n;
-    await progressTimeBySlot(timeToJump);
-  });
+    await rollupCheatCodes.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+    await rollupCheatCodes.setupEpoch();
+
+    ({ committee } = await epochCache.getCommittee());
+    ({ currentProposer: proposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot());
+  };
 
   afterEach(async () => {
     await anvil.stop();
@@ -263,82 +278,41 @@ describe('L1Publisher integration', () => {
       ({ msgHash }) => msgHash,
     );
 
-  /**
-   * Creates a json object that can be used to test the solidity contract.
-   * The json object must be put into
-   */
-  const writeJson = async (
-    fileName: string,
-    block: L2Block,
-    l1ToL2Content: Fr[],
-    blobs: Blob[],
-    batchedBlob: BatchedBlob,
-    recipientAddress: AztecAddress,
-    deployerAddress: `0x${string}`,
-  ): Promise<void> => {
-    if (!AZTEC_GENERATE_TEST_DATA) {
-      return;
-    }
-    // Path relative to the package.json in the end-to-end folder
-    const path = `../../l1-contracts/test/fixtures/${fileName}.json`;
-
-    const asHex = (value: Fr | Buffer | EthAddress | AztecAddress, size = 64) => {
-      const buffer = Buffer.isBuffer(value) ? value : value.toBuffer();
-      return `0x${buffer.toString('hex').padStart(size, '0')}`;
-    };
-
-    const jsonObject = {
-      populate: {
-        l1ToL2Content: l1ToL2Content.map(asHex),
-        recipient: asHex(recipientAddress.toField()),
-        sender: deployerAddress,
-      },
-      messages: {
-        l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs).map(asHex),
-      },
-      block: {
-        // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
-        // This should not be a problem for testing as long as the values are not larger than u32.
-        archive: asHex(block.archive.root),
-        blobCommitments: Blob.getPrefixedEthBlobCommitments(blobs),
-        batchedBlobInputs: batchedBlob.getEthBlobEvaluationInputs(),
-        blockNumber: block.number,
-        body: `0x${block.body.toBuffer().toString('hex')}`,
-        header: {
-          lastArchiveRoot: asHex(block.header.lastArchive.root),
-          contentCommitment: {
-            blobsHash: asHex(block.header.contentCommitment.blobsHash),
-            inHash: asHex(block.header.contentCommitment.inHash),
-            outHash: asHex(block.header.contentCommitment.outHash),
-          },
-          slotNumber: Number(block.header.globalVariables.slotNumber),
-          timestamp: Number(block.header.globalVariables.timestamp),
-          coinbase: asHex(block.header.globalVariables.coinbase, 40),
-          feeRecipient: asHex(block.header.globalVariables.feeRecipient),
-          gasFees: {
-            feePerDaGas: Number(block.header.globalVariables.gasFees.feePerDaGas),
-            feePerL2Gas: Number(block.header.globalVariables.gasFees.feePerL2Gas),
-          },
-          totalManaUsed: block.header.totalManaUsed.toNumber(),
-        },
-        headerHash: asHex(block.header.toPropose().hash()),
-        numTxs: block.body.txEffects.length,
-      },
-    };
-
-    const output = JSON.stringify(jsonObject, null, 2);
-    await writeFile(path, output, 'utf8');
-  };
-
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
     await worldStateSynchronizer.syncImmediate();
-    const tempFork = await worldStateSynchronizer.fork();
+    const tempFork = await worldStateSynchronizer.fork(globalVariables.blockNumber - 1);
     const block = await buildBlockWithCleanDB(txs, globalVariables, l1ToL2Messages, tempFork);
     await tempFork.close();
     return block;
   };
 
+  const buildSingleBlock = async (opts: { l1ToL2Messages?: Fr[]; blockNumber?: number } = {}) => {
+    const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
+
+    const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
+    const ts = (await l1Client.getBlock()).timestamp;
+    const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
+    const timestamp = await rollup.getTimestampForSlot(slot);
+    const globalVariables = new GlobalVariables(
+      new Fr(chainId),
+      new Fr(version),
+      opts.blockNumber ?? 1,
+      new Fr(slot),
+      timestamp,
+      coinbase,
+      feeRecipient,
+      new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
+    );
+    const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
+    blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
+    return block;
+  };
+
   describe('block building', () => {
+    beforeEach(async () => {
+      await setup();
+    });
+
     const buildL2ToL1MsgTreeRoot = (l2ToL1MsgsArray: Fr[]) => {
       const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
       const tree = new StandardTree(
@@ -533,31 +507,112 @@ describe('L1Publisher integration', () => {
     );
   });
 
-  describe('error handling', () => {
-    const buildSingleBlock = async (opts: { l1ToL2Messages?: Fr[] } = {}) => {
-      const archiveInRollup = await rollup.archive();
-      expect(hexToBuffer(archiveInRollup.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
+  describe('with attestations', () => {
+    beforeEach(async () => {
+      validators = [new Secp256k1Signer(Buffer32.fromString(sequencerPK)), ...times(2, Secp256k1Signer.random)];
+      await setup({
+        aztecTargetCommitteeSize: 3,
+        initialValidators: validators.map(v => v.address).map(address => ({ attester: address, withdrawer: address })),
+      });
+    });
 
-      const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
-
-      const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
-      const ts = (await l1Client.getBlock()).timestamp;
-      const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
-      const timestamp = await rollup.getTimestampForSlot(slot);
-      const globalVariables = new GlobalVariables(
-        new Fr(chainId),
-        new Fr(version),
-        1, // block number
-        new Fr(slot),
-        timestamp,
-        coinbase,
-        feeRecipient,
-        new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
-      );
-      const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
-      blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
-      return block;
+    const expectPublishBlock = async (block: L2Block, attestations: CommitteeAttestation[]) => {
+      await publisher.enqueueProposeL2Block(block, attestations);
+      const result = await publisher.sendRequests();
+      expect(result!.successfulActions).toEqual(['propose']);
+      expect(result!.failedActions).toEqual([]);
     };
+
+    it('publishes a block with attestations', async () => {
+      const block = await buildSingleBlock();
+
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.header.toPropose());
+
+      await expectPublishBlock(block, attestations);
+    });
+
+    it('fails to publish a block without the proposer attestation', async () => {
+      const block = await buildSingleBlock();
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+
+      // Reverse attestations to break proposer attestation
+      const attestations = orderAttestations(blockAttestations, committee!).reverse();
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.header.toPropose());
+
+      await expect(publisher.enqueueProposeL2Block(block, attestations)).rejects.toThrow(
+        /ValidatorSelection__InvalidCommitteeCommitment/,
+      );
+    });
+
+    it('publishes a block invalidating the previous one', async () => {
+      const badBlock = await buildSingleBlock();
+
+      // Publish the first invalid block
+      const badBlockAttestations = validators
+        .filter(v => v.address.equals(proposer!))
+        .map(v => makeBlockAttestationFromBlock(badBlock, v));
+      const badAttestations = orderAttestations(badBlockAttestations, committee!);
+
+      await expectPublishBlock(badBlock, badAttestations);
+      await progressTimeBySlot();
+
+      logger.warn(`Published bad block ${badBlock.number} with archive root ${badBlock.archive.root}`);
+
+      // Update the current proposer
+      ({ currentProposer: proposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot());
+
+      // Prepare for invalidating the previous one and publish the same block with proper attestations
+      const block = await buildSingleBlock({ blockNumber: 1 });
+      expect(block.number).toEqual(badBlock.number);
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      // Check we can invalidate the block
+      logger.warn('Checking simulate invalidate block');
+      const invalidateRequest = await publisher.simulateInvalidateBlock({
+        valid: false,
+        committee: committee!,
+        block: new PublishedL2Block(block, {} as L1PublishedData, badAttestations),
+        reason: 'insufficient-attestations',
+      });
+      expect(invalidateRequest).toBeDefined();
+      const forcePendingBlockNumber = invalidateRequest?.forcePendingBlockNumber;
+      expect(forcePendingBlockNumber).toEqual(0);
+
+      // We cannot propose directly, we need to assume the previous block is invalidated
+      const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
+      logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
+      expect(await publisher.canProposeAtNextEthBlock(genesis, proposer!)).toBeUndefined();
+      const canPropose = await publisher.canProposeAtNextEthBlock(genesis, proposer!, { forcePendingBlockNumber });
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+
+      // Same for validation
+      logger.warn('Checking validate block header');
+      await expect(publisher.validateBlockHeader(block.header.toPropose())).rejects.toThrow(/Rollup__InvalidArchive/);
+      await publisher.validateBlockHeader(block.header.toPropose(), { forcePendingBlockNumber });
+
+      // Invalidate and propose
+      logger.warn('Enqueuing requests to invalidate and propose the block');
+      publisher.enqueueInvalidateBlock(invalidateRequest);
+      await publisher.enqueueProposeL2Block(block, attestations, undefined, { forcePendingBlockNumber });
+      const result = await publisher.sendRequests();
+      expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
+      expect(result!.failedActions).toEqual([]);
+    });
+  });
+
+  describe('error handling', () => {
+    beforeEach(async () => {
+      await setup();
+    });
 
     it(`succeeds proposing new block when vote fails`, async () => {
       const block = await buildSingleBlock();
@@ -591,7 +646,7 @@ describe('L1Publisher integration', () => {
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching('Rollup__InvalidInHash'),
-        undefined,
+        expect.anything(),
         expect.objectContaining({ blockNumber: 1 }),
       );
     });

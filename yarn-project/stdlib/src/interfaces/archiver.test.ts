@@ -245,6 +245,16 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getL1Timestamp();
     expect(result).toBe(1n);
   });
+
+  it('getPendingChainValidationStatus', async () => {
+    const result = await context.client.getPendingChainValidationStatus();
+    expect(result).toEqual({ valid: true });
+  });
+
+  it('isPendingChainInvalid', async () => {
+    const result = await context.client.isPendingChainInvalid();
+    expect(result).toBe(false);
+  });
 });
 
 class MockArchiver implements ArchiverApi {
