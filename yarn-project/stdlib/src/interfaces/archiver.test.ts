@@ -10,7 +10,7 @@ import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
-import type { L2Tips } from '../block/l2_block_source.js';
+import type { L2Tips, ValidateBlockResult } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
@@ -250,6 +250,12 @@ describe('ArchiverApiSchema', () => {
 class MockArchiver implements ArchiverApi {
   constructor(private artifact: ContractArtifact) {}
 
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve({ valid: true });
+  }
   syncImmediate() {
     return Promise.resolve();
   }
