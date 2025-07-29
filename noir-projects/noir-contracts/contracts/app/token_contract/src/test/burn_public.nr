@@ -43,7 +43,7 @@ unconstrained fn burn_public_on_behalf_of_other() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Assertion failed: attempt to subtract with overflow"
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn burn_public_failure_more_than_balance() {
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
@@ -57,7 +57,7 @@ unconstrained fn burn_public_failure_more_than_balance() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero"
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn burn_public_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
@@ -71,7 +71,7 @@ unconstrained fn burn_public_failure_on_behalf_of_self_non_zero_nonce() {
     );
 }
 
-#[test(should_fail)] // should_fail_with = "unauthorized"
+#[test(should_fail_with = "unauthorized")]
 unconstrained fn burn_public_failure_on_behalf_of_other_without_approval() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ true);
@@ -84,7 +84,7 @@ unconstrained fn burn_public_failure_on_behalf_of_other_without_approval() {
     let _ = env.call_public(recipient, burn_call_interface);
 }
 
-#[test(should_fail)] // should_fail_with = "unauthorized"
+#[test(should_fail_with = "unauthorized")]
 unconstrained fn burn_public_failure_on_behalf_of_other_wrong_caller() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ true);

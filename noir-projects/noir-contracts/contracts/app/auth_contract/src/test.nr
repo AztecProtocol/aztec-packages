@@ -27,12 +27,20 @@ unconstrained fn authorized_initially_unset() {
     assert_eq(env.view_public(auth.get_authorized()), std::mem::zeroed());
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "caller is not admin")]
 unconstrained fn non_admin_cannot_set_unauthorized() {
     let (env, auth_contract_address, _, _, other) = setup();
     let auth = Auth::at(auth_contract_address);
 
     let _ = env.call_public(other, auth.set_authorized(other));
+}
+
+#[test(should_fail_with = "caller is not authorized")]
+unconstrained fn non_authorized_cannot_do_authorized_thing() {
+    let (env, auth_contract_address, _, _, other) = setup();
+    let auth = Auth::at(auth_contract_address);
+
+    let _ = env.call_private(other, auth.do_private_authorized_thing());
 }
 
 #[test]

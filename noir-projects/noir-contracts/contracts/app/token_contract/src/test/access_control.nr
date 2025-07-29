@@ -26,7 +26,7 @@ unconstrained fn access_control() {
     assert(!env.view_public(token.is_minter(new_admin)));
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "caller is not admin")]
 unconstrained fn set_admin_requires_admin_caller() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, other) = utils::setup(/* with_account_contracts */ false);
@@ -36,7 +36,7 @@ unconstrained fn set_admin_requires_admin_caller() {
     let _ = env.call_public(other, token.set_admin(other));
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "caller is not admin")]
 unconstrained fn set_minter_requires_admin_caller() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, other) = utils::setup(/* with_account_contracts */ false);

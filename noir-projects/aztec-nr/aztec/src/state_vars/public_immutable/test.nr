@@ -60,7 +60,7 @@ unconstrained fn initialize_uninitialized_other_tx() {
     });
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "Duplicate")]
 unconstrained fn initialize_already_initialized_same_tx() {
     let env = TestEnvironment::_new();
 
@@ -75,7 +75,7 @@ unconstrained fn initialize_already_initialized_same_tx() {
     });
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "already present")]
 unconstrained fn initialize_already_initialized_other_tx() {
     let env = TestEnvironment::_new();
 
