@@ -7,6 +7,7 @@ import {Honk} from "../HonkTypes.sol";
 uint256 constant N = 32768;
 uint256 constant LOG_N = 15;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 20;
+uint256 constant VK_HASH = 0x09d9b101f113101f439ee2f61e38edd4f0b2bfc8e55e9f5a0df7fe2408c5d82e;
 
 library BlakeHonkVerificationKey {
     function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
@@ -14,7 +15,6 @@ library BlakeHonkVerificationKey {
             circuitSize: uint256(32768),
             logCircuitSize: uint256(15),
             publicInputsSize: uint256(20),
-            vkHash: uint256(0x09d9b101f113101f439ee2f61e38edd4f0b2bfc8e55e9f5a0df7fe2408c5d82e),
             ql: Honk.G1Point({
                 x: uint256(0x1dbc2d49981f1318140ca1106a52550e1c079613c92a2b23206d1504cfb2f86b),
                 y: uint256(0x04d743fe1aa6c0e790573ff504c0b5068b8d630459835db49d24004e0f010ad3)

@@ -216,8 +216,6 @@ library Honk {
     }
 
     struct VerificationKey {
-        // Hash of all of the field elements in the verification key
-        uint256 vkHash;
         // Misc Params
         uint256 circuitSize;
         uint256 logCircuitSize;
@@ -350,9 +348,8 @@ library ZKTranscriptLib {
         uint256 publicInputsSize
     ) external pure returns (ZKTranscript memory t) {
         Fr previousChallenge;
-        (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
-            proof, publicInputs, vkHash, publicInputsSize, previousChallenge
-        );
+        (t.relationParameters, previousChallenge) =
+            generateRelationParametersChallenges(proof, publicInputs, vkHash, publicInputsSize, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -1766,11 +1763,13 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     uint256 immutable $N;
     uint256 immutable $LOG_N;
+    uint256 immutable $VK_HASH;
     uint256 immutable $NUM_PUBLIC_INPUTS;
 
-    constructor(uint256 _N, uint256 _logN, uint256 _numPublicInputs) {
+    constructor(uint256 _N, uint256 _logN, uint256 _vkHash, uint256 _numPublicInputs) {
         $N = _N;
         $LOG_N = _logN;
+        $VK_HASH = _vkHash;
         $NUM_PUBLIC_INPUTS = _numPublicInputs;
     }
 
@@ -1806,9 +1805,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(
-            p, publicInputs, vk.vkHash, $NUM_PUBLIC_INPUTS
-        );
+        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, $VK_HASH, $NUM_PUBLIC_INPUTS);
 
         // Derive public input delta
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
@@ -2288,7 +2285,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     }
 }
 
-contract HonkVerifier is BaseZKHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
+contract HonkVerifier is BaseZKHonkVerifier(N, LOG_N, VK_HASH, NUMBER_OF_PUBLIC_INPUTS) {
      function loadVerificationKey() internal pure override returns (Honk.VerificationKey memory) {
        return HonkVerificationKey.loadVerificationKey();
     }

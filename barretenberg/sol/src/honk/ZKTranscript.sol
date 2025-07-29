@@ -37,9 +37,8 @@ library ZKTranscriptLib {
         uint256 publicInputsSize
     ) external pure returns (ZKTranscript memory t) {
         Fr previousChallenge;
-        (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
-            proof, publicInputs, vkHash, publicInputsSize, previousChallenge
-        );
+        (t.relationParameters, previousChallenge) =
+            generateRelationParametersChallenges(proof, publicInputs, vkHash, publicInputsSize, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 

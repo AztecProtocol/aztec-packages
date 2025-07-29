@@ -76,8 +76,6 @@ library Honk {
     }
 
     struct VerificationKey {
-        // Hash of all of the field elements in the verification key
-        uint256 vkHash;
         // Misc Params
         uint256 circuitSize;
         uint256 logCircuitSize;

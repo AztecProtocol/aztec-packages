@@ -7,6 +7,7 @@ import {Honk} from "../HonkTypes.sol";
 uint256 constant N = 1048576;
 uint256 constant LOG_N = 20;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 16;
+uint256 constant VK_HASH = 0x0f71347a3acbefd3925c24fbe03c70d91a785109f77dc874c8cb7ab5c7da5ce0;
 
 library RecursiveHonkVerificationKey {
     function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
@@ -14,7 +15,6 @@ library RecursiveHonkVerificationKey {
             circuitSize: uint256(1048576),
             logCircuitSize: uint256(20),
             publicInputsSize: uint256(16),
-            vkHash: uint256(0x0f71347a3acbefd3925c24fbe03c70d91a785109f77dc874c8cb7ab5c7da5ce0),
             ql: Honk.G1Point({
                 x: uint256(0x2d26dcedf30775b10b7b5d23a575efd46e95045fbcafedfb05e144c2aa7edf6d),
                 y: uint256(0x189bf6c6697af3d3a2067f655f5216cd2e97938d4797a6bfba0691fc0277fada)
