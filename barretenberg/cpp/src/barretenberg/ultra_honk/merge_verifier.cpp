@@ -57,7 +57,7 @@ MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr
  * @param proof
  * @param t_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
  * by the PG verifier with which the Merge verifier shares a transcript
- * @param T_prev_commitments The commitment to the previous status of the op_queue
+ * @param T_prev_commitments The full op_queue table commitments after the previous iteration of merge
  * @return std::pair<bool, TableCommitments> Pair of verification result and the commitments to the merged tables as
  * read from the proof
  */

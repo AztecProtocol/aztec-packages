@@ -93,18 +93,12 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
         auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
-            {
-                auto cm = merge_prover.pcs_commitment_key.commit(t_current[idx]);
-                t_commitments[idx] = cm;
-                recursive_t_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, cm);
-            }
-
-            {
-                auto cm = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
-                T_prev_commitments[idx] = cm;
-                recursive_T_prev_commitments[idx] =
-                    RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, cm);
-            }
+            t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
+            recursive_t_commitments[idx] =
+                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, t_commitments[idx]);
+            recursive_T_prev_commitments[idx] =
+                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, T_prev_commitments[idx]);
         }
 
         // Create a recursive merge verification circuit for the merge proof
