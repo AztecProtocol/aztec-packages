@@ -8,11 +8,11 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import type { IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { AZTEC_ENR_CLIENT_VERSION_KEY } from '../../types/index.js';
-import { createSecp256k1PrivateKey } from '../../util.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
 
@@ -68,7 +68,8 @@ describe('Discv5Service', () => {
 
   const startNodes = (...nodes: { start: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.start()));
   const stopNodes = (...nodes: { stop: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.stop()));
-  const getPeers = (node: DiscV5Service) => node.getKadValues().map(peer => peer.peerId.toString());
+  const getPeers = (node: DiscV5Service) =>
+    Promise.all(node.getKadValues().map(async peer => (await peer.peerId()).toString()));
 
   it('should initialize with default values', async () => {
     const node = await createNode();
@@ -77,7 +78,7 @@ describe('Discv5Service', () => {
     expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
     const kadValues = node.getKadValues();
     const bootnode = kadValues[0];
-    expect(bootnode.peerId.toString()).toEqual(bootNodePeerId.toString());
+    expect((await bootnode.peerId()).toString()).toEqual(bootNodePeerId.toString());
     await node.stop();
   });
 
@@ -111,8 +112,8 @@ describe('Discv5Service', () => {
       })(),
     ]);
 
-    const node1Peers = getPeers(node1);
-    const node2Peers = getPeers(node2);
+    const node1Peers = await getPeers(node1);
+    const node2Peers = await getPeers(node2);
 
     expect(node1Peers).toHaveLength(2);
     expect(node2Peers).toHaveLength(2);
@@ -194,9 +195,9 @@ describe('Discv5Service', () => {
       })(),
     ]);
 
-    const node1Peers = getPeers(node1);
-    const node2Peers = getPeers(node2);
-    const node3Peers = getPeers(node3);
+    const node1Peers = await getPeers(node1);
+    const node2Peers = await getPeers(node2);
+    const node3Peers = await getPeers(node3);
 
     expect(node1Peers).toHaveLength(2);
     expect(node2Peers).toHaveLength(2);
@@ -226,7 +227,7 @@ describe('Discv5Service', () => {
     await node2.start();
     await waitForPeers(node2, 1);
 
-    const node2Peers = node2.getKadValues().map(peer => peer.peerId.toString());
+    const node2Peers = await Promise.all(node2.getKadValues().map(async peer => (await peer.peerId()).toString()));
     // NOTE: bootnode seems to still be present in list of peers sometimes, will investigate
     // expect(node2Peers).toHaveLength(1);
     expect(node2Peers).toContain(node1.getPeerId().toString());
@@ -263,8 +264,8 @@ describe('Discv5Service', () => {
     // Verify node2 and node3 are connected to the trusted peer
     expect(node2.getKadValues().length).toBe(1);
     expect(node3.getKadValues().length).toBe(1);
-    expect(getPeers(node2)).toContain(trustedNode.getPeerId().toString());
-    expect(getPeers(node3)).toContain(trustedNode.getPeerId().toString());
+    expect(await getPeers(node2)).toContain(trustedNode.getPeerId().toString());
+    expect(await getPeers(node3)).toContain(trustedNode.getPeerId().toString());
 
     await Promise.all([
       waitForPeers(node2, 2),
@@ -284,13 +285,13 @@ describe('Discv5Service', () => {
     expect(node1.getKadValues()).toHaveLength(0);
 
     // Verify node2 and node3 discovered each other through the trusted peer
-    const node2Peers = getPeers(node2);
+    const node2Peers = await getPeers(node2);
     expect(node2Peers).toHaveLength(2);
     expect(node2Peers).toContain(node3.getPeerId().toString());
-    const node3Peers = getPeers(node3);
+    const node3Peers = await getPeers(node3);
     expect(node3Peers).toHaveLength(2);
     expect(node3Peers).toContain(node2.getPeerId().toString());
-    const trustedNodePeers = getPeers(trustedNode);
+    const trustedNodePeers = await getPeers(trustedNode);
     expect(trustedNodePeers).toHaveLength(2);
     expect(trustedNodePeers).toContain(node2.getPeerId().toString());
     expect(trustedNodePeers).toContain(node3.getPeerId().toString());
@@ -352,7 +353,7 @@ describe('Discv5Service', () => {
   const createNode = async (overrides: Partial<P2PConfig & IDiscv5CreateOptions> = {}, useBootnode = true) => {
     const port = ++basePort;
     const bootnodeAddr = bootNode.getENR().encodeTxt();
-    const peerId = await createSecp256k1PrivateKey();
+    const peerId = await createSecp256k1PeerId();
     const config: P2PConfig = {
       ...getP2PDefaultConfig(),
       ...emptyChainConfig,

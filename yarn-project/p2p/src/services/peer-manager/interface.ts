@@ -9,7 +9,7 @@ import type { GoodByeReason } from '../reqresp/protocols/goodbye.js';
 export interface PeerManagerInterface {
   getPeers(_includePending?: boolean): PeerInfo[];
 
-  initializePeers(): void;
+  initializePeers(): Promise<void>;
   heartbeat(): Promise<void>;
   addTrustedPeer(peerId: PeerId): void;
   addPrivatePeer(peerId: PeerId): void;

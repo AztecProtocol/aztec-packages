@@ -3,24 +3,23 @@ import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { ENR, SignableENR } from '@chainsafe/enr';
-import type { PeerId, PrivateKey } from '@libp2p/interface';
-import { peerIdFromPrivateKey } from '@libp2p/peer-id';
+import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import { AZTEC_ENR_CLIENT_VERSION_KEY, AZTEC_ENR_KEY } from '../types/index.js';
-import { convertToMultiaddr } from '../util.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { setAztecClientVersionEnrKey, setAztecEnrKey } from '../versioning.js';
 
 export { ENR };
 
-export function createBootnodeENRandPeerId(
-  privateKey: PrivateKey,
+export async function createBootnodeENRandPeerId(
+  privateKey: string,
   p2pIp: string,
   p2pBroadcastPort: number,
   l1ChainId: number,
-): { enr: SignableENR; peerId: PeerId } {
-  const peerId = peerIdFromPrivateKey(privateKey);
-  const enr = SignableENR.createFromPrivateKey(privateKey);
+): Promise<{ enr: SignableENR; peerId: PeerId }> {
+  const peerId = await createLibP2PPeerIdFromPrivateKey(privateKey);
+  const enr = SignableENR.createFromPeerId(peerId);
   const publicAddr = multiaddr(convertToMultiaddr(p2pIp, p2pBroadcastPort, 'udp'));
   enr.setLocationMultiaddr(publicAddr);
 
@@ -34,14 +33,14 @@ export function createBootnodeENRandPeerId(
 }
 
 export function createNodeENR(
-  privateKey: PrivateKey,
+  peerId: PeerId,
   multiAddrUdp: Multiaddr | undefined,
   multiAddrTcp: Multiaddr | undefined,
   chainConfig: ChainConfig,
   packageVersion: string,
 ): { enr: SignableENR; versions: ComponentsVersions } {
   // create ENR from PeerId
-  const enr = SignableENR.createFromPrivateKey(privateKey);
+  const enr = SignableENR.createFromPeerId(peerId);
   // Add aztec identification to ENR
   const versions = setAztecEnrKey(enr, chainConfig);
   // Add aztec client version to ENR
@@ -58,9 +57,9 @@ export function createNodeENR(
   return { enr, versions };
 }
 
-export function printENR(enr: string, log: LogFn) {
+export async function printENR(enr: string, log: LogFn) {
   const decoded = ENR.decodeTxt(enr);
-  log(`PeerID: ${decoded.peerId}`);
+  log(`PeerID: ${await decoded.peerId()}`);
   log(`IP: ${decoded.ip}`);
   log(`UDP: ${decoded.udp}`);
   log(`TCP: ${decoded.tcp}`);

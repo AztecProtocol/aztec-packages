@@ -1,10 +1,9 @@
 import type { ChainConfig } from '@aztec/stdlib/config';
 
 import { SignableENR } from '@chainsafe/enr';
-import type { PrivateKey } from '@libp2p/interface';
 import { multiaddr } from '@multiformats/multiaddr';
 
-import { convertToMultiaddr } from '../util.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { setAztecEnrKey } from '../versioning.js';
 
 /**
@@ -13,8 +12,12 @@ import { setAztecEnrKey } from '../versioning.js';
  * @param ports - The ports of the p2p nodes
  * @returns A list of ENRs
  */
-export function makeEnrs(p2pPrivateKeys: PrivateKey[], ports: number[], config: ChainConfig) {
-  return p2pPrivateKeys.map((pk, i) => makeEnr(pk, ports[i], config));
+export async function makeEnrs(p2pPrivateKeys: string[], ports: number[], config: ChainConfig) {
+  return await Promise.all(
+    p2pPrivateKeys.map((pk, i) => {
+      return makeEnr(pk, ports[i], config);
+    }),
+  );
 }
 
 /**
@@ -23,8 +26,9 @@ export function makeEnrs(p2pPrivateKeys: PrivateKey[], ports: number[], config: 
  * @param port - The port of the p2p node
  * @returns The ENR of the p2p node
  */
-export function makeEnr(p2pPrivateKey: PrivateKey, port: number, config: ChainConfig) {
-  const enr = SignableENR.createFromPrivateKey(p2pPrivateKey);
+export async function makeEnr(p2pPrivateKey: string, port: number, config: ChainConfig) {
+  const peerId = await createLibP2PPeerIdFromPrivateKey(p2pPrivateKey);
+  const enr = SignableENR.createFromPeerId(peerId);
 
   const p2pIp = `127.0.0.1`;
   const udpPublicAddr = multiaddr(convertToMultiaddr(p2pIp, port, 'udp'));
