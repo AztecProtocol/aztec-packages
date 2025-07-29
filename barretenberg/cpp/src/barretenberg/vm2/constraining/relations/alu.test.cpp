@@ -90,7 +90,7 @@ const std::unordered_map<MemoryTag, MemoryTag> TAG_ERROR_TEST_VALUES = {
     { MemoryTag::U128, MemoryTag::FF },
 };
 
-auto zip_helper(const std::vector<MemoryValue>& out)
+std::vector<ThreeOperandTestParams> zip_helper(const std::vector<MemoryValue>& out)
 {
     std::vector<ThreeOperandTestParams> res;
     uint32_t i = 0;
@@ -102,7 +102,7 @@ auto zip_helper(const std::vector<MemoryValue>& out)
     return res;
 }
 
-auto zip_helper_two_op(const std::vector<MemoryValue>& out)
+std::vector<TwoOperandTestParams> zip_helper_two_op(const std::vector<MemoryValue>& out)
 {
     std::vector<TwoOperandTestParams> res;
     uint32_t i = 0;
