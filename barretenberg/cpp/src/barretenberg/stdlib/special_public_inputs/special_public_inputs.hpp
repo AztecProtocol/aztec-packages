@@ -220,6 +220,16 @@ template <class Builder_> class HidingKernelIO {
         builder->finalize_public_inputs();
     }
 
+    /**
+     * @brief Construct commitments to empty subtables
+     *
+     * @details In the first iteration of the Merge, the verifier sets the commitments to the previous full state of the
+     * op_queue equal to the commitments to the empty tables. This ensures that prover cannot lie, as the starting point
+     * of the merge is fixed.
+     *
+     * @param builder
+     * @return TableCommitments
+     */
     static TableCommitments empty_ecc_op_tables(Builder& builder)
     {
         TableCommitments empty_tables;

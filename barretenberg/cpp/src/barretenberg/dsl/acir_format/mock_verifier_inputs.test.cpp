@@ -3,7 +3,7 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -16,33 +16,7 @@
 using namespace acir_format;
 using namespace bb;
 
-template <typename Flavor> class MockVerifierInputsTest : public ::testing::Test {
-  public:
-    /**
-     * @brief Compute the number of public inputs in a proof based on Flavor and on kernel flags
-     *
-     * @details We have three possibilities based on Flavor:
-     *              1. IsMegaFlavor: a. HidingKernel, b. Another Kernel, c. App
-     *              2. HasIpaAccumulator: Rollup
-     *              3. Other: Default (PairingPoints)
-     * @return size_t
-     */
-    size_t compute_num_public_inputs(const bool is_kernel, const bool is_hiding_kernel = false) const
-    {
-        if constexpr (IsMegaFlavor<Flavor>) {
-            if (is_hiding_kernel) {
-                return HidingKernelIO::PUBLIC_INPUTS_SIZE;
-            }
-            if (is_kernel) {
-                return stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
-            }
-            return DefaultIO::PUBLIC_INPUTS_SIZE;
-        } else if constexpr (HasIPAAccumulator<Flavor>) {
-            return RollupIO::PUBLIC_INPUTS_SIZE;
-        }
-        return DefaultIO::PUBLIC_INPUTS_SIZE;
-    };
-};
+template <typename Flavor> class MockVerifierInputsTest : public ::testing::Test {};
 
 using FlavorTypes = testing::Types<UltraFlavor, MegaFlavor>;
 
@@ -65,32 +39,46 @@ TYPED_TEST(MockVerifierInputsTest, MockOinkProofSize)
 {
     using Flavor = TypeParam;
 
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
-        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
-        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
-    }
+    if constexpr (IsMegaFlavor<Flavor>) {
+        {
+            // AppIO
+            const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::AppIO::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::AppIO>();
+            EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
 
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
-        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
-        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
-    }
+        {
+            // KernelIO
+            const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::KernelIO>();
+            EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
 
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
-        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
-        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
-    }
-
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
-        HonkProof honk_proof = create_mock_oink_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
-        EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        {
+            // HidingKernelIO
+            const size_t NUM_PUBLIC_INPUTS =
+                stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof =
+                create_mock_oink_proof<Flavor,
+                                       stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>>();
+            EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
+    } else if constexpr (HasIPAAccumulator<Flavor>) {
+        {
+            // RollupIO
+            const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::RollupIO::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof = create_mock_oink_proof<Flavor, stdlib::recursion::honk::RollupIO>();
+            EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
+    } else {
+        {
+            // DefaultIO
+            const size_t NUM_PUBLIC_INPUTS =
+                stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof =
+                create_mock_oink_proof<Flavor, stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>();
+            EXPECT_EQ(honk_proof.size(), Flavor::OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
     }
 }
 
@@ -114,31 +102,45 @@ TYPED_TEST(MockVerifierInputsTest, MockHonkProofSize)
 {
     using Flavor = TypeParam;
 
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
-        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/false);
-        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
-    }
+    if constexpr (IsMegaFlavor<Flavor>) {
+        {
+            // AppIO
+            const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::AppIO::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::AppIO>();
+            EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
 
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
-        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/false, /*is_hiding_kernel=*/true);
-        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
-    }
+        {
+            // KernelIO
+            const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::KernelIO::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::KernelIO>();
+            EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
 
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
-        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/true);
-        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
-    }
-
-    {
-        const size_t NUM_PUBLIC_INPUTS =
-            TestFixture::compute_num_public_inputs(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
-        HonkProof honk_proof = create_mock_honk_proof<Flavor>(/*is_kernel=*/true, /*is_hiding_kernel=*/false);
-        EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        {
+            // HidingKernelIO
+            const size_t NUM_PUBLIC_INPUTS =
+                stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof =
+                create_mock_honk_proof<Flavor,
+                                       stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>>();
+            EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
+    } else if constexpr (HasIPAAccumulator<Flavor>) {
+        {
+            // RollupIO
+            const size_t NUM_PUBLIC_INPUTS = stdlib::recursion::honk::RollupIO::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof = create_mock_honk_proof<Flavor, stdlib::recursion::honk::RollupIO>();
+            EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
+    } else {
+        {
+            // DefaultIO
+            const size_t NUM_PUBLIC_INPUTS =
+                stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
+            HonkProof honk_proof =
+                create_mock_honk_proof<Flavor, stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>();
+            EXPECT_EQ(honk_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + NUM_PUBLIC_INPUTS);
+        }
     }
 }
