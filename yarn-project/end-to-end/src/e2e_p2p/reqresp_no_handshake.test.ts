@@ -89,6 +89,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
 
     t.logger.info('Sleeping to allow nodes to connect');
     await sleep(4000);
+    t.logger.info('Finished Sleeping');
 
     await t.setupAccount();
 

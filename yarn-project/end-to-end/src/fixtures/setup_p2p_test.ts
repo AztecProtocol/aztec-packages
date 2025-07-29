@@ -104,7 +104,7 @@ export async function createNode(
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
     return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
   };
-  return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
+  return loggerIdStorage ? loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
 }
 
 export async function createProverNode(

@@ -110,6 +110,7 @@ describe('e2e_p2p_network', () => {
     );
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
+    t.logger.info('Creating prover node');
     proverNode = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
@@ -120,10 +121,14 @@ describe('e2e_p2p_network', () => {
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
     );
+
+    t.logger.info('Starting prover node');
     await proverNode.start();
 
     // wait a bit for peers to discover each other
+    t.logger.info('Sleeping to allow nodes to connect');
     await sleep(8000);
+    t.logger.info('Finished Sleeping');
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
