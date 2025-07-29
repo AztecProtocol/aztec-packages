@@ -2,7 +2,6 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,
   BlockProposal,

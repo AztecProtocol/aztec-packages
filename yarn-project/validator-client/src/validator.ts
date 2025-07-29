@@ -423,8 +423,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
-    console.log('block.header.toPropose().hash()', block.header.toPropose().hash().toString());
-    console.log('proposal.payload.header.hash()', proposal.payload.header.hash().toString());
     // This function will throw an error if state updates do not match
     if (!block.header.toPropose().hash().equals(proposal.payload.header.hash())) {
       this.metrics.recordFailedReexecution(proposal);
