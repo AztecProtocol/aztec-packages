@@ -74,6 +74,7 @@ namespace emit_unencrypted_log;
     #[REMAINING_ROWS_DECREMENT]
     NOT_END * ((remaining_rows - 1) - remaining_rows') = 0;
 
+    // End = remaining_rows == 0
     pol commit remaining_rows_inv;
     sel * (remaining_rows * (end * (1 - remaining_rows_inv) + remaining_rows_inv) - 1 + end) = 0;
 
@@ -174,6 +175,7 @@ namespace emit_unencrypted_log;
     #[REMAINING_LOG_SIZE_DECREMENT]
     NOT_END * (1 - is_padding_row) *((remaining_log_size - 1) - remaining_log_size') = 0;
 
+    // is_padding_row = remaining_log_size == 0
     pol commit remaining_log_size_inv;
     sel * (remaining_log_size * (is_padding_row * (1 - remaining_log_size_inv) + remaining_log_size_inv) - 1 + is_padding_row) = 0;
 
@@ -219,7 +221,9 @@ namespace emit_unencrypted_log;
     // =============== WRITE TO PI ===============
     pol commit public_inputs_index;
 
+    // Public inputs index starts at base index + prev_num_logs_emitted * PUBLIC_LOG_SIZE_IN_FIELDS
     start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + prev_num_logs_emitted * constants.PUBLIC_LOG_SIZE_IN_FIELDS - public_inputs_index) = 0;
+    // Increment public inputs index until end
     NOT_END * (public_inputs_index + 1 - public_inputs_index') = 0;
 
     #[CONTRACT_ADDRESS_CONSISTENCY]
