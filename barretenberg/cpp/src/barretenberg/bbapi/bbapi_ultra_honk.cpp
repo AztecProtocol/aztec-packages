@@ -301,7 +301,7 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
     auto vk = from_buffer<UltraFlavor::VerificationKey>(verification_key);
     fields = vk.to_field_elements();
 
-    return { fields };
+    return { std::move(fields) };
 }
 
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
@@ -310,7 +310,7 @@ CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_
     auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
 
-    return { contract };
+    return { std::move(contract) };
 }
 
 } // namespace bb::bbapi
