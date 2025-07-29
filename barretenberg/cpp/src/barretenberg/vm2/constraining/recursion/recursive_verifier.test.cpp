@@ -99,13 +99,11 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         UltraFF val = UltraFF::from_witness(&outer_circuit, f);
         outer_key_fields.push_back(val);
     }
-    fr vk_hash_native = verification_key->hash();
-    UltraFF vk_hash = UltraFF::from_witness(&outer_circuit, vk_hash_native);
 
     // Construct the AVM recursive verifier and verify the proof
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields, vk_hash);
+        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
         return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
     }();
 

@@ -65,16 +65,16 @@ class AvmGoblinRecursiveVerifier {
 
     UltraBuilder& ultra_builder;
     std::vector<UltraFF> outer_key_fields;
-    UltraFF vk_hash;
+    UltraFF vk_hash; // this should be a constant witness
 
-    explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder,
-                                        const std::vector<UltraFF>& outer_key_fields,
-                                        UltraFF& vk_hash)
+    explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder, const std::vector<UltraFF>& outer_key_fields)
         : ultra_builder(builder)
         , outer_key_fields(outer_key_fields)
-        , vk_hash(vk_hash)
-
-    {}
+    {
+        // TODO(#15892): Set this to be the actual vk hash when vk is fixed.
+        vk_hash = UltraFF::from_witness(&builder, 0);
+        vk_hash.fix_witness();
+    }
 
     /**
      * @brief Recursively verify an AVM proof using Goblin and two layers of recursive verification.
@@ -206,6 +206,7 @@ class AvmGoblinRecursiveVerifier {
         }
         std::vector<FF> key_fields = convert_stdlib_ultra_to_stdlib_mega(outer_key_fields);
         FF mega_vk_hash = convert_stdlib_ultra_to_stdlib_mega({ vk_hash })[0];
+        mega_vk_hash.fix_witness(); // fix witness because vk hash should be a circuit constant
 
         // Compute the hash and set it public
         const FF mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
@@ -214,7 +215,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
-        AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key, mega_vk_hash };
+        AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key };
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs);
         points_accumulator.set_public();
 

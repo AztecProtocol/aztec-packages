@@ -17,15 +17,15 @@
 
 namespace bb::avm2 {
 
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
-                                           const std::shared_ptr<VerificationKey>& vkey,
-                                           const FF& vk_hash)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
     : builder(builder)
     , key(vkey)
-    , vk_hash(vk_hash)
 {
-    key->fix_witness();
-    this->vk_hash.fix_witness();
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/15892): Uncomment this when we make the AVM vk and vk
+    // hash fixed.
+    // key->fix_witness();
+    // compute the vk hash from the native vk fields
+    // this->vk_hash.fix_witness();
 }
 
 // Evaluate the given public input column over the multivariate challenge points

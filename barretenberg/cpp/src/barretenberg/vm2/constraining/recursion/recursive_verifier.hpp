@@ -24,7 +24,7 @@ class AvmRecursiveVerifier {
     using StdlibProof = stdlib::Proof<Builder>;
 
   public:
-    explicit AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey, const FF& vk_hash);
+    explicit AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
