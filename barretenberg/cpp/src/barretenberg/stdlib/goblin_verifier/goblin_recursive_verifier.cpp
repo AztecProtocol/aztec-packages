@@ -30,6 +30,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1492): Modify Merge verifier API and package inputs in a
+// single struct
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof& proof,
                                                               const TableCommitments& t_commitments,
                                                               const TableCommitments& T_prev_commitments)

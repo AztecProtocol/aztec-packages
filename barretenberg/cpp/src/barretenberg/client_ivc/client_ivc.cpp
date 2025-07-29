@@ -104,6 +104,8 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
     // Commitments to the previous status of the op_queue, to be finalized according to the recursive verification we
     // are performing
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1492): Change Merge verifier API and improve the name
+    // of the following variable.
     TableCommitments finalised_T_prev_commitments = T_prev_commitments;
 
     switch (verifier_inputs.type) {

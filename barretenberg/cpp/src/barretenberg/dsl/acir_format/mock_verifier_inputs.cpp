@@ -240,7 +240,6 @@ template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::A
 template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
 template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
-template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::RollupIO>();
 template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>();
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
@@ -250,7 +249,6 @@ template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::A
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
-template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::RollupIO>();
 template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>();
 
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
