@@ -16,21 +16,6 @@ export class BatchCall extends BaseContractInteraction {
   }
 
   /**
-   * Create a transaction execution request that represents this batch, encoded and authenticated by the
-   * user's wallet, ready to be simulated.
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns A Promise that resolves to a transaction instance.
-   */
-  public async create(options: SendMethodOptions): Promise<TxExecutionRequest> {
-    const requestWithoutFee = await this.request(options);
-
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(options.from, requestWithoutFee, userFee, { txNonce, cancellable });
-
-    return await options.from.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
-  }
-
-  /**
    * Returns an execution request that represents this operation.
    * @param options - An optional object containing additional configuration for the request generation.
    * @returns An execution payload wrapped in promise.
@@ -84,18 +69,12 @@ export class BatchCall extends BaseContractInteraction {
 
     const payloads = indexedExecutionPayloads.map(([request]) => request);
     const combinedPayload = mergeExecutionPayloads(payloads);
-    const requestWithoutFee = new ExecutionPayload(
+    const executionPayload = new ExecutionPayload(
       combinedPayload.calls,
       combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
       combinedPayload.capsules.concat(options.capsules ?? []),
       combinedPayload.extraHashedArgs,
     );
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(options.from, requestWithoutFee, userFee, {});
-    const txRequest = await options.from.createTxExecutionRequest(requestWithoutFee, fee, {
-      txNonce,
-      cancellable,
-    });
 
     const utilityCalls = utility.map(
       async ([call, index]) =>
@@ -104,7 +83,7 @@ export class BatchCall extends BaseContractInteraction {
 
     const [utilityResults, simulatedTx] = await Promise.all([
       Promise.all(utilityCalls),
-      this.wallet.simulateTx(txRequest, true, options?.skipTxValidation, false),
+      this.wallet.simulateTx(executionPayload, options),
     ]);
 
     const results: any[] = [];

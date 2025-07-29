@@ -176,7 +176,7 @@ export class BaseAccount implements Account {
         onBehalfOf,
         this.getLookupValidityAbi(),
         [consumer, innerHash],
-      ).simulate({ from: this, authWitnesses: [witness] })) as boolean;
+      ).simulate({ from: this.getAddress(), authWitnesses: [witness] })) as boolean;
       // TODO: Narrow down the error to make sure simulation failed due to an invalid authwit
       // eslint-disable-next-line no-empty
     } catch {}
@@ -187,7 +187,7 @@ export class BaseAccount implements Account {
       ProtocolContractAddress.AuthRegistry,
       this.getIsConsumableAbi(),
       [onBehalfOf, messageHash],
-    ).simulate({ from: this })) as boolean;
+    ).simulate({ from: this.getAddress() })) as boolean;
 
     return results;
   }

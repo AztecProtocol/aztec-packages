@@ -212,13 +212,13 @@ export class L1FeeJuicePortalManager {
    * @param logger - Logger.
    */
   public static async new(
-    walletOrPxe: Wallet | PXE,
+    pxe: PXE,
     extendedClient: ExtendedViemWalletClient,
     logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
       l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress, feeAssetHandlerAddress },
-    } = await walletOrPxe.getNodeInfo();
+    } = await pxe.getNodeInfo();
 
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');

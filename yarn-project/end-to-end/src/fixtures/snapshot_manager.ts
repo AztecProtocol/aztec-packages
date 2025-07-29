@@ -622,16 +622,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
  * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
  */
 export const deployAccounts =
-  (numberOfAccounts: number, logger: Logger, waitUntilProven = false) =>
-  async ({
-    wallet,
-    node,
-    initialFundedAccounts,
-  }: {
-    wallet: TestWallet;
-    node: AztecNode;
-    initialFundedAccounts: InitialAccountData[];
-  }) => {
+  (numberOfAccounts: number, logger: Logger) =>
+  async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
       throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
     }
@@ -645,14 +637,12 @@ export const deployAccounts =
         salt: deployedAccounts[i].salt,
         contract: new SchnorrAccountContract(deployedAccounts[i].signingKey),
       };
-      await wallet.createAccount(
-        accountData,
-        {
+      const accountManager = await wallet.createAccount(accountData);
+      await accountManager
+        .deploy({
           skipClassPublication: i !== 0, // Publish the contract class at most once.
-        },
-        waitUntilProven ? DefaultWaitForProvenOpts : undefined,
-        node,
-      );
+        })
+        .wait();
     }
 
     return { deployedAccounts };

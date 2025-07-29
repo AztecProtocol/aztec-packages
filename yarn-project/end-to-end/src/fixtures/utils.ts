@@ -650,10 +650,12 @@ export async function setup(
           salt: accountsData[i].salt,
           contract: new SchnorrAccountContract(accountsData[i].signingKey),
         };
-        const accountManager = await wallet.createAccount(accountData, {
-          skipClassPublication: i !== 0, // Publish the contract class at most once.
-        });
-        await accountManager.deploy().wait();
+        const accountManager = await wallet.createAccount(accountData);
+        await accountManager
+          .deploy({
+            skipClassPublication: i !== 0, // Publish the contract class at most once.
+          })
+          .wait();
         accounts.push(accountManager.getAddress());
       }
     }

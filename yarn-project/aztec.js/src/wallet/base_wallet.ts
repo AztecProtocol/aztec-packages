@@ -12,11 +12,8 @@ import type {
   ContractMetadata,
   EventMetadataDefinition,
   PXE,
-  PXEInfo,
 } from '@aztec/stdlib/interfaces/client';
 import type {
-  PrivateExecutionResult,
-  SimulationOverrides,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -28,6 +25,7 @@ import type {
 } from '@aztec/stdlib/tx';
 
 import type { Account } from '../account/account.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { getGasLimits } from '../contract/get_gas_limits.js';
 import type {
   ProfileMethodOptions,
@@ -35,6 +33,7 @@ import type {
   SimulateMethodOptions,
 } from '../contract/interaction_options.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
+import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import type { Wallet } from './wallet.js';
 
 /**
@@ -45,17 +44,31 @@ export abstract class BaseWallet implements Wallet {
 
   constructor(protected readonly pxe: PXE) {}
 
-  protected abstract getAccounFromAddress(address: AztecAddress): Promise<Account>;
+  protected abstract getAccountFromAddress(address?: AztecAddress): Promise<Account>;
 
   private async createTxExecutionRequestFromPayloadAndFee(
-    from: AztecAddress,
     executionPayload: ExecutionPayload,
     userFee?: UserFeeOptions,
+    from?: AztecAddress,
   ): Promise<TxExecutionRequest> {
     const executionOptions = { txNonce: Fr.random(), cancellable: true };
-    const fromAccount = await this.getAccounFromAddress(from);
+    const fromAccount = await this.getAccountFromAddress(from);
     const fee = await this.getFeeOptions(fromAccount, executionPayload, userFee, executionOptions);
     return await fromAccount.createTxExecutionRequest(executionPayload, fee, executionOptions);
+  }
+
+  public async createAuthWit(from: AztecAddress, intent: IntentInnerHash | IntentAction): Promise<AuthWitness> {
+    const account = await this.getAccountFromAddress(from);
+    return account.createAuthWit(intent);
+  }
+
+  public async setPublicAuthWit(
+    from: AztecAddress,
+    messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
+    authorized: boolean,
+  ): Promise<ContractFunctionInteraction> {
+    const account = await this.getAccountFromAddress(from);
+    return account.setPublicAuthWit(this, messageHashOrIntent, authorized);
   }
 
   // docs:start:estimateGas
@@ -70,7 +83,7 @@ export abstract class BaseWallet implements Wallet {
     opts: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(opts.from, executionPayload, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.fee, opts.from);
     const simulationResult = await this.pxe.simulateTx(
       txRequest,
       true /*simulatePublic*/,
@@ -159,23 +172,23 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.updateContract(contractAddress, artifact);
   }
 
-  async simulateTx(executionPayload: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(opts.from, executionPayload, opts.fee);
+  async simulateTx(executionPayload: ExecutionPayload, opts?: SimulateMethodOptions): Promise<TxSimulationResult> {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts?.fee, opts?.from);
     return this.pxe.simulateTx(
       txRequest,
       true /* simulatePublic */,
-      opts.skipTxValidation,
-      opts.skipFeeEnforcement ?? true,
+      opts?.skipTxValidation,
+      opts?.skipFeeEnforcement ?? true,
     );
   }
 
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileMethodOptions): Promise<TxProfileResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(opts.from, executionPayload, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.fee, opts.from);
     return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
   }
 
-  async proveTx(exec: ExecutionPayload, opts: SendMethodOptions): Promise<TxProvingResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(opts.from, exec, opts.fee);
+  async proveTx(exec: ExecutionPayload, opts?: SendMethodOptions): Promise<TxProvingResult> {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts?.fee, opts?.from);
     return this.pxe.proveTx(txRequest);
   }
 

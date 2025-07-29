@@ -1,13 +1,13 @@
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
-  type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type Logger,
   type PXE,
+  type Wallet,
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import type { TestWallet } from '@aztec/aztec.js/wallet/testing';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
@@ -63,16 +63,15 @@ const { E2E_DATA_PATH: dataPath } = process.env;
  */
 export class FeesTest {
   private snapshotManager: ISnapshotManager;
-  private wallets: AccountWallet[] = [];
+  private accounts: AztecAddress[] = [];
 
   public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
   public cheatCodes!: CheatCodes;
 
-  public aliceWallet!: AccountWallet;
+  public wallet!: TestWallet;
   public aliceAddress!: AztecAddress;
-  public bobWallet!: AccountWallet;
   public bobAddress!: AztecAddress;
   public sequencerAddress!: AztecAddress;
   public coinbase!: EthAddress;
@@ -166,17 +165,17 @@ export class FeesTest {
     return { sequencerBlockRewards, proverBlockRewards };
   }
 
-  async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
-    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, address);
+  async mintAndBridgeFeeJuice(minter: AztecAddress, recipient: AztecAddress, amount: bigint) {
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, recipient);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await this.feeJuiceContract.methods.claim(address, amount, secret, index).send().wait();
+    await this.feeJuiceContract.methods.claim(recipient, amount, secret, index).send({ from: minter }).wait();
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
     const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate();
 
-    await mintTokensToPrivate(this.bananaCoin, this.aliceWallet, address, amount);
+    await mintTokensToPrivate(this.bananaCoin, this.wallet, this.aliceAddress, address, amount);
 
     const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate();
     expect(balanceAfter).toEqual(balanceBefore + amount);
@@ -199,16 +198,15 @@ export class FeesTest {
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
-        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
-        [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
+        this.accounts = deployedAccounts.map(a => a.address);
+        this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
+        [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.accounts.slice(0, 3);
 
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;
 
         const canonicalFeeJuice = await getCanonicalFeeJuice();
-        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
+        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.wallet);
         this.coinbase = EthAddress.random();
       },
     );
@@ -216,7 +214,7 @@ export class FeesTest {
 
   async applyPublicDeployAccountsSnapshot() {
     await this.snapshotManager.snapshot('public_deploy_accounts', () =>
-      ensureAccountContractsPublished(this.aliceWallet, this.wallets),
+      ensureAccountContractsPublished(this.wallet, this.accounts),
     );
   }
 
@@ -227,7 +225,7 @@ export class FeesTest {
       async (_data, context) => {
         this.context = context;
 
-        this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.aliceWallet);
+        this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
@@ -236,7 +234,7 @@ export class FeesTest {
           aztecNodeAdmin: context.aztecNode,
           pxeService: context.pxe,
           l1Client: context.deployL1ContractsValues.l1Client,
-          wallet: this.aliceWallet,
+          wallet: this.wallet,
           logger: this.logger,
         });
       },
@@ -247,14 +245,14 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'deploy_banana_token',
       async () => {
-        const bananaCoin = await BananaCoin.deploy(this.aliceWallet, this.aliceAddress, 'BC', 'BC', 18n)
-          .send()
+        const bananaCoin = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n)
+          .send({ from: this.aliceAddress })
           .deployed();
         this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
         return { bananaCoinAddress: bananaCoin.address };
       },
       async ({ bananaCoinAddress }) => {
-        this.bananaCoin = await BananaCoin.at(bananaCoinAddress, this.aliceWallet);
+        this.bananaCoin = await BananaCoin.at(bananaCoinAddress, this.wallet);
         const logger = this.logger;
         this.getBananaPublicBalanceFn = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, logger);
         this.getBananaPrivateBalanceFn = getBalancesFn(
@@ -274,8 +272,8 @@ export class FeesTest {
         expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)
-          .send()
+        const bananaFPC = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin)
+          .send({ from: this.aliceAddress })
           .deployed();
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
@@ -290,7 +288,7 @@ export class FeesTest {
         };
       },
       async (data, context) => {
-        const bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.aliceWallet);
+        const bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.wallet);
         this.bananaFPC = bananaFPC;
 
         this.getCoinbaseBalance = async () => {
@@ -357,7 +355,7 @@ export class FeesTest {
         };
       },
       async data => {
-        this.sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.aliceWallet);
+        this.sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.wallet);
       },
     );
   }
@@ -387,31 +385,33 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'setup_subscription',
       async () => {
-        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress).send().deployed();
+        const counterContract = await CounterContract.deploy(this.wallet, 0, this.bobAddress)
+          .send({ from: this.bobAddress })
+          .deployed();
 
         // Deploy subscription contract, that allows subscriptions for SUBSCRIPTION_AMOUNT of bananas
         const subscriptionContract = await AppSubscriptionContract.deploy(
-          this.bobWallet,
+          this.wallet,
           counterContract.address,
           this.bobAddress,
           this.bananaCoin.address,
           this.SUBSCRIPTION_AMOUNT,
           this.APP_SPONSORED_TX_GAS_LIMIT,
         )
-          .send()
+          .send({ from: this.bobAddress })
           .deployed();
 
         // Mint some Fee Juice to the subscription contract
         // Could also use bridgeFromL1ToL2 from the harness, but this is more direct
-        await this.mintAndBridgeFeeJuice(subscriptionContract.address, FEE_FUNDING_FOR_TESTER_ACCOUNT);
+        await this.mintAndBridgeFeeJuice(this.bobAddress, subscriptionContract.address, FEE_FUNDING_FOR_TESTER_ACCOUNT);
         return {
           counterContractAddress: counterContract.address,
           subscriptionContractAddress: subscriptionContract.address,
         };
       },
       async ({ counterContractAddress, subscriptionContractAddress }) => {
-        this.counterContract = await CounterContract.at(counterContractAddress, this.bobWallet);
-        this.subscriptionContract = await AppSubscriptionContract.at(subscriptionContractAddress, this.bobWallet);
+        this.counterContract = await CounterContract.at(counterContractAddress, this.wallet);
+        this.subscriptionContract = await AppSubscriptionContract.at(subscriptionContractAddress, this.wallet);
       },
     );
   }

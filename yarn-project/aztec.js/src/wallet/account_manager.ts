@@ -1,11 +1,12 @@
+import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import type { Account } from '../account/account.js';
 import type { AccountContract } from '../account/account_contract.js';
 import { AccountWithSecretKey } from '../account/account_with_secret_key.js';
 import type { Salt } from '../account/index.js';
@@ -16,7 +17,8 @@ import { DeployAccountSentTx } from '../contract/deploy_account_sent_tx.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { AccountEntrypointMetaPaymentMethod } from '../fee/account_entrypoint_meta_payment_method.js';
-import { FeeJuicePaymentMethod, type FeePaymentMethod, type Wallet } from '../index.js';
+import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
+import type { Wallet } from './wallet.js';
 
 /**
  * Options to deploy an account contract.
@@ -28,7 +30,7 @@ export type DeployAccountOptions = Pick<
   /**
    * Account used for any txs to initialize and/or publish the account contract. Must be funded in order to pay for the fee.
    */
-  deployAccount?: Account;
+  deployAccount?: AztecAddress;
 };
 
 /**
@@ -210,22 +212,17 @@ export class AccountManager {
    * @param opts - Fee options to be used for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
-  public deploy(opts: DeployAccountOptions): DeployAccountSentTx {
+  public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
     const sendTx = async () => {
       const deployMethod = await this.getDeployMethod();
-      let fee = opts?.fee ?? {};
-      let deployAccount = opts.deployAccount;
-      if (!deployAccount) {
-        const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
-        deployAccount = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
-        if (opts.fee) {
-          const wrappedPaymentMethod = await this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
-          fee = { ...opts?.fee, paymentMethod: wrappedPaymentMethod };
-        }
+      let fee = opts?.fee;
+      if (!opts?.deployAccount) {
+        const wrappedPaymentMethod = await this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
+        fee = { ...fee, paymentMethod: wrappedPaymentMethod };
       }
 
       const tx = await deployMethod.send({
-        from: deployAccount,
+        from: opts?.deployAccount,
         contractAddressSalt: new Fr(this.salt),
         skipClassPublication: opts?.skipClassPublication ?? true,
         skipInstancePublication: opts?.skipInstancePublication ?? true,

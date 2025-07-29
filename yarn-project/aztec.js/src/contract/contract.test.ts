@@ -177,16 +177,14 @@ describe('Contract Class', () => {
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
-    wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
-    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account });
+    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
@@ -199,14 +197,9 @@ describe('Contract Class', () => {
 
   it('should call view on a utility function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).simulate({ from: account });
+    const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
     expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
     expect(result).toBe(mockUtilityResultValue.result);
-  });
-
-  it('should not call create on a utility  function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    await expect(fooContract.methods.qux().create({ from: account })).rejects.toThrow();
   });
 });

@@ -3,15 +3,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 // docs:start:token_utils
 
-export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {
+export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
-  const contract = await TokenContract.deploy(adminWallet, adminWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
-    .send()
-    .deployed();
+  const contract = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
   if (initialAdminBalance > 0n) {
-    // Minter is minting to herself so contract as minter is the same as contract as recipient
-    await mintTokensToPrivate(contract, adminWallet, adminWallet.getAddress(), initialAdminBalance);
+    await mintTokensToPrivate(contract, wallet, admin, admin, initialAdminBalance);
   }
 
   logger.info('L2 contract deployed');
@@ -21,12 +18,13 @@ export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigi
 
 export async function mintTokensToPrivate(
   token: TokenContract,
-  minterWallet: Wallet,
+  wallet: Wallet,
+  minter: AztecAddress,
   recipient: AztecAddress,
   amount: bigint,
 ) {
-  const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
-  await tokenAsMinter.methods.mint_to_private(recipient, amount).send().wait();
+  const tokenAsMinter = await TokenContract.at(token.address, wallet);
+  await tokenAsMinter.methods.mint_to_private(recipient, amount).send({ from: minter }).wait();
 }
 // docs:end:token_utils
 
