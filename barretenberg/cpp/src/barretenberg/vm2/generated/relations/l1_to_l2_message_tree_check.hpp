@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -29,6 +30,8 @@ template <typename FF_> class l1_to_l2_message_tree_checkImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/l1_to_l2_message_tree_check");
 
         const auto constants_L1_TO_L2_MSG_TREE_HEIGHT = FF(39);
         const auto l1_to_l2_message_tree_check_LEAF_VALUE_MSG_HASH_DIFF =
