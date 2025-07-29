@@ -1,273 +1,170 @@
+import { ungzip } from 'pako';
 import { BackendOptions, Barretenberg } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
-import {
-  deflattenFields,
-  flattenFieldsAsArray,
-  ProofData,
-  splitHonkProof,
-  PAIRING_POINTS_SIZE,
-} from '../proof/index.js';
-import { ungzip } from 'pako';
-import { Buffer } from 'buffer';
-import { Encoder, Decoder } from 'msgpackr';
-import type { ProofSystemSettings, Fr } from '../cbind/generated/api_types.js';
-import { uint8ArrayToHexString } from '../serialize/index.js';
+import { ProofSystemSettings, Fr } from '../cbind/generated/api_types.js';
+import { type Ptr } from '../types/index.js';
+import { deflattenFields, PAIRING_POINTS_SIZE, splitHonkProof } from '../proof/index.js';
 
 /**
- * Options for the BbApiUltraHonkBackend.
- */
-export type BbApiUltraHonkBackendOptions = {
-  /** Selecting this option will use the keccak hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an EVM chain.
-   */
-  keccak?: boolean;
-  /** Selecting this option will use the keccak hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an EVM chain.
-   */
-  keccakZK?: boolean;
-  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
-   */
-  starknet?: boolean;
-  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
-   */
-  starknetZK?: boolean;
-};
-
-/**
- * A new UltraHonk backend that uses the bbapi commands instead of the old WASM API.
- * This allows for a more unified API across different languages and better code reuse.
+ * BbApiUltraHonkBackend
+ * Barretenberg backend that uses bbapi functions
  */
 export class BbApiUltraHonkBackend {
   // These type assertions are used so that we don't
-  // have to initialize `api` in the constructor.
-  // These are initialized asynchronously in the `init` function,
+  // have to initialize `api` and `acirBuf` in the constructor.
+  // These are initialized asynchronously in the `instantiate` function,
   // constructors cannot be asynchronous which is why we do this.
 
   protected api!: Barretenberg;
   protected acirUncompressedBytecode: Uint8Array;
 
   constructor(
-    acirBytecode: string,
-    protected backendOptions: BackendOptions = { threads: 1 },
+    protected acirBytecode: string,
+    protected options: BackendOptions = { threads: 1 },
   ) {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
 
   /** @ignore */
-  private async instantiate(): Promise<void> {
+  async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.backendOptions);
-      // No need to initialize CRS for bbapi
+      const api = await Barretenberg.new(this.options);
+
+      const [_, __] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode, false, true);
+      await api.acirInitSRS(this.acirUncompressedBytecode, false, true);
+
       this.api = api;
     }
   }
 
-  private getProofSystemSettings(options?: BbApiUltraHonkBackendOptions): ProofSystemSettings {
-    let oracleHashType = 'poseidon2';
-    let disableZk = false;
-
-    if (options?.keccak) {
-      oracleHashType = 'keccak';
-      disableZk = true;
-    } else if (options?.keccakZK) {
-      oracleHashType = 'keccak';
-      disableZk = false;
-    } else if (options?.starknet) {
-      oracleHashType = 'starknet';
-      disableZk = true;
-    } else if (options?.starknetZK) {
-      oracleHashType = 'starknet';
-      disableZk = false;
-    }
-
-    return {
-      ipaAccumulation: false,
-      oracleHashType,
-      disableZk,
-      honkRecursion: 1,
-      recursive: false,
-    };
-  }
-
-  async generateProof(compressedWitness: Uint8Array, options?: BbApiUltraHonkBackendOptions): Promise<ProofData> {
+  /**
+   * Generate a proof using bbapi CircuitProve
+   */
+  async prove(witnessBuf: Uint8Array): Promise<Uint8Array> {
     await this.instantiate();
 
-    const settings = this.getProofSystemSettings(options);
+    const proveResult = await this.api.circuitProve({
+      witness: Buffer.from(witnessBuf),
+      circuit: {
+        name: 'circuit',
+        bytecode: Buffer.from(this.acirUncompressedBytecode),
+        verificationKey: Buffer.from([]), // Empty VK for now
+      },
+      settings: {
+        ipaAccumulation: false,
+        oracleHashType: 'poseidon2',
+        disableZk: false,
+      },
+    });
 
-    // First compute the VK to get the number of public inputs
-    const vkResponse = await this.api.getBbApi().circuitComputeVk({
+    // Convert Fr[] to Uint8Array
+    const proofBuffer = new Uint8Array(proveResult.proof.length * 32);
+    proveResult.proof.forEach((fr, i) => {
+      proofBuffer.set(fr, i * 32);
+    });
+    return proofBuffer;
+  }
+
+  /**
+   * Verify a proof using bbapi CircuitVerify
+   */
+  async verify(proof: Uint8Array): Promise<boolean> {
+    await this.instantiate();
+
+    const vkResult = await this.api.circuitComputeVk({
       circuit: {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-      settings,
-    });
-
-    // Convert VK to fields to get the number of public inputs
-    const vkAsFieldsResponse = await this.api.getBbApi().vkAsFields({
-      verificationKey: vkResponse.bytes
+      settings: {
+        ipaAccumulation: false,
+        oracleHashType: 'poseidon2',
+        disableZk: false,
+      },
     });
 
     // Item at index 1 in VK is the number of public inputs
-    const publicInputsSizeIndex = 1;
-    const numPublicInputs = Number(vkAsFieldsResponse.fields[publicInputsSizeIndex].toString()) - PAIRING_POINTS_SIZE;
+    const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
+    const numPublicInputs = Number(vkResult.fields[publicInputsSizeIndex].toString()) - PAIRING_POINTS_SIZE;
 
-    // Decode witness from msgpack format
-    const witnessDecoder = new Decoder({ useRecords: false });
-    const witnessData = witnessDecoder.decode(ungzip(compressedWitness));
-
-    // Encode witness to bbapi format
-    const witnessEncoder = new Encoder({ useRecords: false });
-    const witness = witnessEncoder.encode(witnessData);
-
-    // Generate the proof
-    const proveResponse = await this.api.getBbApi().circuitProve({
-      circuit: {
-        name: 'circuit',
-        bytecode: Buffer.from(this.acirUncompressedBytecode),
-        verificationKey: vkResponse.bytes,
-      },
-      witness: Buffer.from(witness),
-      settings,
-    });
-
-    // Convert Fr arrays to buffers and split the proof
-    const publicInputsBuffer = Buffer.concat(proveResponse.publicInputs);
-    const proofBuffer = Buffer.concat(proveResponse.proof);
-    const proofWithPublicInputs = Buffer.concat([publicInputsBuffer, proofBuffer]);
-
-    const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
-    const publicInputs = deflattenFields(publicInputsBytes);
-
-    return { proof, publicInputs };
-  }
-
-  async verifyProof(proofData: ProofData, options?: BbApiUltraHonkBackendOptions): Promise<boolean> {
-    await this.instantiate();
-
-    const settings = this.getProofSystemSettings(options);
-
-    // Compute the VK
-    const vkResponse = await this.api.getBbApi().circuitComputeVk({
-      circuit: {
-        name: 'circuit',
-        bytecode: Buffer.from(this.acirUncompressedBytecode),
-      },
-      settings,
-    });
-
-    // Convert public inputs to field arrays (Fr[])
-    const publicInputsFlat = flattenFieldsAsArray(proofData.publicInputs);
-    const publicInputsFr: Fr[] = [];
-    for (let i = 0; i < publicInputsFlat.length; i += 32) {
-      publicInputsFr.push(publicInputsFlat.slice(i, i + 32));
+    const splitProof = splitHonkProof(proof, numPublicInputs);
+    // Convert Uint8Array proof and public inputs to a pair of Fr[]
+    const publicInputs: Fr[] = [];
+    for (let i = 0; i < splitProof.publicInputs.length; i += 32) {
+      publicInputs.push(splitProof.publicInputs.slice(i, i + 32) as Fr);
+    }
+    const proofFrs: Fr[] = [];
+    for (let i = 0; i < splitProof.proof.length; i += 32) {
+      proofFrs.push(splitProof.proof.slice(i, i + 32) as Fr);
     }
 
-    // Convert proof to field arrays (Fr[])
-    const proofFr: Fr[] = [];
-    for (let i = 0; i < proofData.proof.length; i += 32) {
-      proofFr.push(proofData.proof.slice(i, i + 32));
-    }
-
-    // Verify the proof
-    const verifyResponse = await this.api.getBbApi().circuitVerify({
-      verificationKey: vkResponse.bytes,
-      publicInputs: publicInputsFr,
-      proof: proofFr,
-      settings,
-    });
-
-    return verifyResponse.verified;
-  }
-
-  async getVerificationKey(options?: BbApiUltraHonkBackendOptions): Promise<Uint8Array> {
-    await this.instantiate();
-
-    const settings = this.getProofSystemSettings(options);
-
-    const vkResponse = await this.api.getBbApi().circuitComputeVk({
-      circuit: {
-        name: 'circuit',
-        bytecode: Buffer.from(this.acirUncompressedBytecode),
-      },
-      settings,
-    });
-
-    return vkResponse.bytes;
-  }
-
-  /** @description Returns a solidity verifier */
-  async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
-    await this.instantiate();
-
-    let vkBuf = vk;
-    if (!vkBuf) {
-      // Default to keccak for Solidity verifier
-      const settings = this.getProofSystemSettings({ keccak: true });
-      const vkResponse = await this.api.getBbApi().circuitComputeVk({
-        circuit: {
-          name: 'circuit',
-          bytecode: Buffer.from(this.acirUncompressedBytecode),
-        },
-        settings,
-      });
-      vkBuf = vkResponse.bytes;
-    }
-
-    const response = await this.api.getBbApi().circuitWriteSolidityVerifier({
-      verificationKey: vkBuf,
+    const verifyResult = await this.api.circuitVerify({
+      verificationKey: vkResult.bytes,
+      publicInputs,
+      proof: proofFrs,
       settings: {
         ipaAccumulation: false,
-        oracleHashType: 'keccak',
-        disableZk: true,
-        honkRecursion: 1,
-        recursive: false,
+        oracleHashType: 'poseidon2',
+        disableZk: false,
       },
     });
 
-    return response.solidityCode;
+    return verifyResult.verified;
   }
 
-  async generateRecursiveProofArtifacts(
-    proof: Uint8Array,
-  ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
+  /**
+   * Get the verification key using bbapi CircuitComputeVk
+   */
+  async getVerificationKey(): Promise<Uint8Array> {
     await this.instantiate();
 
-    // Get VK
-    const settings = this.getProofSystemSettings();
-    const vkResponse = await this.api.getBbApi().circuitComputeVk({
+    const vkResult = await this.api.circuitComputeVk({
       circuit: {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-      settings,
+      settings: {
+        ipaAccumulation: false,
+        oracleHashType: 'poseidon2',
+        disableZk: false,
+      },
     });
 
-    // Convert VK to fields
-    const vkAsFieldsResponse = await this.api.getBbApi().vkAsFields({
-      verificationKey: vkResponse.bytes,
+    return vkResult.bytes;
+  }
+
+  // NOTE(AD): previous issue comment below - this looks like it was never completed?
+  // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
+  async generateRecursiveProofArtifacts(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _proof: Uint8Array,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _numOfPublicInputs: number,
+  ): Promise<{ vkAsFields: string[]; vkHash: string }> {
+    await this.instantiate();
+
+    // Get the VK with fields using CircuitComputeVk
+    const vkResult = await this.api.circuitComputeVk({
+      circuit: {
+        name: 'circuit',
+        bytecode: Buffer.from(this.acirUncompressedBytecode),
+      },
+      settings: {
+        ipaAccumulation: false,
+        oracleHashType: 'poseidon2',
+        disableZk: false,
+      },
     });
 
-    // Convert proof to fields
-    const proofFr: Fr[] = [];
-    for (let i = 0; i < proof.length; i += 32) {
-      proofFr.push(proof.slice(i, i + 32));
-    }
-    
-    const proofAsFieldsResponse = await this.api.getBbApi().proofAsFields({
-      proof: proofFr,
-    });
+    // Convert Fr[] to string[]
+    const vkAsFields = vkResult.fields.map(fr => fr.toString());
+
+    // Convert hash to hex string
+    const vkHash = '0x' + Buffer.from(vkResult.hash).toString('hex');
 
     return {
-      proofAsFields: proofAsFieldsResponse.fields.map(f => '0x' + uint8ArrayToHexString(f)),
-      vkAsFields: vkAsFieldsResponse.fields.map(f => '0x' + uint8ArrayToHexString(f)),
-      vkHash: '', // Not needed for recursive artifacts
+      vkAsFields,
+      vkHash,
     };
   }
 
@@ -281,21 +178,6 @@ export class BbApiUltraHonkBackend {
 
 // Converts bytecode from a base64 string to a Uint8Array
 function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
-  const compressedByteCode = base64Decode(base64EncodedBytecode);
+  const compressedByteCode = Buffer.from(base64EncodedBytecode, 'base64');
   return ungzip(compressedByteCode);
-}
-
-// Since this is a simple function, we can use feature detection to
-// see if we are in the nodeJs environment or the browser environment.
-function base64Decode(input: string): Uint8Array {
-  if (typeof Buffer !== 'undefined') {
-    // Node.js environment
-    const b = Buffer.from(input, 'base64');
-    return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
-  } else if (typeof atob === 'function') {
-    // Browser environment
-    return Uint8Array.from(atob(input), c => c.charCodeAt(0));
-  } else {
-    throw new Error('No implementation found for base64 decoding.');
-  }
 }

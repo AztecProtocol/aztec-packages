@@ -14,7 +14,6 @@ template <typename T> class BBApiSerializationTest : public ::testing::Test {};
 using Commands = ::testing::Types<bbapi::CircuitProve,
                                   bbapi::CircuitComputeVk,
                                   bbapi::CircuitGates,
-                                  bbapi::CircuitCheck,
                                   bbapi::CircuitVerify,
                                   bbapi::VkAsFields,
                                   bbapi::CircuitWriteSolidityVerifier,

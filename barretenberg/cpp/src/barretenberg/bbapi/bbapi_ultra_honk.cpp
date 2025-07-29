@@ -118,10 +118,16 @@ bool _verify(const bool ipa_accumulation,
              const PublicInputsVector& public_inputs,
              const HonkProof& proof)
 {
-    using VerificationKey = typename Flavor::VerificationKey;
+    using VerificationKey typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
 
-    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
+    std::shared_ptr<VerificationKey> vk;
+    if (vk_bytes.empty()) {
+        info("WARNING: computing verification key while verifying. Pass in a precomputed vk for better performance.");
+        vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+    } else {
+        vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
+    }
     // concatenate public inputs and proof
     std::vector<fr> complete_proof = public_inputs;
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());

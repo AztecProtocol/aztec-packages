@@ -31,8 +31,7 @@ namespace {
 // Uniqueness needed because tests are run in parallel and write to same file names.
 std::filesystem::path get_test_dir(const std::string_view& test_name)
 {
-    std::filesystem::path temp_dir =
-        "tmp_api_client_ivc_test" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+    std::filesystem::path temp_dir = "tmp_api_client_ivc_test";
     std::filesystem::create_directories(temp_dir);
     std::filesystem::create_directories(temp_dir / test_name);
     return temp_dir / test_name;
@@ -77,6 +76,7 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 class ClientIVCAPITests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+    static void TearDownTestSuite() { std::filesystem::remove_all("tmp_api_client_ivc_test"); }
 
     void SetUp() override
     {
