@@ -434,26 +434,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(write_solidity_verifier);
 
     /***************************************************************************************************************
-     * Subcommand: proof_as_fields
-     ***************************************************************************************************************/
-    CLI::App* proof_as_fields = app.add_subcommand("proof_as_fields", "Convert a proof to field elements.");
-
-    add_proof_path_option(proof_as_fields);
-    add_output_path_option(proof_as_fields, output_path);
-    add_verbose_flag(proof_as_fields);
-    add_debug_flag(proof_as_fields);
-
-    /***************************************************************************************************************
-     * Subcommand: vk_as_fields
-     ***************************************************************************************************************/
-    CLI::App* vk_as_fields = app.add_subcommand("vk_as_fields", "Convert a verification key to field elements.");
-
-    add_vk_path_option(vk_as_fields);
-    add_output_path_option(vk_as_fields, output_path);
-    add_verbose_flag(vk_as_fields);
-    add_debug_flag(vk_as_fields);
-
-    /***************************************************************************************************************
      * Subcommand: OLD_API
      ***************************************************************************************************************/
     CLI::App* OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
@@ -629,8 +609,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
-    if ((prove->parsed() || write_vk->parsed() || proof_as_fields->parsed() || vk_as_fields->parsed()) &&
-        output_path != "-") {
+    if ((prove->parsed() || write_vk->parsed()) && output_path != "-") {
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
@@ -733,24 +712,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 write_recursion_inputs_ultra_honk<UltraFlavor>(
                     bytecode_path, witness_path, recursion_inputs_output_path);
             }
-        }
-        // PROOF AND VK AS FIELDS COMMANDS
-        else if (proof_as_fields->parsed()) {
-            auto proof_bytes = read_file(proof_path);
-            bbapi::ProofAsFields cmd{ .proof = many_from_buffer<bb::fr>(proof_bytes) };
-            auto response = std::move(cmd).execute();
-            std::string json = field_elements_to_json(response.fields);
-            write_file(output_path / "proof_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
-            vinfo("proof converted to field elements and written to ", output_path / "proof_fields.json");
-            return 0;
-        } else if (vk_as_fields->parsed()) {
-            auto vk_bytes = read_file(vk_path);
-            bbapi::VkAsFields cmd{ .verification_key = vk_bytes };
-            auto response = std::move(cmd).execute();
-            std::string json = field_elements_to_json(response.fields);
-            write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
-            vinfo("verification key converted to field elements and written to ", output_path / "vk_fields.json");
-            return 0;
         }
         // NEW STANDARD API
         // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so

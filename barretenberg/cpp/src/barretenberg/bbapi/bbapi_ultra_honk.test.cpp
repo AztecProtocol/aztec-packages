@@ -20,33 +20,26 @@ TEST_F(BBApiUltraHonkTest, CircuitProveAndVerify)
     // First prove
     CircuitProve prove_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = {} },
                                 .witness = witness,
-                                .settings = { .ipa_accumulation = false,
-                                              .oracle_hash_type = "poseidon2",
-                                              .disable_zk = false,
-                                              .honk_recursion = 1,
-                                              .recursive = false } };
+                                .settings = {
+                                    .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false } };
 
     auto prove_response = std::move(prove_command).execute();
 
     // Compute VK
-    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                 .settings = { .ipa_accumulation = false,
-                                               .oracle_hash_type = "poseidon2",
-                                               .disable_zk = false,
-                                               .honk_recursion = 1,
-                                               .recursive = false } };
+    CircuitComputeVk vk_command{
+        .circuit = { .name = "test_circuit", .bytecode = bytecode },
+        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
+    };
 
     auto vk_response = std::move(vk_command).execute();
 
     // Verify the proof
-    CircuitVerify verify_command{ .verification_key = vk_response.bytes,
-                                  .public_inputs = prove_response.public_inputs,
-                                  .proof = prove_response.proof,
-                                  .settings = { .ipa_accumulation = false,
-                                                .oracle_hash_type = "poseidon2",
-                                                .disable_zk = false,
-                                                .honk_recursion = 1,
-                                                .recursive = false } };
+    CircuitVerify verify_command{
+        .verification_key = vk_response.bytes,
+        .public_inputs = prove_response.public_inputs,
+        .proof = prove_response.proof,
+        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
+    };
 
     auto verify_response = std::move(verify_command).execute();
 
@@ -58,12 +51,10 @@ TEST_F(BBApiUltraHonkTest, ProveWithPrecomputedVK)
     auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     // First compute the VK
-    CircuitComputeVk vk_command{ .circuit = { .name = "test_circuit", .bytecode = bytecode },
-                                 .settings = { .ipa_accumulation = false,
-                                               .oracle_hash_type = "poseidon2",
-                                               .disable_zk = false,
-                                               .honk_recursion = 1,
-                                               .recursive = false } };
+    CircuitComputeVk vk_command{
+        .circuit = { .name = "test_circuit", .bytecode = bytecode },
+        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
+    };
 
     auto vk_response = std::move(vk_command).execute();
 
@@ -71,11 +62,7 @@ TEST_F(BBApiUltraHonkTest, ProveWithPrecomputedVK)
     CircuitProve prove_command{
         .circuit = { .name = "test_circuit", .bytecode = bytecode, .verification_key = vk_response.bytes },
         .witness = witness,
-        .settings = { .ipa_accumulation = false,
-                      .oracle_hash_type = "poseidon2",
-                      .disable_zk = false,
-                      .honk_recursion = 1,
-                      .recursive = false }
+        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
     };
 
     auto prove_response = std::move(prove_command).execute();
@@ -85,14 +72,12 @@ TEST_F(BBApiUltraHonkTest, ProveWithPrecomputedVK)
     EXPECT_EQ(prove_response.public_inputs.size(), 0);
 
     // Verify the proof with the same VK
-    CircuitVerify verify_command{ .verification_key = vk_response.bytes,
-                                  .public_inputs = prove_response.public_inputs,
-                                  .proof = prove_response.proof,
-                                  .settings = { .ipa_accumulation = false,
-                                                .oracle_hash_type = "poseidon2",
-                                                .disable_zk = false,
-                                                .honk_recursion = 1,
-                                                .recursive = false } };
+    CircuitVerify verify_command{
+        .verification_key = vk_response.bytes,
+        .public_inputs = prove_response.public_inputs,
+        .proof = prove_response.proof,
+        .settings = { .ipa_accumulation = false, .oracle_hash_type = "poseidon2", .disable_zk = false }
+    };
 
     auto verify_response = std::move(verify_command).execute();
     EXPECT_TRUE(verify_response.verified);

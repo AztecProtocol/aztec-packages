@@ -4,14 +4,14 @@ import {
   deflattenFields,
   flattenFieldsAsArray,
   ProofData,
-  reconstructHonkProof,
   splitHonkProof,
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Encoder, Decoder } from 'msgpackr';
-import type { CircuitInput, ProofSystemSettings, VkAsFields } from '../cbind/generated/api_types.js';
+import type { ProofSystemSettings, Fr } from '../cbind/generated/api_types.js';
+import { uint8ArrayToHexString } from '../serialize/index.js';
 
 /**
  * Options for the BbApiUltraHonkBackend.
@@ -58,15 +58,12 @@ export class BbApiUltraHonkBackend {
   ) {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
-  
+
   /** @ignore */
   private async instantiate(): Promise<void> {
     if (!this.api) {
       const api = await Barretenberg.new(this.backendOptions);
-      // Initialize CRS based on circuit size
-      const honkRecursion = true;
-      const recursive = false;
-      await api.acirInitSRS(this.acirUncompressedBytecode, recursive, honkRecursion);
+      // No need to initialize CRS for bbapi
       this.api = api;
     }
   }
@@ -74,7 +71,7 @@ export class BbApiUltraHonkBackend {
   private getProofSystemSettings(options?: BbApiUltraHonkBackendOptions): ProofSystemSettings {
     let oracleHashType = 'poseidon2';
     let disableZk = false;
-    
+
     if (options?.keccak) {
       oracleHashType = 'keccak';
       disableZk = true;
@@ -102,7 +99,7 @@ export class BbApiUltraHonkBackend {
     await this.instantiate();
 
     const settings = this.getProofSystemSettings(options);
-    
+
     // First compute the VK to get the number of public inputs
     const vkResponse = await this.api.getBbApi().circuitComputeVk({
       circuit: {
@@ -114,8 +111,7 @@ export class BbApiUltraHonkBackend {
 
     // Convert VK to fields to get the number of public inputs
     const vkAsFieldsResponse = await this.api.getBbApi().vkAsFields({
-      verificationKey: vkResponse.bytes,
-      isMegaHonk: false,
+      verificationKey: vkResponse.bytes
     });
 
     // Item at index 1 in VK is the number of public inputs
@@ -125,7 +121,7 @@ export class BbApiUltraHonkBackend {
     // Decode witness from msgpack format
     const witnessDecoder = new Decoder({ useRecords: false });
     const witnessData = witnessDecoder.decode(ungzip(compressedWitness));
-    
+
     // Encode witness to bbapi format
     const witnessEncoder = new Encoder({ useRecords: false });
     const witness = witnessEncoder.encode(witnessData);
@@ -145,7 +141,7 @@ export class BbApiUltraHonkBackend {
     const publicInputsBuffer = Buffer.concat(proveResponse.publicInputs);
     const proofBuffer = Buffer.concat(proveResponse.proof);
     const proofWithPublicInputs = Buffer.concat([publicInputsBuffer, proofBuffer]);
-    
+
     const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
     const publicInputs = deflattenFields(publicInputsBytes);
 
@@ -156,7 +152,7 @@ export class BbApiUltraHonkBackend {
     await this.instantiate();
 
     const settings = this.getProofSystemSettings(options);
-    
+
     // Compute the VK
     const vkResponse = await this.api.getBbApi().circuitComputeVk({
       circuit: {
@@ -166,18 +162,24 @@ export class BbApiUltraHonkBackend {
       settings,
     });
 
-    // Reconstruct the proof with public inputs
-    const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
-    
-    // Split proof back into public inputs and proof
-    const publicInputs = proof.slice(0, proofData.publicInputs.length);
-    const proofOnly = proof.slice(proofData.publicInputs.length);
+    // Convert public inputs to field arrays (Fr[])
+    const publicInputsFlat = flattenFieldsAsArray(proofData.publicInputs);
+    const publicInputsFr: Fr[] = [];
+    for (let i = 0; i < publicInputsFlat.length; i += 32) {
+      publicInputsFr.push(publicInputsFlat.slice(i, i + 32));
+    }
+
+    // Convert proof to field arrays (Fr[])
+    const proofFr: Fr[] = [];
+    for (let i = 0; i < proofData.proof.length; i += 32) {
+      proofFr.push(proofData.proof.slice(i, i + 32));
+    }
 
     // Verify the proof
     const verifyResponse = await this.api.getBbApi().circuitVerify({
       verificationKey: vkResponse.bytes,
-      publicInputs: publicInputs.map(f => Buffer.from(f.toBuffer())),
-      proof: proofOnly.map(f => Buffer.from(f.toBuffer())),
+      publicInputs: publicInputsFr,
+      proof: proofFr,
       settings,
     });
 
@@ -186,9 +188,9 @@ export class BbApiUltraHonkBackend {
 
   async getVerificationKey(options?: BbApiUltraHonkBackendOptions): Promise<Uint8Array> {
     await this.instantiate();
-    
+
     const settings = this.getProofSystemSettings(options);
-    
+
     const vkResponse = await this.api.getBbApi().circuitComputeVk({
       circuit: {
         name: 'circuit',
@@ -203,7 +205,7 @@ export class BbApiUltraHonkBackend {
   /** @description Returns a solidity verifier */
   async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
     await this.instantiate();
-    
+
     let vkBuf = vk;
     if (!vkBuf) {
       // Default to keccak for Solidity verifier
@@ -234,10 +236,9 @@ export class BbApiUltraHonkBackend {
 
   async generateRecursiveProofArtifacts(
     proof: Uint8Array,
-    numOfPublicInputs: number,
   ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
     await this.instantiate();
-    
+
     // Get VK
     const settings = this.getProofSystemSettings();
     const vkResponse = await this.api.getBbApi().circuitComputeVk({
@@ -251,24 +252,21 @@ export class BbApiUltraHonkBackend {
     // Convert VK to fields
     const vkAsFieldsResponse = await this.api.getBbApi().vkAsFields({
       verificationKey: vkResponse.bytes,
-      isMegaHonk: false,
     });
 
     // Convert proof to fields
+    const proofFr: Fr[] = [];
+    for (let i = 0; i < proof.length; i += 32) {
+      proofFr.push(proof.slice(i, i + 32));
+    }
+    
     const proofAsFieldsResponse = await this.api.getBbApi().proofAsFields({
-      proof: Array.from(proof).map((byte, i) => {
-        // Convert bytes to Fr elements (32 bytes per field element)
-        if (i % 32 === 0) {
-          const fieldBytes = proof.slice(i, i + 32);
-          return Buffer.from(fieldBytes);
-        }
-        return null;
-      }).filter((f): f is Uint8Array => f !== null),
+      proof: proofFr,
     });
 
     return {
-      proofAsFields: proofAsFieldsResponse.fields.map(f => f.toString()),
-      vkAsFields: vkAsFieldsResponse.fields.map(f => f.toString()),
+      proofAsFields: proofAsFieldsResponse.fields.map(f => '0x' + uint8ArrayToHexString(f)),
+      vkAsFields: vkAsFieldsResponse.fields.map(f => '0x' + uint8ArrayToHexString(f)),
       vkHash: '', // Not needed for recursive artifacts
     };
   }

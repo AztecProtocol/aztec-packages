@@ -78,8 +78,7 @@ describe('BbApiUltraHonkBackend', () => {
     
     // Get recursive artifacts
     const artifacts = await backend.generateRecursiveProofArtifacts(
-      proofData.proof,
-      proofData.publicInputs.length
+      proofData.proof
     );
     
     expect(artifacts.proofAsFields).toBeDefined();

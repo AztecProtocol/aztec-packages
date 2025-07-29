@@ -166,26 +166,31 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (settings.ipa_accumulation) {
         return _prove<UltraRollupFlavor>(circuit.bytecode, witness, circuit.verification_key);
-    } else if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
+    }
+    if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is poseidon2, we are using the UltraZKFlavor
         return _prove<UltraZKFlavor>(circuit.bytecode, witness, circuit.verification_key);
-    } else if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
+    }
+    if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
         // if we are disabling ZK and the oracle hash type is poseidon2, we are using the UltraFlavor
         return _prove<UltraFlavor>(circuit.bytecode, witness, circuit.verification_key);
-    } else if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
+    }
+    if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is keccak, we are using the UltraKeccakZKFlavor
         return _prove<UltraKeccakZKFlavor>(circuit.bytecode, witness, circuit.verification_key);
-    } else if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
+    }
+    if (settings.oracle_hash_type == "keccak" && settings.disable_zk) {
         return _prove<UltraKeccakFlavor>(circuit.bytecode, witness, circuit.verification_key);
 #ifdef STARKNET_GARAGA_FLAVORS
-    } else if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
+    }
+    if (settings.oracle_hash_type == "starknet" && settings.disable_zk) {
         return _prove<UltraStarknetFlavor>(circuit.bytecode, witness, circuit.verification_key);
-    } else if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
+    }
+    if (settings.oracle_hash_type == "starknet" && !settings.disable_zk) {
         return _prove<UltraStarknetZKFlavor>(circuit.bytecode, witness, circuit.verification_key);
 #endif
-    } else {
-        throw_or_abort("Invalid proving options specified in _prove");
     }
+    throw_or_abort("Invalid proving options specified in CircuitProve!");
 }
 
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
@@ -314,16 +319,6 @@ CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
 
     return { contract };
-}
-
-CircuitProveAndVerify::Response CircuitProveAndVerify::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    throw_or_abort("not implemented yet!");
-}
-
-CircuitBenchmark::Response CircuitBenchmark::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    throw_or_abort("not implemented yet!");
 }
 
 } // namespace bb::bbapi
