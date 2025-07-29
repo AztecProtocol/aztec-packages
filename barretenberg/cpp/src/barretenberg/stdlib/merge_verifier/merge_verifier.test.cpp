@@ -98,7 +98,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
             recursive_merge_commitments.t_commitments[idx] =
                 RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(
-                &outer_circuit, recursive_merge_commitments.T_prev_commitments[idx]);
+                &outer_circuit, merge_commitments.T_prev_commitments[idx]);
         }
 
         // Create a recursive merge verification circuit for the merge proof
