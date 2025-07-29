@@ -64,8 +64,8 @@ template <typename Curve> class OpeningClaim {
     Commitment commitment;
 
     // Size of public inputs representation of an opening claim over Grumpkin
-    static constexpr size_t PUBLIC_INPUTS_SIZE =
-        /*opening_pair=*/2 * bb::fr::PUBLIC_INPUTS_SIZE + /*commitment=*/Commitment::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = /*opening_pair=*/2 * bb::fq::PUBLIC_INPUTS_SIZE +
+                                                 /*commitment=*/Commitment::PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Set the witness indices for the opening claim to public

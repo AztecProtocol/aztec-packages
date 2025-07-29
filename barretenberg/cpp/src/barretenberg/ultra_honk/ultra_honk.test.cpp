@@ -103,19 +103,18 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;
-    using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
-    using RollupIO = stdlib::recursion::honk::RollupIO;
+    using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
+                                  stdlib::recursion::honk::RollupIO,
+                                  stdlib::recursion::honk::DefaultIO<Builder>>;
 
     auto builder = Builder{};
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    IO::add_default(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof ultra_proof = prover.construct_proof();
-    static constexpr size_t expected_proof_length =
-        HasIPAAccumulator<Flavor> ? Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + RollupIO::PUBLIC_INPUTS_SIZE
-                                  : Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + DefaultIO::PUBLIC_INPUTS_SIZE;
+    size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IO::PUBLIC_INPUTS_SIZE;
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
 }
 
