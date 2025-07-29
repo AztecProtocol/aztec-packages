@@ -121,38 +121,22 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant PAIRING_POINT_13 = 0x2000;
     uint256 internal constant PAIRING_POINT_14 = 0x2020;
     uint256 internal constant PAIRING_POINT_15 = 0x2040;
-    uint256 internal constant W_L_X0_LOC = 0x2060;
-    uint256 internal constant W_L_X1_LOC = 0x2080;
-    uint256 internal constant W_L_Y0_LOC = 0x20a0;
-    uint256 internal constant W_L_Y1_LOC = 0x20c0;
-    uint256 internal constant W_R_X0_LOC = 0x20e0;
-    uint256 internal constant W_R_X1_LOC = 0x2100;
-    uint256 internal constant W_R_Y0_LOC = 0x2120;
-    uint256 internal constant W_R_Y1_LOC = 0x2140;
-    uint256 internal constant W_O_X0_LOC = 0x2160;
-    uint256 internal constant W_O_X1_LOC = 0x2180;
-    uint256 internal constant W_O_Y0_LOC = 0x21a0;
-    uint256 internal constant W_O_Y1_LOC = 0x21c0;
-    uint256 internal constant LOOKUP_READ_COUNTS_X0_LOC = 0x21e0;
-    uint256 internal constant LOOKUP_READ_COUNTS_X1_LOC = 0x2200;
-    uint256 internal constant LOOKUP_READ_COUNTS_Y0_LOC = 0x2220;
-    uint256 internal constant LOOKUP_READ_COUNTS_Y1_LOC = 0x2240;
-    uint256 internal constant LOOKUP_READ_TAGS_X0_LOC = 0x2260;
-    uint256 internal constant LOOKUP_READ_TAGS_X1_LOC = 0x2280;
-    uint256 internal constant LOOKUP_READ_TAGS_Y0_LOC = 0x22a0;
-    uint256 internal constant LOOKUP_READ_TAGS_Y1_LOC = 0x22c0;
-    uint256 internal constant W_4_X0_LOC = 0x22e0;
-    uint256 internal constant W_4_X1_LOC = 0x2300;
-    uint256 internal constant W_4_Y0_LOC = 0x2320;
-    uint256 internal constant W_4_Y1_LOC = 0x2340;
-    uint256 internal constant LOOKUP_INVERSES_X0_LOC = 0x2360;
-    uint256 internal constant LOOKUP_INVERSES_X1_LOC = 0x2380;
-    uint256 internal constant LOOKUP_INVERSES_Y0_LOC = 0x23a0;
-    uint256 internal constant LOOKUP_INVERSES_Y1_LOC = 0x23c0;
-    uint256 internal constant Z_PERM_X0_LOC = 0x23e0;
-    uint256 internal constant Z_PERM_X1_LOC = 0x2400;
-    uint256 internal constant Z_PERM_Y0_LOC = 0x2420;
-    uint256 internal constant Z_PERM_Y1_LOC = 0x2440;
+    uint256 internal constant W_L_X_LOC = 0x2060;
+    uint256 internal constant W_L_Y_LOC = 0x2080;
+    uint256 internal constant W_R_X_LOC = 0x20e0;
+    uint256 internal constant W_R_Y_LOC = 0x2100;
+    uint256 internal constant W_O_X_LOC = 0x2160;
+    uint256 internal constant W_O_Y_LOC = 0x2180;
+    uint256 internal constant LOOKUP_READ_COUNTS_X_LOC = 0x21e0;
+    uint256 internal constant LOOKUP_READ_COUNTS_Y_LOC = 0x2200;
+    uint256 internal constant LOOKUP_READ_TAGS_X_LOC = 0x2260;
+    uint256 internal constant LOOKUP_READ_TAGS_Y_LOC = 0x2280;
+    uint256 internal constant W_4_X_LOC = 0x22e0;
+    uint256 internal constant W_4_Y_LOC = 0x2300;
+    uint256 internal constant LOOKUP_INVERSES_X_LOC = 0x2360;
+    uint256 internal constant LOOKUP_INVERSES_Y_LOC = 0x2380;
+    uint256 internal constant Z_PERM_X_LOC = 0x23e0;
+    uint256 internal constant Z_PERM_Y_LOC = 0x2400;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*           PROOF INDICIES - SUMCHECK UNIVARIATES            */
@@ -430,114 +414,60 @@ contract BlakeOptHonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*           PROOF INDICIES - GEMINI FOLDING COMMS            */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_0_X0_LOC = 0x4580;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_0_X1_LOC = 0x45a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_0_Y0_LOC = 0x45c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_0_Y1_LOC = 0x45e0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_1_X0_LOC = 0x4600;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_1_X1_LOC = 0x4620;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_1_Y0_LOC = 0x4640;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_1_Y1_LOC = 0x4660;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_2_X0_LOC = 0x4680;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_2_X1_LOC = 0x46a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_2_Y0_LOC = 0x46c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_2_Y1_LOC = 0x46e0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_3_X0_LOC = 0x4700;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_3_X1_LOC = 0x4720;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_3_Y0_LOC = 0x4740;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_3_Y1_LOC = 0x4760;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_4_X0_LOC = 0x4780;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_4_X1_LOC = 0x47a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_4_Y0_LOC = 0x47c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_4_Y1_LOC = 0x47e0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_5_X0_LOC = 0x4800;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_5_X1_LOC = 0x4820;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_5_Y0_LOC = 0x4840;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_5_Y1_LOC = 0x4860;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_6_X0_LOC = 0x4880;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_6_X1_LOC = 0x48a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_6_Y0_LOC = 0x48c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_6_Y1_LOC = 0x48e0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_7_X0_LOC = 0x4900;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_7_X1_LOC = 0x4920;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_7_Y0_LOC = 0x4940;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_7_Y1_LOC = 0x4960;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_8_X0_LOC = 0x4980;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_8_X1_LOC = 0x49a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_8_Y0_LOC = 0x49c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_8_Y1_LOC = 0x49e0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_9_X0_LOC = 0x4a00;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_9_X1_LOC = 0x4a20;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_9_Y0_LOC = 0x4a40;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_9_Y1_LOC = 0x4a60;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_10_X0_LOC = 0x4a80;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_10_X1_LOC = 0x4aa0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_10_Y0_LOC = 0x4ac0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_10_Y1_LOC = 0x4ae0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_11_X0_LOC = 0x4b00;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_11_X1_LOC = 0x4b20;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_11_Y0_LOC = 0x4b40;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_11_Y1_LOC = 0x4b60;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_12_X0_LOC = 0x4b80;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_12_X1_LOC = 0x4ba0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_12_Y0_LOC = 0x4bc0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_12_Y1_LOC = 0x4be0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_13_X0_LOC = 0x4c00;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_13_X1_LOC = 0x4c20;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_13_Y0_LOC = 0x4c40;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_13_Y1_LOC = 0x4c60;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_14_X0_LOC = 0x4c80;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_14_X1_LOC = 0x4ca0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_14_Y0_LOC = 0x4cc0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_14_Y1_LOC = 0x4ce0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_15_X0_LOC = 0x4d00;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_15_X1_LOC = 0x4d20;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_15_Y0_LOC = 0x4d40;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_15_Y1_LOC = 0x4d60;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_16_X0_LOC = 0x4d80;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_16_X1_LOC = 0x4da0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_16_Y0_LOC = 0x4dc0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_16_Y1_LOC = 0x4de0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_17_X0_LOC = 0x4e00;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_17_X1_LOC = 0x4e20;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_17_Y0_LOC = 0x4e40;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_17_Y1_LOC = 0x4e60;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_18_X0_LOC = 0x4e80;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_18_X1_LOC = 0x4ea0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_18_Y0_LOC = 0x4ec0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_18_Y1_LOC = 0x4ee0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_19_X0_LOC = 0x4f00;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_19_X1_LOC = 0x4f20;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_19_Y0_LOC = 0x4f40;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_19_Y1_LOC = 0x4f60;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_20_X0_LOC = 0x4f80;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_20_X1_LOC = 0x4fa0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_20_Y0_LOC = 0x4fc0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_20_Y1_LOC = 0x4fe0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_21_X0_LOC = 0x5000;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_21_X1_LOC = 0x5020;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_21_Y0_LOC = 0x5040;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_21_Y1_LOC = 0x5060;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_22_X0_LOC = 0x5080;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_22_X1_LOC = 0x50a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_22_Y0_LOC = 0x50c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_22_Y1_LOC = 0x50e0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_23_X0_LOC = 0x5100;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_23_X1_LOC = 0x5120;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_23_Y0_LOC = 0x5140;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_23_Y1_LOC = 0x5160;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_24_X0_LOC = 0x5180;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_24_X1_LOC = 0x51a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_24_Y0_LOC = 0x51c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_24_Y1_LOC = 0x51e0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_25_X0_LOC = 0x5200;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_25_X1_LOC = 0x5220;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_25_Y0_LOC = 0x5240;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_25_Y1_LOC = 0x5260;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_26_X0_LOC = 0x5280;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_26_X1_LOC = 0x52a0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_26_Y0_LOC = 0x52c0;
-    uint256 internal constant GEMINI_FOLD_UNIVARIATE_26_Y1_LOC = 0x52e0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_0_X_LOC = 0x4580;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_0_Y_LOC = 0x45a0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_1_X_LOC = 0x4600;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_1_Y_LOC = 0x4620;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_2_X_LOC = 0x4680;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_2_Y_LOC = 0x46a0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_3_X_LOC = 0x4700;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_3_Y_LOC = 0x4720;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_4_X_LOC = 0x4780;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_4_Y_LOC = 0x47a0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_5_X_LOC = 0x4800;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_5_Y_LOC = 0x4820;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_6_X_LOC = 0x4880;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_6_Y_LOC = 0x48a0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_7_X_LOC = 0x4900;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_7_Y_LOC = 0x4920;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_8_X_LOC = 0x4980;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_8_Y_LOC = 0x49a0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_9_X_LOC = 0x4a00;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_9_Y_LOC = 0x4a20;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_10_X_LOC = 0x4a80;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_10_Y_LOC = 0x4aa0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_11_X_LOC = 0x4b00;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_11_Y_LOC = 0x4b20;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_12_X_LOC = 0x4b80;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_12_Y_LOC = 0x4ba0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_13_X_LOC = 0x4c00;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_13_Y_LOC = 0x4c20;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_14_X_LOC = 0x4c80;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_14_Y_LOC = 0x4ca0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_15_X_LOC = 0x4d00;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_15_Y_LOC = 0x4d20;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_16_X_LOC = 0x4d80;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_16_Y_LOC = 0x4da0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_17_X_LOC = 0x4e00;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_17_Y_LOC = 0x4e20;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_18_X_LOC = 0x4e80;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_18_Y_LOC = 0x4ea0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_19_X_LOC = 0x4f00;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_19_Y_LOC = 0x4f20;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_20_X_LOC = 0x4f80;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_20_Y_LOC = 0x4fa0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_21_X_LOC = 0x5000;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_21_Y_LOC = 0x5020;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_22_X_LOC = 0x5080;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_22_Y_LOC = 0x50a0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_23_X_LOC = 0x5100;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_23_Y_LOC = 0x5120;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_24_X_LOC = 0x5180;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_24_Y_LOC = 0x51a0;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_25_X_LOC = 0x5200;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_25_Y_LOC = 0x5220;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_26_X_LOC = 0x5280;
+    uint256 internal constant GEMINI_FOLD_UNIVARIATE_26_Y_LOC = 0x52a0;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*        PROOF INDICIES - GEMINI FOLDING EVALUATIONS         */
@@ -570,14 +500,10 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant GEMINI_A_EVAL_25 = 0x5620;
     uint256 internal constant GEMINI_A_EVAL_26 = 0x5640;
     uint256 internal constant GEMINI_A_EVAL_27 = 0x5660;
-    uint256 internal constant SHPLONK_Q_X0_LOC = 0x5680;
-    uint256 internal constant SHPLONK_Q_X1_LOC = 0x56a0;
-    uint256 internal constant SHPLONK_Q_Y0_LOC = 0x56c0;
-    uint256 internal constant SHPLONK_Q_Y1_LOC = 0x56e0;
-    uint256 internal constant KZG_QUOTIENT_X0_LOC = 0x5700;
-    uint256 internal constant KZG_QUOTIENT_X1_LOC = 0x5720;
-    uint256 internal constant KZG_QUOTIENT_Y0_LOC = 0x5740;
-    uint256 internal constant KZG_QUOTIENT_Y1_LOC = 0x5760;
+    uint256 internal constant SHPLONK_Q_X_LOC = 0x5680;
+    uint256 internal constant SHPLONK_Q_Y_LOC = 0x56a0;
+    uint256 internal constant KZG_QUOTIENT_X_LOC = 0x5700;
+    uint256 internal constant KZG_QUOTIENT_Y_LOC = 0x5720;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                 PROOF INDICIES - COMPLETE                  */
@@ -1579,13 +1505,12 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 calldatacopy(public_inputs_end, proof_ptr, 0x200)
 
-                // Note: size will change once proof points are made smaller for keccak flavor
-                // Right now it is 0x20 * 16 - should be 8
+                // 0x20 * 8 = 0x100
                 // End of public inputs + pairing point
-                calldatacopy(add(0x260, public_inputs_size), add(proof_ptr, 0x200), 0x1a0)
+                calldatacopy(add(0x260, public_inputs_size), add(proof_ptr, 0x200), 0x100)
 
-                // 0x1e0 = 3 * 32 bytes + 4 * 96 bytes for (w1,w2,w3) + 0x200 for pairing points
-                let eta_input_length := add(0x3e0, public_inputs_size)
+                // 0x1e0 = 3 * 32 bytes + 3 * 64 bytes for (w1,w2,w3) + 0x200 for pairing points
+                let eta_input_length := add(0x320, public_inputs_size)
 
                 let prev_challenge := mod(keccak256(0x00, eta_input_length), p)
                 mstore(0x00, prev_challenge)
@@ -1620,9 +1545,9 @@ contract BlakeOptHonkVerifier is IVerifier {
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
                 // Generate Beta and Gamma Chalenges
-                mcopy(0x20, LOOKUP_READ_COUNTS_X0_LOC, 0x180)
+                mcopy(0x20, LOOKUP_READ_COUNTS_X_LOC, 0xc0)
 
-                prev_challenge := mod(keccak256(0x00, 0x1a0), p)
+                prev_challenge := mod(keccak256(0x00, 0xe0), p)
                 mstore(0x00, prev_challenge)
                 let beta := and(prev_challenge, LOWER_128_MASK)
                 let gamma := shr(128, prev_challenge)
@@ -1643,9 +1568,9 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // If we do not non-linearise sub relations, then sub relations which rely
                 // on the same wire will interact with each other's sums.
 
-                mcopy(0x20, LOOKUP_INVERSES_X0_LOC, 0x100)
+                mcopy(0x20, LOOKUP_INVERSES_X_LOC, 0x80)
 
-                prev_challenge := mod(keccak256(0x00, 0x120), p)
+                prev_challenge := mod(keccak256(0x00, 0xa0), p)
                 mstore(0x00, prev_challenge)
                 let alpha_0 := and(prev_challenge, LOWER_128_MASK)
                 let alpha_1 := shr(128, prev_challenge)
@@ -1770,10 +1695,10 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // So for multivariate polynomials in l variables, we will hash l - 1 commitments.
                 // For this implementation, we have a fixed number of of rounds and thus 27 committments
                 // The format of these commitments are proof points, which are explained above
-                // 0x80 * 27 = 0xd80
-                mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X0_LOC, 0xd80)
+                // 0x40 * 27 = 0x6c0
+                mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, 0x6c0)
 
-                prev_challenge := mod(keccak256(0x00, 0xda0), p)
+                prev_challenge := mod(keccak256(0x00, 0x6e0), p)
                 mstore(0x00, prev_challenge)
 
                 let geminiR := and(prev_challenge, LOWER_128_MASK)
@@ -1797,8 +1722,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // Generate Shplonk Z
                 // Hash of the single shplonk Q commitment
-                mcopy(0x20, SHPLONK_Q_X0_LOC, 0x80)
-                prev_challenge := mod(keccak256(0x00, 0xa0), p)
+                mcopy(0x20, SHPLONK_Q_X_LOC, 0x40)
+                prev_challenge := mod(keccak256(0x00, 0x60), p)
 
                 let shplonkZ := and(prev_challenge, LOWER_128_MASK)
                 mstore(SHPLONK_Z_CHALLENGE, shplonkZ)
@@ -1876,7 +1801,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // Pairing points contribution to public inputs delta
                 let pairing_points_ptr := PAIRING_POINT_0
-                for {} lt(pairing_points_ptr, W_L_X0_LOC) { pairing_points_ptr := add(pairing_points_ptr, 0x20) } {
+                for {} lt(pairing_points_ptr, W_L_X_LOC) { pairing_points_ptr := add(pairing_points_ptr, 0x20) } {
                     let input := mload(pairing_points_ptr)
 
                     numerator_value := mulmod(numerator_value, addmod(numerator_acc, input, p_clone), p_clone)
@@ -4052,6 +3977,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 }
             }
 
+            // TODO: remove this function entirely and replace with manual writes
+            // TODO: update these comments
             // This function takes a proof point from its field element representaiton into its
             // functional bytes representation
             //
@@ -4076,17 +4003,8 @@ contract BlakeOptHonkVerifier is IVerifier {
             // ecMul precompile
             //
             function writeProofPointIntoScratchSpace(proof_memory_location) {
-                let x_low := mload(proof_memory_location)
-                let x_high := mload(add(proof_memory_location, 0x20))
-
-                // x_low | x_high < 136
-                mstore(0x60, or(shl(136, x_high), x_low))
-
-                let y_low := mload(add(proof_memory_location, 0x40))
-                let y_high := mload(add(proof_memory_location, 0x60))
-
-                // y_low | y_high < 136
-                mstore(0x80, or(shl(136, y_high), y_low))
+                mstore(0x60, mload(proof_memory_location))
+                mstore(0x80, mload(add(proof_memory_location, 0x20)))
 
                 // By now, we should expect our scratch space to look as follows
                 // 0x00: scalar
@@ -4094,19 +4012,10 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // 0x40: y_coordinate
             }
 
-            function writeProofPointOntoStack(proof_point_memory_location) -> x, y {
-                let x_low := mload(proof_point_memory_location)
-                let x_high := mload(add(proof_point_memory_location, 0x20))
-
-                let y_low := mload(add(proof_point_memory_location, 0x40))
-                let y_high := mload(add(proof_point_memory_location, 0x60))
-
-                x := or(shl(136, x_high), x_low)
-                y := or(shl(136, y_high), y_low)
-            }
-
+            // TODO: inline use of this function
             function validateProofPointOnCurve(proof_point_memory_location, q_clone) -> success_return {
-                let x, y := writeProofPointOntoStack(proof_point_memory_location)
+                let x := mload(proof_point_memory_location)
+                let y := mload(add(proof_point_memory_location, 0x20))
 
                 let xx := mulmod(x, x, q_clone)
                 let xxx := mulmod(xx, x, q_clone)
@@ -4120,47 +4029,47 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
                 let success_flag := 1
                 // Wires
-                success_flag := and(success_flag, validateProofPointOnCurve(W_L_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_R_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_O_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_COUNTS_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_TAGS_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(W_4_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_INVERSES_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(Z_PERM_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_L_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_R_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_O_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_COUNTS_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_READ_TAGS_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(W_4_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(LOOKUP_INVERSES_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(Z_PERM_X_LOC, q))
 
                 // Gemini commitments - validate up to log n
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_0_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_1_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_2_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_3_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_4_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_5_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_6_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_7_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_8_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_9_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_10_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_11_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_12_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_13_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_14_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_15_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_16_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_17_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_18_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_19_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_20_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_21_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_22_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_23_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_24_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_25_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_26_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_0_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_1_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_2_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_3_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_4_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_5_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_6_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_7_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_8_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_9_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_10_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_11_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_12_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_13_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_14_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_15_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_16_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_17_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_18_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_19_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_20_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_21_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_22_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_23_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_24_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_25_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_26_X_LOC, q))
 
                 // Shlponk
-                success_flag := and(success_flag, validateProofPointOnCurve(SHPLONK_Q_X0_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(KZG_QUOTIENT_X0_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(SHPLONK_Q_X_LOC, q))
+                success_flag := and(success_flag, validateProofPointOnCurve(KZG_QUOTIENT_X_LOC, q))
 
                 if iszero(success_flag) {
                     mstore(0x00, PROOF_POINT_NOT_ON_CURVE_SELECTOR)
@@ -4175,7 +4084,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // WORKTODO(md): we can ignore this accumulation as we are multiplying by 1,
                 // Just set the accumulator instead.
                 mstore(SCALAR_LOCATION, 0x1)
-                writeProofPointIntoScratchSpace(SHPLONK_Q_X0_LOC)
+                writeProofPointIntoScratchSpace(SHPLONK_Q_X_LOC)
                 precomp_success_flag := staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR, 0x40)
             }
 
@@ -4408,7 +4317,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 // Accumulate proof points
                 // Accumulator = accumulator + scalar[29] * w_l
-                writeProofPointIntoScratchSpace(W_L_X0_LOC)
+                writeProofPointIntoScratchSpace(W_L_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_29_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4416,7 +4325,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[30] * w_r
-                writeProofPointIntoScratchSpace(W_R_X0_LOC)
+                writeProofPointIntoScratchSpace(W_R_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_30_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4424,7 +4333,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[31] * w_o
-                writeProofPointIntoScratchSpace(W_O_X0_LOC)
+                writeProofPointIntoScratchSpace(W_O_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_31_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4432,7 +4341,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[32] * w_4
-                writeProofPointIntoScratchSpace(W_4_X0_LOC)
+                writeProofPointIntoScratchSpace(W_4_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_32_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4440,7 +4349,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[33] * z_perm
-                writeProofPointIntoScratchSpace(Z_PERM_X0_LOC)
+                writeProofPointIntoScratchSpace(Z_PERM_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_33_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4448,7 +4357,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[34] * lookup_inverses
-                writeProofPointIntoScratchSpace(LOOKUP_INVERSES_X0_LOC)
+                writeProofPointIntoScratchSpace(LOOKUP_INVERSES_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_34_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4456,7 +4365,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[35] * lookup_read_counts
-                writeProofPointIntoScratchSpace(LOOKUP_READ_COUNTS_X0_LOC)
+                writeProofPointIntoScratchSpace(LOOKUP_READ_COUNTS_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_35_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4464,7 +4373,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                 // Accumulator = accumulator + scalar[36] * lookup_read_tags
-                writeProofPointIntoScratchSpace(LOOKUP_READ_TAGS_X0_LOC)
+                writeProofPointIntoScratchSpace(LOOKUP_READ_TAGS_X_LOC)
                 mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_36_LOC))
                 precomp_success_flag :=
                     and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4481,7 +4390,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 {
                     {
                         // accumulator = accumulator + scalar[37] * gemini_fold_univariates[0]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_0_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_0_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_37_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4489,7 +4398,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[38] * gemini_fold_univariates[1]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_1_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_1_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_38_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4497,7 +4406,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[39] * gemini_fold_univariates[2]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_2_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_2_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_39_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4505,7 +4414,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[40] * gemini_fold_univariates[3]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_3_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_3_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_40_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4513,7 +4422,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[41] * gemini_fold_univariates[4]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_4_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_4_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_41_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4523,7 +4432,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     {
                         // accumulator = accumulator + scalar[42] * gemini_fold_univariates[5]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_5_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_5_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_42_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4531,7 +4440,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[43] * gemini_fold_univariates[6]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_6_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_6_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_43_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4539,7 +4448,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[44] * gemini_fold_univariates[7]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_7_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_7_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_44_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4547,7 +4456,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[45] * gemini_fold_univariates[8]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_8_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_8_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_45_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4555,7 +4464,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[46] * gemini_fold_univariates[9]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_9_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_9_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_46_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4563,7 +4472,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[47] * gemini_fold_univariates[10]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_10_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_10_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_47_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4573,7 +4482,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     {
                         // accumulator = accumulator + scalar[48] * gemini_fold_univariates[11]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_11_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_11_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_48_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4581,7 +4490,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[49] * gemini_fold_univariates[12]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_12_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_12_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_49_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4589,7 +4498,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[50] * gemini_fold_univariates[13]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_13_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_13_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_50_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4597,7 +4506,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[51] * gemini_fold_univariates[14]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_14_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_14_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_51_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4605,7 +4514,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[52] * gemini_fold_univariates[15]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_15_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_15_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_52_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4615,7 +4524,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     {
                         // accumulator = accumulator + scalar[53] * gemini_fold_univariates[16]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_16_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_16_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_53_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4623,7 +4532,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[54] * gemini_fold_univariates[17]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_17_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_17_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_54_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4631,7 +4540,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[55] * gemini_fold_univariates[18]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_18_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_18_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_55_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4639,7 +4548,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[56] * gemini_fold_univariates[19]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_19_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_19_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_56_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4647,7 +4556,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[57] * gemini_fold_univariates[20]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_20_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_20_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_57_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4657,7 +4566,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     {
                         // accumulator = accumulator + scalar[58] * gemini_fold_univariates[21]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_21_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_21_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_58_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4665,7 +4574,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[59] * gemini_fold_univariates[22]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_22_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_22_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_59_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4673,7 +4582,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[60] * gemini_fold_univariates[23]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_23_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_23_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_60_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4681,7 +4590,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[61] * gemini_fold_univariates[24]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_24_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_24_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_61_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4689,7 +4598,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[62] * gemini_fold_univariates[25]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_25_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_25_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_62_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4697,7 +4606,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                             and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
 
                         // accumulator = accumulator + scalar[63] * gemini_fold_univariates[26]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_26_X0_LOC)
+                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_26_X_LOC)
                         mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_63_LOC))
                         precomp_success_flag :=
                             and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
@@ -4719,7 +4628,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     // Accumlate final quotient commitment into shplonk check
                     // Accumulator = accumulator + shplonkZ * quotient commitment
-                    writeProofPointIntoScratchSpace(KZG_QUOTIENT_X0_LOC)
+                    writeProofPointIntoScratchSpace(KZG_QUOTIENT_X_LOC)
                     let x := mload(0x60)
                     let y := mload(0x80)
 
@@ -4746,9 +4655,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                     let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
                     // NOTE: this was written to scratch space above, OPT?
                     // P_1
-                    let x, y := writeProofPointOntoStack(KZG_QUOTIENT_X0_LOC)
-                    mstore(0xc0, x)
-                    mstore(0xe0, sub(q, y))
+                    mstore(0xc0, mload(KZG_QUOTIENT_X_LOC))
+                    mstore(0xe0, sub(q, mload(KZG_QUOTIENT_Y_LOC)))
 
                     // p_0_agg
                     // 0x80 - p_0_agg x

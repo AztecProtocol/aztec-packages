@@ -170,10 +170,8 @@ def print_small_g1(pointer:int, name: str):
     print_loc(pointer + 32, name + "_Y_LOC")
 
 def print_g1(pointer: int, name: str):
-    print_loc(pointer, name + "_X0_LOC")
-    print_loc(pointer + 32, name + "_X1_LOC")
-    print_loc(pointer + 64, name + "_Y0_LOC")
-    print_loc(pointer + 96, name + "_Y1_LOC")
+    print_loc(pointer, name + "_X_LOC")
+    print_loc(pointer + 32, name + "_Y_LOC")
 
 
 def print_vk(pointer: int):
