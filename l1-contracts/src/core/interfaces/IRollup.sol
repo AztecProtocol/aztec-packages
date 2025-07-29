@@ -36,6 +36,7 @@ struct SubmitEpochRootProofArgs {
   uint256 end; // inclusive
   PublicInputArgs args;
   bytes32[] fees;
+  CommitteeAttestations attestations; // attestations for the last block in epoch
   bytes blobInputs;
   bytes proof;
 }
@@ -43,11 +44,9 @@ struct SubmitEpochRootProofArgs {
 /**
  * @notice Struct for storing flags for block header validation
  * @param ignoreDA - True will ignore DA check, otherwise checks
- * @param ignoreSignature - True will ignore the signatures, otherwise checks
  */
 struct BlockHeaderValidationFlags {
   bool ignoreDA;
-  bool ignoreSignatures;
 }
 
 struct GenesisState {
@@ -98,6 +97,7 @@ interface IRollupCore {
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
+  event BlockInvalidated(uint256 indexed blockNumber);
   event RewardConfigUpdated(RewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
@@ -119,10 +119,24 @@ interface IRollupCore {
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
+    address[] memory _signers,
     bytes calldata _blobInput
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
+
+  function invalidateBadAttestation(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee,
+    uint256 _invalidIndex
+  ) external;
+
+  function invalidateInsufficientAttestations(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee
+  ) external;
 
   function setRewardConfig(RewardConfig memory _config) external;
   function updateManaTarget(uint256 _manaTarget) external;
@@ -132,15 +146,18 @@ interface IRollupCore {
 }
 
 interface IRollup is IRollupCore, IHaveVersion {
-  function validateHeader(
+  function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
+    address[] memory _signers,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
+    external
+    returns (Slot, uint256);
 
   function getTips() external view returns (ChainTips memory);
 
@@ -218,4 +235,5 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getOutbox() external view returns (IOutbox);
 
   function getRewardConfig() external view returns (RewardConfig memory);
+  function getBlockReward() external view returns (uint256);
 }

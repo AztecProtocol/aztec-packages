@@ -86,6 +86,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
     fr vkey_hash = honk_vk->add_hash_to_transcript(domain_separator, *transcript);
+    vinfo("vk hash in Oink prover: {}", vkey_hash);
 
     for (size_t i = 0; i < proving_key->num_public_inputs(); ++i) {
         auto public_input_i = proving_key->public_inputs[i];

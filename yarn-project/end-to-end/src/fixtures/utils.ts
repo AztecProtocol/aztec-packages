@@ -33,14 +33,15 @@ import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
+  FeeAssetArtifact,
   NULL_KEY,
   type Operator,
+  RollupContract,
   createExtendedL1Client,
   deployL1Contracts,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
@@ -483,22 +484,24 @@ export async function setup(
     if (opts.fundRewardDistributor) {
       // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-      const rewardDistributor = getContract({
-        address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-        abi: l1Artifacts.rewardDistributor.contractAbi,
-        client: deployL1ContractsValues.l1Client,
-      });
+      const rollup = new RollupContract(
+        deployL1ContractsValues.l1Client,
+        deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      );
 
-      const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+      const blockReward = await rollup.getBlockReward();
       const mintAmount = 10_000n * (blockReward as bigint);
 
       const feeJuice = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-        abi: l1Artifacts.feeAsset.contractAbi,
+        abi: FeeAssetArtifact.contractAbi,
         client: deployL1ContractsValues.l1Client,
       });
 
-      const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+      const rewardDistributorMintTxHash = await feeJuice.write.mint(
+        [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
+        {} as any,
+      );
       await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
       logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
     }
@@ -900,7 +903,7 @@ export function createAndSyncProverNode(
 
     // Creating temp store and archiver for simulated prover node
     const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(archiverConfig, blobSinkClient, { blockUntilSync: true });
+    const archiver = await createArchiver(archiverConfig, { blobSinkClient }, { blockUntilSync: true });
 
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {

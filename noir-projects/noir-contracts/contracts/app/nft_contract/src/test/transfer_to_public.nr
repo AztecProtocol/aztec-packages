@@ -10,7 +10,7 @@ unconstrained fn transfer_to_public() {
     let (env, nft_contract_address, sender, recipient, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
-    let _ = env.call_private(
+    env.call_private(
         sender,
         NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0),
     );
@@ -25,10 +25,7 @@ unconstrained fn transfer_to_public_to_self() {
     let (env, nft_contract_address, user, _, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
-    let _ = env.call_private(
-        user,
-        NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, 0),
-    );
+    env.call_private(user, NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, 0));
 
     // Check the user stayed the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, user, token_id);
@@ -44,7 +41,7 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
     add_private_authwit_from_call_interface(sender, recipient, transfer_to_public_call_interface);
 
     // transfer_to_public the NFT
-    let _ = env.call_private(recipient, transfer_to_public_call_interface);
+    env.call_private(recipient, transfer_to_public_call_interface);
 
     // Recipient should be the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
@@ -56,7 +53,7 @@ unconstrained fn transfer_to_public_failure_not_an_owner() {
     let (env, nft_contract_address, _, not_owner, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
-    let _ = env.call_private(
+    env.call_private(
         not_owner,
         NFT::at(nft_contract_address).transfer_to_public(not_owner, not_owner, token_id, 0),
     );
@@ -68,7 +65,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, nft_contract_address, user, _, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
-    let _ = env.call_private(
+    env.call_private(
         user,
         NFT::at(nft_contract_address).transfer_to_public(user, user, token_id, random()),
     );
@@ -84,7 +81,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
     add_private_authwit_from_call_interface(sender, sender, transfer_to_public_call_interface);
 
     // transfer_to_public the NFT
-    let _ = env.call_private(recipient, transfer_to_public_call_interface);
+    env.call_private(recipient, transfer_to_public_call_interface);
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
@@ -93,7 +90,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
 
     // transfer_to_public the NFT
-    let _ = env.call_private(
+    env.call_private(
         recipient,
         NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0),
     );

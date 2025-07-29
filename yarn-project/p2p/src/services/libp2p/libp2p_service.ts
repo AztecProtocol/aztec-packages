@@ -65,6 +65,7 @@ import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
@@ -173,6 +174,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
   }
 
+  public updateConfig(config: Partial<P2PReqRespConfig>) {
+    this.reqresp.updateConfig(config);
+  }
+
   /**
    * Creates an instance of the LibP2P service.
    * @param config - The configuration to use when creating the service.
@@ -221,12 +226,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:discv5_service`),
     );
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
+    // Seed libp2p's bootstrap discovery with private and trusted peers
+    const bootstrapNodes = [...config.privatePeers, ...config.trustedPeers];
 
-    // If trusted peers are provided, also provide them to the p2p service
-    bootstrapNodes.push(...config.trustedPeers);
-
-    // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
     if (bootstrapNodes.length > 0) {
       peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
