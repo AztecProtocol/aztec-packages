@@ -191,7 +191,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     if (vm.envOr("IGNITION", false)) {
       full = load("empty_block_1");
 
-      SLOT_DURATION = 60;
+      SLOT_DURATION = 16 * 12;
       EPOCH_DURATION = 48;
       MANA_TARGET = 0;
       TARGET_COMMITTEE_SIZE = 24;
