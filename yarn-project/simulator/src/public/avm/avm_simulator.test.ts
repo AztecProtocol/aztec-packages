@@ -539,6 +539,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
+  // TODO(#16099): Re-enable this test
   // it('conversions', async () => {
   //   const calldata: Fr[] = [new Fr(0b1011101010100)];
   //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
