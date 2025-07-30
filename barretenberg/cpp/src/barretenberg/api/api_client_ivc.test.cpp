@@ -76,7 +76,6 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 class ClientIVCAPITests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-    static void TearDownTestSuite() { std::filesystem::remove_all("tmp_api_client_ivc_test"); }
 
     void SetUp() override
     {
