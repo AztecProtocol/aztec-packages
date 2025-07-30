@@ -119,6 +119,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     typename S::template DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
+    typename S::template DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -139,6 +140,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
+    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
@@ -160,6 +162,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     merkle_db.add_checkpoint_listener(note_hash_tree_check);
     merkle_db.add_checkpoint_listener(nullifier_tree_check);
     merkle_db.add_checkpoint_listener(public_data_tree_check);
+    merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
 
     UpdateCheck update_check(poseidon2, range_check, merkle_db, update_check_emitter, hints.globalVariables);
 
@@ -212,6 +215,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         keccakf1600,
                         greater_than,
                         get_contract_instance,
+                        emit_unencrypted_log_component,
                         merkle_db);
     TxExecution tx_execution(execution,
                              context_provider,
@@ -262,6 +266,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         contract_instance_retrieval_emitter.dump_events(),
         get_contract_instance_emitter.dump_events(),
         l1_to_l2_msg_tree_check_emitter.dump_events(),
+        emit_unencrypted_log_emitter.dump_events(),
     };
 }
 

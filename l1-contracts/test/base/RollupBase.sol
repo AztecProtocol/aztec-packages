@@ -255,6 +255,11 @@ contract RollupBase is DecoderBase {
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
+    if (rollup.getManaTarget() == 0) {
+      // If we are in ignition, we cannot populate the inbox.
+      return;
+    }
+
     inbox = Inbox(address(rollup.getInbox()));
     uint256 version = rollup.getVersion();
 
