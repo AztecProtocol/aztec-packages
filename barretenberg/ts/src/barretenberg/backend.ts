@@ -80,7 +80,8 @@ export class UltraHonkBackend {
     return {
       ipaAccumulation: false,
       oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : (options?.starknet || options?.starknetZK ? 'starknet' : 'poseidon2'),
-      disableZk: options?.keccakZK || options?.starknetZK ? true : false,
+      // TODO no current way to target non-zk poseidon2 hash
+      disableZk: options?.keccak || options?.starknet ? true : false,
     };
   }
 
