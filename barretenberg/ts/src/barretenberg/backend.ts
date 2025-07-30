@@ -12,6 +12,7 @@ import { fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_typ
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';
+import { Fr } from '../types/fields.js';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
@@ -23,178 +24,182 @@ export class AztecClientBackendError extends Error {
  * Options for the UltraHonkBackend.
  */
 export type UltraHonkBackendOptions = {
-  /** Selecting this option will use the keccak hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an EVM chain.
-   */
-  keccak?: boolean;
-  /** Selecting this option will use the keccak hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an EVM chain.
-   */
-  keccakZK?: boolean;
-  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
-   */
-  starknet?: boolean;
-  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
-   * when generating challenges in the proof.
-   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
-   */
-  starknetZK?: boolean;
+  oracleHash: 'poseidon2' | 'keccak' | 'starknet';
+  disableZK: boolean;
 };
 
 export class UltraHonkBackend {
-  // These type assertions are used so that we don't
-  // have to initialize `api` in the constructor.
-  // These are initialized asynchronously in the `init` function,
-  // constructors cannot be asynchronous which is why we do this.
-
   protected api!: Barretenberg;
   protected acirUncompressedBytecode: Uint8Array;
+  protected verificationKey: Uint8Array | null = null;
+
+  private _proverInitialized: boolean = false;
 
   constructor(
     acirBytecode: string,
+    protected ultraHonkOptions: UltraHonkBackendOptions = {
+      oracleHash: 'poseidon2',
+      disableZK: false,
+    },
     protected backendOptions: BackendOptions = { threads: 1 },
-    protected circuitOptions: CircuitOptions = { recursive: false },
   ) {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
-  /** @ignore */
-  private async instantiate(): Promise<void> {
-    if (!this.api) {
-      const api = await Barretenberg.new(this.backendOptions);
-      const honkRecursion = true;
-      await api.acirInitSRS(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
 
-      // We don't init a proving key here in the Honk API
-      // await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
-      this.api = api;
+  private async _initialize(): Promise<void> {
+    if (this.api) {
+      return;
+    }
+
+    this.api = await Barretenberg.new(this.backendOptions);
+  }
+
+  private async _initializeVerificationKey() {
+    if (this.verificationKey) {
+      return;
+    }
+
+    if (this.ultraHonkOptions.oracleHash === 'poseidon2') {
+      if (this.ultraHonkOptions.disableZK) {
+        // TODO: Implement non-ZK flavor for poseidon2 (could be be useful for recursive proofs)
+        throw new Error('Non-ZK flavor is not implemented for poseidon2');
+      } else {
+        this.verificationKey = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+      }
+    }
+    // Oracle hash is keccak
+    else if (this.ultraHonkOptions.oracleHash === 'keccak') {
+      if (this.ultraHonkOptions.disableZK) {
+        this.verificationKey = await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode);
+      } else {
+        this.verificationKey = await this.api.acirWriteVkUltraKeccakZkHonk(this.acirUncompressedBytecode);
+      }
+    }
+    // Starknet
+    else if (this.ultraHonkOptions.oracleHash === 'starknet') {
+      if (this.ultraHonkOptions.disableZK) {
+        this.verificationKey = await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode);
+      } else {
+        this.verificationKey = await this.api.acirWriteVkUltraStarknetZkHonk(this.acirUncompressedBytecode);
+      }
     }
   }
 
-  async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
-    await this.instantiate();
+  /**
+   * Initializes the prover - fetch the SRS, prepare verification key, etc.
+   * This is called before generating a proof, but can be called in advance to optimize proving time.
+   */
+  async initializeProver() {
+    if (this._proverInitialized) {
+      return;
+    }
 
-    // Write VK to get the number of public inputs
-    const writeVKUltraHonk = options?.keccak
-      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirWriteVkUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirWriteVkUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirWriteVkUltraHonk.bind(this.api);
+    await this._initialize();
+    await this.api.acirInitSRS(this.acirUncompressedBytecode, true, true);
+    await this._initializeVerificationKey();
 
-    const vkBuf = await writeVKUltraHonk(this.acirUncompressedBytecode);
-    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vkBuf));
+    this._proverInitialized = true;
+  }
 
-    const proveUltraHonk = options?.keccak
-      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirProveUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirProveUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirProveUltraZKHonk.bind(this.api);
+  async initializeVerifier(vk?: Uint8Array) {
+    if (this.verificationKey) {
+      return;
+    }
 
-    const proofWithPublicInputs = await proveUltraHonk(
-      this.acirUncompressedBytecode,
-      ungzip(compressedWitness),
-      new RawBuffer(vkBuf),
-    );
+    if (vk) {
+      this.verificationKey = vk;
+    } else {
+      await this._initializeVerificationKey();
+    }
+  }
 
-    // Item at index 1 in VK is the number of public inputs
-    const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
-    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - PAIRING_POINTS_SIZE;
+  async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
+    await this.initializeProver();
 
+    let proofMethod: (acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array) => Promise<Uint8Array>;
+
+    if (this.ultraHonkOptions.oracleHash === 'poseidon2') {
+      if (this.ultraHonkOptions.disableZK) {
+        throw new Error('Non-ZK flavor is not implemented for poseidon2');
+      } else {
+        proofMethod = this.api.acirProveUltraZKHonk.bind(this.api);
+      }
+    }
+    // keccak
+    else if (this.ultraHonkOptions.oracleHash === 'keccak') {
+      if (this.ultraHonkOptions.disableZK) {
+        proofMethod = this.api.acirProveUltraKeccakHonk.bind(this.api);
+      } else {
+        proofMethod = this.api.acirProveUltraKeccakZkHonk.bind(this.api);
+      }
+    }
+    // starknet
+    else if (this.ultraHonkOptions.oracleHash === 'starknet') {
+      if (this.ultraHonkOptions.disableZK) {
+        proofMethod = this.api.acirProveUltraStarknetHonk.bind(this.api);
+      } else {
+        proofMethod = this.api.acirProveUltraStarknetZkHonk.bind(this.api);
+      }
+    }
+
+    const proofWithPublicInputs = await proofMethod!(this.acirUncompressedBytecode, ungzip(compressedWitness), this.verificationKey!);
+
+    // Save VK as fields - this is used to find the number of public inputs
+    // Once https://github.com/AztecProtocol/barretenberg/issues/1481 is fixed this can be done in JS instead of wasm
+    const verificationKeyFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(this.verificationKey!));
+
+    // Value at index 1 in VK is the number of public inputs (including the 16 pairing points)\
+    const numPublicInputs = Number(verificationKeyFields[1].toString()) - PAIRING_POINTS_SIZE;
+
+    // Split proof and public inputs (public inputs as fields)
     const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
     const publicInputs = deflattenFields(publicInputsBytes);
 
     return { proof, publicInputs };
   }
 
-  async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
-    await this.instantiate();
+  async verifyProof(proofData: ProofData): Promise<boolean> {
+    await this.initializeVerifier();
 
     const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
 
-    const writeVkUltraHonk = options?.keccak
-      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirWriteVkUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirWriteVkUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirWriteVkUltraHonk.bind(this.api);
-    const verifyUltraHonk = options?.keccak
-      ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirVerifyUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirVerifyUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirVerifyUltraZKHonk.bind(this.api);
+    let verifyMethod: (proof: Uint8Array, vkBuf: Uint8Array) => Promise<boolean>;
 
-    const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
-    return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
+    if (this.ultraHonkOptions.oracleHash === 'poseidon2') {
+      if (this.ultraHonkOptions.disableZK) {
+        throw new Error('Non-ZK flavor is not implemented for poseidon2');
+      } else {
+        verifyMethod = this.api.acirVerifyUltraZKHonk.bind(this.api);
+      }
+    }
+    // keccak
+    else if (this.ultraHonkOptions.oracleHash === 'keccak') {
+      if (this.ultraHonkOptions.disableZK) {
+        verifyMethod = this.api.acirVerifyUltraKeccakHonk.bind(this.api);
+      } else {
+        verifyMethod = this.api.acirVerifyUltraKeccakZkHonk.bind(this.api);
+      }
+    }
+    // starknet
+    else if (this.ultraHonkOptions.oracleHash === 'starknet') {
+      if (this.ultraHonkOptions.disableZK) {
+        verifyMethod = this.api.acirVerifyUltraStarknetHonk.bind(this.api);
+      } else {
+        verifyMethod = this.api.acirVerifyUltraStarknetZkHonk.bind(this.api);
+      }
+    }
+
+    return await verifyMethod!(proof, new RawBuffer(this.verificationKey!));
   }
 
-  async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
-    await this.instantiate();
-    return options?.keccak
-      ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode)
-      : options?.keccakZK
-        ? await this.api.acirWriteVkUltraKeccakZkHonk(this.acirUncompressedBytecode)
-        : options?.starknet
-          ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
-          : options?.starknetZK
-            ? await this.api.acirWriteVkUltraStarknetZkHonk(this.acirUncompressedBytecode)
-            : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+  async getVerificationKey(): Promise<Uint8Array> {
+    await this._initializeVerificationKey();
+    return this.verificationKey!;
   }
 
-  /** @description Returns a solidity verifier */
   async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
-    await this.instantiate();
-    const vkBuf = vk ?? (await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode));
-    return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
-  }
-
-  // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
-  async generateRecursiveProofArtifacts(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _proof: Uint8Array,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _numOfPublicInputs: number,
-  ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
-    await this.instantiate();
-    // TODO(https://github.com/noir-lang/noir/issues/5661): This needs to be updated to handle recursive aggregation.
-    // There is still a proofAsFields method but we could consider getting rid of it as the proof itself
-    // is a list of field elements.
-    // UltraHonk also does not have public inputs directly prepended to the proof and they are still instead
-    // inserted at an offset.
-    // const proof = reconstructProofWithPublicInputs(proofData);
-    // const proofAsFields = (await this.api.acirProofAsFieldsUltraHonk(proof)).slice(numOfPublicInputs);
-
-    // TODO: perhaps we should put this in the init function. Need to benchmark
-    // TODO how long it takes.
-    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
-    const vk = await this.api.acirVkAsFieldsUltraHonk(vkBuf);
-
-    return {
-      // TODO(https://github.com/noir-lang/noir/issues/5661)
-      proofAsFields: [],
-      vkAsFields: vk.map(vk => vk.toString()),
-      // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
-      // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
-      // they expect
-      vkHash: '',
-    };
+    await this.initializeVerifier(vk);
+    return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(this.verificationKey!));
   }
 
   async destroy(): Promise<void> {
@@ -253,7 +258,7 @@ export class AztecClientBackend {
           name: functionName,
           bytecode: Buffer.from(bytecode),
           verificationKey: Buffer.from(vk),
-        }
+        },
       });
 
       // Accumulate with witness
@@ -266,12 +271,14 @@ export class AztecClientBackend {
     const proveResult = await this.api.clientIvcProve({});
 
     // The API currently expects a msgpack-encoded API.
-    const proof = new Encoder({useRecords: false}).encode(fromClientIVCProof(proveResult.proof));
+    const proof = new Encoder({ useRecords: false }).encode(fromClientIVCProof(proveResult.proof));
     // Generate the VK
-    const vkResult = await this.api.clientIvcComputeIvcVk({ circuit: {
-      name: 'tail',
-      bytecode: this.acirBuf[this.acirBuf.length - 1],
-    } });
+    const vkResult = await this.api.clientIvcComputeIvcVk({
+      circuit: {
+        name: 'tail',
+        bytecode: this.acirBuf[this.acirBuf.length - 1],
+      },
+    });
 
     // Note: Verification may not work correctly until we properly serialize the proof
     if (!(await this.verify(proof, vkResult.bytes))) {
@@ -283,7 +290,7 @@ export class AztecClientBackend {
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
     const result = await this.api.clientIvcVerify({
-      proof: toClientIVCProof(new Decoder({useRecords: false}).decode(proof)),
+      proof: toClientIVCProof(new Decoder({ useRecords: false }).decode(proof)),
       vk: Buffer.from(vk),
     });
     return result.valid;
@@ -298,7 +305,7 @@ export class AztecClientBackend {
           name: 'circuit',
           bytecode: buf,
         },
-        includeGatesPerOpcode: false
+        includeGatesPerOpcode: false,
       });
       circuitSizes.push(gates.circuitSize);
     }
