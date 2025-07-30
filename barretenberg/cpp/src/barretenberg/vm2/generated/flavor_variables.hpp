@@ -120,6 +120,7 @@
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
 #include "relations/perms_public_data_check.hpp"
+#include "relations/perms_sha256_mem.hpp"
 #include "relations/perms_to_radix_mem.hpp"
 
 namespace bb::avm2 {
@@ -142,6 +143,7 @@ struct AvmFlavorVariables {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2658;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -151,6 +153,8 @@ struct AvmFlavorVariables {
 >>>>>>> 099710dbcc (feat: happy path working)
 =======
 >>>>>>> f9ba70507c (wip)
+=======
+>>>>>>> 02eb9e9f6c (feat: initial tests)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2656;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
@@ -232,10 +236,28 @@ struct AvmFlavorVariables {
 >>>>>>> c86f6277a8 (wip)
 >>>>>>> 4072f93e1f (wip)
 >>>>>>> 9c49ea15b2 (wip)
+<<<<<<< HEAD
 >>>>>>> f9ba70507c (wip)
+<<<<<<< HEAD
 >>>>>>> c65ce9d828 (wip)
+<<<<<<< HEAD
 >>>>>>> d893820a78 (wip)
+<<<<<<< HEAD
 >>>>>>> dc711d4766 (wip)
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2722;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 280;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3128;
+>>>>>>> 2a8ba6aa19 (feat: initial tests)
+>>>>>>> 02eb9e9f6c (feat: initial tests)
+>>>>>>> 130bc3f5d9 (feat: initial tests)
+>>>>>>> ee2622e306 (feat: initial tests)
+>>>>>>> 1a79d47002 (feat: initial tests)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -612,11 +634,9 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
-<<<<<<< HEAD
         lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation<FF_>,
-=======
-        lookup_sha256_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
+        lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
         lookup_sha256_mem_mem_input_read_relation<FF_>,
         lookup_sha256_mem_mem_op_0_relation<FF_>,
@@ -627,7 +647,6 @@ struct AvmFlavorVariables {
         lookup_sha256_mem_mem_op_5_relation<FF_>,
         lookup_sha256_mem_mem_op_6_relation<FF_>,
         lookup_sha256_mem_mem_op_7_relation<FF_>,
->>>>>>> 7fb3d9ba15 (feat!(avm): mem aware and err handling sha256)
         lookup_sha256_round_constant_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,
@@ -677,6 +696,7 @@ struct AvmFlavorVariables {
         perm_keccakf1600_write_to_slice_relation<FF_>,
         perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
         perm_public_data_check_squashing_relation<FF_>,
+        perm_sha256_mem_dispatch_sha256_relation<FF_>,
         perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>>;
 };
 

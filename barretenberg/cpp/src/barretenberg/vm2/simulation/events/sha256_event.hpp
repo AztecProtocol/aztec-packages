@@ -19,8 +19,8 @@ struct Sha256CompressionEvent {
     MemoryAddress input_addr;
     MemoryAddress output_addr;
     std::array<MemoryValue, 8> state;
-    std::array<MemoryValue, 16> input;
-    std::array<uint32_t, 8> output;
+    std::vector<MemoryValue> input;
+    std::array<MemoryValue, 8> output;
 };
 
 } // namespace bb::avm2::simulation

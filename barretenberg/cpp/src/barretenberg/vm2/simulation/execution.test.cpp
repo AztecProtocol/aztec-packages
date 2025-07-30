@@ -1060,6 +1060,19 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
                               "SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
 }
 
+TEST_F(ExecutionSimulationTest, Sha256Compression)
+{
+    MemoryAddress state_address = 10;
+    MemoryAddress input_address = 20;
+    MemoryAddress dst_address = 50;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+    EXPECT_CALL(sha256, compression(_, state_address, input_address, dst_address));
+
+    execution.sha256_compression(context, dst_address, state_address, input_address);
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation

@@ -1256,14 +1256,15 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::TORADIXBE:
         call_with_operands(&Execution::to_radix_be, context, resolved_operands);
-    case ExecutionOpCode::SHA256COMPRESSION:
-        call_with_operands(&Execution::sha256_compression, context, resolved_operands);
         break;
     case ExecutionOpCode::EMITUNENCRYPTEDLOG:
         call_with_operands(&Execution::emit_unencrypted_log, context, resolved_operands);
         break;
     case ExecutionOpCode::SENDL2TOL1MSG:
         call_with_operands(&Execution::send_l2_to_l1_msg, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHA256COMPRESSION:
+        call_with_operands(&Execution::sha256_compression, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.
