@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -31,6 +32,8 @@ template <typename FF_> class txImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/tx");
 
         const auto constants_FEE_JUICE_ADDRESS = FF(5);
         const auto constants_FEE_JUICE_BALANCES_SLOT = FF(1);

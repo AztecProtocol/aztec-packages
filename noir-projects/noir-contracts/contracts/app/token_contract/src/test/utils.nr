@@ -34,7 +34,6 @@ pub unconstrained fn setup(
     );
     let token_contract_address =
         env.deploy("Token").with_public_initializer(owner, initializer_call_interface);
-    env.mine_block();
     (env, token_contract_address, owner, recipient)
 }
 
