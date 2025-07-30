@@ -125,6 +125,7 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2656;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -132,6 +133,8 @@ struct AvmFlavorVariables {
 =======
 =======
 >>>>>>> c51f9cc720 (feat: happy path working)
+=======
+>>>>>>> 9c49ea15b2 (wip)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2649;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
@@ -140,6 +143,8 @@ struct AvmFlavorVariables {
 =======
 =======
 >>>>>>> 117933a04d (feat: happy path working)
+=======
+>>>>>>> 4072f93e1f (wip)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2640;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
@@ -163,8 +168,20 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 3051;
 >>>>>>> 1fbcb75b2a (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> 117933a04d (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> c51f9cc720 (feat: happy path working)
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2659;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 265;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3050;
+>>>>>>> c86f6277a8 (wip)
+>>>>>>> 4072f93e1f (wip)
+>>>>>>> 9c49ea15b2 (wip)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
