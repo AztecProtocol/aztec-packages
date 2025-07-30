@@ -223,6 +223,13 @@ namespace emit_unencrypted_log;
     sel * (remaining_log_size * (is_padding_row * (1 - remaining_log_size_inv) + remaining_log_size_inv) - 1 + is_padding_row) = 0;
 
     // =============== MEMORY READ ===============
+    // We have the following error cases:
+    //  - error_memory_out_of_bounds: can't read mem
+    //  - error_tag_mismatch: we need to read mem
+    //  - 3 others: we can choose to read mem or not
+    // We can't gate memory reads by error due to the second case, and we can't unconditionally read due to first error.
+    // So what we landed with is to always read memory except we can't read memory due to the first case.
+    // This should be fine since the user already paid for the memory reads
     pol commit sel_should_read_memory;
     sel * ((1 - error_out_of_bounds) * (1 - is_padding_row) - sel_should_read_memory) = 0;
 
