@@ -16,11 +16,10 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof,
-                                                              const TableCommitments& t_commitments,
-                                                              const TableCommitments& T_prev_commitments)
+                                                              const MergeCommitments& merge_commitments)
 {
     StdlibProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof, t_commitments, T_prev_commitments);
+    return verify(stdlib_proof, merge_commitments);
 }
 
 /**
@@ -30,16 +29,13 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1492): Modify Merge verifier API and package inputs in a
-// single struct
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof& proof,
-                                                              const TableCommitments& t_commitments,
-                                                              const TableCommitments& T_prev_commitments)
+                                                              const MergeCommitments& merge_commitments)
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, MergeSettings::PREPEND, transcript };
     auto [merge_pairing_points, merged_table_commitments] =
-        merge_verifier.verify_proof(proof.merge_proof, t_commitments, T_prev_commitments);
+        merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
