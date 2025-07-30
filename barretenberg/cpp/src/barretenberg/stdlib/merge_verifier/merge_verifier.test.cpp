@@ -22,8 +22,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
     // Types for recursive verifier circuit
     using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
-    using RecursiveSubtableCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::SubtableWitnessCommitments;
-    using RecursiveMergeCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::WitnessCommitments;
+    using RecursiveTableCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::TableCommitments;
+    using RecursiveMergeCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::InputCommitments;
 
     // Define types relevant for inner circuit
     using InnerFlavor = MegaFlavor;
@@ -35,8 +35,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     using FF = InnerFlavor::FF;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
     using MergeProof = MergeProver::MergeProof;
-    using SubtableCommitments = MergeVerifier::SubtableWitnessCommitments;
-    using MergeCommitments = MergeVerifier::WitnessCommitments;
+    using TableCommitments = MergeVerifier::TableCommitments;
+    using MergeCommitments = MergeVerifier::InputCommitments;
 
     enum class TamperProofMode { None, Shift, MCommitment, LEval };
 
@@ -46,8 +46,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     static void tamper_with_proof(MergeProof& merge_proof, const TamperProofMode tampering_mode)
     {
         const size_t shift_idx = 0;        // Index of shift_size in the merge proof
-        const size_t m_commitment_idx = 5; // Index of first commitment to merged table in merge proof
-        const size_t l_eval_idx = 50;      // Index of first evaluation of l(1/kappa) in merge proof
+        const size_t m_commitment_idx = 1; // Index of first commitment to merged table in merge proof
+        const size_t l_eval_idx = 34;      // Index of first evaluation of l(1/kappa) in merge proof
 
         switch (tampering_mode) {
         case TamperProofMode::Shift:
@@ -91,19 +91,22 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         MergeCommitments merge_commitments;
         RecursiveMergeCommitments recursive_merge_commitments;
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
-            auto cm = merge_prover.pcs_commitment_key.commit(t_current[idx]);
-            merge_commitments.t_commitments[idx] = cm;
+            merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
             recursive_merge_commitments.t_commitments[idx] =
-                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, cm);
+                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, merge_commitments.t_commitments[idx]);
+            recursive_merge_commitments.T_prev_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(
+                &outer_circuit, merge_commitments.T_prev_commitments[idx]);
         }
 
         // Create a recursive merge verification circuit for the merge proof
         RecursiveMergeVerifier verifier{ &outer_circuit, settings };
         verifier.transcript->enable_manifest();
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        auto pairing_points = verifier.verify_proof(
-            stdlib_merge_proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+        auto [pairing_points, recursive_merged_table_commitments] =
+            verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), !expected) << outer_circuit.err();
@@ -112,8 +115,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         // verifier and check that the result agrees.
         MergeVerifier native_verifier{ settings };
         native_verifier.transcript->enable_manifest();
-        bool verified_native =
-            native_verifier.verify_proof(merge_proof, merge_commitments, merge_commitments.T_commitments);
+        auto [verified_native, merged_table_commitments] = native_verifier.verify_proof(merge_proof, merge_commitments);
         VerifierCommitmentKey pcs_verification_key;
         bool verified_recursive =
             pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());

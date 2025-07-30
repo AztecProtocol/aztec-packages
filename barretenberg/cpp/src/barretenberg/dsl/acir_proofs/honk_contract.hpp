@@ -1132,12 +1132,11 @@ library RelationsLib {
 
         // Putting it all together...
         evals[16] = ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation
-            * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 5 or 8
-        evals[17] =
-            ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4
-        evals[18] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4 or 6
+            * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 5 or 8
+        evals[17] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4
+        evals[18] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4 or 6
 
-        ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_ARITH)); // deg 3 or 9
+        ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_O)); // deg 3 or 9
 
         /**
          * RAM Timestamp Consistency Check
