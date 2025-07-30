@@ -6,7 +6,7 @@ include "../constants_gen.pil";
 // Gadget to implement the emit unencrypted log opcode.
 // Partial trace of the gadget:
 // +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
-// | sel | clk | space_id | log_offset | log_size | contract_address | prev_logs | next_logs | is_static | error | start | end | remaining_rows | tag_mismatch | seen_wrong_tag | is_padding | remaining_log_size | should_read_mem | value | tag |
+// | sel | clk | space_id | log_addr   | log_size | contract_address | prev_logs | next_logs | is_static | error | start | end | remaining_rows | tag_mismatch | seen_wrong_tag | is_padding | remaining_log_size | should_read_mem | value | tag |
 // +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
 // | 0   | 0   | 0        | 0          | 0        | 0                | 0         | 0         | 0         | 0     | 0     | 0   | 0              | 0            | 0              | 0          | 0                  | 0               | 0     | 0   |
 // | 1   | 27  | 4        | 27         | 10       | 0xdeadbeef       | 1         | 2         | 0         | 0     | 1     | 0   | 12             | 0            | 0              | 0          | 10                 | 1               | 5     | ff  |
@@ -19,9 +19,9 @@ include "../constants_gen.pil";
 // | 1   | 27  | 4        | 34         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 5              | 0            | 0              | 0          | 3                  | 1               | 6     | ff  |
 // | 1   | 27  | 4        | 35         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 4              | 0            | 0              | 0          | 2                  | 1               | 5     | ff  |
 // | 1   | 27  | 4        | 36         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 3              | 0            | 0              | 0          | 1                  | 1               | 4     | ff  |
-// | 1   | 27  | 4        | 37         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 2              | 0            | 0              | 0          | 0                  | 0               | 0     | ff  |
-// | 1   | 27  | 4        | 38         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 1              | 0            | 0              | 0          | 0                  | 0               | 0     | ff  |
-// | 1   | 27  | 4        | 39         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 1   | 0              | 0            | 0              | 0          | 0                  | 0               | 0     | ff  |
+// | 1   | 27  | 4        | 37         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 2              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
+// | 1   | 27  | 4        | 38         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 1              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
+// | 1   | 27  | 4        | 39         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 1   | 0              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
 // +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
 // We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows.
 // We always generate 13 rows per log, but we might disable memory reads if there is an addressing error, and only write to PI if not error at all.
@@ -35,13 +35,14 @@ namespace emit_unencrypted_log;
     // Inputs
     pol commit execution_clk;
     pol commit space_id;
-    pol commit log_offset;
+    pol commit log_address;
     pol commit log_size;
     pol commit contract_address;
     pol commit prev_num_unencrypted_logs;
     pol commit next_num_unencrypted_logs;
     pol commit is_static;
     pol commit error;
+    pol commit discard;
     error * (1 - error) = 0;
 
     // =============== LIFECYCLE ===============
@@ -104,7 +105,7 @@ namespace emit_unencrypted_log;
     start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 
     pol commit end_log_address;
-    start * (log_offset + log_size - 1 - end_log_address) = 0;
+    start * (log_address + log_size - 1 - end_log_address) = 0;
 
     #[CHECK_MEMORY_OUT_OF_BOUNDS]
     start { end_log_address, max_mem_addr, error_out_of_bounds }
@@ -120,6 +121,8 @@ namespace emit_unencrypted_log;
     pol commit error_too_many_logs;
     error_too_many_logs * (1 - error_too_many_logs) = 0;
 
+    // error_too_many_logs = prev_num_unencrypted_logs == MAX_PUBLIC_LOGS_PER_TX
+    // If we are at max logs, we can't emit any more logs.
     pol MAX_LOGS_MINUS_EMITTED = constants.MAX_PUBLIC_LOGS_PER_TX - prev_num_unencrypted_logs;
     pol commit max_logs_minus_emitted_inv;
     start * (MAX_LOGS_MINUS_EMITTED * (error_too_many_logs * (1 - max_logs_minus_emitted_inv) + max_logs_minus_emitted_inv) - 1 + error_too_many_logs) = 0;
@@ -133,9 +136,13 @@ namespace emit_unencrypted_log;
     #[ERROR_TAG_MISMATCH_CONSISTENCY]
     NOT_END * (error_tag_mismatch' - error_tag_mismatch) = 0;
 
+    // In order to constrain tag mismatch, we are going to use a helper column seen_wrong_tag, which we'll use to
+    // check on end if we've seen 1 or more wrong tags.
+    // We'll use the WRONG_TAG variable, which is a boolean indicating whether the tag is wrong for the current row.
+    // WRONG_TAG will be constrained in the memory section.
     pol commit seen_wrong_tag;
     seen_wrong_tag * (1 - seen_wrong_tag) = 0;
-    // Initial value is the first wrong tag flag
+    // Initial value of seen_wrong_tag is the first wrong tag flag
     start * (WRONG_TAG - seen_wrong_tag) = 0;
 
     // Conditional assignment:
@@ -155,9 +162,9 @@ namespace emit_unencrypted_log;
     start * ((1 - error_too_many_logs) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error_too_many_logs_wrong_tag_is_static)) = 0;
     start * ((1 - error_too_large) * (1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
 
-    // We write to public inputs if we don't have an error at all
+    // We write to public inputs if we don't have an error at all and if discard is off
     pol commit sel_should_write_to_public_inputs;
-    start * ((1 - error) - sel_should_write_to_public_inputs) = 0;
+    start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
     #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
     NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
 
@@ -183,8 +190,8 @@ namespace emit_unencrypted_log;
     pol commit sel_should_read_memory;
     sel * ((1 - error_out_of_bounds) * (1 - is_padding_row) - sel_should_read_memory) = 0;
 
-    #[LOG_OFFSET_INCREMENT]
-    NOT_END * ((log_offset + 1) - log_offset') = 0;
+    #[LOG_ADDRESS_INCREMENT]
+    NOT_END * ((log_address + 1) - log_address') = 0;
 
     pol commit value;
     pol commit tag;
@@ -196,7 +203,7 @@ namespace emit_unencrypted_log;
 
     #[READ_MEM]
     sel_should_read_memory {
-        execution_clk, log_offset,
+        execution_clk, log_address,
         value,         tag,
         space_id,      /*rw=0*/ precomputed.zero
     } in
@@ -263,17 +270,19 @@ namespace emit_unencrypted_log;
         execution.next_num_unencrypted_logs,
         execution.is_static,
         // Error
-        execution.sel_opcode_error
+        execution.sel_opcode_error,
+        execution.discard
     } in
     start {
         execution_clk,
         space_id,
-        log_offset,
+        log_address,
         log_size,
         contract_address,
         prev_num_unencrypted_logs,
         next_num_unencrypted_logs,
         is_static,
-        error
+        error,
+        discard
     };
 

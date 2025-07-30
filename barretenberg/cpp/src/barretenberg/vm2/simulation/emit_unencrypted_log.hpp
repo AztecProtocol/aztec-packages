@@ -23,7 +23,7 @@ class EmitUnencryptedLogInterface {
                                       uint32_t log_size) = 0;
 };
 
-class EmitUnencryptedLog : public EmitUnencryptedLogInterface {
+class EmitUnencryptedLog : public EmitUnencryptedLogInterface, public CheckpointNotifiable {
   public:
     EmitUnencryptedLog(ExecutionIdManagerInterface& execution_id_manager,
                        GreaterThanInterface& greater_than,
@@ -38,6 +38,10 @@ class EmitUnencryptedLog : public EmitUnencryptedLogInterface {
                               AztecAddress contract_address,
                               MemoryAddress log_offset,
                               uint32_t log_size) override;
+
+    void on_checkpoint_created() override;
+    void on_checkpoint_committed() override;
+    void on_checkpoint_reverted() override;
 
   private:
     ExecutionIdManagerInterface& execution_id_manager;

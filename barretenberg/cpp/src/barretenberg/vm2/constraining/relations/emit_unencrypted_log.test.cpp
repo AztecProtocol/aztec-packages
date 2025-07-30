@@ -24,6 +24,7 @@ namespace bb::avm2::constraining {
 namespace {
 
 using simulation::EmitUnencryptedLogEvent;
+using simulation::EmitUnencryptedLogWriteEvent;
 using testing::PublicInputsBuilder;
 using tracegen::EmitUnencryptedLogTraceBuilder;
 using tracegen::PublicInputsTraceBuilder;
@@ -48,16 +49,16 @@ TEST(EmitUnencryptedLogConstrainingTest, EmptyTrace)
 TEST(EmitUnencryptedLogConstrainingTest, Positive)
 {
     AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_offset = 27;
+    MemoryAddress log_address = 27;
     uint32_t log_size = 2;
     SideEffectStates side_effect_states = { .numUnencryptedLogs = 0 };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
 
-    EmitUnencryptedLogEvent event = {
+    EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_address,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -82,16 +83,16 @@ TEST(EmitUnencryptedLogConstrainingTest, Positive)
 TEST(EmitUnencryptedLogConstrainingTest, ErrorTooLarge)
 {
     AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_offset = 27;
+    MemoryAddress log_address = 27;
     uint32_t log_size = PUBLIC_LOG_SIZE_IN_FIELDS + 1;
     SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
 
-    EmitUnencryptedLogEvent event = {
+    EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_address,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -116,16 +117,16 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTooLarge)
 TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
 {
     AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_offset = AVM_HIGHEST_MEM_ADDRESS;
+    MemoryAddress log_address = AVM_HIGHEST_MEM_ADDRESS;
     uint32_t log_size = 2;
     SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
 
-    EmitUnencryptedLogEvent event = {
+    EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_address,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -150,16 +151,16 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
 TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogs)
 {
     AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_offset = 27;
+    MemoryAddress log_address = 27;
     uint32_t log_size = 2;
     SideEffectStates side_effect_states = { .numUnencryptedLogs = MAX_PUBLIC_LOGS_PER_TX };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogs = MAX_PUBLIC_LOGS_PER_TX };
 
-    EmitUnencryptedLogEvent event = {
+    EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_address,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -184,16 +185,16 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogs)
 TEST(EmitUnencryptedLogConstrainingTest, ErrorTagMismatch)
 {
     AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_offset = 27;
+    MemoryAddress log_address = 27;
     uint32_t log_size = 2;
     SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
 
-    EmitUnencryptedLogEvent event = {
+    EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_address,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -218,16 +219,16 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTagMismatch)
 TEST(EmitUnencryptedLogConstrainingTest, ErrorStatic)
 {
     AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_offset = 27;
+    MemoryAddress log_address = 27;
     uint32_t log_size = 2;
     SideEffectStates side_effect_states = { .numUnencryptedLogs = 1 };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
 
-    EmitUnencryptedLogEvent event = {
+    EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_address,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -250,7 +251,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorStatic)
 TEST(EmitUnencryptedLogConstrainingTest, Interactions)
 {
     AztecAddress address = 0xdeadbeef;
-    MemoryAddress log_offset = 27;
+    MemoryAddress log_address = 27;
     uint32_t log_size = 2;
     SideEffectStates side_effect_states = { .numUnencryptedLogs = 0 };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogs = 1 };
@@ -271,11 +272,11 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
         MemoryValue::from<FF>(FF(5)),
     };
 
-    EmitUnencryptedLogEvent event = {
+    EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_address,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -302,16 +303,17 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
             { C::execution_sel, 1 },
             { C::execution_sel_execute_emit_unencrypted_log, 1 },
             { C::execution_context_id, 57 },
-            { C::execution_rop_0_, log_offset },
+            { C::execution_rop_0_, log_address },
             { C::execution_register_1_, log_size },
             { C::execution_contract_address, address },
             { C::execution_num_unencrypted_logs, side_effect_states.numUnencryptedLogs },
             { C::execution_next_num_unencrypted_logs, next_side_effect_states.numUnencryptedLogs },
             { C::execution_is_static, false },
             { C::execution_sel_opcode_error, 0 },
+            { C::execution_discard, 0 },
             // GT - check memory out of bounds
             { C::gt_sel, 1 },
-            { C::gt_input_a, log_offset + log_size - 1 },
+            { C::gt_input_a, log_address + log_size - 1 },
             { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
             { C::gt_res, 0 },
         },
@@ -320,7 +322,7 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
     // Set up memory trace
     for (uint32_t i = 0; i < inputs.size(); ++i) {
         // Set memory reads
-        trace.set(C::memory_address, i + 1, log_offset + i);
+        trace.set(C::memory_address, i + 1, log_address + i);
         trace.set(C::memory_value, i + 1, inputs[i].as_ff());
         trace.set(C::memory_tag, i + 1, static_cast<uint32_t>(inputs[i].get_tag()));
         trace.set(C::memory_sel, i + 1, 1);
@@ -556,21 +558,21 @@ TEST(EmitUnencryptedLogConstrainingTest, NegativeLogOffsetIncrement)
 {
     TestTraceContainer trace = TestTraceContainer({ {
                                                         { C::emit_unencrypted_log_sel, 1 },
-                                                        { C::emit_unencrypted_log_log_offset, 10 },
+                                                        { C::emit_unencrypted_log_log_address, 10 },
                                                     },
                                                     {
                                                         { C::emit_unencrypted_log_sel, 1 },
-                                                        { C::emit_unencrypted_log_log_offset, 11 },
+                                                        { C::emit_unencrypted_log_log_address, 11 },
                                                         { C::emit_unencrypted_log_end, 1 },
                                                     } });
 
-    check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_LOG_OFFSET_INCREMENT);
+    check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_LOG_ADDRESS_INCREMENT);
 
-    trace.set(C::emit_unencrypted_log_log_offset, 1, 9);
+    trace.set(C::emit_unencrypted_log_log_address, 1, 9);
 
     EXPECT_THROW_WITH_MESSAGE(
-        check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_LOG_OFFSET_INCREMENT),
-        "LOG_OFFSET_INCREMENT");
+        check_relation<emit_unencrypted_log>(trace, emit_unencrypted_log::SR_LOG_ADDRESS_INCREMENT),
+        "LOG_ADDRESS_INCREMENT");
 }
 
 TEST(EmitUnencryptedLogConstrainingTest, NegativeExecutionClkConsistency)

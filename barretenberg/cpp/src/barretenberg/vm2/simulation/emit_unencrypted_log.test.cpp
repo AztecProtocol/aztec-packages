@@ -62,11 +62,11 @@ TEST(EmitUnencryptedLogTest, Basic)
 
     emit_unencrypted_log.emit_unencrypted_log(memory, context, address, log_offset, log_size);
 
-    EmitUnencryptedLogEvent expect_event = {
+    EmitUnencryptedLogWriteEvent expect_event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_offset,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -121,11 +121,11 @@ TEST(EmitUnencryptedLogTest, NegativeTooLarge)
         expected_values.push_back(MemoryValue::from<FF>(FF(log_offset + i)));
     }
 
-    EmitUnencryptedLogEvent expect_event = {
+    EmitUnencryptedLogWriteEvent expect_event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_offset,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -170,11 +170,11 @@ TEST(EmitUnencryptedLogTest, NegativeMemoryOutOfBounds)
     EXPECT_THROW(emit_unencrypted_log.emit_unencrypted_log(memory, context, address, log_offset, log_size),
                  EmitUnencryptedLogException);
 
-    EmitUnencryptedLogEvent expect_event = {
+    EmitUnencryptedLogWriteEvent expect_event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_offset,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -223,11 +223,11 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
     EXPECT_THROW(emit_unencrypted_log.emit_unencrypted_log(memory, context, address, log_offset, log_size),
                  EmitUnencryptedLogException);
 
-    EmitUnencryptedLogEvent expect_event = {
+    EmitUnencryptedLogWriteEvent expect_event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_offset,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -276,11 +276,11 @@ TEST(EmitUnencryptedLogTest, NegativeTagMismatch)
     EXPECT_THROW(emit_unencrypted_log.emit_unencrypted_log(memory, context, address, log_offset, log_size),
                  EmitUnencryptedLogException);
 
-    EmitUnencryptedLogEvent expect_event = {
+    EmitUnencryptedLogWriteEvent expect_event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_offset,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -329,11 +329,11 @@ TEST(EmitUnencryptedLogTest, NegativeStatic)
     EXPECT_THROW(emit_unencrypted_log.emit_unencrypted_log(memory, context, address, log_offset, log_size),
                  EmitUnencryptedLogException);
 
-    EmitUnencryptedLogEvent expect_event = {
+    EmitUnencryptedLogWriteEvent expect_event = {
         .execution_clk = 1,
         .contract_address = address,
         .space_id = 57,
-        .log_offset = log_offset,
+        .log_address = log_offset,
         .log_size = log_size,
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
@@ -346,6 +346,25 @@ TEST(EmitUnencryptedLogTest, NegativeStatic)
     };
 
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
+}
+
+TEST(EmitUnencryptedLogTest, CheckpointListener)
+{
+    StrictMock<MockMemory> memory;
+    StrictMock<MockContext> context;
+    StrictMock<MockGreaterThan> greater_than;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EventEmitter<EmitUnencryptedLogEvent> event_emitter;
+    EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
+
+    emit_unencrypted_log.on_checkpoint_created();
+    emit_unencrypted_log.on_checkpoint_committed();
+    emit_unencrypted_log.on_checkpoint_reverted();
+    EXPECT_THAT(event_emitter.get_events().size(), 3);
+    EXPECT_THAT(event_emitter.dump_events(),
+                ElementsAre(CheckPointEventType::CREATE_CHECKPOINT,
+                            CheckPointEventType::COMMIT_CHECKPOINT,
+                            CheckPointEventType::REVERT_CHECKPOINT));
 }
 
 } // namespace bb::avm2::simulation

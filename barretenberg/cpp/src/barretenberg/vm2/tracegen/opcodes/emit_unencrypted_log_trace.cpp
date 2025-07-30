@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
@@ -23,7 +24,7 @@ void EmitUnencryptedLogTraceBuilder::process(
     TraceContainer& trace)
 {
     uint32_t row = 1;
-    for (const auto& event : events) {
+    process_with_discard(events, [&](const simulation::EmitUnencryptedLogWriteEvent& event, bool discard) {
         // error = error_too_large | error_out_of_bounds | error_too_many_logs | error_tag_mismatch | is_static
         // we split the above computation in 2 to reduce the degree of the full relation (7)
         bool error_too_many_logs_wrong_tag_is_static =
@@ -31,7 +32,7 @@ void EmitUnencryptedLogTraceBuilder::process(
         bool error =
             event.error_too_large || event.error_memory_out_of_bounds || error_too_many_logs_wrong_tag_is_static;
 
-        FF log_offset = FF(event.log_offset);
+        FF log_address = FF(event.log_address);
         bool seen_wrong_tag = false;
 
         for (uint32_t i = 0; i < PUBLIC_LOG_SIZE_IN_FIELDS; ++i) {
@@ -60,13 +61,14 @@ void EmitUnencryptedLogTraceBuilder::process(
                           { C::emit_unencrypted_log_sel, 1 },
                           { C::emit_unencrypted_log_execution_clk, event.execution_clk },
                           { C::emit_unencrypted_log_space_id, event.space_id },
-                          { C::emit_unencrypted_log_log_offset, log_offset + i },
+                          { C::emit_unencrypted_log_log_address, log_address + i },
                           { C::emit_unencrypted_log_log_size, event.log_size },
                           { C::emit_unencrypted_log_contract_address, event.contract_address },
                           { C::emit_unencrypted_log_prev_num_unencrypted_logs, event.prev_num_unencrypted_logs },
                           { C::emit_unencrypted_log_next_num_unencrypted_logs, event.next_num_unencrypted_logs },
                           { C::emit_unencrypted_log_is_static, event.is_static },
                           { C::emit_unencrypted_log_error, error },
+                          { C::emit_unencrypted_log_discard, discard },
                           { C::emit_unencrypted_log_start, i == 0 },
                           { C::emit_unencrypted_log_end, i == PUBLIC_LOG_SIZE_IN_FIELDS - 1 },
                           { C::emit_unencrypted_log_remaining_rows, remaining_rows },
@@ -75,14 +77,14 @@ void EmitUnencryptedLogTraceBuilder::process(
                           { C::emit_unencrypted_log_max_log_size, PUBLIC_LOG_SIZE_IN_FIELDS },
                           { C::emit_unencrypted_log_error_out_of_bounds, event.error_memory_out_of_bounds },
                           { C::emit_unencrypted_log_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
-                          { C::emit_unencrypted_log_end_log_address, log_offset + event.log_size - 1 },
+                          { C::emit_unencrypted_log_end_log_address, log_address + event.log_size - 1 },
                           { C::emit_unencrypted_log_error_too_many_logs, event.error_too_many_logs },
                           { C::emit_unencrypted_log_max_logs_minus_emitted_inv, max_logs_minus_emitted_inv },
                           { C::emit_unencrypted_log_error_tag_mismatch, event.error_tag_mismatch },
                           { C::emit_unencrypted_log_seen_wrong_tag, seen_wrong_tag },
                           { C::emit_unencrypted_log_error_too_many_logs_wrong_tag_is_static,
                             error_too_many_logs_wrong_tag_is_static },
-                          { C::emit_unencrypted_log_sel_should_write_to_public_inputs, !error },
+                          { C::emit_unencrypted_log_sel_should_write_to_public_inputs, !error && !discard },
                           { C::emit_unencrypted_log_is_padding_row, is_padding_row },
                           { C::emit_unencrypted_log_remaining_log_size, remaining_log_size },
                           { C::emit_unencrypted_log_remaining_log_size_inv, remaining_log_size_inv },
@@ -99,7 +101,7 @@ void EmitUnencryptedLogTraceBuilder::process(
 
             row++;
         }
-    }
+    });
 }
 
 const InteractionDefinition EmitUnencryptedLogTraceBuilder::interactions =

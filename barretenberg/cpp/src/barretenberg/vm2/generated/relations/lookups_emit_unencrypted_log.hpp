@@ -74,7 +74,7 @@ struct lookup_emit_unencrypted_log_read_mem_settings_ {
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_read_mem_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_read_mem_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_execution_clk, ColumnAndShifts::emit_unencrypted_log_log_offset,
+        ColumnAndShifts::emit_unencrypted_log_execution_clk, ColumnAndShifts::emit_unencrypted_log_log_address,
         ColumnAndShifts::emit_unencrypted_log_value,         ColumnAndShifts::emit_unencrypted_log_tag,
         ColumnAndShifts::emit_unencrypted_log_space_id,      ColumnAndShifts::precomputed_zero
     };
@@ -124,7 +124,7 @@ using lookup_emit_unencrypted_log_write_log_to_public_inputs_relation =
 struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_DISPATCH_EXEC_EMIT_UNENCRYPTED_LOG";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_emit_unencrypted_log;
     static constexpr Column DST_SELECTOR = Column::emit_unencrypted_log_start;
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_counts;
@@ -138,18 +138,20 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
         ColumnAndShifts::execution_num_unencrypted_logs,
         ColumnAndShifts::execution_next_num_unencrypted_logs,
         ColumnAndShifts::execution_is_static,
-        ColumnAndShifts::execution_sel_opcode_error
+        ColumnAndShifts::execution_sel_opcode_error,
+        ColumnAndShifts::execution_discard
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::emit_unencrypted_log_execution_clk,
         ColumnAndShifts::emit_unencrypted_log_space_id,
-        ColumnAndShifts::emit_unencrypted_log_log_offset,
+        ColumnAndShifts::emit_unencrypted_log_log_address,
         ColumnAndShifts::emit_unencrypted_log_log_size,
         ColumnAndShifts::emit_unencrypted_log_contract_address,
         ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_logs,
         ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_logs,
         ColumnAndShifts::emit_unencrypted_log_is_static,
-        ColumnAndShifts::emit_unencrypted_log_error
+        ColumnAndShifts::emit_unencrypted_log_error,
+        ColumnAndShifts::emit_unencrypted_log_discard
     };
 };
 

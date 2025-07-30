@@ -15,7 +15,7 @@ template <typename FF_> class emit_unencrypted_logImpl {
 
     static constexpr std::array<size_t, 46> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3,
                                                                             3, 3, 3, 3, 4, 3, 5, 3, 4, 3, 3, 5,
-                                                                            3, 5, 5, 3, 4, 3, 3, 3, 5, 5, 4, 4,
+                                                                            3, 5, 5, 4, 4, 3, 3, 3, 5, 5, 4, 4,
                                                                             4, 4, 4, 4, 3, 5, 3, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -154,7 +154,7 @@ template <typename FF_> class emit_unencrypted_logImpl {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::emit_unencrypted_log_start) *
-                (((in.get(C::emit_unencrypted_log_log_offset) + in.get(C::emit_unencrypted_log_log_size)) - FF(1)) -
+                (((in.get(C::emit_unencrypted_log_log_address) + in.get(C::emit_unencrypted_log_log_size)) - FF(1)) -
                  in.get(C::emit_unencrypted_log_end_log_address));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
@@ -251,9 +251,10 @@ template <typename FF_> class emit_unencrypted_logImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = in.get(C::emit_unencrypted_log_start) *
-                       ((FF(1) - in.get(C::emit_unencrypted_log_error)) -
-                        in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs));
+            auto tmp =
+                in.get(C::emit_unencrypted_log_start) *
+                ((FF(1) - in.get(C::emit_unencrypted_log_error)) * (FF(1) - in.get(C::emit_unencrypted_log_discard)) -
+                 in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
@@ -317,10 +318,10 @@ template <typename FF_> class emit_unencrypted_logImpl {
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
         }
-        { // LOG_OFFSET_INCREMENT
+        { // LOG_ADDRESS_INCREMENT
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-            auto tmp = emit_unencrypted_log_NOT_END * ((in.get(C::emit_unencrypted_log_log_offset) + FF(1)) -
-                                                       in.get(C::emit_unencrypted_log_log_offset_shift));
+            auto tmp = emit_unencrypted_log_NOT_END * ((in.get(C::emit_unencrypted_log_log_address) + FF(1)) -
+                                                       in.get(C::emit_unencrypted_log_log_address_shift));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
@@ -434,7 +435,7 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
         case 32:
             return "REMAINING_LOG_SIZE_DECREMENT";
         case 35:
-            return "LOG_OFFSET_INCREMENT";
+            return "LOG_ADDRESS_INCREMENT";
         case 36:
             return "EXEC_CLK_CONSISTENCY";
         case 37:
@@ -458,7 +459,7 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
     static constexpr size_t SR_WRONG_TAG_CHECK = 23;
     static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 28;
     static constexpr size_t SR_REMAINING_LOG_SIZE_DECREMENT = 32;
-    static constexpr size_t SR_LOG_OFFSET_INCREMENT = 35;
+    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 35;
     static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 36;
     static constexpr size_t SR_SPACE_ID_CONSISTENCY = 37;
     static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 44;
