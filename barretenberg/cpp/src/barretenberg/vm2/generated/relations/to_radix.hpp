@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -31,6 +32,8 @@ template <typename FF_> class to_radixImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/to_radix");
 
         const auto to_radix_LATCH_CONDITION = in.get(C::to_radix_end) + in.get(C::precomputed_first_row);
         const auto to_radix_REM = (in.get(C::to_radix_value) - in.get(C::to_radix_acc));

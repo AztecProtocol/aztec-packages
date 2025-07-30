@@ -1302,7 +1302,7 @@ describe('PeerManager', () => {
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           receivedAuth = AuthRequest.fromBuffer(payload);
           const payloadToSign = receivedAuth.getPayloadToSign();
-          const signature = signer.sign(payloadToSign);
+          const signature = signer.signMessage(payloadToSign);
           const authResponse = new AuthResponse(receivedAuth.status, signature);
           const returnData = {
             status: ReqRespStatus.SUCCESS,
@@ -1376,7 +1376,7 @@ describe('PeerManager', () => {
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           receivedAuth = AuthRequest.fromBuffer(payload);
           const payloadToSign = receivedAuth.getPayloadToSign();
-          const signature = signer.sign(payloadToSign);
+          const signature = signer.signMessage(payloadToSign);
           const authResponse = new AuthResponse(receivedAuth.status, signature);
           const returnData = {
             status: ReqRespStatus.SUCCESS,
@@ -1443,7 +1443,7 @@ describe('PeerManager', () => {
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           receivedAuth = AuthRequest.fromBuffer(payload);
           const payloadToSign = receivedAuth.getPayloadToSign();
-          const signature = signer.sign(payloadToSign);
+          const signature = signer.signMessage(payloadToSign);
           const authResponse = new AuthResponse(receivedAuth.status, signature);
           const returnData = {
             status: ReqRespStatus.SUCCESS,
@@ -1522,7 +1522,7 @@ describe('PeerManager', () => {
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           receivedAuth = AuthRequest.fromBuffer(payload);
           const payloadToSign = receivedAuth.getPayloadToSign();
-          const signature = signer.sign(payloadToSign);
+          const signature = signer.signMessage(payloadToSign);
           const authResponse = new AuthResponse(receivedAuth.status, signature);
           const returnData = {
             status: ReqRespStatus.SUCCESS,
@@ -1619,7 +1619,7 @@ describe('PeerManager', () => {
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           receivedAuth = AuthRequest.fromBuffer(payload);
           const payloadToSign = receivedAuth.getPayloadToSign();
-          const signature = signer.sign(payloadToSign);
+          const signature = signer.signMessage(payloadToSign);
           const authResponse = new AuthResponse(receivedAuth.status, signature);
           const returnData = {
             status: ReqRespStatus.SUCCESS,

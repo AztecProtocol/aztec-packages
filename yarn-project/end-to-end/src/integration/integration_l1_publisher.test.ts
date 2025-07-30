@@ -480,6 +480,7 @@ describe('L1Publisher integration', () => {
               },
             },
             RollupContract.packAttestations([]),
+            [],
             Blob.getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });
@@ -568,13 +569,13 @@ describe('L1Publisher integration', () => {
         block.header.globalVariables.timestamp,
         SignalType.SLASHING,
         EthAddress.random(),
-        (_payload: `0x${string}`) => Promise.resolve(Signature.random().toString()),
+        _payload => Promise.resolve(Signature.random().toString()),
       );
 
       const result = await publisher.sendRequests();
 
       expect(result!.successfulActions).toEqual(['propose']);
-      expect(result!.failedActions).toEqual(['slashing-vote']);
+      expect(result!.failedActions).toEqual(['slashing-signal']);
     });
 
     it(`shows propose custom errors if tx simulation fails`, async () => {

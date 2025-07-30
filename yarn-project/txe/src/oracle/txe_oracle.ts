@@ -11,10 +11,10 @@ import {
   PRIVATE_CONTEXT_INPUTS_LENGTH,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
+import { Aes128, Schnorr } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
-import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
@@ -35,21 +35,17 @@ import {
   type NoteData,
   Oracle,
   PrivateExecutionOracle,
-  type TypedOracle,
   UtilityExecutionOracle,
   executePrivateFunction,
-  extractPrivateCircuitPublicInputs,
   generateSimulatedProvingResult,
   pickNotes,
 } from '@aztec/pxe/simulator';
 import { WASMSimulator, extractCallStack, toACVMWitness, witnessMapToFields } from '@aztec/simulator/client';
-import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
-  type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
   resolveAssertionMessageFromError,
@@ -66,7 +62,6 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeCalldataHash,
@@ -86,11 +81,9 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
-import { deriveKeys } from '@aztec/stdlib/keys';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
-import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,
@@ -100,7 +93,6 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
-  type NullifierLeafPreimage,
   NullifierMembershipWitness,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
@@ -109,11 +101,9 @@ import {
 import {
   BlockHeader,
   CallContext,
-  GlobalVariables,
   HashedValues,
   PrivateCallExecutionResult,
   PrivateExecutionResult,
-  PublicCallRequestWithCalldata,
   Tx,
   TxConstantData,
   TxContext,
@@ -130,17 +120,13 @@ import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 
-export class TXE implements TypedOracle {
+export class TXE {
   private blockNumber = 1;
   private timestamp = GENESIS_TIMESTAMP;
 
   private sideEffectCounter = 0;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
-  private isStaticCall = false;
-  // Return/revert data of the latest nested call.
-  private nestedCallReturndata: Fr[] = [];
-  private nestedCallSuccess: boolean = false;
 
   private pxeOracleInterface: PXEOracleInterface;
 
@@ -269,26 +255,6 @@ export class TXE implements TypedOracle {
     return this.msgSender;
   }
 
-  getFunctionSelector() {
-    return this.functionSelector;
-  }
-
-  setMsgSender(msgSender: AztecAddress) {
-    this.msgSender = msgSender;
-  }
-
-  setFunctionSelector(functionSelector: FunctionSelector) {
-    this.functionSelector = functionSelector;
-  }
-
-  getSideEffectsCounter() {
-    return this.sideEffectCounter;
-  }
-
-  setSideEffectsCounter(sideEffectsCounter: number) {
-    this.sideEffectCounter = sideEffectsCounter;
-  }
-
   setContractAddress(contractAddress: AztecAddress) {
     this.contractAddress = contractAddress;
   }
@@ -353,10 +319,6 @@ export class TXE implements TypedOracle {
     return inputs;
   }
 
-  deriveKeys(secret: Fr) {
-    return deriveKeys(secret);
-  }
-
   async addAuthWitness(address: AztecAddress, messageHash: Fr) {
     const account = await this.accountDataProvider.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
@@ -395,26 +357,6 @@ export class TXE implements TypedOracle {
     this.uniqueNoteHashesFromPublic.push(...siloedNoteHashes);
   }
 
-  async addPrivateLogs(contractAddress: AztecAddress, privateLogs: PrivateLog[]) {
-    for (const privateLog of privateLogs) {
-      privateLog.fields[0] = await poseidon2Hash([contractAddress, privateLog.fields[0]]);
-    }
-
-    this.privateLogs.push(...privateLogs);
-  }
-
-  addPublicLogs(logs: PublicLog[]) {
-    logs.forEach(log => {
-      try {
-        const tag = log.fields[0];
-        this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
-        this.publicLogs.push(log);
-      } catch (err) {
-        this.logger.warn(`Failed to add tagged log to store: ${err}`);
-      }
-    });
-  }
-
   // TypedOracle
 
   getBlockNumber() {
@@ -431,14 +373,6 @@ export class TXE implements TypedOracle {
 
   getContractAddress() {
     return Promise.resolve(this.contractAddress);
-  }
-
-  setIsStaticCall(isStatic: boolean) {
-    this.isStaticCall = isStatic;
-  }
-
-  getIsStaticCall() {
-    return this.isStaticCall;
   }
 
   getRandomField() {
@@ -461,89 +395,27 @@ export class TXE implements TypedOracle {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const contractInstance = await this.contractDataProvider.getContractInstance(address);
-    if (!contractInstance) {
-      throw new Error(`Contract instance not found for address ${address}`);
-    }
-    return contractInstance;
+  getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+    return this.pxeOracleInterface.getContractInstance(address);
   }
 
-  async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-    const index = (await snap.findLeafIndices(treeId, [leafValue.toBuffer()]))[0];
-    if (index === undefined) {
-      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]} at block ${blockNumber}`);
-    }
-    const siblingPath = await snap.getSiblingPath(treeId, index);
-
-    return [new Fr(index), ...siblingPath.toFields()];
+  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
+    return this.pxeOracleInterface.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
-  async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr) {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const result = await snap.getSiblingPath(treeId, leafIndex.toBigInt());
-    return result.toFields();
+  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
+    return this.pxeOracleInterface.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  async getNullifierMembershipWitness(
+  getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return this.pxeOracleInterface.getPublicDataWitness(blockNumber, leafSlot);
+  }
+
+  getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const [index] = await snap.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
-    if (!index) {
-      return undefined;
-    }
-
-    const leafPreimagePromise = snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
-
-    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
-
-    if (!leafPreimage) {
-      return undefined;
-    }
-
-    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
-  }
-
-  async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const lowLeafResult = await snap.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
-    if (!lowLeafResult) {
-      return undefined;
-    } else {
-      const preimage = (await snap.getLeafPreimage(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      )) as PublicDataTreeLeafPreimage;
-      const path = await snap.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
-      return new PublicDataWitness(lowLeafResult.index, preimage, path);
-    }
-  }
-
-  async getLowNullifierMembershipWitness(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-
-    const findResult = await snap.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
-    if (!findResult) {
-      return undefined;
-    }
-    const { index, alreadyPresent } = findResult;
-    if (alreadyPresent) {
-      this.logger.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
-    }
-    const preimageData = (await snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
-
-    const siblingPath = await snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
-    return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
+    return this.pxeOracleInterface.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
@@ -871,82 +743,6 @@ export class TXE implements TypedOracle {
     }
   }
 
-  async callPrivateFunction(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ) {
-    this.logger.verbose(
-      `Executing external function ${await this.getDebugFunctionName(
-        targetContractAddress,
-        functionSelector,
-      )}@${targetContractAddress} isStaticCall=${isStaticCall}`,
-    );
-
-    // Store and modify env
-    const currentContractAddress = this.contractAddress;
-    const currentMessageSender = this.msgSender;
-    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
-    this.setMsgSender(this.contractAddress);
-    this.setContractAddress(targetContractAddress);
-    this.setFunctionSelector(functionSelector);
-
-    const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
-    if (!artifact) {
-      throw new Error(`Artifact not found when calling private function. Contract address: ${targetContractAddress}.`);
-    }
-
-    const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
-    const acvmCallback = new Oracle(this);
-    const timer = new Timer();
-    const acirExecutionResult = await this.simulator
-      .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
-      .catch((err: Error) => {
-        err.message = resolveAssertionMessageFromError(err, artifact);
-
-        const execError = new ExecutionError(
-          err.message,
-          {
-            contractAddress: targetContractAddress,
-            functionSelector,
-          },
-          extractCallStack(err, artifact.debug),
-          { cause: err },
-        );
-        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
-        throw createSimulationError(execError);
-      });
-    const duration = timer.ms();
-    const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
-
-    const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
-    this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
-      circuitName: 'app-circuit',
-      duration,
-      eventName: 'circuit-witness-generation',
-      inputSize: initialWitnessSize,
-      outputSize: publicInputs.toBuffer().length,
-      appCircuitName: 'noname',
-    } satisfies CircuitWitnessGenerationStats);
-
-    // Apply side effects
-    const endSideEffectCounter = publicInputs.endSideEffectCounter;
-    this.sideEffectCounter = endSideEffectCounter.toNumber() + 1;
-
-    await this.addPrivateLogs(
-      targetContractAddress,
-      publicInputs.privateLogs.getActiveItems().map(privateLog => privateLog.log),
-    );
-
-    this.setContractAddress(currentContractAddress);
-    this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
-
-    return { endSideEffectCounter, returnsHash: publicInputs.returnsHash };
-  }
-
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
     const argumentsSize = countArgumentsSize(abi);
 
@@ -974,166 +770,6 @@ export class TXE implements TypedOracle {
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return await this.contractDataProvider.getDebugFunctionName(address, selector);
-  }
-
-  private async executePublicFunction(
-    calldata: Fr[],
-    msgSender: AztecAddress,
-    contractAddress: AztecAddress,
-    isStaticCall: boolean,
-    isTeardown: boolean = false,
-  ) {
-    const callRequest = await PublicCallRequest.fromCalldata(msgSender, contractAddress, isStaticCall, calldata);
-    const executionRequest = new PublicCallRequestWithCalldata(callRequest, calldata);
-
-    const db = this.baseFork;
-
-    const globalVariables = GlobalVariables.empty();
-    globalVariables.chainId = new Fr(this.CHAIN_ID);
-    globalVariables.version = new Fr(this.ROLLUP_VERSION);
-    globalVariables.blockNumber = this.blockNumber;
-    globalVariables.timestamp = this.timestamp;
-    globalVariables.gasFees = new GasFees(1, 1);
-
-    let result: PublicTxResult;
-    // Checkpoint here so that we can revert merkle ops after simulation.
-    // See note at revert below.
-    const checkpoint = await ForkCheckpoint.new(db);
-    try {
-      const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-      const simulator = new PublicTxSimulator(
-        this.baseFork,
-        contractsDB,
-        globalVariables,
-        /*doMerkleOperations=*/ false,
-        /*skipFeeEnforcement=*/ false,
-        /*clientInitiatedSimulation=*/ true,
-      );
-
-      const { usedTxRequestHashForNonces } = this.noteCache.finish();
-      const firstNullifier = usedTxRequestHashForNonces
-        ? this.getTxRequestHash()
-        : this.noteCache.getAllNullifiers()[0];
-
-      // When setting up a teardown call, we tell it that
-      // private execution used Gas(1, 1) so it can compute a tx fee.
-      const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
-      const tx = await createTxForPublicCalls(
-        {
-          nonRevertible: {
-            nullifiers: [firstNullifier],
-          },
-        },
-        /*setupExecutionRequests=*/ [],
-        /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
-        /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
-        /*feePayer=*/ AztecAddress.zero(),
-        gasUsedByPrivate,
-      );
-
-      result = await simulator.simulate(tx);
-    } finally {
-      // NOTE: Don't accept any merkle updates from the AVM since this was just 1 enqueued call
-      // and the TXE will re-apply all txEffects after entire execution (all enqueued calls)
-      // complete.
-      await checkpoint.revert();
-      // If an error is thrown during the above simulation, this revert is the last
-      // thing executed and we skip the postprocessing below.
-    }
-
-    const noteHashes = result.avmProvingRequest.inputs.publicInputs.accumulatedData.noteHashes.filter(
-      s => !s.isEmpty(),
-    );
-
-    const publicDataWrites = result.avmProvingRequest.inputs.publicInputs.accumulatedData.publicDataWrites.filter(
-      s => !s.isEmpty(),
-    );
-    // For now, public data writes are the only merkle operations that are readable by later enqueued calls in the TXE.
-    await this.addPublicDataWrites(publicDataWrites);
-
-    this.addUniqueNoteHashesFromPublic(noteHashes);
-
-    this.addPublicLogs(
-      result.avmProvingRequest.inputs.publicInputs.accumulatedData.publicLogs.filter(
-        log => !log.contractAddress.equals(AztecAddress.ZERO),
-      ),
-    );
-
-    return Promise.resolve(result);
-  }
-
-  async notifyEnqueuedPublicFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    isStaticCall: boolean,
-    isTeardown = false,
-  ): Promise<void> {
-    // Store and modify env
-    const currentContractAddress = this.contractAddress;
-    const currentMessageSender = this.msgSender;
-    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
-    const calldata = this.executionCache.getPreimage(calldataHash);
-    if (!calldata) {
-      throw new Error('Calldata for enqueued call not found in cache');
-    }
-    const functionSelector = FunctionSelector.fromField(calldata[0]);
-    this.setMsgSender(this.contractAddress);
-    this.setContractAddress(targetContractAddress);
-    this.setFunctionSelector(functionSelector);
-
-    const executionResult = await this.executePublicFunction(
-      calldata,
-      /* msgSender */ currentContractAddress,
-      targetContractAddress,
-      isStaticCall,
-      isTeardown,
-    );
-
-    // Poor man's revert handling
-    if (!executionResult.revertCode.isOK()) {
-      if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
-        await enrichPublicSimulationError(executionResult.revertReason, this.contractDataProvider, this.logger);
-        throw new Error(executionResult.revertReason.message);
-      } else {
-        throw new Error(`Enqueued public function call reverted: ${executionResult.revertReason}`);
-      }
-    }
-
-    // Apply side effects
-    const sideEffects = executionResult.avmProvingRequest.inputs.publicInputs.accumulatedData;
-
-    const { usedTxRequestHashForNonces } = this.noteCache.finish();
-    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
-    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
-
-    // For some reason we cannot move this up to 'executePublicFunction'. It gives us an error of trying to modify the same nullifier twice.
-    this.addSiloedNullifiersFromPublic(nullifiers);
-
-    this.setContractAddress(currentContractAddress);
-    this.setMsgSender(currentMessageSender);
-    this.setFunctionSelector(currentFunctionSelector);
-  }
-
-  async notifySetPublicTeardownFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void> {
-    // Definitely not right, in that the teardown should always be last.
-    // But useful for executing flows.
-    await this.notifyEnqueuedPublicFunctionCall(
-      targetContractAddress,
-      calldataHash,
-      sideEffectCounter,
-      isStaticCall,
-      /*isTeardown=*/ true,
-    );
-  }
-
-  async notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
-    await this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
   debugLog(message: string, fields: Fr[]): void {
@@ -1178,62 +814,6 @@ export class TXE implements TypedOracle {
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
     );
-  }
-
-  // AVM oracles
-
-  async avmOpcodeCall(
-    targetContractAddress: AztecAddress,
-    calldata: Fr[],
-    isStaticCall: boolean,
-  ): Promise<PublicTxResult> {
-    // Store and modify env
-    const currentContractAddress = this.contractAddress;
-    const currentMessageSender = this.msgSender;
-    this.setMsgSender(this.contractAddress);
-    this.setContractAddress(targetContractAddress);
-
-    const executionResult = await this.executePublicFunction(
-      calldata,
-      /* msgSender */ currentContractAddress,
-      targetContractAddress,
-      isStaticCall,
-    );
-    // Save return/revert data for later.
-    this.nestedCallReturndata = executionResult.processedPhases[0]!.returnValues[0].values!;
-    this.nestedCallSuccess = executionResult.revertCode.isOK();
-
-    // Apply side effects
-    if (executionResult.revertCode.isOK()) {
-      const sideEffects = executionResult.avmProvingRequest.inputs.publicInputs.accumulatedData;
-      const publicDataWrites = sideEffects.publicDataWrites.filter(s => !s.isEmpty());
-      const noteHashes = sideEffects.noteHashes.filter(s => !s.isEmpty());
-      const { usedTxRequestHashForNonces } = this.noteCache.finish();
-      const firstNullifier = usedTxRequestHashForNonces
-        ? this.getTxRequestHash()
-        : this.noteCache.getAllNullifiers()[0];
-      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
-      await this.addPublicDataWrites(publicDataWrites);
-      this.addUniqueNoteHashesFromPublic(noteHashes);
-      this.addSiloedNullifiersFromPublic(nullifiers);
-    }
-
-    this.setContractAddress(currentContractAddress);
-    this.setMsgSender(currentMessageSender);
-
-    return executionResult;
-  }
-
-  avmOpcodeSuccessCopy(): boolean {
-    return this.nestedCallSuccess;
-  }
-
-  avmOpcodeReturndataSize(): number {
-    return this.nestedCallReturndata.length;
-  }
-
-  avmOpcodeReturndataCopy(rdOffset: number, copySize: number): Fr[] {
-    return this.nestedCallReturndata.slice(rdOffset, rdOffset + copySize);
   }
 
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
@@ -1317,11 +897,6 @@ export class TXE implements TypedOracle {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  emitOffchainEffect(_data: Fr[]) {
-    // Offchain effects are discarded in TXE tests.
-    return Promise.resolve();
-  }
-
   getSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
@@ -1349,7 +924,13 @@ export class TXE implements TypedOracle {
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
 
     if (artifact === undefined) {
-      throw new Error('Function Artifact does not exist');
+      if (functionSelector.equals(await FunctionSelector.fromSignature('verify_private_authwit(Field)'))) {
+        throw new Error(
+          'Found no account contract artifact for a private authwit check - use `create_contract_account` instead of `create_light_account` for authwit support.',
+        );
+      } else {
+        throw new Error('Function Artifact does not exist');
+      }
     }
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
@@ -1468,8 +1049,15 @@ export class TXE implements TypedOracle {
     const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0 || !processedTx.revertCode.isOK()) {
-      throw new Error('Public execution has failed', processedTx.revertReason);
+    if (failedTxs.length !== 0) {
+      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+    } else if (!processedTx.revertCode.isOK()) {
+      if (processedTx.revertReason) {
+        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+      } else {
+        throw new Error('Contract execution has reverted');
+      }
     }
 
     if (isStaticCall) {
@@ -1621,11 +1209,18 @@ export class TXE implements TypedOracle {
 
     const results = await processor.process([tx]);
 
-    const processedTxs = results[0];
+    const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0 || !processedTxs[0].revertCode.isOK()) {
-      throw new Error('Public execution has failed');
+    if (failedTxs.length !== 0) {
+      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+    } else if (!processedTx.revertCode.isOK()) {
+      if (processedTx.revertReason) {
+        await enrichPublicSimulationError(processedTx.revertReason, this.contractDataProvider, this.logger);
+        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+      } else {
+        throw new Error('Contract execution has reverted');
+      }
     }
 
     const returnValues = results[3][0].values;
@@ -1651,11 +1246,11 @@ export class TXE implements TypedOracle {
 
     const txEffect = TxEffect.empty();
 
-    txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
+    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
 
     txEffect.txHash = new TxHash(new Fr(this.blockNumber));
 

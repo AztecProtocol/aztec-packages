@@ -10,6 +10,7 @@ import {
     NUMBER_OF_SUBRELATIONS,
     NUMBER_OF_ALPHAS,
     NUMBER_UNSHIFTED,
+    NUMBER_TO_BE_SHIFTED,
     ZK_BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N,
     PAIRING_POINTS_SIZE
@@ -18,15 +19,14 @@ import {
 import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {
-    MODULUS as P, MINUS_ONE, SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib
-} from "./Fr.sol";
+import {SUBGROUP_GENERATOR, SUBGROUP_GENERATOR_INVERSE, SUBGROUP_SIZE, Fr, FrLib} from "./Fr.sol";
 
 import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 
 import {RelationsLib} from "./Relations.sol";
 
 import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
+import {generateRecursionSeparator, convertPairingPointsToG1, mulWithSeperator, validateOnCurve} from "./utils.sol";
 
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
@@ -51,6 +51,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 508;
+    uint256 constant SHIFTED_COMMITMENTS_START = 30;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -215,6 +216,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     uint256 constant LIBRA_EVALUATIONS = 4;
     uint256 constant LIBRA_UNIVARIATES_LENGTH = 9;
 
+    struct PairingInputs {
+        Honk.G1Point P_0;
+        Honk.G1Point P_1;
+    }
+
     function verifyShplemini(Honk.ZKProof memory proof, Honk.VerificationKey memory vk, ZKTranscript memory tp)
         internal
         view
@@ -226,8 +232,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge =
             CommitmentSchemeLib.computeSquares(tp.geminiR);
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars;
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory commitments;
+        Fr[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars;
+        Honk.G1Point[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory commitments;
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -268,16 +274,28 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         */
         mem.batchedEvaluation = proof.geminiMaskingEval;
         mem.batchingChallenge = tp.rho;
-        scalars[1] = mem.unshiftedScalar.neg();
+        mem.unshiftedScalarNeg = mem.unshiftedScalar.neg();
+        mem.shiftedScalarNeg = mem.shiftedScalar.neg();
+
+        scalars[1] = mem.unshiftedScalarNeg;
         for (uint256 i = 0; i < NUMBER_UNSHIFTED; ++i) {
-            scalars[i + 2] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
+            scalars[i + 2] = mem.unshiftedScalarNeg * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
-        for (uint256 i = NUMBER_UNSHIFTED; i < NUMBER_OF_ENTITIES; ++i) {
-            scalars[i + 2] = mem.shiftedScalar.neg() * mem.batchingChallenge;
-            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i] * mem.batchingChallenge);
+        // For each of the to be shifted commitments perform the shift in place by
+        // adding to the unshifted value.
+        // We do so, as the values are to be used in batchMul later, and as
+        // `a * c + b * c = (a + b) * c` this will allow us to reduce memory and compute.
+        // Applied to w1, w2, w3, w4 and zPerm
+        for (uint256 i = 0; i < NUMBER_TO_BE_SHIFTED; ++i) {
+            uint256 scalarOff = i + SHIFTED_COMMITMENTS_START;
+            uint256 evaluationOff = i + NUMBER_UNSHIFTED;
+
+            scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalarNeg * mem.batchingChallenge);
+            mem.batchedEvaluation =
+                mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
@@ -322,13 +340,6 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[36] = convertProofPoint(proof.lookupReadCounts);
         commitments[37] = convertProofPoint(proof.lookupReadTags);
 
-        // to be Shifted
-        commitments[38] = convertProofPoint(proof.w1);
-        commitments[39] = convertProofPoint(proof.w2);
-        commitments[40] = convertProofPoint(proof.w3);
-        commitments[41] = convertProofPoint(proof.w4);
-        commitments[42] = convertProofPoint(proof.zPerm);
-
         /* Batch gemini claims from the prover
          * place the commitments to gemini aᵢ to the vector of commitments, compute the contributions from
          * aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
@@ -367,7 +378,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
 
         mem.batchingChallenge = tp.shplonkNu.sqr();
-        uint256 boundary = NUMBER_OF_ENTITIES + 2;
+        uint256 boundary = NUMBER_UNSHIFTED + 2;
 
         // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
         // Compute scalar multipliers for each fold commitment
@@ -432,10 +443,24 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = quotient_commitment;
         scalars[boundary] = tp.shplonkZ; // evaluation challenge
 
-        Honk.G1Point memory P_0 = batchMul(commitments, scalars);
-        Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
+        PairingInputs memory pair;
+        pair.P_0 = batchMul(commitments, scalars);
+        pair.P_1 = negateInplace(quotient_commitment);
 
-        return pairing(P_0, P_1);
+        // Aggregate pairing points
+        Fr recursionSeparator = generateRecursionSeparator(proof.pairingPointObject, pair.P_0, pair.P_1);
+        (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
+            convertPairingPointsToG1(proof.pairingPointObject);
+
+        // Validate the points from the proof are on the curve
+        validateOnCurve(P_0_other);
+        validateOnCurve(P_1_other);
+
+        // accumulate with aggregate points in proof
+        pair.P_0 = mulWithSeperator(pair.P_0, P_0_other, recursionSeparator);
+        pair.P_1 = mulWithSeperator(pair.P_1, P_1_other, recursionSeparator);
+
+        return pairing(pair.P_0, pair.P_1);
     }
 
     struct SmallSubgroupIpaIntermediates {
@@ -496,10 +521,16 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // This implementation is the same as above with different constants
     function batchMul(
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory base,
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars
+        Honk.G1Point[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory base,
+        Fr[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars
     ) internal view returns (Honk.G1Point memory result) {
-        uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3;
+        uint256 limit = NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3;
+
+        // Validate all points are on the curve
+        for (uint256 i = 0; i < limit; ++i) {
+            validateOnCurve(base[i]);
+        }
+
         assembly {
             let success := 0x01
             let free := mload(0x40)

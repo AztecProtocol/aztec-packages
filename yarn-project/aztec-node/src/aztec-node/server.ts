@@ -22,7 +22,7 @@ import {
   isExtendedClient,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { compactArray } from '@aztec/foundation/collection';
+import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -61,17 +61,17 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import type {
-  AztecNode,
-  AztecNodeAdmin,
-  GetContractClassLogsResponse,
-  GetPublicLogsResponse,
+import {
+  type AztecNode,
+  type AztecNodeAdmin,
+  type AztecNodeAdminConfig,
+  AztecNodeAdminConfigSchema,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import {
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
-  type ProverConfig,
-  type SequencerConfig,
   type Service,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -234,7 +234,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
 
-    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+
+    const archiver = await createArchiver(
+      config,
+      { blobSinkClient, epochCache, telemetry, dateProvider },
+      { blockUntilSync: true },
+    );
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
@@ -248,8 +254,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
     const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
-
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
@@ -1073,7 +1077,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await validator.validateTx(tx);
   }
 
-  public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
+  public getConfig(): Promise<AztecNodeAdminConfig> {
+    const schema = AztecNodeAdminConfigSchema;
+    const keys = schema.keyof().options;
+    return Promise.resolve(pick(this.config, ...keys));
+  }
+
+  public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
     this.sequencer?.updateSequencerConfig(config);
     // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
@@ -1097,14 +1107,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     return this.contractDataSource.registerContractFunctionSignatures(signatures);
-  }
-
-  public flushTxs(): Promise<void> {
-    if (!this.sequencer) {
-      throw new Error(`Sequencer is not initialized`);
-    }
-    this.sequencer.flush();
-    return Promise.resolve();
   }
 
   public getValidatorsStats(): Promise<ValidatorsStats> {
