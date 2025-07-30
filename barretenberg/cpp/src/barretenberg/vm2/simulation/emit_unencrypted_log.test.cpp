@@ -17,18 +17,6 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
-namespace {
-
-std::vector<MemoryValue> pad_values(std::vector<MemoryValue> values)
-{
-    while (values.size() < PUBLIC_LOG_SIZE_IN_FIELDS) {
-        values.push_back(MemoryValue::from<FF>(FF(0)));
-    }
-    return values;
-}
-
-} // namespace
-
 TEST(EmitUnencryptedLogTest, Basic)
 {
     StrictMock<MockMemory> memory;
@@ -71,7 +59,7 @@ TEST(EmitUnencryptedLogTest, Basic)
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
         .is_static = false,
-        .values = pad_values({ MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) }),
+        .values = { MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) },
         .error_too_large = false,
         .error_memory_out_of_bounds = false,
         .error_too_many_logs = false,
@@ -130,7 +118,7 @@ TEST(EmitUnencryptedLogTest, NegativeTooLarge)
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
         .is_static = false,
-        .values = pad_values(expected_values),
+        .values = expected_values,
         .error_too_large = true,
         .error_memory_out_of_bounds = false,
         .error_too_many_logs = false,
@@ -179,7 +167,7 @@ TEST(EmitUnencryptedLogTest, NegativeMemoryOutOfBounds)
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
         .is_static = false,
-        .values = pad_values({}),
+        .values = {},
         .error_too_large = false,
         .error_memory_out_of_bounds = true,
         .error_too_many_logs = false,
@@ -232,7 +220,7 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
         .is_static = false,
-        .values = pad_values({ MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) }),
+        .values = { MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) },
         .error_too_large = false,
         .error_memory_out_of_bounds = false,
         .error_too_many_logs = true,
@@ -285,7 +273,7 @@ TEST(EmitUnencryptedLogTest, NegativeTagMismatch)
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
         .is_static = false,
-        .values = pad_values({ MemoryValue::from<uint32_t>(log_offset), MemoryValue::from<uint32_t>(log_offset + 1) }),
+        .values = { MemoryValue::from<uint32_t>(log_offset), MemoryValue::from<uint32_t>(log_offset + 1) },
         .error_too_large = false,
         .error_memory_out_of_bounds = false,
         .error_too_many_logs = false,
@@ -338,7 +326,7 @@ TEST(EmitUnencryptedLogTest, NegativeStatic)
         .prev_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
         .next_num_unencrypted_logs = next_side_effect_states.numUnencryptedLogs,
         .is_static = true,
-        .values = pad_values({ MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) }),
+        .values = { MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) },
         .error_too_large = false,
         .error_memory_out_of_bounds = false,
         .error_too_many_logs = false,

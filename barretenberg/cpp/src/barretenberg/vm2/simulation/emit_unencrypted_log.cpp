@@ -22,30 +22,29 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
 
     bool error_too_many_logs = log_index == MAX_PUBLIC_LOGS_PER_TX;
 
+    bool error_is_static = context.get_is_static();
+
     // Will be computed in the loop below
     bool error_tag_mismatch = false;
 
     std::vector<MemoryValue> values;
     values.reserve(PUBLIC_LOG_SIZE_IN_FIELDS);
 
-    for (uint32_t i = 0; i < PUBLIC_LOG_SIZE_IN_FIELDS; ++i) {
-        MemoryValue value;
-        bool should_read_memory = !error_memory_out_of_bounds && (i < log_size);
-        if (should_read_memory) {
-            value = memory.get(log_address + i);
-            if (value.get_tag() != ValueTag::FF) {
-                error_tag_mismatch = true;
-            }
-        } else {
-            value = MemoryValue::from_tag(ValueTag::FF, 0);
+    uint32_t num_memory_reads = 0;
+    if (!error_memory_out_of_bounds) {
+        num_memory_reads = std::min<uint32_t>(log_size, PUBLIC_LOG_SIZE_IN_FIELDS);
+    }
+
+    for (uint32_t i = 0; i < num_memory_reads; ++i) {
+        MemoryValue value = memory.get(log_address + i);
+        if (value.get_tag() != ValueTag::FF) {
+            error_tag_mismatch = true;
         }
         values.push_back(value);
     }
 
-    bool is_static = context.get_is_static();
-
     bool error =
-        error_too_large || error_memory_out_of_bounds || error_too_many_logs || error_tag_mismatch || is_static;
+        error_too_large || error_memory_out_of_bounds || error_too_many_logs || error_tag_mismatch || error_is_static;
 
     if (!error) {
         side_effect_states.numUnencryptedLogs = log_index + 1;
@@ -60,7 +59,7 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
         .log_size = log_size,
         .prev_num_unencrypted_logs = log_index,
         .next_num_unencrypted_logs = side_effect_states.numUnencryptedLogs,
-        .is_static = is_static,
+        .is_static = error_is_static,
         .values = values,
         .error_too_large = error_too_large,
         .error_memory_out_of_bounds = error_memory_out_of_bounds,
@@ -80,7 +79,7 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
     if (error_tag_mismatch) {
         throw EmitUnencryptedLogException("Tag mismatch");
     }
-    if (is_static) {
+    if (error_is_static) {
         throw EmitUnencryptedLogException("Static context");
     }
 }

@@ -40,8 +40,13 @@ void EmitUnencryptedLogTraceBuilder::process(
             FF remaining_rows_inv = remaining_rows == 0 ? 0 : FF(remaining_rows).invert();
             bool is_padding_row = i >= event.log_size;
 
-            FF value = event.values[i].as_ff();
-            ValueTag tag = event.values[i].get_tag();
+            FF value = 0;
+            ValueTag tag = ValueTag::FF;
+
+            if (i < event.values.size()) {
+                value = event.values[i].as_ff();
+                tag = event.values[i].get_tag();
+            }
 
             bool correct_tag = tag == ValueTag::FF;
             if (!correct_tag) {
