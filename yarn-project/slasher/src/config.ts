@@ -1,6 +1,7 @@
 import { NULL_KEY } from '@aztec/ethereum';
-import type { ConfigMappingsType, SecretValue } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
+  SecretValue,
   bigintConfigHelper,
   booleanConfigHelper,
   floatConfigHelper,
@@ -9,6 +10,7 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 export enum Offense {
   UNKNOWN = 0,
@@ -66,26 +68,6 @@ export type Watcher = WatcherEmitter & {
   stop?: () => Promise<void>;
 };
 
-export interface SlasherConfig {
-  // New configurations based on design doc
-  slashOverridePayload?: EthAddress;
-  slashPayloadTtlSeconds: number; // TTL for payloads, in seconds
-  slashPruneEnabled: boolean;
-  slashPrunePenalty: bigint;
-  slashPruneMaxPenalty: bigint;
-  slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: bigint;
-  slashInvalidBlockMaxPenalty: bigint;
-  slashInactivityEnabled: boolean;
-  slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
-  slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%. Must be greater than 0
-  slashInactivityCreatePenalty: bigint;
-  slashInactivityMaxPenalty: bigint;
-  slashProposerRoundPollingIntervalSeconds: number;
-  // Consider adding: slashInactivityCreateEnabled: boolean;
-  slasherPrivateKey?: SecretValue<`0x${string}`>; // Private key of the slasher account used for creating slash payloads
-}
-
 export const DefaultSlasherConfig: SlasherConfig = {
   slashPayloadTtlSeconds: 60 * 60 * 24, // 1 day
   slashOverridePayload: undefined,
@@ -101,6 +83,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashInactivityCreatePenalty: 1n,
   slashInactivityMaxPenalty: 100n,
   slashProposerRoundPollingIntervalSeconds: 12,
+  slasherPrivateKey: new SecretValue<string | undefined>(undefined),
 };
 
 export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
