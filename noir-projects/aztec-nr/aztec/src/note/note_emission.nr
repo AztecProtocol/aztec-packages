@@ -89,6 +89,7 @@ where
         }
     }
 
+    // TODO: Drop "new" from all the names below
     pub fn emit_new_constrained_in_private_log(
         self,
         context: &mut PrivateContext,

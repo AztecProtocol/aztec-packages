@@ -154,7 +154,7 @@ where
     }
 }
 
-// ############### What follows is an old API that is to be nuked ############### //
+// ############### What follows is the old API that is to be nuked ############### //
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.

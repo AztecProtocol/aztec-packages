@@ -14,7 +14,7 @@ use dep::protocol_types::{
     traits::{Serialize, ToField},
 };
 
-// TODO: This is now used by notes as well, moved to a shared file
+// Note: This is now used by notes as well. TODO: Move to a shared file
 pub struct PrivateLogContentConstraintsEnum {
     /// The contents of the log are entirely unconstrained, and could have any values.
     ///
