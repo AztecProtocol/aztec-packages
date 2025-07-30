@@ -799,8 +799,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 
-    uint256_t hash_circuit() const;
-
     msgpack::sbuffer export_circuit() override;
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;

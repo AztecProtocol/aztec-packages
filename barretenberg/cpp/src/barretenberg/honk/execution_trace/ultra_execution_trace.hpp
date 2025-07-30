@@ -25,33 +25,7 @@ class UltraTraceBlock : public ExecutionTraceBlock<fr, 4> {
     virtual Selector<fr>& q_poseidon2_external() { return zero_selectors[6]; }
     virtual Selector<fr>& q_poseidon2_internal() { return zero_selectors[7]; }
 
-    virtual const Selector<fr>& q_lookup_type() const { return zero_selectors[0]; };
-    virtual const Selector<fr>& q_arith() const { return zero_selectors[1]; }
-    virtual const Selector<fr>& q_delta_range() const { return zero_selectors[2]; }
-    virtual const Selector<fr>& q_elliptic() const { return zero_selectors[3]; }
-    virtual const Selector<fr>& q_memory() const { return zero_selectors[4]; }
-    virtual const Selector<fr>& q_nnf() const { return zero_selectors[5]; }
-    virtual const Selector<fr>& q_poseidon2_external() const { return zero_selectors[6]; }
-    virtual const Selector<fr>& q_poseidon2_internal() const { return zero_selectors[7]; }
-
     RefVector<Selector<fr>> get_selectors() override
-    {
-        return RefVector{ q_m(),
-                          q_c(),
-                          q_1(),
-                          q_2(),
-                          q_3(),
-                          q_4(),
-                          q_lookup_type(),
-                          q_arith(),
-                          q_delta_range(),
-                          q_elliptic(),
-                          q_memory(),
-                          q_nnf(),
-                          q_poseidon2_external(),
-                          q_poseidon2_internal() };
-    }
-    RefVector<const Selector<fr>> get_selectors() const override
     {
         return RefVector{ q_m(),
                           q_c(),
@@ -78,7 +52,6 @@ class UltraTracePublicInputBlock : public UltraTraceBlock {};
 class UltraTraceLookupBlock : public UltraTraceBlock {
   public:
     SelectorType& q_lookup_type() override { return gate_selector; }
-    const SelectorType& q_lookup_type() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -87,7 +60,6 @@ class UltraTraceLookupBlock : public UltraTraceBlock {
 class UltraTraceArithmeticBlock : public UltraTraceBlock {
   public:
     SelectorType& q_arith() override { return gate_selector; }
-    const SelectorType& q_arith() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -96,7 +68,6 @@ class UltraTraceArithmeticBlock : public UltraTraceBlock {
 class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
   public:
     SelectorType& q_delta_range() override { return gate_selector; }
-    const SelectorType& q_delta_range() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -105,7 +76,6 @@ class UltraTraceDeltaRangeBlock : public UltraTraceBlock {
 class UltraTraceEllipticBlock : public UltraTraceBlock {
   public:
     SelectorType& q_elliptic() override { return gate_selector; }
-    const SelectorType& q_elliptic() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -114,7 +84,6 @@ class UltraTraceEllipticBlock : public UltraTraceBlock {
 class UltraTraceMemoryBlock : public UltraTraceBlock {
   public:
     SelectorType& q_memory() override { return gate_selector; }
-    const SelectorType& q_memory() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -123,7 +92,6 @@ class UltraTraceMemoryBlock : public UltraTraceBlock {
 class UltraTraceNonNativeFieldBlock : public UltraTraceBlock {
   public:
     SelectorType& q_nnf() override { return gate_selector; }
-    const SelectorType& q_nnf() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -132,7 +100,6 @@ class UltraTraceNonNativeFieldBlock : public UltraTraceBlock {
 class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
   public:
     SelectorType& q_poseidon2_external() override { return gate_selector; }
-    const SelectorType& q_poseidon2_external() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -141,7 +108,6 @@ class UltraTracePoseidon2ExternalBlock : public UltraTraceBlock {
 class UltraTracePoseidon2InternalBlock : public UltraTraceBlock {
   public:
     SelectorType& q_poseidon2_internal() override { return gate_selector; }
-    const SelectorType& q_poseidon2_internal() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -157,15 +123,6 @@ class UltraTraceOverflowBlock : public UltraTraceBlock {
     SelectorType& q_nnf() override { return gate_selectors[5]; }
     SelectorType& q_poseidon2_external() override { return gate_selectors[6]; }
     SelectorType& q_poseidon2_internal() override { return gate_selectors[7]; }
-
-    const SelectorType& q_lookup_type() const override { return gate_selectors[0]; };
-    const SelectorType& q_arith() const override { return gate_selectors[1]; }
-    const SelectorType& q_delta_range() const override { return gate_selectors[2]; }
-    const SelectorType& q_elliptic() const override { return gate_selectors[3]; }
-    const SelectorType& q_memory() const override { return gate_selectors[4]; }
-    const SelectorType& q_nnf() const override { return gate_selectors[5]; }
-    const SelectorType& q_poseidon2_external() const override { return gate_selectors[6]; }
-    const SelectorType& q_poseidon2_internal() const override { return gate_selectors[7]; }
 
   private:
     std::array<SlabVectorSelector<fr>, 8> gate_selectors;

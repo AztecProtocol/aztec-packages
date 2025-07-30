@@ -120,27 +120,6 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
         };
     }
 
-    RefVector<const Selector<fr>> get_selectors() const override
-    {
-        return RefVector{
-            q_m(),
-            q_c(),
-            q_1(),
-            q_2(),
-            q_3(),
-            q_4(),
-            q_busread(),
-            q_lookup_type(),
-            q_arith(),
-            q_delta_range(),
-            q_elliptic(),
-            q_memory(),
-            q_nnf(),
-            q_poseidon2_external(),
-            q_poseidon2_internal(),
-        };
-    }
-
     /**
      * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
      * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
@@ -166,7 +145,6 @@ class MegaTracePublicInputBlock : public MegaTraceBlock {};
 class MegaTraceBusReadBlock : public MegaTraceBlock {
   public:
     SelectorType& q_busread() override { return gate_selector; }
-    const SelectorType& q_busread() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -175,7 +153,6 @@ class MegaTraceBusReadBlock : public MegaTraceBlock {
 class MegaTraceLookupBlock : public MegaTraceBlock {
   public:
     SelectorType& q_lookup_type() override { return gate_selector; }
-    const SelectorType& q_lookup_type() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -184,7 +161,6 @@ class MegaTraceLookupBlock : public MegaTraceBlock {
 class MegaTraceArithmeticBlock : public MegaTraceBlock {
   public:
     SelectorType& q_arith() override { return gate_selector; }
-    const SelectorType& q_arith() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -193,7 +169,6 @@ class MegaTraceArithmeticBlock : public MegaTraceBlock {
 class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
   public:
     SelectorType& q_delta_range() override { return gate_selector; }
-    const SelectorType& q_delta_range() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -202,7 +177,6 @@ class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
 class MegaTraceEllipticBlock : public MegaTraceBlock {
   public:
     SelectorType& q_elliptic() override { return gate_selector; }
-    const SelectorType& q_elliptic() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -211,7 +185,6 @@ class MegaTraceEllipticBlock : public MegaTraceBlock {
 class MegaTraceMemoryBlock : public MegaTraceBlock {
   public:
     SelectorType& q_memory() override { return gate_selector; }
-    const SelectorType& q_memory() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -220,7 +193,6 @@ class MegaTraceMemoryBlock : public MegaTraceBlock {
 class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
   public:
     SelectorType& q_nnf() override { return gate_selector; }
-    const SelectorType& q_nnf() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -229,7 +201,6 @@ class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
 class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
   public:
     SelectorType& q_poseidon2_external() override { return gate_selector; }
-    const SelectorType& q_poseidon2_external() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -238,7 +209,6 @@ class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
 class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
   public:
     SelectorType& q_poseidon2_internal() override { return gate_selector; }
-    const SelectorType& q_poseidon2_internal() const override { return gate_selector; }
 
   private:
     SlabVectorSelector<fr> gate_selector;
@@ -254,15 +224,6 @@ class MegaTraceOverflowBlock : public MegaTraceBlock {
     SelectorType& q_nnf() override { return gate_selectors[5]; }
     SelectorType& q_poseidon2_external() override { return gate_selectors[6]; }
     SelectorType& q_poseidon2_internal() override { return gate_selectors[7]; }
-
-    const SelectorType& q_lookup_type() const override { return gate_selectors[0]; };
-    const SelectorType& q_arith() const override { return gate_selectors[1]; }
-    const SelectorType& q_delta_range() const override { return gate_selectors[2]; }
-    const SelectorType& q_elliptic() const override { return gate_selectors[3]; }
-    const SelectorType& q_memory() const override { return gate_selectors[4]; }
-    const SelectorType& q_nnf() const override { return gate_selectors[5]; }
-    const SelectorType& q_poseidon2_external() const override { return gate_selectors[6]; }
-    const SelectorType& q_poseidon2_internal() const override { return gate_selectors[7]; }
 
   private:
     std::array<SlabVectorSelector<fr>, 8> gate_selectors;

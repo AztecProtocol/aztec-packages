@@ -219,7 +219,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     uint32_t fixed_size = 0; // Fixed size for use in structured trace
 
     virtual RefVector<Selector<FF>> get_selectors() = 0;
-    virtual RefVector<const Selector<FF>> get_selectors() const = 0;
 
     void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
@@ -244,13 +243,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     Selector<FF>& q_2() { return non_gate_selectors[3]; };
     Selector<FF>& q_3() { return non_gate_selectors[4]; };
     Selector<FF>& q_4() { return non_gate_selectors[5]; };
-
-    const Selector<FF>& q_m() const { return non_gate_selectors[0]; };
-    const Selector<FF>& q_c() const { return non_gate_selectors[1]; };
-    const Selector<FF>& q_1() const { return non_gate_selectors[2]; };
-    const Selector<FF>& q_2() const { return non_gate_selectors[3]; };
-    const Selector<FF>& q_3() const { return non_gate_selectors[4]; };
-    const Selector<FF>& q_4() const { return non_gate_selectors[5]; };
 
   protected:
     std::array<SlabVectorSelector<FF>, 6> non_gate_selectors;

@@ -2448,43 +2448,6 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
 }
 
 /**
- * @brief Compute a hash of some of the main circuit components.
- * @note This hash can differ for circuits that will ultimately result in an identical verification key. For example,
- * when we construct circuits from acir programs with dummy witnesses, the hash will in general disagree with the hash
- * of the circuit constructed using a genuine witness. This is not because the hash includes geunines witness values
- * (only indices) but rather because in the dummy witness context we use add_variable and assert_equal to set the values
- * of dummy witnesses, which effects the content of real_variable_index, but in the end results in an identical
- * VK/circuit.
- *
- */
-template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit() const
-{
-    // Copy the circuit and finalize without modifying the original
-    auto circuit = *this;
-    circuit.finalize_circuit(/*ensure_nonzero=*/false);
-
-    std::vector<uint8_t> to_hash;
-    const auto convert_and_insert_selectors = [&to_hash](auto& selector) {
-        std::vector<uint8_t> buffer = selector.to_buffer();
-        to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
-    };
-    const auto convert_and_insert_vectors = [&to_hash](auto& wire) {
-        std::vector<uint8_t> buffer = to_buffer(wire);
-        to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
-    };
-
-    // Hash the selectors, the wires, and the variable index array (which captures information about copy constraints)
-    for (auto& block : blocks.get()) {
-        auto selectors = block.get_selectors();
-        std::for_each(selectors.begin(), selectors.end(), convert_and_insert_selectors);
-        std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert_vectors);
-    }
-    convert_and_insert_vectors(circuit.real_variable_index);
-
-    return from_buffer<uint256_t>(crypto::sha256(to_hash));
-}
-
-/**
  * Export the existing circuit as msgpack compatible buffer.
  * Should be called after `finalize_circuit()`
  *
