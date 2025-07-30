@@ -117,8 +117,9 @@ class AvmGoblinRecursiveVerifier {
         using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
         using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
         using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
-        using TableCommitments = GoblinRecursiveVerifier::MergeVerifier::TableCommitments;
+        using MergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
         using FF = MegaRecursiveFlavor::FF;
+        using IO = stdlib::recursion::honk::HidingKernelIO<UltraBuilder>;
 
         // Construct hash buffer containing the AVM proof, public inputs, and VK
         std::vector<FF> hash_buffer;
@@ -138,13 +139,14 @@ class AvmGoblinRecursiveVerifier {
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
-        TableCommitments t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_copy();
-        TableCommitments T_prev_commitments =
-            stdlib::recursion::honk::HidingKernelIO<UltraBuilder>::empty_ecc_op_tables(
-                ultra_builder); // Empty ecc op tables because there is only one layer of Goblin
+        MergeCommitments merge_commitments{
+            .t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_copy(),
+            .T_prev_commitments =
+                IO::empty_ecc_op_tables(ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
+        };
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
         GoblinRecursiveVerifierOutput goblin_verifier_output =
-            goblin_verifier.verify(inner_output.goblin_proof, t_commitments, T_prev_commitments);
+            goblin_verifier.verify(inner_output.goblin_proof, merge_commitments);
         goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
@@ -218,9 +220,9 @@ class AvmGoblinRecursiveVerifier {
         inputs.pairing_inputs = points_accumulator;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1489): Can we avoid paying for these public inputs
         // given that they are not used?
-        inputs.ecc_op_tables = stdlib::recursion::honk::HidingKernelIO<MegaBuilder>::default_ecc_op_tables(
-            mega_builder); // There is only one layer of Goblin, so the verifier will set T_prev
-                           // to the empty table and disregard this value
+        inputs.ecc_op_tables =
+            IO::default_ecc_op_tables(mega_builder); // There is only one layer of Goblin, so the verifier will set
+                                                     // T_prev to the empty table and disregard this value
         inputs.set_public();
 
         // All prover components share a single transcript
