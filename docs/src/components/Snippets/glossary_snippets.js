@@ -94,15 +94,6 @@ export const Glossary = {
     </p>
   ),
 
-  TXE: () => (
-    <p>
-      TXE stands for Test eXecution Environment. It enables rapid Aztec contract
-      development by using "cheatcodes" in the Aztec Sandbox that manipulate
-      state. For convenience, similar "cheatcodes" to manipulate Anvil's EVM
-      state are wrapped.
-    </p>
-  ),
-
   Barretenberg: () => (
     <p>
       Aztec's cryptography back-end. Refer to the graphic at the top of{" "}
