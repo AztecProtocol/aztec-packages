@@ -203,11 +203,7 @@ pub struct PrivateContext {
     pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
-// TODO: rearrange functions into categories:
-// `new`
-// Getters (first the common getters for typical users, then the advanced getters)
-// Setters (first the common setters for typical users, then the advanced setters, then very low-level setters)
-// `finish` and other innards
+// TODO: rearrange functions into clearer categories. They're all higgledy-piggledy at the moment, and so are difficult to navigate.
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
@@ -954,6 +950,65 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
+    /// Emits a private log (an array of Fields) that will be published to an
+    /// Ethereum blob.
+    ///
+    /// Private logs are intended for the broadcasting of ciphertexts: that is,
+    /// encrypted events or encrypted note contents.
+    /// Since the data in the logs is meant to be _encrypted_, private_logs are
+    /// broadcast to publicly-visible Ethereum blobs.
+    /// The intended recipients of such encrypted messages can then discover and
+    /// decrypt these encrypted logs using their viewing secret key.
+    /// (See `../messages/discovery` for more details).
+    ///
+    /// Important note: This function DOES NOT _do_ any encryption of the input
+    /// `log` fields. This function blindly publishes whatever input `log` data
+    /// is fed into it, so the caller of this function should have already
+    /// performed the encryption, and the `log` should be the result of that
+    /// encryption.
+    ///
+    /// The protocol does not dictate what encryption scheme should be used:
+    /// a smart contract developer can choose whatever encryption scheme they
+    /// like.
+    /// Aztec-nr includes some off-the-shelf encryption libraries that
+    /// developers might wish to use, for convenience. These libraries not only
+    /// encrypt a plaintext (to produce a ciphertext); they also prepend the
+    /// ciphertext with a `tag` and `ephemeral public key` for easier message
+    /// discovery. This is a very dense topic, and we will be writing more
+    /// libraries and docs soon.
+    ///
+    /// > Currently, AES128 CBC encryption is the main scheme included in
+    /// > aztec.nr.
+    /// > We are currently making significant changes to the interfaces of the
+    /// > encryption library.
+    ///
+    /// In some niche use cases, an app might be tempted to publish
+    /// _un-encrypted_ data via a private log, because _public logs_ are not
+    /// available to private functions. Be warned that emitting public data via
+    /// private logs is strongly discouraged, and is considered a "privacy
+    /// anti-pattern", because it reveals identifiable information about _which_
+    /// function has been executed. A tx which leaks such information does not
+    /// contribute to the privacy set of the network.
+    ///
+    /// * Unlike `emit_raw_note_log`, this log is not tied to any specific note
+    ///
+    /// # Arguments
+    /// * `log` - The log data that will be publicly broadcast (so make sure
+    ///           it's already been encrypted before you call this function).
+    ///   Private logs are bounded in size (PRIVATE_LOG_SIZE_IN_FIELDS), to
+    ///   encourage all logs from all smart contracts look identical.
+    /// * `length` - The actual length of the `log` (measured in number of
+    ///              Fields). Although the input log has a max size of
+    ///   PRIVATE_LOG_SIZE_IN_FIELDS, the latter values of the array might all
+    ///   be 0's for small logs. This `length` should reflect the trimmed length
+    ///   of the array. The protocol's kernel circuits can then append random
+    ///   fields as "padding" after the `length`, so that the logs of this
+    ///   smart contract look indistinguishable from (the same length as) the
+    ///   logs of all other applications. It's up to wallets how much padding
+    ///   to apply, so ideally all wallets should agree on standards for this.
+    ///
+    /// # Advanced
+    ///
     pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
         let counter = self.next_counter();
         let private_log =
@@ -962,14 +1017,25 @@ impl PrivateContext {
     }
 
     // TODO: rename.
-    /// Emits a private log _alongside_ a note_hash_counter, to convey to the
-    /// kernel "this log relates to this note".
+    /// Emits a private log that is explicitly tied to a newly-emitted note_hash,
+    /// to convey to the kernel: "this log relates to this note".
+    ///
     /// This linkage is important in case the note gets squashed (due to being
     /// read later in this same tx), since we can then squash the log as well.
     ///
-    /// Important: Given tha a log for a note can be squashed, app developers
-    /// might find it important to emit events too, in cases where squashing of
-    /// the information would break the app.
+    /// See `emit_private_log` for more info about private log emission.
+    ///
+    /// # Arguments
+    /// * `log` - The log data as an array of Field elements
+    /// * `length` - The actual length of the `log` (measured in number of
+    ///              Fields).
+    /// * `note_hash_counter` - The side-effect counter that was assigned to the
+    ///                         new note_hash when it was pushed to this
+    //                          `PrivateContext`.
+    ///
+    /// Important: If your application logic requires the log to always be
+    /// emitted regardless of note squashing, consider using `emit_private_log`
+    /// instead, or emitting additional events.
     ///
     pub fn emit_raw_note_log(
         &mut self,
@@ -983,6 +1049,61 @@ impl PrivateContext {
         self.private_logs.push(private_log);
     }
 
+    /// Calls a private function on another contract (or the same contract).
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `args` - Array of arguments to pass to the called function
+    ///
+    /// # Returns
+    /// * `ReturnsHash` - Hash of the called function's return values. Use
+    ///   `.get_preimage()` to extract the actual return values.
+    ///
+    /// This enables contracts to interact with each other while maintaining
+    /// privacy. This "composability" of private contract functions is a key
+    /// feature of the Aztec network.
+    ///
+    /// If a user's transaction includes multiple private function calls, then
+    /// by the design of Aztec, the following information will remain private[1]:
+    /// - The function selectors and contract addresses of all private function
+    ///   calls will remain private, so an observer of the public mempool will
+    ///   not be able to look at a tx and deduce which private functions have
+    ///   been executed.
+    /// - The arguments and return values of all private function calls will
+    ///   remain private.
+    /// - The person who initiated the tx will remain private.
+    /// - The notes and nullifiers and private logs that are emitted by all
+    ///   private function calls will (if designed well) not leak any user
+    ///   secrets, nor leak which functions have been executed.
+    ///
+    /// [1] Caveats: Some of these privacy guarantees depend on how app
+    /// developers design their smart contracts. Some actions _can_ leak
+    /// information, such as:
+    /// - Calling an internal public function.
+    /// - Calling a public function and not setting msg_sender to Option::none
+    ///   (feature not built yet - see github).
+    /// - Calling any public function will always leak details about the nature
+    ///   of the transaction, so devs should be careful in their contract
+    ///   designs. If it can be done in a private function, then that will give
+    ///   the best privacy.
+    /// - Not padding the side-effects of a tx to some standardised, uniform
+    ///   size. The kernel circuits can take hints to pad side-effects, so a
+    ///   wallet should be able to request for a particular amount of padding.
+    ///   Wallets should ideally agree on some standard.
+    ///   - Padding should include:
+    ///     - Padding the lengths of note & nullifier arrays
+    ///     - Padding private logs with random fields, up to some standardised
+    ///       size.
+    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    ///
+    /// # Advanced
+    /// * The call is added to the private call stack and executed by kernel
+    ///   circuits after this function completes
+    /// * The called function can modify its own contract's private state
+    /// * Side effects from the called function are included in this transaction
+    /// * The call inherits the current transaction's context and gas limits
+    ///
     pub fn call_private_function<let ARGS_COUNT: u32>(
         &mut self,
         contract_address: AztecAddress,
@@ -999,6 +1120,24 @@ impl PrivateContext {
         )
     }
 
+    /// Makes a read-only call to a private function on another contract.
+    ///
+    /// This is similar to Solidity's `staticcall`. The called function
+    /// cannot modify state or emit events. Any nested calls are constrained to
+    /// also be staticcalls.
+    ///
+    /// See `call_private_function` for more general info on private function
+    /// calls.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract to call
+    /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `args` - Array of arguments to pass to the called function
+    ///
+    /// # Returns
+    /// * `ReturnsHash` - Hash of the called function's return values. Use
+    ///   `.get_preimage()` to extract the actual return values.
+    ///
     pub fn static_call_private_function<let ARGS_COUNT: u32>(
         &mut self,
         contract_address: AztecAddress,
@@ -1015,6 +1154,20 @@ impl PrivateContext {
         )
     }
 
+    /// Calls a private function that takes no arguments.
+    ///
+    /// This is a convenience function for calling private functions that don't
+    /// require any input parameters. It's equivalent to `call_private_function`
+    /// but slightly more efficient to use when no arguments are needed.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    ///
+    /// # Returns
+    /// * `ReturnsHash` - Hash of the called function's return values. Use
+    ///   `.get_preimage()` to extract the actual return values.
+    ///
     pub fn call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
@@ -1023,6 +1176,19 @@ impl PrivateContext {
         self.call_private_function_with_args_hash(contract_address, function_selector, 0, false)
     }
 
+    /// Makes a read-only call to a private function which takes no arguments.
+    ///
+    /// This combines the optimisation of `call_private_function_no_args` with
+    /// the safety of `static_call_private_function`.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    ///
+    /// # Returns
+    /// * `ReturnsHash` - Hash of the called function's return values. Use
+    ///   `.get_preimage()` to extract the actual return values.
+    ///
     pub fn static_call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
@@ -1031,6 +1197,21 @@ impl PrivateContext {
         self.call_private_function_with_args_hash(contract_address, function_selector, 0, true)
     }
 
+    /// Low-level private function call.
+    ///
+    /// This is the underlying implementation used by all other private function
+    /// call methods. Instead of taking raw arguments, it accepts a
+    /// hash of the arguments.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `args_hash` - Pre-computed hash of the function arguments
+    /// * `is_static_call` - Whether this should be a read-only call
+    ///
+    /// # Returns
+    /// * `ReturnsHash` - Hash of the called function's return values
+    ///
     pub fn call_private_function_with_args_hash(
         &mut self,
         contract_address: AztecAddress,
@@ -1086,6 +1267,35 @@ impl PrivateContext {
         ReturnsHash::new(returns_hash)
     }
 
+    /// Enqueues a call to a public function to be executed later.
+    ///
+    /// Unlike private functions which execute immediately on the user's device,
+    /// public function calls are "enqueued" and executed some time later by a
+    /// block proposer.
+    ///
+    /// This means a public function cannot return any values back to a private
+    /// function, because by the time the public function is being executed,
+    /// the private function which called it has already completed execution.
+    /// (In fact, the private function has been executed and proven, along with
+    /// all other private function calls of the user's tx. A single proof of the
+    /// tx has been submitted to the Aztec network, and some time later a
+    /// proposer has picked the tx up from the mempool and begun executing all
+    /// of the enqueued public functions).
+    ///
+    /// # Privacy warning
+    /// Enqueueing a public function call is an inherently leaky action.
+    /// Many interesting applications will require some interaction with public
+    /// state, but smart contract developers should try to use public function
+    /// calls sparingly, and carefully.
+    /// _Internal_ public function calls are especially leaky, because they
+    /// completely leak which private contract made the call.
+    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `args` - Array of arguments to pass to the public function
+    ///
     pub fn call_public_function<let ARGS_COUNT: u32>(
         &mut self,
         contract_address: AztecAddress,
@@ -1098,6 +1308,20 @@ impl PrivateContext {
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
+    /// Enqueues a read-only call to a public function.
+    ///
+    /// This is similar to Solidity's `staticcall`. The called function
+    /// cannot modify state or emit events. Any nested calls are constrained to
+    /// also be staticcalls.
+    ///
+    /// See also `call_public_function` for more important information about
+    /// making private -> public function calls.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `args` - Array of arguments to pass to the public function
+    ///
     pub fn static_call_public_function<let ARGS_COUNT: u32>(
         &mut self,
         contract_address: AztecAddress,
@@ -1110,6 +1334,16 @@ impl PrivateContext {
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
     }
 
+    /// Enqueues a call to a public function that takes no arguments.
+    ///
+    /// This is an optimisation for calling public functions that don't
+    /// take any input parameters. It's otherwise equivalent to
+    /// `call_public_function`.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    ///
     pub fn call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
@@ -1119,6 +1353,15 @@ impl PrivateContext {
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
+    /// Enqueues a read-only call to a public function with no arguments.
+    ///
+    /// This combines the optimisation of `call_public_function_no_args` with
+    /// the safety of `static_call_public_function`.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    ///
     pub fn static_call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
@@ -1128,6 +1371,21 @@ impl PrivateContext {
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
     }
 
+    /// Low-level public function call.
+    ///
+    /// This is the underlying implementation used by all other public function
+    /// call methods. Instead of taking raw arguments, it accepts a
+    /// hash of the arguments.
+    ///
+    /// Advanced function: Most developers should use `call_public_function`
+    /// or `static_call_public_function` instead. This function is exposed for
+    /// performance optimization and advanced use cases.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the function
+    /// * `calldata_hash` - Hash of the function calldata
+    /// * `is_static_call` - Whether this should be a read-only call
+    ///
     pub fn call_public_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
@@ -1191,6 +1449,21 @@ impl PrivateContext {
         self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
+    /// Low-level function to set the public teardown function.
+    ///
+    /// This is the underlying implementation for setting the teardown function
+    /// call that will execute at the end of the transaction. Instead of taking
+    /// raw arguments, it accepts a hash of the arguments.
+    ///
+    /// Advanced function: Most developers should use
+    /// `set_public_teardown_function` instead.
+    ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the teardown
+    ///                        function
+    /// * `calldata_hash` - Hash of the function calldata
+    /// * `is_static_call` - Whether this should be a read-only call
+    ///
     pub fn set_public_teardown_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
@@ -1220,7 +1493,7 @@ impl PrivateContext {
     ///
     /// Very low-level function.
     ///
-    /// #Advanced
+    /// # Advanced
     ///
     /// Every side-effect of a private function is given a "side-effect counter",
     /// based on when it is created. This PrivateContext is in charge of
