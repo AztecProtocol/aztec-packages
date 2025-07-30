@@ -10,6 +10,13 @@ namespace bb {
 template <typename T> class FileBackedAllocator {
   public:
     using value_type = T;
+    using pointer = T*;
+    using const_pointer = const T*;
+    using size_type = std::size_t;
+
+    template <class U> struct rebind {
+        using other = FileBackedAllocator<U>;
+    };
 
     FileBackedAllocator() = default;
 
