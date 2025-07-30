@@ -1290,6 +1290,54 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
     return result;
 }
 
+template <typename Builder>
+std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index,
+                                                                         const size_t num_bits) const
+{
+    ASSERT(lsb_index < num_bits);
+    ASSERT(num_bits <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
+
+    const uint256_t value = get_value();
+    const uint256_t hi = value >> lsb_index;
+    const uint256_t lo = value % (uint256_t(1) << lsb_index);
+
+    if (is_constant()) {
+        // If `*this` is constant, we can return the split values directly
+        ASSERT(lo + (hi << lsb_index) == value);
+        return std::make_pair(field_t<Builder>(lo), field_t<Builder>(hi));
+    }
+
+    // Handle edge case when lsb_index == 0
+    if (lsb_index == 0) {
+        ASSERT(hi == value);
+        ASSERT(lo == 0);
+        create_range_constraint(num_bits, "split_at: hi value too large.");
+        return std::make_pair(field_t<Builder>(0), *this);
+    }
+
+    Builder* ctx = get_context();
+    ASSERT(ctx != nullptr);
+
+    field_t<Builder> lo_wit(witness_t(ctx, lo));
+    field_t<Builder> hi_wit(witness_t(ctx, hi));
+
+    // Ensure that `lo_wit` is in the range [0, 2^lsb_index - 1]
+    lo_wit.create_range_constraint(lsb_index, "split_at: lo value too large.");
+
+    // Ensure that `hi_wit` is in the range [0, 2^(num_bits - lsb_index) - 1]
+    hi_wit.create_range_constraint(num_bits - lsb_index, "split_at: hi value too large.");
+
+    // Check that *this = lo_wit + hi_wit * 2^{lsb_index}
+    const field_t<Builder> reconstructed = lo_wit + (hi_wit * field_t<Builder>(uint256_t(1) << lsb_index));
+    assert_equal(reconstructed, "split_at: decomposition failed");
+
+    // Set the origin tag for both witnesses
+    lo_wit.set_origin_tag(tag);
+    hi_wit.set_origin_tag(tag);
+
+    return std::make_pair(lo_wit, hi_wit);
+}
+
 /**
  * @brief Build constraints establishing the decomposition of `*this` into bits.
  *
