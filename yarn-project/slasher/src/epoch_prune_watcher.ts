@@ -148,8 +148,8 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     if (failedTxs.length > 0) {
       throw new ReExFailedTxsError(failedTxs.length);
     }
-    if (!block.archive.root.equals(blockFromL1.archive.root)) {
-      throw new ReExStateMismatchError(blockFromL1.archive.root, block.archive.root);
+    if (!block.header.toPropose().hash().equals(blockFromL1.header.toPropose().hash())) {
+      throw new ReExStateMismatchError(blockFromL1.header.toPropose().hash(), block.header.toPropose().hash());
     }
   }
 
