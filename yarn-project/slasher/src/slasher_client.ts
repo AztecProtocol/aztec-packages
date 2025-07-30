@@ -158,25 +158,16 @@ export class SlasherClient {
    * @param config - the new config. Cannot update the slasher private key.
    */
   public updateConfig(config: Partial<SlasherConfig>) {
+    const { slasherPrivateKey: _doNotUpdate, ...configWithoutPrivateKey } = config;
+
     const newConfig: Omit<SlasherConfig, 'slasherPrivateKey'> = {
-      slashOverridePayload: config.slashOverridePayload ?? this.config.slashOverridePayload,
-      slashPayloadTtlSeconds: config.slashPayloadTtlSeconds ?? this.config.slashPayloadTtlSeconds,
-      slashProposerRoundPollingIntervalSeconds:
-        config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
-      slashPruneEnabled: config.slashPruneEnabled ?? this.config.slashPruneEnabled,
-      slashPrunePenalty: config.slashPrunePenalty ?? this.config.slashPrunePenalty,
-      slashPruneMaxPenalty: config.slashPruneMaxPenalty ?? this.config.slashPruneMaxPenalty,
-      slashInvalidBlockEnabled: config.slashInvalidBlockEnabled ?? this.config.slashInvalidBlockEnabled,
-      slashInvalidBlockPenalty: config.slashInvalidBlockPenalty ?? this.config.slashInvalidBlockPenalty,
-      slashInvalidBlockMaxPenalty: config.slashInvalidBlockMaxPenalty ?? this.config.slashInvalidBlockMaxPenalty,
-      slashInactivityEnabled: config.slashInactivityEnabled ?? this.config.slashInactivityEnabled,
-      slashInactivityCreateTargetPercentage:
-        config.slashInactivityCreateTargetPercentage ?? this.config.slashInactivityCreateTargetPercentage,
-      slashInactivitySignalTargetPercentage:
-        config.slashInactivitySignalTargetPercentage ?? this.config.slashInactivitySignalTargetPercentage,
-      slashInactivityCreatePenalty: config.slashInactivityCreatePenalty ?? this.config.slashInactivityCreatePenalty,
-      slashInactivityMaxPenalty: config.slashInactivityMaxPenalty ?? this.config.slashInactivityMaxPenalty,
+      ...this.config,
+      ...configWithoutPrivateKey,
     };
+
+    // We keep this separate flag to tell us if we should be signal for the override payload: after the override payload is executed,
+    // the slasher goes back to using the monitored payloads to inform the sequencer publisher what payload to signal for.
+    // So we only want to flip back "on" the voting for override payload if config we just passed in re-set the override payload.
     this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
     this.config = newConfig;
   }
