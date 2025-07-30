@@ -25,7 +25,7 @@ import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type 
  * This watcher is responsible for detecting chain prunes and creating slashing arguments for the committee.
  * It only wants to slash if:
  * - the transactions are not available
- * - OR the archive roots match when re-building all the blocks in the epoch (i.e. the epoch *could* have been proven)
+ * - OR the header hashes match when re-building all the blocks in the epoch (i.e. the epoch *could* have been proven)
  */
 export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private log: Logger = createLogger('epoch-prune-watcher');

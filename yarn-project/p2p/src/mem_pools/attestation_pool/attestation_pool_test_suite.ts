@@ -8,7 +8,7 @@ import {
   getHashedSignaturePayloadEthSignedMessage,
 } from '@aztec/stdlib/p2p';
 import { makeHeader } from '@aztec/stdlib/testing';
-import { TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -39,10 +39,10 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     return signers.map(signer => mockAttestation(signer, slotNumber));
   };
 
-  const mockBlockProposal = (signer: Secp256k1Signer, slotNumber: number): BlockProposal => {
+  const mockBlockProposal = (signer: Secp256k1Signer, slotNumber: number, header?: BlockHeader): BlockProposal => {
     const blockNumber = 1;
-    const header = makeHeader(1, 2, slotNumber);
-    const payload = new ConsensusPayload(header.toPropose(), header.state);
+    const headerToUse = header ?? makeHeader(1, 2, slotNumber);
+    const payload = new ConsensusPayload(headerToUse.toPropose(), headerToUse.state);
 
     const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
     const signature = signer.sign(hash);
@@ -63,8 +63,9 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   it('should add attestations to pool', async () => {
     const slotNumber = 420;
-    const attestations = signers.slice(0, -1).map(signer => mockAttestation(signer, slotNumber));
-    const headerHash = Fr.random().toString();
+    const header = makeHeader(1, 2, slotNumber);
+    const attestations = signers.slice(0, -1).map(signer => mockAttestation(signer, slotNumber, header));
+    const headerHash = header.toPropose().hash().toString();
 
     await ap.addAttestations(attestations);
 
@@ -95,13 +96,14 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   it('should handle duplicate proposals in a slot', async () => {
     const slotNumber = 420;
-    const headerHash = Fr.random().toString();
+    const header = makeHeader(1, 2, slotNumber);
+    const headerHash = header.toPropose().hash().toString();
 
     // Use the same signer for all attestations
     const attestations: BlockAttestation[] = [];
     const signer = signers[0];
     for (let i = 0; i < NUMBER_OF_SIGNERS_PER_TEST; i++) {
-      attestations.push(mockAttestation(signer, slotNumber));
+      attestations.push(mockAttestation(signer, slotNumber, header));
     }
 
     // Add them to store and check we end up with only one
@@ -134,9 +136,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     }
   });
 
-  it('should store attestations by differing slot and archive', async () => {
+  it('should store attestations by differing slot and header hash', async () => {
     const slotNumbers = [1, 1, 2, 3];
-    const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i]));
+    const headers = slotNumbers.map(slotNumber =>
+      makeHeader(Math.round(Math.random() * 10000), slotNumber, slotNumber),
+    );
+    const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i], headers[i]));
 
     await ap.addAttestations(attestations);
 
@@ -170,7 +175,8 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   it('should blanket delete attestations per slot', async () => {
     const slotNumber = 420;
-    const attestations = signers.map(signer => mockAttestation(signer, slotNumber));
+    const header = makeHeader(1, 2, slotNumber);
+    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, header));
     const proposalId = attestations[0].payload.header.hash().toString();
 
     await ap.addAttestations(attestations);
@@ -187,11 +193,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   it('should blanket delete attestations per slot and proposal', async () => {
     const slotNumber = 420;
-    const attestations = signers.map(signer => mockAttestation(signer, slotNumber));
+    const header = makeHeader(1, 2, slotNumber);
+    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, header));
     const proposalId = attestations[0].payload.header.hash().toString();
 
     // Add another set of attestations with a different proposalId, yet the same slot
-    const attestations2 = signers.map(signer => mockAttestation(signer, slotNumber));
+    const header2 = makeHeader(2, 2, slotNumber);
+    const attestations2 = signers.map(signer => mockAttestation(signer, slotNumber, header2));
     const proposalId2 = attestations2[0].payload.header.hash().toString();
 
     await ap.addAttestations(attestations);
@@ -285,18 +293,20 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     });
 
     it('should handle block proposals with different slots and same archive', async () => {
-      const proposal1 = mockBlockProposal(signers[0], 100);
-      const proposal2 = mockBlockProposal(signers[1], 200);
+      // This can't really happen in practice since header hash changes for different slots
+      const sharedHeader = makeHeader(1, 2, 100);
+      const proposal1 = mockBlockProposal(signers[0], 100, sharedHeader);
+      const proposal2 = mockBlockProposal(signers[1], 100, sharedHeader);
       const proposalId = proposal1.payload.header.hash().toString();
 
       await ap.addBlockProposal(proposal1);
       await ap.addBlockProposal(proposal2);
 
-      // Should get the latest one added
+      // Should get the latest one added (proposal2 overwrites proposal1)
       const retrievedProposal = await ap.getBlockProposal(proposalId);
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal!.toBuffer()).toEqual(proposal2.toBuffer());
-      expect(retrievedProposal!.slotNumber.toBigInt()).toBe(BigInt(200));
+      expect(retrievedProposal!.getSender().toString()).toBe(signers[1].address.toString());
     });
 
     it('should delete block proposal when deleting attestations for slot and proposal', async () => {
