@@ -158,8 +158,8 @@ pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_u
 pub struct AES128 {}
 
 impl LogEncryption for AES128 {
-    fn encrypt_log<let PLAINTEXT_LEN: u32>(
-        plaintext: [Field; PLAINTEXT_LEN],
+    fn encrypt_log<let PlaintextLen: u32>(
+        plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN] {
         // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes.
@@ -208,7 +208,7 @@ impl LogEncryption for AES128 {
         //      = |full_pt| + 16 - (|full_pt| - 16 * (|full_pt| // 16))
         //      = 16 + 16 * (|full_pt| // 16)
         //      = 16 * (1 + |full_pt| // 16)
-        assert(ciphertext_bytes.len() == 16 * (1 + (PLAINTEXT_LEN * 32) / 16));
+        assert(ciphertext_bytes.len() == 16 * (1 + (PlaintextLen * 32) / 16));
 
         // *****************************************************************************
         // Compute the header ciphertext
@@ -233,12 +233,12 @@ impl LogEncryption for AES128 {
         // *****************************************************************************
 
         let mut log_bytes_padding_to_mult_31 =
-            get_arr_of_size__log_bytes_padding__from_PT::<PLAINTEXT_LEN * 32>();
+            get_arr_of_size__log_bytes_padding__from_PT::<PlaintextLen * 32>();
         // Safety: this randomness won't be constrained to be random. It's in the
         // interest of the executor of this fn to encrypt with random bytes.
         log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
-        let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<PLAINTEXT_LEN * 32>();
+        let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<PlaintextLen * 32>();
 
         assert(
             log_bytes.len() % 31 == 0,

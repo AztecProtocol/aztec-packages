@@ -1,11 +1,11 @@
 use crate::utils::array;
 
-/// Returns `DST_MAX_LEN` elements from a source BoundedVec, starting at `offset`. `offset` must not be larger than the
-/// original length, and `DST_LEN` must not be larger than the total number of elements past `offset` (including the
+/// Returns `DstMaxLen` elements from a source BoundedVec, starting at `offset`. `offset` must not be larger than the
+/// original length, and `DstLen` must not be larger than the total number of elements past `offset` (including the
 /// zeroed elements past `len()`).
 ///
 /// Only elements at the beginning of the vector can be removed: it is not possible to also remove elements at the end
-/// of the vector by passing a value for `DST_LEN` that is smaller than `len() - offset`.
+/// of the vector by passing a value for `DstLen` that is smaller than `len() - offset`.
 ///
 /// Examples:
 /// ```
@@ -15,10 +15,10 @@ use crate::utils::array;
 /// let bar: BoundedVec<_, 1> = subbvec(foo, 2); // fails - we can't return just 1 element since 3 remain
 /// let baz: BoundedVec<_, 10> = subbvec(foo, 3); // fails - we can't return 10 elements since only 7 remain
 /// ```
-pub fn subbvec<T, let SRC_MAX_LEN: u32, let DST_MAX_LEN: u32>(
-    bvec: BoundedVec<T, SRC_MAX_LEN>,
+pub fn subbvec<T, let SrcMaxLen: u32, let DstMaxLen: u32>(
+    bvec: BoundedVec<T, SrcMaxLen>,
     offset: u32,
-) -> BoundedVec<T, DST_MAX_LEN> {
+) -> BoundedVec<T, DstMaxLen> {
     // from_parts_unchecked does not verify that the elements past len are zeroed, but that is not an issue in our case
     // because we're constructing the new storage array as a subarray of the original one (which should have zeroed
     // storage past len), guaranteeing correctness. This is because `subarray` does not allow extending arrays past

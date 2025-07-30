@@ -1,10 +1,9 @@
-/// Appends two `BoundedVec`s together, returning one that contains all of the elements of the first one followed by all
-/// of the elements of the second one. The resulting `BoundedVec` can have any arbitrary maximum length, but it must be
+/// Appends the elements of the second `BoundedVec` to the end of the first one. The resulting `BoundedVec` can have any arbitrary maximum length, but it must be
 /// large enough to fit all of the elements of both the first and second vectors.
-pub fn append<T, let A_LEN: u32, let B_LEN: u32, let DST_LEN: u32>(
-    a: BoundedVec<T, A_LEN>,
-    b: BoundedVec<T, B_LEN>,
-) -> BoundedVec<T, DST_LEN> {
+pub fn append<T, let ALen: u32, let BLen: u32, let DstLen: u32>(
+    a: BoundedVec<T, ALen>,
+    b: BoundedVec<T, BLen>,
+) -> BoundedVec<T, DstLen> {
     let mut dst = BoundedVec::new();
 
     dst.extend_from_bounded_vec(a);
