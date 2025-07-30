@@ -6,6 +6,7 @@ import type { ApiSchemaFor } from '../schemas/schemas.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
+import { type SlasherConfig, SlasherConfigSchema } from './slasher.js';
 
 /**
  * Aztec node admin API.
@@ -42,11 +43,11 @@ export interface AztecNodeAdmin {
   resumeSync(): Promise<void>;
 }
 
-export type AztecNodeAdminConfig = SequencerConfig & ProverConfig & { maxTxPoolSize: number };
+export type AztecNodeAdminConfig = SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number };
 
-export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema).merge(
-  z.object({ maxTxPoolSize: z.number() }),
-);
+export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
+  .merge(SlasherConfigSchema)
+  .merge(z.object({ maxTxPoolSize: z.number() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function().returns(AztecNodeAdminConfigSchema),
