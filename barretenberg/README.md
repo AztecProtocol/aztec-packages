@@ -8,95 +8,34 @@
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.
 
-- [Installation](#installation)
-- [Usage](#usage)
-  - [UltraHonk](#ultrahonk)
-    - [Proving](#proving)
-    - [Verifying](#verifying)
-    - [Solidity verifier](#solidity-verifier)
-  - [MegaHonk](#megahonk)
-- [Development](#development)
-  - [Bootstrap](#bootstrap)
-  - [Build Options and Instructions](#build-options-and-instructions)
-    - [WASM build](#wasm-build)
-    - [Fuzzing build](#fuzzing-build)
-    - [Test coverage build](#test-coverage-build)
-  - [Formatting](#formatting)
-  - [Testing](#testing)
-    - [Integration tests with Aztec in Monorepo](#integration-tests-with-aztec-in-monorepo)
-      - [Integration tests with Aztec in Barretenberg Standalone Repo](#integration-tests-with-aztec-in-barretenberg-standalone-repo)
-      - [Testing locally in docker](#testing-locally-in-docker)
-  - [Docs Build](#docs-build)
-  - [Benchmarks](#benchmarks)
-    - [x86_64](#x86_64)
-    - [WASM](#wasm)
-    - [How to run](#how-to-run)
-  - [Debugging](#debugging)
-    - [Debugging Verification Failures](#debugging-verifification-failures)
-    - [Improving LLDB Debugging](#improving-lldb-debugging)
-    - [Using Tracy to Profile Memory/CPU](#using-tracy-to-profile-memorycpu)
+- [Barretenberg](#barretenberg)
+  - [Development](#development)
+    - [Bootstrap](#bootstrap)
+    - [Build Options and Instructions](#build-options-and-instructions)
+      - [WASM build](#wasm-build)
+      - [Fuzzing build](#fuzzing-build)
+      - [Test coverage build](#test-coverage-build)
+    - [Formatting](#formatting)
+    - [Testing](#testing)
+      - [Integration tests with Aztec in Monorepo](#integration-tests-with-aztec-in-monorepo)
+        - [Integration tests with Aztec in Barretenberg Standalone Repo](#integration-tests-with-aztec-in-barretenberg-standalone-repo)
+        - [Testing locally in docker](#testing-locally-in-docker)
+    - [Docs Build](#docs-build)
+    - [Benchmarks](#benchmarks)
+      - [x86\_64](#x86_64)
+      - [WASM](#wasm)
+      - [How to run](#how-to-run)
+    - [Debugging](#debugging)
+      - [Debugging Verifification Failures](#debugging-verifification-failures)
+      - [Improving LLDB Debugging](#improving-lldb-debugging)
+      - [Using Tracy to Profile Memory/CPU/Gate Counts](#using-tracy-to-profile-memorycpugate-counts)
+        - [Set Up and Script Usage](#set-up-and-script-usage)
+        - [Using the GUI](#using-the-gui)
+        - [Adding Zones](#adding-zones)
+        - [Analyzing Fragmentation](#analyzing-fragmentation)
+        - [Final Thoughts](#final-thoughts)
 
 > [!CAUTION] > **This code is highly experimental, use at your own risk!**
-
-## Installation
-
-For an easy installation, follow [bbup](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/README.md).
-
-## Usage
-
-TODO: <https://github.com/AztecProtocol/aztec-packages/issues/7600>
-
-All available `bb` commands:
-<https://github.com/AztecProtocol/aztec-packages/blob/barretenberg-v0.55.0/barretenberg/cpp/src/barretenberg/bb/main.cpp#L1369-L1512>
-
-> [!NOTE]
-> Currently the binary downloads an SRS that can be used to prove the maximum circuit size. This maximum circuit size parameter is a constant in the code and has been set to $2^{23}$ as of writing. This maximum circuit size differs from the maximum circuit size that one can prove in the browser, due to WASM limits.
-
-> [!NOTE]
-> For commands which allow you to send the output to a file using `-o {filePath}`, there is also the option to send the output to stdout by using `-o -`.
-
-### UltraHonk
-
-> [!TIP]
-> Follow the [Noir Docs](https://noir-lang.org) for instructions on how to install Noir, write and compile programs, and generate witnesses.
-
-Prove the valid execution of your program:
-
-```bash
-bb prove --scheme ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
-```
-
-You can then compute the verification key for your Noir program and verify the proof:
-
-```bash
-bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
-bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
-
-```
-
-If successful, the verification will complete in silence.
-
-### Solidity verifier
-
-Barretenberg can generate a smart contract that verifies proofs in Solidity (i.e. for usage in EVM chains). This feature is only available for UltraHonk, as the MegaHonk proving system is intended for use with apps deploying on Aztec only.
-
-First, prove the valid execution of your Noir program and export the verification key:
-
-```bash
-bb prove --sceme ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
-bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
-```
-
-> [!IMPORTANT] > `prove --scheme ultra_honk --oracle_hash keccak` is used to generate UltraHonk proofs with Keccak hashes, making them gas-efficient. `prove --scheme ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
-
-You can now use the verification key to generate a Solidity verifier contract:
-
-```bash
-bb write_solidity_verifier --scheme ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
-```
-
-> [!CAUTION]
-> Solidity verifier contracts are work-in-progress. Expect significant optimizations and breaking changes, and _do NOT use it in production!_
 
 ## Development
 

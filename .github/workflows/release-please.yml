@@ -67,7 +67,7 @@ jobs:
 
           echo "semver=$AZTEC_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Cut version
+      - name: Cut Aztec Docs version
         working-directory: ./docs
         run: |
           COMMIT_TAG=${{ steps.version.outputs.semver }}
@@ -77,13 +77,35 @@ jobs:
           COMMIT_TAG=$COMMIT_TAG yarn build
           COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
 
-      - name: Update versions.json with new version
+      - name: Update Aztec Docs versions.json with new version
         working-directory: ./docs/scripts
         run: |
           ./update_versions.sh
 
-      - name: Commit new documentation version
+      - name: Commit new Aztec Docs version
         run: |
           git add .
-          git commit -m "chore(docs): cut new docs version for tag ${{ steps.version.outputs.semver }}"
+          git commit -m "chore(docs): cut new aztec docs version for tag ${{ steps.version.outputs.semver }}"
+          git push
+
+
+      - name: Cut Barretenberg Docs version
+        working-directory: ./barretenberg/docs
+        run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
+          # need to specify at least one version in versions.json for it to build
+          echo "[ \"$(./scripts/get_current_version.sh)\" ]" > versions.json
+          yarn
+          COMMIT_TAG=$COMMIT_TAG yarn build
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
+
+      - name: Update Barretenberg Docs versions.json with new version
+        working-directory: ./barretenberg/docs/scripts
+        run: |
+          ./update_versions.sh
+
+      - name: Commit new Barretenberg Docs version
+        run: |
+          git add .
+          git commit -m "chore(docs): cut new barretenberg docs version for tag ${{ steps.version.outputs.semver }}"
           git push

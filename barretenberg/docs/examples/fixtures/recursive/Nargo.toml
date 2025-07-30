@@ -1,0 +1,6 @@
+[package]
+name = "recursive"
+type = "bin"
+authors = [""]
+
+[dependencies]
