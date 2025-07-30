@@ -11,6 +11,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import {
   type GetContractEventsReturnType,
@@ -21,14 +22,7 @@ import {
   getContract,
 } from 'viem';
 
-import {
-  Offense,
-  type SlasherConfig,
-  WANT_TO_SLASH_EVENT,
-  type WantToSlashArgs,
-  type Watcher,
-  bigIntToOffense,
-} from './config.js';
+import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, bigIntToOffense } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
@@ -161,18 +155,27 @@ export class SlasherClient {
   /**
    * Update the config of the slasher client
    *
-   * @param config - the new config. Can only update the following fields:
-   * - slashOverridePayload
-   * - slashPayloadTtlSeconds
-   * - slashProposerRoundPollingIntervalSeconds
+   * @param config - the new config. Cannot update the slasher private key.
    */
   public updateConfig(config: Partial<SlasherConfig>) {
-    const newConfig: SlasherConfig = {
-      ...this.config,
+    const newConfig: Omit<SlasherConfig, 'slasherPrivateKey'> = {
       slashOverridePayload: config.slashOverridePayload ?? this.config.slashOverridePayload,
       slashPayloadTtlSeconds: config.slashPayloadTtlSeconds ?? this.config.slashPayloadTtlSeconds,
       slashProposerRoundPollingIntervalSeconds:
         config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
+      slashPruneEnabled: config.slashPruneEnabled ?? this.config.slashPruneEnabled,
+      slashPrunePenalty: config.slashPrunePenalty ?? this.config.slashPrunePenalty,
+      slashPruneMaxPenalty: config.slashPruneMaxPenalty ?? this.config.slashPruneMaxPenalty,
+      slashInvalidBlockEnabled: config.slashInvalidBlockEnabled ?? this.config.slashInvalidBlockEnabled,
+      slashInvalidBlockPenalty: config.slashInvalidBlockPenalty ?? this.config.slashInvalidBlockPenalty,
+      slashInvalidBlockMaxPenalty: config.slashInvalidBlockMaxPenalty ?? this.config.slashInvalidBlockMaxPenalty,
+      slashInactivityEnabled: config.slashInactivityEnabled ?? this.config.slashInactivityEnabled,
+      slashInactivityCreateTargetPercentage:
+        config.slashInactivityCreateTargetPercentage ?? this.config.slashInactivityCreateTargetPercentage,
+      slashInactivitySignalTargetPercentage:
+        config.slashInactivitySignalTargetPercentage ?? this.config.slashInactivitySignalTargetPercentage,
+      slashInactivityCreatePenalty: config.slashInactivityCreatePenalty ?? this.config.slashInactivityCreatePenalty,
+      slashInactivityMaxPenalty: config.slashInactivityMaxPenalty ?? this.config.slashInactivityMaxPenalty,
     };
     this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
     this.config = newConfig;
