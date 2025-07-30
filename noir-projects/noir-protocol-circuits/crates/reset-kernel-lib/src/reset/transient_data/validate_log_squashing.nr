@@ -491,7 +491,7 @@ mod tests {
         builder.validate_with_derived_hints(derived_hints);
     }
 
-    #[test(should_fail_with = "Unused note hash index hint must be set to NOTE_HASHES_LEN")]
+    #[test(should_fail_with = "Unused note hash index hint must be set to NoteHashesLen")]
     fn fails_squashed_log_linked_to_fake_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 

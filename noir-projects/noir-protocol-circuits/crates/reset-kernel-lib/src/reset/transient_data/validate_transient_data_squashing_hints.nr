@@ -174,7 +174,7 @@ mod tests {
         builder.validate_with_derived_hints(derived_hints);
     }
 
-    #[test(should_fail_with = "Unused note hash index hint must be set to NOTE_HASHES_LEN")]
+    #[test(should_fail_with = "Unused note hash index hint must be set to NoteHashesLen")]
     fn fails_note_hash_squashed_by_inactive_hint() {
         let mut builder = TransientDataFixtureBuilder::new();
 
@@ -270,7 +270,7 @@ mod tests {
         builder.validate_with_derived_hints(derived_hints);
     }
 
-    #[test(should_fail_with = "Unused nullifier index hint must be set to NULLIFIERS_LEN")]
+    #[test(should_fail_with = "Unused nullifier index hint must be set to NullifiersLen")]
     fn fails_nullifier_squashed_by_inactive_hint() {
         let mut builder = TransientDataFixtureBuilder::new();
 
