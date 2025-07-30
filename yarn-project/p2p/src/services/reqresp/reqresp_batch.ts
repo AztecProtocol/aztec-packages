@@ -104,7 +104,7 @@ export class BatchTxRequester {
       return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
     };
 
-    const workers = Array.from({ length: SMART_PEERS_TO_QUERY_IN_PARALLEL }, () =>
+    const workers = Array.from({ length: Math.min(DUMB_PEERS_TO_QUERY_IN_PARALLEL, this.peers.length) }, () =>
       this.workerLoop(nextPeer, makeRequest, 'smart'),
     );
 
@@ -141,7 +141,7 @@ export class BatchTxRequester {
       return idx === undefined ? undefined : peerIdFromString(Array.from(getPeers())[idx]);
     };
 
-    const workers = Array.from({ length: Math.min(DUMB_PEERS_TO_QUERY_IN_PARALLEL, getPeers().length) }, () =>
+    const workers = Array.from({ length: Math.min(DUMB_PEERS_TO_QUERY_IN_PARALLEL, this.peers.length) }, () =>
       this.workerLoop(nextPeer, makeRequest, 'dumb'),
     );
     await Promise.allSettled(workers);
@@ -179,7 +179,6 @@ export class BatchTxRequester {
       }
 
       await this.requestTxBatch(peerId, blockRequest);
-
       if (type === 'smart') {
         txs.forEach(tx => {
           this.txsMetadata.markNotInFlightBySmartPeer(tx);
@@ -209,11 +208,11 @@ export class BatchTxRequester {
 
   private handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
+    this.handleReceivedTxs(peerId, response.txs);
+
     if (!this.isBlockResponseValid(response)) {
       return;
     }
-
-    this.handleReceivedTxs(peerId, response.txs);
 
     // We mark peer as "smart" only if they have some txs we are missing
     // Otherwise we keep them as "dumb" in hope they'll receive some new txs we are missing in the future
@@ -231,7 +230,7 @@ export class BatchTxRequester {
 
   private isBlockResponseValid(response: BlockTxsResponse): boolean {
     //TODO: maybe ban peer if this does not match?
-    const blockIdsMatch = this.blockProposal.archive === response.blockHash;
+    const blockIdsMatch = this.blockProposal.archive.toString() === response.blockHash.toString();
     const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
     return blockIdsMatch && peerHasSomeTxsFromProposal;
   }
