@@ -5,6 +5,7 @@ include "sha256_mem.pil";
 
 namespace sha256;
 
+    // sel_invalid_input_tag_err is not part of err, hence the two separate conditions
     pol SEL_NO_ERR = sel * (1 - err) * (1 - sel_invalid_input_tag_err);
 
     // Initial state values loaded from state_offset;
@@ -46,20 +47,9 @@ namespace sha256;
     pol commit and_sel;
     and_sel = 0;
 
-    // Selector to stop after 64 rounds
-    pol commit latch;
-    latch * (1 - latch) = 0;
-    #[LATCH_HAS_SEL_ON] // sel = 1 when latch = 1, sel = 0 at first row because of shift relations
-    latch * (1 - sel) = 0;
-    // This is now guaranteed to be mututally exclusive because of the above condition
-    pol LATCH_CONDITION = latch + precomputed.first_row; 
-
     // We perform a compression operation if we are not at a latched row
     pol commit perform_round;
-
     perform_round = (1 - latch) * SEL_NO_ERR;
-    // perform_round - (sel * (1 - latch)) = 0;
-
     pol LAST = SEL_NO_ERR * latch;
 
     // Counter

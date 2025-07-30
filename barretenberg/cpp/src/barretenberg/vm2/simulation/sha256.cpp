@@ -12,7 +12,7 @@ namespace bb::avm2::simulation {
 
 namespace {
 
-constexpr uint32_t round_constants[64]{
+constexpr std::array<uint32_t, 64> round_constants{
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -23,7 +23,7 @@ constexpr uint32_t round_constants[64]{
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-// Don't worry about any weird edge cases like shifting by by the bit width
+// Don't worry about any weird edge cases since we have fixed non-zero shifts
 MemoryValue ror(MemoryValue x, uint32_t shift)
 {
     auto val = x.as<uint32_t>();
@@ -52,8 +52,8 @@ void Sha256::compression(MemoryInterface& memory,
     std::array<MemoryValue, 8> state;
     state.fill(MemoryValue::from<FF>(0));
 
-    std::array<MemoryValue, 16> input;
-    input.fill(MemoryValue::from<FF>(0));
+    std::vector<MemoryValue> input;
+    input.reserve(16);
 
     // Check that the maximum addresss for the state, input, and output addresses are within the valid range.
     // (1) Read the 8 element hash state from { state_addr, state_addr + 1, ..., state_addr + 7 }
@@ -68,49 +68,43 @@ void Sha256::compression(MemoryInterface& memory,
             throw std::runtime_error("Memory address out of range for sha256 compression.");
         }
 
-        // Read the hash state and inputs from memory. If any of the retrieved values are not U32, we will throw an
-        // error. The state needs to be loaded atomically from memory (i.e. all 8 elements are read regardless of
-        // errors) Load 8 elements representing the state from memory. If any of the retrieved
+        // Read the hash state from memory. The state needs to be loaded atomically from memory (i.e. all 8 elements are
+        // read regardless of errors)
         for (uint32_t i = 0; i < 8; ++i) {
             state[i] = memory.get(state_addr + i);
         }
 
+        // If any of the state values are not of tag U32, we throw an error.
         if (std::ranges::any_of(state, [](const MemoryValue& val) { return val.get_tag() != MemoryTag::U32; })) {
             throw std::runtime_error("Invalid tag for sha256 state values.");
         }
 
-        // Load 16 elements representing the input from memory.
-        // Since the circuit loads this per row, we throw on the first error we find
+        // Load 16 elements representing the hash input from memory.
+        // Since the circuit loads this per row, we throw on the first error we find.
         for (uint32_t i = 0; i < 16; ++i) {
-            input[i] = memory.get(input_addr + i);
+            input.emplace_back(memory.get(input_addr + i));
             if (input[i].get_tag() != MemoryTag::U32) {
                 throw std::runtime_error("Invalid tag for sha256 input values.");
             }
         }
 
-        // Perform sha256 compression.
+        // Perform sha256 compression. Taken from `vm2/simulation/lib/sha256_compression.cpp` but using
+        // the bitwise operations and MemoryValues
         std::array<MemoryValue, 64> w;
-        w.fill(MemoryValue::from<FF>(0));
 
-        /**
-         * Fill first 16 words with the message schedule
-         **/
+        // Fill first 16 words with the inputs
         for (size_t i = 0; i < 16; ++i) {
             w[i] = input[i];
         }
 
-        /**
-         * Extend the input data into the remaining 48 words
-         **/
+        // Extend the input data into the remaining 48 words
         for (size_t i = 16; i < 64; ++i) {
             MemoryValue s0 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 15], 7), ror(w[i - 15], 18)), shr(w[i - 15], 3));
             MemoryValue s1 = bitwise.xor_op(bitwise.xor_op(ror(w[i - 2], 17), ror(w[i - 2], 19)), shr(w[i - 2], 10));
             w[i] = w[i - 16] + w[i - 7] + s0 + s1;
         }
 
-        /**
-         * Initialize round variables with previous block output
-         **/
+        // Initialize round variables with previous block output
         MemoryValue a = state[0];
         MemoryValue b = state[1];
         MemoryValue c = state[2];
@@ -120,9 +114,7 @@ void Sha256::compression(MemoryInterface& memory,
         MemoryValue g = state[6];
         MemoryValue h = state[7];
 
-        /**
-         * Apply SHA-256 compression function to the message schedule
-         **/
+        // Apply SHA-256 compression function to the message schedule
         for (size_t i = 0; i < 64; ++i) {
             MemoryValue S1 = bitwise.xor_op(bitwise.xor_op(ror(e, 6U), ror(e, 11U)), ror(e, 25U));
             MemoryValue ch = bitwise.xor_op(bitwise.and_op(e, f), bitwise.and_op(~e, g));
@@ -142,9 +134,7 @@ void Sha256::compression(MemoryInterface& memory,
             a = temp1 + temp2;
         }
 
-        /**
-         * Add into previous block output and return
-         **/
+        // Add into previous block output and return
         std::array<MemoryValue, 8> output = {
             a + state[0], b + state[1], c + state[2], d + state[3],
             e + state[4], f + state[5], g + state[6], h + state[7],
@@ -155,10 +145,6 @@ void Sha256::compression(MemoryInterface& memory,
             memory.set(output_addr + i, output[i]);
         }
 
-        std::array<uint32_t, 8> output_uint32;
-        for (uint32_t i = 0; i < 8; ++i) {
-            output_uint32[i] = output[i].as<uint32_t>();
-        }
         events.emit({ .execution_clk = execution_clk,
                       .space_id = space_id,
                       .state_addr = state_addr,
@@ -166,9 +152,11 @@ void Sha256::compression(MemoryInterface& memory,
                       .output_addr = output_addr,
                       .state = state,
                       .input = input,
-                      .output = output_uint32 });
+                      .output = output });
     } catch (const std::exception& e) {
         // If any error occurs, we emit an event with the error message.
+        std::array<MemoryValue, 8> output;
+        output.fill(MemoryValue::from<FF>(0)); // Default output in case of error
         events.emit({ .execution_clk = execution_clk,
                       .space_id = space_id,
                       .state_addr = state_addr,
@@ -176,7 +164,7 @@ void Sha256::compression(MemoryInterface& memory,
                       .output_addr = output_addr,
                       .state = state,
                       .input = input,
-                      .output = {} });
+                      .output = output });
         throw; // Re-throw the exception after emitting the event
     }
 }
