@@ -134,8 +134,8 @@ export class BlockProposal extends Gossipable {
     const blockNumber = reader.readNumber();
     const payload = reader.readObject(ConsensusPayload);
     const sig = reader.readObject(Signature);
-    const txHashes = reader.readArray(reader.readNumber(), TxHash);
     const parentHeaderHash = reader.readObject(Fr);
+    const txHashes = reader.readArray(reader.readNumber(), TxHash);
 
     let txs: Tx[] | undefined;
     if (!reader.isEmpty()) {
