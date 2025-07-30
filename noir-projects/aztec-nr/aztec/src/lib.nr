@@ -1,18 +1,18 @@
 pub mod context;
-mod publish_contract_instance;
-mod hash;
-mod history;
+pub mod publish_contract_instance;
+pub mod hash;
+pub mod history;
 pub mod keys;
 mod messaging;
 pub mod note;
 pub mod oracle;
-mod state_vars;
+pub mod state_vars;
 mod capsules;
-mod event;
+pub mod event;
 pub mod messages;
 pub use dep::protocol_types;
-mod utils;
-mod authwit;
+pub mod utils;
+pub mod authwit;
 pub mod macros;
 
-mod test;
+pub mod test;
