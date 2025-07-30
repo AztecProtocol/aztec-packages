@@ -40,7 +40,7 @@ unconstrained fn non_authorized_cannot_do_authorized_thing() {
     let (env, auth_contract_address, _, _, other) = setup();
     let auth = Auth::at(auth_contract_address);
 
-    let _ = env.call_private(other, auth.do_private_authorized_thing());
+    env.call_private(other, auth.do_private_authorized_thing());
 }
 
 #[test]
