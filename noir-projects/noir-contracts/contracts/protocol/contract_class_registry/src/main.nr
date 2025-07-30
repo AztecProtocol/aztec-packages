@@ -4,23 +4,19 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract ContractClassRegistry {
-    use dep::aztec::protocol_types::{
-        abis::log_hash::LogHash,
-        constants::{
-            ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-            CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT, FUNCTION_TREE_HEIGHT,
-            MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-            MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
-            MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-        },
-        contract_class_id::ContractClassId,
-        hash::poseidon2_hash,
-        utils::arrays::trimmed_array_length_hint,
-    };
-
     use dep::aztec::{
-        context::PrivateContext, hash::compute_public_bytecode_commitment,
-        macros::functions::private, oracle::logs::notify_created_contract_class_log,
+        hash::compute_public_bytecode_commitment,
+        macros::functions::private,
+        protocol_types::{
+            constants::{
+                ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
+                FUNCTION_TREE_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+                MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
+                MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+            },
+            contract_class_id::ContractClassId,
+            traits::ToField,
+        },
     };
 
     use crate::events::{
@@ -32,8 +28,6 @@ pub contract ContractClassRegistry {
             ClassUtilityFunctionBroadcasted, InnerUtilityFunction, UtilityFunction,
         },
     };
-
-    use dep::aztec::protocol_types::traits::ToField;
 
     // docs:start:import_capsules
     use dep::aztec::oracle::capsules;
@@ -90,7 +84,7 @@ pub contract ContractClassRegistry {
             private_functions_root,
             packed_public_bytecode,
         };
-        emit_contract_class_log(&mut context, event.serialize_non_standard());
+        context.emit_contract_class_log(event.serialize_non_standard());
     }
 
     #[private]
@@ -138,7 +132,7 @@ pub contract ContractClassRegistry {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize_non_standard());
+        context.emit_contract_class_log(event.serialize_non_standard());
     }
 
     #[private]
@@ -179,29 +173,7 @@ pub contract ContractClassRegistry {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize_non_standard());
-    }
-
-    #[contract_library_method]
-    fn emit_contract_class_log<let N: u32>(context: &mut PrivateContext, log: [Field; N]) {
-        let contract_address = context.this_address();
-        let counter = context.next_counter();
-
-        let log_to_emit: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-            log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
-        // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
-        // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond length are zero.
-        let length = unsafe { trimmed_array_length_hint(log_to_emit) };
-        // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
-        let log_hash = poseidon2_hash(log_to_emit);
-        // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
-        unsafe {
-            notify_created_contract_class_log(contract_address, log_to_emit, length, counter);
-        }
-
-        context.contract_class_logs_hashes.push(LogHash { value: log_hash, length: length }.count(
-            counter,
-        ));
+        context.emit_contract_class_log(event.serialize_non_standard());
     }
 
     #[private]
