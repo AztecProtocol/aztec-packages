@@ -3,28 +3,60 @@ include "../execution.pil";
 include "../memory.pil";
 include "../constants_gen.pil";
 
-// Gadget to implement the emit unencrypted log opcode.
-// Partial trace of the gadget:
-// +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
-// | sel | clk | space_id | log_addr   | log_size | contract_address | prev_logs | next_logs | is_static | error | start | end | remaining_rows | tag_mismatch | seen_wrong_tag | is_padding | remaining_log_size | should_read_mem | value | tag |
-// +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
-// | 0   | 0   | 0        | 0          | 0        | 0                | 0         | 0         | 0         | 0     | 0     | 0   | 0              | 0            | 0              | 0          | 0                  | 0               | 0     | 0   |
-// | 1   | 27  | 4        | 27         | 10       | 0xdeadbeef       | 1         | 2         | 0         | 0     | 1     | 0   | 12             | 0            | 0              | 0          | 10                 | 1               | 5     | ff  |
-// | 1   | 27  | 4        | 28         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 11             | 0            | 0              | 0          | 9                  | 1               | 6     | ff  |
-// | 1   | 27  | 4        | 29         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 10             | 0            | 0              | 0          | 8                  | 1               | 7     | ff  |
-// | 1   | 27  | 4        | 30         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 9              | 0            | 0              | 0          | 7                  | 1               | 8     | ff  |
-// | 1   | 27  | 4        | 31         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 8              | 0            | 0              | 0          | 6                  | 1               | 9     | ff  |
-// | 1   | 27  | 4        | 32         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 7              | 0            | 0              | 0          | 5                  | 1               | 8     | ff  |
-// | 1   | 27  | 4        | 33         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 6              | 0            | 0              | 0          | 4                  | 1               | 7     | ff  |
-// | 1   | 27  | 4        | 34         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 5              | 0            | 0              | 0          | 3                  | 1               | 6     | ff  |
-// | 1   | 27  | 4        | 35         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 4              | 0            | 0              | 0          | 2                  | 1               | 5     | ff  |
-// | 1   | 27  | 4        | 36         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 3              | 0            | 0              | 0          | 1                  | 1               | 4     | ff  |
-// | 1   | 27  | 4        | 37         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 2              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
-// | 1   | 27  | 4        | 38         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 1              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
-// | 1   | 27  | 4        | 39         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 1   | 0              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
-// +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
-// We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows.
-// We always generate 13 rows per log, but we might disable memory reads if there is an addressing error, and only write to PI if not error at all.
+/**
+ * Dedicated opcode gadget for the EmitUnencryptedLog opcode.
+ * This gadget handles the emission of unencrypted logs to public inputs, performing
+ * validation checks and memory reads to check log entries.
+ *
+ * The opcode reads log data from memory starting at log_address for log_size fields,
+ * and writes the log data to public inputs if all checks pass.
+ * The gadget generates a fixed number of rows (PUBLIC_LOG_SIZE_IN_FIELDS)
+ * per log emission, with padding rows when the actual log size is smaller.
+ *
+ * Opcode operands (from execution trace):
+ * - rop[0]: log_address (memory offset where log data starts)
+ * - register[1]: log_size (number of fields in the log)
+ *
+ * Validation checks:
+ * - Log size must not exceed PUBLIC_LOG_SIZE_IN_FIELDS
+ * - Memory addresses must be within bounds (≤ AVM_HIGHEST_MEM_ADDRESS)
+ * - Must not exceed maximum logs per transaction (MAX_PUBLIC_LOGS_PER_TX)
+ * - All log fields must have FF tags
+ * - Cannot emit logs in static context
+ *
+ * Memory I/O:
+ * - Reads log_size consecutive fields from memory starting at log_address
+ * - Each field is validated to have the correct FF tag
+ * - Disables memory reads if addressing error occurs
+ *
+ * Public inputs interaction:
+ * - Writes contract_address, log_size, and log data to public inputs
+ * - Only writes if no errors occur and discard flag is not set
+ * - Updates the count of emitted unencrypted logs
+ *
+ *
+ * Partial trace of the gadget:
+ * +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
+ * | sel | clk | space_id | log_addr   | log_size | contract_address | prev_logs | next_logs | is_static | error | start | end | remaining_rows | tag_mismatch | seen_wrong_tag | is_padding | remaining_log_size | should_read_mem | value | tag |
+ * +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
+ * | 0   | 0   | 0        | 0          | 0        | 0                | 0         | 0         | 0         | 0     | 0     | 0   | 0              | 0            | 0              | 0          | 0                  | 0               | 0     | 0   |
+ * | 1   | 27  | 4        | 27         | 10       | 0xdeadbeef       | 1         | 2         | 0         | 0     | 1     | 0   | 12             | 0            | 0              | 0          | 10                 | 1               | 5     | ff  |
+ * | 1   | 27  | 4        | 28         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 11             | 0            | 0              | 0          | 9                  | 1               | 6     | ff  |
+ * | 1   | 27  | 4        | 29         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 10             | 0            | 0              | 0          | 8                  | 1               | 7     | ff  |
+ * | 1   | 27  | 4        | 30         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 9              | 0            | 0              | 0          | 7                  | 1               | 8     | ff  |
+ * | 1   | 27  | 4        | 31         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 8              | 0            | 0              | 0          | 6                  | 1               | 9     | ff  |
+ * | 1   | 27  | 4        | 32         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 7              | 0            | 0              | 0          | 5                  | 1               | 8     | ff  |
+ * | 1   | 27  | 4        | 33         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 6              | 0            | 0              | 0          | 4                  | 1               | 7     | ff  |
+ * | 1   | 27  | 4        | 34         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 5              | 0            | 0              | 0          | 3                  | 1               | 6     | ff  |
+ * | 1   | 27  | 4        | 35         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 4              | 0            | 0              | 0          | 2                  | 1               | 5     | ff  |
+ * | 1   | 27  | 4        | 36         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 3              | 0            | 0              | 0          | 1                  | 1               | 4     | ff  |
+ * | 1   | 27  | 4        | 37         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 2              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
+ * | 1   | 27  | 4        | 38         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 0   | 1              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
+ * | 1   | 27  | 4        | 39         | 10       | 0xdeadbeef       | unc       | unc       | unc       | unc   | 0     | 1   | 0              | 0            | 0              | 1          | 0                  | 0               | 0     | ff  |
+ * +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
+ * We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows. Worker rows are the ones after start that only perform optional memory
+ * read and optional writes to public inputs. Columns not propagated down are marked as "unc" in the table above.
+ */
 namespace emit_unencrypted_log;
 
     pol commit sel;
