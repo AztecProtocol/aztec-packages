@@ -182,7 +182,7 @@ describe('Contract Class', () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send();
+    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.address });
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
@@ -205,6 +205,6 @@ describe('Contract Class', () => {
 
   it('should not call create on a utility  function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    await expect(fooContract.methods.qux().create()).rejects.toThrow();
+    await expect(fooContract.methods.qux().create({ from: account.address })).rejects.toThrow();
   });
 });

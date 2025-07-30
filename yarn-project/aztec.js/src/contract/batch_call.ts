@@ -21,7 +21,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+  public async create(options: SendMethodOptions): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
 
     const { fee: userFee, txNonce, cancellable } = options;
@@ -55,7 +55,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
+  public async simulate(options: SimulateMethodOptions): Promise<any> {
     const { indexedExecutionPayloads, utility } = (await this.getRequests()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
