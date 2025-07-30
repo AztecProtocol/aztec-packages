@@ -5,6 +5,9 @@ namespace execution;
 // Register 2 contains allocated da gas
 // Register 3 contains the address of the contract to call
 
+#[skippable_if]
+sel_enter_call = 0;
+
 // TODO: Remove this as a column when we can lookup with constants
 pol commit constant_32;
 sel_enter_call * (32 - constant_32) = 0;

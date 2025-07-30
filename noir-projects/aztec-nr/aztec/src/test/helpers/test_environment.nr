@@ -10,7 +10,7 @@ use crate::{
     },
     hash::hash_args,
     oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
-    test::helpers::{txe_oracles, utils::Deployer},
+    test::helpers::{txe_oracles, utils::ContractDeployment},
 };
 
 use super::txe_oracles::public_call_new_flow;
@@ -34,18 +34,15 @@ impl Counter {
 }
 
 pub struct TestEnvironment {
-    // The secrets to be used for light and contract account creation. By keeping track of the last used secret we can
-    // issue new ones automatically without requiring the user to provide different ones. Additionally, having the
-    // secrets be deterministic for each set of accounts and all concurrent tests results in TXE being able to maximize
-    // cache usage and not have to recompute account addresses and contract artifacts, which are relatively expensive
-    // operations.
+    // The secrets to be used for light and contract account creation, as well as contract deployments. By keeping track
+    // of the last used secret we can issue new ones automatically without requiring the user to provide different ones.
+    //
+    // Additionally, having the secrets be deterministic for each set of accounts and all concurrent tests results in
+    // TXE being able to maximize cache usage and not have to recompute account addresses and contract artifacts, which
+    // are relatively expensive operations.
     light_account_secret: Counter,
     contract_account_secret: Counter,
-}
-
-pub struct CallResult<T> {
-    pub return_value: T,
-    pub tx_hash: Field,
+    contract_deployment_secret: Counter,
 }
 
 pub struct PrivateContextOptions {
@@ -71,12 +68,20 @@ impl PrivateContextOptions {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        Self { light_account_secret: Counter::new(), contract_account_secret: Counter::new() }
+        Self {
+            light_account_secret: Counter::new(),
+            contract_account_secret: Counter::new(),
+            contract_deployment_secret: Counter::new(),
+        }
     }
 
     pub unconstrained fn _new() -> Self {
         txe_oracles::enable_context_checks();
-        Self { light_account_secret: Counter::new(), contract_account_secret: Counter::new() }
+        Self {
+            light_account_secret: Counter::new(),
+            contract_account_secret: Counter::new(),
+            contract_deployment_secret: Counter::new(),
+        }
     }
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
@@ -331,30 +336,68 @@ impl TestEnvironment {
         test_account.address
     }
 
-    pub unconstrained fn deploy<let N: u32, let M: u32>(
-        self: Self,
-        path: str<N>,
-        name: str<M>,
-    ) -> Deployer<N, M> {
-        Deployer { env: self, path, name, secret: 0 }
-    }
-
-    pub unconstrained fn deploy_self<let M: u32>(self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { env: self, path: "", name, secret: 0 }
+    /// Prepares a contract for deployment, so that its private, public and utility functions can be called. The
+    /// contract **must be already compiled** before tests are run, and **must be recompiled if changed** for the tests
+    /// to deploy the updated version.
+    ///
+    /// In order to finalize the deployment, the proper initializer function must be specified via one of the associated
+    /// methods. For more information on how to specify the path and initialization, read the sections below.
+    ///
+    /// ### Path
+    /// Contracts can be deployed from either the same crate as the test, from a different crate in the same workspace,
+    /// or from an altogether independent crate.
+    ///
+    /// If deploying contracts from the same crate as the test, just refer to it by its name:
+    /// ```noir
+    /// TestEnvironment::new().deploy("MyContract");
+    /// ```
+    ///
+    /// If deploying contracts from a different crate in the same workspace, use `@crate_name/contract_name`:
+    /// ```noir
+    /// TestEnvironment::new().deploy("@my_contract_crate/MyContract");
+    /// ```
+    ///
+    /// If deploying contracts from a crate not in the workspace, use `path_to_crate/contract_name`, with the crate path
+    /// relative to the current workspace:
+    /// ```noir
+    /// TestEnvironment::new().deploy("../my_other_crate/MyContract");
+    /// ```
+    ///
+    /// ### Initialization
+    /// If no initializer function needs to be called, use `without_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").without_initializer();
+    /// ```
+    ///
+    /// For private initializers, use `with_private_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_private_initializer(
+    ///   PrivateInitContract::interface().private_init_fn(init_args)
+    /// );
+    /// ```
+    ///
+    /// For public initializers, use `with_public_initializer`:
+    /// ```noir
+    /// let my_contract = TestEnvironment::new().deploy("MyContract").with_public_initializer(
+    ///   PublicInitContract::interface().public_init_fn(init_args)
+    /// );
+    /// ```
+    pub unconstrained fn deploy<let N: u32>(&mut self, path: str<N>) -> ContractDeployment<N> {
+        ContractDeployment { env: *self, path, secret: self.contract_deployment_secret.next() }
     }
 
     pub unconstrained fn call_private<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
         call_interface: PrivateCallInterface<M, T>,
-    ) -> CallResult<T>
+    ) -> T
     where
         T: Deserialize,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
+        let (_, returns_hash, _) = txe_oracles::private_call_new_flow(
             from,
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -363,8 +406,7 @@ impl TestEnvironment {
             call_interface.get_is_static(),
         );
 
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        CallResult { return_value: returns, tx_hash }
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn view_private<T, let M: u32>(
@@ -377,7 +419,7 @@ impl TestEnvironment {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
 
-        let (_end_side_effect_counter, returns_hash, _) = txe_oracles::private_call_new_flow(
+        let (_, returns_hash, _) = txe_oracles::private_call_new_flow(
             std::mem::zeroed(), // The 'from' address is currently not manually set
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -386,8 +428,7 @@ impl TestEnvironment {
             call_interface.get_is_static(),
         );
 
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        returns
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn simulate_utility<T, let M: u32>(
@@ -407,19 +448,18 @@ impl TestEnvironment {
             args_hash,
         );
 
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        returns
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn call_public<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
         call_interface: PublicCallInterface<M, T>,
-    ) -> CallResult<T>
+    ) -> T
     where
         T: Deserialize,
     {
-        let (returns_hash, tx_hash) = public_call_new_flow(
+        let (returns_hash, _) = public_call_new_flow(
             from,
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -428,8 +468,7 @@ impl TestEnvironment {
         );
 
         // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
-        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        CallResult { return_value: returns, tx_hash }
+        ReturnsHash::new(returns_hash).get_preimage()
     }
 
     pub unconstrained fn view_public<T, let M: u32>(

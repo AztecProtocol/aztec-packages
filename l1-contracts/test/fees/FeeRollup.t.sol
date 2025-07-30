@@ -81,6 +81,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes body;
     bytes blobInputs;
     CommitteeAttestation[] attestations;
+    address[] signers;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -138,6 +139,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
+    address[] memory signers = new address[](0);
 
     bytes memory body = full.block.body;
     ProposedHeader memory header = full.block.header;
@@ -178,7 +180,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       header: header,
       body: body,
       blobInputs: full.block.blobCommitments,
-      attestations: attestations
+      attestations: attestations,
+      signers: signers
     });
   }
 
@@ -203,6 +206,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             })
           }),
           SignatureLib.packAttestations(b.attestations),
+          b.signers,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -297,6 +301,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             })
           }),
           SignatureLib.packAttestations(b.attestations),
+          b.signers,
           b.blobInputs
         );
 
@@ -392,6 +397,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
+              attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
               blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })
@@ -403,7 +409,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         // The reward is not yet distributed, but only accumulated.
         {
-          uint256 newFees = rewardDistributor.BLOCK_REWARD() * epochSize / 2 + sequencerFees;
+          uint256 newFees = rollup.getBlockReward() * epochSize / 2 + sequencerFees;
           assertEq(
             rollup.getSequencerRewards(coinbase),
             sequencerRewardsBefore + newFees,
@@ -413,7 +419,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         {
           assertEq(
             rollup.getCollectiveProverRewardsForEpoch(rollup.getEpochForBlock(start)),
-            rewardDistributor.BLOCK_REWARD() * epochSize / 2 + proverFees,
+            rollup.getBlockReward() * epochSize / 2 + proverFees,
             "prover rewards"
           );
         }

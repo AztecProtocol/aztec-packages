@@ -17,7 +17,7 @@ contract ClaimTest is RewardDistributorBase {
       abi.encodeWithSelector(Errors.RewardDistributor__InvalidCaller.selector, _caller, canonical)
     );
     vm.prank(_caller);
-    rewardDistributor.claim(_caller);
+    rewardDistributor.claim(_caller, 1e18);
   }
 
   modifier whenCallerIsCanonical() {
@@ -26,34 +26,24 @@ contract ClaimTest is RewardDistributorBase {
   }
 
   function test_GivenBalanceIs0() external whenCallerIsCanonical {
-    // it return 0
-    vm.record();
+    // it reverts with insufficient balance
     vm.prank(caller);
-    assertEq(rewardDistributor.claim(caller), 0);
-    (, bytes32[] memory writes) = vm.accesses(address(this));
-    assertEq(writes.length, 0);
+    vm.expectRevert();
+    rewardDistributor.claim(caller, 1e18);
   }
 
-  function test_GivenBalanceGt0(uint256 _balance) external whenCallerIsCanonical {
-    // it transfer min(balance, BLOCK_REWARD)
-    // it return min(balance, BLOCK_REWARD)
+  function test_GivenBalanceGt0(uint256 _balance, uint256 _amount) external whenCallerIsCanonical {
+    // it transfers the requested amount
 
     uint256 balance = bound(_balance, 1, type(uint256).max);
+    uint256 amount = bound(_amount, 1, balance);
     token.mint(address(rewardDistributor), balance);
-
-    uint256 reward =
-      balance > rewardDistributor.BLOCK_REWARD() ? rewardDistributor.BLOCK_REWARD() : balance;
 
     uint256 callerBalance = token.balanceOf(caller);
     vm.prank(caller);
-    vm.record();
-    uint256 claimed = rewardDistributor.claim(caller);
-    (, bytes32[] memory writes) = vm.accesses(address(token));
+    rewardDistributor.claim(caller, amount);
 
-    assertEq(claimed, reward);
-    assertEq(token.balanceOf(caller), callerBalance + reward);
-    assertEq(token.balanceOf(address(rewardDistributor)), balance - reward);
-
-    assertEq(writes.length, 2, "writes");
+    assertEq(token.balanceOf(caller), callerBalance + amount);
+    assertEq(token.balanceOf(address(rewardDistributor)), balance - amount);
   }
 }

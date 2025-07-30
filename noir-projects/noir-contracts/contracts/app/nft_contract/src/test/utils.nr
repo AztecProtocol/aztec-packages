@@ -31,9 +31,8 @@ pub unconstrained fn setup(
         "TestNFT000000000000000000000000",
         "TN00000000000000000000000000000",
     );
-    let nft_contract =
-        env.deploy_self("NFT").with_public_initializer(owner, initializer_call_interface);
-    let nft_contract_address = nft_contract.to_address();
+    let nft_contract_address =
+        env.deploy("NFT").with_public_initializer(owner, initializer_call_interface);
 
     (env, nft_contract_address, owner, recipient)
 }
@@ -45,7 +44,7 @@ pub unconstrained fn setup_and_mint(
     let (env, nft_contract_address, owner, recipient) = setup(with_account_contracts);
     let minted_token_id = 615;
 
-    let _ = env.call_public(owner, NFT::at(nft_contract_address).mint(owner, minted_token_id));
+    env.call_public(owner, NFT::at(nft_contract_address).mint(owner, minted_token_id));
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -57,7 +56,7 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
         setup_and_mint(with_account_contracts);
 
     // We transfer the public NFT to private.
-    let _ = env.call_private(
+    env.call_private(
         owner,
         NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id),
     );
