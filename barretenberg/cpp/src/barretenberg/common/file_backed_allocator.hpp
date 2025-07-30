@@ -1,3 +1,11 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#pragma once
+
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <atomic>
 #include <cstring>
@@ -19,6 +27,10 @@ struct FileBackedAllocation {
     FileBackedAllocation(std::size_t size_bytes, const std::string& filename_prefix)
         : size_bytes(size_bytes)
     {
+        if (size_bytes == 0) {
+            return;
+        }
+
         static std::atomic<size_t> file_counter{ 0 };
         size_t id = file_counter.fetch_add(1);
         std::filesystem::path temp_dir;
@@ -62,7 +74,7 @@ struct FileBackedAllocation {
 
     ~FileBackedAllocation() noexcept
     {
-        if (ptr == nullptr) {
+        if (size_bytes == 0) {
             return;
         }
         munmap(ptr, size_bytes);

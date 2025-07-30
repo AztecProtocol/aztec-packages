@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <memory>
 #ifndef __wasm__
+#include "barretenberg/common/file_backed_allocator.hpp"
 #include <sys/mman.h>
 #endif
 
@@ -23,7 +24,7 @@ extern bool slow_low_memory;
 
 template <typename T> class AlignedMemory;
 
-#ifndef _WASI_EMULATED_PROCESS_CLOCKS
+#ifndef __wasm__
 template <typename T> class FileBackedMemory;
 #endif
 
@@ -69,7 +70,7 @@ template <typename T> class AlignedMemory : public BackingMemory<T> {
     friend BackingMemory<T>;
 };
 
-#ifndef _WASI_EMULATED_PROCESS_CLOCKS
+#ifndef __wasm__
 template <typename T> class FileBackedMemory : public BackingMemory<T> {
   public:
     FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
@@ -78,70 +79,18 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
     FileBackedMemory(FileBackedMemory&& other) = delete;            // delete move constructor
     FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
 
-    T* raw_data() { return memory; }
+    ~FileBackedMemory() = default;
 
-    ~FileBackedMemory()
-    {
-        if (file_size == 0) {
-            return;
-        }
-        if (memory != nullptr && file_size > 0) {
-            munmap(memory, file_size);
-        }
-        if (fd >= 0) {
-            close(fd);
-        }
-        if (!filename.empty()) {
-            std::filesystem::remove(filename);
-        }
-    }
+    T* raw_data() { return static_cast<T*>(allocation.ptr); }
 
   private:
+    bb::FileBackedAllocation allocation;
+
     // Create a new file-backed memory region
     FileBackedMemory(size_t size)
         : BackingMemory<T>()
-        , file_size(size * sizeof(T))
-    {
-        if (file_size == 0) {
-            return;
-        }
-
-        static std::atomic<size_t> file_counter{ 0 };
-        size_t id = file_counter.fetch_add(1);
-        std::filesystem::path temp_dir;
-        try {
-            temp_dir = std::filesystem::temp_directory_path();
-        } catch (const std::exception&) {
-            // Fallback to current directory if temp_directory_path() fails
-            temp_dir = std::filesystem::current_path();
-        }
-
-        filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
-
-        fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
-        // Create file
-        if (fd < 0) {
-            throw_or_abort("Failed to create backing file: " + filename);
-        }
-
-        // Set file size
-        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            throw_or_abort("Failed to set file size");
-        }
-
-        // Memory map the file
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (addr == MAP_FAILED) {
-            throw_or_abort("Failed to mmap file: " + std::string(std::strerror(errno)));
-        }
-
-        memory = static_cast<T*>(addr);
-    }
-
-    size_t file_size;
-    std::string filename;
-    int fd;
-    T* memory;
+        , allocation(size * sizeof(T), "poly-mmap-")
+    {}
 
     friend BackingMemory<T>;
 };
