@@ -33,6 +33,7 @@ const MAX_CACHED_PEERS = 100;
 const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
+const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
 type CachedPeer = {
   peerId: PeerId;
@@ -45,6 +46,11 @@ type CachedPeer = {
 type TimedOutPeer = {
   peerId: string;
   timeoutUntilMs: number;
+};
+
+type FailedAuthHandshakeEntry = {
+  count: number;
+  lastFailureTimestamp: number;
 };
 
 export class PeerManager implements PeerManagerInterface {
@@ -60,7 +66,7 @@ export class PeerManager implements PeerManagerInterface {
   private authenticatedPeerIdToValidatorAddress: Map<string, EthAddress> = new Map();
   private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
   private peersToBeDisconnected: Set<string> = new Set();
-  private failedAuthHandshakes: Map<string, number> = new Map();
+  private failedAuthHandshakes: Map<string, FailedAuthHandshakeEntry> = new Map();
   private validatorAddresses: EthAddress[] = [];
   private initializedPreferredPeers: boolean = false;
 
@@ -173,16 +179,16 @@ export class PeerManager implements PeerManagerInterface {
       return;
     }
 
+    // Already initialized preferred peers, don't wastefully repeat the same work
+    if (this.initializedPreferredPeers) {
+      return;
+    }
+
     const registeredValidators = await this.epochCache.getRegisteredValidators();
     const validatorSet = new Set(registeredValidators.map(v => v.toString()));
     const isThisNodePartOfValidatorSet = this.validatorAddresses.some(v => validatorSet.has(v.toString()));
 
     if (!isThisNodePartOfValidatorSet) {
-      return;
-    }
-
-    // Already initialized preferred peers, don't wastefully repeat the same work
-    if (this.initializedPreferredPeers) {
       return;
     }
 
@@ -466,14 +472,23 @@ export class PeerManager implements PeerManagerInterface {
   /*
    * Checks whether peer is allowed to connect
    *
-   * @param addresses: Address of the node
+   * @param id: Address of the node or it's peerId
    *
    * @returns: True if node is allowed to connect, otherwise false
    * */
   public isNodeAllowedToConnect(id: string | PeerId): boolean {
-    const failedAuthHandshakesCount = this.failedAuthHandshakes.get(id.toString()) ?? 0;
+    const entry = this.failedAuthHandshakes.get(id.toString());
+    if (!entry) {
+      return true;
+    }
 
-    return failedAuthHandshakesCount <= this.config.p2pMaxFailedAuthAttemptsAllowed;
+    // Check if entry is expired
+    if (Date.now() - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
+      this.failedAuthHandshakes.delete(id.toString());
+      return true;
+    }
+
+    return entry.count <= this.config.p2pMaxFailedAuthAttemptsAllowed;
   }
 
   /**
@@ -955,9 +970,6 @@ export class PeerManager implements PeerManagerInterface {
         `Successfully completed auth handshake with peer ${peerId}, validator address ${sender.toString()}`,
         logData,
       );
-
-      //Authed peers are important, it is better to mark them as direct in Gossipsub
-      this.libP2PNode.services.pubsub.direct.add(peerIdString);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
       this.logger.debug(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
@@ -972,14 +984,24 @@ export class PeerManager implements PeerManagerInterface {
    * Marks when peer fails auth handshake
    * */
   private markAuthHandshakeFailed(peerId: PeerId) {
-    // We both ban by peer ID and the address
-    this.failedAuthHandshakes.set(peerId.toString(), (this.failedAuthHandshakes.get(peerId.toString()) || 0) + 1);
+    const now = Date.now();
+    const peerIdStr = peerId.toString();
+
+    const existingEntry = this.failedAuthHandshakes.get(peerIdStr);
+    this.failedAuthHandshakes.set(peerIdStr, {
+      count: (existingEntry?.count || 0) + 1,
+      lastFailureTimestamp: now,
+    });
 
     const connections = this.libP2PNode.getConnections(peerId);
     connections.forEach(conn => {
       // We mark the IP address
       const address = conn.remoteAddr.nodeAddress().address;
-      this.failedAuthHandshakes.set(address, (this.failedAuthHandshakes.get(address) || 0) + 1);
+      const existingAddressEntry = this.failedAuthHandshakes.get(address);
+      this.failedAuthHandshakes.set(address, {
+        count: (existingAddressEntry?.count || 0) + 1,
+        lastFailureTimestamp: now,
+      });
     });
   }
 
