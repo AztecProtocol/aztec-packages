@@ -31,16 +31,18 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
     },
     TIMEOUT,
   );
-  it(
-    'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
-    async () => {
-      await tester.simProveVerifyAppLogic(
-        { address: avmTestContractInstance.address, fnName: 'nested_call_to_nothing_recovers', args: [] },
-        /*expectRevert=*/ false,
-      );
-    },
-    TIMEOUT,
-  );
+
+  // TODO(#16099): Re-enable this test
+  // it(
+  //   'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
+  //   async () => {
+  //     await tester.simProveVerifyAppLogic(
+  //       { address: avmTestContractInstance.address, fnName: 'nested_call_to_nothing_recovers', args: [] },
+  //       /*expectRevert=*/ false,
+  //     );
+  //   },
+  //   TIMEOUT,
+  // );
   // FIXME(dbanks12): fails with "Lookup PERM_MAIN_ALU failed."
   it.skip('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails

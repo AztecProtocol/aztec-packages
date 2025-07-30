@@ -322,9 +322,7 @@ unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
     send_l2_to_l1_msg_opcode(recipient, content)
 }
 
-// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
-// TODO(#15980): Refactor tests to keep this implementation detail private within the crate.
-pub unconstrained fn call(
+unconstrained fn call(
     l2_gas_allocation: u32,
     da_gas_allocation: u32,
     address: AztecAddress,
