@@ -47,7 +47,7 @@ async function generateProof({
   });
   assert(
     proof.proof.length === UH_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`
+    `Unexpected proof length ${proof.proof.length} bytes for ${bytecodePath}, should be ${UH_PROOF_LENGTH_IN_BYTES} bytes`
   );
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));

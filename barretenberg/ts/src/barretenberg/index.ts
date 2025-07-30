@@ -12,7 +12,6 @@ import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccu
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraHonkBackend, AztecClientBackend } from './backend.js';
-export { BbApiUltraHonkBackend } from './backend_bbapi.js';
 
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */

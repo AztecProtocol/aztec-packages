@@ -6,7 +6,6 @@ export {
   BarretenbergVerifier,
   UltraHonkBackend,
   AztecClientBackend,
-  BbApiUltraHonkBackend,
 } from './barretenberg/index.js';
 
 export { randomBytes } from './random/index.js';
