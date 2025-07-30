@@ -28,6 +28,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -92,7 +93,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
-    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+    stakingQueueConfig.normalFlushSizeMin = Math.max(_validatorCount, 1);
 
     RollupBuilder builder = new RollupBuilder(address(this)).setStakingQueueConfig(
       stakingQueueConfig
