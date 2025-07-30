@@ -2,7 +2,7 @@
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{
-        note_emission::NoteEmission,
+        note_emission::OuterNoteEmission,
         note_getter_options::{NoteGetterOptions, SortOrder},
         note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,
@@ -57,23 +57,23 @@ impl BalanceSet<UtilityContext> {
 }
 
 impl BalanceSet<&mut PrivateContext> {
-    pub fn add(self: Self, owner: AztecAddress, addend: u128) -> Option<NoteEmission<UintNote>> {
+    pub fn add(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<UintNote> {
         if addend == 0 as u128 {
-            Option::none()
+            OuterNoteEmission::new(Option::none())
         } else {
             // We fetch the nullifier public key hash from the registry / from our PXE
             let mut addend_note = UintNote::new(addend, owner);
 
             // docs:start:insert
-            Option::some(self.set.insert(addend_note))
+            OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
             // docs:end:insert
         }
     }
 
-    pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> Option<NoteEmission<UintNote>> {
+    pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
-        // try_sub may have subtracted more or less than amount. We must ensure that we subtracted at least as much as
+        // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
         self.add(owner, subtracted - amount)
@@ -193,7 +193,8 @@ mod test {
             let smaller_note_value = std::cmp::min(first_note_value, second_note_value);
             let larger_note_value = std::cmp::max(first_note_value, second_note_value);
 
-            let note = recipient_balance_set.sub(recipient, smaller_note_value).unwrap().note;
+            let note =
+                recipient_balance_set.sub(recipient, smaller_note_value).emission.unwrap().note;
             assert_eq(note.get_value(), larger_note_value - smaller_note_value);
         });
     }
