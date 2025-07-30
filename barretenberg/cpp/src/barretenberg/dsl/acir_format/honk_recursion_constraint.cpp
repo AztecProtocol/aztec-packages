@@ -55,7 +55,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
 
-    static constexpr size_t IPA_CLAIM_SIZE = bb::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t IPA_CLAIM_SIZE = stdlib::recursion::honk::RollupIO::IpaClaim::PUBLIC_INPUTS_SIZE;
 
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
@@ -222,6 +222,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
+    using RollupIO = stdlib::recursion::honk::RollupIO;
+    using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
@@ -257,11 +259,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         size_t size_of_proof_with_no_pub_inputs = input.proof.size();
         size_t total_num_public_inputs = input.public_inputs.size();
         if constexpr (HasIPAAccumulator<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= stdlib::recursion::honk::RollupIO::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += stdlib::recursion::honk::RollupIO::PUBLIC_INPUTS_SIZE;
+            size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
         } else {
-            size_of_proof_with_no_pub_inputs -= stdlib::recursion::honk::DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
-            total_num_public_inputs += stdlib::recursion::honk::DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
+            size_of_proof_with_no_pub_inputs -= DefaultIO::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += DefaultIO::PUBLIC_INPUTS_SIZE;
         }
 
         create_dummy_vkey_and_proof<Flavor>(

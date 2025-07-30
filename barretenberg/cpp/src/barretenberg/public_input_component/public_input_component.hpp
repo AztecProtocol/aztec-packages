@@ -17,7 +17,7 @@ namespace bb {
  * @brief A concept defining requirements for types that are to be deserialized from the public inputs of a circuit
  * via the PublicInputComponent class.
  *
- * @tparam ComponentType The type of the object to be serialized
+ * @tparam ComponentType The type of the object to be deserialized
  */
 template <typename ComponentType>
 concept IsDeserializableFromPublicInputs =
@@ -33,7 +33,7 @@ concept IsDeserializableFromPublicInputs =
 /**
  * @brief A wrapper class for deserializing objects from the public inputs of a circuit
  *
- * @tparam ComponentType A type that satisfies the IsSerializableToAndFromPublicInputs concept
+ * @tparam ComponentType A type that satisfies the IsDeserializableFromPublicInputs concept
  */
 template <typename ComponentType>
     requires IsDeserializableFromPublicInputs<ComponentType>
