@@ -1,22 +1,42 @@
 import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { TestExecutorMetrics, defaultGlobals } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+
+import { mkdirSync, writeFileSync } from 'fs';
+import path from 'path';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
 describe('AVM bulk test', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
+  const metrics = new TestExecutorMetrics();
   let tester: AvmProvingTester;
+  const logger = createLogger('avm-bulk-test');
 
-  beforeEach(async () => {
-    tester = await AvmProvingTester.new();
+  beforeAll(async () => {
+    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ false, /*globals=*/ defaultGlobals(), metrics);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
       AvmTestContractArtifact,
     );
+    tester.setMetricsPrefix('bb-prover');
+  });
+
+  afterAll(() => {
+    if (process.env.BENCH_OUTPUT) {
+      mkdirSync(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
+      writeFileSync(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
+    } else if (process.env.BENCH_OUTPUT_MD) {
+      writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
+    } else {
+      logger.info(`\n`); // sometimes jest tests obscure the last line(s)
+      logger.info(metrics.toPrettyString());
+    }
   });
 
   it('Prove and verify', async () => {
@@ -51,6 +71,7 @@ describe('AVM bulk test', () => {
           noteHashes: [new Fr(420003)],
         },
       },
+      'bulk_test',
     );
   }, 180_000);
 });

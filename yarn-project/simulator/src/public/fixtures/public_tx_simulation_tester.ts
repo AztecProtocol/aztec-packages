@@ -120,7 +120,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     await this.setFeePayerBalance(feePayer);
 
-    const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
+    const txLabelWithCount = `${txLabel}/${this.txCount}`;
     const fullTxLabel = this.metricsPrefix ? `${this.metricsPrefix}/${txLabelWithCount}` : txLabelWithCount;
 
     const avmResult = await this.simulator.simulate(tx, fullTxLabel);
