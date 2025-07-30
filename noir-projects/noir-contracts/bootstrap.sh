@@ -148,15 +148,12 @@ function compile {
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $1)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    if [ "${VERBOSE:-0}" -eq 0 ]; then
-      local args="--silence-warnings"
-    fi
-    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0 --pedantic-solving
+    $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
 
-  # We segregate equivalent vk's created by processs_function. This was done to narrow down potential edge cases with identical VKs
+  # We segregate equivalent vk's created by process_function. This was done to narrow down potential edge cases with identical VKs
   # reading from cache at the same time. Create this folder up-front.
   mkdir -p $tmp_dir/$contract_hash
 

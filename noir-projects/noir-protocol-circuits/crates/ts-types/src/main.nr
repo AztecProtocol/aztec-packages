@@ -19,20 +19,18 @@ use dep::types::{
 // This is a temporary workaround to make the noir codegen generate the ts type definitions for the following structs.
 // Remove this file once this issue is fixed: https://github.com/noir-lang/noir/issues/9026
 fn main(
-    note_hash: NoteHash,
-    scoped_note_hash: ScopedNoteHash,
-    nullifier: Nullifier,
-    scoped_nullifier: ScopedNullifier,
-    private_log_data: PrivateLogData,
-    log_hash: LogHash,
-    private_call_request: PrivateCallRequest,
-    public_call_request: PublicCallRequest,
-    read_request: ReadRequest,
-    scoped_read_request: ScopedReadRequest,
-    key_validation_request: KeyValidationRequestAndGenerator,
-    scoped_key_validation_request: ScopedKeyValidationRequestAndGenerator,
-    l2_to_l1_message: L2ToL1Message,
-    counted: Counted<u32>,
-) -> pub u32 {
-    0
-}
+    _note_hash: NoteHash,
+    _scoped_note_hash: ScopedNoteHash,
+    _nullifier: Nullifier,
+    _scoped_nullifier: ScopedNullifier,
+    _private_log_data: PrivateLogData,
+    _log_hash: LogHash,
+    _private_call_request: PrivateCallRequest,
+    _public_call_request: PublicCallRequest,
+    _read_request: ReadRequest,
+    _scoped_read_request: ScopedReadRequest,
+    _key_validation_request: KeyValidationRequestAndGenerator,
+    _scoped_key_validation_request: ScopedKeyValidationRequestAndGenerator,
+    _l2_to_l1_message: L2ToL1Message,
+    _counted: Counted<u32>,
+) {}
