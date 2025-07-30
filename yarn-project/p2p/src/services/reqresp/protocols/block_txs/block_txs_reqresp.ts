@@ -32,9 +32,10 @@ export class BlockTxsRequest {
       return undefined; // No missing txs to request
     }
 
-    const missingHashesSet = new Set(missingTxHashes);
+    const missingHashesSet = new Set(missingTxHashes.map(t => t.toString()));
+
     const missingIndices = blockProposal.txHashes
-      .map((hash, idx) => (missingHashesSet.has(hash) ? idx : -1))
+      .map((hash, idx) => (missingHashesSet.has(hash.toString()) ? idx : -1))
       .filter(i => i != -1);
 
     if (missingIndices.length === 0) {
