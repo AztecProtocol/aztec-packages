@@ -26,7 +26,7 @@ pub contract Token {
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
+        messages::logs::note::emit_note_in_private_log,
         state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
@@ -235,7 +235,15 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        let maybe_from_note_emission = storage.balances.at(from).sub(from, amount);
+        if maybe_from_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_from_note_emission.unwrap_unchecked(),
+                &mut context,
+                from,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
     // docs:end:transfer_to_public
@@ -262,7 +270,15 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) -> PartialUintNote {
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        let maybe_from_note_emission = storage.balances.at(from).sub(from, amount);
+        if maybe_from_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_from_note_emission.unwrap_unchecked(),
+                &mut context,
+                from,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
 
         // We prepare the private balance increase (the partial note for the change).
@@ -287,14 +303,26 @@ pub contract Token {
             amount,
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
-        storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
-            &mut context,
-            from,
-        ));
-        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
-            &mut context,
-            to,
-        ));
+        let maybe_change_note_emission = storage.balances.at(from).add(from, change);
+
+        if maybe_change_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_change_note_emission.unwrap_unchecked(),
+                &mut context,
+                from,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
+
+        let maybe_to_note_emission = storage.balances.at(to).add(to, amount);
+        if maybe_to_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_to_note_emission.unwrap_unchecked(),
+                &mut context,
+                to,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
@@ -385,9 +413,25 @@ pub contract Token {
         authwit_nonce: Field,
     ) {
         // docs:start:increase_private_balance
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        let maybe_from_note_emission = storage.balances.at(from).sub(from, amount);
+        if maybe_from_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_from_note_emission.unwrap_unchecked(),
+                &mut context,
+                from,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
         // docs:end:increase_private_balance
-        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to));
+        let maybe_to_note_emission = storage.balances.at(to).add(to, amount);
+        if maybe_to_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_to_note_emission.unwrap_unchecked(),
+                &mut context,
+                to,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
     }
     // docs:end:transfer_in_private
 
@@ -395,7 +439,15 @@ pub contract Token {
     #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        let maybe_from_note_emission = storage.balances.at(from).sub(from, amount);
+        if maybe_from_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_from_note_emission.unwrap_unchecked(),
+                &mut context,
+                from,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
     // docs:end:burn_private
@@ -492,7 +544,15 @@ pub contract Token {
         authwit_nonce: Field,
     ) {
         // First we subtract the `amount` from the private balance of `from`
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        let maybe_from_note_emission = storage.balances.at(from).sub(from, amount);
+        if maybe_from_note_emission.is_some() {
+            emit_note_in_private_log(
+                maybe_from_note_emission.unwrap_unchecked(),
+                &mut context,
+                from,
+                PrivateLogContent.NO_CONSTRAINTS,
+            );
+        }
 
         partial_note.complete_from_private(&mut context, context.msg_sender(), amount);
     }

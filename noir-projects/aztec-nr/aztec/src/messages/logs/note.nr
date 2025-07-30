@@ -1,5 +1,6 @@
 use crate::{
     context::PrivateContext,
+    event::event_interface::PrivateLogContent,
     messages::{
         encoding::encode_message,
         encryption::{aes128::AES128, log_encryption::LogEncryption},
@@ -8,7 +9,10 @@ use crate::{
         offchain_messages::emit_offchain_message,
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    utils::{array::subarray::subarray, remove_constraints::remove_constraints},
+    utils::{
+        array::subarray::subarray,
+        remove_constraints::{remove_constraints, remove_constraints_if},
+    },
 };
 use protocol_types::{
     abis::note_hash::NoteHash,
@@ -80,8 +84,44 @@ where
     log
 }
 
+/// Emits a note in a private log, encrypting it such that only `recipient` will learn of its contents. The log will
+/// be tagged using a shared secret between `sender` and `recipient`, so that `recipient` can efficiently find the log.
+///
+/// The `constraints` value determines what parts of this computation will be constrained. See the documentation for
+/// each value in `PrivateLogContentConstraintsEnum` to learn more about the different variants.
+pub fn emit_note_in_private_log<Note>(
+    note_emission: NoteEmission<Note>,
+    context: &mut PrivateContext,
+    recipient: AztecAddress,
+    constraints: u8,
+)
+where
+    Note: NoteType + Packable,
+{
+    // This function relies on `constraints` being a constant in order to reduce circuit constraints when unconstrained
+    // usage is requested. If `constraints` were a runtime value then performance would suffer.
+    assert_constant(constraints);
+
+    let note = note_emission.note;
+    let storage_slot = note_emission.storage_slot;
+    let note_hash_counter = note_emission.note_hash_counter;
+
+    assert_note_exists(*context, note_hash_counter);
+
+    let encrypted_log = remove_constraints_if(
+        constraints == PrivateLogContent.NO_CONSTRAINTS,
+        || compute_note_log(note, storage_slot, recipient),
+    );
+
+    // Regardless of the original note size `N`, the log is padded with random bytes up to
+    // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+    let length = encrypted_log.len();
+    context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
+}
+
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.
+// TODO: Nuke
 pub fn encode_and_encrypt_note<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -108,6 +148,7 @@ where
 /// decrypt and process the payload, **leading to the note being lost**.
 ///
 /// Only use this function in scenarios where the recipient not receiving the note is an acceptable outcome.
+// TODO: Nuke
 pub fn encode_and_encrypt_note_unconstrained<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
