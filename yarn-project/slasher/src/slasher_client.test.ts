@@ -18,6 +18,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import type { Anvil } from '@viem/anvil';
 import EventEmitter from 'node:events';
@@ -28,7 +29,6 @@ import { foundry } from 'viem/chains';
 import {
   DefaultSlasherConfig,
   Offense,
-  type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
