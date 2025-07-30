@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -13,7 +14,7 @@ template <typename FF_> class send_l2_to_l1_msgImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 5, 4, 4, 3, 3 };
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -30,13 +31,22 @@ template <typename FF_> class send_l2_to_l1_msgImpl {
     {
         using C = ColumnAndShifts;
 
+        PROFILE_THIS_NAME("accumulate/send_l2_to_l1_msg");
+
         const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
         const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(503);
         const auto execution_REMAINING_L2_TO_L1_MSG_WRITES =
             (constants_MAX_L2_TO_L1_MSGS_PER_TX - in.get(C::execution_num_l2_to_l1_messages));
 
-        { // MAX_WRITES_REACHED
+        {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_l2_to_l1_msg_limit_error) *
+                       (FF(1) - in.get(C::execution_sel_l2_to_l1_msg_limit_error));
+            tmp *= scaling_factor;
+            std::get<0>(evals) += typename Accumulator::View(tmp);
+        }
+        { // MAX_WRITES_REACHED
+            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
                        ((execution_REMAINING_L2_TO_L1_MSG_WRITES *
                              (in.get(C::execution_sel_l2_to_l1_msg_limit_error) *
@@ -45,41 +55,41 @@ template <typename FF_> class send_l2_to_l1_msgImpl {
                          FF(1)) +
                         in.get(C::execution_sel_l2_to_l1_msg_limit_error));
             tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
+            std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // OPCODE_ERROR
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
                        ((FF(1) - in.get(C::execution_sel_l2_to_l1_msg_limit_error)) *
                             (FF(1) - in.get(C::execution_is_static)) -
                         (FF(1) - in.get(C::execution_sel_opcode_error)));
             tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
+            std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+        { // SEND_L2_TO_L1_MSG_CONDITION
+            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
                        ((FF(1) - in.get(C::execution_sel_opcode_error)) * (FF(1) - in.get(C::execution_discard)) -
                         in.get(C::execution_sel_write_l2_to_l1_msg));
             tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
+            std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
                        ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
                          in.get(C::execution_num_l2_to_l1_messages)) -
                         in.get(C::execution_public_inputs_index));
             tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
+            std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         { // EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
                        ((in.get(C::execution_num_l2_to_l1_messages) + in.get(C::execution_sel_write_l2_to_l1_msg)) -
                         in.get(C::execution_next_num_l2_to_l1_messages));
             tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
+            std::get<5>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -91,20 +101,23 @@ template <typename FF> class send_l2_to_l1_msg : public Relation<send_l2_to_l1_m
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
-            return "MAX_WRITES_REACHED";
         case 1:
+            return "MAX_WRITES_REACHED";
+        case 2:
             return "OPCODE_ERROR";
-        case 4:
+        case 3:
+            return "SEND_L2_TO_L1_MSG_CONDITION";
+        case 5:
             return "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_MAX_WRITES_REACHED = 0;
-    static constexpr size_t SR_OPCODE_ERROR = 1;
-    static constexpr size_t SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE = 4;
+    static constexpr size_t SR_MAX_WRITES_REACHED = 1;
+    static constexpr size_t SR_OPCODE_ERROR = 2;
+    static constexpr size_t SR_SEND_L2_TO_L1_MSG_CONDITION = 3;
+    static constexpr size_t SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE = 5;
 };
 
 } // namespace bb::avm2

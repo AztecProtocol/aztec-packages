@@ -132,5 +132,57 @@ TEST(SendL2ToL1MsgConstrainingTest, Interactions)
     check_interaction<ExecutionTraceBuilder, lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings>(trace);
 }
 
+TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldErrorIfStatic)
+{
+    TestTraceContainer trace({ {
+        { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_sel_l2_to_l1_msg_limit_error, 0 },
+        { C::execution_is_static, 1 },
+        { C::execution_sel_opcode_error, 1 },
+
+    } });
+    check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR);
+
+    // Negative test: sel_opcode_error must be on
+    trace.set(C::execution_sel_opcode_error, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR),
+                              "OPCODE_ERROR");
+}
+
+TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNotWriteIfDiscard)
+{
+    TestTraceContainer trace({ {
+        { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_sel_opcode_error, 0 },
+        { C::execution_discard, 1 },
+        { C::execution_sel_write_l2_to_l1_msg, 0 },
+    } });
+    check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_SEND_L2_TO_L1_MSG_CONDITION);
+
+    // Negative test: sel_write_l2_to_l1_msg must be off
+    trace.set(C::execution_sel_write_l2_to_l1_msg, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_SEND_L2_TO_L1_MSG_CONDITION),
+        "SEND_L2_TO_L1_MSG_CONDITION");
+}
+
+TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNumL2ToL1MessagesIncrease)
+{
+    TestTraceContainer trace({ {
+        { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_sel_write_l2_to_l1_msg, 1 },
+        { C::execution_num_l2_to_l1_messages, 0 },
+        { C::execution_next_num_l2_to_l1_messages, 1 },
+    } });
+    check_relation<send_l2_to_l1_msg>(trace,
+                                      send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE);
+
+    // Negative test: num_l2_to_l1_messages must increase
+    trace.set(C::execution_num_l2_to_l1_messages, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
+                                  trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
+                              "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
