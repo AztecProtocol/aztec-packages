@@ -95,6 +95,29 @@ std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree
     };
 }
 
+std::vector<std::pair<Column, FF>> insert_side_effect_states(const SideEffectStates& prev_side_effect_states,
+                                                             const SideEffectStates& next_side_effect_states)
+{
+    return {
+        {
+            Column::tx_prev_num_unencrypted_logs,
+            prev_side_effect_states.numUnencryptedLogs,
+        },
+        {
+            Column::tx_prev_num_l2_to_l1_messages,
+            prev_side_effect_states.numL2ToL1Messages,
+        },
+        {
+            Column::tx_next_num_unencrypted_logs,
+            next_side_effect_states.numUnencryptedLogs,
+        },
+        {
+            Column::tx_next_num_l2_to_l1_messages,
+            next_side_effect_states.numL2ToL1Messages,
+        },
+    };
+}
+
 // Helper to retrieve the read and write offsets and populate the read and write counters
 std::vector<std::pair<Column, FF>> handle_pi_read_write(TransactionPhase phase,
                                                         uint32_t phase_length,
@@ -369,6 +392,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(
                 row,
                 insert_tree_state(tx_phase_event->state_before.tree_states, tx_phase_event->state_after.tree_states));
+            trace.set(row,
+                      insert_side_effect_states(tx_phase_event->state_before.side_effect_states,
+                                                tx_phase_event->state_after.side_effect_states));
             trace.set(row,
                       { {
                           { C::tx_sel, 1 },

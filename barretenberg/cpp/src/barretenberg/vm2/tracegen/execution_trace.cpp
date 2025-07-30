@@ -415,6 +415,11 @@ void ExecutionTraceBuilder::process(
                 { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
                 { C::execution_l1_l2_tree_size,
                   ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
+                // Context - side effects
+                { C::execution_num_unencrypted_logs,
+                  ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
+                { C::execution_next_num_unencrypted_logs,
+                  ex_event.after_context_event.side_effect_states.numUnencryptedLogs },
                 // Other.
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Helpers for identifying parent context
@@ -517,6 +522,8 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
                               // Don't set dyn gas factor here since already set in process_gas
                           } });
+            } else if (exec_opcode == ExecutionOpCode::EMITUNENCRYPTEDLOG) {
+                trace.set(C::execution_dynamic_da_gas_factor, row, registers[1].as<uint32_t>());
             }
         }
 

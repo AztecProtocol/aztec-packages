@@ -36,6 +36,8 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(const AztecAddress&, get_msg_sender, (), (const, override));
     MOCK_METHOD(const FF&, get_transaction_fee, (), (const, override));
     MOCK_METHOD(bool, get_is_static, (), (const, override));
+    MOCK_METHOD(SideEffectStates&, get_side_effect_states, (), (override));
+    MOCK_METHOD(void, set_side_effect_states, (SideEffectStates side_effect_states), (override));
     MOCK_METHOD(const GlobalVariables&, get_globals, (), (const, override));
 
     // Input / Output.

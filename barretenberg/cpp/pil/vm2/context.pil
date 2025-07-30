@@ -87,6 +87,13 @@ namespace execution;
     pol commit l1_l2_tree_root;
     pol commit l1_l2_tree_size;
 
+    // Side effects state // TODO(alvaro): Add to context stack and restore
+    pol commit num_unencrypted_logs; // TODO: Constrain counts changing unless specific opcode selectors are on
+
+
+    // Next side effects state
+    pol commit next_num_unencrypted_logs;
+
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs
     pol NOT_LAST_EXEC = sel * sel';

@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/data_copy.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
+#include "barretenberg/vm2/simulation/emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
@@ -65,6 +66,7 @@ class Execution : public ExecutionInterface {
               KeccakF1600Interface& keccakf1600,
               GreaterThanInterface& greater_than,
               GetContractInstanceInterface& get_contract_instance_component,
+              EmitUnencryptedLogInterface& emit_unencrypted_log_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
@@ -79,6 +81,7 @@ class Execution : public ExecutionInterface {
         , keccakf1600(keccakf1600)
         , greater_than(greater_than)
         , get_contract_instance_component(get_contract_instance_component)
+        , emit_unencrypted_log_component(emit_unencrypted_log_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
@@ -165,6 +168,7 @@ class Execution : public ExecutionInterface {
                      MemoryAddress num_limbs_addr,
                      MemoryAddress is_output_bits_addr,
                      MemoryAddress dst_addr);
+    void emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -207,6 +211,7 @@ class Execution : public ExecutionInterface {
     KeccakF1600Interface& keccakf1600;
     GreaterThanInterface& greater_than;
     GetContractInstanceInterface& get_contract_instance_component;
+    EmitUnencryptedLogInterface& emit_unencrypted_log_component;
     HighLevelMerkleDBInterface& merkle_db;
 
     EventEmitterInterface<ExecutionEvent>& events;

@@ -297,7 +297,8 @@ void Execution::call(ContextInterface& context,
                                                                /*cd_offset_addr=*/cd_offset,
                                                                /*cd_size_addr=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/false,
-                                                               /*gas_limit=*/gas_limit);
+                                                               /*gas_limit=*/gas_limit,
+                                                               /*side_effect_states=*/context.get_side_effect_states());
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -872,6 +873,27 @@ void Execution::to_radix_be(ContextInterface& context,
     }
 }
 
+void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG;
+    auto& memory = context.get_memory();
+
+    auto first_field = memory.get(log_offset);
+    auto log_size = memory.get(log_size_offset);
+    set_and_validate_inputs(opcode, { first_field, log_size });
+    uint32_t log_size_int = log_size.as<uint32_t>();
+
+    get_gas_tracker().consume_gas({ .daGas = log_size_int });
+
+    // Call the dedicated opcode component to emit the log
+    try {
+        emit_unencrypted_log_component.emit_unencrypted_log(
+            memory, context, context.get_address(), log_offset, log_size_int);
+    } catch (const EmitUnencryptedLogException& e) {
+        throw OpcodeExecutionException("EmitUnencryptedLog Exception");
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -1013,9 +1035,12 @@ void Execution::handle_exit_call()
         parent_context.set_last_rd_addr(result.rd_offset);
         parent_context.set_last_rd_size(result.rd_size);
         parent_context.set_last_success(result.success);
-        parent_context.set_child_context(std::move(child_context));
         // Safe since the nested context gas limit should be clamped to the available gas.
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
+        if (result.success) {
+            parent_context.set_side_effect_states(child_context->get_side_effect_states());
+        }
+        parent_context.set_child_context(std::move(child_context));
 
         // TODO(fcarreiro): move somewhere else.
         if (parent_context.get_checkpoint_id_at_creation() != merkle_db.get_checkpoint_id()) {
@@ -1161,6 +1186,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::TORADIXBE:
         call_with_operands(&Execution::to_radix_be, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITUNENCRYPTEDLOG:
+        call_with_operands(&Execution::emit_unencrypted_log, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

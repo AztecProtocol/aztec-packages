@@ -25,6 +25,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_ecc.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_emit_unencrypted_log.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
@@ -88,6 +89,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockEcc> ecc;
     StrictMock<MockToRadix> to_radix;
+    StrictMock<MockEmitUnencryptedLog> emit_unencrypted_log;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -103,6 +105,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   keccakf1600,
                                                   greater_than,
                                                   get_contract_instance,
+                                                  emit_unencrypted_log,
                                                   merkle_db);
 };
 
@@ -186,7 +189,11 @@ TEST_F(ExecutionSimulationTest, Call)
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }))
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
+    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effect_states));
+
+    EXPECT_CALL(context_provider,
+                make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }, side_effect_states))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,
@@ -892,6 +899,27 @@ TEST_F(ExecutionSimulationTest, ToRadixBE)
     EXPECT_CALL(to_radix, to_be_radix);
 
     execution.to_radix_be(context, value_addr, radix_addr, num_limbs_addr, is_output_bits_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
+{
+    MemoryAddress log_offset = 10;
+    MemoryAddress log_size_offset = 20;
+    MemoryValue first_field = MemoryValue::from<FF>(42);
+    MemoryValue log_size = MemoryValue::from<uint32_t>(10);
+    AztecAddress address = 0xdeadbeef;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(log_offset)).WillOnce(ReturnRef(first_field));
+    EXPECT_CALL(memory, get(log_size_offset)).WillOnce(ReturnRef(log_size));
+
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
+
+    EXPECT_CALL(emit_unencrypted_log, emit_unencrypted_log(_, _, address, log_offset, log_size.as<uint32_t>()));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, log_size.as<uint32_t>() }));
+
+    execution.emit_unencrypted_log(context, log_offset, log_size_offset);
 }
 
 } // namespace

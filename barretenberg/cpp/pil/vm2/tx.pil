@@ -188,6 +188,9 @@ namespace tx;
     //     prev_public_data_tree_size,
     //     prev_written_public_data_slots_tree_root,
     //     prev_written_public_data_slots_tree_size,
+    //     // Side Effect States
+    //     prev_num_unencrypted_logs,
+    //     prev_num_l2_to_l1_messages,
     //     // Gas Info
     //     prev_l2_gas_used_sent_to_enqueued_call,
     //     prev_da_gas_used_sent_to_enqueued_call,
@@ -211,6 +214,9 @@ namespace tx;
     //     execution.prev_public_data_tree_size,
     //     execution.prev_written_public_data_slots_tree_root,
     //     execution.prev_written_public_data_slots_tree_size,
+    //     // Side Effect States
+    //     execution.num_unencrypted_logs,
+    //     execution.num_l2_to_l1_messages,
     //     // Gas Info
     //     execution.prev_l2_gas_used_sent_to_enqueued_call,
     //     execution.prev_da_gas_used_sent_to_enqueued_call,
@@ -238,6 +244,9 @@ namespace tx;
     //    next_written_public_data_slots_tree_size,
     //    next_l1_l2_tree_root,
     //    next_l1_l2_tree_size,
+    //    // Side Effect States
+    //    next_num_unencrypted_logs,
+    //    next_num_l2_to_l1_messages,
     //    // Gas Info
     //    next_l2_gas_used_sent_to_enqueued_call,
     //    next_da_gas_used_sent_to_enqueued_call
@@ -259,6 +268,9 @@ namespace tx;
     //    execution.written_public_data_slots_tree_size,
     //    execution.l1_l2_tree_root,
     //    execution.l1_l2_tree_size,
+    //    // Side Effect States
+    //    execution.next_num_unencrypted_logs,
+    //    execution.next_num_l2_to_l1_messages,
     //    // Gas Info
     //    execution.l2_gas_used_sent_to_enqueued_call,
     //    execution.da_gas_used_sent_to_enqueued_call
@@ -372,6 +384,13 @@ namespace tx;
 
     pol commit next_l1_l2_tree_root;
     pol commit next_l1_l2_tree_size;
+
+    // Prev side effect states
+    pol commit prev_num_unencrypted_logs;
+    pol commit prev_num_l2_to_l1_messages;
+    // Next side effect states
+    pol commit next_num_unencrypted_logs;
+    pol commit next_num_l2_to_l1_messages;
 
     // L2 - L1 Messages
     pol commit is_l2_l1_msg_phase;

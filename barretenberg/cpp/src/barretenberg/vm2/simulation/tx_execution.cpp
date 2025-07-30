@@ -73,7 +73,9 @@ void TxExecution::simulate(const Tx& tx)
                                                               call.calldata,
                                                               call.request.isStaticCall,
                                                               gas_limit,
-                                                              tx_context.gas_used);
+                                                              tx_context.gas_used,
+                                                              tx_context.side_effect_states);
+        tx_context.side_effect_states = context->get_side_effect_states();
         ExecutionResult result = call_execution.execute(std::move(context));
         tx_context.gas_used = result.gas_used;
         emit_public_call_request(call,
@@ -103,7 +105,9 @@ void TxExecution::simulate(const Tx& tx)
                                                                   call.calldata,
                                                                   call.request.isStaticCall,
                                                                   gas_limit,
-                                                                  tx_context.gas_used);
+                                                                  tx_context.gas_used,
+                                                                  tx_context.side_effect_states);
+            tx_context.side_effect_states = context->get_side_effect_states();
             ExecutionResult result = call_execution.execute(std::move(context));
             tx_context.gas_used = result.gas_used;
             emit_public_call_request(call,
@@ -149,7 +153,9 @@ void TxExecution::simulate(const Tx& tx)
                                                                   tx.teardownEnqueuedCall->request.isStaticCall,
                                                                   // Teardown has its own gas limit and usage.
                                                                   tx.gasSettings.teardownGasLimits,
-                                                                  Gas{ 0, 0 });
+                                                                  Gas{ 0, 0 },
+                                                                  tx_context.side_effect_states);
+            tx_context.side_effect_states = context->get_side_effect_states();
             ExecutionResult result = call_execution.execute(std::move(context));
             // Check what to do here for GAS
             emit_public_call_request(*tx.teardownEnqueuedCall,

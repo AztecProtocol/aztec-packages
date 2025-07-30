@@ -12,7 +12,8 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
                                                                        MemoryAddress cd_offset_address,
                                                                        MemoryAddress cd_size_address,
                                                                        bool is_static,
-                                                                       Gas gas_limit)
+                                                                       Gas gas_limit,
+                                                                       SideEffectStates side_effect_states)
 {
     merkle_db.create_checkpoint(); // Fork DB just like in TS.
     uint32_t context_id = next_context_id++;
@@ -29,6 +30,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         merkle_db,
         written_public_data_slots_tree,
+        side_effect_states,
         parent_context,
         cd_offset_address,
         cd_size_address);
@@ -40,7 +42,8 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
                                                                          std::span<const FF> calldata,
                                                                          bool is_static,
                                                                          Gas gas_limit,
-                                                                         Gas gas_used)
+                                                                         Gas gas_used,
+                                                                         SideEffectStates side_effect_states)
 {
 
     uint32_t context_id = next_context_id++;
@@ -60,6 +63,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
         internal_call_stack_manager_provider.make_internal_call_stack_manager(context_id),
         merkle_db,
         written_public_data_slots_tree,
+        side_effect_states,
         calldata);
 }
 
