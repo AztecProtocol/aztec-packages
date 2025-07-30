@@ -744,11 +744,13 @@ export async function ensureAccountContractsPublished(sender: Wallet, accountsTo
   ).map(contractMetadata => contractMetadata.contractInstance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
+    await (await publishContractClass(sender, SchnorrAccountContractArtifact))
+      .send({ from: accountsToDeploy[0].getAddress() })
+      .wait();
   }
   const requests = await Promise.all(instances.map(async instance => await publishInstance(sender, instance!)));
   const batch = new BatchCall(sender, requests);
-  await batch.send().wait();
+  await batch.send({ from: accountsToDeploy[0].getAddress() }).wait();
 }
 // docs:end:public_deploy_accounts
 
@@ -788,11 +790,12 @@ export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(
   symbol: string,
   method: ContractMethod,
+  from: AztecAddress,
   logger: any,
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate()));
+    const b = await Promise.all(addresses.map(address => method(address).simulate({ from })));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;
