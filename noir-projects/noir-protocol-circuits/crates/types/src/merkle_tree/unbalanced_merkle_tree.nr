@@ -5,6 +5,7 @@ pub struct UnbalancedMerkleTree {
 }
 
 /// Calculates the root of the minimal size merkle tree required to store `num_non_empty_leaves`.
+///
 /// Since we cannot isolate branches, it cost more gates than using MerkleTree on the full array of elements `N`,
 /// but it may be cheaper on-chain when proving the membership of a leaf.
 impl UnbalancedMerkleTree {
@@ -39,6 +40,25 @@ fn compute_subtree_sizes<let MAX_SUBTREES: u32>(num_non_empty_leaves: u32) -> [u
     subtree_sizes
 }
 
+/// Computes the Merkle root of an unbalanced tree.
+///
+/// Unlike a balanced Merkle tree, which requires the number of leaves to be a power of two, an unbalanced tree can have
+/// any number of leaves.
+///
+/// The tree is constructed by iteratively extracting the smallest power-of-two-sized subtrees from **right to left**.
+/// For each such subtree, it computes the subtree root and then combines all subtree roots (again from right to left)
+/// into a single root using the provided hash function.
+///
+/// Note: We need the final tree to be as shallow as possible, to minimize the size of the sibling path required to
+/// prove membership of a leaf. Therefor, the computation proceeds from right to left - smaller subtrees must always be
+/// combined before being merged with a larger sibling on their left.
+///
+/// For example, consider an unbalanced tree made of three subtrees of sizes 2, 4, and 8. If we combine the size-2 and
+/// size-4 subtrees first (producing a subtree of depth 3), and then merge it with the size-8 subtree (also depth 3),
+/// the resulting tree has a maximum depth of 4.
+///
+/// But if we instead combine the size-4 and size-8 subtrees first (depth 4), and then merge with the size-2 subtree,
+/// the final tree has a depth of 5.
 pub fn compute_unbalanced_merkle_root<let N: u32, let MAX_SUBTREES: u32>(
     leaves: [Field; N],
     num_non_empty_leaves: u32,
@@ -120,13 +140,12 @@ pub fn compute_unbalanced_merkle_root<let N: u32, let MAX_SUBTREES: u32>(
 pub mod tests {
     use crate::{
         hash::accumulate_sha256,
-        merkle_tree::{
-            merkle_tree::compute_merkle_tree_root, unbalanced_merkle_tree::UnbalancedMerkleTree,
-        },
+        merkle_tree::{merkle_tree::MerkleTree, unbalanced_merkle_tree::UnbalancedMerkleTree},
     };
 
     fn compute_balanced_tree_root<let N: u32>(leaves: [Field; N]) -> Field {
-        compute_merkle_tree_root(leaves, accumulate_sha256)
+        let tree = MerkleTree::new_sha(leaves);
+        tree.get_root()
     }
 
     global NUM_TEST_LEAVES: u32 = 100;

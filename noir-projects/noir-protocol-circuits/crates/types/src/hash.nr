@@ -200,13 +200,9 @@ pub fn silo_l2_to_l1_message(
 /// @returns A truncated field (i.e., the first byte is always 0).
 pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
     // Concatenate two fields into 32 x 2 = 64 bytes
-    let mut hash_input_flattened = [0; 64];
     let v0_as_bytes: [u8; 32] = v0.to_be_bytes();
     let v1_as_bytes: [u8; 32] = v1.to_be_bytes();
-    for i in 0..32 {
-        hash_input_flattened[i] = v0_as_bytes[i];
-        hash_input_flattened[32 + i] = v1_as_bytes[i];
-    }
+    let hash_input_flattened = v0_as_bytes.concat(v1_as_bytes);
 
     sha256_to_field(hash_input_flattened)
 }

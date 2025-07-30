@@ -76,7 +76,7 @@ pub global NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH: u32 =
 pub global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: u32 =
     L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
 // Maximum number of subtrees a L2ToL1Msg wonky tree can have. Used when calculating the out hash of a tx.
-pub global MAX_L2_TO_L1_MSG_SUBTREES: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
+pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
 
 // "PER TRANSACTION" CONSTANTS
 pub global MAX_NOTE_HASHES_PER_TX: u32 = (1 as u8 << NOTE_HASH_SUBTREE_HEIGHT as u8) as u32;

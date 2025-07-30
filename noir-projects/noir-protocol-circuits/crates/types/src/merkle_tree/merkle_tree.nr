@@ -3,12 +3,12 @@ use crate::{hash::{accumulate_sha256, merkle_hash}, traits::Empty};
 #[derive(Eq)]
 pub struct MerkleTree<let N: u32> {
     pub leaves: [Field; N],
-    pub nodes: [Field; N],
+    pub nodes: [Field; N - 1],
 }
 
 impl<let N: u32> Empty for MerkleTree<N> {
     fn empty() -> Self {
-        MerkleTree { leaves: [0; N], nodes: [0; N] }
+        MerkleTree { leaves: [0; N], nodes: [0; N - 1] }
     }
 }
 
@@ -74,8 +74,8 @@ pub fn sibling_index(index: u32) -> u32 {
 fn compute_merkle_tree_nodes<let N: u32>(
     leaves: [Field; N],
     hasher: fn(Field, Field) -> Field,
-) -> [Field; N] {
-    let mut nodes = [0; N];
+) -> [Field; N - 1] {
+    let mut nodes = [0; N - 1];
 
     let total_nodes = N - 1;
     let half_size = N / 2;
@@ -91,12 +91,4 @@ fn compute_merkle_tree_nodes<let N: u32>(
     }
 
     nodes
-}
-
-pub fn compute_merkle_tree_root<let N: u32>(
-    leaves: [Field; N],
-    hasher: fn(Field, Field) -> Field,
-) -> Field {
-    let nodes = compute_merkle_tree_nodes(leaves, hasher);
-    nodes[N - 2]
 }

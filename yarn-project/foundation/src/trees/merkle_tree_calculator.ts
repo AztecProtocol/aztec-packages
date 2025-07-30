@@ -70,14 +70,22 @@ export class MerkleTreeCalculator {
     return leaves[0];
   }
 
-  static computeTreeRootSync(
-    leaves: Buffer[],
-    height = Math.log2(leaves.length),
-    zeroLeaf = Buffer.alloc(32),
-    hasher = sha256Trunc,
-  ): Buffer {
+  /**
+   * Computes the Merkle root with the provided leaves **synchronously**.
+   *
+   * This method uses a synchronous hash function (defaults to `sha256Trunc`) and **does not** allow for padding.
+   * If the number of leaves is not a power of two, it throws an error.
+   * This contrasts with the above non-static async method `computeTreeRoot`, which can handle any number of leaves by
+   * padding with zero hashes.
+   */
+  static computeTreeRootSync(leaves: Buffer[], hasher = sha256Trunc): Buffer {
     if (leaves.length === 0) {
-      return zeroLeaf;
+      throw new Error('Cannot compute a Merkle root with no leaves');
+    }
+
+    const height = Math.log2(leaves.length);
+    if (!Number.isInteger(height)) {
+      throw new Error('Cannot compute a Merkle root with a non-power-of-two number of leaves');
     }
 
     let nodes = leaves.slice();
@@ -86,7 +94,7 @@ export class MerkleTreeCalculator {
       let j = 0;
       for (; j < nodes.length / 2; ++j) {
         const l = nodes[j * 2];
-        const r = nodes[j * 2 + 1] || zeroLeaf;
+        const r = nodes[j * 2 + 1];
         nodes[j] = hasher(Buffer.concat([l, r]));
       }
       nodes = nodes.slice(0, j);
