@@ -226,7 +226,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:discv5_service`),
     );
 
-      // Seed libp2p's bootstrap discovery with private and trusted peers
+    // Seed libp2p's bootstrap discovery with private and trusted peers
     const bootstrapNodes = [...config.privatePeers, ...config.trustedPeers];
 
     const peerDiscovery = [];
