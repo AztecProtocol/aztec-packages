@@ -207,8 +207,12 @@ describe('ValidatorClient', () => {
 
     beforeEach(async () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
+      const parentHeader = makeHeader(1, 100, 100);
       contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
-      proposal = makeBlockProposal({ header: makeHeader(1, 100, 100, { contentCommitment }) });
+      proposal = makeBlockProposal(
+        { header: makeHeader(1, 100, 100, { contentCommitment }) },
+        parentHeader.toPropose().hash(),
+      );
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
       const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
@@ -237,6 +241,7 @@ describe('ValidatorClient', () => {
 
       blockSource.getBlock.mockResolvedValue({
         archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber),
+        header: parentHeader,
       } as L2Block);
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 

@@ -175,9 +175,7 @@ export class ProverNodePublisher {
     // Check the header has for the last block in the epoch (no archive committed for this block until proof is submitted)
     const endBlockLog = await this.rollupContract.getBlock(BigInt(toBlock));
     if (publicInputs.proposedBlockHeaderHashes[toBlock - fromBlock]?.toString() !== endBlockLog.headerHash) {
-      throw new Error(
-        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`,
-      );
+      throw new Error(`End header hash mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`);
     }
 
     // Check the batched blob inputs from the root rollup against the batched blob computed in ts
