@@ -609,7 +609,9 @@ describe('e2e_block_building', () => {
 
     afterEach(() => teardown());
 
-    it('detects an upcoming reorg and builds a block for the correct slot', async () => {
+    // TODO: Re-enable once the error regex in test patterns is fixed. For more context see this discussion on slack:
+    // https://aztecprotocol.slack.com/archives/C04BTJAA694/p1753780080508249
+    it.skip('detects an upcoming reorg and builds a block for the correct slot', async () => {
       // Advance to a fresh epoch and mark the current one as proven
       await cheatCodes.rollup.advanceToNextEpoch();
       await cheatCodes.rollup.markAsProven();
