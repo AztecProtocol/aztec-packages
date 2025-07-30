@@ -96,10 +96,7 @@ class Goblin {
      * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param inputs_commitments Commitments used by the verifier to run the verification algorithm. They contain the
-     * subtable commitments data, containing the commitments to t_j read from the transcript by the PG verifier with
-     * which the Merge verifier shares a transcript, and the commitments to the full op_queue table after the previous
-     * iteration of merge
+     * @param inputs_commitments The commitment used by the Merge verifier
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
@@ -112,10 +109,7 @@ class Goblin {
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
      *
      * @param proof
-     * @param inputs_commitments Commitments used by the verifier to run the verification algorithm. They contain the
-     * subtable commitments data, containing the commitments to t_j read from the transcript by the PG verifier with
-     * which the Merge verifier shares a transcript, and the commitments to the full op_queue table after the previous
-     * iteration of merge
+     * @param inputs_commitments The commitments used by the Merge verifier
      * @param merged_table_commitment The commitment to the merged table as read from the proof
      * @param transcript
      *

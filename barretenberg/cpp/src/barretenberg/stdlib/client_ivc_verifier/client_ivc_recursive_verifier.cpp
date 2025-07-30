@@ -27,12 +27,12 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
 
     // Perform Goblin recursive verification
     GoblinVerificationKey goblin_verification_key{};
-    MergeCommitments merge_commitments;
-    merge_commitments.t_commitments = verifier.key->witness_commitments.get_ecc_op_wires()
-                                          .get_copy(); // Commitments to subtables added by the hiding kernel
-    merge_commitments.T_prev_commitments = std::move(
-        mega_output
-            .ecc_op_tables); // Commitments to the state of the ecc op_queue as computed insided the hiding kernel
+    MergeCommitments merge_commitments{
+        .t_commitments = verifier.key->witness_commitments.get_ecc_op_wires()
+                             .get_copy(), // Commitments to subtables added by the hiding kernel
+        .T_prev_commitments = std::move(mega_output.ecc_op_tables) // Commitments to the state of the ecc op_queue as
+                                                                   // computed insided the hiding kernel
+    };
     GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key, civc_rec_verifier_transcript };
     GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof, merge_commitments);
     output.points_accumulator.aggregate(mega_output.points_accumulator);
