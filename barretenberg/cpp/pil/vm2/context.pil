@@ -87,8 +87,9 @@ namespace execution;
     pol commit l1_l2_tree_root;
     pol commit l1_l2_tree_size;
 
-    // Side effects state
-    pol commit num_unencrypted_logs;
+    // Side effects state // TODO(alvaro): Add to context stack and restore
+    pol commit num_unencrypted_logs; // TODO: Constrain counts changing unless specific opcode selectors are on
+
 
     // Next side effects state
     pol commit next_num_unencrypted_logs;
