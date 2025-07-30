@@ -119,9 +119,45 @@ where
     context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
 }
 
+/// Emits a note as an offchain message. Similar to private log emission but uses offchain message mechanism instead.
+///
+/// Unlike private log emission, encryption here is always unconstrained. This design choice stems from the nature of
+/// offchain messages - they lack guaranteed delivery, unlike private logs. Without delivery guarantees, smart
+/// contracts cannot make assumptions about a message being delivered, making constrained encryption unnecessary.
+/// However, message integrity remains protected through cryptographic commitments in the note hash tree.
+/// For guaranteed delivery, use `emit_note_in_private_log` with private logs instead.
+pub fn emit_note_as_offchain_message<Note>(
+    note_emission: NoteEmission<Note>,
+    context: &mut PrivateContext,
+    recipient: AztecAddress,
+)
+where
+    Note: NoteType + Packable,
+{
+    let note = note_emission.note;
+    let storage_slot = note_emission.storage_slot;
+    let note_hash_counter = note_emission.note_hash_counter;
+
+    assert_note_exists(*context, note_hash_counter);
+
+    // Safety: this function does not constrain the encryption of the log, as explained above.
+    let encrypted_log =
+        unsafe { remove_constraints(|| compute_note_log(note, storage_slot, recipient)) };
+
+    // Remove the tag from the log
+    let message_ciphertext: [_; PRIVATE_LOG_CIPHERTEXT_LEN] = subarray(encrypted_log, 1);
+
+    // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+    // which we don't use for anything besides its side effects, therefore this is safe to call.
+    unsafe {
+        emit_offchain_message(message_ciphertext, recipient);
+    }
+}
+
+// ############### What follows is an old API that is to be nuked ############### //
+
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
 /// private logs.
-// TODO: Nuke
 pub fn encode_and_encrypt_note<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -148,7 +184,6 @@ where
 /// decrypt and process the payload, **leading to the note being lost**.
 ///
 /// Only use this function in scenarios where the recipient not receiving the note is an acceptable outcome.
-// TODO: Nuke
 pub fn encode_and_encrypt_note_unconstrained<Note>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
