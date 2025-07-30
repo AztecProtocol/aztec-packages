@@ -72,9 +72,9 @@ import type {
   AvmProofData as AvmProofDataNoir,
   BLS12_381_Fq as BLS12FqNoir,
   BLS12_381_Fr as BLS12FrNoir,
+  BLS12_381 as BLS12PointNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
-  BigCurve,
   BlobAccumulatorPublicInputs as BlobAccumulatorPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockConstantData as BlockConstantDataNoir,
@@ -190,14 +190,14 @@ export function mapBLS12FqToNoir(number: BLS12Fq): BLS12FqNoir {
 }
 
 /**
- * @param number - The BigCurve representing the point.
+ * @param point - The BLS12_381 point.
  * @returns The point
  */
-export function mapBLS12PointFromNoir(bigcurve: BigCurve): BLS12Point {
-  return new BLS12Point(mapBLS12FqFromNoir(bigcurve.x), mapBLS12FqFromNoir(bigcurve.y), bigcurve.is_infinity);
+export function mapBLS12PointFromNoir(point: BLS12PointNoir): BLS12Point {
+  return new BLS12Point(mapBLS12FqFromNoir(point.x), mapBLS12FqFromNoir(point.y), point.is_infinity);
 }
 
-export function mapBLS12PointToNoir(point: BLS12Point): BigCurve {
+export function mapBLS12PointToNoir(point: BLS12Point): BLS12PointNoir {
   return {
     x: mapBLS12FqToNoir(point.x),
     y: mapBLS12FqToNoir(point.y),

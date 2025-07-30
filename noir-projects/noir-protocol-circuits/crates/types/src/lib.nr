@@ -33,7 +33,7 @@ pub mod validate;
 pub mod meta;
 pub mod indexed_tagging_secret;
 
-pub(crate) mod tests;
+pub mod tests;
 
 pub use abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
