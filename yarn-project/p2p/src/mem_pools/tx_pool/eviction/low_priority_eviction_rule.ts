@@ -4,15 +4,12 @@ import type { TxHash } from '@aztec/stdlib/tx';
 import type { EvictionContext, EvictionResult, EvictionRule, TxPoolOperations } from './eviction_strategy.js';
 
 export interface LowPriorityEvictionConfig {
-  /** Maximum pool size in bytes before eviction kicks in */
+  /** Maximum number of pending transactions before eviction kicks in */
   maxPoolSize: number;
-
-  /** Factor by which pool can grow above maxPoolSize before eviction starts */
-  overflowFactor: number;
 }
 
 /**
- * Eviction rule that removes low-priority transactions when the mempool size exceeds configured limits.
+ * Eviction rule that removes low-priority transactions when the number of pending transactions exceeds configured limits.
  * Only triggers on TXS_ADDED events and respects non-evictable transactions.
  */
 export class LowPriorityEvictionRule implements EvictionRule {
@@ -40,10 +37,12 @@ export class LowPriorityEvictionRule implements EvictionRule {
     }
 
     try {
-      const thresholdSize = this.config.maxPoolSize * this.config.overflowFactor;
+      const pendingTxs = await txPool.getPendingTxs();
+      const currentTxCount = pendingTxs.length;
+      const maxCount = this.config.maxPoolSize;
 
-      if (context.mempoolSize <= thresholdSize) {
-        this.log.trace(`Not evicting low priority txs. Mempool below limit ${context.mempoolSize} <= ${thresholdSize}`);
+      if (currentTxCount <= maxCount) {
+        this.log.trace(`Not evicting low priority txs. Pending tx count below limit ${currentTxCount} <= ${maxCount}`);
         return {
           reason: 'low_priority',
           success: true,
@@ -51,29 +50,26 @@ export class LowPriorityEvictionRule implements EvictionRule {
         };
       }
 
-      this.log.verbose(`Evicting low priority txs. Mempool above limit: ${context.mempoolSize} > ${thresholdSize}`);
+      this.log.verbose(`Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${maxCount}`);
       const txsToEvict: TxHash[] = [];
-      let currentSize = context.mempoolSize;
-      const targetSize = this.config.maxPoolSize;
+      let remainingTxCount = currentTxCount;
+      const targetCount = this.config.maxPoolSize;
 
-      const pendingTxs = await txPool.getPendingTxs();
-
-      for (const { txHash, size: txSize, isEvictable } of pendingTxs) {
+      for (const { txHash, isEvictable } of pendingTxs) {
         if (!isEvictable) {
           continue;
         }
 
-        this.log.verbose(`Evicting tx ${txHash} from pool due to low priority to satisfy max tx size limit`, {
+        this.log.verbose(`Evicting tx ${txHash} from pool due to low priority to satisfy max tx count limit`, {
           txHash: txHash.toString(),
-          txSize,
-          currentSize,
-          targetSize,
+          remainingTxCount,
+          targetCount,
         });
 
         txsToEvict.push(txHash);
-        currentSize -= txSize;
+        remainingTxCount -= 1;
 
-        if (currentSize <= targetSize) {
+        if (remainingTxCount <= targetCount) {
           break;
         }
       }
@@ -112,9 +108,6 @@ export class LowPriorityEvictionRule implements EvictionRule {
   updateConfig(config: Partial<LowPriorityEvictionConfig>): void {
     if (config.maxPoolSize !== undefined) {
       this.config.maxPoolSize = config.maxPoolSize;
-    }
-    if (config.overflowFactor !== undefined) {
-      this.config.overflowFactor = config.overflowFactor;
     }
   }
 

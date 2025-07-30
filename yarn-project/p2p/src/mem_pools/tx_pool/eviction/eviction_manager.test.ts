@@ -23,7 +23,6 @@ describe('EvictionManager', () => {
   describe('evictAfterNewTxs', () => {
     it('calls evict on registered rules with correct context', async () => {
       const newTxs = [TxHash.random(), TxHash.random()];
-      const mempoolSize = 1000;
 
       mockRule1.evict.mockResolvedValue({
         txsEvicted: [],
@@ -32,12 +31,11 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterNewTxs(newTxs, mempoolSize);
+      await evictionManager.evictAfterNewTxs(newTxs);
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.TXS_ADDED,
-          mempoolSize,
           newTxs,
         },
         txPool,
@@ -46,7 +44,6 @@ describe('EvictionManager', () => {
 
     it('calls evict on multiple registered rules', async () => {
       const newTxs = [TxHash.random()];
-      const mempoolSize = 500;
 
       mockRule1.evict.mockResolvedValue({
         txsEvicted: [],
@@ -61,7 +58,7 @@ describe('EvictionManager', () => {
 
       evictionManager.registerRule(mockRule1);
       evictionManager.registerRule(mockRule2);
-      await evictionManager.evictAfterNewTxs(newTxs, mempoolSize);
+      await evictionManager.evictAfterNewTxs(newTxs);
 
       expect(mockRule1.evict).toHaveBeenCalledTimes(1);
       expect(mockRule2.evict).toHaveBeenCalledTimes(1);
@@ -69,7 +66,6 @@ describe('EvictionManager', () => {
 
     it('handles empty newTxs array', async () => {
       const newTxs: TxHash[] = [];
-      const mempoolSize = 0;
 
       mockRule1.evict.mockResolvedValue({
         txsEvicted: [],
@@ -78,12 +74,11 @@ describe('EvictionManager', () => {
       });
 
       evictionManager.registerRule(mockRule1);
-      await evictionManager.evictAfterNewTxs(newTxs, mempoolSize);
+      await evictionManager.evictAfterNewTxs(newTxs);
 
       expect(mockRule1.evict).toHaveBeenCalledWith(
         {
           event: EvictionEvent.TXS_ADDED,
-          mempoolSize,
           newTxs,
         },
         txPool,
@@ -165,7 +160,6 @@ describe('EvictionManager', () => {
   describe('error handling', () => {
     it('continues execution if a rule throws an error', async () => {
       const newTxs = [TxHash.random()];
-      const mempoolSize = 100;
 
       mockRule1.evict.mockRejectedValue(new Error('Rule 1 failed'));
       mockRule2.evict.mockResolvedValue({
@@ -177,7 +171,7 @@ describe('EvictionManager', () => {
       evictionManager.registerRule(mockRule1);
       evictionManager.registerRule(mockRule2);
 
-      await expect(evictionManager.evictAfterNewTxs(newTxs, mempoolSize)).resolves.not.toThrow();
+      await expect(evictionManager.evictAfterNewTxs(newTxs)).resolves.not.toThrow();
 
       expect(mockRule1.evict).toHaveBeenCalledTimes(1);
       expect(mockRule2.evict).toHaveBeenCalledTimes(1);
@@ -187,7 +181,6 @@ describe('EvictionManager', () => {
   describe('rule execution order', () => {
     it('executes rules in registration order', async () => {
       const newTxs = [TxHash.random()];
-      const mempoolSize = 100;
       const callOrder: string[] = [];
 
       mockRule1.evict.mockImplementation(() => {
@@ -211,14 +204,13 @@ describe('EvictionManager', () => {
       evictionManager.registerRule(mockRule1);
       evictionManager.registerRule(mockRule2);
 
-      await evictionManager.evictAfterNewTxs(newTxs, mempoolSize);
+      await evictionManager.evictAfterNewTxs(newTxs);
 
       expect(callOrder).toEqual(['rule1', 'rule2']);
     });
 
     it('waits for each rule to complete before starting the next', async () => {
       const newTxs = [TxHash.random()];
-      const mempoolSize = 100;
 
       mockRule1.evict.mockImplementation(() => {
         expect(mockRule2.evict).not.toHaveBeenCalled();
@@ -241,16 +233,15 @@ describe('EvictionManager', () => {
       evictionManager.registerRule(mockRule1);
       evictionManager.registerRule(mockRule2);
 
-      await evictionManager.evictAfterNewTxs(newTxs, mempoolSize);
+      await evictionManager.evictAfterNewTxs(newTxs);
     });
   });
 
   describe('no rules registered', () => {
     it('handles evictAfterNewTxs with no rules gracefully', async () => {
       const newTxs = [TxHash.random()];
-      const mempoolSize = 100;
 
-      await expect(evictionManager.evictAfterNewTxs(newTxs, mempoolSize)).resolves.not.toThrow();
+      await expect(evictionManager.evictAfterNewTxs(newTxs)).resolves.not.toThrow();
     });
 
     it('handles evictAfterNewBlock with no rules gracefully', async () => {
