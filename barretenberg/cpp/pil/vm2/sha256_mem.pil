@@ -36,7 +36,9 @@ include "sha256.pil";
  * Two errors needs to be handled as part of this trace,
  * (1) DST_OUT_OF_BOUNDS_ACCESS: If the reads or writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
- * (2) INVALID_READ_TAG: If any of the state or input values retrieved from memory are NOT U32
+ * (2) INVALID_STATE_READ_TAG: If any of the state values retrieved from memory are NOT U32
+ * (3) INVALID_INPUT_READ_TAG: If any of the input values retrieved from memory are NOT U32
+ * These form the error temporality groups for Sha256 Compression
  *
  * +----------------------------------------------+---------------------------------------------------------------------------------------------------+--------------------------------------------+--------------------------------+
  * |       Opearands and helper columns           |  State Memory Columnss : Reads inital state from state_addr, and writes output state to dst_addr  | Input Loader: Loads 16 elements vertically | SHA256 COMPRESSION COMPUTATION |
@@ -56,7 +58,6 @@ include "sha256.pil";
 // virtual to the sha256 compression, written here for clarity
 namespace sha256;
     
-    // Selector for Sha256Compression Operation
     pol commit sel;
     sel * (1 - sel) = 0;
 
@@ -70,12 +71,24 @@ namespace sha256;
     pol commit state_addr;
     pol commit input_addr;
 
+    ////////////////////////////////////////////////
+    // Control flow
+    ////////////////////////////////////////////////
+    // Start Row is defined in this subtrace
+    pol commit start;
+    start * (1 - start) = 0;
+
+    // Note that LATCH_CONDITION defined in sha256.pil (since the computation constrains the termination - in the happy path)
+    #[START_AFTER_LAST]
+    sel' * (start' - LATCH_CONDITION) = 0;
+    pol NOT_LAST = sel * (1 - LATCH_CONDITION);
+
     #[CONTINUITY_EXEC_CLK] // Gotta propagate exec clk
-    sel * (1 - LATCH_CONDITION) * (execution_clk' - execution_clk) = 0;
+    NOT_LAST * (execution_clk' - execution_clk) = 0;
     #[CONTINUITY_SPACE_ID] // Gotta propagate space id down
-    sel * (1 - LATCH_CONDITION) * (space_id' - space_id) = 0;
+    NOT_LAST * (space_id' - space_id) = 0;
     #[CONTINUITY_DST_ADDR] // Gotta propagate dst addr down
-    sel * (1 - LATCH_CONDITION) * (dst_addr' - dst_addr) = 0;
+    NOT_LAST * (dst_addr' - dst_addr) = 0;
 
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
@@ -123,18 +136,20 @@ namespace sha256;
 
     // Read if we did not have an out of range error
     pol commit sel_should_read_mem;
-    sel_should_read_mem = 1 - (1 - sel_mem_start_and_last) * (1 - sel_read_input_from_memory);
 
     // At the start/end of the sha256 computation, we activate read/write of the state memory columns
     // Start and last mutually exclusive
     pol commit sel_mem_start_and_last;
-    sel_mem_start_and_last = sel * (1 - MEM_OUT_OF_RANGE_ERR) * (start + latch);
+    pol START_OR_LAST = (start + latch) - (start * latch);
+    #[START_OR_LAST_MEM]
+    sel_mem_start_and_last = sel * (1 - err) * START_OR_LAST;
  
-    pol commit u32_tag;
-    u32_tag = sel_should_read_mem * constants.MEM_TAG_U32;
+    pol commit u32_tag; // While no constants in lookup
+    u32_tag = sel * (1 - MEM_OUT_OF_RANGE_ERR) * constants.MEM_TAG_U32;
 
     pol commit memory_address[8]; // These will be use by state & dst addresses
-    pol MEM_ADDR = start * state_addr + latch * dst_addr;
+    // Switch what is stored in MEM_ADDR if we are at the start (state_addr) or latch (dst_addr)
+    pol MEM_ADDR = start * state_addr + latch * (1 - start) * dst_addr;
     sel_mem_start_and_last * (memory_address[0] - (MEM_ADDR + 0)) = 0;
     sel_mem_start_and_last * (memory_address[1] - (MEM_ADDR + 1)) = 0;
     sel_mem_start_and_last * (memory_address[2] - (MEM_ADDR + 2)) = 0;
@@ -147,14 +162,14 @@ namespace sha256;
     // If we are at the start, the init_x values of the sha256 compression trace is populated by these registers
     // If we are at the end, the output_x_rhs values of the sha256 compression trace populate these registers
     pol commit memory_register[8]; // These will be used by state and dst values
-    sel_mem_start_and_last * (start * (memory_register[0] - init_a) + latch * (memory_register[0] - output_a_rhs)) = 0;
-    sel_mem_start_and_last * (start * (memory_register[1] - init_b) + latch * (memory_register[1] - output_b_rhs)) = 0;
-    sel_mem_start_and_last * (start * (memory_register[2] - init_c) + latch * (memory_register[2] - output_c_rhs)) = 0;
-    sel_mem_start_and_last * (start * (memory_register[3] - init_d) + latch * (memory_register[3] - output_d_rhs)) = 0;
-    sel_mem_start_and_last * (start * (memory_register[4] - init_e) + latch * (memory_register[4] - output_e_rhs)) = 0;
-    sel_mem_start_and_last * (start * (memory_register[5] - init_f) + latch * (memory_register[5] - output_f_rhs)) = 0;
-    sel_mem_start_and_last * (start * (memory_register[6] - init_g) + latch * (memory_register[6] - output_g_rhs)) = 0;
-    sel_mem_start_and_last * (start * (memory_register[7] - init_h) + latch * (memory_register[7] - output_h_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[0] - init_a) + latch * (1 - start) * (memory_register[0] - output_a_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[1] - init_b) + latch * (1 - start) * (memory_register[1] - output_b_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[2] - init_c) + latch * (1 - start) * (memory_register[2] - output_c_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[3] - init_d) + latch * (1 - start) * (memory_register[3] - output_d_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[4] - init_e) + latch * (1 - start) * (memory_register[4] - output_e_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[5] - init_f) + latch * (1 - start) * (memory_register[5] - output_f_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[6] - init_g) + latch * (1 - start) * (memory_register[6] - output_g_rhs)) = 0;
+    sel_mem_start_and_last * (start * (memory_register[7] - init_h) + latch * (1 - start) * (memory_register[7] - output_h_rhs)) = 0;
 
     pol commit memory_tag[8]; // Memory Tag loaded from memory
 
@@ -255,6 +270,30 @@ namespace sha256;
         memory.space_id, memory.rw
     };
 
+    ////////////////////////////////////////////////
+    // Error Handling - Invalid State Tag (not U32)
+    ////////////////////////////////////////////////
+    pol commit sel_invalid_state_tag_err;
+    sel_invalid_state_tag_err * (1 - sel_invalid_state_tag_err) = 0;
+
+    pol STATE_TAG_DIFF_0 = sel_mem_start_and_last * (memory_tag[0] - constants.MEM_TAG_U32);
+    pol STATE_TAG_DIFF_1 = sel_mem_start_and_last * (memory_tag[1] - constants.MEM_TAG_U32);
+    pol STATE_TAG_DIFF_2 = sel_mem_start_and_last * (memory_tag[2] - constants.MEM_TAG_U32);
+    pol STATE_TAG_DIFF_3 = sel_mem_start_and_last * (memory_tag[3] - constants.MEM_TAG_U32);
+    pol STATE_TAG_DIFF_4 = sel_mem_start_and_last * (memory_tag[4] - constants.MEM_TAG_U32);
+    pol STATE_TAG_DIFF_5 = sel_mem_start_and_last * (memory_tag[5] - constants.MEM_TAG_U32);
+    pol STATE_TAG_DIFF_6 = sel_mem_start_and_last * (memory_tag[6] - constants.MEM_TAG_U32);
+    pol STATE_TAG_DIFF_7 = sel_mem_start_and_last * (memory_tag[7] - constants.MEM_TAG_U32);
+
+    pol BATCHED_TAG_CHECK = 2**0 * STATE_TAG_DIFF_0 + 2**3 * STATE_TAG_DIFF_1
+                          + 2**6 * STATE_TAG_DIFF_2 + 2**9 * STATE_TAG_DIFF_3
+                          + 2**12 * STATE_TAG_DIFF_4 + 2**15 * STATE_TAG_DIFF_5
+                          + 2**18 * STATE_TAG_DIFF_6 + 2**21 * STATE_TAG_DIFF_7; 
+                          // + 2**24 * INPUT_TAG_DIFF; // todo add for more optimal
+
+    pol commit batch_tag_inv;
+    #[BATCH_ZERO_CHECK]
+    BATCHED_TAG_CHECK * ((1 - sel_invalid_state_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_state_tag_err = 0;
 
     ////////////////////////////////////////////////////////
     // Memory Operation: Loading (16) Round Input
@@ -262,33 +301,31 @@ namespace sha256;
     // The 16 hash inputs are mixed into the first 16 rounds of the sha256 compression
     pol commit sel_is_input_round; // Selector to indicate this if this is an input round
     sel_is_input_round * (1 - sel_is_input_round) = 0;
-    
-    // Input Round Counter, starting value is 16
+    // Constraining sel_is_input_round
+    // (1) At start, sel_is_input_round = 1
+    // (2) If input_rounds_rem = 1, then we are at last round of the inputs and sel_is_input_round' = 0;
+    //     However, if we error here - we ignore the constraint
+    //     If input_rounds_rem = 0, sel_is_input_round = 0
+    // (3) Otherwise propagate sel_is_input_round value to the next row. Note that if sel_is_input_round = 0
+    //     then sel_is_input_round' = 0 based on this relation
+    #[SEL_IS_INPUT_ROUND_START_COND]
+    sel * start * (sel_is_input_round - 1) = 0;
+    pol commit input_rounds_rem_inv;
+    #[SEL_IS_INPUT_END]
+    (1 - LATCH_CONDITION) * (input_rounds_rem * ((1 - sel_is_input_round) * (1 - input_rounds_rem_inv) + input_rounds_rem_inv) - sel_is_input_round) = 0;
+    #[SEL_IS_INPUT_PROPAGATE]
+    (1 - LATCH_CONDITION) * (1 - sel_is_input_round) * sel_is_input_round' = 0;
+
+    // Input Round Remaining, starting value is 16
     pol commit input_rounds_rem;
     #[INPUT_ROUND_CTR_START_COND]
     start * (input_rounds_rem - 16) = 0;
     // Decrement the counter if we are in an input round row
     #[INPUT_ROUND_CTR_DECR_COND]
-    (1 - start') * (input_rounds_rem' - (input_rounds_rem - sel_is_input_round)) = 0;
-
-    // Constraining sel_is_input_round
-    // (1) At start, sel_is_input_round = 1
-    #[SEL_IS_INPUT_ROUND_START_COND]
-    start * (sel_is_input_round - 1) = 0;
-
-    // (2) If round_counter = 1, then we are at last round of the inputs and sel_is_input_round' = 0;
-    pol commit input_rounds_rem_minus_one_inv;
-    pol READ_INPUT_ROUNDS_MINUS_ONE = input_rounds_rem - 1;
-    #[SEL_IS_INPUT_END]
-    sel_is_input_round * (READ_INPUT_ROUNDS_MINUS_ONE * ((1 - sel_is_input_round') * (1 - input_rounds_rem_minus_one_inv) + input_rounds_rem_minus_one_inv) - 1 + (1 - sel_is_input_round')) = 0;
-
-    // (3) Otherwise propagate sel_is_input_round value to the next row. Note that if sel_is_input_round = 0
-    // then sel_is_input_round' = 0 based on this relation
-    #[SEL_IS_INPUT_PROPAGATE]
-    (1 - start') * (1 - sel_is_input_round) * sel_is_input_round' = 0;
+    sel * (1 - err) * (1 - LATCH_CONDITION) * (input_rounds_rem' - (input_rounds_rem - sel_is_input_round)) = 0;
 
     pol commit sel_read_input_from_memory; 
-    sel_read_input_from_memory = sel * (1 - MEM_OUT_OF_RANGE_ERR) * sel_is_input_round;
+    sel_read_input_from_memory = sel * (1 - MEM_OUT_OF_RANGE_ERR) * sel_is_input_round * (1 - sel_invalid_state_tag_err);
 
     // Put the result of the input loads
     pol commit input;
@@ -309,36 +346,30 @@ namespace sha256;
     ////////////////////////////////////////////////
     // Error Handling - Invalid Input Tag (not FF)
     ////////////////////////////////////////////////
-    pol commit sel_invalid_row_tag_err;
-    pol STATE_TAG_DIFF_0 = sel_mem_start_and_last * (memory_tag[0] - constants.MEM_TAG_U32);
-    pol STATE_TAG_DIFF_1 = sel_mem_start_and_last * (memory_tag[1] - constants.MEM_TAG_U32);
-    pol STATE_TAG_DIFF_2 = sel_mem_start_and_last * (memory_tag[2] - constants.MEM_TAG_U32);
-    pol STATE_TAG_DIFF_3 = sel_mem_start_and_last * (memory_tag[3] - constants.MEM_TAG_U32);
-    pol STATE_TAG_DIFF_4 = sel_mem_start_and_last * (memory_tag[4] - constants.MEM_TAG_U32);
-    pol STATE_TAG_DIFF_5 = sel_mem_start_and_last * (memory_tag[5] - constants.MEM_TAG_U32);
-    pol STATE_TAG_DIFF_6 = sel_mem_start_and_last * (memory_tag[6] - constants.MEM_TAG_U32);
-    pol STATE_TAG_DIFF_7 = sel_mem_start_and_last * (memory_tag[7] - constants.MEM_TAG_U32);
+    // This is 1 if any of the inputs loads fail, we need this to propagate the error to the first row
+    pol commit sel_invalid_input_tag_err;
+    sel_invalid_input_tag_err * (1 - sel_invalid_input_tag_err) = 0;
+    // This is 1 if we failed to load in this specific row
+    pol commit sel_invalid_input_row_tag_err;
+
+
     pol INPUT_TAG_DIFF =  sel_read_input_from_memory * (input_tag - constants.MEM_TAG_U32); 
+    pol commit input_tag_diff_inv;
 
-    pol BATCHED_TAG_CHECK = 2**0 * STATE_TAG_DIFF_0 + 2**3 * STATE_TAG_DIFF_1
-                          + 2**6 * STATE_TAG_DIFF_2 + 2**9 * STATE_TAG_DIFF_3
-                          + 2**12 * STATE_TAG_DIFF_4 + 2**15 * STATE_TAG_DIFF_5
-                          + 2**18 * STATE_TAG_DIFF_6 + 2**21 * STATE_TAG_DIFF_7
-                          + 2**24 * INPUT_TAG_DIFF;
+    #[INPUT_TAG_DIFF_CHECK]
+    INPUT_TAG_DIFF * ((1 - sel_invalid_input_row_tag_err) * (1 - input_tag_diff_inv) + input_tag_diff_inv) - sel_invalid_input_row_tag_err = 0;
 
-    pol commit batch_tag_inv;
-    // BATCHED_TAG_CHECK != 0, sel_invalid_tag_err = 1 
-    #[BATCH_ZERO_CHECK]
-    BATCHED_TAG_CHECK * ((1 - sel_invalid_row_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_row_tag_err = 0;
-
-    pol commit sel_invalid_tag_err;
     #[TAG_ERROR_INIT]
-    latch * (sel_invalid_tag_err - sel_invalid_row_tag_err) = 0;
+    LATCH_CONDITION * (sel_invalid_input_tag_err - sel_invalid_input_row_tag_err) = 0;
 
+    // sel_invalid_input_tag_err is propagated,
     #[TAG_ERROR_PROPAGATION]
-    (1 - latch) * (sel_invalid_row_tag_err - sel_invalid_row_tag_err') = 0;
+    (1 - LATCH_CONDITION) * (sel_invalid_input_tag_err - sel_invalid_input_tag_err') = 0;
 
     // Consolidated error flag
     pol commit err;
     err = 1 - (1 - sel_state_out_of_range_err) * (1 - sel_input_out_of_range_err) * (1 - sel_dst_out_of_range_err)
-        * (1 - sel_invalid_tag_err);
+        * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_row_tag_err);
+
+    // If we err, the latch must be on
+    sel * err * (latch - 1) = 0;

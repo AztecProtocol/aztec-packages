@@ -141,6 +141,7 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2658;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
@@ -148,6 +149,8 @@ struct AvmFlavorVariables {
 =======
 =======
 >>>>>>> 099710dbcc (feat: happy path working)
+=======
+>>>>>>> f9ba70507c (wip)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2656;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
@@ -156,6 +159,8 @@ struct AvmFlavorVariables {
 =======
 =======
 >>>>>>> c51f9cc720 (feat: happy path working)
+=======
+>>>>>>> 9c49ea15b2 (wip)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2649;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
@@ -164,6 +169,8 @@ struct AvmFlavorVariables {
 =======
 =======
 >>>>>>> 117933a04d (feat: happy path working)
+=======
+>>>>>>> 4072f93e1f (wip)
 <<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2640;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
@@ -199,12 +206,36 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = 3051;
 >>>>>>> 1fbcb75b2a (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> 117933a04d (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> c51f9cc720 (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> 099710dbcc (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> 0c57832299 (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> 7e705a8f3b (feat: happy path working)
+<<<<<<< HEAD
 >>>>>>> 87a30aa748 (feat: happy path working)
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2659;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 265;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 3050;
+>>>>>>> c86f6277a8 (wip)
+>>>>>>> 4072f93e1f (wip)
+>>>>>>> 9c49ea15b2 (wip)
+>>>>>>> f9ba70507c (wip)
+>>>>>>> c65ce9d828 (wip)
+>>>>>>> d893820a78 (wip)
+>>>>>>> dc711d4766 (wip)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
