@@ -4,6 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -88,6 +89,7 @@ export class PeerManager implements PeerManagerInterface {
     private readonly worldStateSynchronizer: WorldStateSynchronizer,
     private readonly protocolVersion: string,
     private readonly epochCache: EpochCacheInterface,
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     if (this.config.p2pDisableStatusHandshake && this.config.p2pAllowOnlyValidators) {
       throw new Error('Status handshake disabled but is required to allow only validators to connect.');
@@ -233,7 +235,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private cleanupExpiredTimeouts() {
     // Clean up expired timeouts
-    const now = Date.now();
+    const now = this.dateProvider.now();
     for (const [peerId, timedOutPeer] of this.timedOutPeers.entries()) {
       if (now >= timedOutPeer.timeoutUntilMs) {
         this.timedOutPeers.delete(peerId);
@@ -482,8 +484,8 @@ export class PeerManager implements PeerManagerInterface {
       return true;
     }
 
-    // Check if entry is expired
-    if (Date.now() - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
+    // In case entry is too old, remove it and allow connection
+    if (this.dateProvider.now() - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
       this.failedAuthHandshakes.delete(id.toString());
       return true;
     }
@@ -530,13 +532,14 @@ export class PeerManager implements PeerManagerInterface {
         .filter(Boolean) as string[],
     );
 
+    const now = this.dateProvider.now();
     for (const [id, peerData] of this.cachedPeers.entries()) {
       // if already dialling or connected to, remove from cache
       if (
         pendingDials.has(id) ||
         healthyConnections.some(conn => conn.remotePeer.equals(peerData.peerId)) ||
         // if peer has been in cache for the max cache age, remove from cache
-        Date.now() - peerData.addedUnixMs > MAX_CACHED_PEER_AGE_MS
+        now - peerData.addedUnixMs > MAX_CACHED_PEER_AGE_MS
       ) {
         this.cachedPeers.delete(id);
       } else {
@@ -728,7 +731,7 @@ export class PeerManager implements PeerManagerInterface {
     // Check if peer is temporarily timed out
     const timedOutPeer = this.timedOutPeers.get(peerIdString);
     if (timedOutPeer) {
-      if (Date.now() < timedOutPeer.timeoutUntilMs) {
+      if (this.dateProvider.now() < timedOutPeer.timeoutUntilMs) {
         this.logger.trace(`Skipping timed out peer ${peerId}`);
         return;
       }
@@ -768,7 +771,7 @@ export class PeerManager implements PeerManagerInterface {
       enr,
       multiaddrTcp,
       dialAttempts: 0,
-      addedUnixMs: Date.now(),
+      addedUnixMs: this.dateProvider.now(),
     };
 
     // Determine if we should dial immediately or not
@@ -803,7 +806,7 @@ export class PeerManager implements PeerManagerInterface {
         // Add to timed out peers
         this.timedOutPeers.set(id, {
           peerId: id,
-          timeoutUntilMs: Date.now() + FAILED_PEER_BAN_TIME_MS,
+          timeoutUntilMs: this.dateProvider.now() + FAILED_PEER_BAN_TIME_MS,
         });
       }
     }
@@ -984,7 +987,7 @@ export class PeerManager implements PeerManagerInterface {
    * Marks when peer fails auth handshake
    * */
   private markAuthHandshakeFailed(peerId: PeerId) {
-    const now = Date.now();
+    const now = this.dateProvider.now();
     const peerIdStr = peerId.toString();
 
     const existingEntry = this.failedAuthHandshakes.get(peerIdStr);

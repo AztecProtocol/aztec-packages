@@ -1703,6 +1703,249 @@ describe('PeerManager', () => {
     });
   });
 
+  describe('auth handshake failure limiting', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should allow connection when failed attempts are below threshold', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Mark auth handshake as failed once (should be below threshold)
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(true);
+      expect(peerManager.isNodeAllowedToConnect('192.168.1.100')).toBe(true);
+    });
+
+    it('should deny connection when failed attempts exceed threshold', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      // Mock connection to provide IP address
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const peerManager = createMockPeerManager('test', mockLibP2PNode, 3);
+
+      // Mark auth handshake as failed 4 times (exceeding default threshold of 3)
+      for (let i = 0; i < 4; i++) {
+        (peerManager as any).markAuthHandshakeFailed(peerId);
+      }
+
+      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
+      expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+    });
+
+    it('should increment failure counters on subsequent failures', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Mark auth handshake as failed multiple times
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.get(peerIdStr).count).toBe(3);
+      expect(failedHandshakes.get(ipAddress).count).toBe(3);
+    });
+
+    it('should clear failure counters on successful auth handshake', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Mark auth handshake as failed
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      // Verify counters are set
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.has(peerIdStr)).toBe(true);
+      expect(failedHandshakes.has(ipAddress)).toBe(true);
+
+      // Mark auth handshake as successful
+      (peerManager as any).markAuthHandshakeSuccess(peerId);
+
+      // Verify counters are cleared
+      expect(failedHandshakes.has(peerIdStr)).toBe(false);
+      expect(failedHandshakes.has(ipAddress)).toBe(false);
+    });
+
+    it('should allow connection after failure entries expire', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const configuredPeerManager = createMockPeerManager('test', mockLibP2PNode, 3);
+
+      // Fail auth handshake enough times to trigger denial
+      for (let i = 0; i < 4; i++) {
+        (configuredPeerManager as any).markAuthHandshakeFailed(peerId);
+      }
+
+      // Should be denied
+      expect(configuredPeerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
+      expect(configuredPeerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+
+      // Advance time past expiry (1 hour + 1 minute)
+      jest.advanceTimersByTime(61 * 60 * 1000);
+
+      // Should now be allowed again
+      expect(configuredPeerManager.isNodeAllowedToConnect(peerIdStr)).toBe(true);
+      expect(configuredPeerManager.isNodeAllowedToConnect(ipAddress)).toBe(true);
+
+      // Verify entries were cleaned up
+      const failedHandshakes = (configuredPeerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.has(peerIdStr)).toBe(false);
+      expect(failedHandshakes.has(ipAddress)).toBe(false);
+    });
+
+    it('should handle multiple IP addresses for same peer', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress1 = '192.168.1.100';
+      const ipAddress2 = '192.168.1.101';
+
+      // First failure from IP1
+      mockLibP2PNode.getConnections.mockReturnValue([
+        {
+          remoteAddr: { nodeAddress: () => ({ address: ipAddress1 }) },
+        },
+      ]);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      // Second failure from IP2
+      mockLibP2PNode.getConnections.mockReturnValue([
+        {
+          remoteAddr: { nodeAddress: () => ({ address: ipAddress2 }) },
+        },
+      ]);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.get(peerIdStr).count).toBe(2);
+      expect(failedHandshakes.get(ipAddress1).count).toBe(1);
+      expect(failedHandshakes.get(ipAddress2).count).toBe(1);
+    });
+
+    it('should update timestamp on repeated failures', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      // Mock connection
+      mockLibP2PNode.getConnections.mockReturnValue([
+        {
+          remoteAddr: { nodeAddress: () => ({ address: '192.168.1.100' }) },
+        },
+      ]);
+
+      // First failure
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      const firstTimestamp = failedHandshakes.get(peerIdStr).lastFailureTimestamp;
+
+      // Advance time
+      jest.advanceTimersByTime(10000);
+
+      // Second failure
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const secondTimestamp = failedHandshakes.get(peerIdStr).lastFailureTimestamp;
+
+      expect(secondTimestamp).toBeGreaterThan(firstTimestamp);
+      expect(failedHandshakes.get(peerIdStr).count).toBe(2);
+    });
+
+    it('should handle auth failure during actual handshake process', async () => {
+      jest.useRealTimers(); // needed here to allow sleep couple of lines below
+      const peerId = await createSecp256k1PeerId();
+      const ipAddress = '1.2.3.4';
+
+      const ethPrivateKey = generatePrivateKey();
+      const signer = new Secp256k1Signer(Buffer32.fromString(ethPrivateKey));
+
+      mockEpochCache.getRegisteredValidators.mockResolvedValue([signer.address]);
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+        remotePeer: peerId,
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const peerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [], {
+        p2pAllowOnlyValidators: true,
+        p2pMaxFailedAuthAttemptsAllowed: 2,
+      });
+
+      await peerManager.initializePeers();
+      await peerManager.heartbeat();
+
+      mockReqResp.sendRequestToPeer.mockImplementation(
+        (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, _payload: Buffer, _dialTimeout?: number) => {
+          return Promise.resolve({
+            status: ReqRespStatus.FAILURE,
+            data: Buffer.alloc(0),
+          });
+        },
+      );
+
+      for (let i = 0; i < 3; i++) {
+        const ev = { detail: peerId };
+        (peerManager as any).handleConnectedPeerEvent(ev);
+        // Sleep a bit to allow processing of auth handshake
+        await sleep(1000);
+      }
+
+      // Should now be blocked
+      expect(peerManager.isNodeAllowedToConnect(peerId)).toBe(false);
+      expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+
+      // Peer should not be authenticated
+      expect(peerManager.isAuthenticatedPeer(peerId)).toBe(false);
+    });
+  });
+
   describe('goodbye metrics', () => {
     it('should record metrics when receiving goodbye messages', async () => {
       const peerId = await createSecp256k1PeerId();
