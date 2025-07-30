@@ -159,7 +159,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return circuit;
     }
 
-    ClientCircuit create_next_circuit_no_vk(ClientIVC& ivc, bool force_is_kernel = false)
+    ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
     {
         circuit_counter++;
         is_kernel = (circuit_counter % 2 == 0) || force_is_kernel;
@@ -188,7 +188,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
             return { circuit, get_verification_key(circuit, ivc.trace_settings) };
         }
 
-        ClientCircuit circuit = create_next_circuit_no_vk(ivc, settings.force_is_kernel); // construct the circuit
+        ClientCircuit circuit = create_next_circuit(ivc, settings.force_is_kernel); // construct the circuit
 
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
