@@ -87,11 +87,21 @@ class MockDatabusProducer {
     void tamper_with_app_return_data() { app_return_data.emplace_back(17); }
 };
 
+/**
+ * @brief Customises the production of mock circuits for Client IVC testing
+ *
+ */
 struct TestSettings {
-    size_t num_public_inputs = 0; // number of public inputs to add to the app circuits
-    bool force_is_kernel = false; // force the next circuit to be a kernel
+    // number of public inputs to manually add to circuits, by default this would be 0 because we use the
+    // MockDatabusProducer to test public inputs handling
+    size_t num_public_inputs = 0;
+    // force the next circuit to be a kernel in order to test the occurence of consecutive kernels (expected behaviour
+    // in real flows)
+    bool force_is_kernel = false;
+    // by default we will create more complex apps and kernel with various types of gates but in case we want to
+    // specifically test overflow behaviour or unstructured circuits we can manually construct simple circuits with a
+    // specified number of gates
     size_t log2_num_gates = 0;
-    bool no_vk_precomputation = false; // do not precompute the vk for the circuit
 };
 
 /**
@@ -99,12 +109,9 @@ struct TestSettings {
  * @details Per the medium complexity benchmark spec, the first app circuit is size 2^19. Subsequent app and kernel
  * circuits are size 2^17. Circuits produced are alternatingly app and kernel. Mock databus data is passed between the
  * circuits in a manor conistent with the real architecture in order to facilitate testing of databus consistency
- * checks.
+ * checks. Additionally, we allow for the creation of simpler circuits with public inputs set manually but also for
+ * testing consecutive kernels. These can be configured via TestSettings.
  */
-// WORKTODO This is the producer we'll use
-// WORKTO Point of friction, we need to keep the option of creating circuits with public inputs (available in the other
-// mock circuit producer). It should be fine as a last tail  and hiding should be added automatically
-// WORKTODO: should prolly not enable adding public inputs to any app circuits and just add some for the hiding kernel
 class PrivateFunctionExecutionMockCircuitProducer {
     using ClientCircuit = ClientIVC::ClientCircuit;
     using Flavor = MegaFlavor;
@@ -117,21 +124,23 @@ class PrivateFunctionExecutionMockCircuitProducer {
     bool is_kernel = false; // whether the next circuit is a kernel or not
 
   public:
-    // WORKTODO: smaller tests will set this to false
     PrivateFunctionExecutionMockCircuitProducer(bool large_first_app = true)
         : large_first_app(large_first_app)
     {}
 
+    /**
+     * @brief Precompute the verification key for the given circuit.
+     *
+     */
     static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in,
                                                                  TraceSettings& trace_settings)
     {
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
         // but this is a workaround for the test setup.
-        // Create a copy of the input circuit
         MegaCircuitBuilder_<bb::fr> builder{ builder_in };
 
-        // Deepcopy the opqueue to avoid modifying the original one
+        // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
         std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
             std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
@@ -159,6 +168,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return circuit;
     }
 
+    /**
+     * @brief Create a more realistic circuit (withv various custom gates and databus usage) that is also filled up to
+     * 2^17 or 2^19 if large.
+     *
+     */
     ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
     {
         circuit_counter++;
@@ -183,6 +197,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
                                                                                           TestSettings settings = {})
     {
 
+        // If a specific number of gates is specified we create a simple circuit with only arithmetic gates to easily
+        // control the total number of gates.
         if (settings.log2_num_gates != 0) {
             ClientCircuit circuit = create_simple_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
             return { circuit, get_verification_key(circuit, ivc.trace_settings) };

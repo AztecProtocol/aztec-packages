@@ -59,6 +59,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
 std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_vks(const size_t num_circuits,
                                                                             const bool large_first_app = true)
 {
+    // Create an app and kernel vk with metadata set
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ large_first_app };
     ClientIVC ivc{ 2, { AZTEC_TRACE_STRUCTURE } };
     auto [app_circuit, app_vk] = circuit_producer.create_next_circuit_and_vk(ivc);

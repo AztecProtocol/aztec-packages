@@ -15,7 +15,7 @@
 
 using namespace bb;
 
-// static constexpr size_t MAX_NUM_KERNELS = 15;
+static constexpr size_t MAX_NUM_KERNELS = 15;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
@@ -375,28 +375,8 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
 };
 
 /**
- * @brief Run a test using functions shared with the ClientIVC benchmark.
- * @details We do have this in addition to the above tests anyway so we can believe that the benchmark is running on
- * real data EXCEPT the verification keys, whose correctness is not needed to assess the performance of the folding
- * prover. Before this test was added, we spend more than 50% of the benchmarking time running an entire IVC prover
- * protocol just to precompute valid verification keys.
+ * @brief Test that running the benchmark suite with mocked verification keys will not error out.
  */
-// HEAVY_TEST(ClientIVCBenchValidation, Full6)
-// {
-//     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-
-//     const size_t total_num_circuits{ 12 };
-//     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-//     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-//     perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
-//     auto proof = ivc.prove();
-//     bool verified = verify_ivc(proof, ivc);
-//     EXPECT_TRUE(verified);
-// }
-
-// /**
-//  * @brief Test that running the benchmark suite with mocked verification keys will not error out.
-//  */
 HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
@@ -413,31 +393,35 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
     ASSERT_NO_FATAL_FAILURE(run_test());
 }
 
-// HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
-// {
-//     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
+{
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-//     const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
-//     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-//     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-//     auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
-//     perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
-//     auto proof = ivc.prove();
-//     bool verified = verify_ivc(proof, ivc);
-//     EXPECT_TRUE(verified);
-// }
+    const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
+    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    for (size_t j = 0; j < total_num_circuits; ++j) {
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
+        ivc.accumulate(circuit, vk);
+    }
+    auto proof = ivc.prove();
+    bool verified = verify_ivc(proof, ivc);
+    EXPECT_TRUE(verified);
+}
 
-// HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
-// {
-//     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
+{
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-//     const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
-//     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
-//     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-//     auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
-//     perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
-//     EXPECT_ANY_THROW(ivc.prove());
-// }x
+    const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
+    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    for (size_t j = 0; j < total_num_circuits; ++j) {
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
+        ivc.accumulate(circuit, vk);
+    }
+    EXPECT_ANY_THROW(ivc.prove());
+}
 
 /**
  * @brief Test use of structured trace overflow block mechanism

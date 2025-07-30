@@ -24,7 +24,7 @@ class ClientIVCIntegrationTests : public ::testing::Test {
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 };
 
-/**ww
+/**
  * @brief Prove and verify accumulation of a set of mocked private function execution circuits
  * @details This case is meant to mirror the medium complexity benchmark configuration case but processes only 6
  * circuits total (3 app, 3 kernel) to save time.
@@ -49,8 +49,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 
 /**
  * @brief Accumulate a set of circuits that includes consecutive kernels
- * @details In practice its common to have multiple consecutive kernels without intermittent apps e.g. an inner
- followed
+ * @details In practice its common to have multiple consecutive kernels without intermittent apps e.g. an inner followed
  * immediately by a reset, or an inner-reset-tail sequence. This test ensures that such cases are handled correctly.
  *
  */
