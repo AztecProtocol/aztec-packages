@@ -44,12 +44,12 @@ export abstract class BaseWallet implements Wallet {
 
   constructor(protected readonly pxe: PXE) {}
 
-  protected abstract getAccountFromAddress(address?: AztecAddress): Promise<Account>;
+  protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
 
   private async createTxExecutionRequestFromPayloadAndFee(
     executionPayload: ExecutionPayload,
+    from: AztecAddress,
     userFee?: UserFeeOptions,
-    from?: AztecAddress,
   ): Promise<TxExecutionRequest> {
     const executionOptions = { txNonce: Fr.random(), cancellable: true };
     const fromAccount = await this.getAccountFromAddress(from);
@@ -83,7 +83,7 @@ export abstract class BaseWallet implements Wallet {
     opts: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.fee, opts.from);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, opts.fee);
     const simulationResult = await this.pxe.simulateTx(
       txRequest,
       true /*simulatePublic*/,
@@ -172,8 +172,8 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.updateContract(contractAddress, artifact);
   }
 
-  async simulateTx(executionPayload: ExecutionPayload, opts?: SimulateMethodOptions): Promise<TxSimulationResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts?.fee, opts?.from);
+  async simulateTx(executionPayload: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult> {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, opts.fee);
     return this.pxe.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -183,12 +183,12 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileMethodOptions): Promise<TxProfileResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.fee, opts.from);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, opts.fee);
     return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
   }
 
-  async proveTx(exec: ExecutionPayload, opts?: SendMethodOptions): Promise<TxProvingResult> {
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts?.fee, opts?.from);
+  async proveTx(exec: ExecutionPayload, opts: SendMethodOptions): Promise<TxProvingResult> {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, opts.fee);
     return this.pxe.proveTx(txRequest);
   }
 

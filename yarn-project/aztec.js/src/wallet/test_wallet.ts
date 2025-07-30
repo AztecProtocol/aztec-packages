@@ -1,6 +1,6 @@
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import type { Fr } from '@aztec/foundation/fields';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { Account } from '../account/account.js';
 import type { AccountContract } from '../account/account_contract.js';
@@ -33,9 +33,9 @@ export interface AccountData {
 export class TestWallet extends BaseWallet {
   #accounts: Map<string, Account> = new Map();
 
-  protected async getAccountFromAddress(address?: AztecAddress): Promise<Account> {
+  protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
-    if (!address) {
+    if (address.equals(AztecAddress.ZERO)) {
       const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
       account = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
     } else {
@@ -57,6 +57,8 @@ export class TestWallet extends BaseWallet {
       accountData.contract,
       accountData.salt,
     );
+
+    await accountManager.register();
 
     this.#accounts.set(accountManager.getAddress().toString(), await accountManager.getAccount());
 

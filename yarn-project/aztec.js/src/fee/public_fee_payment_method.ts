@@ -5,9 +5,9 @@ import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from 
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 
-import type { Account } from '../account/account.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { Wallet } from '../wallet/wallet.js';
+import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -23,12 +23,12 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     /**
      * An auth witness provider to authorize fee payments
      */
-    private sender: AztecAddress,
+    protected sender: AztecAddress,
 
     /**
      * A wallet to perform the simulation to get the accepted asset
      */
-    private wallet: Wallet,
+    protected wallet: Wallet,
   ) {}
 
   /**
@@ -63,10 +63,16 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       const interaction = new ContractFunctionInteraction(this.wallet, this.paymentContract, abi, []);
 
       const executionPayload = await interaction.request();
-      this.assetPromise = this.wallet.simulateTx(executionPayload).then(simulationResult => {
-        const rawReturnValues = simulationResult.getPrivateReturnValues().values;
-        return decodeFromAbi(abi.returnTypes, rawReturnValues!);
-      }) as Promise<AztecAddress>;
+      this.assetPromise = this.wallet
+        .simulateTx(executionPayload, {
+          from: AztecAddress.ZERO,
+          skipFeeEnforcement: true,
+          fee: { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) },
+        })
+        .then(simulationResult => {
+          const rawReturnValues = simulationResult.getPrivateReturnValues().nested[0].values;
+          return decodeFromAbi(abi.returnTypes, rawReturnValues!);
+        }) as Promise<AztecAddress>;
     }
     return this.assetPromise!;
   }

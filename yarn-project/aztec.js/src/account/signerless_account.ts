@@ -1,18 +1,15 @@
-import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { Account } from './account.js';
-import type { AccountInterface } from './interface.js';
 
 /**
  * Wallet implementation which creates a transaction request directly to the requested contract without any signing.

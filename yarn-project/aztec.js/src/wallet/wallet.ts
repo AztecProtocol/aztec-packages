@@ -35,15 +35,15 @@ export type Wallet = Pick<
   | 'getPrivateEvents'
   | 'getPublicEvents'
 > & {
-  simulateTx(exec: ExecutionPayload, opts?: SimulateMethodOptions): Promise<TxSimulationResult>;
+  simulateTx(exec: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult>;
   simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
   ): Promise<UtilitySimulationResult>;
-  profileTx(exec: ExecutionPayload, opts?: ProfileMethodOptions): Promise<TxProfileResult>;
-  proveTx(exec: ExecutionPayload, opts?: SendMethodOptions): Promise<TxProvingResult>;
+  profileTx(exec: ExecutionPayload, opts: ProfileMethodOptions): Promise<TxProfileResult>;
+  proveTx(exec: ExecutionPayload, opts: SendMethodOptions): Promise<TxProvingResult>;
   sendTx(tx: Tx): Promise<TxHash>;
   createAuthWit(from: AztecAddress, intent: IntentInnerHash | IntentAction): Promise<AuthWitness>;
   setPublicAuthWit(

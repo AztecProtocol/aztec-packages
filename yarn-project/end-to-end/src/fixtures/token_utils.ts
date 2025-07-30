@@ -5,10 +5,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
-  const contract = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
+  const contract = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18)
+    .send({ from: admin })
+    .deployed();
 
   if (initialAdminBalance > 0n) {
-    await mintTokensToPrivate(contract, wallet, admin, admin, initialAdminBalance);
+    await mintTokensToPrivate(contract, admin, admin, initialAdminBalance);
   }
 
   logger.info('L2 contract deployed');
@@ -18,13 +20,11 @@ export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAd
 
 export async function mintTokensToPrivate(
   token: TokenContract,
-  wallet: Wallet,
   minter: AztecAddress,
   recipient: AztecAddress,
   amount: bigint,
 ) {
-  const tokenAsMinter = await TokenContract.at(token.address, wallet);
-  await tokenAsMinter.methods.mint_to_private(recipient, amount).send({ from: minter }).wait();
+  await token.methods.mint_to_private(recipient, amount).send({ from: minter }).wait();
 }
 // docs:end:token_utils
 
@@ -43,7 +43,8 @@ export async function expectTokenBalance(
 }
 
 export async function mintNotes(
-  sender: Wallet,
+  wallet: Wallet,
+  minter: AztecAddress,
   recipient: AztecAddress,
   asset: TokenContract,
   noteAmounts: bigint[],
@@ -54,7 +55,7 @@ export async function mintNotes(
   for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
     const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
     const actions = toMint.map(amt => asset.methods.mint_to_private(recipient, amt));
-    await new BatchCall(sender, actions).send().wait();
+    await new BatchCall(wallet, actions).send({ from: minter }).wait();
   }
 
   return noteAmounts.reduce((prev, curr) => prev + curr, 0n);

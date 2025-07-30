@@ -18,7 +18,7 @@ export type RequestMethodOptions = {
  * Represents options for calling a (constrained) function in a contract.
  */
 export type SendMethodOptions = RequestMethodOptions & {
-  from?: AztecAddress;
+  from: AztecAddress;
   /** The fee options for the transaction. */
   fee?: UserFeeOptions;
 };

@@ -10,11 +10,9 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
-import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { Capsule, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, TxProfileResult } from '@aztec/stdlib/tx';
 
-import type { Account } from '../account/account.js';
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -207,7 +205,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various deployment options such as contractAddressSalt and from.
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
-  public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
+  public override send(options: DeployOptions): DeploySentTx<TContract> {
     const sendTx = () => super.send(options).getTxHash();
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
     return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));

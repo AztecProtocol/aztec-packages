@@ -98,11 +98,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate<T extends SimulateMethodOptions>(options?: T): Promise<SimulationReturn<T['includeMetadata']>>;
+  public async simulate<T extends SimulateMethodOptions>(options: T): Promise<SimulationReturn<T['includeMetadata']>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
-  public async simulate(
-    options: SimulateMethodOptions = {},
-  ): Promise<SimulationReturn<typeof options.includeMetadata>> {
+  public async simulate(options: SimulateMethodOptions): Promise<SimulationReturn<typeof options.includeMetadata>> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const utilityResult = await this.wallet.simulateUtility(
@@ -159,9 +157,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(
-    options: ProfileMethodOptions = { profileMode: 'gates', skipProofGeneration: true },
-  ): Promise<TxProfileResult> {
+  public async profile(options: ProfileMethodOptions): Promise<TxProfileResult> {
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       throw new Error("Can't profile a utility function.");
     }

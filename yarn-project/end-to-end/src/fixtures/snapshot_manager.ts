@@ -658,14 +658,13 @@ export const deployAccounts =
  */
 export async function publicDeployAccounts(
   wallet: Wallet,
-  accountsToDeploy: (CompleteAddress | AztecAddress)[],
+  accountsToDeploy: AztecAddress[],
   waitUntilProven = false,
   pxeOrNode?: PXE | AztecNode,
 ) {
-  const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
-  const instances = (
-    await Promise.all(accountAddressesToDeploy.map(account => wallet.getContractMetadata(account)))
-  ).map(metadata => metadata.contractInstance);
+  const instances = (await Promise.all(accountsToDeploy.map(account => wallet.getContractMetadata(account)))).map(
+    metadata => metadata.contractInstance,
+  );
 
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   const alreadyRegistered = (await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
@@ -677,7 +676,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(wallet, calls);
 
-  const txReceipt = await batch.send().wait();
+  const txReceipt = await batch.send({ from: accountsToDeploy[0] }).wait();
   if (waitUntilProven) {
     if (!pxeOrNode) {
       throw new Error('Need to provide a PXE or AztecNode to wait for proven.');

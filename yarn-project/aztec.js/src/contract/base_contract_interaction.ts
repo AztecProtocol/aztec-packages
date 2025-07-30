@@ -1,9 +1,11 @@
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, TxProvingResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
+import { getGasLimits } from './get_gas_limits.js';
 import type { RequestMethodOptions, SendMethodOptions } from './interaction_options.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
@@ -36,7 +38,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The proving result.
    */
-  protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
+  protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
     const executionPayload = await this.request(options);
     return await this.wallet.proveTx(executionPayload, options);
   }
@@ -47,7 +49,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
+  public async prove(options: SendMethodOptions): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
@@ -68,12 +70,35 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}): SentTx {
+  public send(options: SendMethodOptions): SentTx {
     // docs:end:send
     const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
       return this.wallet.sendTx(await txProvingResult.toTx());
     };
     return new SentTx(this.wallet, sendTx);
+  }
+
+  // docs:start:estimateGas
+  /**
+   * Estimates gas for a given tx request and returns gas limits for it.
+   * @param opts - Options.
+   * @param pad - Percentage to pad the suggested gas limits by, if empty, defaults to 10%.
+   * @returns Gas limits.
+   */
+  public async estimateGas(
+    opts: Omit<SendMethodOptions, 'estimateGas'>,
+  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
+    // docs:end:estimateGas
+    const executionPayload = await this.request(opts);
+    const simulationResult = await this.wallet.simulateTx(executionPayload, {
+      ...opts,
+      fee: { ...opts?.fee, estimateGas: false },
+    });
+    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
+      simulationResult,
+      opts?.fee?.estimatedGasPadding,
+    );
+    return { gasLimits, teardownGasLimits };
   }
 }

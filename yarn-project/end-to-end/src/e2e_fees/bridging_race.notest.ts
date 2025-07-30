@@ -1,5 +1,5 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { Fr, type Logger, type PXE, sleep } from '@aztec/aztec.js';
+import { Fr, type Logger, sleep } from '@aztec/aztec.js';
 import type { TestWallet } from '@aztec/aztec.js/wallet/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { Fq } from '@aztec/foundation/fields';
@@ -70,7 +70,7 @@ describe('e2e_fees bridging_race', () => {
     const amount = FEE_FUNDING_FOR_TESTER_ACCOUNT;
     const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, bobsAddress);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await t.feeJuiceContract.methods.claim(bobsAddress, amount, secret, index).send().wait();
+    await t.feeJuiceContract.methods.claim(bobsAddress, amount, secret, index).send({ from: bobsAddress }).wait();
     const [balance] = await t.getGasBalanceFn(bobsAddress);
     expect(balance).toEqual(amount);
   });

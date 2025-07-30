@@ -1,7 +1,7 @@
 import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/fields';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
@@ -222,7 +222,7 @@ export class AccountManager {
       }
 
       const tx = await deployMethod.send({
-        from: opts?.deployAccount,
+        from: opts?.deployAccount ?? AztecAddress.ZERO,
         contractAddressSalt: new Fr(this.salt),
         skipClassPublication: opts?.skipClassPublication ?? true,
         skipInstancePublication: opts?.skipInstancePublication ?? true,

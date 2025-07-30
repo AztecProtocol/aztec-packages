@@ -1,3 +1,4 @@
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import {
   type AztecAddress,
   type AztecNode,
@@ -7,7 +8,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import type { TestWallet } from '@aztec/aztec.js/wallet/testing';
+import { TestWallet } from '@aztec/aztec.js/wallet/testing';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
@@ -173,11 +174,15 @@ export class FeesTest {
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate();
+    const balanceBefore = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: this.aliceAddress });
 
-    await mintTokensToPrivate(this.bananaCoin, this.wallet, this.aliceAddress, address, amount);
+    await mintTokensToPrivate(this.bananaCoin, this.aliceAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate();
+    const balanceAfter = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: this.aliceAddress });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
@@ -194,6 +199,7 @@ export class FeesTest {
       deployAccounts(this.numberOfAccounts, this.logger),
       async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
+        this.wallet = new TestWallet(pxe);
 
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
@@ -201,6 +207,17 @@ export class FeesTest {
         this.accounts = deployedAccounts.map(a => a.address);
         this.accounts.forEach((a, i) => this.logger.verbose(`Account ${i} address: ${a}`));
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.accounts.slice(0, 3);
+        await Promise.all(
+          deployedAccounts.map(async acc => {
+            const accountData = {
+              secret: acc.secret,
+              salt: acc.salt,
+              contract: new SchnorrAccountContract(acc.signingKey),
+            };
+            const accountManager = await this.wallet.createAccount(accountData);
+            return accountManager.register();
+          }),
+        );
 
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;
@@ -227,7 +244,12 @@ export class FeesTest {
 
         this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.wallet);
 
-        this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
+        this.getGasBalanceFn = getBalancesFn(
+          '⛽',
+          this.feeJuiceContract.methods.balance_of_public,
+          this.aliceAddress,
+          this.logger,
+        );
 
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
@@ -254,10 +276,16 @@ export class FeesTest {
       async ({ bananaCoinAddress }) => {
         this.bananaCoin = await BananaCoin.at(bananaCoinAddress, this.wallet);
         const logger = this.logger;
-        this.getBananaPublicBalanceFn = getBalancesFn('🍌.public', this.bananaCoin.methods.balance_of_public, logger);
+        this.getBananaPublicBalanceFn = getBalancesFn(
+          '🍌.public',
+          this.bananaCoin.methods.balance_of_public,
+          this.aliceAddress,
+          logger,
+        );
         this.getBananaPrivateBalanceFn = getBalancesFn(
           '🍌.private',
           this.bananaCoin.methods.balance_of_private,
+          this.aliceAddress,
           logger,
         );
       },
@@ -278,7 +306,11 @@ export class FeesTest {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(FEE_FUNDING_FOR_TESTER_ACCOUNT, bananaFPC.address);
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
+          FEE_FUNDING_FOR_TESTER_ACCOUNT,
+          bananaFPC.address,
+          this.aliceAddress,
+        );
 
         return {
           bananaFPCAddress: bananaFPC.address,
@@ -365,7 +397,10 @@ export class FeesTest {
       'fund_alice',
       async () => {
         await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
-        await this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send().wait();
+        await this.bananaCoin.methods
+          .mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS)
+          .send({ from: this.aliceAddress })
+          .wait();
       },
       () => Promise.resolve(),
     );

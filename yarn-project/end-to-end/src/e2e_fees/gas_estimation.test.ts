@@ -1,10 +1,11 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AccountWallet,
   type AztecAddress,
   FeeJuicePaymentMethod,
   type FeePaymentMethod,
+  type PXE,
   PublicFeePaymentMethod,
+  type Wallet,
 } from '@aztec/aztec.js';
 import type { Logger } from '@aztec/foundation/log';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -16,7 +17,8 @@ import { inspect } from 'util';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees gas_estimation', () => {
-  let aliceWallet: AccountWallet;
+  let pxe: PXE;
+  let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let bananaCoin: BananaCoin;
@@ -30,12 +32,12 @@ describe('e2e_fees gas_estimation', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
+    ({ pxe, wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
   });
 
   beforeEach(async () => {
     // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await aliceWallet.getCurrentBaseFees();
+    const gasFees = await pxe.getCurrentBaseFees();
     gasSettings = GasSettings.from({
       ...gasSettings,
       maxFeesPerGas: gasFees,
@@ -53,7 +55,7 @@ describe('e2e_fees gas_estimation', () => {
     Promise.all(
       [true, false].map(estimateGas =>
         makeTransferRequest()
-          .send({ fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding: 0 } })
+          .send({ from: aliceAddress, fee: { estimateGas, gasSettings, paymentMethod, estimatedGasPadding: 0 } })
           .wait(),
       ),
     );
@@ -67,6 +69,7 @@ describe('e2e_fees gas_estimation', () => {
   it('estimates gas with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
     const estimatedGas = await makeTransferRequest().estimateGas({
+      from: aliceAddress,
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
@@ -94,11 +97,12 @@ describe('e2e_fees gas_estimation', () => {
   });
 
   it('estimates gas with public payment method', async () => {
-    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
+    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet);
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     const estimatedGas = await makeTransferRequest().estimateGas({
+      from: aliceAddress,
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
@@ -125,8 +129,9 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
     const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
-    const deployMethod = () => BananaCoin.deploy(aliceWallet, aliceAddress, 'TKN', 'TKN', 8);
+    const deployMethod = () => BananaCoin.deploy(wallet, aliceAddress, 'TKN', 'TKN', 8);
     const deployOpts = (estimateGas = false) => ({
+      from: aliceAddress,
       fee: { gasSettings, paymentMethod, estimateGas, estimatedGasPadding: 0 },
       skipClassPublication: true,
     });

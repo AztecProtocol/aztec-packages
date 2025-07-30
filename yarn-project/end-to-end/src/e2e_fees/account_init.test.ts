@@ -135,7 +135,7 @@ describe('e2e_fees account_init', () => {
 
     it('pays publicly through an FPC', async () => {
       const mintedBananas = FEE_FUNDING_FOR_TESTER_ACCOUNT;
-      await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send().wait();
+      await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send({ from: aliceAddress }).wait();
 
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet);
       const tx = await bobsAccountManager
