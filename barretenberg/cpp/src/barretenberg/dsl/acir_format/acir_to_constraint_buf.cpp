@@ -889,7 +889,7 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, Bloc
         unsigned int u_bit_range = static_cast<unsigned int>(bit_range);
         // Updates both af.minimal_range and af.index_range with u_bit_range when it is lower.
         // By doing so, we keep these invariants:
-        // - minimal_range constains the smallest possible range for a witness
+        // - minimal_range contains the smallest possible range for a witness
         // - index_range constains the smallest range for a witness implied by any array operation
         if (af.minimal_range.contains(index_witness)) {
             if (af.minimal_range[index_witness] > u_bit_range) {
