@@ -51,9 +51,6 @@ mod tests {
         let x = 10;
         env.call_public(contract_address, test_contract.initialize_value(x));
 
-        // We advance block to commit state and have the nullifier available for reading.
-        env.mine_block();
-
         // Read value and verify it matches
         assert_eq(env.call_public(contract_address, test_contract.read_value()), x);
     }
