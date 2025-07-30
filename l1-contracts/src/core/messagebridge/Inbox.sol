@@ -85,6 +85,7 @@ contract Inbox is IInbox {
       uint256(_secretHash) <= Constants.MAX_FIELD_VALUE,
       Errors.Inbox__SecretHashTooLarge(_secretHash)
     );
+    require(IRollup(ROLLUP).getManaTarget() > 0, Errors.Inbox__Ignition());
 
     // Is this the best way to read a packed struct into local variables in a single SLOAD
     // without having to use assembly and manual unpacking?
