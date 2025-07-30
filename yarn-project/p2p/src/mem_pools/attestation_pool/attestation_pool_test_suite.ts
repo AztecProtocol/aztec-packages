@@ -49,7 +49,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     const txHashes = [TxHash.random(), TxHash.random()]; // Mock tx hashes
 
-    return new BlockProposalClass(blockNumber, payload, signature, txHashes);
+    return new BlockProposalClass(blockNumber, payload, signature, Fr.ZERO, txHashes);
   };
 
   // We compare buffers as the objects can have cached values attached to them which are not serialised

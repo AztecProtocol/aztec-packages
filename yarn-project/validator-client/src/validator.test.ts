@@ -120,6 +120,7 @@ describe('ValidatorClient', () => {
         txs,
         EthAddress.fromString(validatorAccounts[0].address),
         { publishFullTxs: false },
+        Fr.random(),
       );
 
       expect(blockProposal).toBeDefined();

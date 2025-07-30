@@ -49,15 +49,15 @@ export class BlockProposal extends Gossipable {
     /** The signer of the BlockProposal over the header of the new block*/
     public readonly signature: Signature,
 
+    /** Hash of the parent block header for p2p validation - Fr(0) for first block */
+    public readonly parentHeaderHash: Fr,
+
     /** The sequence of transactions in the block */
     public readonly txHashes: TxHash[],
 
     // Note(md): this is placed after the txs payload in order to be backwards compatible with previous versions
     /** The transactions in the block */
     public readonly txs?: Tx[],
-
-    /** Hash of the parent block header for p2p validation - not sent to L1 */
-    public readonly parentHeaderHash?: Fr,
   ) {
     super();
   }
@@ -82,16 +82,16 @@ export class BlockProposal extends Gossipable {
   static async createProposalFromSigner(
     blockNumber: UInt32,
     payload: ConsensusPayload,
+    parentHeaderHash: Fr,
     txHashes: TxHash[],
     // Note(md): Provided separately to tx hashes such that this function can be optional
     txs: Tx[] | undefined,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
-    parentHeaderHash?: Fr,
   ) {
     const hashed = getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
     const sig = await payloadSigner(hashed);
 
-    return new BlockProposal(blockNumber, payload, sig, txHashes, txs, parentHeaderHash);
+    return new BlockProposal(blockNumber, payload, sig, parentHeaderHash, txHashes, txs);
   }
 
   /**Get Sender
@@ -112,15 +112,14 @@ export class BlockProposal extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    const buffer: any[] = [this.blockNumber, this.payload, this.signature, this.txHashes.length, this.txHashes];
-
-    // Always include a flag for parentHeaderHash presence and the value if present
-    if (this.parentHeaderHash) {
-      buffer.push(1); // flag: 1 if present, 0 if not
-      buffer.push(this.parentHeaderHash);
-    } else {
-      buffer.push(0);
-    }
+    const buffer: any[] = [
+      this.blockNumber,
+      this.payload,
+      this.signature,
+      this.parentHeaderHash,
+      this.txHashes.length,
+      this.txHashes,
+    ];
 
     if (this.txs) {
       buffer.push(this.txs.length);
@@ -136,20 +135,14 @@ export class BlockProposal extends Gossipable {
     const payload = reader.readObject(ConsensusPayload);
     const sig = reader.readObject(Signature);
     const txHashes = reader.readArray(reader.readNumber(), TxHash);
-
-    // Always read parentHeaderHash flag since we always write it
-    const hasParentHeaderHash = reader.readNumber(); // Read the flag
-    let parentHeaderHash: Fr | undefined;
-    if (hasParentHeaderHash === 1) {
-      parentHeaderHash = reader.readObject(Fr);
-    }
+    const parentHeaderHash = reader.readObject(Fr);
 
     let txs: Tx[] | undefined;
     if (!reader.isEmpty()) {
       txs = reader.readArray(reader.readNumber(), Tx);
     }
 
-    return new BlockProposal(blockNumber, payload, sig, txHashes, txs, parentHeaderHash);
+    return new BlockProposal(blockNumber, payload, sig, parentHeaderHash, txHashes, txs);
   }
 
   getSize(): number {
@@ -157,11 +150,10 @@ export class BlockProposal extends Gossipable {
       4 /* blockNumber */ +
       this.payload.getSize() +
       this.signature.getSize() +
+      Fr.SIZE_IN_BYTES +
       4 /* txHashes.length */ +
       this.txHashes.length * TxHash.SIZE +
-      (this.txs ? 4 /* txs.length */ + this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0) +
-      4 /* parentHeaderHash flag */ +
-      (this.parentHeaderHash ? Fr.SIZE_IN_BYTES : 0)
+      (this.txs ? 4 /* txs.length */ + this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0)
     );
   }
 }

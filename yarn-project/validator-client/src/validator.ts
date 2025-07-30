@@ -60,6 +60,7 @@ export interface Validator {
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
+    parentHeaderHash: Fr,
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
 
@@ -496,7 +497,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
-    parentHeaderHash?: Fr,
+    parentHeaderHash: Fr,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);

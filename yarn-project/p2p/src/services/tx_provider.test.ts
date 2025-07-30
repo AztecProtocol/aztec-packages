@@ -1,5 +1,6 @@
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { P2PClient, type PeerId, type TxPool, TxProvider } from '@aztec/p2p';
 import { BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -35,7 +36,7 @@ describe('TxProvider', () => {
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
     const payload = new ConsensusPayload(ProposedBlockHeader.empty(), StateReference.empty());
-    return new BlockProposal(1, payload, Signature.empty(), txHashes, txs);
+    return new BlockProposal(1, payload, Signature.empty(), Fr.ZERO, txHashes, txs);
   };
 
   const setupTxPools = (txsInPool: number, txsOnP2P: number, txs: TxWithHash[]) => {

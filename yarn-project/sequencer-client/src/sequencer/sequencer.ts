@@ -720,8 +720,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           parentHeaderHash: parentHeaderHash.toString(),
         });
       } else {
-        this.log.warn(`Parent block ${blockNumber - 1} not found when creating proposal`);
+        throw new Error(`Parent block ${blockNumber - 1} not found when creating proposal`);
       }
+    } else {
+      parentHeaderHash = Fr.ZERO;
     }
 
     const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };

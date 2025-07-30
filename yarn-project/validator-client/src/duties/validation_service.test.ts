@@ -1,6 +1,7 @@
 import { getAddressFromPrivateKey } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx } from '@aztec/stdlib/tx';
 
@@ -28,9 +29,17 @@ describe('ValidationService', () => {
       blockNumber,
       payload: { header, stateReference },
     } = makeBlockProposal({ txs });
-    const proposal = await service.createBlockProposal(blockNumber, header, stateReference, txs, addresses[0], {
-      publishFullTxs: true,
-    });
+    const proposal = await service.createBlockProposal(
+      blockNumber,
+      header,
+      stateReference,
+      txs,
+      addresses[0],
+      {
+        publishFullTxs: true,
+      },
+      Fr.random(),
+    );
     expect(proposal.getSender()).toEqual(store.getAddress(0));
     expect(proposal.txs).toBeDefined();
     expect(proposal.txs).toBe(txs);
@@ -42,9 +51,17 @@ describe('ValidationService', () => {
       blockNumber,
       payload: { header, stateReference },
     } = makeBlockProposal({ txs });
-    const proposal = await service.createBlockProposal(blockNumber, header, stateReference, txs, addresses[0], {
-      publishFullTxs: false,
-    });
+    const proposal = await service.createBlockProposal(
+      blockNumber,
+      header,
+      stateReference,
+      txs,
+      addresses[0],
+      {
+        publishFullTxs: false,
+      },
+      Fr.random(),
+    );
     expect(proposal.getSender()).toEqual(addresses[0]);
     expect(proposal.txs).toBeUndefined();
   });

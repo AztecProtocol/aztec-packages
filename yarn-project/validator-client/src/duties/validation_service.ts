@@ -50,10 +50,10 @@ export class ValidationService {
     return BlockProposal.createProposalFromSigner(
       blockNumber,
       new ConsensusPayload(header, stateReference),
+      parentHeaderHash ?? Fr.ZERO,
       txHashes,
       options.publishFullTxs ? txs : undefined,
       payloadSigner,
-      parentHeaderHash,
     );
   }
 

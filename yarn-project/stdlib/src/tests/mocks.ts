@@ -274,7 +274,7 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
     options,
   );
   const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  return new BlockProposal(blockNumber, payload, signature, txHashes, options?.txs ?? []);
+  return new BlockProposal(blockNumber, payload, signature, Fr.ZERO, txHashes, options?.txs ?? []);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)

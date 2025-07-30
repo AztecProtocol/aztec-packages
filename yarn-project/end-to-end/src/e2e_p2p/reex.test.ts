@@ -136,6 +136,7 @@ describe('e2e_p2p_reex', () => {
           proposal.blockNumber,
           proposal.payload,
           await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
+          Fr.ZERO,
           proposal.txHashes,
         );
 
