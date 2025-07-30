@@ -17,6 +17,8 @@ include "../constants_gen.pil";
  * - rop[0]: log_address (memory offset where log data starts)
  * - register[1]: log_size (number of fields in the log)
  *
+ * The interaction with the execution trace is only done on the start row. The other PUBLIC_LOG_SIZE_IN_FIELDS - 1 rows are reading the fields of the log and writing to public inputs.
+ *
  * Validation checks:
  * - Log size must not exceed PUBLIC_LOG_SIZE_IN_FIELDS
  * - Memory addresses must be within bounds (≤ AVM_HIGHEST_MEM_ADDRESS)
@@ -56,6 +58,8 @@ include "../constants_gen.pil";
  * +-----+-----+----------+------------+----------+------------------+-----------+-----------+-----------+-------+-------+-----+----------------+--------------+----------------+------------+--------------------+-----------------+-------+-----+
  * We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows. Worker rows are the ones after start that only perform optional memory
  * read and optional writes to public inputs. Columns not propagated down are marked as "unc" in the table above.
+ * Rows with is_padding_row = 1 are rows where the user-provided log has ended and we are just padding to the PUBLIC_LOG_SIZE_IN_FIELDS.
+ * All rows interact with public inputs, but memory reads are controlled by a selector that is 1 when it's not padding and there has been no addressing error.
  */
 namespace emit_unencrypted_log;
 
