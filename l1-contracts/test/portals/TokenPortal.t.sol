@@ -236,7 +236,7 @@ contract TokenPortalTest is Test {
     assertEq(testERC20.balanceOf(recipient), 0);
 
     uint256 leafIndex = 0;
-    uint256 leafId = 2 ** siblingPath.length;
+    uint256 leafId = 2 ** siblingPath.length + leafIndex;
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
@@ -285,7 +285,7 @@ contract TokenPortalTest is Test {
       _addWithdrawMessageInOutbox(address(this), l2BlockNumber);
 
     uint256 leafIndex = 0;
-    uint256 leafId = 2 ** siblingPath.length;
+    uint256 leafId = 2 ** siblingPath.length + leafIndex;
 
     vm.expectEmit(true, true, true, true);
     emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, leafId);

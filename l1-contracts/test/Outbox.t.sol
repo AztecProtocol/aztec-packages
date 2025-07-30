@@ -155,7 +155,7 @@ contract OutboxTest is Test {
     outbox.insert(1, root);
 
     uint256 leafIndex = 0;
-    uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT;
+    uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT + leafIndex;
     (bytes32[] memory path,) = tree.computeSiblingPath(leafIndex);
     outbox.consume(fakeMessage, 1, leafIndex, path);
 
@@ -243,7 +243,7 @@ contract OutboxTest is Test {
     outbox.insert(1, root);
 
     uint256 leafIndex = 0;
-    uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT;
+    uint256 leafId = 2 ** DEFAULT_TREE_HEIGHT + leafIndex;
     (bytes32[] memory path,) = tree.computeSiblingPath(leafIndex);
 
     bool statusBeforeConsumption = outbox.hasMessageBeenConsumedAtBlock(1, leafId);
