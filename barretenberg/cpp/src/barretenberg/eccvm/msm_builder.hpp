@@ -247,9 +247,6 @@ class ECCVMMSMMBuilder {
         // we start the accumulator at the offset generator point
         constexpr auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         accumulator_trace[0] = offset_generator;
-        // Zac suggests roughly the following:
-        // accumulator_trace[0] = (msm.size() + ADDITIONS_PER_ROW - 1) / ADDITIONS_PER_ROW;
-        // RAJU: kill this
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/973): Reinstate multitreading?
         // populate point trace, and the components of the MSM execution trace that do not relate to affine point
@@ -323,8 +320,10 @@ class ECCVMMSMMBuilder {
                     msm_row_index++;
                 }
                 // after processing each digit-slot, we now take care of doubling (as long as we are not at the last
-                // digit)
-                // RAJU. Question: Why do we only do this doubling once, rather than 4 times (as w == 4)?
+                // digit). We add an `MSMRow`, `row`, whose four `AddState` objects in `row.add_state`
+                // are null, but we also populate `p1_trace`, `p2_trace`, `p3_trace`, and `is_double_or_add` for four
+                // indices, corresponding to the w=4 doubling operations we need to perform. This embodies the numerical
+                // "coincidence" that `ADDITIONS_PER_ROW == NUM_WNAF_DIGIT_BITS`
                 if (digit_idx < NUM_WNAF_DIGITS_PER_SCALAR - 1) {
                     auto& row = msm_rows[msm_row_index];
                     row.msm_transition = false;
@@ -421,8 +420,7 @@ class ECCVMMSMMBuilder {
             const auto& msm = msms[msm_idx];
             size_t trace_index = ((msm_row_counts[msm_idx] - 1) * ADDITIONS_PER_ROW);
             size_t msm_row_index = msm_row_counts[msm_idx];
-            // 1st MSM row will have accumulator equal to the previous MSM output
-            // (or point at infinity for 1st MSM)
+            // 1st MSM row will have accumulator equal to the previous MSM output (or point at infinity for first MSM)
             size_t accumulator_index = msm_row_counts[msm_idx] - 1;
             const size_t msm_size = msm.size();
             const size_t num_rows_per_digit =
@@ -438,8 +436,6 @@ class ECCVMMSMMBuilder {
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
                         auto& add_state = row.add_state[point_idx];
 
-                        // if digit_idx <  NUM_WNAF_DIGITS_PER_SCALAR - 1 we have not finished executing our
-                        // double-and-add algorithm
                         const auto& inverse = inverse_trace[trace_index];
                         const auto& p1 = p1_trace[trace_index];
                         const auto& p2 = p2_trace[trace_index];
@@ -451,6 +447,8 @@ class ECCVMMSMMBuilder {
                     msm_row_index++;
                 }
 
+                // if digit_idx <  NUM_WNAF_DIGITS_PER_SCALAR - 1 we have not finished executing our
+                // double-and-add algorithm
                 if (digit_idx < NUM_WNAF_DIGITS_PER_SCALAR - 1) {
                     MSMRow& row = msm_rows[msm_row_index];
                     const Element& normalized_accumulator = accumulator_trace[accumulator_index];
@@ -459,11 +457,6 @@ class ECCVMMSMMBuilder {
                     row.accumulator_x = acc_x;
                     row.accumulator_y = acc_y;
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
-                        // this row corresponds to performing point additions to handle WNAF skew
-                        // i.e. iterate over all the points in the MSM - if for a given point, `wnaf_skew == 1`,
-                        // subtract the original point from the accumulatorif digit_idx >=  NUM_WNAF_DIGITS_PER_SCALAR -
-                        // 1 we have finished executing our double-and-add algorithm (size_t point_idx = 0; point_idx <
-                        //
                         auto& add_state = row.add_state[point_idx];
                         add_state.collision_inverse = 0;
                         const FF& dx = p1_trace[trace_index].x;
@@ -473,7 +466,11 @@ class ECCVMMSMMBuilder {
                     }
                     accumulator_index++;
                     msm_row_index++;
-                } else {
+                } else // this row corresponds to performing point additions to handle WNAF skew
+                       // i.e. iterate over all the points in the MSM - if for a given point, `wnaf_skew == 1`,
+                       // subtract the original point from the accumulator. if `digit_idx ==  NUM_WNAF_DIGITS_PER_SCALAR
+                       // - 1` we have finished executing our double-and-add algorithm.
+                {
                     for (size_t row_idx = 0; row_idx < num_rows_per_digit; ++row_idx) {
                         MSMRow& row = msm_rows[msm_row_index];
                         const Element& normalized_accumulator = accumulator_trace[accumulator_index];
