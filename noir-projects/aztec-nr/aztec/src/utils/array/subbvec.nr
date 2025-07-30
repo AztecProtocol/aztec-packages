@@ -73,7 +73,7 @@ mod test {
         let _: BoundedVec<_, 1> = subbvec(bvec, 2);
     }
 
-    #[test(should_fail_with = "DST_LEN too large for offset")]
+    #[test(should_fail_with = "DstLen too large for offset")]
     unconstrained fn subbvec_dst_len_causes_enlarge() {
         let bvec = BoundedVec::<_, 10>::from_array([1, 2, 3, 4, 5]);
 
@@ -81,7 +81,7 @@ mod test {
         let _: BoundedVec<_, 11> = subbvec(bvec, 0);
     }
 
-    #[test(should_fail_with = "DST_LEN too large for offset")]
+    #[test(should_fail_with = "DstLen too large for offset")]
     unconstrained fn subbvec_dst_len_too_large_for_offset() {
         let bvec = BoundedVec::<_, 10>::from_array([1, 2, 3, 4, 5]);
 
