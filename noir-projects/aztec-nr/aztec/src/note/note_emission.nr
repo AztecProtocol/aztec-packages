@@ -29,7 +29,12 @@ where
         _emit(self);
     }
 
-    pub fn emit_new_constrained(self, context: &mut PrivateContext, recipient: AztecAddress) {
+    // TODO: Drop "new" from all the names below
+    pub fn emit_new_constrained_in_private_log(
+        self,
+        context: &mut PrivateContext,
+        recipient: AztecAddress,
+    ) {
         emit_note_in_private_log(
             self,
             context,
@@ -38,7 +43,11 @@ where
         );
     }
 
-    pub fn emit_new_unconstrained(self, context: &mut PrivateContext, recipient: AztecAddress) {
+    pub fn emit_new_unconstrained_in_private_log(
+        self,
+        context: &mut PrivateContext,
+        recipient: AztecAddress,
+    ) {
         emit_note_in_private_log(self, context, recipient, PrivateLogContent.NO_CONSTRAINTS);
     }
 
@@ -80,15 +89,26 @@ where
         }
     }
 
-    pub fn emit_new_constrained(self, context: &mut PrivateContext, recipient: AztecAddress) {
+    pub fn emit_new_constrained_in_private_log(
+        self,
+        context: &mut PrivateContext,
+        recipient: AztecAddress,
+    ) {
         if self.emission.is_some() {
-            self.emission.unwrap_unchecked().emit_new_constrained(context, recipient);
+            self.emission.unwrap_unchecked().emit_new_constrained_in_private_log(context, recipient);
         }
     }
 
-    pub fn emit_new_unconstrained(self, context: &mut PrivateContext, recipient: AztecAddress) {
+    pub fn emit_new_unconstrained_in_private_log(
+        self,
+        context: &mut PrivateContext,
+        recipient: AztecAddress,
+    ) {
         if self.emission.is_some() {
-            self.emission.unwrap_unchecked().emit_new_unconstrained(context, recipient);
+            self.emission.unwrap_unchecked().emit_new_unconstrained_in_private_log(
+                context,
+                recipient,
+            );
         }
     }
 
