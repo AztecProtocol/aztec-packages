@@ -172,9 +172,9 @@ export class ProverNodePublisher {
       );
     }
 
-    // Check the archive for the last block in the epoch
+    // Check the header has for the last block in the epoch (no archive committed for this block until proof is submitted)
     const endBlockLog = await this.rollupContract.getBlock(BigInt(toBlock));
-    if (publicInputs.endArchiveRoot.toString() !== endBlockLog.archive) {
+    if (publicInputs.proposedBlockHeaderHashes[toBlock - fromBlock]?.toString() !== endBlockLog.headerHash) {
       throw new Error(
         `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`,
       );
