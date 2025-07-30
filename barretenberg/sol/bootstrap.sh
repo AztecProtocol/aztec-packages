@@ -34,7 +34,7 @@ function build_sol {
         # Ensure libraries are at the correct version
         git submodule update --init --recursive ./lib
 
-        forge fmt
+        forge fmt || true
         forge build
 
         cache_upload $artifact out

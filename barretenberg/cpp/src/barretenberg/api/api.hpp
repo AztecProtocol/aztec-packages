@@ -27,6 +27,8 @@ class API {
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         bool update_inputs{ false };            // use file backed memory for polynomials
 
+        bool optimized_solidity_verifier{ false }; // should we use the optimized sol verifier? (temp)
+
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
             os << "flags: [\n"
