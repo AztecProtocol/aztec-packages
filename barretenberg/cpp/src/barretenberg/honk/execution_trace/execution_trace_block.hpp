@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/file_backed_allocator.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/ref_vector.hpp"
@@ -13,6 +14,7 @@
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstddef>
+#include <cstdint>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
 #include <backward.hpp>
@@ -225,7 +227,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     static constexpr size_t NUM_WIRES = NUM_WIRES_;
 
     using SelectorType = Selector<FF>;
-    using WireType = SlabVector<uint32_t>;
+    using WireType = FileBackedVector<uint32_t>;
     using Wires = std::array<WireType, NUM_WIRES>;
 
     ExecutionTraceBlock() = default;

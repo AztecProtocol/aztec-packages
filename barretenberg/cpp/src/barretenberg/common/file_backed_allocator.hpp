@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <unordered_map>
 
+namespace bb {
 template <typename T> class FileBackedAllocator {
   public:
     using value_type = T;
@@ -25,7 +26,7 @@ template <typename T> class FileBackedAllocator {
             temp_dir = std::filesystem::current_path();
         }
 
-        std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
+        std::string filename = temp_dir / ("allocator-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
         int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         // Create file
@@ -69,3 +70,22 @@ template <typename T> class FileBackedAllocator {
 
     static inline std::unordered_map<void*, AllocationInfo> allocations;
 };
+
+template <typename T, typename U>
+bool operator==(const FileBackedAllocator<T>& /*unused*/, const FileBackedAllocator<U>& /*unused*/) noexcept
+{
+    return true;
+}
+
+template <typename T, typename U>
+bool operator!=(const FileBackedAllocator<T>& /*unused*/, const FileBackedAllocator<U>& /*unused*/) noexcept
+{
+    return false;
+}
+
+/**
+ * @brief A vector that uses the file backed allocator.
+ */
+template <typename T> using FileBackedVector = std::vector<T, bb::FileBackedAllocator<T>>;
+
+} // namespace bb
