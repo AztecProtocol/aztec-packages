@@ -111,3 +111,7 @@ export async function computeL2ToL1MembershipWitness(
     siblingPath: new SiblingPath(combinedPath.length, combinedPath),
   };
 }
+
+export function getL2ToL1MessageLeafId(membershipWitness: L2ToL1MembershipWitness): bigint {
+  return 2n ** BigInt(membershipWitness.siblingPath.pathSize) + membershipWitness.l2MessageIndex;
+}

@@ -397,9 +397,9 @@ contract UniswapPortalTest is Test {
     assertEq(DAI.balanceOf(address(daiTokenPortal)), 0);
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
-    // there the message should be nullified at index 0 and 1
-    assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 0));
-    assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 1));
+    // there the messages should be nullified
+    assertTrue(outbox.hasMessageBeenConsumedAtBlock(l2BlockNumber, 1 << withdrawSiblingPath.length));
+    assertTrue(outbox.hasMessageBeenConsumedAtBlock(l2BlockNumber, 1 << swapSiblingPath.length + 1));
   }
 
   function testSwapCalledByAnyoneIfDesignatedCallerNotSet(address _caller) public {
@@ -443,9 +443,9 @@ contract UniswapPortalTest is Test {
     assertEq(DAI.balanceOf(address(daiTokenPortal)), 0);
     // there should be some weth in the weth portal
     assertGt(WETH9.balanceOf(address(wethTokenPortal)), 0);
-    // there should be no message in the outbox:
-    assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 0));
-    assertTrue(outbox.hasMessageBeenConsumedAtBlockAndIndex(l2BlockNumber, 1));
+    // there the messages should be nullified
+    assertTrue(outbox.hasMessageBeenConsumedAtBlock(l2BlockNumber, 1 << withdrawSiblingPath.length));
+    assertTrue(outbox.hasMessageBeenConsumedAtBlock(l2BlockNumber, 1 << swapSiblingPath.length + 1));
   }
 
   function testRevertIfSwapWithDesignatedCallerCalledByWrongCaller(address _caller) public {

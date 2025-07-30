@@ -92,37 +92,38 @@ contract Outbox is IOutbox {
 
     require(blockRoot != bytes32(0), Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber));
 
+    uint256 leafId = (1 << _path.length) + _leafIndex;
+
     require(
-      !rootData.nullified.get(_leafIndex),
-      Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex)
+      !rootData.nullified.get(leafId), Errors.Outbox__AlreadyNullified(_l2BlockNumber, leafId)
     );
 
     bytes32 messageHash = _message.sha256ToField();
 
     MerkleLib.verifyMembership(_path, messageHash, _leafIndex, blockRoot);
 
-    rootData.nullified.set(_leafIndex);
+    rootData.nullified.set(leafId);
 
-    emit MessageConsumed(_l2BlockNumber, blockRoot, messageHash, _leafIndex);
+    emit MessageConsumed(_l2BlockNumber, blockRoot, messageHash, leafId);
   }
 
   /**
-   * @notice Checks to see if an index of the L2 to L1 message tree for a specific block has been consumed
+   * @notice Checks to see if an L2 to L1 message in a specific block has been consumed
    *
    * @dev - This function does not throw. Out-of-bounds access is considered valid, but will always return false
    *
-   * @param _l2BlockNumber - The block number specifying the block that contains the index of the message we want to check
-   * @param _leafIndex - The index of the message inside the merkle tree
+   * @param _l2BlockNumber - The block number specifying the block that contains the message we want to check
+   * @param _leafId - The unique id of the message leaf
    *
    * @return bool - True if the message has been consumed, false otherwise
    */
-  function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _leafIndex)
+  function hasMessageBeenConsumedAtBlock(uint256 _l2BlockNumber, uint256 _leafId)
     external
     view
     override(IOutbox)
     returns (bool)
   {
-    return roots[_l2BlockNumber].nullified.get(_leafIndex);
+    return roots[_l2BlockNumber].nullified.get(_leafId);
   }
 
   /**

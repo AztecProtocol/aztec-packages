@@ -27,7 +27,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -309,6 +309,7 @@ describe('e2e_p2p_add_rollup', () => {
         });
 
         const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(node, l2OutgoingReceipt!.blockNumber, leaf);
+        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult!);
 
         // We need to mark things as proven
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses);
@@ -352,13 +353,13 @@ describe('e2e_p2p_add_rollup', () => {
             l2BlockNumber: bigint;
             root: `0x${string}`;
             messageHash: `0x${string}`;
-            leafIndex: bigint;
+            leafId: bigint;
           };
         };
 
-        // We check that MessageConsumed event was emitted with the expected message hash and leaf index
+        // We check that MessageConsumed event was emitted with the expected message hash and leaf id
         expect(topics.args.messageHash).toStrictEqual(leaf.toString());
-        expect(topics.args.leafIndex).toStrictEqual(BigInt(0));
+        expect(topics.args.leafId).toStrictEqual(leafId);
       }
     };
 

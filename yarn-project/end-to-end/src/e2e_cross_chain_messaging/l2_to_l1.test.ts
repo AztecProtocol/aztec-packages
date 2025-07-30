@@ -6,7 +6,7 @@ import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
 import { type Hex, decodeEventLog, getContract } from 'viem';
 
@@ -116,13 +116,13 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
           l2BlockNumber: bigint;
           root: `0x${string}`;
           messageHash: `0x${string}`;
-          leafIndex: bigint;
+          leafId: bigint;
         };
       };
 
       // We check that MessageConsumed event was emitted with the expected message hash and leaf index
       expect(topics.args.messageHash).toStrictEqual(messageLeaf.toString());
-      expect(topics.args.leafIndex).toStrictEqual(BigInt(0));
+      expect(topics.args.leafId).toStrictEqual(getL2ToL1MessageLeafId(l2ToL1Witness!));
     },
     60_000,
   );
@@ -196,13 +196,13 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         l2BlockNumber: bigint;
         root: `0x${string}`;
         messageHash: `0x${string}`;
-        leafIndex: bigint;
+        leafId: bigint;
       };
     };
 
     // We check that MessageConsumed event was emitted with the expected message hash and leaf index
     expect(topics.args.messageHash).toStrictEqual(messageLeaf.toString());
-    expect(topics.args.leafIndex).toStrictEqual(l2MessageIndex);
+    expect(topics.args.leafId).toStrictEqual(getL2ToL1MessageLeafId(l2ToL1Witness!));
   }, 60_000);
 
   it('Inserts a new transaction with two out messages, and verifies sibling paths of both the new messages', async () => {
@@ -295,12 +295,12 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         l2BlockNumber: bigint;
         root: `0x${string}`;
         messageHash: `0x${string}`;
-        leafIndex: bigint;
+        leafId: bigint;
       };
     };
     // Consumed the expected message
     expect(topics.args.messageHash).toStrictEqual(l2ToL1Messages?.[1].toString());
-    expect(topics.args.leafIndex).toStrictEqual(BigInt(l2MessageIndex2));
+    expect(topics.args.leafId).toStrictEqual(getL2ToL1MessageLeafId(l2ToL1Witness2!));
 
     const consumeAgain = outbox.write.consume(
       [
@@ -414,12 +414,12 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         l2BlockNumber: bigint;
         root: `0x${string}`;
         messageHash: `0x${string}`;
-        leafIndex: bigint;
+        leafId: bigint;
       };
     };
     // Consumed the expected message
     expect(topics.args.messageHash).toStrictEqual(leafOfMessageToConsume.toString());
-    expect(topics.args.leafIndex).toStrictEqual(BigInt(l2MessageIndex2));
+    expect(topics.args.leafId).toStrictEqual(getL2ToL1MessageLeafId(l2ToL1Witness2!));
 
     const consumeAgain = outbox.write.consume(
       [
@@ -504,15 +504,15 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     expect(l1Root).toEqual(block.header.contentCommitment.outHash.toString());
 
     // Consume msg 2
-    const [inputIndex, inputPath] = leafOfMessageToConsume.equals(l2ToL1Messages![0])
-      ? [l2MessageIndex, siblingPath]
-      : [l2MessageIndex2, siblingPath2];
+    const witnessToUse = leafOfMessageToConsume.equals(l2ToL1Messages![0]) ? l2ToL1Witness! : l2ToL1Witness2!;
     const txHash = await outbox.write.consume(
       [
         messageToConsume,
         BigInt(l2TxReceipt0.blockNumber!),
-        BigInt(inputIndex),
-        inputPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
+        BigInt(witnessToUse.l2MessageIndex),
+        witnessToUse.siblingPath
+          .toBufferArray()
+          .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
       ],
       {} as any,
     );
@@ -533,19 +533,21 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         l2BlockNumber: bigint;
         root: `0x${string}`;
         messageHash: `0x${string}`;
-        leafIndex: bigint;
+        leafId: bigint;
       };
     };
     // Consumed the expected message
     expect(topics.args.messageHash).toStrictEqual(leafOfMessageToConsume.toString());
-    expect(topics.args.leafIndex).toStrictEqual(BigInt(inputIndex));
+    expect(topics.args.leafId).toStrictEqual(getL2ToL1MessageLeafId(witnessToUse));
 
     const consumeAgain = outbox.write.consume(
       [
         messageToConsume,
         BigInt(l2TxReceipt0.blockNumber!),
-        BigInt(l2MessageIndex2),
-        siblingPath2.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
+        BigInt(witnessToUse.l2MessageIndex),
+        witnessToUse.siblingPath
+          .toBufferArray()
+          .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
       ],
       {} as any,
     );
