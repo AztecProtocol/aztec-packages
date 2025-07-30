@@ -317,10 +317,9 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_memory_gate_connected_comp
         gate_variables.reserve(8);
         auto q_1 = block.q_1()[index];
         auto q_2 = block.q_2()[index];
-        [[maybe_unused]] auto q_3 = block.q_3()[index];
+        auto q_3 = block.q_3()[index];
         auto q_4 = block.q_4()[index];
         [[maybe_unused]] auto q_m = block.q_m()[index];
-        auto q_arith = block.q_arith()[index];
         [[maybe_unused]] auto q_c = block.q_c()[index];
 
         [[maybe_unused]] auto w_l = block.w_l()[index];
@@ -329,7 +328,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_memory_gate_connected_comp
         [[maybe_unused]] auto w_4 = block.w_4()[index];
 
         if (q_1 == FF::one() && q_4 == FF::one()) {
-            ASSERT(q_arith.is_zero());
+            ASSERT(q_3.is_zero());
             // ram timestamp check
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -340,7 +339,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_memory_gate_connected_comp
                                         block.w_o()[index] });
             }
         } else if (q_1 == FF::one() && q_2 == FF::one()) {
-            ASSERT(q_arith.is_zero());
+            ASSERT(q_3.is_zero());
             // rom constitency check
             if (index < block.size() - 1) {
                 gate_variables.insert(
@@ -349,7 +348,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_memory_gate_connected_comp
             }
         } else {
             // ram constitency check
-            if (!q_arith.is_zero()) {
+            if (!q_3.is_zero()) {
                 if (index < block.size() - 1) {
                     gate_variables.insert(gate_variables.end(),
                                           { block.w_o()[index],
@@ -388,7 +387,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_non_native_field_gate_conn
         auto q_3 = block.q_3()[index];
         auto q_4 = block.q_4()[index];
         auto q_m = block.q_m()[index];
-        auto q_arith = block.q_arith()[index];
         [[maybe_unused]] auto q_c = block.q_c()[index];
 
         auto w_l = block.w_l()[index];
@@ -397,13 +395,11 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_non_native_field_gate_conn
         auto w_4 = block.w_4()[index];
         if (q_3 == FF::one() && q_4 == FF::one()) {
             // bigfield limb accumulation 1
-            ASSERT(q_arith.is_zero());
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
                                       { w_l, w_r, w_o, w_4, block.w_l()[index + 1], block.w_r()[index + 1] }); // 6
             }
         } else if (q_3 == FF::one() && q_m == FF::one()) {
-            ASSERT(q_arith.is_zero());
             // bigfield limb accumulation 2
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -415,7 +411,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_non_native_field_gate_conn
                                         block.w_4()[index + 1] });
             }
         } else if (q_2 == FF::one() && (q_3 == FF::one() || q_4 == FF::one() || q_m == FF::one())) {
-            ASSERT(q_arith.is_zero());
             // bigfield product cases
             if (index < block.size() - 1) {
                 std::vector<uint32_t> limb_subproduct_vars = {
@@ -483,7 +478,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_compon
         auto q_3 = ultra_builder.blocks.memory.q_3()[gate_index];
         auto q_4 = ultra_builder.blocks.memory.q_4()[gate_index];
         auto q_m = ultra_builder.blocks.memory.q_m()[gate_index];
-        auto q_arith = ultra_builder.blocks.memory.q_arith()[gate_index];
         auto q_c = ultra_builder.blocks.memory.q_c()[gate_index];
 
         auto index_witness = record.index_witness;
@@ -491,8 +485,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_compon
         auto vc2_witness = record.value_column2_witness; // state[1] from RomTranscript
         auto record_witness = record.record_witness;
 
-        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_c.is_zero() &&
-            q_arith.is_zero()) {
+        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_c.is_zero()) {
             // By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness, vc2_witness,
             // record_witness) So we can update all of them
             gate_variables.emplace_back(index_witness);
@@ -538,7 +531,6 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_compon
         auto q_3 = ultra_builder.blocks.memory.q_3()[gate_index];
         auto q_4 = ultra_builder.blocks.memory.q_4()[gate_index];
         auto q_m = ultra_builder.blocks.memory.q_m()[gate_index];
-        auto q_arith = ultra_builder.blocks.memory.q_arith()[gate_index];
         auto q_c = ultra_builder.blocks.memory.q_c()[gate_index];
 
         auto index_witness = record.index_witness;
@@ -547,7 +539,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_compon
         auto record_witness = record.record_witness;
 
         if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
-            q_arith.is_zero() && (q_c.is_zero() || q_c == FF::one())) {
+            (q_c.is_zero() || q_c == FF::one())) {
             // By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, timestamp_witness,
             // value_witness, record_witness) So we can update all of them
             gate_variables.emplace_back(index_witness);

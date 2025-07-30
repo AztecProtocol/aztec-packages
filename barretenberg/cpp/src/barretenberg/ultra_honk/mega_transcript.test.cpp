@@ -2,7 +2,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -36,6 +36,8 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         using Commitment = typename Flavor::Commitment;
         TranscriptManifest manifest_expected;
 
+        size_t NUM_PUBLIC_INPUTS =
+            stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
@@ -47,7 +49,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t round = 0;
         manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
-        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        for (size_t i = 0; i < NUM_PUBLIC_INPUTS; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
@@ -174,7 +176,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         uint32_t d_idx = builder.add_variable(d);
 
         builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
-        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::HidingKernelIO<typename Flavor::CircuitBuilder>::add_default(builder);
     }
 };
 TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);

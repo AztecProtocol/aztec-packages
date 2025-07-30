@@ -3,6 +3,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -84,14 +85,14 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
-
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
+        if constexpr (IsMegaBuilder<InnerBuilder>) {
+            HidingKernelIO<InnerBuilder>::add_default(builder);
+        } else if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
+            RollupIO::add_default(builder);
+        } else {
+            DefaultIO<InnerBuilder>::add_default(builder);
         }
+
         return builder;
     }
 
@@ -211,10 +212,26 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         verifier.transcript->enable_manifest();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
-        output.points_accumulator.set_public();
-        if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            output.ipa_claim.set_public();
+
+        // IO
+        if constexpr (IsMegaFlavor<OuterFlavor>) {
+            HidingKernelIO<OuterBuilder> inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.ecc_op_tables = HidingKernelIO<OuterBuilder>::default_ecc_op_tables(outer_circuit);
+            inputs.set_public();
+        } else if constexpr (HasIPAAccumulator<OuterFlavor>) {
+            // HasIPAAccumulator requires RollUpIO
+            RollupIO inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.ipa_claim = output.ipa_claim;
+            inputs.set_public();
+
+            // Store ipa_proof
             outer_circuit.ipa_proof = output.ipa_proof.get_value();
+        } else {
+            DefaultIO<OuterBuilder> inputs;
+            inputs.pairing_inputs = output.points_accumulator;
+            inputs.set_public();
         }
 
         // Check for a failure flag in the recursive verifier circuit
@@ -261,23 +278,21 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
             OuterProver prover(proving_key, verification_key);
             auto proof = prover.construct_proof();
-            if constexpr (IsUltraHonk<OuterFlavor>) {
-                if constexpr (HasIPAAccumulator<OuterFlavor>) {
-                    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
-                    OuterVerifier verifier(verification_key, ipa_verification_key);
-                    ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
-                } else {
-                    OuterVerifier verifier(verification_key);
-                    ASSERT_TRUE(verifier.verify_proof(proof));
-                }
-            } else {
+            if constexpr (IsMegaFlavor<OuterFlavor>) {
                 OuterVerifier verifier(verification_key);
                 ASSERT_TRUE(std::get<0>(verifier.verify_proof(proof)));
+            } else if constexpr (HasIPAAccumulator<OuterFlavor>) {
+                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
+                OuterVerifier verifier(verification_key, ipa_verification_key);
+                ASSERT_TRUE(verifier.verify_proof(proof, proving_key->ipa_proof));
+            } else {
+                OuterVerifier verifier(verification_key);
+                ASSERT_TRUE(verifier.verify_proof(proof));
             }
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            uint32_t NUM_GATES_EXPECTED = 873673;
+            uint32_t NUM_GATES_EXPECTED = 874803;
             ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
                 << "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
                    "are sure this is expected.";

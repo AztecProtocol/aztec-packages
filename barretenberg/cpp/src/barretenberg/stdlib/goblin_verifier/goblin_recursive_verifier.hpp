@@ -15,7 +15,6 @@ namespace bb::stdlib::recursion::honk {
 struct GoblinRecursiveVerifierOutput {
     using Builder = UltraCircuitBuilder;
     using Curve = grumpkin<Builder>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using PairingAccumulator = PairingPoints<Builder>;
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
@@ -39,8 +38,7 @@ class GoblinRecursiveVerifier {
     using VerificationKey = Goblin::VerificationKey;
 
     // Merge commitments
-    using SubtableCommitments = MergeVerifier::SubtableWitnessCommitments;
-    using Commitment = MergeVerifier::Commitment;
+    using MergeCommitments = MergeVerifier::InputCommitments;
 
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
@@ -66,13 +64,9 @@ class GoblinRecursiveVerifier {
         , transcript(transcript){};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&,
-        const SubtableCommitments& subtable_commitments,
-        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment);
+        const GoblinProof&, const MergeCommitments& merge_commitments);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibProof&,
-        const SubtableCommitments& subtable_commitments,
-        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment);
+        const StdlibProof&, const MergeCommitments& merge_commitments);
 
   private:
     Builder* builder;

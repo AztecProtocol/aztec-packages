@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: done, auditors: [suyash], date: 2025-07-23 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -18,6 +18,7 @@ uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
 
     ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
            (context == nullptr && other.context != nullptr));
+
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
@@ -25,6 +26,13 @@ uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
+    if (!is_constant()) {
+        BB_ASSERT_EQ(additive_constant, 0ULL, "uint::operator+ expected additive_constant to be zero");
+    }
+    if (!other.is_constant()) {
+        BB_ASSERT_EQ(other.additive_constant, 0ULL, "uint::operator+ expected other.additive_constant to be zero");
+    }
+
     const uint256_t lhs = get_value();
     const uint256_t rhs = other.get_value();
     const uint256_t constants = (additive_constant + other.additive_constant) & MASK;
@@ -48,7 +56,7 @@ uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
 
     uint<Builder, Native> result(ctx);
     result.witness_index = gate.c;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
 
     return result;
 }
@@ -67,12 +75,19 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
+    if (!is_constant()) {
+        BB_ASSERT_EQ(additive_constant, 0ULL, "uint::operator- expected additive_constant to be zero");
+    }
+    if (!other.is_constant()) {
+        BB_ASSERT_EQ(other.additive_constant, 0ULL, "uint::operator- expected other.additive_constant to be zero");
+    }
+
     const uint32_t lhs_idx = is_constant() ? ctx->zero_idx : witness_index;
     const uint32_t rhs_idx = other.is_constant() ? ctx->zero_idx : other.witness_index;
 
     const uint256_t lhs = get_value();
     const uint256_t rhs = other.get_value();
-    const uint256_t constant_term = (additive_constant - other.additive_constant);
+    const uint256_t constant_term = CIRCUIT_UINT_MAX_PLUS_ONE + (additive_constant - other.additive_constant);
 
     const uint256_t difference = CIRCUIT_UINT_MAX_PLUS_ONE + lhs - rhs;
     const uint256_t overflow = difference >> width;
@@ -87,14 +102,14 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
         FF::neg_one(),
         FF::neg_one(),
         -FF(CIRCUIT_UINT_MAX_PLUS_ONE),
-        CIRCUIT_UINT_MAX_PLUS_ONE + constant_term,
+        constant_term,
     };
 
     ctx->create_balanced_add_gate(gate);
 
     uint<Builder, Native> result(ctx);
     result.witness_index = gate.c;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
 
     return result;
 }
@@ -102,6 +117,9 @@ uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
 template <typename Builder, typename Native>
 uint<Builder, Native> uint<Builder, Native>::operator*(const uint& other) const
 {
+    ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
+           (context == nullptr && other.context != nullptr));
+
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
@@ -109,6 +127,14 @@ uint<Builder, Native> uint<Builder, Native>::operator*(const uint& other) const
     }
     if (is_constant() && !other.is_constant()) {
         return other * (*this);
+    }
+
+    // N.B. We assume that additive_constant is nonzero ONLY if value is constant
+    if (!is_constant()) {
+        BB_ASSERT_EQ(additive_constant, 0ULL, "uint::operator* expected additive_constant to be zero");
+    }
+    if (!other.is_constant()) {
+        BB_ASSERT_EQ(other.additive_constant, 0ULL, "uint::operator* expected other.additive_constant to be zero");
     }
 
     const uint32_t rhs_idx = other.is_constant() ? ctx->zero_idx : other.witness_index;
@@ -139,9 +165,8 @@ uint<Builder, Native> uint<Builder, Native>::operator*(const uint& other) const
     ctx->decompose_into_default_range(gate.d, width);
 
     uint<Builder, Native> result(ctx);
-    result.accumulators = constrain_accumulators(ctx, gate.c);
     result.witness_index = gate.c;
-    result.witness_status = WitnessStatus::OK;
+    result.normalize();
 
     return result;
 }
@@ -184,20 +209,17 @@ std::pair<uint<Builder, Native>, uint<Builder, Native>> uint<Builder, Native>::d
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     // We want to force the divisor to be non-zero, as this is an error state
-    if (other.is_constant() && other.get_value() == 0) {
-        // TODO: should have an actual error handler!
-        const uint32_t one = ctx->add_variable(FF::one());
-        ctx->assert_equal_constant(one, FF::zero(), "plookup_arithmetic: divide by zero!");
-    } else if (!other.is_constant()) {
-        const bool_t<Builder> is_divisor_zero = field_t<Builder>(other).is_zero();
-        ctx->assert_equal_constant(is_divisor_zero.witness_index, FF::zero(), "plookup_arithmetic: divide by zero!");
-    }
+    static_cast<field_t<Builder>>(other).assert_is_not_zero("uint_arithmetic: divide by zero!");
 
+    // If both are constants, we can compute the quotient and remainder directly
     if (is_constant() && other.is_constant()) {
         const uint<Builder, Native> remainder(ctx, additive_constant % other.additive_constant);
         const uint<Builder, Native> quotient(ctx, additive_constant / other.additive_constant);
         return std::make_pair(quotient, remainder);
-    } else if (witness_index == other.witness_index) {
+    }
+
+    // If the divisor and dividend are the same witness, we can return a quotient of 1 and a remainder of 0.
+    if (witness_index == other.witness_index) {
         const uint<Builder, Native> remainder(context, 0);
         const uint<Builder, Native> quotient(context, 1);
         return std::make_pair(quotient, remainder);
@@ -248,13 +270,11 @@ std::pair<uint<Builder, Native>, uint<Builder, Native>> uint<Builder, Native>::d
     ctx->decompose_into_default_range(delta_idx, width);
     uint<Builder, Native> quotient(ctx);
     quotient.witness_index = quotient_idx;
-    quotient.accumulators = constrain_accumulators(ctx, quotient.witness_index);
-    quotient.witness_status = WitnessStatus::OK;
+    quotient.normalize();
 
     uint<Builder, Native> remainder(ctx);
     remainder.witness_index = remainder_idx;
-    remainder.accumulators = constrain_accumulators(ctx, remainder.witness_index);
-    remainder.witness_status = WitnessStatus::OK;
+    remainder.normalize();
 
     return std::make_pair(quotient, remainder);
 }

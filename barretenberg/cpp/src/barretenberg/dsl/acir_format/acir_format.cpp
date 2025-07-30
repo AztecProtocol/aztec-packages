@@ -271,7 +271,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
         if (constraint_system.honk_recursion_constraints.empty() &&
             constraint_system.ivc_recursion_constraints.empty()) {
-            PairingPoints::add_default_to_public_inputs(builder);
+            stdlib::recursion::honk::AppIO::add_default(builder);
         }
     } else {
         HonkRecursionConstraintsOutput<Builder> honk_output =

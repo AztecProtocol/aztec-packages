@@ -1,6 +1,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -173,14 +174,19 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             fr key_hash_witness = verification_key->hash();
             std::vector<fr> proof_witnesses = inner_proof;
-            size_t num_public_inputs_to_extract = inner_circuit.num_public_inputs() - bb::PAIRING_POINTS_SIZE;
-            acir_format::PROOF_TYPE proof_type = acir_format::HONK;
-            if constexpr (HasIPAAccumulator<InnerFlavor>) {
-                num_public_inputs_to_extract -= IPA_CLAIM_SIZE;
-                proof_type = ROLLUP_HONK;
-            } else if constexpr (InnerFlavor::HasZK) {
-                proof_type = HONK_ZK;
-            }
+
+            // Compute the number of public inputs to extract (the ones from the circuit) and the proof type based on
+            // the Flavor
+            auto [num_public_inputs_to_extract, proof_type] = [&]() -> std::pair<size_t, acir_format::PROOF_TYPE> {
+                size_t num_public_inputs_to_extract = inner_circuit.num_public_inputs();
+                if constexpr (HasIPAAccumulator<InnerFlavor>) {
+                    return { num_public_inputs_to_extract - RollupIO::PUBLIC_INPUTS_SIZE, ROLLUP_HONK };
+                } else if constexpr (InnerFlavor::HasZK) {
+                    return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK_ZK };
+                } else {
+                    return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK };
+                }
+            }();
 
             auto [key_indices, key_hash_index, proof_indices, inner_public_inputs] =
                 ProofSurgeon::populate_recursion_witness_data(
@@ -216,6 +222,16 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         AcirProgram program{ constraint_system, witness };
         BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
 
+        // If BuilderType = Mega, then the proof of outer_circuit will be a Mega proof, and thus will be verified with
+        // a MegaVerifier = UltraVerifier<MegaFlavor>. By design, the MegaVerifier expects the public inputs to be the
+        // ones of the HidingKernel, so we mock the missing part: ecc_op_tables
+        if constexpr (IsMegaBuilder<BuilderType>) {
+            for (auto& commitment :
+                 stdlib::recursion::honk::HidingKernelIO<BuilderType>::default_ecc_op_tables(outer_circuit)) {
+                commitment.set_public();
+            }
+        }
+
         return outer_circuit;
     }
 
@@ -223,7 +239,10 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                       const std::shared_ptr<OuterVerificationKey>& verification_key,
                       const HonkProof& proof)
     {
-        if constexpr (IsUltraHonk<OuterFlavor>) {
+        if constexpr (IsMegaFlavor<OuterFlavor>) {
+            OuterVerifier verifier(verification_key);
+            return std::get<0>(verifier.verify_proof(proof));
+        } else {
             if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
                 VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
                 OuterVerifier verifier(verification_key, ipa_verification_key);
@@ -232,9 +251,6 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                 OuterVerifier verifier(verification_key);
                 return verifier.verify_proof(proof);
             }
-        } else {
-            OuterVerifier verifier(verification_key);
-            return std::get<0>(verifier.verify_proof(proof));
         }
     }
 

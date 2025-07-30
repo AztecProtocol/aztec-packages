@@ -490,8 +490,6 @@ size_t UltraCircuit::handle_memory_relation(size_t cursor)
     bb::fr q_2 = this->selectors[BlockType::MEMORY][cursor][2];
     bb::fr q_3 = this->selectors[BlockType::MEMORY][cursor][3];
     bb::fr q_4 = this->selectors[BlockType::MEMORY][cursor][4];
-    // bb::fr q_c = this->selectors[BlockType::MEMORY][cursor][5];
-    bb::fr q_arith = this->selectors[BlockType::MEMORY][cursor][6];
 
     // reassure that only one entry
     size_t entry_flag = 0;
@@ -512,7 +510,7 @@ size_t UltraCircuit::handle_memory_relation(size_t cursor)
         // ROM consistency check
     }
 
-    if (q_arith) {
+    if (q_3) {
         entry_flag += 1;
         // RAM consistency check
     }
@@ -560,8 +558,6 @@ size_t UltraCircuit::handle_nnf_relation(size_t cursor)
     bb::fr q_2 = this->selectors[BlockType::NNF][cursor][2];
     bb::fr q_3 = this->selectors[BlockType::NNF][cursor][3];
     bb::fr q_4 = this->selectors[BlockType::NNF][cursor][4];
-    // bb::fr q_c = this->selectors[BlockType::NNF][cursor][5];
-    bb::fr q_arith = this->selectors[BlockType::NNF][cursor][6];
 
     bb::fr LIMB_SIZE(uint256_t(1) << 68);
     bb::fr SUBLIMB_SHIFT(uint256_t(1) << 14);

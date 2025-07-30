@@ -99,6 +99,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
 {
     using FF = ClientIVC::FF;
     using MegaVerificationKey = ClientIVC::MegaVerificationKey;
+    using Flavor = ClientIVC::Flavor;
 
     // Use the trace settings to determine the correct dyadic size and the public inputs offset
     MegaExecutionTraceBlocks blocks;
@@ -106,25 +107,40 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     blocks.compute_offsets(/*is_structured=*/true);
     size_t dyadic_size = blocks.get_structured_dyadic_size();
     size_t pub_inputs_offset = blocks.pub_inputs.trace_offset();
-    // All circuits have pairing point public inputs; kernels have additional public inputs for two databus commitments
-    size_t num_public_inputs = bb::PAIRING_POINTS_SIZE;
-    if (is_kernel) {
-        num_public_inputs += bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
-    }
 
-    // Construct a mock Oink or PG proof
+    // Construct a mock Oink or PG proof and a mock MegaHonk verification key
     std::vector<FF> proof;
-    if (verification_type == ClientIVC::QUEUE_TYPE::OINK) {
-        proof = create_mock_oink_proof<ClientIVC::Flavor>(num_public_inputs);
-    } else if (verification_type == ClientIVC::QUEUE_TYPE::PG || verification_type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
-        proof = create_mock_pg_proof<ClientIVC::Flavor>(num_public_inputs);
-    } else {
-        throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
-    }
+    std::shared_ptr<MegaVerificationKey> verification_key;
 
-    // Construct a mock MegaHonk verification key
-    std::shared_ptr<MegaVerificationKey> verification_key =
-        create_mock_honk_vk<ClientIVC::Flavor>(dyadic_size, num_public_inputs, pub_inputs_offset);
+    if (is_kernel) {
+        using KernelIO = stdlib::recursion::honk::KernelIO;
+        switch (verification_type) {
+        case ClientIVC::QUEUE_TYPE::OINK:
+            proof = create_mock_oink_proof<Flavor, KernelIO>();
+            break;
+        case ClientIVC::QUEUE_TYPE::PG:
+        case ClientIVC::QUEUE_TYPE::PG_FINAL:
+            proof = create_mock_pg_proof<Flavor, KernelIO>();
+            break;
+        default:
+            throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
+        }
+        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
+    } else {
+        using AppIO = stdlib::recursion::honk::AppIO;
+        switch (verification_type) {
+        case ClientIVC::QUEUE_TYPE::OINK:
+            proof = create_mock_oink_proof<Flavor, AppIO>();
+            break;
+        case ClientIVC::QUEUE_TYPE::PG:
+        case ClientIVC::QUEUE_TYPE::PG_FINAL:
+            proof = create_mock_pg_proof<Flavor, AppIO>();
+            break;
+        default:
+            throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
+        }
+        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
+    }
 
     return ClientIVC::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
 }

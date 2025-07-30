@@ -16,6 +16,8 @@
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 namespace bb {
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1478): Can we define this constant as part of the
+// parameters and make it avaiable via the interface of field<T>?
 // A point in Fq is represented with 4 public inputs
 static constexpr size_t FQ_PUBLIC_INPUT_SIZE = 4;
 
