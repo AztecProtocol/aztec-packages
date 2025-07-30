@@ -2,118 +2,140 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {GovernanceBase} from "./base.t.sol";
+import {Test} from "forge-std/Test.sol";
 import {BLS} from "@aztec/governance/libraries/BLS.sol";
-import {KeyStorage} from "@aztec/governance/libraries/KeyStorage.sol";
 import {console} from "forge-std/console.sol";
 
-contract BLSKeyTest is GovernanceBase {
-  uint256 private sk = 0x777777;
+// solhint-disable comprehensive-interface
+
+contract BLSKeyTest is Test {
+  uint256 private sk = 0x7777777;
+  uint256[2] private pk1;
+  uint256[4] private pk2;
+  uint256[2] private sigma;
 
   // Events from IGovernance interface
   event BlsKeyActivated(address indexed account);
   event BlsKeyDeactivated(address indexed account);
 
-  function createSigmaInit() public returns (uint256[2] memory) {
-    uint256[2] memory pk1 = BLS.ecMul([BLS.G1x, BLS.G1y], sk);
-    bytes memory g1Bytes = abi.encodePacked(pk1[0], pk1[1]);
-
-    uint256[2] memory htilde = BLS.hashToPoint(BLS.DST_INIT, g1Bytes);
-    uint256[2] memory sigma_init = BLS.ecMul(pk1, sk);
-    return sigma_init;
+  // wrapper for positive testing
+  function bn254Pairing(
+    uint256[2] memory _l, // G1
+    uint256[4] memory _g2a, // G2  (x1,x0,y1,y0 order for precompile!)
+    uint256[2] memory _r, // G1
+    uint256[4] memory _g2b // G2
+  ) internal view returns (bool ok) {
+    return BLS.bn254Pairing(_l, _g2a, _r, _g2b);
   }
 
-  function testCreateSigmaInit() public {
-    uint256[2] memory sigma_init = createSigmaInit();
-    console.log("Sigma Init:");
-    console.log("x: ", sigma_init[0]);
-    console.log("y: ", sigma_init[1]);
+  // wrapper for negative testing
+  function proofOfPossession(
+    uint256[2] memory _pk1,
+    uint256[4] memory _pk2,
+    uint256[2] memory _sigma
+  ) public view returns (bool ok) {
+    return BLS.proofOfPossession(_pk1, _pk2, _sigma);
   }
 
-  // Test that hash-to-curve works with valid G1 generator point
-  function testHashToCurveWithValidPoint() public {
-    // Generate Public Key
-    uint256[2] memory pk1 = BLS.ecMul([BLS.G1x, BLS.G1y], sk);
-    bytes memory g1Bytes = abi.encodePacked(pk1[0], pk1[1]);
+  function testPairingOfGenerators() public view {
+    // The generator points are given in:
+    // https://eips.ethereum.org/EIPS/eip-197#definition-of-the-groups
+    uint256[2] memory g1 = [uint256(1), uint256(2)];
 
-    // Hash to point using the same domain separator as TypeScript
-    uint256[2] memory htilde = BLS.hashToPoint(BLS.DST_INIT, g1Bytes);
-
-    console.log("Hash-to-curve result:");
-    console.log("  h_x:", htilde[0]);
-    console.log("  h_y:", htilde[1]);
-
-    // Verify the result is non-zero
-    assertTrue(htilde[0] != 0 || htilde[1] != 0, "Hash result should not be point at infinity");
-  }
-
-  // Test registration and deletion with real keys
-  function testRegisterAndDeleteKey() public {
-    address user = makeAddr("validator_user");
-
-    // G1 point
-    uint256[2] memory Pk1 = [
-      21717111607827114147276344786046920387290675681213477654336619089827402838378,
-      2284104019570289860000481685722088619678108421648114428582946454571473581584
-    ];
-
-    // G2 point
-    uint256[4] memory Pk2 = [
-      18663079330489865128845570105108757938181330396697812001566207000632424769081,
-      14571435474241611695300919538597266420395517375423464211930881122598088956678,
-      9442315018389348105139497347757034195427809318621404724370443269827209466010,
-      6846004404907068037004411600492877286139650973187007866352235233180481805142
-    ];
-
-    //
-    uint256[2] memory SigmaInit = [
-      20165597007245043796795825106968154870794832530122914927476441035915815919378,
-      10367646492375003587862060159060425453381164888770702932580525893979805847893
+    uint256[4] memory g2 = [
+      11559732032986387107991004021392285783925812861821192530917403151452391805634,
+      10857046999023057135944570762232829481370756359578518086990519993285655852781,
+      4082367875863433681332203403145435568316851327593401208105741076214120093531,
+      8495653923123431417604973247489272438418190587263600148770280649306958101930
     ];
 
     // Sanity Check
-    BLS.pairingPublicKeys(
-      Pk1, [BLS.nG2x0, BLS.nG2x1, BLS.nG2y0, BLS.nG2y1], [BLS.G1x, BLS.G1y], Pk2
+    assertTrue(
+      bn254Pairing(
+        g1, [BLS.NEG_G2_X1, BLS.NEG_G2_X0, BLS.NEG_G2_Y1, BLS.NEG_G2_Y0], [BLS.G1_X, BLS.G1_Y], g2
+      ),
+      "Pairing of generators failed"
     );
+  }
 
-    vm.startPrank(user);
+  function testProofOfPossession() public {
+    setupValidSignatures();
 
-    // Verify no key is registered initially
-    assertEq(governance.getIdOf(user), 0, "Should have no key initially");
+    bool ok = this.proofOfPossession(pk1, pk2, sigma);
 
-    // Register the key and verify registration
-    vm.expectEmit(true, false, false, false);
-    emit BlsKeyActivated(user);
-    governance.registerKey(Pk1, Pk2, SigmaInit);
+    assertTrue(ok, "proof of possession failed");
+  }
 
-    uint32 keyId = governance.getIdOf(user);
-    assertTrue(keyId != 0, "Key should be registered");
-    assertTrue(governance.isValidatorActive(keyId), "Key should be active");
+  function testInvalidPk1InProofOfPossession() public {
+    setupValidSignatures();
+    pk1[0]++;
+    vm.expectRevert(BLS.mulPointFail.selector);
+    bool ok = this.proofOfPossession(pk1, pk2, sigma);
+    assertFalse(ok, "proof of possession should fail");
+  }
 
-    // Try to register the same key again (should fail)
-    vm.expectRevert(KeyStorage.KeyAlreadyRegistered.selector);
-    governance.registerKey(Pk1, Pk2, SigmaInit);
+  function testInvalidPk2InProofOfPossession() public {
+    setupValidSignatures();
+    pk2[0]++;
+    vm.expectRevert(BLS.pairingFail.selector);
+    bool ok = this.proofOfPossession(pk1, pk2, sigma);
+    assertFalse(ok, "proof of possession should fail");
+  }
 
-    // Remove the key and verify deactivation
-    vm.expectEmit(true, false, false, false);
-    emit BlsKeyDeactivated(user);
-    governance.deactivateKey();
+  function testInvalidSigmaInProofOfPossession() public {
+    setupValidSignatures();
+    sigma[0]++;
+    vm.expectRevert(BLS.addPointFail.selector);
+    bool ok = this.proofOfPossession(pk1, pk2, sigma);
+    assertFalse(ok, "proof of possession should fail");
+  }
 
-    // Key ID should remain the same, but should be inactive
-    assertEq(governance.getIdOf(user), keyId, "Key ID should remain the same");
-    assertFalse(governance.isValidatorActive(keyId), "Key should be inactive");
+  function testWrongPk1InProofOfPossession(uint256 newSk) public {
+    vm.assume(newSk != sk);
+    setupValidSignatures();
+    pk1 = BLS.ecMul([BLS.G1_X, BLS.G1_Y], newSk);
+    bool ok = this.proofOfPossession(pk1, pk2, sigma);
+    assertFalse(ok, "proof of possession should fail");
+  }
 
-    // Try to remove the key again (should fail since it's already inactive)
-    vm.expectRevert(KeyStorage.AlreadyInactive.selector);
-    governance.deactivateKey();
+  function testWrongDomainSeparatorInProofOfPossession(bytes32 newDomainSeparator) public {
+    vm.assume(newDomainSeparator != BLS.STAKING_DOMAIN_SEPARATOR);
+    setupValidSignatures();
 
-    // Try to register again after removal (should work)
-    vm.expectEmit(true, false, false, false);
-    emit BlsKeyActivated(user);
-    governance.reactivateKey();
+    bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
 
-    assertTrue(governance.isValidatorActive(keyId), "Key should be active again");
+    uint256[2] memory pk1DigestPoint = BLS.hashToPoint(newDomainSeparator, pk1Bytes);
 
-    vm.stopPrank();
+    sigma = BLS.ecMul(pk1DigestPoint, sk);
+    bool ok = this.proofOfPossession(pk1, pk2, sigma);
+    assertFalse(ok, "proof of possession should fail");
+  }
+
+  function testWrongSkWhenGeneratingSignature(uint256 newSk) public {
+    vm.assume(newSk != sk);
+    setupValidSignatures();
+    bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
+
+    uint256[2] memory pk1DigestPoint = BLS.hashToPoint(BLS.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+    sigma = BLS.ecMul(pk1DigestPoint, newSk);
+    bool ok = this.proofOfPossession(pk1, pk2, sigma);
+    assertFalse(ok, "proof of possession should fail");
+  }
+
+  function setupValidSignatures() public {
+    // Generate Public Key
+    pk1 = BLS.ecMul([BLS.G1_X, BLS.G1_Y], sk);
+    // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
+    pk2 = [
+      12000187580290590047264785709963395816646295176893602234201956783324175839805,
+      17931071651819835067098563222910421513876328033572114834306979690881549564414,
+      3847186948811352011829434621581350901968531448585779990319356482934947911409,
+      9611549517545166944736557219282359806761534888544046901025233666228290030286
+    ];
+    bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
+
+    uint256[2] memory pk1DigestPoint = BLS.hashToPoint(BLS.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+
+    sigma = BLS.ecMul(pk1DigestPoint, sk);
   }
 }

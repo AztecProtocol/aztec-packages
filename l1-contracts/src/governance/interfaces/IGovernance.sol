@@ -86,14 +86,6 @@ interface IGovernance {
   function execute(uint256 _proposalId) external returns (bool);
   function dropProposal(uint256 _proposalId) external returns (bool);
 
-  function registerKey(
-    uint256[2] calldata pk1,
-    uint256[4] calldata pk2,
-    uint256[2] calldata sigmaInit
-  ) external;
-  function deactivateKey() external;
-  function reactivateKey() external;
-
   function isPermittedInGovernance(address _caller) external view returns (bool);
   function isAllBeneficiariesAllowed() external view returns (bool);
 

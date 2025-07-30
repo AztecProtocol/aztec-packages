@@ -7,11 +7,11 @@ import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 
 contract EmptyPayload is IPayload {
-  function getURI() external view override(IPayload) returns (string memory) {
+  function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {}
+
+  function getURI() external pure override(IPayload) returns (string memory) {
     return "EmptyPayload";
   }
-
-  function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {}
 }
 
 contract CallAssetPayload is IPayload {
@@ -25,10 +25,6 @@ contract CallAssetPayload is IPayload {
     GOVERNANCE = _governance;
   }
 
-  function getURI() external view override(IPayload) returns (string memory) {
-    return "CallAssetPayload";
-  }
-
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](1);
     uint256 balance = ASSET.balanceOf(GOVERNANCE);
@@ -39,6 +35,10 @@ contract CallAssetPayload is IPayload {
     });
 
     return res;
+  }
+
+  function getURI() external pure override(IPayload) returns (string memory) {
+    return "CallAssetPayload";
   }
 }
 
@@ -56,10 +56,6 @@ contract UpgradePayload is IPayload {
     REGISTRY = _registry;
   }
 
-  function getURI() external view override(IPayload) returns (string memory) {
-    return "UpgradePayload";
-  }
-
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](1);
 
@@ -70,14 +66,14 @@ contract UpgradePayload is IPayload {
 
     return res;
   }
+
+  function getURI() external pure override(IPayload) returns (string memory) {
+    return "UpgradePayload";
+  }
 }
 
 contract CallRevertingPayload is IPayload {
   RevertingCall public immutable TARGET = new RevertingCall();
-
-  function getURI() external view override(IPayload) returns (string memory) {
-    return "CallRevertingPayload";
-  }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory res = new IPayload.Action[](1);
@@ -88,6 +84,10 @@ contract CallRevertingPayload is IPayload {
     });
 
     return res;
+  }
+
+  function getURI() external pure override(IPayload) returns (string memory) {
+    return "CallRevertingPayload";
   }
 }
 
