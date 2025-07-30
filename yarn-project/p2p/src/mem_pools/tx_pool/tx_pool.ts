@@ -3,7 +3,6 @@ import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export type TxPoolOptions = {
   maxTxPoolSize?: number;
-  txPoolOverflowFactor?: number;
   archivedTxLimit?: number;
 };
 

@@ -34,7 +34,6 @@ describe('OutOfBalanceTxsAfterMining', () => {
       it('returns empty result for TXS_ADDED event', async () => {
         const context: EvictionContext = {
           event: EvictionEvent.TXS_ADDED,
-          mempoolSize: 1000,
           newTxs: [],
         };
 

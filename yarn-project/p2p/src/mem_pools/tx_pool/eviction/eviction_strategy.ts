@@ -13,7 +13,6 @@ type EvictionEvent = (typeof EvictionEvent)[keyof typeof EvictionEvent];
 export type EvictionContext =
   | {
       event: typeof EvictionEvent.TXS_ADDED;
-      mempoolSize: number;
       newTxs: TxHash[];
     }
   | {

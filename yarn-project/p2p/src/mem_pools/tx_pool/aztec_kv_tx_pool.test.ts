@@ -157,10 +157,9 @@ describe('KV TX pool', () => {
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
   });
 
-  it('respects the overflow factor configured', async () => {
+  it('respects the maximum transaction count configured', async () => {
     txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
-      txPoolOverflowFactor: 1.5, // but allow it to grow up to 15, but then when it evicts, it evicts until it's left to 10
+      maxTxPoolSize: 10, // pool should contain no more than 10 txs
     });
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
@@ -181,36 +180,14 @@ describe('KV TX pool', () => {
     const secondBatch = await timesAsync(2, () => mockFixedSizeTx());
     await txPool.addTxs(secondBatch);
 
-    // we've added two more txs. At this point the pool contains more txs than the limit
-    // but it still hasn't evicted anything
-    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
-      await toArray(
-        sort(
-          map([...firstBatch, ...secondBatch], tx => tx.getTxHash()),
-          cmp,
-        ),
-      ),
-    );
-
-    const thirdBatch = await timesAsync(3, () => mockFixedSizeTx());
-    await txPool.addTxs(thirdBatch);
-
-    // add another 3 txs. The pool has reached the limit. All txs should be available still
-    // another txs would trigger evictions
-    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
-      await toArray(
-        sort(
-          map([...firstBatch, ...secondBatch, ...thirdBatch], tx => tx.getTxHash()),
-          cmp,
-        ),
-      ),
-    );
+    // pool should evict 2 txs to bring it back to 10
+    expect(await txPool.getPendingTxCount()).toBe(10);
 
     const lastTx = await mockFixedSizeTx();
     await txPool.addTxs([lastTx]);
 
-    // the pool should evict enough txs to stay under the size limit
-    expect(await txPool.getPendingTxCount()).toBeLessThanOrEqual(10);
+    // the pool should evict enough txs to stay below the limit
+    expect(await txPool.getPendingTxCount()).toBe(10);
   });
 
   it('evicts based on the updated size limit', async () => {

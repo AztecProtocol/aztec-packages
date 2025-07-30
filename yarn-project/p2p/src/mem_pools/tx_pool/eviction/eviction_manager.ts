@@ -13,10 +13,9 @@ export class EvictionManager {
     private log = createLogger('p2p:mempool:tx_pool:eviction_manager'),
   ) {}
 
-  public async evictAfterNewTxs(newTxs: TxHash[], mempoolSize: number): Promise<void> {
+  public async evictAfterNewTxs(newTxs: TxHash[]): Promise<void> {
     const ctx: EvictionContext = {
       event: EvictionEvent.TXS_ADDED,
-      mempoolSize,
       newTxs,
     };
     await this.runEvictionRules(ctx);
