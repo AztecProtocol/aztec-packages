@@ -97,6 +97,7 @@ export class UltraHonkBackend {
       },
       settings: this.getProofSettingsFromOptions(options)
     });
+    console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
 
     // We return ProofData as a flat buffer and an array of strings to match the current ProofData class.
     const flatProof = new Uint8Array(proof.length * 32);
