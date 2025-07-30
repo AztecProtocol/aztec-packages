@@ -81,6 +81,8 @@ export type ClientCircuitName =
   | 'private-kernel-reset'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
+  | 'hiding-kernel-to-rollup'
+  | 'hiding-kernel-to-public'
   | 'app-circuit';
 
 export type ServerCircuitName =
