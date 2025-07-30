@@ -39,7 +39,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
         ivc.accumulate(circuit, vk);
     }
@@ -63,14 +63,14 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 
     // Accumulate a series of mocked circuits (app, kernel, app, kernel)
     for (size_t idx = 0; idx < NUM_CIRCUITS - 2; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
         ivc.accumulate(circuit, vk);
     }
 
     // Cap the IVC with two more kernels (say, a 'reset' and a 'tail') without intermittent apps
-    auto [reset_kernel, reset_vk] = circuit_producer.create_next_circuit(ivc, { .force_is_kernel = true });
+    auto [reset_kernel, reset_vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .force_is_kernel = true });
     ivc.accumulate(reset_kernel, reset_vk);
-    auto [tail_kernel, tail_vk] = circuit_producer.create_next_circuit(ivc, { .force_is_kernel = true });
+    auto [tail_kernel, tail_vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .force_is_kernel = true });
     ivc.accumulate(tail_kernel, tail_vk);
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -97,7 +97,7 @@ TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
         // Tamper with the return data of the second app circuit before it is processed as input to the next kernel
         if (idx == 2) {

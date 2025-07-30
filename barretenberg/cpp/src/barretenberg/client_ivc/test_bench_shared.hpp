@@ -49,7 +49,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
         MegaCircuitBuilder circuit;
         {
             PROFILE_THIS_NAME("construct_circuits");
-            circuit = circuit_producer.create_next_circuit_no_vk(ivc);
+            circuit = circuit_producer.create_next_circuit(ivc);
         }
 
         ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
@@ -61,9 +61,9 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_vks(cons
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ large_first_app };
     ClientIVC ivc{ 2, { AZTEC_TRACE_STRUCTURE } };
-    auto [app_circuit, app_vk] = circuit_producer.create_next_circuit(ivc);
+    auto [app_circuit, app_vk] = circuit_producer.create_next_circuit_and_vk(ivc);
     ivc.accumulate(app_circuit, app_vk);
-    auto [kernel_circuit, kernel_vk] = circuit_producer.create_next_circuit(ivc);
+    auto [kernel_circuit, kernel_vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
 

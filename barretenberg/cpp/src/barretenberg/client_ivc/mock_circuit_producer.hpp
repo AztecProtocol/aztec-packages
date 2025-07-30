@@ -179,8 +179,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
-    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit(ClientIVC& ivc,
-                                                                                   TestSettings settings = {})
+    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
+                                                                                          TestSettings settings = {})
     {
 
         if (settings.log2_num_gates != 0) {

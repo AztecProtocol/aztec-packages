@@ -30,7 +30,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
         ivc.accumulate(circuit, vk);
         EXPECT_TRUE(circuit.blocks.has_overflow); // trace overflow mechanism should be triggered
