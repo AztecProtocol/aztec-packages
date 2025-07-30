@@ -44,18 +44,17 @@ function format {
 }
 
 function release {
-  export VERSION=$(semver $REF_NAME)
-  if [ -z "$VERSION" ]; then
-    error "No version found in REF_NAME. REF_NAME=$REF_NAME"
+  if semver check $REF_NAME; then
+    echo_stderr "Release tag must be a valid semver version. Found: $REF_NAME"
+    exit 1
   fi
 
-  release_git_push "master" $REF_NAME $VERSION
+  release_git_push "master" $REF_NAME
 }
 
 function release_git_push {
   local branch_name=$1
   local tag_name=$2
-  local version=$3
   local mirrored_repo_url="https://github.com/AztecProtocol/aztec-nr.git"
 
   # Clean up our release directory.
