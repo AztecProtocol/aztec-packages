@@ -351,7 +351,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     }
 
     // Handle retroactive proof updates for existing blocks (always check, even if no new blocks)
-    await this.handleRetroactiveProofUpdates(blocksSynchedTo, currentL1BlockNumber);
+    await this.handleRetroactiveProofUpdates(currentL1BlockNumber);
 
     // After syncing has completed, update the current l1 block number and timestamp,
     // otherwise we risk announcing to the world that we've synced to a given point,
@@ -889,7 +889,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Handle retroactive proof updates for existing blocks
-    await this.handleRetroactiveProofUpdates(blocksSynchedTo, currentL1BlockNumber);
+    await this.handleRetroactiveProofUpdates(currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
     await updateProvenBlock();
@@ -1470,13 +1470,27 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * When blocks are initially synced without proofs, they get stored with archive.root = Fr.ZERO.
    * Later when they get proven, we need to update the stored blocks with the real archive roots.
    */
-  private async handleRetroactiveProofUpdates(blocksSynchedTo: bigint, currentL1BlockNumber: bigint): Promise<void> {
+  private async handleRetroactiveProofUpdates(currentL1BlockNumber: bigint): Promise<void> {
     try {
-      // Get all proof events from the current L1 range
+      // Start searching from the last proven block's L1 location, since we want to find
+      // proofs for blocks that were synced but not yet proven
+      const lastProvenL2BlockNumber = await this.store.getProvenL2BlockNumber();
+      let searchFromL1Block: bigint;
+
+      if (lastProvenL2BlockNumber > 0) {
+        // Get the L1 block number where the last proven L2 block was published
+        const lastProvenBlock = await this.store.getPublishedBlock(lastProvenL2BlockNumber);
+        searchFromL1Block = lastProvenBlock?.l1.blockNumber ?? this.l1constants.l1StartBlock;
+      } else {
+        // No blocks proven yet, start from L1 genesis
+        searchFromL1Block = this.l1constants.l1StartBlock;
+      }
+
+      // Get all proof events from the L1 range starting after the last proven block
       const provenBlocks = await retrieveL2ProofsFromRollup(
         this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
-        blocksSynchedTo + 1n,
+        searchFromL1Block,
         currentL1BlockNumber,
       );
 
