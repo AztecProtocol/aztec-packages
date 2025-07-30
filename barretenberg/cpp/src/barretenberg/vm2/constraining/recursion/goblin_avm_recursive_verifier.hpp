@@ -220,9 +220,9 @@ class AvmGoblinRecursiveVerifier {
         inputs.pairing_inputs = points_accumulator;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1489): Can we avoid paying for these public inputs
         // given that they are not used?
-        inputs.ecc_op_tables = IO<MegaBuilder>::default_ecc_op_tables(
-            mega_builder); // There is only one layer of Goblin, so the verifier will set T_prev
-                           // to the empty table and disregard this value
+        inputs.ecc_op_tables =
+            IO::default_ecc_op_tables(mega_builder); // There is only one layer of Goblin, so the verifier will set
+                                                     // T_prev to the empty table and disregard this value
         inputs.set_public();
 
         // All prover components share a single transcript
