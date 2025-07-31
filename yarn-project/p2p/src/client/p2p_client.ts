@@ -3,6 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type {
+  EthAddress,
   L2Block,
   L2BlockId,
   L2BlockSource,
@@ -76,6 +77,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   private txProvider: TxProvider;
 
+  private validatorAddresses: EthAddress[] = [];
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -130,6 +133,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
     this.synchedFinalizedBlockNumber = store.openSingleton('p2p_pool_last_finalized_l2_block');
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
+  }
+
+  public registerThisValidatorAddresses(addresses: EthAddress[]): void {
+    this.validatorAddresses = [...addresses];
+    this.p2pService.registerThisValidatorAddresses(this.validatorAddresses);
   }
 
   public clear(): Promise<void> {
