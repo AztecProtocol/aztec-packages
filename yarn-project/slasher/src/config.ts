@@ -1,6 +1,5 @@
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
-  SecretValue,
   bigintConfigHelper,
   booleanConfigHelper,
   floatConfigHelper,
@@ -81,7 +80,6 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashInactivityCreatePenalty: 1n,
   slashInactivityMaxPenalty: 100n,
   slashProposerRoundPollingIntervalSeconds: 12,
-  slasherPrivateKey: new SecretValue<string | undefined>(undefined),
 };
 
 export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {

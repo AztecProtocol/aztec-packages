@@ -148,14 +148,12 @@ export class SlasherClient {
   /**
    * Update the config of the slasher client
    *
-   * @param config - the new config. Cannot update the slasher private key.
+   * @param config - the new config.
    */
   public updateConfig(config: Partial<SlasherConfig>) {
-    const { slasherPrivateKey: _doNotUpdate, ...configWithoutPrivateKey } = config;
-
-    const newConfig: Omit<SlasherConfig, 'slasherPrivateKey'> = {
+    const newConfig: SlasherConfig = {
       ...this.config,
-      ...configWithoutPrivateKey,
+      ...config,
     };
 
     // We keep this separate flag to tell us if we should be signal for the override payload: after the override payload is executed,

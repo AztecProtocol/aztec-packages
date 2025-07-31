@@ -1,4 +1,3 @@
-import type { SecretValue } from '@aztec/foundation/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
@@ -19,7 +18,6 @@ export interface SlasherConfig {
   slashInactivityCreatePenalty: bigint;
   slashInactivityMaxPenalty: bigint;
   slashProposerRoundPollingIntervalSeconds: number;
-  slasherPrivateKey: SecretValue<string | undefined>; // Private key of the slasher account used for creating slash payloads
 }
 
 export const SlasherConfigSchema = z.object({
@@ -37,5 +35,4 @@ export const SlasherConfigSchema = z.object({
   slashInactivityCreatePenalty: schemas.BigInt,
   slashInactivityMaxPenalty: schemas.BigInt,
   slashProposerRoundPollingIntervalSeconds: z.number(),
-  slasherPrivateKey: schemas.SecretValue(z.string().optional()),
 }) satisfies ZodFor<SlasherConfig>;

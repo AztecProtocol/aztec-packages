@@ -6,7 +6,7 @@ import type { ApiSchemaFor } from '../schemas/schemas.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
-import { SlasherConfigSchema } from './slasher.js';
+import { type SlasherConfig, SlasherConfigSchema } from './slasher.js';
 
 /**
  * Aztec node admin API.
@@ -16,7 +16,7 @@ export interface AztecNodeAdmin {
    * Updates the configuration of this node.
    * @param config - Updated configuration to be merged with the current one.
    */
-  setConfig(config: Partial<SequencerConfig & ProverConfig & { maxTxPoolSize: number }>): Promise<void>;
+  setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }>): Promise<void>;
 
   /**
    * Forces the next block to be built bypassing all time and pending checks.
