@@ -16,23 +16,30 @@ use dep::protocol_types::{
 
 /// Specifies the configuration parameters for message delivery across three key dimensions:
 ///
-/// 1. Constrained or unconstrained encryption
-/// - When the encryption is constrained we have a guarantee that the resulting ciphertext is formed correctly. If we
-///   don't need this guarantee and we are fine with trusting the sender, it is recommended to use unconstrained
-///   encryption as it's cheaper constraint-wise.
+/// +--------------------------------------------------------------------------------------------------------+
+/// | 1. Constrained or unconstrained encryption                                                             |
+/// | - When the encryption is constrained we have a guarantee that the resulting ciphertext is formed       |
+/// |   correctly. If we don't need this guarantee and we are fine with trusting the sender, it is           |
+/// |   recommended to use unconstrained encryption as it's cheaper constraint-wise.                         |
+/// +--------------------------------------------------------------------------------------------------------+
 ///
-/// 2. Delivery mechanism
-/// - The message ciphertext can be delivered either via the private log stream or as an offchain message.
-/// - The private log stream is handled by the Aztec protocol, is submitted to L1 blobs and consumes DA.
-/// - The offchain message mechanism is implemented by the app and hence is not expected to consume DA (imagine an app
-///   submitting all the ciphertext to cloud storage).
+/// +--------------------------------------------------------------------------------------------------------+
+/// | 2. Delivery mechanism                                                                                  |
+/// | - The message ciphertext can be delivered either via the private log stream or as an offchain message. |
+/// | - The private log stream is handled by the Aztec protocol, is submitted to L1 blobs and consumes DA.   |
+/// | - The offchain message mechanism is implemented by the app and hence is not expected to consume DA     |
+/// |   (imagine an app submitting all the ciphertext to cloud storage).                                     |
+/// +--------------------------------------------------------------------------------------------------------+
 ///
-/// 3. Constrained or unconstrained tagging
-/// - Tagging is an indexing mechanism that enables recipients to locate private logs in the system. When tagging is
-///   unconstrained, there is not a cryptographic guarantee about it being performed correctly. This may prevent
-///   recipients from successfully discovering their messages. Therefore, unconstrained tagging should only be used in
-///   scenarios where the recipient is trusted or has clear incentives to ensure proper message delivery.
-/// - Tagging is not used in the offchain message mechanism.
+/// +--------------------------------------------------------------------------------------------------------+
+/// | 3. Constrained or unconstrained tagging                                                                |
+/// | - Tagging is an indexing mechanism that enables recipients to locate private logs in the system. When  |
+/// |   tagging is unconstrained, there is not a cryptographic guarantee about it being performed correctly. |
+/// |   This may prevent recipients from successfully discovering their messages. Therefore, unconstrained   |
+/// |   tagging should only be used in scenarios where the recipient is trusted or has clear incentives to   |
+/// |   ensure proper message delivery.                                                                      |
+/// | - Tagging is not used in the offchain message mechanism.                                               |
+/// +--------------------------------------------------------------------------------------------------------+
 ///
 ///
 /// # Message authenticity
@@ -46,25 +53,30 @@ use dep::protocol_types::{
 /// Each variant represents a different tradeoff between security guarantees, gas costs, and trust assumptions.
 /// - We are currently still exploring the design space but it seems that there are only 2 meaningful combinations:
 ///
-/// 1. Constrained encryption, constrained tagging, private log stream
+/// +--------------------------------------------------------------------------------------------------------+
+/// | 1. Constrained encryption, constrained tagging, private log stream                                     |
+/// |                                                                                                        |
+/// | This combination gives us an on-chain guarantee that a recipient is able to discover, receive and      |
+/// | decrypt a message. This is to be used when a smart contract (rather than a person or some offchain     |
+/// | system) needs to make decisions based on the message. For example, consider a contract that escrows a  |
+/// | privately-stored NFT (i.e. an NFT represented by a note) and releases it to a buyer only after         |
+/// | receiving a payment in a specific token. Without on-chain delivery and guaranteed discoverability      |
+/// | afforded by constrained tagging and encryption, the buyer could potentially obtain the NFT without     |
+/// | sending a valid payment message (i.e. the token note hash preimage) to the seller, rugging the seller. |
+/// |                                                                                                        |
+/// | (To clarify the above, while the malicious buyer's payment token would still be deducted from their    |
+/// | balance, they would obtain the NFT while the seller would be unable to spend the payment token,        |
+/// | keeping the payment token note in limbo.)                                                              |
+/// +--------------------------------------------------------------------------------------------------------+
 ///
-/// This combination gives us an on-chain guarantee that a recipient is able to discover, receive and decrypt
-/// a message. This is to be used when a smart contract (rather than a person or some offchain system) needs to make
-/// decisions based on the message. For example, consider a contract that escrows a privately-stored NFT (i.e. an NFT
-/// represented by a note) and releases it to a buyer only after receiving a payment in a specific token. Without
-/// on-chain delivery and guaranteed discoverability afforded by constrained tagging and encryption, the buyer could
-/// potentially obtain the NFT without sending a valid payment message (i.e. the token note hash preimage) to the
-/// seller, rugging the seller.
-///
-/// (To clarify the above, while the malicious buyer's payment token would still be deducted from their balance, they
-/// would obtain the NFT while the seller would be unable to spend the payment token, keeping the payment token note
-/// in limbo.)
-///
-/// 2. Unconstrained encryption, offchain message
-/// This combination is useful when we either trust the sender to behave or the sender is incentivized to deliver the
-/// message. To give you an example let's consider a payment app. When you are buying groceries, the merchant can
-/// consider the payment successful once he receives the payment message, can successfully decrypt it and see that its
-/// contents correspond to a valid token note.
+/// +--------------------------------------------------------------------------------------------------------+
+/// | 2. Unconstrained encryption, offchain message                                                          |
+/// |                                                                                                        |
+/// | This combination is useful when we either trust the sender to behave or the sender is incentivized to  |
+/// | deliver the message. To give you an example let's consider a payment app. When you are buying          |
+/// | groceries, the merchant can consider the payment successful once he receives the payment message, can  |
+/// | successfully decrypt it and see that its contents correspond to a valid token note.                    |
+/// +--------------------------------------------------------------------------------------------------------+
 ///
 ///
 /// Other combinations like unconstrained encryption, unconstrained tagging, private log stream don't seem to be
