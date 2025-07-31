@@ -167,7 +167,7 @@ export class ContractFunctionSimulator {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
+          const calldata = await privateExecutionOracle.pxeLoadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );

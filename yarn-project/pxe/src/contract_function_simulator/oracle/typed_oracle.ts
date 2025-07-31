@@ -42,80 +42,89 @@ class OracleMethodNotAvailableError extends Error {
  * Oracle with typed parameters and typed return values.
  * Methods that require read and/or write will have to be implemented based on the context (public, private, or view)
  * and are unavailable by default.
+ *
+ * Oracle methods are now prefixed to clearly indicate their availability:
+ * - avm*: AVM oracles (transpiled to avm opcodes, handled by txe during public_context testing)
+ * - txe*: TXE oracles (only available in txe top level context, manage environment state)
+ * - pxe*: PXE oracles (stateful operations like notify_created_note)
+ * - utility*: Utility oracles (typically don't need private execution, like blockNumber)
  */
 export abstract class TypedOracle {
   getRandomField(): Fr {
     return Fr.random();
   }
 
-  storeInExecutionCache(_values: Fr[], _hash: Fr): void {
-    throw new OracleMethodNotAvailableError('storeInExecutionCache');
+  pxeStoreInExecutionCache(_values: Fr[], _hash: Fr): void {
+    throw new OracleMethodNotAvailableError('pxeStoreInExecutionCache');
   }
 
-  loadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('loadFromExecutionCache'));
+  pxeLoadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
+    return Promise.reject(new OracleMethodNotAvailableError('pxeLoadFromExecutionCache'));
   }
 
-  getBlockNumber(): Promise<number> {
-    return Promise.reject(new OracleMethodNotAvailableError('getBlockNumber'));
+  utilityGetBlockNumber(): Promise<number> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetBlockNumber'));
   }
 
-  getTimestamp(): Promise<UInt64> {
-    return Promise.reject(new OracleMethodNotAvailableError('getTimestamp'));
+  utilityGetTimestamp(): Promise<UInt64> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetTimestamp'));
   }
 
-  getContractAddress(): Promise<AztecAddress> {
-    return Promise.reject(new OracleMethodNotAvailableError('getContractAddress'));
+  utilityGetContractAddress(): Promise<AztecAddress> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetContractAddress'));
   }
 
-  getChainId(): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('getChainId'));
+  utilityGetChainId(): Promise<Fr> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetChainId'));
   }
 
-  getVersion(): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('getVersion'));
+  utilityGetVersion(): Promise<Fr> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetVersion'));
   }
 
-  getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
-    return Promise.reject(new OracleMethodNotAvailableError('getKeyValidationRequest'));
+  utilityGetKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetKeyValidationRequest'));
   }
 
-  getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
-    return Promise.reject(new OracleMethodNotAvailableError('getContractInstance'));
+  utilityGetContractInstance(_address: AztecAddress): Promise<ContractInstance> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetContractInstance'));
   }
 
-  getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getMembershipWitness'));
+  utilityGetMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetMembershipWitness'));
   }
 
-  getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getNullifierMembershipWitness'));
-  }
-
-  getPublicDataWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getPublicDataWitness'));
-  }
-
-  getLowNullifierMembershipWitness(
+  utilityGetNullifierMembershipWitness(
     _blockNumber: number,
     _nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getLowNullifierMembershipWitness'));
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetNullifierMembershipWitness'));
   }
 
-  getBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getBlockHeader'));
+  utilityGetPublicDataWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetPublicDataWitness'));
   }
 
-  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
-    return Promise.reject(new OracleMethodNotAvailableError('getCompleteAddress'));
+  utilityGetLowNullifierMembershipWitness(
+    _blockNumber: number,
+    _nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetLowNullifierMembershipWitness'));
   }
 
-  getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getAuthWitness'));
+  utilityGetBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetBlockHeader'));
   }
 
-  getNotes(
+  utilityGetCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetCompleteAddress'));
+  }
+
+  utilityGetAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetAuthWitness'));
+  }
+
+  utilityGetNotes(
     _storageSlot: Fr,
     _numSelects: number,
     _selectByIndexes: number[],
@@ -131,147 +140,157 @@ export abstract class TypedOracle {
     _offset: number,
     _status: NoteStatus,
   ): Promise<NoteData[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('getNotes'));
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetNotes'));
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: NoteSelector, _note: Fr[], _noteHash: Fr, _counter: number): void {
-    throw new OracleMethodNotAvailableError('notifyCreatedNote');
+  pxeNotifyCreatedNote(
+    _storageSlot: Fr,
+    _noteTypeId: NoteSelector,
+    _note: Fr[],
+    _noteHash: Fr,
+    _counter: number,
+  ): void {
+    throw new OracleMethodNotAvailableError('pxeNotifyCreatedNote');
   }
 
-  notifyNullifiedNote(_innerNullifier: Fr, _noteHash: Fr, _counter: number): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifyNullifiedNote'));
+  pxeNotifyNullifiedNote(_innerNullifier: Fr, _noteHash: Fr, _counter: number): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifyNullifiedNote'));
   }
 
-  notifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifyCreatedNullifier'));
+  pxeNotifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifyCreatedNullifier'));
   }
 
-  checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
-    return Promise.reject(new OracleMethodNotAvailableError('checkNullifierExists'));
+  utilityCheckNullifierExists(_innerNullifier: Fr): Promise<boolean> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityCheckNullifierExists'));
   }
 
-  getL1ToL2MembershipWitness(
+  utilityGetL1ToL2MembershipWitness(
     _contractAddress: AztecAddress,
     _messageHash: Fr,
     _secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    return Promise.reject(new OracleMethodNotAvailableError('getL1ToL2MembershipWitness'));
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetL1ToL2MembershipWitness'));
   }
 
-  storageRead(
+  utilityStorageRead(
     _contractAddress: AztecAddress,
     _startStorageSlot: Fr,
     _blockNumber: number,
     _numberOfElements: number,
   ): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('storageRead'));
+    return Promise.reject(new OracleMethodNotAvailableError('utilityStorageRead'));
   }
 
+  // TODO(benesjan): This is an AVM oracle. Should this be nuked?
   storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
     return Promise.reject(new OracleMethodNotAvailableError('storageWrite'));
   }
 
-  notifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
-    throw new OracleMethodNotAvailableError('notifyCreatedContractClassLog');
+  pxeNotifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
+    throw new OracleMethodNotAvailableError('pxeNotifyCreatedContractClassLog');
   }
 
-  callPrivateFunction(
+  pxeCallPrivateFunction(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
-    return Promise.reject(new OracleMethodNotAvailableError('callPrivateFunction'));
+    return Promise.reject(new OracleMethodNotAvailableError('pxeCallPrivateFunction'));
   }
 
-  notifyEnqueuedPublicFunctionCall(
+  pxeNotifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
     _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifyEnqueuedPublicFunctionCall'));
+    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifyEnqueuedPublicFunctionCall'));
   }
 
-  notifySetPublicTeardownFunctionCall(
+  pxeNotifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
     _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifySetPublicTeardownFunctionCall'));
+    return Promise.reject(new OracleMethodNotAvailableError('pxeNotifySetPublicTeardownFunctionCall'));
   }
 
-  notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
-    throw new OracleMethodNotAvailableError('notifySetMinRevertibleSideEffectCounter');
+  pxeNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('pxeNotifySetMinRevertibleSideEffectCounter');
   }
 
-  debugLog(_message: string, _fields: Fr[]): void {
-    throw new OracleMethodNotAvailableError('debugLog');
+  utilityDebugLog(_message: string, _fields: Fr[]): void {
+    throw new OracleMethodNotAvailableError('utilityDebugLog');
   }
 
-  getIndexedTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    return Promise.reject(new OracleMethodNotAvailableError('getIndexedTaggingSecretAsSender'));
+  utilityGetIndexedTaggingSecretAsSender(
+    _sender: AztecAddress,
+    _recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetIndexedTaggingSecretAsSender'));
   }
 
-  incrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('incrementAppTaggingSecretIndexAsSender'));
+  pxeIncrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('pxeIncrementAppTaggingSecretIndexAsSender'));
   }
 
-  fetchTaggedLogs(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('fetchTaggedLogs'));
+  utilityFetchTaggedLogs(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityFetchTaggedLogs'));
   }
 
-  validateEnqueuedNotesAndEvents(
+  utilityValidateEnqueuedNotesAndEvents(
     _contractAddress: AztecAddress,
     _noteValidationRequestsArrayBaseSlot: Fr,
     _eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotesAndEvents'));
+    return Promise.reject(new OracleMethodNotAvailableError('utilityValidateEnqueuedNotesAndEvents'));
   }
 
-  bulkRetrieveLogs(
+  utilityBulkRetrieveLogs(
     _contractAddress: AztecAddress,
     _logRetrievalRequestsArrayBaseSlot: Fr,
     _logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void> {
-    throw new OracleMethodNotAvailableError('bulkRetrieveLogs');
+    throw new OracleMethodNotAvailableError('utilityBulkRetrieveLogs');
   }
 
-  storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('storeCapsule'));
+  utilityStoreCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityStoreCapsule'));
   }
 
-  loadCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
-    return Promise.reject(new OracleMethodNotAvailableError('loadCapsule'));
+  utilityLoadCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityLoadCapsule'));
   }
 
-  deleteCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('deleteCapsule'));
+  utilityDeleteCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityDeleteCapsule'));
   }
 
-  copyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('copyCapsule'));
+  utilityCopyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityCopyCapsule'));
   }
 
-  aes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
-    return Promise.reject(new OracleMethodNotAvailableError('aes128Decrypt'));
+  utilityAes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityAes128Decrypt'));
   }
 
-  getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
-    return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
+  utilityGetSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityGetSharedSecret'));
   }
 
-  emitOffchainEffect(_data: Fr[]): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('emitOffchainEffect'));
+  utilityEmitOffchainEffect(_data: Fr[]): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('utilityEmitOffchainEffect'));
   }
 
-  getSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getSenderForTags'));
+  pxeGetSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('pxeGetSenderForTags'));
   }
 
-  setSenderForTags(_senderForTags: AztecAddress): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('setSenderForTags'));
+  pxeSetSenderForTags(_senderForTags: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('pxeSetSenderForTags'));
   }
 }

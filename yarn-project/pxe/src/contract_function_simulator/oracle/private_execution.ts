@@ -82,7 +82,7 @@ export async function executePrivateFunction(
 
   const contractClassLogs = privateExecutionOracle.getContractClassLogs();
 
-  const rawReturnValues = await privateExecutionOracle.loadFromExecutionCache(publicInputs.returnsHash);
+  const rawReturnValues = await privateExecutionOracle.pxeLoadFromExecutionCache(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
