@@ -15,23 +15,36 @@ use dep::protocol_types::{
 };
 
 pub struct PrivateLogContentConstraintsEnum {
-    /// The contents of the log are entirely unconstrained, and could have any values.
+    /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
+    /// the private log stream and hence is submitted to L1 blobs and consumes DA.
     ///
     /// Only use in scenarios where the recipient not receiving the message is an acceptable outcome (e.g. because the
     /// sender is somehow motivated to ensure the recipient learns of it).
     pub NO_CONSTRAINTS: u8,
     /// The contents of the log and its encryption are constrained. The tag (and therefore whether the recipient is
-    /// actually able to find the message) is not.
+    /// actually able to find the message) is not. The log is delivered via the private log stream and hence is
+    /// submitted to L1 blobs and consumes DA.
     ///
     /// Only use in scenarios where the recipient not receiving the message is an acceptable outcome (e.g. because the
     /// sender is somehow motivated to ensure the recipient learns of it).
     // TODO(#14565): This variant requires for tagging to also be constrained, as it is otherwise useless.
     pub CONSTRAINED_ENCRYPTION: u8,
+    /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
+    /// the offchain message mechanism and hence is not submitted to L1 blobs and does not consume DA.
+    ///
+    /// Only use in scenarios where the recipient not receiving the message is an acceptable outcome (e.g. because the
+    /// sender is somehow motivated to ensure the recipient learns of it). The offchain message mechanism is not
+    /// guaranteed to deliver the message and it's up to the app to deliver the message to the recipient.
+    ///
+    /// For more details on offchain messages, see the documentation for the `emit_offchain_message` function in
+    /// `aztec-nr/aztec/src/messages/offchain_messages.nr`.
+    pub OFFCHAIN_MESSAGE: u8,
 }
 
 pub global PrivateLogContent: PrivateLogContentConstraintsEnum = PrivateLogContentConstraintsEnum {
     NO_CONSTRAINTS: 1,
     CONSTRAINED_ENCRYPTION: 2,
+    OFFCHAIN_MESSAGE: 3,
     // TODO: add constrained tagging and constrained handshaking
 };
 
