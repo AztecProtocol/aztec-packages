@@ -401,7 +401,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       `Sending L1 tx to consume message at block ${blockNumber} index ${messageIndex} to withdraw ${amount}`,
     );
 
-    const messageLeafId = getL2ToL1MessageLeafId({ l2MessageIndex: messageIndex, siblingPath });
+    const messageLeafId = getL2ToL1MessageLeafId({ leafIndex: messageIndex, siblingPath });
     const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
     if (isConsumedBefore) {
       throw new Error(
