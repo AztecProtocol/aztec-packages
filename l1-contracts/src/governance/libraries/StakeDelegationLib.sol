@@ -8,41 +8,44 @@ import {
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
-struct AttesterDelegationData {
+// A struct storing balance and delegatee for an attester
+struct StakePosition {
   uint256 balance;
   address delegatee;
 }
 
-struct InstanceDelegationData {
-  mapping(address attester => AttesterDelegationData attesterData) attesterData;
+// A struct storing all the stake positions for an instance along with a supply
+struct StakeBook {
+  mapping(address attester => StakePosition position) positions;
   Checkpoints.Trace224 supply;
 }
 
-struct DelegateeData {
+// A struct storing the voting power used for each proposal for a delegatee
+// as well as their
+struct VotingAccount {
   mapping(uint256 proposalId => uint256 powerUsed) powerUsed;
   Checkpoints.Trace224 votingPower;
 }
 
-struct DelegationData {
-  mapping(address instance => InstanceDelegationData instanceData) instanceData;
-  mapping(address delegatee => DelegateeData delegateeData) delegateeData;
+// A struct storing the StakeBooks the individual rollup instances, the voting
+// account for delegates and the total supply.
+struct StakeAccounting {
+  mapping(address instance => StakeBook book) instanceBooks;
+  mapping(address delegatee => VotingAccount votingAccount) votingAccounts;
   Checkpoints.Trace224 supply;
 }
 
-// @todo Need to figure out a better naming here. It is not just delegation, it is a lib to deal with
-// all of the token value stuff really.
-
 // This library have a lot of overlap with `Votes.sol` from Openzeppelin,
 // It mainly differs as it is a library to allow us having many accountings in the same contract
-// and the unit of time
-library DelegationLib {
+// the unit of time and allowing multiple uses of power.
+library StakeDelegationLib {
   using CheckpointedUintLib for Checkpoints.Trace224;
 
   event DelegateChanged(address indexed attester, address oldDelegatee, address newDelegatee);
   event DelegateVotesChanged(address indexed delegatee, uint256 oldValue, uint256 newValue);
 
   function increaseBalance(
-    DelegationData storage _self,
+    StakeAccounting storage _self,
     address _instance,
     address _attester,
     uint256 _amount
@@ -51,17 +54,17 @@ library DelegationLib {
       return;
     }
 
-    InstanceDelegationData storage instance = _self.instanceData[_instance];
+    StakeBook storage instance = _self.instanceBooks[_instance];
 
-    instance.attesterData[_attester].balance += _amount;
-    moveVotingPower(_self, address(0), instance.attesterData[_attester].delegatee, _amount);
+    instance.positions[_attester].balance += _amount;
+    moveVotingPower(_self, address(0), instance.positions[_attester].delegatee, _amount);
 
     instance.supply.add(_amount);
     _self.supply.add(_amount);
   }
 
   function decreaseBalance(
-    DelegationData storage _self,
+    StakeAccounting storage _self,
     address _instance,
     address _attester,
     uint256 _amount
@@ -70,10 +73,10 @@ library DelegationLib {
       return;
     }
 
-    InstanceDelegationData storage instance = _self.instanceData[_instance];
+    StakeBook storage instance = _self.instanceBooks[_instance];
 
-    instance.attesterData[_attester].balance -= _amount;
-    moveVotingPower(_self, instance.attesterData[_attester].delegatee, address(0), _amount);
+    instance.positions[_attester].balance -= _amount;
+    moveVotingPower(_self, instance.positions[_attester].delegatee, address(0), _amount);
 
     instance.supply.sub(_amount);
     _self.supply.sub(_amount);
@@ -94,7 +97,7 @@ library DelegationLib {
    * @param _amount     - The amount of power to use
    */
   function usePower(
-    DelegationData storage _self,
+    StakeAccounting storage _self,
     address _delegatee,
     uint256 _proposalId,
     Timestamp _timestamp,
@@ -108,11 +111,11 @@ library DelegationLib {
       Errors.Delegation__InsufficientPower(_delegatee, powerAt, powerUsed + _amount)
     );
 
-    _self.delegateeData[_delegatee].powerUsed[_proposalId] += _amount;
+    _self.votingAccounts[_delegatee].powerUsed[_proposalId] += _amount;
   }
 
   function delegate(
-    DelegationData storage _self,
+    StakeAccounting storage _self,
     address _instance,
     address _attester,
     address _delegatee
@@ -121,70 +124,70 @@ library DelegationLib {
     if (oldDelegate == _delegatee) {
       return;
     }
-    _self.instanceData[_instance].attesterData[_attester].delegatee = _delegatee;
+    _self.instanceBooks[_instance].positions[_attester].delegatee = _delegatee;
     emit DelegateChanged(_attester, oldDelegate, _delegatee);
 
     moveVotingPower(_self, oldDelegate, _delegatee, getBalanceOf(_self, _instance, _attester));
   }
 
-  function undelegate(DelegationData storage _self, address _instance, address _attester) internal {
+  function undelegate(StakeAccounting storage _self, address _instance, address _attester) internal {
     delegate(_self, _instance, _attester, address(0));
   }
 
-  function getBalanceOf(DelegationData storage _self, address _instance, address _attester)
+  function getBalanceOf(StakeAccounting storage _self, address _instance, address _attester)
     internal
     view
     returns (uint256)
   {
-    return _self.instanceData[_instance].attesterData[_attester].balance;
+    return _self.instanceBooks[_instance].positions[_attester].balance;
   }
 
-  function getSupplyOf(DelegationData storage _self, address _instance)
+  function getSupplyOf(StakeAccounting storage _self, address _instance)
     internal
     view
     returns (uint256)
   {
-    return _self.instanceData[_instance].supply.valueNow();
+    return _self.instanceBooks[_instance].supply.valueNow();
   }
 
-  function getSupply(DelegationData storage _self) internal view returns (uint256) {
+  function getSupply(StakeAccounting storage _self) internal view returns (uint256) {
     return _self.supply.valueNow();
   }
 
-  function getDelegatee(DelegationData storage _self, address _instance, address _attester)
+  function getDelegatee(StakeAccounting storage _self, address _instance, address _attester)
     internal
     view
     returns (address)
   {
-    return _self.instanceData[_instance].attesterData[_attester].delegatee;
+    return _self.instanceBooks[_instance].positions[_attester].delegatee;
   }
 
-  function getVotingPower(DelegationData storage _self, address _delegatee)
+  function getVotingPower(StakeAccounting storage _self, address _delegatee)
     internal
     view
     returns (uint256)
   {
-    return _self.delegateeData[_delegatee].votingPower.valueNow();
+    return _self.votingAccounts[_delegatee].votingPower.valueNow();
   }
 
-  function getVotingPowerAt(DelegationData storage _self, address _delegatee, Timestamp _timestamp)
+  function getVotingPowerAt(StakeAccounting storage _self, address _delegatee, Timestamp _timestamp)
     internal
     view
     returns (uint256)
   {
-    return _self.delegateeData[_delegatee].votingPower.valueAt(_timestamp);
+    return _self.votingAccounts[_delegatee].votingPower.valueAt(_timestamp);
   }
 
-  function getPowerUsed(DelegationData storage _self, address _delegatee, uint256 _proposalId)
+  function getPowerUsed(StakeAccounting storage _self, address _delegatee, uint256 _proposalId)
     internal
     view
     returns (uint256)
   {
-    return _self.delegateeData[_delegatee].powerUsed[_proposalId];
+    return _self.votingAccounts[_delegatee].powerUsed[_proposalId];
   }
 
   function moveVotingPower(
-    DelegationData storage _self,
+    StakeAccounting storage _self,
     address _from,
     address _to,
     uint256 _amount
@@ -194,12 +197,12 @@ library DelegationLib {
     }
 
     if (_from != address(0)) {
-      (uint256 oldValue, uint256 newValue) = _self.delegateeData[_from].votingPower.sub(_amount);
+      (uint256 oldValue, uint256 newValue) = _self.votingAccounts[_from].votingPower.sub(_amount);
       emit DelegateVotesChanged(_from, oldValue, newValue);
     }
 
     if (_to != address(0)) {
-      (uint256 oldValue, uint256 newValue) = _self.delegateeData[_to].votingPower.add(_amount);
+      (uint256 oldValue, uint256 newValue) = _self.votingAccounts[_to].votingPower.add(_amount);
       emit DelegateVotesChanged(_to, oldValue, newValue);
     }
   }

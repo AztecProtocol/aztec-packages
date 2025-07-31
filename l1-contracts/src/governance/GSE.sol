@@ -9,9 +9,11 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
-import {DelegationLib, DelegationData} from "@aztec/governance/libraries/DelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {
+  StakeDelegationLib, StakeAccounting
+} from "@aztec/governance/libraries/StakeDelegationLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -128,7 +130,7 @@ contract GSECore is IGSECore, Ownable {
   using SafeCast for uint256;
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
-  using DelegationLib for DelegationData;
+  using StakeDelegationLib for StakeAccounting;
   using ProposalLib for Proposal;
 
   /**
@@ -200,7 +202,7 @@ contract GSECore is IGSECore, Ownable {
    *   proposal ID => { power used }
    * }
    */
-  DelegationData internal delegation;
+  StakeAccounting internal delegation;
   Governance internal governance;
 
   /**
@@ -597,7 +599,7 @@ contract GSE is IGSE, GSECore {
   using SafeCast for uint256;
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
-  using DelegationLib for DelegationData;
+  using StakeDelegationLib for StakeAccounting;
 
   constructor(
     address __owner,
