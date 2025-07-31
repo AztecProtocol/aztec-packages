@@ -67,4 +67,4 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     };
 
     #[EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE]
-    sel_execute_send_l2_to_l1_msg * (num_l2_to_l1_messages + sel_write_l2_to_l1_msg - next_num_l2_to_l1_messages) = 0;
+    sel_execute_send_l2_to_l1_msg * (num_l2_to_l1_messages + (1 - sel_opcode_error) - next_num_l2_to_l1_messages) = 0;

@@ -82,6 +82,34 @@ TEST(SendL2ToL1MsgConstrainingTest, LimitReached)
                               "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
 }
 
+TEST(SendL2ToL1MsgConstrainingTest, Discard)
+{
+    uint64_t prev_num_l2_to_l1_msgs = 0;
+    TestTraceContainer trace({ {
+        { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
+        { C::execution_register_0_, /*recipient=*/42 },
+        { C::execution_register_1_, /*content=*/27 },
+        { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_remaining_l2_to_l1_msgs_inv, FF(MAX_L2_TO_L1_MSGS_PER_TX - prev_num_l2_to_l1_msgs).invert() },
+        { C::execution_sel_write_l2_to_l1_msg, 0 },
+        { C::execution_sel_opcode_error, 0 },
+        { C::execution_public_inputs_index,
+          AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_msgs },
+        { C::execution_discard, 1 },
+        { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
+        { C::execution_next_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs + 1 },
+        { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SENDL2TOL1MSG },
+    } });
+    check_relation<send_l2_to_l1_msg>(trace);
+
+    // Negative test: num l2 to l1 messages should increase when discarding
+    trace.set(C::execution_next_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
+                                  trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
+                              "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
+}
+
 TEST(SendL2ToL1MsgConstrainingTest, Interactions)
 {
     uint64_t prev_num_l2_to_l1_msgs = 0;
@@ -170,7 +198,7 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNumL2ToL1MessagesIncrease)
 {
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
-        { C::execution_sel_write_l2_to_l1_msg, 1 },
+        { C::execution_sel_opcode_error, 0 },
         { C::execution_num_l2_to_l1_messages, 0 },
         { C::execution_next_num_l2_to_l1_messages, 1 },
     } });

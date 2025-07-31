@@ -86,7 +86,7 @@ template <typename FF_> class send_l2_to_l1_msgImpl {
         { // EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_send_l2_to_l1_msg) *
-                       ((in.get(C::execution_num_l2_to_l1_messages) + in.get(C::execution_sel_write_l2_to_l1_msg)) -
+                       ((in.get(C::execution_num_l2_to_l1_messages) + (FF(1) - in.get(C::execution_sel_opcode_error))) -
                         in.get(C::execution_next_num_l2_to_l1_messages));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
