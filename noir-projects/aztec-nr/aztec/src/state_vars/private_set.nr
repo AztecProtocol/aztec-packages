@@ -56,9 +56,9 @@ where
     }
     // docs:end:insert
 
-    pub fn pop_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let M: u32>(
+    pub fn pop_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,
@@ -95,9 +95,9 @@ where
 
     /// Note that if you later on remove the note it's much better to use `pop_notes` as `pop_notes` results
     /// in significantly less constrains due to avoiding 1 read request check.
-    pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let M: u32>(
+    pub fn get_notes<PreprocessorArgs, FilterArgs, let M: u32>(
         self,
-        options: NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N = M>,

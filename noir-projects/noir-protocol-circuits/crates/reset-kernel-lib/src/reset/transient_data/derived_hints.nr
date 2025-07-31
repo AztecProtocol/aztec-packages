@@ -18,18 +18,18 @@ use dep::types::{
     utils::arrays::{ClaimedLengthArray, SortedTuple},
 };
 
-pub struct DerivedHints<let SQUASHING_HINTS_LEN: u32, let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let LOGS_LEN: u32> {
+pub struct DerivedHints<let SquashingHintsLen: u32, let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32> {
     /// The number of squashing hints that can be used to squash note hashes and nullifiers.
     pub num_active_squashing_hints: u32,
     /// The nullifier indices extracted from the squashing hints, sorted in ascending order.
-    pub nullifier_index_sorted_tuples: [SortedTuple<u32>; SQUASHING_HINTS_LEN],
+    pub nullifier_index_sorted_tuples: [SortedTuple<u32>; SquashingHintsLen],
     /// A boolean array indicating which note hashes are to be squashed.
-    pub note_hash_squash_flags: [bool; NOTE_HASHES_LEN],
+    pub note_hash_squash_flags: [bool; NoteHashesLen],
     /// A boolean array indicating which nullifiers are to be squashed.
-    pub nullifier_squash_flags: [bool; NULLIFIERS_LEN],
+    pub nullifier_squash_flags: [bool; NullifiersLen],
     /// For each note log, identifies the index of its linked note hash, either in the `kept_note_hashes` array, or in
     /// the `transient_data_squashing_hints` array if squashed.
-    pub note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LOGS_LEN],
+    pub note_log_linked_source_indices: [NoteLogLinkedSourceIndices; LogsLen],
 }
 
 /// Constructs all derived hints needed to apply transient data squashing logic.
@@ -37,13 +37,13 @@ pub struct DerivedHints<let SQUASHING_HINTS_LEN: u32, let NOTE_HASHES_LEN: u32, 
 /// Given the same input parameters, this function will deterministically return the same derived hints.
 /// Any mismatch in derived hints will cause the verification to fail.
 /// An attacker cannot manipulate the hints to bypass the verification process.
-pub unconstrained fn build_derived_hints<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-) -> DerivedHints<SQUASHING_HINTS_LEN, NOTE_HASHES_LEN, NULLIFIERS_LEN, LOGS_LEN> {
+pub unconstrained fn build_derived_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
+) -> DerivedHints<SquashingHintsLen, NoteHashesLen, NullifiersLen, LogsLen> {
     let num_active_squashing_hints =
         get_num_active_squashing_hints(transient_data_squashing_hints, nullifiers);
 

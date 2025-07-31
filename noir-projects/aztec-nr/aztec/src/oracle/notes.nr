@@ -83,7 +83,7 @@ unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
 unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(getNotes)]
-unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
+unconstrained fn get_notes_oracle<let NotePckdLen: u32, let M: u32, let MaxNotes: u32>(
     _storage_slot: Field,
     _num_selects: u8,
     _select_by_indexes: [u8; M],
@@ -100,12 +100,12 @@ unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NO
     _status: u8,
     // This is always set to MAX_NOTES. We need to pass it to TS in order to correctly construct the BoundedVec
     _max_notes: u32,
-    // This is always set to NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be able to
+    // This is always set to NotePckdLen + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be able to
     // correctly construct the BoundedVec there.
     _packed_retrieved_note_length: u32,
-) -> BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> {}
+) -> BoundedVec<[Field; NotePckdLen + RETRIEVED_NOTE_OVERHEAD], MaxNotes> {}
 
-pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
+pub unconstrained fn get_notes<Note, let NotePckdLen: u32, let M: u32, let MaxNotes: u32>(
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],
@@ -120,30 +120,31 @@ pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX
     limit: u32,
     offset: u32,
     status: u8,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTES]
+) -> [Option<RetrievedNote<Note>>; MaxNotes]
 where
-    Note: NoteType + Packable<N = NOTE_PCKD_LEN>,
+    Note: NoteType + Packable<N = NotePckdLen>,
 {
-    let packed_retrieved_notes: BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> = get_notes_oracle(
-        storage_slot,
-        num_selects,
-        select_by_indexes,
-        select_by_offsets,
-        select_by_lengths,
-        select_values,
-        select_comparators,
-        sort_by_indexes,
-        sort_by_offsets,
-        sort_by_lengths,
-        sort_order,
-        limit,
-        offset,
-        status,
-        MAX_NOTES,
-        NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD,
-    );
+    let packed_retrieved_notes: BoundedVec<[Field; NotePckdLen + RETRIEVED_NOTE_OVERHEAD], MaxNotes>
+         = get_notes_oracle(
+            storage_slot,
+            num_selects,
+            select_by_indexes,
+            select_by_offsets,
+            select_by_lengths,
+            select_values,
+            select_comparators,
+            sort_by_indexes,
+            sort_by_offsets,
+            sort_by_lengths,
+            sort_order,
+            limit,
+            offset,
+            status,
+            MaxNotes,
+            NotePckdLen + RETRIEVED_NOTE_OVERHEAD,
+        );
 
-    let mut notes = BoundedVec::<_, MAX_NOTES>::new();
+    let mut notes = BoundedVec::<_, MaxNotes>::new();
     for i in 0..packed_retrieved_notes.len() {
         let retrieved_note = unpack_retrieved_note(packed_retrieved_notes.get(i));
         notes.push(retrieved_note);
@@ -166,7 +167,7 @@ where
     // functions we could use BoundedVec return value as there the optimization does not matter since it is applied in
     // an unconstrained context. We, however, use the same return value type to be able to use the same function as
     // both a preprocessor and a filter.
-    let mut notes_array = [Option::none(); MAX_NOTES];
+    let mut notes_array = [Option::none(); MaxNotes];
     for i in 0..notes.len() {
         if i < notes.len() {
             notes_array[i] = Option::some(notes.get_unchecked(i));

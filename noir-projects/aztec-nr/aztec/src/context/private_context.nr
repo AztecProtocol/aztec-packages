@@ -365,11 +365,11 @@ impl PrivateContext {
         ));
     }
 
-    pub fn call_private_function<let ARGS_COUNT: u32>(
+    pub fn call_private_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         execution_cache::store(args, args_hash);
@@ -381,11 +381,11 @@ impl PrivateContext {
         )
     }
 
-    pub fn static_call_private_function<let ARGS_COUNT: u32>(
+    pub fn static_call_private_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         execution_cache::store(args, args_hash);
@@ -468,11 +468,11 @@ impl PrivateContext {
         ReturnsHash::new(returns_hash)
     }
 
-    pub fn call_public_function<let ARGS_COUNT: u32>(
+    pub fn call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
@@ -480,11 +480,11 @@ impl PrivateContext {
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
-    pub fn static_call_public_function<let ARGS_COUNT: u32>(
+    pub fn static_call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
@@ -537,11 +537,11 @@ impl PrivateContext {
         self.public_call_requests.push(Counted::new(call_request, counter));
     }
 
-    pub fn set_public_teardown_function<let ARGS_COUNT: u32>(
+    pub fn set_public_teardown_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field; ArgsCount],
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);

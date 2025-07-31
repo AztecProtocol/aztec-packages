@@ -48,11 +48,11 @@ fn verify_key_validation_request(
 
 // `key_validation_amount` is a known constant at compile time. For all such reset variant
 // amounts, the constant is defined in the main.nr files and passed down to this function.
-pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN: u32>(
-    key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
-    hints: [KeyValidationHint; HINTS_LEN],
+pub fn verify_reset_key_validation_requests<let RequestsLen: u32, let HintsLen: u32>(
+    key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, RequestsLen>,
+    hints: [KeyValidationHint; HintsLen],
     key_validation_amount: u32,
-    propagated_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
+    propagated_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, RequestsLen>,
 ) {
     if key_validation_amount == 0 {
         assert_eq(
@@ -63,11 +63,11 @@ pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN
     } else {
         assert_eq(
             key_validation_amount,
-            HINTS_LEN,
+            HintsLen,
             "key_validation_amount should be the same as the number of hints",
         );
 
-        for i in 0..HINTS_LEN {
+        for i in 0..HintsLen {
             let hint = hints[i];
             let request = key_validation_requests.array[i];
             if i < key_validation_requests.length {
@@ -87,9 +87,9 @@ pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN
             "Incorrect unverified key validation requests claimed length",
         );
 
-        for i in HINTS_LEN..REQUESTS_LEN {
+        for i in HintsLen..RequestsLen {
             let unverified_request = key_validation_requests.array[i];
-            let to_index = i - HINTS_LEN;
+            let to_index = i - HintsLen;
             let propagated_request = propagated_requests.array[to_index];
             assert_eq(
                 propagated_request,
@@ -142,11 +142,11 @@ mod tests {
     };
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
-    struct TestBuilder<let REQUESTS_LEN: u32, let HINTS_LEN: u32> {
-        key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
-        hints: BoundedVec<KeyValidationHint, HINTS_LEN>,
+    struct TestBuilder<let RequestsLen: u32, let HintsLen: u32> {
+        key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, RequestsLen>,
+        hints: BoundedVec<KeyValidationHint, HintsLen>,
         key_validation_amount: u32,
-        propagated_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
+        propagated_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, RequestsLen>,
     }
 
     impl TestBuilder<6, 2> {
@@ -197,12 +197,12 @@ mod tests {
         }
     }
 
-    impl<let REQUESTS_LEN: u32, let HINTS_LEN: u32> TestBuilder<REQUESTS_LEN, HINTS_LEN> {
+    impl<let RequestsLen: u32, let HintsLen: u32> TestBuilder<RequestsLen, HintsLen> {
         pub fn empty() -> Self {
             Self {
                 key_validation_requests: ClaimedLengthArray::empty(),
                 hints: BoundedVec::new(),
-                key_validation_amount: HINTS_LEN,
+                key_validation_amount: HintsLen,
                 propagated_requests: ClaimedLengthArray::empty(),
             }
         }
@@ -236,7 +236,7 @@ mod tests {
 
         pub fn get_propagated_key_validation_requests(
             self,
-        ) -> ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN> {
+        ) -> ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, RequestsLen> {
             // Safety: This is only used in tests.
             unsafe {
                 get_propagated_key_validation_requests(

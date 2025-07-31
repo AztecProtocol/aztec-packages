@@ -28,17 +28,17 @@ pub struct NoteLogLinkedSourceIndices {
 ///
 /// @returns An array of `NoteLogLinkedSourceIndices` where each entry corresponds to a log in `logs` and describes the
 /// origin of its possible linked note hash (may be in `kept_note_hashes` or in `transient_data_squashing_hints`).
-pub unconstrained fn build_note_log_linked_source_indices<let LOGS_LEN: u32, let NOTE_HASHES_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-) -> [NoteLogLinkedSourceIndices; LOGS_LEN] {
+pub unconstrained fn build_note_log_linked_source_indices<let LogsLen: u32, let NoteHashesLen: u32, let SquashingHintsLen: u32>(
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
+) -> [NoteLogLinkedSourceIndices; LogsLen] {
     let mut linked_source_indices = [
         NoteLogLinkedSourceIndices {
             transient_data_squashing_hint_index: 0,
             kept_note_hash_index: 0,
-        }; LOGS_LEN
+        }; LogsLen
     ];
 
     for i in 0..logs.length {

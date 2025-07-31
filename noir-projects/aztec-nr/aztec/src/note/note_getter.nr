@@ -108,10 +108,10 @@ where
 /// or _valid_ - this typically requires also emitting the note's nullifier to prove that it had not been emitted
 /// before. Because of this, calling this function directly from end-user applications should be discouraged, and safe
 /// abstractions such as aztec-nr's state variables should be used instead.
-pub fn get_notes<Note, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
+pub fn get_notes<Note, let M: u32, PreprocessorArgs, FilterArgs>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    options: NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
     Note: NoteType + NoteHash + Eq + Packable<N = M>,
@@ -124,19 +124,19 @@ where
     constrain_get_notes_internal(context, storage_slot, opt_notes, options)
 }
 
-unconstrained fn apply_preprocessor<Note, PREPROCESSOR_ARGS>(
+unconstrained fn apply_preprocessor<Note, PreprocessorArgs>(
     notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    preprocessor_args: PREPROCESSOR_ARGS,
+    preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PreprocessorArgs) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    preprocessor_args: PreprocessorArgs,
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     preprocessor(notes, preprocessor_args)
 }
 
-fn constrain_get_notes_internal<Note, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
+fn constrain_get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(
     context: &mut PrivateContext,
     storage_slot: Field,
     opt_notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    options: NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
     Note: NoteType + NoteHash + Eq + Packable<N = M>,
@@ -213,9 +213,9 @@ where
     opt_notes[0].expect(f"Failed to get a note") // Notice: we don't allow dummies to be returned from get_note (singular).
 }
 
-unconstrained fn get_notes_internal<Note, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
+unconstrained fn get_notes_internal<Note, let M: u32, PreprocessorArgs, FilterArgs>(
     storage_slot: Field,
-    options: NoteGetterOptions<Note, M, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    options: NoteGetterOptions<Note, M, PreprocessorArgs, FilterArgs>,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
     Note: NoteType + Packable<N = M>,
