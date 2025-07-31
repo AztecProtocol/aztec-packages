@@ -20,7 +20,6 @@ import { SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import {
   DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
-  DEFAULT_OVERALL_REQUEST_TIMEOUT_MS,
   DEFAULT_REQRESP_DIAL_TIMEOUT_MS,
   type P2PReqRespConfig,
 } from './config.js';

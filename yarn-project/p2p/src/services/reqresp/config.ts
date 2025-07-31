@@ -1,7 +1,7 @@
 import { type ConfigMapping, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 
 export const DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS = 10_000;
-export const DEFAULT_OVERALL_REQUEST_TIMEOUT_MS = 20_000;
+export const DEFAULT_OVERALL_REQUEST_TIMEOUT_MS = 10_000; // Not currently used
 export const DEFAULT_REQRESP_DIAL_TIMEOUT_MS = 5_000;
 export const DEFAULT_OPTIMISTIC_NEGOTIATION = false;
 
