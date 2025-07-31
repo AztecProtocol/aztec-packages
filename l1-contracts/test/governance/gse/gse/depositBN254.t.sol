@@ -3,23 +3,45 @@ pragma solidity >=0.8.27;
 
 import {BN254} from "@aztec/governance/libraries/BN254.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
-import {Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
-// import {IGSECore} from "@aztec/governance/GSE.sol";
+import {AttesterConfig} from "@aztec/governance/GSE.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {WithGSE} from "./base.sol";
 
 contract DepositBN254Test is WithGSE {
   using stdStorage for StdStorage;
 
-  uint256 private sk = 0x7777777;
-  uint256[2] private pk1;
-  uint256[4] private pk2;
-  uint256[2] private sigma;
+  struct ProofOfPossession {
+    uint256[2] pk1;
+    uint256[4] pk2;
+    uint256[2] sigma;
+  }
+
+  uint256 private sk1 = 0x7777777;
+  uint256 private sk2 = 0x8888888;
+
+  mapping(uint256 sk => ProofOfPossession proofOfPossession) private proofOfPossessions;
 
   function setUp() public override {
     super.setUp();
     stdstore.target(address(gse)).sig("checkProofOfPossession()").checked_write(true);
+    // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
+    // Prefilling here, and the rest of the data will be generated using the helper
+    // generateProofsOfPossession()
+    proofOfPossessions[sk1].pk2 = [
+      12000187580290590047264785709963395816646295176893602234201956783324175839805,
+      17931071651819835067098563222910421513876328033572114834306979690881549564414,
+      3847186948811352011829434621581350901968531448585779990319356482934947911409,
+      9611549517545166944736557219282359806761534888544046901025233666228290030286
+    ];
+    generateProofsOfPossession(sk1);
+
+    proofOfPossessions[sk2].pk2 = [
+      1508004737965051103384491280975170100170616215043110680634427285854533421349,
+      2276549912948331340977885552999684185609731617727385907945409014914655706355,
+      12411732771141425816085037286206083986670633222105118555909903595342512393131,
+      5774481376093013975280852628790789958927737066979135638334935597723797963109
+    ];
+    generateProofsOfPossession(sk2);
   }
 
   modifier whenCallerIsRegisteredRollup(address _instance) {
@@ -46,45 +68,11 @@ contract DepositBN254Test is WithGSE {
 
   modifier whenTheDepositKeysPassTheProofOfPossessionCheck() {
     // Generate Public Key
-    {
-      pk1 = BN254.g1Mul(BN254.g1Generator(), sk);
-      // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
-      pk2 = [
-        12000187580290590047264785709963395816646295176893602234201956783324175839805,
-        17931071651819835067098563222910421513876328033572114834306979690881549564414,
-        3847186948811352011829434621581350901968531448585779990319356482934947911409,
-        9611549517545166944736557219282359806761534888544046901025233666228290030286
-      ];
-      bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
-
-      uint256[2] memory pk1DigestPoint = BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
-
-      sigma = BN254.g1Mul(pk1DigestPoint, sk);
-    }
+    {}
     _;
   }
 
-  modifier whenProofOfPossessionHasBeenSeenBefore(
-    address _instance,
-    address _attester,
-    address _withdrawer,
-    bool _moveWithLatestRollup
-  ) {
-    {
-      uint256 depositAmount = gse.DEPOSIT_AMOUNT();
-
-      vm.prank(stakingAsset.owner());
-      stakingAsset.mint(address(_instance), depositAmount);
-
-      vm.startPrank(_instance);
-      stakingAsset.approve(address(gse), depositAmount);
-      gse.deposit(_attester, _withdrawer, pk1, pk2, sigma, _moveWithLatestRollup);
-      vm.stopPrank();
-    }
-    _;
-  }
-
-  function test_WhenTheOriginalKeyHolderIsStillActive(
+  function test_WhenProofOfPossessionHasBeenSeenBefore(
     address _instance,
     address _attester1,
     address _attester2,
@@ -94,72 +82,196 @@ contract DepositBN254Test is WithGSE {
     external
     whenCallerIsRegisteredRollup(_instance)
     whenTheDepositKeysPassTheProofOfPossessionCheck
-    whenProofOfPossessionHasBeenSeenBefore(_instance, _attester1, _withdrawer, _moveWithLatestRollup)
   {
-    // it reverts
     uint256 depositAmount = gse.DEPOSIT_AMOUNT();
 
-    vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), depositAmount);
+    {
+      emit log_string("Deposit pk1 and pk2 for _attester1 should work");
+      vm.prank(stakingAsset.owner());
+      stakingAsset.mint(address(_instance), depositAmount);
+      vm.startPrank(_instance);
+      stakingAsset.approve(address(gse), depositAmount);
+      gse.deposit(
+        _attester1,
+        _withdrawer,
+        proofOfPossessions[sk1].pk1,
+        proofOfPossessions[sk1].pk2,
+        proofOfPossessions[sk1].sigma,
+        _moveWithLatestRollup
+      );
+      vm.stopPrank();
+    }
 
-    vm.startPrank(_instance);
-    stakingAsset.approve(address(gse), depositAmount);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GSE__ProofOfPossessionAlreadySeen.selector,
-        keccak256(abi.encodePacked(pk1[0], pk1[1]))
-      )
+    {
+      emit log_string("Getting attester1's public key should work");
+      address[] memory attesters = new address[](1);
+      attesters[0] = _attester1;
+      uint256[2][] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+        _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
+      );
+      assertEq(publicKeys.length, 1);
+      assertEq(publicKeys[0][0], proofOfPossessions[sk1].pk1[0]);
+      assertEq(publicKeys[0][1], proofOfPossessions[sk1].pk1[1]);
+    }
+
+    {
+      emit log_string("Try to deposit pk1 and pk2 for _attester2 should revert");
+      vm.prank(stakingAsset.owner());
+      stakingAsset.mint(address(_instance), depositAmount);
+
+      vm.startPrank(_instance);
+      stakingAsset.approve(address(gse), depositAmount);
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          Errors.GSE__ProofOfPossessionAlreadySeen.selector,
+          keccak256(
+            abi.encodePacked(proofOfPossessions[sk1].pk1[0], proofOfPossessions[sk1].pk1[1])
+          )
+        )
+      );
+      gse.deposit(
+        _attester2,
+        _withdrawer,
+        proofOfPossessions[sk1].pk1,
+        proofOfPossessions[sk1].pk2,
+        proofOfPossessions[sk1].sigma,
+        _moveWithLatestRollup
+      );
+      vm.stopPrank();
+    }
+
+    {
+      emit log_string("Withdraw attester1");
+      vm.startPrank(_instance);
+      (, bool removed, uint256 withdrawalId) = gse.withdraw(_attester1, gse.DEPOSIT_AMOUNT());
+      vm.stopPrank();
+
+      assertEq(removed, true);
+      assertEq(withdrawalId, 0);
+    }
+
+    {
+      emit log_string("Getting attester1's public key should work still work");
+      address[] memory attesters = new address[](1);
+      attesters[0] = _attester1;
+      uint256[2][] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+        _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
+      );
+      assertEq(publicKeys.length, 1);
+      assertEq(publicKeys[0][0], proofOfPossessions[sk1].pk1[0]);
+      assertEq(publicKeys[0][1], proofOfPossessions[sk1].pk1[1]);
+    }
+
+    {
+      emit log_string("Try to deposit pk1 and pk2 for _attester2 again should still revert");
+      vm.prank(stakingAsset.owner());
+      stakingAsset.mint(address(_instance), depositAmount);
+
+      vm.startPrank(_instance);
+      stakingAsset.approve(address(gse), depositAmount);
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          Errors.GSE__ProofOfPossessionAlreadySeen.selector,
+          keccak256(
+            abi.encodePacked(proofOfPossessions[sk1].pk1[0], proofOfPossessions[sk1].pk1[1])
+          )
+        )
+      );
+      gse.deposit(
+        _attester2,
+        _withdrawer,
+        proofOfPossessions[sk1].pk1,
+        proofOfPossessions[sk1].pk2,
+        proofOfPossessions[sk1].sigma,
+        _moveWithLatestRollup
+      );
+      vm.stopPrank();
+    }
+
+    {
+      emit log_string("Coming back as attester1 with different keys should revert");
+      vm.prank(stakingAsset.owner());
+      stakingAsset.mint(address(_instance), depositAmount);
+      vm.startPrank(_instance);
+      stakingAsset.approve(address(gse), depositAmount);
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          Errors.GSE__CannotChangePublicKeys.selector,
+          proofOfPossessions[sk1].pk1[0],
+          proofOfPossessions[sk1].pk1[1]
+        )
+      );
+      gse.deposit(
+        _attester1,
+        _withdrawer,
+        proofOfPossessions[sk2].pk1,
+        proofOfPossessions[sk2].pk2,
+        proofOfPossessions[sk2].sigma,
+        _moveWithLatestRollup
+      );
+      vm.stopPrank();
+    }
+
+    {
+      emit log_string("Coming back as attester1 with the same keys should work");
+      vm.prank(stakingAsset.owner());
+      stakingAsset.mint(address(_instance), depositAmount);
+      vm.startPrank(_instance);
+      stakingAsset.approve(address(gse), depositAmount);
+      gse.deposit(
+        _attester1,
+        _withdrawer,
+        proofOfPossessions[sk1].pk1,
+        proofOfPossessions[sk1].pk2,
+        proofOfPossessions[sk1].sigma,
+        _moveWithLatestRollup
+      );
+      vm.stopPrank();
+    }
+
+    {
+      emit log_string("Depositing a fresh key for attester2 should work");
+      vm.prank(stakingAsset.owner());
+      stakingAsset.mint(address(_instance), depositAmount);
+      vm.startPrank(_instance);
+      stakingAsset.approve(address(gse), depositAmount);
+      gse.deposit(
+        _attester2,
+        _withdrawer,
+        proofOfPossessions[sk2].pk1,
+        proofOfPossessions[sk2].pk2,
+        proofOfPossessions[sk2].sigma,
+        _moveWithLatestRollup
+      );
+      vm.stopPrank();
+    }
+
+    {
+      emit log_string("Getting attester2's public key should work");
+      address[] memory attesters = new address[](2);
+      attesters[0] = _attester1;
+      attesters[1] = _attester2;
+      uint256[2][] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+        _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
+      );
+      assertEq(publicKeys.length, 2);
+      assertEq(publicKeys[0][0], proofOfPossessions[sk1].pk1[0]);
+      assertEq(publicKeys[0][1], proofOfPossessions[sk1].pk1[1]);
+      assertEq(publicKeys[1][0], proofOfPossessions[sk2].pk1[0]);
+      assertEq(publicKeys[1][1], proofOfPossessions[sk2].pk1[1]);
+    }
+  }
+
+  function generateProofsOfPossession(uint256 _sk) internal {
+    uint256[2] memory pk1 = BN254.g1Mul(BN254.g1Generator(), _sk);
+    uint256[2] memory sigma = BN254.g1Mul(
+      BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, abi.encodePacked(pk1[0], pk1[1])), _sk
     );
-    gse.deposit(_attester2, _withdrawer, pk1, pk2, sigma, _moveWithLatestRollup);
-    vm.stopPrank();
-  }
-
-  function test_WhenTheOriginalKeyHolderIsNotActive(
-    address _instance,
-    address _attester1,
-    address _withdrawer,
-    bool _moveWithLatestRollup
-  )
-    external
-    whenCallerIsRegisteredRollup(_instance)
-    whenTheDepositKeysPassTheProofOfPossessionCheck
-    whenProofOfPossessionHasBeenSeenBefore(_instance, _attester1, _withdrawer, _moveWithLatestRollup)
-  {
-    // it adds the keys
-    vm.startPrank(_instance);
-    (, bool removed, uint256 withdrawalId) = gse.withdraw(_attester1, gse.DEPOSIT_AMOUNT());
-    vm.stopPrank();
-
-    assertEq(removed, true);
-    assertEq(withdrawalId, 0);
-
-    // Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
-    // vm.warp(Timestamp.unwrap(withdrawal.unlocksAt));
-
-    // gse.finaliseHelper(withdrawalId);
-
-    vm.startPrank(stakingAsset.owner());
-    stakingAsset.mint(address(_instance), gse.DEPOSIT_AMOUNT());
-    vm.stopPrank();
-
-    vm.startPrank(_instance);
-    stakingAsset.approve(address(gse), gse.DEPOSIT_AMOUNT());
-    gse.deposit(_attester1, _withdrawer, pk1, pk2, sigma, _moveWithLatestRollup);
-    vm.stopPrank();
-
-    address[] memory attesters = new address[](1);
-    attesters[0] = _attester1;
-
-    uint256[2][] memory g1Keys = gse.getG1PublicKeysFromAddresses(address(_instance), attesters);
-
-    assertEq(g1Keys[0][0], pk1[0]);
-    assertEq(g1Keys[0][1], pk1[1]);
-  }
-
-  function test_WhenProofOfPossessionHasNotBeenSeenBefore()
-    external
-    whenTheDepositKeysPassTheProofOfPossessionCheck
-  {
-    // it adds the keys
+    proofOfPossessions[_sk] = ProofOfPossession({
+      pk1: pk1,
+      // pk2 must be prefilled
+      pk2: proofOfPossessions[_sk].pk2,
+      sigma: sigma
+    });
   }
 }

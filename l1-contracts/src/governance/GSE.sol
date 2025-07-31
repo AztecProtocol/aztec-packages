@@ -24,13 +24,16 @@ struct AttesterConfig {
   address withdrawer;
 }
 
-// Struct to track the attesters on a particular rollup instance throughout time,
-// along with each attester's current config.
+// Struct to track:
+// - attesters on a particular rollup instance throughout time,
+// - each attester's current config,
+// - the owners of the public key in G1 of BN254 that have registered on the instance
 // Finally a flag to track if the instance exists.
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
   mapping(address attester => AttesterConfig config) configOf;
-  mapping(bytes32 hashedPK1 => bool active) activePK1s;
+  // Mapping from the hashed public key in G1 of BN254 to the owner of the public key.
+  mapping(bytes32 hashedPK1 => address owner) ownedPKs;
   bool exists;
 }
 
@@ -351,11 +354,20 @@ contract GSECore is IGSECore, Ownable {
     // so existence of Pk2 is implied by existence of Pk1.
     if (checkProofOfPossession) {
       bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1[0], _publicKeyInG1[1]));
+      address owner = instances[recipientInstance].ownedPKs[hashedPk1];
       require(
-        instances[recipientInstance].activePK1s[hashedPk1] == false,
+        owner == address(0) || owner == _attester,
         Errors.GSE__ProofOfPossessionAlreadySeen(hashedPk1)
       );
-      instances[recipientInstance].activePK1s[hashedPk1] = true;
+      instances[recipientInstance].ownedPKs[hashedPk1] = _attester;
+      uint256[2] memory oldPk1 = instances[recipientInstance].configOf[_attester].bn254G1PublicKey;
+      // if there was an old pk1, we need to make sure it matches the proof of possession:
+      // attesters cannot change their public keys.
+      require(
+        (oldPk1[0] == 0 && oldPk1[1] == 0)
+          || (oldPk1[0] == _publicKeyInG1[0] && oldPk1[1] == _publicKeyInG1[1]),
+        Errors.GSE__CannotChangePublicKeys(oldPk1[0], oldPk1[1])
+      );
     }
 
     instances[recipientInstance].configOf[_attester] =
@@ -431,11 +443,11 @@ contract GSECore is IGSECore, Ownable {
     // However, if the attester is slashed, we might just reduce the balance.
     if (isRemoved) {
       require(instanceStaking.attesters.remove(_attester), Errors.GSE__FailedToRemove(_attester));
-      // Mark the attester's public key as inactive.
-      delete instanceStaking.activePK1s[
-        keccak256(abi.encodePacked(instanceStaking.configOf[_attester].bn254G1PublicKey[0], instanceStaking.configOf[_attester].bn254G1PublicKey[1]))
-      ];
-      delete instanceStaking.configOf[_attester];
+      // We intentionally do not remove the public key from the instance's mapping of owned public keys,
+      // nor from the attester's config.
+      // This is to ensure that if the attester is removed from the instance, we can still get the
+      // public key they registered with.
+      instanceStaking.configOf[_attester].withdrawer = address(0);
       amountWithdrawn = balance;
 
       // Update the delegatee to address(0) when removing
@@ -763,6 +775,16 @@ contract GSE is IGSE, GSECore {
     return _getAddressFromIndicesAtTimestamp(_instance, _indices, _timestamp);
   }
 
+  /**
+   * @notice  Get the G1 public keys of the attesters at the instance
+   *
+   * NOTE: this function does NOT check if the attesters are ACTIVELY registered in the instance
+   *
+   * @param _instance   - The instance to look at
+   * @param _attesters  - The attesters to lookup
+   *
+   * @return The G1 public keys of the attesters at the instance
+   */
   function getG1PublicKeysFromAddresses(address _instance, address[] memory _attesters)
     external
     view
@@ -771,13 +793,7 @@ contract GSE is IGSE, GSECore {
   {
     uint256[2][] memory keys = new uint256[2][](_attesters.length);
     for (uint256 i = 0; i < _attesters.length; i++) {
-      (InstanceStaking storage instanceStaking, bool attesterExists,) =
-        _getInstanceStoreWithAttester(_instance, _attesters[i]);
-      if (!attesterExists) {
-        keys[i] = [uint256(0), uint256(0)];
-      } else {
-        keys[i] = instanceStaking.configOf[_attesters[i]].bn254G1PublicKey;
-      }
+      keys[i] = instances[_instance].configOf[_attesters[i]].bn254G1PublicKey;
     }
 
     return keys;

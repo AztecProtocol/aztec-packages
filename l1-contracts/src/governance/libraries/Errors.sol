@@ -85,6 +85,7 @@ library Errors {
   error GSE__OutOfBounds(uint256, uint256);
   error GSE__FatalError(string);
   error GSE__InvalidProofOfPossession();
+  error GSE__CannotChangePublicKeys(uint256 existingPk1x, uint256 existingPk1y);
   error GSE__ProofOfPossessionAlreadySeen(bytes32 hashedPK1);
 
   error Delegation__InsufficientPower(address, uint256, uint256);

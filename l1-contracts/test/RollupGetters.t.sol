@@ -145,7 +145,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     gasBig = gasBig - gasleft();
 
-    (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+    (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
     assertEq(writes.length, 0, "No writes should be done");
 
     // 16 insertions in total, so binary search should hit 4 values (3 extra).
