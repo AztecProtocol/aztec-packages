@@ -1,4 +1,3 @@
-
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"

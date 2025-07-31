@@ -118,6 +118,7 @@ template <typename Builder> class UintFuzzBase {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
             uint8_t in1, in2, out;
+            uint8_t bit;
             // Depending on instruction
             switch (instruction_opcode) {
             case OPCODE::CONSTANT:
@@ -128,6 +129,9 @@ template <typename Builder> class UintFuzzBase {
             case OPCODE::MULTIPLY:
             case OPCODE::DIVIDE:
             case OPCODE::MODULO:
+            case OPCODE::AND:
+            case OPCODE::OR:
+            case OPCODE::XOR:
                 // For two-input-one-output instructions we just randomly pick each argument and generate an instruction
                 // accordingly
                 in1 = static_cast<uint8_t>(rng.next() & 0xff);
@@ -191,6 +195,9 @@ template <typename Builder> class UintFuzzBase {
             case OPCODE::DIVIDE:
             case OPCODE::MODULO:
             case OPCODE::AND:
+            case OPCODE::OR:
+            case OPCODE::XOR:
+                // Randomly sample each of the arguments with 50% probability
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.in1)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.in2)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.out)
@@ -203,9 +210,10 @@ template <typename Builder> class UintFuzzBase {
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.out)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.bit)
             case OPCODE::NOT:
->>>>>>> origin/merge-train/barretenberg
             case OPCODE::SET:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in)
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.out)
+                break;
             case OPCODE::RANDOMSEED:
                 instruction.arguments.randomseed = rng.next();
                 break;
@@ -228,80 +236,96 @@ template <typename Builder> class UintFuzzBase {
         static constexpr size_t DIVIDE = 3;
         static constexpr size_t MODULO = 3;
         static constexpr size_t AND = 3;
+        static constexpr size_t OR = 3;
+        static constexpr size_t XOR = 3;
+        static constexpr size_t SHL = 10;
         static constexpr size_t SHR = 10;
         static constexpr size_t ROL = 10;
         static constexpr size_t ROR = 10;
         static constexpr size_t NOT = 2;
->>>>>>> origin/merge-train/barretenberg
         static constexpr size_t SET = 2;
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
-        *@brief Parser class handles the parsing and writing the instructions back to data buffer** / class Parser {
-          public:
-            /**
-             * @brief Parse a single instruction from data
-             *
-             * @tparam opcode The opcode we are parsing
-             * @param Data Pointer to arguments in buffer
-             * @return Parsed instructiong
-             */
-            template <typename Instruction::OPCODE opcode> inline static Instruction parseInstructionArgs(uint8_t* Data)
-            {
-                if constexpr (opcode == Instruction::OPCODE::CONSTANT) {
-                    return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
-                                        .arguments.element = *((uint64_t*)Data) };
-                }
-                if constexpr (opcode == Instruction::OPCODE::ADD || opcode == Instruction::OPCODE::SUBTRACT ||
-                              opcode == Instruction::OPCODE::MULTIPLY || opcode == Instruction::OPCODE::DIVIDE ||
-                              opcode == Instruction::OPCODE::MODULO) {
-                    return { .id = static_cast<typename Instruction::OPCODE>(opcode),
-                             .arguments.threeArgs = { .in1 = *Data, .in2 = *(Data + 1), .out = *(Data + 2) } };
-                }
-                if constexpr (opcode == Instruction::OPCODE::SHL || opcode == Instruction::OPCODE::SHR ||
-                              opcode == Instruction::OPCODE::ROL || opcode == Instruction::OPCODE::ROR) {
-                    return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
-                                        .arguments.bitArgs = { .in = *Data, .out = *(Data + 1), .bit = *(Data + 2) } };
-                }
-                if constexpr (opcode == Instruction::OPCODE::SET) {
-                    return { .id = static_cast<typename Instruction::OPCODE>(opcode),
-                             .arguments.twoArgs = { .in = *Data, .out = *(Data + 1) } };
-                }
-                if constexpr (opcode == Instruction::OPCODE::RANDOMSEED) {
-                    uint32_t randomseed;
-                    memcpy(&randomseed, Data, sizeof(uint32_t));
-                    return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
-                                        .arguments.randomseed = randomseed };
-                };
+    };
+    /**
+     * @brief Parser class handles the parsing and writing the instructions back to data buffer
+     *
+     */
+    class Parser {
+      public:
+        /**
+         * @brief Parse a single instruction from data
+         *
+         * @tparam opcode The opcode we are parsing
+         * @param Data Pointer to arguments in buffer
+         * @return Parsed instructiong
+         */
+        template <typename Instruction::OPCODE opcode> inline static Instruction parseInstructionArgs(uint8_t* Data)
+        {
+            if constexpr (opcode == Instruction::OPCODE::CONSTANT) {
+                return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
+                                    .arguments.element = *((uint64_t*)Data) };
             }
-            /**
-             * @brief Write a single instruction to buffer
-             *
-             * @tparam instruction_opcode Instruction type
-             * @param instruction instruction
-             * @param Data Pointer to the data buffer (needs to have enough space for the instruction)
-             */
-            template <typename Instruction::OPCODE instruction_opcode>
-            inline static void writeInstruction(Instruction& instruction, uint8_t* Data)
-            {
-                if constexpr (instruction_opcode == Instruction::OPCODE::CONSTANT) {
-                    *Data = instruction.id;
-                    memcpy(Data + 1, &instruction.arguments.element, sizeof(uint64_t));
-                }
-                if constexpr (instruction_opcode == Instruction::OPCODE::ADD ||
-                              instruction_opcode == Instruction::OPCODE::SUBTRACT ||
-                              instruction_opcode == Instruction::OPCODE::MULTIPLY ||
-                              instruction_opcode == Instruction::OPCODE::DIVIDE ||
-                              instruction_opcode == Instruction::OPCODE::MODULO) {
-                    *Data = instruction.id;
-                    *(Data + 1) = instruction.arguments.threeArgs.in1;
-                    *(Data + 2) = instruction.arguments.threeArgs.in2;
-                    *(Data + 3) = instruction.arguments.threeArgs.out;
-                }
-                if constexpr (instruction_opcode == Instruction::OPCODE::SHL ||
-                    *Data = instruction.id;
-                    *(Data + 1) = instruction.arguments.bitArgs.in;
-                    *(Data + 2) = instruction.arguments.bitArgs.out;
+            if constexpr (opcode == Instruction::OPCODE::ADD || opcode == Instruction::OPCODE::SUBTRACT ||
+                          opcode == Instruction::OPCODE::MULTIPLY || opcode == Instruction::OPCODE::DIVIDE ||
+                          opcode == Instruction::OPCODE::MODULO || opcode == Instruction::OPCODE::AND ||
+                          opcode == Instruction::OPCODE::OR || opcode == Instruction::OPCODE::XOR) {
+                return { .id = static_cast<typename Instruction::OPCODE>(opcode),
+                         .arguments.threeArgs = { .in1 = *Data, .in2 = *(Data + 1), .out = *(Data + 2) } };
             }
-            if constexpr (instruction_opcode == Instruction::OPCODE::SET) {
+            if constexpr (opcode == Instruction::OPCODE::SHL || opcode == Instruction::OPCODE::SHR ||
+                          opcode == Instruction::OPCODE::ROL || opcode == Instruction::OPCODE::ROR) {
+                return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
+                                    .arguments.bitArgs = { .in = *Data, .out = *(Data + 1), .bit = *(Data + 2) } };
+            }
+            if constexpr (opcode == Instruction::OPCODE::NOT || opcode == Instruction::OPCODE::SET) {
+                return { .id = static_cast<typename Instruction::OPCODE>(opcode),
+                         .arguments.twoArgs = { .in = *Data, .out = *(Data + 1) } };
+            }
+            if constexpr (opcode == Instruction::OPCODE::RANDOMSEED) {
+                uint32_t randomseed;
+                memcpy(&randomseed, Data, sizeof(uint32_t));
+                return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
+                                    .arguments.randomseed = randomseed };
+            };
+        }
+        /**
+         * @brief Write a single instruction to buffer
+         *
+         * @tparam instruction_opcode Instruction type
+         * @param instruction instruction
+         * @param Data Pointer to the data buffer (needs to have enough space for the instruction)
+         */
+        template <typename Instruction::OPCODE instruction_opcode>
+        inline static void writeInstruction(Instruction& instruction, uint8_t* Data)
+        {
+            if constexpr (instruction_opcode == Instruction::OPCODE::CONSTANT) {
+                *Data = instruction.id;
+                memcpy(Data + 1, &instruction.arguments.element, sizeof(uint64_t));
+            }
+            if constexpr (instruction_opcode == Instruction::OPCODE::ADD ||
+                          instruction_opcode == Instruction::OPCODE::SUBTRACT ||
+                          instruction_opcode == Instruction::OPCODE::MULTIPLY ||
+                          instruction_opcode == Instruction::OPCODE::DIVIDE ||
+                          instruction_opcode == Instruction::OPCODE::MODULO ||
+                          instruction_opcode == Instruction::OPCODE::AND ||
+                          instruction_opcode == Instruction::OPCODE::OR ||
+                          instruction_opcode == Instruction::OPCODE::XOR) {
+                *Data = instruction.id;
+                *(Data + 1) = instruction.arguments.threeArgs.in1;
+                *(Data + 2) = instruction.arguments.threeArgs.in2;
+                *(Data + 3) = instruction.arguments.threeArgs.out;
+            }
+            if constexpr (instruction_opcode == Instruction::OPCODE::SHL ||
+                          instruction_opcode == Instruction::OPCODE::SHR ||
+                          instruction_opcode == Instruction::OPCODE::ROL ||
+                          instruction_opcode == Instruction::OPCODE::ROR) {
+                *Data = instruction.id;
+                *(Data + 1) = instruction.arguments.bitArgs.in;
+                *(Data + 2) = instruction.arguments.bitArgs.out;
+                *(Data + 3) = instruction.arguments.bitArgs.bit;
+            }
+            if constexpr (instruction_opcode == Instruction::OPCODE::NOT ||
+                          instruction_opcode == Instruction::OPCODE::SET) {
                 *Data = instruction.id;
                 *(Data + 1) = instruction.arguments.twoArgs.in;
                 *(Data + 2) = instruction.arguments.twoArgs.out;
@@ -1308,8 +1332,8 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     (void)argc;
     (void)argv;
-    // These are the settings, optimized for the safeuint class (under them, fuzzer reaches maximum expected
-    // coverage in 40 seconds)
+    // These are the settings, optimized for the safeuint class (under them, fuzzer reaches maximum expected coverage in
+    // 40 seconds)
     fuzzer_havoc_settings = HavocSettings{
         .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
         .GEN_MUTATION_COUNT_LOG = 5,                // Fully checked
@@ -1329,8 +1353,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 
     };
     /**
-     * @brief This is used, when we need to determine the probabilities of various mutations. Left here for
-     * posterity
+     * @brief This is used, when we need to determine the probabilities of various mutations. Left here for posterity
      *
      */
     /*
@@ -1372,23 +1395,18 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
               << "################################################################" << std::endl
               << "GEN_LLVM_POST_MUTATION_PROB: " << fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB << std::endl
               << "GEN_MUTATION_COUNT_LOG: " << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG << std::endl
-              << "GEN_STRUCTURAL_MUTATION_PROBABILITY: " <<
-    fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY
+              << "GEN_STRUCTURAL_MUTATION_PROBABILITY: " << fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY
               << std::endl
-              << "GEN_VALUE_MUTATION_PROBABILITY: " << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY <<
-    std::endl
+              << "GEN_VALUE_MUTATION_PROBABILITY: " << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY << std::endl
               << "ST_MUT_DELETION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DELETION_PROBABILITY << std::endl
-              << "ST_MUT_DUPLICATION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY <<
-    std::endl
+              << "ST_MUT_DUPLICATION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY << std::endl
               << "ST_MUT_INSERTION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_INSERTION_PROBABILITY << std::endl
               << "ST_MUT_MAXIMUM_DELETION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DELETION_LOG << std::endl
-              << "ST_MUT_MAXIMUM_DUPLICATION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG <<
-    std::endl
+              << "ST_MUT_MAXIMUM_DUPLICATION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG << std::endl
               << "ST_MUT_SWAP_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_SWAP_PROBABILITY << std::endl
               << "VAL_MUT_LLVM_MUTATE_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_LLVM_MUTATE_PROBABILITY
               << std::endl
-              << "VAL_MUT_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY <<
-    std::endl
+              << "VAL_MUT_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY << std::endl
               << "VAL_MUT_NON_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_NON_MONTGOMERY_PROBABILITY
               << std::endl
               << "VAL_MUT_SMALL_ADDITION_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY
