@@ -11,7 +11,7 @@ import type {
   ReqRespSubProtocolValidators,
   StatusMessage,
 } from '@aztec/p2p';
-import type { L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -187,4 +187,7 @@ export class DummyP2P implements P2P {
   handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
     throw new Error('DummyP2P does not implement "handleAuthRequestFromPeer".');
   }
+
+  //This is no-op
+  public registerThisValidatorAddresses(_address: EthAddress[]): void {}
 }

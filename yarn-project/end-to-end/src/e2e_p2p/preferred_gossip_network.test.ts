@@ -61,12 +61,16 @@ describe('e2e_p2p_preferred_network', () => {
     node: AztecNodeService,
     numRequiredPeers: number,
     timeout: number,
-    _identifier: string,
+    identifier: string,
   ) => {
     return await retryUntil(
       async () => {
         const p2pClient = (node as any).p2pClient as P2PClient;
         const peers = await p2pClient.getPeers();
+        if (peers.length !== numRequiredPeers) {
+          t.logger.warn(`Got ${peers.length}, expected ${numRequiredPeers} for ${identifier}`);
+        }
+
         return peers.length === numRequiredPeers;
       },
       'Wait for peers',
@@ -111,6 +115,14 @@ describe('e2e_p2p_preferred_network', () => {
     p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
   };
 
+  const mockFailedAuthHandler = (node: AztecNodeService) => {
+    const p2pService = (node.getP2P() as any).p2pService as P2PService;
+    const peerManager = (p2pService as any).peerManager;
+
+    // Don't mark auth fails
+    peerManager.markAuthHandshakeFailed = jest.fn().mockImplementation(() => {});
+  };
+
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_preferred_network',
@@ -122,6 +134,8 @@ describe('e2e_p2p_preferred_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         p2pDisableStatusHandshake: false,
+        // Just for testing be aggressive here, don't allow any auth handshake failures
+        p2pMaxFailedAuthAttemptsAllowed: 0,
       },
     });
 
@@ -185,6 +199,10 @@ describe('e2e_p2p_preferred_network', () => {
     indexOffset += NUM_PREFERRED_NODES;
 
     const preferredNodeEnrs = await Promise.all(preferredNodes.map(node => node.getEncodedEnr()));
+
+    // w/o this mock the test would fail, because we gate peers by IP and all the nodes share the same IP (localhost)
+    // This also proves that our peer gating works as expected
+    preferredNodes.forEach(node => mockFailedAuthHandler(node));
 
     t.logger.info('Preferred nodes created', {
       preferredNodeEnrs: preferredNodeEnrs.map(enr => enr?.toString()),

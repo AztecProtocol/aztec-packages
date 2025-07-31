@@ -110,6 +110,7 @@ export class MockPubSub implements PubSubLibp2p {
 class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements GossipSubService {
   private logger = createLogger('p2p:test:mock-gossipsub');
   public subscribedTopics: Set<TopicStr> = new Set();
+  public readonly direct = new Set<string>();
 
   constructor(
     public peerId: PeerId,
