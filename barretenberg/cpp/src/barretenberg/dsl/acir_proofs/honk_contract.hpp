@@ -40,15 +40,21 @@ Fr constant ZERO = Fr.wrap(0);
 
 library FrLib {
     function from(uint256 value) internal pure returns (Fr) {
-        return Fr.wrap(value % MODULUS);
+        unchecked {
+            return Fr.wrap(value % MODULUS);
+        }
     }
 
     function fromBytes32(bytes32 value) internal pure returns (Fr) {
-        return Fr.wrap(uint256(value) % MODULUS);
+        unchecked {
+            return Fr.wrap(uint256(value) % MODULUS);
+        }
     }
 
     function toBytes32(Fr value) internal pure returns (bytes32) {
-        return bytes32(Fr.unwrap(value));
+        unchecked {
+            return bytes32(Fr.unwrap(value));
+        }
     }
 
     function invert(Fr value) internal view returns (Fr) {
@@ -98,33 +104,47 @@ library FrLib {
     }
 
     function div(Fr numerator, Fr denominator) internal view returns (Fr) {
-        return numerator * invert(denominator);
+        unchecked {
+            return numerator * invert(denominator);
+        }
     }
 
     function sqr(Fr value) internal pure returns (Fr) {
-        return value * value;
+        unchecked {
+            return value * value;
+        }
     }
 
     function unwrap(Fr value) internal pure returns (uint256) {
-        return Fr.unwrap(value);
+        unchecked {
+            return Fr.unwrap(value);
+        }
     }
 
     function neg(Fr value) internal pure returns (Fr) {
-        return Fr.wrap(MODULUS - Fr.unwrap(value));
+        unchecked {
+            return Fr.wrap(MODULUS - Fr.unwrap(value));
+        }
     }
 }
 
 // Free functions
 function add(Fr a, Fr b) pure returns (Fr) {
-    return Fr.wrap(addmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    unchecked {
+        return Fr.wrap(addmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    }
 }
 
 function mul(Fr a, Fr b) pure returns (Fr) {
-    return Fr.wrap(mulmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    unchecked {
+        return Fr.wrap(mulmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    }
 }
 
 function sub(Fr a, Fr b) pure returns (Fr) {
-    return Fr.wrap(addmod(Fr.unwrap(a), MODULUS - Fr.unwrap(b), MODULUS));
+    unchecked {
+        return Fr.wrap(addmod(Fr.unwrap(a), MODULUS - Fr.unwrap(b), MODULUS));
+    }
 }
 
 function exp(Fr base, Fr exponent) pure returns (Fr) {
@@ -137,11 +157,15 @@ function exp(Fr base, Fr exponent) pure returns (Fr) {
 }
 
 function notEqual(Fr a, Fr b) pure returns (bool) {
-    return Fr.unwrap(a) != Fr.unwrap(b);
+    unchecked {
+        return Fr.unwrap(a) != Fr.unwrap(b);
+    }
 }
 
 function equal(Fr a, Fr b) pure returns (bool) {
-    return Fr.unwrap(a) == Fr.unwrap(b);
+    unchecked {
+        return Fr.unwrap(a) == Fr.unwrap(b);
+    }
 }
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
@@ -1108,12 +1132,11 @@ library RelationsLib {
 
         // Putting it all together...
         evals[16] = ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation
-            * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 5 or 8
-        evals[17] =
-            ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4
-        evals[18] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4 or 6
+            * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 5 or 8
+        evals[17] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4
+        evals[18] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4 or 6
 
-        ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_ARITH)); // deg 3 or 9
+        ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_O)); // deg 3 or 9
 
         /**
          * RAM Timestamp Consistency Check
@@ -1376,6 +1399,8 @@ library CommitmentSchemeLib {
     struct ShpleminiIntermediates {
         Fr unshiftedScalar;
         Fr shiftedScalar;
+        Fr unshiftedScalarNeg;
+        Fr shiftedScalarNeg;
         // Scalar to be multiplied by [1]₁
         Fr constantTermAccumulator;
         // Accumulator for powers of rho
@@ -1722,6 +1747,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk proof, including pairing point object.
     uint256 constant PROOF_SIZE = 457;
+    uint256 constant SHIFTED_COMMITMENTS_START = 29;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -1897,8 +1923,8 @@ abstract contract BaseHonkVerifier is IVerifier {
             CommitmentSchemeLib.computeSquares(tp.geminiR);
 
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
+        Fr[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
+        Honk.G1Point[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
@@ -1940,15 +1966,26 @@ abstract contract BaseHonkVerifier is IVerifier {
         mem.batchingChallenge = ONE;
         mem.batchedEvaluation = ZERO;
 
+        mem.unshiftedScalarNeg = mem.unshiftedScalar.neg();
+        mem.shiftedScalarNeg = mem.shiftedScalar.neg();
         for (uint256 i = 1; i <= NUMBER_UNSHIFTED; ++i) {
-            scalars[i] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
+            scalars[i] = mem.unshiftedScalarNeg * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
         // g commitments are accumulated at r
-        for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
-            scalars[i] = mem.shiftedScalar.neg() * mem.batchingChallenge;
-            mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
+        // For each of the to be shifted commitments perform the shift in place by
+        // adding to the unshifted value.
+        // We do so, as the values are to be used in batchMul later, and as
+        // `a * c + b * c = (a + b) * c` this will allow us to reduce memory and compute.
+        // Applied to w1, w2, w3, w4 and zPerm
+        for (uint256 i = 0; i < NUMBER_TO_BE_SHIFTED; ++i) {
+            uint256 scalarOff = i + SHIFTED_COMMITMENTS_START;
+            uint256 evaluationOff = i + NUMBER_UNSHIFTED;
+
+            scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalarNeg * mem.batchingChallenge);
+            mem.batchedEvaluation =
+                mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
@@ -1990,13 +2027,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         commitments[34] = convertProofPoint(proof.lookupInverses);
         commitments[35] = convertProofPoint(proof.lookupReadCounts);
         commitments[36] = convertProofPoint(proof.lookupReadTags);
-
-        // to be Shifted
-        commitments[37] = convertProofPoint(proof.w1);
-        commitments[38] = convertProofPoint(proof.w2);
-        commitments[39] = convertProofPoint(proof.w3);
-        commitments[40] = convertProofPoint(proof.w4);
-        commitments[41] = convertProofPoint(proof.zPerm);
 
         /* Batch gemini claims from the prover
          * place the commitments to gemini aᵢ to the vector of commitments, compute the contributions from
@@ -2051,7 +2081,7 @@ abstract contract BaseHonkVerifier is IVerifier {
                 mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
                 mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
                 // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
-                scalars[NUMBER_OF_ENTITIES + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+                scalars[NUMBER_UNSHIFTED + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
 
                 // Accumulate the const term contribution given by
                 // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
@@ -2062,17 +2092,17 @@ abstract contract BaseHonkVerifier is IVerifier {
                 mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
             }
 
-            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
+            commitments[NUMBER_UNSHIFTED + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
 
         // Finalise the batch opening claim
-        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
-        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
+        commitments[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
+        scalars[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
 
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
-        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
-        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
+        commitments[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
+        scalars[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
 
         Honk.G1Point memory P_0_agg = batchMul(commitments, scalars);
         Honk.G1Point memory P_1_agg = negateInplace(quotient_commitment);
@@ -2094,10 +2124,10 @@ abstract contract BaseHonkVerifier is IVerifier {
     }
 
     function batchMul(
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
+        Honk.G1Point[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory base,
+        Fr[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
     ) internal view returns (Honk.G1Point memory result) {
-        uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
+        uint256 limit = NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N + 2;
 
         // Validate all points are on the curve
         for (uint256 i = 0; i < limit; ++i) {

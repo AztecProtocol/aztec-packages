@@ -75,7 +75,7 @@ class ClientIVC {
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
-    using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO;
+    using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
     using StdlibFF = RecursiveFlavor::FF;
@@ -205,6 +205,7 @@ class ClientIVC {
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
+        const TableCommitments& T_prev_commitments,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)

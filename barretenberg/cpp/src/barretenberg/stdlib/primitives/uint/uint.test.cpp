@@ -189,8 +189,6 @@ template <typename TestType> class stdlib_uint : public testing::Test {
                                 witness_ct(&builder, true),
                             });
 
-        EXPECT_EQ(a.at(0).get_value(), false);
-        EXPECT_EQ(a.at(7).get_value(), true);
         EXPECT_EQ(static_cast<uint32_t>(a.get_value()), 128U);
     }
 
@@ -665,6 +663,13 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
+
+            // If both dividend and divisor are constants and divisor is zero, we expect an exception to be thrown.
+            if (divisor_zero && (lhs_constant && rhs_constant)) {
+                EXPECT_THROW_OR_ABORT(c / d, "divide by zero with constant dividend and divisor");
+                return;
+            }
+
             uint_ct e = c / d;
             e = e.normalize();
 
@@ -1075,32 +1080,119 @@ template <typename TestType> class stdlib_uint : public testing::Test {
         EXPECT_EQ(proof_result, true);
     }
 
-    /**
-     * @brief Test the function uint_ct::at used to extract bits.
-     */
-    static void test_at()
+    static void test_right_shift()
     {
         Builder builder = Builder();
 
-        const auto bit_test = [&builder](const bool is_constant) {
-            // construct a sum of uint_ct's, where at least one is a constant,
-            // and validate its correctness bitwise
+        const auto shift_integer = [&builder](const bool is_constant, const uint_native shift) {
             uint_native const_a = get_random();
             uint_native a_val = get_random();
-            uint_native c_val = const_a + a_val;
+            uint_native expected = static_cast<uint_native>(a_val + const_a) >> shift;
             uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
             uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
-            for (size_t i = 0; i < uint_native_width; ++i) {
-                bool_ct result = c.at(i);
-                bool expected = (((c_val >> i) & 1UL) == 1UL) ? true : false;
-                EXPECT_EQ(result.get_value(), expected);
-                EXPECT_EQ(result.get_context(), c.get_context());
-            }
+            uint_ct d = c >> shift;
+            uint_native result = uint_native(d.get_value());
+
+            EXPECT_EQ(result, expected);
         };
 
-        bit_test(false);
-        bit_test(true);
+        for (uint_native i = 0; i < uint_native_width; ++i) {
+            shift_integer(false, i);
+            shift_integer(true, i);
+        }
+
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
+
+        bool proof_result = CircuitChecker::check(builder);
+        EXPECT_EQ(proof_result, true);
+    }
+
+    static void test_left_shift()
+    {
+        Builder builder = Builder();
+
+        const auto shift_integer = [&builder](const bool is_constant, const uint_native shift) {
+            uint_native const_a = get_random();
+            uint_native a_val = get_random();
+            uint_native expected = static_cast<uint_native>((a_val + const_a) << shift);
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct c = a + a_shift;
+            uint_ct d = c << shift;
+            uint_native result = uint_native(d.get_value());
+
+            EXPECT_EQ(result, expected);
+        };
+
+        for (uint_native i = 0; i < uint_native_width; ++i) {
+            shift_integer(true, i);
+            shift_integer(false, i);
+        }
+
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
+
+        bool proof_result = CircuitChecker::check(builder);
+        EXPECT_EQ(proof_result, true);
+    }
+
+    static void test_ror()
+    {
+        Builder builder = Builder();
+
+        const auto ror_integer = [&builder](const bool is_constant, const uint_native rotation) {
+            const auto ror = [](const uint_native in, const uint_native rval) {
+                return rval ? (in >> rval) | (in << (uint_native_width - rval)) : in;
+            };
+
+            uint_native const_a = get_random();
+            uint_native a_val = get_random();
+            uint_native expected = static_cast<uint_native>(ror(static_cast<uint_native>(const_a + a_val), rotation));
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct c = a + a_shift;
+            uint_ct d = c.ror(rotation);
+            uint_native result = uint_native(d.get_value());
+
+            EXPECT_EQ(result, expected);
+        };
+
+        for (uint_native i = 0; i < uint_native_width; ++i) {
+            ror_integer(true, i);
+            ror_integer(false, i);
+        }
+
+        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
+
+        bool proof_result = CircuitChecker::check(builder);
+        EXPECT_EQ(proof_result, true);
+    }
+
+    static void test_rol()
+    {
+        Builder builder = Builder();
+
+        const auto rol_integer = [&builder](const bool is_constant, const uint_native rotation) {
+            const auto rol = [](const uint_native in, const uint_native rval) {
+                return rval ? (in << rval) | (in >> (uint_native_width - rval)) : in;
+            };
+
+            uint_native const_a = get_random();
+            uint_native a_val = get_random();
+            uint_native expected = static_cast<uint_native>(rol(static_cast<uint_native>(const_a + a_val), rotation));
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct c = a + a_shift;
+            uint_ct d = c.rol(rotation);
+            uint_native result = uint_native(d.get_value());
+
+            EXPECT_EQ(result, expected);
+        };
+
+        for (uint_native i = 0; i < uint_native_width; ++i) {
+            rol_integer(true, i);
+            rol_integer(false, i);
+        }
 
         printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
 
@@ -1218,7 +1310,19 @@ TYPED_TEST(stdlib_uint, test_logical_not)
 {
     TestFixture::test_logical_not();
 }
-TYPED_TEST(stdlib_uint, test_at)
+TYPED_TEST(stdlib_uint, test_right_shift)
 {
-    TestFixture::test_at();
+    TestFixture::test_right_shift();
+}
+TYPED_TEST(stdlib_uint, test_left_shift)
+{
+    TestFixture::test_left_shift();
+}
+TYPED_TEST(stdlib_uint, test_ror)
+{
+    TestFixture::test_ror();
+}
+TYPED_TEST(stdlib_uint, test_rol)
+{
+    TestFixture::test_rol();
 }

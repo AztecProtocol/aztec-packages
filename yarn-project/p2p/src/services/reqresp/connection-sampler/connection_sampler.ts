@@ -22,8 +22,11 @@ export class RandomSampler {
 export class ConnectionSampler {
   private cleanupInterval: NodeJS.Timeout;
 
-  private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
-  private readonly streams: Set<Stream> = new Set();
+  // Map from stringified peer id to number of active connections
+  protected readonly activeConnectionsCount: Map<string, number> = new Map();
+
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  protected readonly streams: Set<Stream> = new Set();
 
   // Serial queue to ensure that we only dial one peer at a time
   private dialQueue: SerialQueue = new SerialQueue();
@@ -100,7 +103,7 @@ export class ConnectionSampler {
     for (let attempts = 0; attempts < MAX_SAMPLE_ATTEMPTS && peers.length > 0; attempts++) {
       const randomIndex = this.sampler.random(peers.length);
       const peer = peers[randomIndex];
-      const hasActiveConnections = (this.activeConnectionsCount.get(peer) ?? 0) > 0;
+      const hasActiveConnections = (this.activeConnectionsCount.get(peer.toString()) ?? 0) > 0;
       const isExcluded = excluding?.get(peer.toString()) ?? false;
 
       // Remove this peer from consideration
@@ -144,6 +147,7 @@ export class ConnectionSampler {
     numberToSample = Math.min(numberToSample, peers.length);
 
     const batch: PeerId[] = [];
+    // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
     const withActiveConnections: Set<PeerId> = new Set();
     for (let i = 0; i < numberToSample; i++) {
       const { peer, sampledPeers } = this.getPeerFromList(peers, excluding);
@@ -201,13 +205,14 @@ export class ConnectionSampler {
     stream.metadata.peerId = peerId;
     this.streams.add(stream);
 
-    const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
-    this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
+    const peerIdString = peerId.toString();
+    const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerIdString) ?? 0) + 1;
+    this.activeConnectionsCount.set(peerIdString, updatedActiveConnectionsCount);
 
     this.logger.trace('Dialed protocol', {
       streamId: stream.id,
       protocol,
-      peerId: peerId.toString(),
+      peerId: peerIdString,
       activeConnectionsCount: updatedActiveConnectionsCount,
     });
     return stream;
@@ -217,7 +222,7 @@ export class ConnectionSampler {
    * Closes a stream and updates the active connections count
    */
   async close(stream: Stream): Promise<void> {
-    let peerId = undefined;
+    let peerId: PeerId | undefined = undefined;
 
     try {
       peerId = stream.metadata.peerId;
@@ -226,13 +231,13 @@ export class ConnectionSampler {
       if (!peerId) {
         this.logger.warn(`Stream ${stream.id} does not have a peerId set`);
       } else {
-        updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 1) - 1;
-        this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
+        updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId.toString()) ?? 1) - 1;
+        this.activeConnectionsCount.set(peerId.toString(), updatedActiveConnectionsCount);
       }
 
       this.logger.trace('Closing connection', {
         streamId: stream.id,
-        peerId: peerId.toString(),
+        peerId: peerId?.toString(),
         protocol: stream.protocol,
         activeConnectionsCount: updatedActiveConnectionsCount,
       });
@@ -260,10 +265,10 @@ export class ConnectionSampler {
     for (const stream of this.streams.values()) {
       try {
         // Check if we have lost track of accounting
-        const peerId = stream.metadata.peerId;
+        const peerId: PeerId = stream.metadata.peerId;
         if (!peerId) {
           this.logger.warn(`Stream ${stream.id} does not have a peerId set`);
-        } else if (this.activeConnectionsCount.get(peerId) === 0) {
+        } else if (this.activeConnectionsCount.get(peerId.toString()) === 0) {
           await this.close(stream);
           this.logger.debug('Cleaned up stale connection', { streamId: stream.id, peerId: peerId.toString() });
         }

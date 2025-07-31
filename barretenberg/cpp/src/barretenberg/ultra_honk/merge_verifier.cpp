@@ -1,3 +1,4 @@
+
 // === AUDIT STATUS ===
 // internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
@@ -55,13 +56,12 @@ MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr
  * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
  * @param proof
- * @param t_commitments The subtable commitments data, containing the commitments to t_j read from the transcript
- * by the PG verifier with which the Merge verifier shares a transcript
+ * @param inputs_commitments The commitments used by the Merge verifier
  * @return std::pair<bool, TableCommitments> Pair of verification result and the commitments to the merged tables as
  * read from the proof
  */
 std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_proof(
-    const HonkProof& proof, const TableCommitments& t_commitments)
+    const HonkProof& proof, const InputCommitments& input_commitments)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -74,10 +74,10 @@ std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
     std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
-        auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
-        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
-        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+        auto left_table = settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
+                                                             : input_commitments.T_prev_commitments[idx];
+        auto right_table = settings == MergeSettings::PREPEND ? input_commitments.T_prev_commitments[idx]
+                                                              : input_commitments.t_commitments[idx];
 
         table_commitments.emplace_back(left_table);
         table_commitments.emplace_back(right_table);

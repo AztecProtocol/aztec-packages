@@ -1,3 +1,4 @@
+
 // === AUDIT STATUS ===
 // internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
@@ -76,7 +77,7 @@ GoblinProof Goblin::prove()
 
 std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recursively_verify_merge(
     MegaBuilder& builder,
-    const RecursiveTableCommitments& t_commitments,
+    const RecursiveMergeCommitments& merge_commitments,
     const std::shared_ptr<RecursiveTranscript>& transcript)
 {
     ASSERT(!merge_verification_queue.empty());
@@ -85,19 +86,20 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
     MergeRecursiveVerifier merge_verifier{ &builder, MergeSettings::PREPEND, transcript };
-    auto [pairing_points, merged_table_commitments] = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
+    auto [pairing_points, merged_table_commitments] =
+        merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
     return { pairing_points, merged_table_commitments };
 }
 
-std::pair<bool, Goblin::TableCommitments> Goblin::verify(const GoblinProof& proof,
-                                                         const TableCommitments& t_commitments,
-                                                         const std::shared_ptr<Transcript>& transcript)
+bool Goblin::verify(const GoblinProof& proof,
+                    const MergeCommitments& merge_commitments,
+                    const std::shared_ptr<Transcript>& transcript)
 {
     MergeVerifier merge_verifier(MergeSettings::PREPEND, transcript);
-    auto [merge_verified, merged_table_commitments] = merge_verifier.verify_proof(proof.merge_proof, t_commitments);
+    auto [merge_verified, merged_table_commitments] = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
     ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
@@ -121,9 +123,8 @@ std::pair<bool, Goblin::TableCommitments> Goblin::verify(const GoblinProof& proo
     vinfo("translation verified?: ", translation_verified);
     vinfo("consistency verified?: ", op_queue_consistency_verified);
 
-    return { merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
-                 op_queue_consistency_verified,
-             merged_table_commitments };
+    return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
+           op_queue_consistency_verified;
 }
 
 } // namespace bb

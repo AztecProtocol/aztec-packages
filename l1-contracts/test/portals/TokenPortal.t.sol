@@ -235,19 +235,22 @@ contract TokenPortalTest is Test {
       _addWithdrawMessageInOutbox(address(0), l2BlockNumber);
     assertEq(testERC20.balanceOf(recipient), 0);
 
+    uint256 leafIndex = 0;
+    uint256 leafId = 2 ** siblingPath.length + leafIndex;
+
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
-    tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
+    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, leafId);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
     assertEq(testERC20.balanceOf(recipient), withdrawAmount);
 
     // Should not be able to withdraw again
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, l2BlockNumber, 0)
+      abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, l2BlockNumber, leafId)
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, 0, siblingPath);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, l2BlockNumber, leafIndex, siblingPath);
     vm.stopPrank();
   }
 
@@ -281,9 +284,12 @@ contract TokenPortalTest is Test {
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
       _addWithdrawMessageInOutbox(address(this), l2BlockNumber);
 
+    uint256 leafIndex = 0;
+    uint256 leafId = 2 ** siblingPath.length + leafIndex;
+
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, 0);
-    tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, 0, siblingPath);
+    emit IOutbox.MessageConsumed(l2BlockNumber, treeRoot, l2ToL1Message, leafId);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, l2BlockNumber, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
     assertEq(testERC20.balanceOf(recipient), withdrawAmount);

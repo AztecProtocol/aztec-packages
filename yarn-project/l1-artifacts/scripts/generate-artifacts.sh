@@ -15,6 +15,7 @@ contracts=(
   "EmpireBase"
   "ExtRollupLib"
   "ExtRollupLib2"
+  "ExtRollupLib3"
   "FeeJuicePortal"
   "Governance"
   "GovernanceProposer"
