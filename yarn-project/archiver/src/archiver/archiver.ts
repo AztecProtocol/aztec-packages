@@ -358,7 +358,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       // We only do this if rollup cant prune on the next submission. Otherwise we will end up
       // re-syncing the blocks we have just unwound above. We also dont do this if the last block is invalid,
       // since the archiver will rightfully refuse to sync up to it.
-      if (!rollupCanPrune && !rollupStatus.lastBlockValidationResult.valid) {
+      if (!rollupCanPrune && rollupStatus.lastBlockValidationResult.valid) {
         await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
       }
 
