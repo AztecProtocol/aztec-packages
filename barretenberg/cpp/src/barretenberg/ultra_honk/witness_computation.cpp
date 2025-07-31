@@ -46,14 +46,14 @@ void WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(typename F
 
     // Compute read record values
     for (const auto& gate_idx : memory_read_records) {
-        wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
         wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
         wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
     }
 
     // Compute write record values
     for (const auto& gate_idx : memory_write_records) {
-        wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+        wires[3].at(gate_idx) = wires[2][gate_idx] * eta_three;
         wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
         wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
         wires[3].at(gate_idx) += 1;
