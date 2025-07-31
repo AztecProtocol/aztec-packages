@@ -33,7 +33,7 @@ use dep::protocol_types::{
 /// - Tagging is a mechanism to ensure that a recipient is able to efficiently find a private log (tagging is not used
 /// in the offchain message mechanism). If the tagging is unconstrained we don't have a guarantee that it was performed
 /// correctly and hence we don't have a guarantee that the recipient is able to find the message. Use unconstrained
-/// tagging only when the recipient is trusted or is incentivised to deliver the message.
+/// tagging only when the recipient is trusted or is incentivized to deliver the message.
 ///
 ///
 /// # When to use which variant
@@ -53,7 +53,7 @@ use dep::protocol_types::{
 /// in limbo.)
 ///
 /// 2. Unconstrained encryption, offchain message
-/// This combination is useful when we either trust the sender to behave or the sender is incentivised to deliver the
+/// This combination is useful when we either trust the sender to behave or the sender is incentivized to deliver the
 /// message. Let's consider a payment app. When you are buying groceries, the merchant can consider the payment
 /// successful once he receives the payment message, can successfully decrypt it and see that its contents correspond
 /// to a valid token note.
@@ -70,7 +70,7 @@ pub struct MessageDeliveryEnum {
 
     /// Unconstrained encryption + offchain message
     ///
-    /// Useful when we trust the sender or the sender is incentivised to deliver the message.
+    /// Useful when we trust the sender or the sender is incentivized to deliver the message.
     /// The offchain message mechanism is not guaranteed to deliver the message and it's up to the app
     /// to deliver the message to the recipient.
     pub UNCONSTRAINED_OFFCHAIN: u8,
