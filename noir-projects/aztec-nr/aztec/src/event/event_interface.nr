@@ -114,13 +114,13 @@ where
     // The following maps out the 3 dimensions across which we configure message delivery.
     let unconstrained_encryption = delivery_mode != MessageDelivery.CONSTRAINED_ONCHAIN;
     let emit_as_offchain_message = delivery_mode == MessageDelivery.UNCONSTRAINED_OFFCHAIN;
+    // TODO(#14565): Add constrained tagging
     let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
 
     let (ciphertext, randomness) = remove_constraints_if(
         unconstrained_encryption,
         || to_encrypted_private_event_message(event, recipient),
     );
-    let log_content = prefix_with_tag(ciphertext, recipient);
 
     // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery.
     // The nullifier tree is chosen over the note hash tree for this purpose since it provides a simpler mechanism
@@ -135,10 +135,17 @@ where
     context.push_nullifier(event_commitment);
 
     if emit_as_offchain_message {
-        // Safety: Offchain messages are by definition unconstrained. They are emitted via an oracle
-        // which we don't use for anything besides its side effects, therefore this is safe to call.
+        // In the case of delivery via offchain message tagging is not used and the log content is the ciphertext
+        // itself.
+        let log_content = ciphertext;
+
+        // Safety: Offchain messages are by definition unconstrained. They are emitted via the `emit_offchain_effect`
+        // oracle which we don't use for anything besides its side effects, therefore this is safe to call.
         unsafe { emit_offchain_message(log_content, recipient) };
     } else {
+        // When delivering through the private log stream, tagging is used so we must prefix the ciphertext with a tag.
+        let log_content = prefix_with_tag(ciphertext, recipient);
+
         context.emit_private_log(log_content, log_content.len());
     }
 }
