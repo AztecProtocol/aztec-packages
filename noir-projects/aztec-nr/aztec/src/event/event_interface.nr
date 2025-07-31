@@ -14,6 +14,26 @@ use dep::protocol_types::{
     traits::{Serialize, ToField},
 };
 
+/// Describes details of message delivery. There are 3 dimensions to configure:
+/// 1. Constrained or unconstrained encryption
+/// - When the encryption is constrained we have a guarantee that the resulting ciphertext is formed correctly. If we don't
+/// need this guarantee and we are fine with trusting the sender it has been done correctly, it is recommended to use
+/// unconstrained encryption.
+/// - Note that we always commit to the plaintext and the recipient is therefore always able to verify the authenticity
+/// of the message.
+///
+/// 2. Delivery mechanism
+/// - The message ciphertext can be delivered either via the private log stream or via the offchain message mechanism.
+/// - The private log stream is submitted to L1 blobs and consumes DA.
+/// - The offchain message mechanism is not submitted to L1 blobs and does not consume DA.
+/// - Unlike the private log stream which is handled by the Aztec protocol, the offchain message mechanism is handled by
+/// the app.
+///
+/// 3. Constrained or unconstrained tagging
+/// - Tagging is a mechanism to ensure that a recipient is able to efficiently find a private log. If the tagging is unconstrained
+/// we don't have a guarantee that it was performed correctly and hence we don't have a guarantee that the recipient
+/// is able to find the message. Use unconstrained tagging only when the recipient is trusted or is incentivised to
+/// deliver the message.
 pub struct PrivateLogContentConstraintsEnum {
     /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
     /// the private log stream and hence is submitted to L1 blobs and consumes DA.
