@@ -118,6 +118,7 @@ template <typename Builder> class UintFuzzBase {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
             uint8_t in1, in2, out;
+            uint8_t bit;
             // Depending on instruction
             switch (instruction_opcode) {
             case OPCODE::CONSTANT:
@@ -128,6 +129,9 @@ template <typename Builder> class UintFuzzBase {
             case OPCODE::MULTIPLY:
             case OPCODE::DIVIDE:
             case OPCODE::MODULO:
+            case OPCODE::AND:
+            case OPCODE::OR:
+            case OPCODE::XOR:
                 // For two-input-one-output instructions we just randomly pick each argument and generate an instruction
                 // accordingly
                 in1 = static_cast<uint8_t>(rng.next() & 0xff);
@@ -263,7 +267,8 @@ template <typename Builder> class UintFuzzBase {
             }
             if constexpr (opcode == Instruction::OPCODE::ADD || opcode == Instruction::OPCODE::SUBTRACT ||
                           opcode == Instruction::OPCODE::MULTIPLY || opcode == Instruction::OPCODE::DIVIDE ||
-                          opcode == Instruction::OPCODE::MODULO) {
+                          opcode == Instruction::OPCODE::MODULO || opcode == Instruction::OPCODE::AND ||
+                          opcode == Instruction::OPCODE::OR || opcode == Instruction::OPCODE::XOR) {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
                          .arguments.threeArgs = { .in1 = *Data, .in2 = *(Data + 1), .out = *(Data + 2) } };
             }
@@ -272,7 +277,7 @@ template <typename Builder> class UintFuzzBase {
                 return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
                                     .arguments.bitArgs = { .in = *Data, .out = *(Data + 1), .bit = *(Data + 2) } };
             }
-            if constexpr (opcode == Instruction::OPCODE::SET) {
+            if constexpr (opcode == Instruction::OPCODE::NOT || opcode == Instruction::OPCODE::SET) {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
                          .arguments.twoArgs = { .in = *Data, .out = *(Data + 1) } };
             }
@@ -301,7 +306,10 @@ template <typename Builder> class UintFuzzBase {
                           instruction_opcode == Instruction::OPCODE::SUBTRACT ||
                           instruction_opcode == Instruction::OPCODE::MULTIPLY ||
                           instruction_opcode == Instruction::OPCODE::DIVIDE ||
-                          instruction_opcode == Instruction::OPCODE::MODULO) {
+                          instruction_opcode == Instruction::OPCODE::MODULO ||
+                          instruction_opcode == Instruction::OPCODE::AND ||
+                          instruction_opcode == Instruction::OPCODE::OR ||
+                          instruction_opcode == Instruction::OPCODE::XOR) {
                 *Data = instruction.id;
                 *(Data + 1) = instruction.arguments.threeArgs.in1;
                 *(Data + 2) = instruction.arguments.threeArgs.in2;
@@ -316,7 +324,8 @@ template <typename Builder> class UintFuzzBase {
                 *(Data + 2) = instruction.arguments.bitArgs.out;
                 *(Data + 3) = instruction.arguments.bitArgs.bit;
             }
-            if constexpr (instruction_opcode == Instruction::OPCODE::SET) {
+            if constexpr (instruction_opcode == Instruction::OPCODE::NOT ||
+                          instruction_opcode == Instruction::OPCODE::SET) {
                 *Data = instruction.id;
                 *(Data + 1) = instruction.arguments.twoArgs.in;
                 *(Data + 2) = instruction.arguments.twoArgs.out;

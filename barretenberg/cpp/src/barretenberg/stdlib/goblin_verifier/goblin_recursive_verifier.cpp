@@ -56,6 +56,6 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
     // and final merge verifier
     translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
 
-    return { translator_pairing_points, opening_claim, ipa_proof, merged_table_commitments };
+    return { translator_pairing_points, opening_claim, ipa_proof };
 }
 } // namespace bb::stdlib::recursion::honk
