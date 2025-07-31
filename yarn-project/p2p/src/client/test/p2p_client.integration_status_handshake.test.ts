@@ -109,9 +109,13 @@ describe('p2p client integration status handshake', () => {
   });
 
   it('should disconnect client when it returns status with wrong version', async () => {
+    const TEST_HEARTBEAT_INTERVAL = 2000; // 2 seconds
     clients = (
       await makeTestP2PClients(NUMBER_OF_PEERS, {
-        p2pBaseConfig,
+        p2pBaseConfig: {
+          ...p2pBaseConfig,
+          peerCheckIntervalMS: TEST_HEARTBEAT_INTERVAL,
+        },
         mockAttestationPool: attestationPool,
         mockTxPool: txPool,
         mockEpochCache: epochCache,
@@ -129,6 +133,9 @@ describe('p2p client integration status handshake', () => {
     await startTestP2PClients(clients);
     await retryUntil(async () => (await client1.getPeers()).length == 1, 'peers discovered', 10, 0.5);
     logger.info(`Finished waiting for clients to connect`);
+
+    // We sleep for 3 intervals to make sure disconnect happened
+    await sleep(3 * TEST_HEARTBEAT_INTERVAL);
 
     for (const handshakeSpy of statusHandshakeSpies) {
       expect(handshakeSpy).toHaveBeenCalled();
