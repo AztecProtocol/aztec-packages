@@ -14,16 +14,16 @@ use validate_squashable_note_hash_nullifier_pair::validate_squashable_note_hash_
 ///
 /// It assumes that the uniqueness and bounds of the hinted indices have already been validated (which is done in
 /// `validate_transient_data_squashing_hints.nr`).
-pub fn validate_note_hash_nullifier_squashing<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
+pub fn validate_note_hash_nullifier_squashing<let NoteHashesLen: u32, let NullifiersLen: u32, let SquashingHintsLen: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
     min_revertible_side_effect_counter: u32,
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_active_squashing_hints: u32,
-    note_hash_squash_flags: [bool; NOTE_HASHES_LEN],
-    nullifier_squash_flags: [bool; NULLIFIERS_LEN],
+    note_hash_squash_flags: [bool; NoteHashesLen],
+    nullifier_squash_flags: [bool; NullifiersLen],
 ) {
     // This loop iterates over the hints `transient_data_squashing_hints` and validates that each (note hash, nullifier)
     // pair is eligible to be squashed.
@@ -31,7 +31,7 @@ pub fn validate_note_hash_nullifier_squashing<let NOTE_HASHES_LEN: u32, let NULL
     // We iterate over the hints directly (rather than the full note hashes or nullifiers arrays) so that the circuit
     // size can be optimized according to the number of squashable pairs needed.
     let mut is_active_hint = true;
-    for i in 0..SQUASHING_HINTS_LEN {
+    for i in 0..SquashingHintsLen {
         let hint = transient_data_squashing_hints[i];
 
         // Determine if the hint can be used.
@@ -72,7 +72,7 @@ pub fn validate_note_hash_nullifier_squashing<let NOTE_HASHES_LEN: u32, let NULL
     // it is squashed. Here we propagate the note hashes whose flags are `false`, and check that they match the expected
     // kept note hashes.
     let mut kept_note_hashes_counter = 0;
-    for i in 0..NOTE_HASHES_LEN {
+    for i in 0..NoteHashesLen {
         if !note_hash_squash_flags[i] {
             assert_eq(
                 expected_kept_note_hashes.array[kept_note_hashes_counter],
@@ -86,7 +86,7 @@ pub fn validate_note_hash_nullifier_squashing<let NOTE_HASHES_LEN: u32, let NULL
     // than it should be, and the below check will fail.
     assert_eq(
         kept_note_hashes_counter + num_squashed_pairs,
-        NOTE_HASHES_LEN,
+        NoteHashesLen,
         "Wrong number of note hashes removed",
     );
     // Ensure that the length of the kept note hashes array is correct.
@@ -103,7 +103,7 @@ pub fn validate_note_hash_nullifier_squashing<let NOTE_HASHES_LEN: u32, let NULL
     // it is squashed. Here we propagate the nullifiers whose flags are `false`, and check that they match the expected
     // kept nullifiers.
     let mut kept_nullifiers_counter = 0;
-    for i in 0..NULLIFIERS_LEN {
+    for i in 0..NullifiersLen {
         if !nullifier_squash_flags[i] {
             assert_eq(
                 expected_kept_nullifiers.array[kept_nullifiers_counter],
@@ -117,7 +117,7 @@ pub fn validate_note_hash_nullifier_squashing<let NOTE_HASHES_LEN: u32, let NULL
     // than it should be, and the below check will fail.
     assert_eq(
         kept_nullifiers_counter + num_squashed_pairs,
-        NULLIFIERS_LEN,
+        NullifiersLen,
         "Wrong number of nullifiers removed",
     );
     // Ensure that the length of the kept nullifiers array is correct.

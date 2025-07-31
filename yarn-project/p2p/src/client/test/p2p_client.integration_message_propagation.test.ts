@@ -28,9 +28,8 @@ import {
   startTestP2PClients,
 } from '../../test-helpers/make-test-p2p-clients.js';
 import { MockGossipSubNetwork } from '../../test-helpers/mock-pubsub.js';
-import { privateKeyToHex } from '../../util.js';
 
-const TEST_TIMEOUT = 120000;
+const TEST_TIMEOUT = 120_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 describe('p2p client integration message propagation', () => {
@@ -201,7 +200,7 @@ describe('p2p client integration message propagation', () => {
       client3AttestationPromise.promise,
     ];
 
-    const messages = await retryUntil(() => collectIfReady(messagesPromise), 'all gossiped messages received', 10, 1);
+    const messages = await retryUntil(() => collectIfReady(messagesPromise), 'all gossiped messages received', 12, 0.5);
 
     expect(messages).toBeDefined();
     expect(client2HandleGossipedTxSpy).toHaveBeenCalled();
@@ -241,6 +240,7 @@ describe('p2p client integration message propagation', () => {
     async () => {
       // Create a set of nodes, client 1 will send a messages to other peers
       const numberOfNodes = 3;
+      const mockGossipSubNetwork = new MockGossipSubNetwork();
       // We start at rollup version 1
       const testConfig: MakeTestP2PClientOptions = {
         p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1, p2pDisableStatusHandshake: true },
@@ -250,13 +250,14 @@ describe('p2p client integration message propagation', () => {
         mockWorldState: worldState,
         alwaysTrueVerifier: true,
         logger,
+        mockGossipSubNetwork,
       };
 
       const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
       const [client1, client2, client3] = clientsAndConfig;
 
       // Give the nodes time to discover each other
-      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 10, 0.5);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 12, 0.5);
       logger.info(`Finished waiting for clients to discover each other`);
 
       // Assert that messages get propagated
@@ -274,11 +275,11 @@ describe('p2p client integration message propagation', () => {
 
       // We re-create client 2 as before, but client 3 moves to a new rollup version
       const newEnrs = [client1.enr, client2.enr, client3.enr];
-      const newClient2 = await makeTestP2PClient(privateKeyToHex(client2.peerPrivateKey), client2.port, newEnrs, {
+      const newClient2 = await makeTestP2PClient(client2.peerPrivateKey, client2.port, newEnrs, {
         ...testConfig,
         logger: createLogger(`p2p:new-client-2`),
       });
-      const newClient3 = await makeTestP2PClient(privateKeyToHex(client3.peerPrivateKey), client3.port, newEnrs, {
+      const newClient3 = await makeTestP2PClient(client3.peerPrivateKey, client3.port, newEnrs, {
         ...testConfig,
         p2pBaseConfig: newP2PConfig,
         logger: createLogger(`p2p:new-client-3`),
@@ -288,7 +289,7 @@ describe('p2p client integration message propagation', () => {
 
       await startTestP2PClients(clients);
       // Give everyone time to connect again
-      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 10, 0.5);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 12, 0.5);
       logger.info(`Finished waiting for clients to rediscover each other`);
 
       // Client 1 sends a tx a block proposal and an attestation and only client 2 should receive them, client 3 is now on a new version
@@ -347,8 +348,8 @@ describe('p2p client integration message propagation', () => {
               client2AttestationPromise.promise,
             ]),
           'client2 received all messages',
-          20,
-          1,
+          12,
+          0.5,
         );
 
         // We use Promise.any as no messages should be received
