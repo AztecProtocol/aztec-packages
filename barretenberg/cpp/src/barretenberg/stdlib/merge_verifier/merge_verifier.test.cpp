@@ -88,10 +88,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         tamper_with_proof(merge_proof, tampering_mode);
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
-        TableCommitments t_commitments;
-        TableCommitments T_prev_commitments;
-        RecursiveTableCommitments recursive_t_commitments;
-        RecursiveTableCommitments recursive_T_prev_commitments;
+        MergeCommitments merge_commitments;
+        RecursiveMergeCommitments recursive_merge_commitments;
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
         auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {

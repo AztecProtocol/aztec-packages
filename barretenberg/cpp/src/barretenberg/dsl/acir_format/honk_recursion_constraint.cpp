@@ -222,8 +222,6 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
-    using RollupIO = stdlib::recursion::honk::RollupIO;
-    using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
@@ -259,9 +257,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         size_t size_of_proof_with_no_pub_inputs = input.proof.size();
         size_t total_num_public_inputs = input.public_inputs.size();
         if constexpr (HasIPAAccumulator<Flavor>) {
+            using RollupIO = stdlib::recursion::honk::RollupIO;
             size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
             total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
         } else {
+            using DefaultIO = stdlib::recursion::honk::DefaultIO<Builder>;
             size_of_proof_with_no_pub_inputs -= DefaultIO::PUBLIC_INPUTS_SIZE;
             total_num_public_inputs += DefaultIO::PUBLIC_INPUTS_SIZE;
         }
