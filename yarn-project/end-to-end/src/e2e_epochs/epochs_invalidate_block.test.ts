@@ -3,10 +3,12 @@ import { type Logger, retryUntil } from '@aztec/aztec.js';
 import { type ExtendedViemWalletClient, type Operator, RollupContract } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { bufferToHex } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { Offense } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -18,11 +20,8 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 const VALIDATOR_COUNT = 3;
+const SLASHER_PRIVATE_KEYS_START_INDEX = 12;
 
-// This test validates the scenario where:
-// 1. A sequencer posts a block without all necessary attestations
-// 2. The next proposer sees the invalid block and invalidates it as part of publishing a new block
-// 3. All nodes sync the block with correct attestations
 describe('e2e_epochs/epochs_invalidate_block', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -52,6 +51,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       startProverNode: false,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
       archiverPollingIntervalMS: 200,
+      anvilAccounts: 20,
       anvilPort: ++anvilPort,
     });
 
@@ -65,8 +65,13 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     const validatorNodes = validators.slice(0, NODE_COUNT);
-    nodes = await asyncMap(validatorNodes, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, minTxsPerBlock: 1, maxTxsPerBlock: 1 }),
+    nodes = await asyncMap(validatorNodes, ({ privateKey }, i) =>
+      test.createValidatorNode([privateKey], {
+        dontStartSequencer: true,
+        minTxsPerBlock: 1,
+        maxTxsPerBlock: 1,
+        slasherPrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(SLASHER_PRIVATE_KEYS_START_INDEX + i)!)),
+      }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validatorNodes.map(v => v.attester) });
 
@@ -152,6 +157,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const receipt = await sentTx.wait({ timeout: 30 });
     expect(receipt.status).toBe('success');
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
+
+    // Check that we have created a slash payload for the proposer of the invalidated block
+    const monitoredPayloads = await context.aztecNodeAdmin!.getSlasherMonitoredPayloads();
+    expect(monitoredPayloads).toHaveLength(1);
+    expect(monitoredPayloads[0].offenses).toEqual([Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS]);
   });
 
   it('proposer invalidates previous block without publishing its own', async () => {
