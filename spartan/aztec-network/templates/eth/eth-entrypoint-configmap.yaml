@@ -1,4 +1,4 @@
-{{- if not .Values.ethereum.beacon.externalHost }}
+{{- if not .Values.ethereum.execution.externalHosts }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,4 +9,7 @@ data:
   eth-validator.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-validator.sh" | quote }}
   eth-beacon.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-beacon.sh" | quote }}
   eth-execution.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-execution.sh" | quote }}
+  eth-execution-geth.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-execution-geth.sh" | quote }}
+  eth-execution-nethermind.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-execution-nethermind.sh" | quote }}
+  eth-execution-reth.sh: {{ .Files.Get "eth-devnet/entrypoints/eth-execution-reth.sh" | quote }}
 {{- end }}
