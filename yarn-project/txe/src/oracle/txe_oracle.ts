@@ -243,11 +243,11 @@ export class TXE {
     return this.baseFork;
   }
 
-  getChainId(): Promise<Fr> {
+  utilityGetChainId(): Promise<Fr> {
     return Promise.resolve(new Fr(this.CHAIN_ID));
   }
 
-  getVersion(): Promise<Fr> {
+  utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(new Fr(this.ROLLUP_VERSION));
   }
 
@@ -359,11 +359,11 @@ export class TXE {
 
   // TypedOracle
 
-  getBlockNumber() {
+  utilityGetBlockNumber() {
     return Promise.resolve(this.blockNumber);
   }
 
-  getTimestamp() {
+  utilityGetTimestamp() {
     return Promise.resolve(this.timestamp);
   }
 
@@ -371,19 +371,19 @@ export class TXE {
     return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
-  getContractAddress() {
+  utilityGetContractAddress() {
     return Promise.resolve(this.contractAddress);
   }
 
-  getRandomField() {
+  utilityGetRandomField() {
     return Fr.random();
   }
 
-  storeInExecutionCache(values: Fr[], hash: Fr) {
+  pxeStoreInExecutionCache(values: Fr[], hash: Fr) {
     return this.executionCache.store(values, hash);
   }
 
-  loadFromExecutionCache(hash: Fr) {
+  pxeLoadFromExecutionCache(hash: Fr) {
     const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
@@ -391,47 +391,50 @@ export class TXE {
     return Promise.resolve(preimage);
   }
 
-  getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+  utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
     return this.pxeOracleInterface.getContractInstance(address);
   }
 
-  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
+  utilityGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
     return this.pxeOracleInterface.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
-  getNullifierMembershipWitness(blockNumber: number, nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
+  utilityGetNullifierMembershipWitness(
+    blockNumber: number,
+    nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  utilityGetPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     return this.pxeOracleInterface.getPublicDataWitness(blockNumber, leafSlot);
   }
 
-  getLowNullifierMembershipWitness(
+  utilityGetLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     return this.pxeOracleInterface.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+  utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     return this.stateMachine.archiver.getBlockHeader(blockNumber);
   }
 
-  getCompleteAddress(account: AztecAddress) {
+  utilityGetCompleteAddress(account: AztecAddress) {
     return Promise.resolve(this.accountDataProvider.getAccount(account));
   }
 
-  getAuthWitness(messageHash: Fr) {
+  utilityGetAuthWitness(messageHash: Fr) {
     const authwit = this.authwits.get(messageHash.toString());
     return Promise.resolve(authwit?.witness);
   }
 
-  async getNotes(
+  async utilityGetNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -477,7 +480,7 @@ export class TXE {
     return notes;
   }
 
-  notifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
+  pxeNotifyCreatedNote(storageSlot: Fr, _noteTypeId: NoteSelector, noteItems: Fr[], noteHash: Fr, counter: number) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -504,7 +507,7 @@ export class TXE {
     await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
 
-  async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
+  async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
     const snap = this.nativeWorldStateService.getSnapshot(this.blockNumber - 1);
 
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
@@ -523,7 +526,7 @@ export class TXE {
     throw new Error('Method not implemented.');
   }
 
-  async storageRead(
+  async utilityStorageRead(
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
@@ -571,7 +574,7 @@ export class TXE {
   }
 
   async commitState() {
-    const blockNumber = await this.getBlockNumber();
+    const blockNumber = await this.utilityGetBlockNumber();
     const { usedTxRequestHashForNonces } = this.noteCache.finish();
     if (this.committedBlocks.has(blockNumber)) {
       throw new Error('Already committed state');
@@ -659,7 +662,7 @@ export class TXE {
     );
 
     header.globalVariables.blockNumber = blockNumber;
-    header.globalVariables.timestamp = await this.getTimestamp();
+    header.globalVariables.timestamp = await this.utilityGetTimestamp();
     header.globalVariables.version = new Fr(this.ROLLUP_VERSION);
     header.globalVariables.chainId = new Fr(this.CHAIN_ID);
 
@@ -714,7 +717,7 @@ export class TXE {
         selector: call.selector,
       });
 
-      const args = await this.loadFromExecutionCache(argsHash);
+      const args = await this.pxeLoadFromExecutionCache(argsHash);
       const initialWitness = toACVMWitness(0, args);
       const acirExecutionResult = await this.simulator
         .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
@@ -736,7 +739,7 @@ export class TXE {
 
       const returnHash = await computeVarArgsHash(returnWitness);
 
-      this.storeInExecutionCache(returnWitness, returnHash);
+      this.pxeStoreInExecutionCache(returnWitness, returnHash);
       return returnHash;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
@@ -772,7 +775,7 @@ export class TXE {
     return await this.contractDataProvider.getDebugFunctionName(address, selector);
   }
 
-  debugLog(message: string, fields: Fr[]): void {
+  utilityDebugLog(message: string, fields: Fr[]): void {
     this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
@@ -780,11 +783,14 @@ export class TXE {
     await this.pxeOracleInterface.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  async getIndexedTaggingSecretAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+  async utilityGetIndexedTaggingSecretAsSender(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret> {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -861,7 +867,7 @@ export class TXE {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.pxeOracleInterface.utilityStoreCapsule(this.contractAddress, slot, capsule);
+    return this.pxeOracleInterface.storeCapsule(this.contractAddress, slot, capsule);
   }
 
   loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
@@ -1011,7 +1017,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       const returnValuesHash = await computeVarArgsHash(returnValues);
-      this.storeInExecutionCache(returnValues, returnValuesHash);
+      this.pxeStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     // According to the protocol rules, the nonce generator for the note hashes
@@ -1230,7 +1236,7 @@ export class TXE {
       // This is a bit of a hack to not deal with returning a slice in nr which is what normally happens.
       // Investigate whether it is faster to do this or return from the oracle directly.
       returnValuesHash = await computeVarArgsHash(returnValues);
-      this.storeInExecutionCache(returnValues, returnValuesHash);
+      this.pxeStoreInExecutionCache(returnValues, returnValuesHash);
     }
 
     if (isStaticCall) {
