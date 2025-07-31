@@ -30,17 +30,17 @@ function installUltraHonkGlobals() {
   }
 
   async function verify(proofData: ProofData, verificationKey: Uint8Array) {
-    const { BarretenbergVerifier } = await import("@aztec/bb.js");
+    const { UltraHonkBackend } = await import("@aztec/bb.js");
 
     logger.debug(`verifying...`);
-    const verifier = new BarretenbergVerifier();
-    const verified = await verifier.verifyUltraHonkProof(
+    const backend = new UltraHonkBackend();
+    const verified = await backend.verifyProofWithVk(
       proofData,
       verificationKey
     );
     logger.debug(`verified: ${verified}`);
 
-    await verifier.destroy();
+    await backend.destroy();
 
     logger.debug("test complete.");
     return verified;

@@ -77,9 +77,9 @@ async function generateProof({
 }
 
 async function verifyProof({ directory }: { directory: string }) {
-  const { BarretenbergVerifier } = await import("@aztec/bb.js");
+  const { Barretenberg } = await import("@aztec/bb.js");
 
-  const verifier = new BarretenbergVerifier();
+  const verifier = new Barretenberg();
 
   const proof = await fs.readFile(proofPath(directory));
   assert(

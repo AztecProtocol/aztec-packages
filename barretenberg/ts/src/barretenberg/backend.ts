@@ -55,6 +55,7 @@ export class UltraHonkBackend {
 
   protected api!: Barretenberg;
   protected acirUncompressedBytecode: Uint8Array;
+  private loadedFullSrs: boolean = false;
 
   constructor(
     acirBytecode: string,
@@ -64,29 +65,40 @@ export class UltraHonkBackend {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
   /** @ignore */
-  private async instantiate(): Promise<void> {
+  private async instantiate(needFullSrs = false): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.backendOptions);
+      this.api = await Barretenberg.new(this.backendOptions);
+      if (!needFullSrs) {
+        await this.api.initSRSForCircuitSize(0);
+      }
+    }
+    if (needFullSrs && !this.loadedFullSrs) {
       const honkRecursion = true;
-      await api.acirInitSRS(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
-
-      this.api = api;
+      await this.api.acirInitSRS(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
+      this.loadedFullSrs = true;
     }
   }
 
-  private getProofSettingsFromOptions(
-    options?: UltraHonkBackendOptions,
-  ): { ipaAccumulation: boolean; oracleHashType: string; disableZk: boolean } {
+  private getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
+    ipaAccumulation: boolean;
+    oracleHashType: string;
+    disableZk: boolean;
+  } {
     return {
       ipaAccumulation: false,
-      oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : (options?.starknet || options?.starknetZK ? 'starknet' : 'poseidon2'),
+      oracleHashType:
+        options?.keccak || options?.keccakZK
+          ? 'keccak'
+          : options?.starknet || options?.starknetZK
+            ? 'starknet'
+            : 'poseidon2',
       // TODO no current way to target non-zk poseidon2 hash
       disableZk: options?.keccak || options?.starknet ? true : false,
     };
   }
 
   async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
-    await this.instantiate();
+    await this.instantiate(/* needs SRS */ true);
 
     const witness = ungzip(compressedWitness);
     const { proof, publicInputs } = await this.api.circuitProve({
@@ -96,9 +108,8 @@ export class UltraHonkBackend {
         bytecode: Buffer.from(this.acirUncompressedBytecode),
         verificationKey: Buffer.from([]), // Empty VK - lower performance.
       },
-      settings: this.getProofSettingsFromOptions(options)
+      settings: this.getProofSettingsFromOptions(options),
     });
-    console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
 
     // We return ProofData as a flat buffer and an array of strings to match the current ProofData class.
     const flatProof = new Uint8Array(proof.length * 32);
@@ -109,13 +120,25 @@ export class UltraHonkBackend {
     return { proof: flatProof, publicInputs: publicInputs.map(uint8ArrayToHex) };
   }
 
-  async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
+  async verifyProofWithVk(proofData: ProofData, verificationKey: Uint8Array, options?: UltraHonkBackendOptions): Promise<boolean> {
     await this.instantiate();
 
     const proofFrs: Uint8Array[] = [];
     for (let i = 0; i < proofData.proof.length; i += 32) {
       proofFrs.push(proofData.proof.slice(i, i + 32));
     }
+    const { verified } = await this.api.circuitVerify({
+      verificationKey,
+      publicInputs: proofData.publicInputs.map(hexToUint8Array),
+      proof: proofFrs,
+      settings: this.getProofSettingsFromOptions(options),
+    });
+    return verified;
+  }
+
+  async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
+    await this.instantiate();
+
     // TODO reconsider API - computing the VK at this point is not optimal
     const vkResult = await this.api.circuitComputeVk({
       circuit: {
@@ -124,17 +147,11 @@ export class UltraHonkBackend {
       },
       settings: this.getProofSettingsFromOptions(options),
     });
-    const {verified} = await this.api.circuitVerify({
-      verificationKey: vkResult.bytes,
-      publicInputs: proofData.publicInputs.map(hexToUint8Array),
-      proof: proofFrs,
-      settings: this.getProofSettingsFromOptions(options),
-    });
-    return verified;
+    return await this.verifyProofWithVk(proofData, vkResult.bytes, options);
   }
 
   async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
-    await this.instantiate();
+    await this.instantiate(/* needs SRS */ true);
 
     const vkResult = await this.api.circuitComputeVk({
       circuit: {
@@ -186,7 +203,7 @@ export class UltraHonkBackend {
       // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
       // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
       // they expect
-      vkHash: uint8ArrayToHex(vkResult.hash)
+      vkHash: uint8ArrayToHex(vkResult.hash),
     };
   }
 
