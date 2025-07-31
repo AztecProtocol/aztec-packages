@@ -155,7 +155,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       address attester = vm.addr(attesterPrivateKey);
       attesterPrivateKeys[attester] = attesterPrivateKey;
 
-      initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        withdrawer: address(this),
+        publicKeyInG1: [uint256(0), uint256(0)],
+        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
+        proofOfPossession: [uint256(0), uint256(0)]
+      });
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();

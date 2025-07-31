@@ -21,8 +21,22 @@ library ExtRollupLib2 {
     StakingLib.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) external {
-    StakingLib.deposit(_attester, _withdrawer, _moveWithLatestRollup);
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    uint256[2] memory _publicKeyInG1,
+    uint256[4] memory _publicKeyInG2,
+    uint256[2] memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) external {
+    StakingLib.deposit(
+      _attester,
+      _withdrawer,
+      _publicKeyInG1,
+      _publicKeyInG2,
+      _proofOfPossession,
+      _moveWithLatestRollup
+    );
   }
 
   function flushEntryQueue(uint256 _maxAddableValidators) external {

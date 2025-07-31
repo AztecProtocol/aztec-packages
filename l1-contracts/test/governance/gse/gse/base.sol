@@ -31,7 +31,14 @@ contract WithGSE is TestBase {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), depositAmount);
-    gse.deposit(_attester, _withdrawer, _onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      _onBonus
+    );
     vm.stopPrank();
   }
 }

@@ -6,6 +6,9 @@ import {Errors} from "./Errors.sol";
 struct DepositArgs {
   address attester;
   address withdrawer;
+  uint256[2] publicKeyInG1;
+  uint256[4] publicKeyInG2;
+  uint256[2] proofOfPossession;
   bool moveWithLatestRollup;
 }
 
@@ -29,6 +32,9 @@ library StakingQueueLib {
     StakingQueue storage self,
     address _attester,
     address _withdrawer,
+    uint256[2] memory _publicKeyInG1,
+    uint256[4] memory _publicKeyInG2,
+    uint256[2] memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) internal returns (uint256) {
     uint128 queueLocation = self.last;
@@ -36,6 +42,9 @@ library StakingQueueLib {
     self.validators[queueLocation] = DepositArgs({
       attester: _attester,
       withdrawer: _withdrawer,
+      publicKeyInG1: _publicKeyInG1,
+      publicKeyInG2: _publicKeyInG2,
+      proofOfPossession: _proofOfPossession,
       moveWithLatestRollup: _moveWithLatestRollup
     });
     self.last = queueLocation + 1;

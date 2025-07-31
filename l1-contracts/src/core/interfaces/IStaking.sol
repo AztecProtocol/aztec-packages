@@ -11,15 +11,35 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 interface IStakingCore {
   event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);
   event ValidatorQueued(address indexed attester, address indexed withdrawer);
-  event Deposit(address indexed attester, address indexed withdrawer, uint256 amount);
-  event FailedDeposit(address indexed attester, address indexed withdrawer);
+  event Deposit(
+    address indexed attester,
+    address indexed withdrawer,
+    uint256[2] publicKeyInG1,
+    uint256[4] publicKeyInG2,
+    uint256[2] proofOfPossession,
+    uint256 amount
+  );
+  event FailedDeposit(
+    address indexed attester,
+    address indexed withdrawer,
+    uint256[2] publicKeyInG1,
+    uint256[4] publicKeyInG2,
+    uint256[2] proofOfPossession
+  );
   event WithdrawInitiated(address indexed attester, address indexed recipient, uint256 amount);
   event WithdrawFinalised(address indexed attester, address indexed recipient, uint256 amount);
   event Slashed(address indexed attester, uint256 amount);
   event StakingQueueConfigUpdated(StakingQueueConfig config);
 
   function setSlasher(address _slasher) external;
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) external;
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    uint256[2] memory _publicKeyInG1,
+    uint256[4] memory _publicKeyInG2,
+    uint256[2] memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) external;
   function flushEntryQueue() external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finaliseWithdraw(address _attester) external;

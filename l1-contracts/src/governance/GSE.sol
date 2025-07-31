@@ -9,6 +9,7 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
+import {BLS} from "@aztec/governance/libraries/BLS.sol";
 import {DelegationLib, DelegationData} from "@aztec/governance/libraries/DelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
@@ -19,6 +20,8 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct AttesterConfig {
+  uint256[2] publicKeyInG1;
+  uint256[4] publicKeyInG2;
   address withdrawer;
 }
 
@@ -28,6 +31,7 @@ struct AttesterConfig {
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
   mapping(address attester => AttesterConfig config) configOf;
+  mapping(bytes32 hashedPK1 => bool active) activePK1s;
   bool exists;
 }
 
@@ -36,7 +40,14 @@ interface IGSECore {
 
   function setGovernance(Governance _governance) external;
   function addRollup(address _rollup) external;
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) external;
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    uint256[2] memory _publicKeyInG1,
+    uint256[4] memory _publicKeyInG2,
+    uint256[2] memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) external;
   function withdraw(address _attester, uint256 _amount) external returns (uint256, bool, uint256);
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
@@ -81,6 +92,11 @@ interface IGSE is IGSECore {
     Timestamp _timestamp,
     uint256[] memory _indices
   ) external view returns (address[] memory);
+  // function getG1PublicKeysFromIndicesAtTime(
+  //   address _instance,
+  //   Timestamp _timestamp,
+  //   uint256[] memory _indices
+  // ) external view returns (uint256[2][] memory);
   function getAttestersAtTime(address _instance, Timestamp _timestamp)
     external
     view
@@ -128,6 +144,13 @@ contract GSECore is IGSECore, Ownable {
   using Checkpoints for Checkpoints.Trace224;
   using DelegationLib for DelegationData;
   using ProposalLib for Proposal;
+
+  // the `gap` pushes the `checkProofOfPossession` into its own slot
+  // so we don't have the trouble of being in the middle of a slot
+  uint256 private gap = 0;
+
+  // @note  Always true, exists to override to false for testing only.
+  bool public checkProofOfPossession = true;
 
   /**
    * Create a special "bonus" address for use by the latest rollup.
@@ -278,11 +301,23 @@ contract GSECore is IGSECore, Ownable {
    * @param _withdrawer   - The withdrawer address of the attester
    * @param _moveWithLatestRollup  - Whether to deposit into the specific instance, or the bonus instance
    */
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
-    external
-    override(IGSECore)
-    onlyRollup
-  {
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    uint256[2] memory _publicKeyInG1,
+    uint256[4] memory _publicKeyInG2,
+    uint256[2] memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) external override(IGSECore) onlyRollup {
+    if (checkProofOfPossession) {
+      require(
+        BLS.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+        Errors.GSE__InvalidProofOfPossession()
+      );
+    }
+
+    bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1[0], _publicKeyInG1[1]));
+
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
     // If _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
@@ -315,7 +350,17 @@ contract GSECore is IGSECore, Ownable {
       Errors.GSE__AlreadyRegistered(recipientInstance, _attester)
     );
 
-    instances[recipientInstance].configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
+    require(
+      instances[recipientInstance].activePK1s[hashedPk1] == false,
+      Errors.GSE__ProofOfPossessionAlreadySeen(hashedPk1)
+    );
+    instances[recipientInstance].activePK1s[hashedPk1] = true;
+
+    instances[recipientInstance].configOf[_attester] = AttesterConfig({
+      withdrawer: _withdrawer,
+      publicKeyInG1: _publicKeyInG1,
+      publicKeyInG2: _publicKeyInG2
+    });
 
     delegation.delegate(recipientInstance, _attester, recipientInstance);
     delegation.increaseBalance(recipientInstance, _attester, DEPOSIT_AMOUNT);
@@ -387,6 +432,10 @@ contract GSECore is IGSECore, Ownable {
     // However, if the attester is slashed, we might just reduce the balance.
     if (isRemoved) {
       require(instanceStaking.attesters.remove(_attester), Errors.GSE__FailedToRemove(_attester));
+      // Mark the attester's public key as inactive.
+      delete instanceStaking.activePK1s[
+        keccak256(abi.encodePacked(instanceStaking.configOf[_attester].publicKeyInG1[0], instanceStaking.configOf[_attester].publicKeyInG1[1]))
+      ];
       delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
 
@@ -606,7 +655,11 @@ contract GSE is IGSE, GSECore {
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return AttesterConfig({withdrawer: address(0)});
+      return AttesterConfig({
+        withdrawer: address(0),
+        publicKeyInG1: [uint256(0), uint256(0)],
+        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)]
+      });
     }
 
     return instanceStaking.configOf[_attester];

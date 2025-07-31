@@ -16,7 +16,14 @@ contract DepositTest is WithGSE {
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotRollup.selector, _instance));
-    gse.deposit(address(0), address(0), onBonus);
+    gse.deposit(
+      address(0),
+      address(0),
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
   }
 
   modifier whenCallerIsRegisteredRollup(address _instance) {
@@ -44,7 +51,14 @@ contract DepositTest is WithGSE {
 
     vm.prank(_instance1);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotLatestRollup.selector, _instance1));
-    gse.deposit(address(0), address(0), onBonus);
+    gse.deposit(
+      address(0),
+      address(0),
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
   }
 
   modifier givenCallerIsLatest() {
@@ -65,14 +79,28 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), depositAmount);
-    gse.deposit(_attester, _withdrawer, false);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      false
+    );
     vm.stopPrank();
 
     vm.prank(_instance);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester)
     );
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
   }
 
   function test_GivenAttesterAlreadyRegisteredOnBonus(
@@ -89,7 +117,14 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), depositAmount);
-    gse.deposit(_attester, _withdrawer, true);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      true
+    );
     vm.stopPrank();
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
@@ -98,7 +133,14 @@ contract DepositTest is WithGSE {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester)
     );
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
   }
 
   function test_GivenAttesterNotRegisteredAnywhere(
@@ -131,7 +173,14 @@ contract DepositTest is WithGSE {
     vm.expectEmit(true, true, true, true);
     emit IGSECore.Deposit(instance, _attester, _withdrawer);
     vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
 
     assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), depositAmount);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
@@ -173,14 +222,28 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), depositAmount);
-    gse.deposit(_attester, _withdrawer, false);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      false
+    );
     vm.stopPrank();
 
     vm.prank(_instance);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester)
     );
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
   }
 
   function test_GivenCallerIsLatestAndAttesterRegisteredOnBonus(
@@ -199,7 +262,14 @@ contract DepositTest is WithGSE {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), depositAmount);
-    gse.deposit(_attester, _withdrawer, true);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      true
+    );
     vm.stopPrank();
 
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
@@ -208,7 +278,14 @@ contract DepositTest is WithGSE {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester)
     );
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
   }
 
   modifier givenAttesterNotRegisteredOnSpecificInstance() {
@@ -250,7 +327,14 @@ contract DepositTest is WithGSE {
     vm.expectEmit(true, true, true, true);
     emit IGSECore.Deposit(_instance, _attester, _withdrawer);
     vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
 
     assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), depositAmount);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);
@@ -308,7 +392,14 @@ contract DepositTest is WithGSE {
     vm.expectEmit(true, true, true, true);
     emit IGSECore.Deposit(_instance, _attester, _withdrawer);
     vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, onBonus);
+    gse.deposit(
+      _attester,
+      _withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      onBonus
+    );
 
     assertEq(stakingAsset.balanceOf(address(gse.getGovernance())), depositAmount);
     assertEq(stakingAsset.balanceOf(address(gse)), 0);

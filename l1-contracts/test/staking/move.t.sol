@@ -72,6 +72,9 @@ contract MoveTest is StakingBase {
       oldRollup.deposit({
         _attester: address(uint160(i + 1000)),
         _withdrawer: WITHDRAWER,
+        _publicKeyInG1: [uint256(0), uint256(0)],
+        _publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
+        _proofOfPossession: [uint256(0), uint256(0)],
         _moveWithLatestRollup: moveWithLatestRollup
       });
     }

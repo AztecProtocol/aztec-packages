@@ -217,7 +217,14 @@ library StakingLib {
     }
   }
 
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    uint256[2] memory _publicKeyInG1,
+    uint256[4] memory _publicKeyInG2,
+    uint256[2] memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) internal {
     require(
       _attester != address(0) && _withdrawer != address(0),
       Errors.Staking__InvalidDeposit(_attester, _withdrawer)
@@ -228,7 +235,14 @@ library StakingLib {
     uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
-    store.entryQueue.enqueue(_attester, _withdrawer, _moveWithLatestRollup);
+    store.entryQueue.enqueue(
+      _attester,
+      _withdrawer,
+      _publicKeyInG1,
+      _publicKeyInG2,
+      _proofOfPossession,
+      _moveWithLatestRollup
+    );
     emit IStakingCore.ValidatorQueued(_attester, _withdrawer);
   }
 
@@ -252,11 +266,24 @@ library StakingLib {
       DepositArgs memory args = store.entryQueue.dequeue();
       (bool success, bytes memory data) = address(store.gse).call(
         abi.encodeWithSelector(
-          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.moveWithLatestRollup
+          IStakingCore.deposit.selector,
+          args.attester,
+          args.withdrawer,
+          args.publicKeyInG1,
+          args.publicKeyInG2,
+          args.proofOfPossession,
+          args.moveWithLatestRollup
         )
       );
       if (success) {
-        emit IStakingCore.Deposit(args.attester, args.withdrawer, amount);
+        emit IStakingCore.Deposit(
+          args.attester,
+          args.withdrawer,
+          args.publicKeyInG1,
+          args.publicKeyInG2,
+          args.proofOfPossession,
+          amount
+        );
       } else {
         // If the deposit fails, we generally ignore it, since we need to continue dequeuing to prevent DoS.
         // However, if the data is empty, we can assume that the deposit failed due to out of gas, since
@@ -266,7 +293,13 @@ library StakingLib {
         // we have enough gas to refund/dequeue.
         require(data.length > 0, Errors.Staking__DepositOutOfGas());
         store.stakingAsset.transfer(args.withdrawer, amount);
-        emit IStakingCore.FailedDeposit(args.attester, args.withdrawer);
+        emit IStakingCore.FailedDeposit(
+          args.attester,
+          args.withdrawer,
+          args.publicKeyInG1,
+          args.publicKeyInG2,
+          args.proofOfPossession
+        );
       }
     }
     store.stakingAsset.approve(address(store.gse), 0);

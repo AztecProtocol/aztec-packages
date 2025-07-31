@@ -8,10 +8,10 @@ pragma solidity >=0.8.27;
 import {ModexpInverse, ModexpSqrt} from "./ModExp.sol";
 
 library BLS {
-  uint256 private constant FIELD_SIZE =
+  uint256 public constant FIELD_SIZE =
     21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
-  uint256 private constant CURVE_ORDER =
+  uint256 public constant CURVE_ORDER =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
   // G1 Generator
@@ -37,6 +37,9 @@ library BLS {
   uint256 private constant T24 = 0x1000000000000000000000000000000000000000000000000;
   uint256 private constant MASK24 = 0xffffffffffffffffffffffffffffffffffffffffffffffff;
 
+  error pk1Zero();
+  error pk2Zero();
+  error signatureZero();
   error addPointFail();
   error mulPointFail();
   error gammaZero();
@@ -49,14 +52,18 @@ library BLS {
    *      Each unique key can only be registered once across all validators.
    *
    * @param pk1 The G1 point of the BLS public key (x, y coordinates)
-   * @param pk2 The G2 point of the BLS public key (x0, x1, y0, y1 coordinates)
+   * @param pk2 The G2 point of the BLS public key (x1, x0, y1, y0 coordinates)
    * @param signature The G1 point that acts as a proof of possession of the private keys corresponding to pk1 and pk2
    */
   function proofOfPossession(
-    uint256[2] memory pk1, // G1
-    uint256[4] memory pk2, // G2
-    uint256[2] memory signature // G1
+    uint256[2] memory pk1,
+    uint256[4] memory pk2,
+    uint256[2] memory signature
   ) internal view returns (bool) {
+    require(pk1[0] != 0 && pk1[1] != 0, pk1Zero());
+    require(pk2[0] != 0 && pk2[1] != 0 && pk2[2] != 0 && pk2[3] != 0, pk2Zero());
+    require(signature[0] != 0 && signature[1] != 0, signatureZero());
+
     // Compute the point "digest" of the pk1 that sigma is a signature over
     bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
     uint256[2] memory pk1DigestPoint = hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);

@@ -343,7 +343,14 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     STAKING_ASSET.approve(address(_rollup), _depositAmount);
-    _rollup.deposit(_attester, withdrawer, true);
+    _rollup.deposit(
+      _attester,
+      withdrawer,
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      true
+    );
     emit ValidatorAdded(address(_rollup), _attester, withdrawer);
 
     // Try to flush the entry queue, but don't let it revert the deposit

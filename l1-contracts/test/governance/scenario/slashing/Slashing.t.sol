@@ -90,7 +90,13 @@ contract SlashingTest is TestBase {
       uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", i)));
       address attester = vm.addr(attesterPrivateKey);
 
-      initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        withdrawer: address(this),
+        publicKeyInG1: [uint256(0), uint256(0)],
+        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
+        proofOfPossession: [uint256(0), uint256(0)]
+      });
     }
 
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators)

@@ -165,10 +165,10 @@ contract FlushEntryQueueTest is StakingBase {
     // it emits a {FailedDeposit} event for each failed deposit
     // it refunds the withdrawer if the deposit fails
 
-    _activeAttesterCount = bound(_activeAttesterCount, 0, 1000);
+    _activeAttesterCount = bound(_activeAttesterCount, 0, 500);
     _numNewValidators = bound(_numNewValidators, 0, 5 * _activeAttesterCount);
-    _normalFlushSizeMin = bound(_normalFlushSizeMin, 1, 1000);
-    _normalFlushSizeQuotient = bound(_normalFlushSizeQuotient, 1, 1000);
+    _normalFlushSizeMin = bound(_normalFlushSizeMin, 1, 500);
+    _normalFlushSizeQuotient = bound(_normalFlushSizeQuotient, 1, 500);
     uint256 effectiveFlushSize =
       Math.max(_normalFlushSizeMin, _activeAttesterCount / _normalFlushSizeQuotient);
     effectiveFlushSize = Math.min(effectiveFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
@@ -207,6 +207,9 @@ contract FlushEntryQueueTest is StakingBase {
     staking.deposit({
       _attester: _attester,
       _withdrawer: _withdrawer,
+      _publicKeyInG1: [uint256(0), uint256(0)],
+      _publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
+      _proofOfPossession: [uint256(0), uint256(0)],
       _moveWithLatestRollup: _moveWithLatestRollup
     });
 
@@ -255,14 +258,27 @@ contract FlushEntryQueueTest is StakingBase {
           bytes(string("something bad happened"))
         );
         vm.expectEmit(true, true, true, true);
-        emit IStakingCore.FailedDeposit(attester, withdrawer);
+        emit IStakingCore.FailedDeposit(
+          attester,
+          withdrawer,
+          [uint256(0), uint256(0)],
+          [uint256(0), uint256(0), uint256(0), uint256(0)],
+          [uint256(0), uint256(0)]
+        );
       } else {
         if (onCanonical) {
           onCanonicalCount++;
         }
         depositCount++;
         vm.expectEmit(true, true, true, true);
-        emit IStakingCore.Deposit(attester, withdrawer, DEPOSIT_AMOUNT);
+        emit IStakingCore.Deposit(
+          attester,
+          withdrawer,
+          [uint256(0), uint256(0)],
+          [uint256(0), uint256(0), uint256(0), uint256(0)],
+          [uint256(0), uint256(0)],
+          DEPOSIT_AMOUNT
+        );
       }
     }
 

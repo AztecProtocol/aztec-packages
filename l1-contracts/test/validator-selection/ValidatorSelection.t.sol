@@ -122,7 +122,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.prank(testERC20.owner());
     testERC20.mint(address(this), depositAmount);
     testERC20.approve(address(rollup), depositAmount);
-    rollup.deposit(address(0xdead), address(0xdead), true);
+    rollup.deposit(
+      address(0xdead),
+      address(0xdead),
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      true
+    );
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
@@ -171,7 +178,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.prank(testERC20.owner());
     testERC20.mint(address(this), depositAmount);
     testERC20.approve(address(rollup), depositAmount);
-    rollup.deposit(address(0xdead), address(0xdead), true);
+    rollup.deposit(
+      address(0xdead),
+      address(0xdead),
+      [uint256(0), uint256(0)],
+      [uint256(0), uint256(0), uint256(0), uint256(0)],
+      [uint256(0), uint256(0)],
+      true
+    );
     rollup.flushEntryQueue();
 
     assertEq(rollup.getCurrentEpoch(), epoch);

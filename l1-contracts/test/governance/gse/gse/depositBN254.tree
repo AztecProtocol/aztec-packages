@@ -1,0 +1,11 @@
+DepositBN254Test
+├── when the deposit keys do not pass the proof of possession check
+│   └── it reverts
+└── when the deposit keys pass the proof of possession check
+    ├── when proof of possession has been seen before
+    │   ├── when the original key holder is still active
+    │   │   └── it reverts
+    │   └── when the original key holder is not active
+    │       └── it adds the keys
+    └── when proof of possession has not been seen before
+        └── it adds the keys

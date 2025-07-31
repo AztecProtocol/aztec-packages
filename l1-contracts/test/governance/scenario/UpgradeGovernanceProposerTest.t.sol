@@ -59,7 +59,13 @@ contract UpgradeGovernanceProposerTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: validator,
+        withdrawer: validator,
+        publicKeyInG1: [uint256(0), uint256(0)],
+        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
+        proofOfPossession: [uint256(0), uint256(0)]
+      });
     }
 
     RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)

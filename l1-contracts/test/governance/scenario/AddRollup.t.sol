@@ -27,7 +27,6 @@ import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {FakeRollup} from "../governance/TestPayloads.sol";
 import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 
 contract BadRollup {
@@ -89,7 +88,13 @@ contract AddRollupTest is TestBase {
       address validator = vm.addr(privateKey);
       privateKeys[validator] = privateKey;
       validators[i - 1] = validator;
-      initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: validator,
+        withdrawer: validator,
+        publicKeyInG1: [uint256(0), uint256(0)],
+        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
+        proofOfPossession: [uint256(0), uint256(0)]
+      });
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
@@ -160,7 +165,14 @@ contract AddRollupTest is TestBase {
         vm.prank(token.owner());
         token.mint(address(this), depositAmount);
         token.approve(address(rollup), depositAmount);
-        rollup.deposit(address(uint160(val)), address(this), false);
+        rollup.deposit(
+          address(uint160(val)),
+          address(this),
+          [uint256(0), uint256(0)],
+          [uint256(0), uint256(0), uint256(0), uint256(0)],
+          [uint256(0), uint256(0)],
+          false
+        );
         val++;
       }
       rollup.flushEntryQueue();

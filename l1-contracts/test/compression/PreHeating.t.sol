@@ -107,7 +107,6 @@ contract FakeCanonical is IRewardDistributor {
  */
 contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
-  using stdStorage for StdStorage;
   using TimeLib for Slot;
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
@@ -153,7 +152,13 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       address attester = vm.addr(attesterPrivateKey);
       attesterPrivateKeys[attester] = attesterPrivateKey;
 
-      initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        withdrawer: address(this),
+        publicKeyInG1: [uint256(0), uint256(0)],
+        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
+        proofOfPossession: [uint256(0), uint256(0)]
+      });
     }
 
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
