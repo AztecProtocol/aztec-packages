@@ -124,7 +124,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         auto verifier_accum =
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
-        // Perform oink recursive verification to complete the initial verifier accumulator
+        // Perform oink recursive verification to the initial verifier accumulator
         OinkRecursiveVerifier verifier{ &circuit, verifier_accum, accumulation_recursive_transcript };
         verifier.verify_proof(verifier_inputs.proof);
         verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
@@ -417,6 +417,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_vk),
         ClientIVC::RecursiveFlavor::FF::from_witness(&builder, verification_queue[0].honk_vk->hash()));
 
+    // Are these linked properly :-?
     auto [pairing_points, merged_table_commitments] =
         complete_hiding_circuit_logic(stdlib_proof, stdlib_vk_and_hash, builder);
     fold_output.accumulator = nullptr;

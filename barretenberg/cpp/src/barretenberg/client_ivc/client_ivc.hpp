@@ -168,6 +168,8 @@ class ClientIVC {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
+    ClientCircuit hiding_circuit;
+
     size_t num_circuits; // total number of circuits to be accumulated in the IVC
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far

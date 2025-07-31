@@ -80,13 +80,9 @@ TEST_F(ClientIVCTests, Basic)
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
-    // Initialize the IVC with an arbitrary circuit
-    auto [circuit_0, vk_0] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 16 });
-    ivc.accumulate(circuit_0, vk_0);
+    circuit_producer.accumulate_next_circuit(ivc, { .log2_num_gates = 16 });
 
-    // Create another circuit and accumulate
-    auto [circuit_1, vk_1] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 16 });
-    ivc.accumulate(circuit_1, vk_1);
+    circuit_producer.accumulate_next_circuit(ivc, { .log2_num_gates = 16 });
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };

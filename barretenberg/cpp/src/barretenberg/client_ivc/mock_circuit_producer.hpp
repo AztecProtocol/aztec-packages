@@ -209,6 +209,16 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
 
+    void accumulate_next_circuit(ClientIVC& ivc, TestSettings settings = {})
+    {
+        auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
+        ivc.accumulate(circuit, vk);
+        // TODO: if hiding circuit do more stuff
+        if (circuit_counter == ivc.get_num_circuits()) {
+            // create and accumulate the hiding kernel
+        }
+    }
+
     /**
      * @brief Tamper with databus data to facilitate failure testing
      */
