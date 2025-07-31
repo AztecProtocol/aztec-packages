@@ -604,4 +604,9 @@ AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId
     return { .root = tree_info.root, .path = get_sibling_path(tree_id, tree_info.nextAvailableLeafIndex) };
 }
 
+uint32_t HintedRawMerkleDB::get_checkpoint_id() const
+{
+    return checkpoint_stack.top();
+}
+
 } // namespace bb::avm2::simulation

@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -30,6 +31,8 @@ template <typename FF_> class poseidon2_hashImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/poseidon2_hash");
 
         const auto poseidon2_hash_TWOPOW64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
         const auto poseidon2_hash_IV = poseidon2_hash_TWOPOW64 * in.get(C::poseidon2_hash_input_len);

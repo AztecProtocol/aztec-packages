@@ -28,7 +28,7 @@ contract DepositTest is StakingBase {
       )
     );
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
   }
 
   modifier givenCallerHasSufficientAllowance() {
@@ -45,7 +45,7 @@ contract DepositTest is StakingBase {
       )
     );
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
   }
 
   modifier givenCallerHasSufficientFunds() {
@@ -60,7 +60,7 @@ contract DepositTest is StakingBase {
   {
     // it reverts
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
 
     mint(address(this), DEPOSIT_AMOUNT);
@@ -70,7 +70,7 @@ contract DepositTest is StakingBase {
     stdstore.enable_packed_slots().target(address(staking)).sig(
       IStaking.getNextFlushableEpoch.selector
     ).depth(0).checked_write(uint256(0));
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
 
     // The real error gets caught by the flushEntryQueue call
     // address magicAddress = address(staking.getGSE().getCanonicalMagicAddress());
@@ -86,12 +86,12 @@ contract DepositTest is StakingBase {
     assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.ZOMBIE));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, WITHDRAWER);
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
   }
 
   modifier givenAttesterIsNotRegistered() {
@@ -122,7 +122,7 @@ contract DepositTest is StakingBase {
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.ValidatorQueued(ATTESTER, WITHDRAWER);
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     // the money is in the staking contract
     assertEq(stakingAsset.balanceOf(address(staking)), DEPOSIT_AMOUNT);
     // the money is not in the GSE

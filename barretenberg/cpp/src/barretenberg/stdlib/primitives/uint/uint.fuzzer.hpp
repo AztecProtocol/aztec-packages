@@ -59,7 +59,25 @@ template <typename Builder> class UintFuzzBase {
      */
     class Instruction {
       public:
-        enum OPCODE { CONSTANT, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, GET_BIT, SET, RANDOMSEED, _LAST };
+        enum OPCODE {
+            CONSTANT,
+            ADD,
+            SUBTRACT,
+            MULTIPLY,
+            DIVIDE,
+            MODULO,
+            AND,
+            OR,
+            XOR,
+            SHL,
+            SHR,
+            ROL,
+            ROR,
+            NOT,
+            SET,
+            RANDOMSEED,
+            _LAST
+        };
 
         struct TwoArgs {
             uint8_t in;
@@ -117,7 +135,15 @@ template <typename Builder> class UintFuzzBase {
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode, .arguments.threeArgs = { .in1 = in1, .in2 = in2, .out = out } };
                 break;
-            case OPCODE::GET_BIT:
+            case OPCODE::SHL:
+            case OPCODE::SHR:
+            case OPCODE::ROL:
+            case OPCODE::ROR:
+                in1 = static_cast<uint8_t>(rng.next() & 0xff);
+                out = static_cast<uint8_t>(rng.next() & 0xff);
+                bit = static_cast<uint8_t>(rng.next() & 0xff);
+                return { .id = instruction_opcode, .arguments.bitArgs = { .in = in1, .out = out, .bit = bit } };
+            case OPCODE::NOT:
             case OPCODE::SET:
                 in1 = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
@@ -164,7 +190,22 @@ template <typename Builder> class UintFuzzBase {
             case OPCODE::MULTIPLY:
             case OPCODE::DIVIDE:
             case OPCODE::MODULO:
-            case OPCODE::GET_BIT:
+            case OPCODE::AND:
+            case OPCODE::OR:
+            case OPCODE::XOR:
+                // Randomly sample each of the arguments with 50% probability
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.in1)
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.in2)
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.out)
+                break;
+            case OPCODE::SHL:
+            case OPCODE::SHR:
+            case OPCODE::ROL:
+            case OPCODE::ROR:
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.in)
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.out)
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.bit)
+            case OPCODE::NOT:
             case OPCODE::SET:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.out)
@@ -190,7 +231,14 @@ template <typename Builder> class UintFuzzBase {
         static constexpr size_t MULTIPLY = 3;
         static constexpr size_t DIVIDE = 3;
         static constexpr size_t MODULO = 3;
-        static constexpr size_t GET_BIT = 10;
+        static constexpr size_t AND = 3;
+        static constexpr size_t OR = 3;
+        static constexpr size_t XOR = 3;
+        static constexpr size_t SHL = 10;
+        static constexpr size_t SHR = 10;
+        static constexpr size_t ROL = 10;
+        static constexpr size_t ROR = 10;
+        static constexpr size_t NOT = 2;
         static constexpr size_t SET = 2;
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
     };
@@ -219,7 +267,8 @@ template <typename Builder> class UintFuzzBase {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
                          .arguments.threeArgs = { .in1 = *Data, .in2 = *(Data + 1), .out = *(Data + 2) } };
             }
-            if constexpr (opcode == Instruction::OPCODE::GET_BIT) {
+            if constexpr (opcode == Instruction::OPCODE::SHL || opcode == Instruction::OPCODE::SHR ||
+                          opcode == Instruction::OPCODE::ROL || opcode == Instruction::OPCODE::ROR) {
                 return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
                                     .arguments.bitArgs = { .in = *Data, .out = *(Data + 1), .bit = *(Data + 2) } };
             }
@@ -258,7 +307,10 @@ template <typename Builder> class UintFuzzBase {
                 *(Data + 2) = instruction.arguments.threeArgs.in2;
                 *(Data + 3) = instruction.arguments.threeArgs.out;
             }
-            if constexpr (instruction_opcode == Instruction::OPCODE::GET_BIT) {
+            if constexpr (instruction_opcode == Instruction::OPCODE::SHL ||
+                          instruction_opcode == Instruction::OPCODE::SHR ||
+                          instruction_opcode == Instruction::OPCODE::ROL ||
+                          instruction_opcode == Instruction::OPCODE::ROR) {
                 *Data = instruction.id;
                 *(Data + 1) = instruction.arguments.bitArgs.in;
                 *(Data + 2) = instruction.arguments.bitArgs.out;
@@ -297,48 +349,6 @@ template <typename Builder> class UintFuzzBase {
             } else {
                 return static_cast<T>(v >> bits);
             }
-        }
-        template <class T> static T get_bit(const T v, const size_t bit)
-        {
-            if (bit >= sizeof(T) * 8) {
-                return 0;
-            } else {
-                return (v & (uint64_t(1) << bit)) ? 1 : 0;
-            }
-        }
-        /* wrapper for uint::at which ensures the context of
-         * the return value has been set
-         */
-        template <class T> static bool_t at(const T& v, const size_t bit_index)
-        {
-            const auto ret = v.at(bit_index);
-
-            if (ret.get_context() != v.get_context()) {
-                std::cerr << "Context of return bool_t not set" << std::endl;
-                abort();
-            }
-
-            return ret;
-        }
-        template <class T> static T get_bit(Builder* builder, const T& v, const size_t bit)
-        {
-            return T(builder, std::vector<bool_t>{ at<>(v, bit) });
-        }
-        template <class T> static std::vector<bool_t> to_bit_vector(const T& v)
-        {
-            std::vector<bool_t> bits;
-            for (size_t i = 0; i < v.get_width(); i++) {
-                bits.push_back(at<>(v, i));
-            }
-            return bits;
-        }
-        template <class T> static std::array<bool_t, T::width> to_bit_array(const T& v)
-        {
-            std::array<bool_t, T::width> bits;
-            for (size_t i = 0; i < T::width; i++) {
-                bits[i] = at<>(v, i);
-            }
-            return bits;
         }
         template <class T> static uint256_t get_value(const T& v)
         {
@@ -601,21 +611,190 @@ template <typename Builder> class UintFuzzBase {
                 abort();
             }
         }
-        ExecutionHandler get_bit(Builder* builder, const size_t bit) const
+        ExecutionHandler operator&(const ExecutionHandler& other) const
         {
-            return ExecutionHandler(Reference(this->get_bit<uint8_t>(this->ref.v8, bit),
-                                              this->get_bit<uint16_t>(this->ref.v16, bit),
-                                              this->get_bit<uint32_t>(this->ref.v32, bit),
-                                              this->get_bit<uint64_t>(this->ref.v64, bit)),
-                                    Uint(this->get_bit<uint_8_t>(builder, this->uint.v8, bit),
-                                         this->get_bit<uint_16_t>(builder, this->uint.v16, bit),
-                                         this->get_bit<uint_32_t>(builder, this->uint.v32, bit),
-                                         this->get_bit<uint_64_t>(builder, this->uint.v64, bit)));
+            const Reference ref_result(this->ref.v8 & other.ref.v8,
+                                       this->ref.v16 & other.ref.v16,
+                                       this->ref.v32 & other.ref.v32,
+                                       this->ref.v64 & other.ref.v64);
+
+            switch (VarianceRNG.next() % 2) {
+            case 0:
+                /* & operator */
+                return ExecutionHandler(ref_result,
+                                        Uint(this->uint.v8 & other.uint.v8,
+                                             this->uint.v16 & other.uint.v16,
+                                             this->uint.v32 & other.uint.v32,
+                                             this->uint.v64 & other.uint.v64));
+            case 1:
+                /* &= operator */
+                {
+                    Uint u = uint;
+
+                    u.v8 &= other.uint.v8;
+                    u.v16 &= other.uint.v16;
+                    u.v32 &= other.uint.v32;
+                    u.v64 &= other.uint.v64;
+
+                    return ExecutionHandler(ref_result, u);
+                }
+            default:
+                abort();
+            }
+        }
+        ExecutionHandler operator|(const ExecutionHandler& other) const
+        {
+            const Reference ref_result(this->ref.v8 | other.ref.v8,
+                                       this->ref.v16 | other.ref.v16,
+                                       this->ref.v32 | other.ref.v32,
+                                       this->ref.v64 | other.ref.v64);
+
+            switch (VarianceRNG.next() % 2) {
+            case 0:
+                /* | operator */
+                return ExecutionHandler(ref_result,
+                                        Uint(this->uint.v8 | other.uint.v8,
+                                             this->uint.v16 | other.uint.v16,
+                                             this->uint.v32 | other.uint.v32,
+                                             this->uint.v64 | other.uint.v64));
+            case 1:
+                /* |= operator */
+                {
+                    Uint u = uint;
+
+                    u.v8 |= other.uint.v8;
+                    u.v16 |= other.uint.v16;
+                    u.v32 |= other.uint.v32;
+                    u.v64 |= other.uint.v64;
+
+                    return ExecutionHandler(ref_result, u);
+                }
+            default:
+                abort();
+            }
+        }
+        ExecutionHandler operator^(const ExecutionHandler& other) const
+        {
+            const Reference ref_result(this->ref.v8 ^ other.ref.v8,
+                                       this->ref.v16 ^ other.ref.v16,
+                                       this->ref.v32 ^ other.ref.v32,
+                                       this->ref.v64 ^ other.ref.v64);
+
+            switch (VarianceRNG.next() % 2) {
+            case 0:
+                /* ^ operator */
+                return ExecutionHandler(ref_result,
+                                        Uint(this->uint.v8 ^ other.uint.v8,
+                                             this->uint.v16 ^ other.uint.v16,
+                                             this->uint.v32 ^ other.uint.v32,
+                                             this->uint.v64 ^ other.uint.v64));
+            case 1:
+                /* ^= operator */
+                {
+                    Uint u = uint;
+
+                    u.v8 ^= other.uint.v8;
+                    u.v16 ^= other.uint.v16;
+                    u.v32 ^= other.uint.v32;
+                    u.v64 ^= other.uint.v64;
+
+                    return ExecutionHandler(ref_result, u);
+                }
+            default:
+                abort();
+            }
+        }
+        ExecutionHandler shl(const size_t bits) const
+        {
+            const Reference ref_result(shl<uint8_t>(this->ref.v8, bits),
+                                       shl<uint16_t>(this->ref.v16, bits),
+                                       shl<uint32_t>(this->ref.v32, bits),
+                                       shl<uint64_t>(this->ref.v64, bits));
+
+            switch (VarianceRNG.next() % 2) {
+            case 0:
+                /* << operator */
+                return ExecutionHandler(
+                    ref_result,
+                    Uint(
+                        this->uint.v8 << bits, this->uint.v16 << bits, this->uint.v32 << bits, this->uint.v64 << bits));
+            case 1:
+                /* <<= operator */
+                {
+                    Uint u = uint;
+
+                    u.v8 <<= bits;
+                    u.v16 <<= bits;
+                    u.v32 <<= bits;
+                    u.v64 <<= bits;
+
+                    return ExecutionHandler(ref_result, u);
+                }
+            default:
+                abort();
+            }
+        }
+        ExecutionHandler shr(const size_t bits) const
+        {
+            const Reference ref_result(shr<uint8_t>(this->ref.v8, bits),
+                                       shr<uint16_t>(this->ref.v16, bits),
+                                       shr<uint32_t>(this->ref.v32, bits),
+                                       shr<uint64_t>(this->ref.v64, bits));
+
+            switch (VarianceRNG.next() % 2) {
+            case 0:
+                /* >> operator */
+                return ExecutionHandler(
+                    ref_result,
+                    Uint(
+                        this->uint.v8 >> bits, this->uint.v16 >> bits, this->uint.v32 >> bits, this->uint.v64 >> bits));
+            case 1:
+                /* >>= operator */
+                {
+                    Uint u = uint;
+
+                    u.v8 >>= bits;
+                    u.v16 >>= bits;
+                    u.v32 >>= bits;
+                    u.v64 >>= bits;
+
+                    return ExecutionHandler(ref_result, u);
+                }
+            default:
+                abort();
+            }
+        }
+        ExecutionHandler rol(const size_t bits) const
+        {
+            return ExecutionHandler(Reference(std::rotl(this->ref.v8, static_cast<int>(bits % 8)),
+                                              std::rotl(this->ref.v16, static_cast<int>(bits % 16)),
+                                              std::rotl(this->ref.v32, static_cast<int>(bits % 32)),
+                                              std::rotl(this->ref.v64, static_cast<int>(bits % 64))),
+                                    Uint(this->uint.v8.rol(bits),
+                                         this->uint.v16.rol(bits),
+                                         this->uint.v32.rol(bits),
+                                         this->uint.v64.rol(bits)));
+        }
+        ExecutionHandler ror(const size_t bits) const
+        {
+            return ExecutionHandler(Reference(std::rotr(this->ref.v8, static_cast<int>(bits % 8)),
+                                              std::rotr(this->ref.v16, static_cast<int>(bits % 16)),
+                                              std::rotr(this->ref.v32, static_cast<int>(bits % 32)),
+                                              std::rotr(this->ref.v64, static_cast<int>(bits % 64))),
+                                    Uint(this->uint.v8.ror(bits),
+                                         this->uint.v16.ror(bits),
+                                         this->uint.v32.ror(bits),
+                                         this->uint.v64.ror(bits)));
+        }
+        ExecutionHandler not_() const
+        {
+            return ExecutionHandler(Reference(~this->ref.v8, ~this->ref.v16, ~this->ref.v32, ~this->ref.v64),
+                                    Uint(~this->uint.v8, ~this->uint.v16, ~this->uint.v32, ~this->uint.v64));
         }
         /* Explicit re-instantiation using the various constructors */
         ExecutionHandler set(Builder* builder) const
         {
-            switch (VarianceRNG.next() % 7) {
+            switch (VarianceRNG.next() % 5) {
             case 0:
                 return ExecutionHandler(this->ref,
                                         Uint(uint_8_t(this->uint.v8),
@@ -641,18 +820,6 @@ template <typename Builder> class UintFuzzBase {
                                              uint_32_t(this->to_byte_array(this->uint.v32)),
                                              uint_64_t(this->to_byte_array(this->uint.v64))));
             case 4:
-                return ExecutionHandler(this->ref,
-                                        Uint(uint_8_t(builder, this->to_bit_vector(this->uint.v8)),
-                                             uint_16_t(builder, this->to_bit_vector(this->uint.v16)),
-                                             uint_32_t(builder, this->to_bit_vector(this->uint.v32)),
-                                             uint_64_t(builder, this->to_bit_vector(this->uint.v64))));
-            case 5:
-                return ExecutionHandler(this->ref,
-                                        Uint(uint_8_t(builder, this->to_bit_array(this->uint.v8)),
-                                             uint_16_t(builder, this->to_bit_array(this->uint.v16)),
-                                             uint_32_t(builder, this->to_bit_array(this->uint.v32)),
-                                             uint_64_t(builder, this->to_bit_array(this->uint.v64))));
-            case 6:
                 return ExecutionHandler(this->ref,
                                         Uint(uint_8_t(builder, this->ref.v8),
                                              uint_16_t(builder, this->ref.v16),
@@ -828,17 +995,108 @@ template <typename Builder> class UintFuzzBase {
             return 0;
         };
         /**
-         * @brief Execute the GET_BIT instruction
+         * @brief Execute the and operator instruction
          *
          * @param builder
          * @param stack
          * @param instruction
          * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
          */
-        static inline size_t execute_GET_BIT(Builder* builder,
-                                             std::vector<ExecutionHandler>& stack,
-                                             Instruction& instruction)
+        static inline size_t execute_AND(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
         {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
+            size_t output_index = instruction.arguments.threeArgs.out;
+
+            ExecutionHandler result;
+            result = stack[first_index] & stack[second_index];
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        /**
+         * @brief Execute the or operator instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_OR(Builder* builder,
+                                        std::vector<ExecutionHandler>& stack,
+                                        Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
+            size_t output_index = instruction.arguments.threeArgs.out;
+
+            ExecutionHandler result;
+            result = stack[first_index] | stack[second_index];
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        /**
+         * @brief Execute the xor operator instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_XOR(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
+            size_t output_index = instruction.arguments.threeArgs.out;
+
+            ExecutionHandler result;
+            result = stack[first_index] ^ stack[second_index];
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        /**
+         * @brief Execute the left-shift operator instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_SHL(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
+        {
+            (void)builder;
             if (stack.size() == 0) {
                 return 1;
             }
@@ -846,7 +1104,123 @@ template <typename Builder> class UintFuzzBase {
             size_t output_index = instruction.arguments.bitArgs.out;
             const uint8_t bit = instruction.arguments.bitArgs.bit;
             ExecutionHandler result;
-            result = stack[first_index].get_bit(builder, bit);
+            result = stack[first_index].shl(bit);
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        /**
+         * @brief Execute the right-shift operator instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_SHR(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.bitArgs.in % stack.size();
+            size_t output_index = instruction.arguments.bitArgs.out;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
+            ExecutionHandler result;
+            result = stack[first_index].shr(bit);
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        /**
+         * @brief Execute the left-rotate operator instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_ROL(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.bitArgs.in % stack.size();
+            size_t output_index = instruction.arguments.bitArgs.out;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
+            ExecutionHandler result;
+            result = stack[first_index].rol(bit);
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        /**
+         * @brief Execute the right-rotate operator instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_ROR(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.bitArgs.in % stack.size();
+            size_t output_index = instruction.arguments.bitArgs.out;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
+            ExecutionHandler result;
+            result = stack[first_index].ror(bit);
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        /**
+         * @brief Execute the NOT instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_NOT(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.twoArgs.in % stack.size();
+            size_t output_index = instruction.arguments.twoArgs.out;
+
+            ExecutionHandler result;
+            result = stack[first_index].not_();
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 stack.push_back(result);

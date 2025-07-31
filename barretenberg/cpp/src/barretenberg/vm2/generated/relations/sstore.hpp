@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -29,6 +30,8 @@ template <typename FF_> class sstoreImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/sstore");
 
         const auto constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = FF(63);
         const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);

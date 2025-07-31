@@ -40,8 +40,8 @@ pub trait LogEncryption {
     ///
     /// # Returns
     /// Fixed-size array of encrypted Field elements representing the private log
-    fn encrypt_log<let PLAINTEXT_LEN: u32>(
-        plaintext: [Field; PLAINTEXT_LEN],
+    fn encrypt_log<let PlaintextLen: u32>(
+        plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN];
 
