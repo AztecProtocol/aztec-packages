@@ -32,6 +32,10 @@ export class UtilityExecutionOracle extends TypedOracle {
     super();
   }
 
+  public override utilityGetRandomField(): Fr {
+    return Fr.random();
+  }
+
   public override utilityGetBlockNumber(): Promise<number> {
     return this.executionDataProvider.getBlockNumber();
   }

@@ -50,8 +50,8 @@ class OracleMethodNotAvailableError extends Error {
  * - utility*: Utility oracles (typically don't need private execution, like blockNumber)
  */
 export abstract class TypedOracle {
-  getRandomField(): Fr {
-    return Fr.random();
+  utilityGetRandomField(): Fr {
+    throw new OracleMethodNotAvailableError('utilityGetRandomField');
   }
 
   pxeStoreInExecutionCache(_values: Fr[], _hash: Fr): void {
