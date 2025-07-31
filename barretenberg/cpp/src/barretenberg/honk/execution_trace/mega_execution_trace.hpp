@@ -216,17 +216,18 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
 
 class MegaTraceOverflowBlock : public MegaTraceBlock {
   public:
-    SelectorType& q_lookup_type() override { return gate_selectors[0]; };
-    SelectorType& q_arith() override { return gate_selectors[1]; }
-    SelectorType& q_delta_range() override { return gate_selectors[2]; }
-    SelectorType& q_elliptic() override { return gate_selectors[3]; }
-    SelectorType& q_memory() override { return gate_selectors[4]; }
-    SelectorType& q_nnf() override { return gate_selectors[5]; }
-    SelectorType& q_poseidon2_external() override { return gate_selectors[6]; }
-    SelectorType& q_poseidon2_internal() override { return gate_selectors[7]; }
+    SelectorType& q_busread() override { return gate_selectors[0]; };
+    SelectorType& q_lookup_type() override { return gate_selectors[1]; };
+    SelectorType& q_arith() override { return gate_selectors[2]; }
+    SelectorType& q_delta_range() override { return gate_selectors[3]; }
+    SelectorType& q_elliptic() override { return gate_selectors[4]; }
+    SelectorType& q_memory() override { return gate_selectors[5]; }
+    SelectorType& q_nnf() override { return gate_selectors[6]; }
+    SelectorType& q_poseidon2_external() override { return gate_selectors[7]; }
+    SelectorType& q_poseidon2_internal() override { return gate_selectors[8]; }
 
   private:
-    std::array<SlabVectorSelector<fr>, 8> gate_selectors;
+    std::array<SlabVectorSelector<fr>, 9> gate_selectors;
 };
 
 /**
