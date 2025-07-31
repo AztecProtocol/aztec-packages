@@ -6,6 +6,7 @@ pub mod assert_sorted_transformed_padded_array;
 pub mod assert_split_sorted_transformed_value_arrays;
 pub mod assert_split_transformed_padded_arrays;
 pub mod assert_split_transformed_value_arrays;
+pub mod find_index;
 pub mod get_sorted_result;
 pub mod get_sorted_tuple;
 pub mod sort_by;
@@ -33,7 +34,9 @@ pub use assert_split_sorted_transformed_value_arrays::{
     get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
 };
 pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_arrays;
+pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_result::{get_sorted_result, SortedResult};
+pub use get_sorted_tuple::{get_sorted_tuple, SortedTuple};
 pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::{Deserialize, Empty, Serialize};
@@ -44,12 +47,12 @@ use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
 //**********************************************************************************
 
 // TODO: Consider making this a part of the noir stdlib.
-pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
-    src: [Field; SRC_LEN],
+pub fn subarray<let SrcLen: u32, let DstLen: u32>(
+    src: [Field; SrcLen],
     offset: u32,
-) -> [Field; DST_LEN] {
-    let mut dst: [Field; DST_LEN] = std::mem::zeroed();
-    for i in 0..DST_LEN {
+) -> [Field; DstLen] {
+    let mut dst: [Field; DstLen] = std::mem::zeroed();
+    for i in 0..DstLen {
         dst[i] = src[i + offset];
     }
 

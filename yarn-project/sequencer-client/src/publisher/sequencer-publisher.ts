@@ -35,7 +35,14 @@ import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData, getAbiItem, toEventSelector, toHex } from 'viem';
+import {
+  type TransactionReceipt,
+  type TypedDataDefinition,
+  encodeFunctionData,
+  getAbiItem,
+  toEventSelector,
+  toHex,
+} from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -56,14 +63,18 @@ type L1ProcessArgs = {
   attestations?: CommitteeAttestation[];
 };
 
-export enum VoteType {
+export enum SignalType {
   GOVERNANCE,
   SLASHING,
 }
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-export type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+const Actions = ['propose', 'governance-signal', 'slashing-signal'] as const;
+export type Action = (typeof Actions)[number];
+
+// Sorting for actions such that proposals always go first
+const compareActions = (a: Action, b: Action) => Actions.indexOf(b) - Actions.indexOf(a);
 
 interface RequestWithExpiry {
   action: Action;
@@ -91,9 +102,9 @@ export class SequencerPublisher {
   protected slashingProposerAddress?: EthAddress;
   private getSlashPayload?: GetSlashPayloadCallBack = undefined;
 
-  private myLastVotes: Record<VoteType, bigint> = {
-    [VoteType.GOVERNANCE]: 0n,
-    [VoteType.SLASHING]: 0n,
+  private myLastSignals: Record<SignalType, bigint> = {
+    [SignalType.GOVERNANCE]: 0n,
+    [SignalType.SLASHING]: 0n,
   };
 
   protected log = createLogger('sequencer:publisher');
@@ -108,8 +119,8 @@ export class SequencerPublisher {
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
 
-  // Gas report for VotingWithSigTest shows a max gas of 100k, so better err on the safe side
-  public static VOTE_GAS_GUESS: bigint = 500_000n;
+  // Gas report for VotingWithSigTest shows a max gas of 100k, but we've seen it cost 700k+ in testnet
+  public static VOTE_GAS_GUESS: bigint = 800_000n;
 
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
@@ -234,6 +245,10 @@ export class SequencerPublisher {
     const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
     const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
+    // Sort the requests so that proposals always go first
+    // This ensures the committee gets precomputed correctly
+    validRequests.sort((a, b) => compareActions(a.action, b.action));
+
     try {
       this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
       const result = await Multicall3.forward(
@@ -316,6 +331,7 @@ export class SequencerPublisher {
     const args = [
       header.toViem(),
       RollupContract.packAttestations([]),
+      [], // no signers
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       header.contentCommitment.blobsHash.toString(),
       flags,
@@ -328,7 +344,7 @@ export class SequencerPublisher {
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
-        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeader', args }),
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeaderWithAttestations', args }),
         from: MULTI_CALL_3_ADDRESS,
       },
       {
@@ -379,6 +395,9 @@ export class SequencerPublisher {
     const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
 
     const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
+    const signers = attestationData.attestations
+      .filter(attest => !attest.signature.isEmpty())
+      .map(attest => attest.address.toString());
 
     const args = [
       {
@@ -391,6 +410,7 @@ export class SequencerPublisher {
         },
       },
       RollupContract.packAttestations(formattedAttestations),
+      signers,
       blobInput,
     ] as const;
 
@@ -398,34 +418,38 @@ export class SequencerPublisher {
     return ts;
   }
 
-  private async enqueueCastVoteHelper(
+  private async enqueueCastSignalHelper(
     slotNumber: bigint,
     timestamp: bigint,
-    voteType: VoteType,
+    signalType: SignalType,
     payload: EthAddress,
     base: IEmpireBase,
     signerAddress: EthAddress,
-    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    if (this.myLastVotes[voteType] >= slotNumber) {
+    if (this.myLastSignals[signalType] >= slotNumber) {
       return false;
     }
     if (payload.equals(EthAddress.ZERO)) {
       return false;
     }
+    if (signerAddress.equals(EthAddress.ZERO)) {
+      this.log.warn(`Cannot enqueue vote cast signal ${signalType} for address zero at slot ${slotNumber}`);
+      return false;
+    }
     const round = await base.computeRound(slotNumber);
     const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
-    if (roundInfo.lastVote >= slotNumber) {
+    if (roundInfo.lastSignalSlot >= slotNumber) {
       return false;
     }
 
-    const cachedLastVote = this.myLastVotes[voteType];
-    this.myLastVotes[voteType] = slotNumber;
+    const cachedLastVote = this.myLastSignals[signalType];
+    this.myLastSignals[signalType] = slotNumber;
 
-    const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
+    const action = signalType === SignalType.GOVERNANCE ? 'governance-signal' : 'slashing-signal';
 
-    const request = await base.createVoteRequestWithSignature(
+    const request = await base.createSignalRequestWithSignature(
       payload.toString(),
       round,
       this.config.l1ChainId,
@@ -458,7 +482,7 @@ export class SequencerPublisher {
           result.receipt &&
           result.receipt.status === 'success' &&
           result.receipt.logs.find(
-            log => log.topics[0] === toEventSelector(getAbiItem({ abi: EmpireBaseAbi, name: 'VoteCast' })),
+            log => log.topics[0] === toEventSelector(getAbiItem({ abi: EmpireBaseAbi, name: 'SignalCast' })),
           );
 
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
@@ -467,7 +491,7 @@ export class SequencerPublisher {
             `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
-          this.myLastVotes[voteType] = cachedLastVote;
+          this.myLastSignals[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
@@ -481,13 +505,13 @@ export class SequencerPublisher {
     return true;
   }
 
-  private async getVoteConfig(
+  private async getSignalConfig(
     slotNumber: bigint,
-    voteType: VoteType,
+    signalType: SignalType,
   ): Promise<{ payload: EthAddress; base: IEmpireBase } | undefined> {
-    if (voteType === VoteType.GOVERNANCE) {
+    if (signalType === SignalType.GOVERNANCE) {
       return { payload: this.governancePayload, base: this.govProposerContract };
-    } else if (voteType === VoteType.SLASHING) {
+    } else if (signalType === SignalType.SLASHING) {
       if (!this.getSlashPayload) {
         return undefined;
       }
@@ -498,31 +522,31 @@ export class SequencerPublisher {
       this.log.info(`Slash payload: ${slashPayload}`);
       return { payload: slashPayload, base: this.slashingProposerContract };
     } else {
-      const _: never = voteType;
-      throw new Error('Unreachable: Invalid vote type');
+      const _: never = signalType;
+      throw new Error('Unreachable: Invalid signal type');
     }
   }
 
   /**
-   * Enqueues a castVote transaction to cast a vote for a given slot number.
-   * @param slotNumber - The slot number to cast a vote for.
-   * @param timestamp - The timestamp of the slot to cast a vote for.
-   * @param voteType - The type of vote to cast.
-   * @returns True if the vote was successfully enqueued, false otherwise.
+   * Enqueues a castSignal transaction to cast a signal for a given slot number.
+   * @param slotNumber - The slot number to cast a signal for.
+   * @param timestamp - The timestamp of the slot to cast a signal for.
+   * @param signalType - The type of signal to cast.
+   * @returns True if the signal was successfully enqueued, false otherwise.
    */
-  public async enqueueCastVote(
+  public async enqueueCastSignal(
     slotNumber: bigint,
     timestamp: bigint,
-    voteType: VoteType,
+    signalType: SignalType,
     signerAddress: EthAddress,
-    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+    signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    const voteConfig = await this.getVoteConfig(slotNumber, voteType);
-    if (!voteConfig) {
+    const signalConfig = await this.getSignalConfig(slotNumber, signalType);
+    if (!signalConfig) {
       return false;
     }
-    const { payload, base } = voteConfig;
-    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base, signerAddress, signer);
+    const { payload, base } = signalConfig;
+    return this.enqueueCastSignalHelper(slotNumber, timestamp, signalType, payload, base, signerAddress, signer);
   }
 
   /**
@@ -626,6 +650,11 @@ export class SequencerPublisher {
 
     const attestations = encodedData.attestations ? encodedData.attestations.map(attest => attest.toViem()) : [];
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
+
+    const signers = encodedData.attestations
+      ?.filter(attest => !attest.signature.isEmpty())
+      .map(attest => attest.address.toString());
+
     const args = [
       {
         header: encodedData.header.toViem(),
@@ -638,6 +667,7 @@ export class SequencerPublisher {
         txHashes,
       },
       RollupContract.packAttestations(attestations),
+      signers ?? [],
       blobInput,
     ] as const;
 
@@ -664,6 +694,7 @@ export class SequencerPublisher {
         };
       },
       ViemCommitteeAttestations,
+      `0x${string}`[],
       `0x${string}`,
     ],
     timestamp: bigint,
@@ -729,6 +760,12 @@ export class SequencerPublisher {
         SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     );
 
+    // Send the blobs to the blob sink preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
+    // tx fails but it does get mined. We make sure that the blobs are sent to the blob sink regardless of the tx outcome.
+    void this.blobSinkClient.sendBlobsToBlobSink(encodedData.blobs).catch(_err => {
+      this.log.error('Failed to send blobs to blob sink');
+    });
+
     return this.addRequest({
       action: 'propose',
       request: {
@@ -770,10 +807,6 @@ export class SequencerPublisher {
           this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats(), ...receipt });
           this.metrics.recordProcessBlockTx(timer.ms(), publishStats);
 
-          // Send the blobs to the blob sink
-          this.sendBlobsToBlobSink(receipt.blockHash, encodedData.blobs).catch(_err => {
-            this.log.error('Failed to send blobs to blob sink');
-          });
           return true;
         } else {
           this.metrics.recordFailedTx('process');
@@ -787,17 +820,5 @@ export class SequencerPublisher {
         }
       },
     });
-  }
-
-  /**
-   * Send blobs to the blob sink
-   *
-   * If a blob sink url is configured, then we send blobs to the blob sink
-   * - for now we use the blockHash as the identifier for the blobs;
-   *   In the future this will move to be the beacon block id - which takes a bit more work
-   *   to calculate and will need to be mocked in e2e tests
-   */
-  protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }

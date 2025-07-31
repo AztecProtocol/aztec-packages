@@ -172,7 +172,7 @@ describe('sequencer', () => {
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.validateBlockHeader.mockResolvedValue();
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
-    publisher.enqueueCastVote.mockResolvedValue(true);
+    publisher.enqueueCastSignal.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
       slot: BigInt(newSlotNumber),
       blockNumber: BigInt(newBlockNumber),
@@ -272,7 +272,7 @@ describe('sequencer', () => {
 
   it('builds a block out of a single tx', async () => {
     const tx = await makeTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
 
     block = await makeBlock([tx]);
     mockPendingTxs([tx]);
@@ -327,7 +327,7 @@ describe('sequencer', () => {
 
   it('builds a block when it is their turn', async () => {
     const tx = await makeTx();
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
 
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
@@ -393,75 +393,6 @@ describe('sequencer', () => {
     );
 
     expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
-  });
-
-  it('builds a block that contains zero real transactions once flushed', async () => {
-    const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
-
-    // block is not built with 0 txs
-    mockPendingTxs([]);
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // block is not built with 3 txs
-    mockPendingTxs(txs.slice(0, 3));
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // flush the sequencer and it should build a block
-    sequencer.flush();
-
-    // block is built with 0 txs
-    mockPendingTxs([]);
-    block = await makeBlock([]);
-
-    await sequencer.doRealWork();
-
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
-    expectPublisherProposeL2Block([]);
-  });
-
-  it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
-    const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-
-    sequencer.updateConfig({ minTxsPerBlock: 4 });
-
-    // block is not built with 0 txs
-    mockPendingTxs([]);
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // block is not built with 3 txs
-    mockPendingTxs(txs.slice(0, 3));
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
-
-    // flush the sequencer and it should build a block
-    sequencer.flush();
-
-    // block is built with 3 txs
-    const postFlushTxs = txs.slice(0, 3);
-    mockPendingTxs(postFlushTxs);
-    block = await makeBlock(postFlushTxs);
-    const postFlushTxHashes = await Promise.all(postFlushTxs.map(tx => tx.getTxHash()));
-
-    await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(1);
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      globalVariables,
-      expect.anything(),
-    );
-
-    expectPublisherProposeL2Block(postFlushTxHashes);
   });
 
   it('settles on the chain tip before it starts building a block', async () => {
@@ -559,7 +490,7 @@ describe('sequencer', () => {
     publisher.enqueueProposeL2Block.mockRejectedValueOnce(new Error('Failed to enqueue propose L2 block'));
 
     await sequencer.doRealWork();
-    expectPublisherProposeL2Block([await tx.getTxHash()]);
+    expectPublisherProposeL2Block([tx.getTxHash()]);
 
     // Even though the block publish was not enqueued, we still send any requests
     expect(publisher.sendRequests).toHaveBeenCalledTimes(1);

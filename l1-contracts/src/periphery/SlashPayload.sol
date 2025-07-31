@@ -29,6 +29,10 @@ contract SlashPayload is IPayload {
     VALIDATOR_SELECTION = _validatorSelection;
   }
 
+  function getURI() external view override(IPayload) returns (string memory) {
+    return "SlashPayload";
+  }
+
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
     IPayload.Action[] memory actions = new IPayload.Action[](offenders.length);
 

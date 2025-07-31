@@ -189,6 +189,8 @@ export class EpochsTestContext {
         { ...this.context.config, proverId: Fr.fromString(suffix) },
         { dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')) },
         this.context.aztecNode,
+        undefined,
+        { dateProvider: this.context.dateProvider },
       ),
     );
     this.proverNodes.push(proverNode);
@@ -247,8 +249,7 @@ export class EpochsTestContext {
       );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
-      const dateProvider = this.context.dateProvider!;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, dateProvider, this.L1_BLOCK_TIME_IN_S);
+      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S);
       delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
       publisher.l1TxUtils = delayed;
     }

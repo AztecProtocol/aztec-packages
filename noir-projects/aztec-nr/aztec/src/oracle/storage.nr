@@ -16,13 +16,13 @@ pub unconstrained fn raw_storage_read<let N: u32>(
     storage_read_oracle(address.to_field(), storage_slot, block_number, N)
 }
 
-pub unconstrained fn storage_read<T, let N: u32>(
+pub unconstrained fn storage_read<T>(
     address: AztecAddress,
     storage_slot: Field,
     block_number: u32,
 ) -> T
 where
-    T: Packable<N>,
+    T: Packable,
 {
     T::unpack(raw_storage_read(address, storage_slot, block_number))
 }

@@ -46,11 +46,7 @@ pub contract StaticChild {
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            context.msg_sender(),
-        ));
+        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
         new_value
     }
 
@@ -59,11 +55,7 @@ pub contract StaticChild {
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
 
-        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            sender,
-        ));
+        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
         new_value
     }
 
@@ -77,7 +69,7 @@ pub contract StaticChild {
             .select(ValueNote::properties().owner, Comparator.EQ, owner)
             .set_limit(1);
         let retrieved_notes = storage.a_private_value.get_notes(options);
-        retrieved_notes.get(0).note.value
+        retrieved_notes.get(0).note.value()
     }
 
     // Increments `current_value` by `new_value`

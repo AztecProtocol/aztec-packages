@@ -180,7 +180,7 @@ export function withDelayer<T extends ViemClient>(
           // Check if we need to delay txs sent too close to the end of the slot.
           const currentBlock = await publicClient.getBlock({ includeTransactions: false });
           const { timestamp: lastBlockTimestamp, number } = currentBlock;
-          const now = delayer.dateProvider.nowInSeconds();
+          const now = delayer.dateProvider.now();
 
           txHash = computeTxHash(serializedTransaction);
           const logData = {
@@ -190,7 +190,7 @@ export function withDelayer<T extends ViemClient>(
             maxInclusionTimeIntoSlot: delayer.maxInclusionTimeIntoSlot,
           };
 
-          if (now - Number(lastBlockTimestamp) > delayer.maxInclusionTimeIntoSlot) {
+          if (now / 1000 - Number(lastBlockTimestamp) > delayer.maxInclusionTimeIntoSlot) {
             // If the last block was mined more than `maxInclusionTimeIntoSlot` seconds ago, then we cannot include
             // any txs in the current slot, so we delay the tx until the next slot.
             logger.info(`Delaying inclusion of tx ${txHash} until the next slot since it was sent too late`, logData);

@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { randomInt } from '@aztec/foundation/crypto';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -64,6 +65,7 @@ import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
@@ -172,6 +174,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
   }
 
+  public updateConfig(config: Partial<P2PReqRespConfig>) {
+    this.reqresp.updateConfig(config);
+  }
+
   /**
    * Creates an instance of the LibP2P service.
    * @param config - The configuration to use when creating the service.
@@ -220,12 +226,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:discv5_service`),
     );
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
+    // Seed libp2p's bootstrap discovery with private and trusted peers
+    const bootstrapNodes = [...config.privatePeers, ...config.trustedPeers];
 
-    // If trusted peers are provided, also provide them to the p2p service
-    bootstrapNodes.push(...config.trustedPeers);
-
-    // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
     if (bootstrapNodes.length > 0) {
       peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
@@ -692,12 +695,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!result || !tx) {
       return;
     }
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
       source: source.toString(),
       txHash: txHashString,
     });
+
+    if (this.config.dropTransactions && randomInt(1000) < this.config.dropTransactionsProbability * 1000) {
+      this.logger.debug(`Intentionally dropping tx ${txHashString} (probability rule)`);
+      return;
+    }
+
     await this.mempools.txPool.addTxs([tx]);
   }
 
@@ -870,17 +879,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     try {
       await Promise.all(
         responseTx.map(async tx => {
-          if (!requested.has((await tx.getTxHash()).toString())) {
+          if (!requested.has(tx.getTxHash().toString())) {
             this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-            throw new ValidationError(
-              `Received tx with hash ${(await tx.getTxHash()).toString()} that was not requested.`,
-            );
+            throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that was not requested.`);
           }
 
           const { result } = await proofValidator.validateTx(tx);
           if (result === 'invalid') {
             this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-            throw new ValidationError(`Received tx with hash ${(await tx.getTxHash()).toString()} that is invalid.`);
+            throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that is invalid.`);
           }
         }),
       );
@@ -896,8 +903,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
   }
 
-  @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
-    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
+  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const currentBlockNumber = await this.archiver.getBlockNumber();

@@ -1,0 +1,240 @@
+include "poseidon2_perm.pil";
+include "constants_gen.pil";
+include "precomputed.pil";
+include "execution.pil";
+include "gt.pil";
+
+/**
+ * This handles the memory reads/writes when the POSEIDON2PERM opcode is executed
+ * by user code. The inputs to the opcode are the src and dst memory addresses.
+ * This trace will read inputs from addresses { src, src + 1, src + 2, src + 3 }
+ * and write the result to addresses { dst, dst + 1, dst + 2, dst + 3 }.
+ * ERROR HANDLING:
+ * There are two errors that need to be handled as part of this trace
+ * (1) MEM_OUT_OF_BOUNDS_ACCESS: If the reads or writes would access a memory address
+ *     outside of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
+ * (2) INVALID_READ_MEM_TAG: If any value that is read is not of type Field. 
+ * 
+ * N.B This subtrace will load the values directly into a row, (i.e. 4 input cols)
+ * As a result of this, error (2) can only be captured after all 4 reads are performed
+ * this is because gating each subsequent read would be expensive.
+ *
+ * This subtrace is connected to the poseidon2_perm subtrace via a lookup.
+ * Note that the poseidon2_perm subtrace is also used extensively by other
+ * subtraces internally (e.g. merkle check, bytecode/calldata hashing, etc).
+ * This trace will be empty in those interactions.
+ */
+
+namespace poseidon2_perm_mem;
+
+    pol commit sel;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit execution_clk;
+    pol commit space_id;
+    pol commit read_address[4];
+    pol commit write_address[4];
+
+    #[READ_ADDR_INCR]
+    read_address[1] = sel * (read_address[0] + 1);
+    read_address[2] = sel * (read_address[0] + 2);
+    read_address[3] = sel * (read_address[0] + 3); // This is the max read addr
+    
+    #[WRITE_ADDR_INCR]
+    write_address[1] = sel * (write_address[0] + 1);
+    write_address[2] = sel * (write_address[0] + 2);
+    write_address[3] = sel * (write_address[0] + 3); // This is the max write addr
+
+    ////////////////////////////////////////////////
+    // Error Handling - Out of Range Memory Access
+    ////////////////////////////////////////////////
+    pol commit sel_src_out_of_range_err;
+    sel_src_out_of_range_err * (1 - sel_src_out_of_range_err) = 0;
+    pol commit sel_dst_out_of_range_err;
+    sel_dst_out_of_range_err * (1 - sel_dst_out_of_range_err) = 0;
+
+    // Use the comparison gadget to check that the max addresses are within range
+    // The comparison gadget provides the ability to test GreaterThan so we check
+    // (1) read_address[3] > max_mem_addr
+    // (2) write_address[3] > max_mem_addr
+    pol commit max_mem_addr;
+    sel * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+    #[CHECK_SRC_ADDR_IN_RANGE]
+    sel { read_address[3], max_mem_addr, sel_src_out_of_range_err }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
+
+    #[CHECK_DST_ADDR_IN_RANGE]
+    sel { write_address[3], max_mem_addr, sel_dst_out_of_range_err }
+    in
+    gt.sel { gt.input_a, gt.input_b, gt.res };
+
+    ////////////////////////////////////////////////
+    // Read from memory into input columns
+    ////////////////////////////////////////////////
+    pol commit input[4];
+    pol commit input_tag[4];
+    pol commit sel_should_read_mem;
+    sel_should_read_mem = sel * (1 - sel_src_out_of_range_err) * (1 - sel_dst_out_of_range_err);
+
+    // TODO: These need to be changed to permutations once we have the custom permutation selectors impl
+    #[POS_READ_MEM_0]
+    sel_should_read_mem { 
+        execution_clk, read_address[0],
+        input[0],      input_tag[0],
+        space_id,      /*rw=*/ precomputed.zero
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    #[POS_READ_MEM_1]
+    sel_should_read_mem { 
+        execution_clk, read_address[1],
+        input[1],      input_tag[1],
+        space_id,      /*rw=*/ precomputed.zero
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    #[POS_READ_MEM_2]
+    sel_should_read_mem { 
+        execution_clk, read_address[2],
+        input[2],      input_tag[2],
+        space_id,      /*rw=*/ precomputed.zero
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    #[POS_READ_MEM_3]
+    sel_should_read_mem { 
+        execution_clk, read_address[3],
+        input[3],      input_tag[3],
+        space_id,      /*rw=*/ precomputed.zero
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    ////////////////////////////////////////////////
+    // Error Handling - Invalid Input Tag (not FF)
+    ////////////////////////////////////////////////
+    pol commit sel_invalid_tag_err;
+    pol INPUT_TAG_DIFF_0 = input_tag[0] - constants.MEM_TAG_FF;
+    pol INPUT_TAG_DIFF_1 = input_tag[1] - constants.MEM_TAG_FF;
+    pol INPUT_TAG_DIFF_2 = input_tag[2] - constants.MEM_TAG_FF;
+    pol INPUT_TAG_DIFF_3 = input_tag[3] - constants.MEM_TAG_FF;
+
+    pol BATCHED_TAG_CHECK = 2**0 * INPUT_TAG_DIFF_0 + 2**3 * INPUT_TAG_DIFF_1
+                          + 2**6 * INPUT_TAG_DIFF_2 + 2**9 * INPUT_TAG_DIFF_3;
+
+    pol commit batch_tag_inv;
+    // BATCHED_TAG_CHECK != 0, sel_invalid_tag_err = 1 
+    #[BATCH_ZERO_CHECK]
+    BATCHED_TAG_CHECK * ((1 - sel_invalid_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_tag_err = 0;
+
+    // Consolidated error flag
+    pol commit err;
+    err = 1 - (1 - sel_src_out_of_range_err) * (1 - sel_dst_out_of_range_err) * (1 - sel_invalid_tag_err);
+
+    ///////////////////////////////////////////////////////////////////////
+    // Dispatch inputs to poseidon2 permutation trace and retrieve outputs
+    ///////////////////////////////////////////////////////////////////////
+    pol commit output[4];
+    pol commit sel_should_exec;
+    sel_should_exec = sel * (1 - err);
+
+    // TODO: Rename a's and b's to use array notation in poseidon2_perm.pil
+    #[INPUT_OUTPUT_POSEIDON2_PERM]
+    sel_should_exec {
+        input[0], input[1], input[2], input[3],
+        output[0], output[1], output[2], output[3]
+    } in
+    poseidon2_perm.sel {
+        poseidon2_perm.a_0, poseidon2_perm.a_1, poseidon2_perm.a_2, poseidon2_perm.a_3,
+        poseidon2_perm.b_0, poseidon2_perm.b_1, poseidon2_perm.b_2, poseidon2_perm.b_3
+    };
+
+    ////////////////////////////////////////////////
+    // Write output to memory
+    ////////////////////////////////////////////////
+    // TODO: These need to be changed to permutations once we have the custom permutation selectors
+    #[POS_WRITE_MEM_0]
+    sel_should_exec { 
+        execution_clk, write_address[0],
+        output[0],     /*FF_mem_tag*/ precomputed.zero,
+        space_id,      /*rw=1*/ sel_should_exec
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    #[POS_WRITE_MEM_1]
+    sel_should_exec { 
+        execution_clk, write_address[1],
+        output[1],     /*FF_mem_tag*/ precomputed.zero,
+        space_id,      /*rw=1*/ sel_should_exec
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    #[POS_WRITE_MEM_2]
+    sel_should_exec { 
+        execution_clk, write_address[2],
+        output[2],     /*FF_mem_tag*/ precomputed.zero,
+        space_id,      /*rw=1*/ sel_should_exec
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    #[POS_WRITE_MEM_3]
+    sel_should_exec { 
+        execution_clk, write_address[3],
+        output[3],     /*FF_mem_tag*/ precomputed.zero,
+        space_id,      /*rw=1*/ sel_should_exec
+    } in
+    memory.sel { 
+        memory.clk,      memory.address,
+        memory.value,    memory.tag,
+        memory.space_id, memory.rw
+    };
+
+    ////////////////////////////////////////////////
+    // Dispatch from execution trace
+    ////////////////////////////////////////////////
+    #[DISPATCH_EXEC_POS2]
+    execution.sel_execute_poseidon2_perm {
+        precomputed.clk,
+        execution.context_id,
+        execution.rop[0],
+        execution.rop[1],
+        execution.sel_opcode_error
+    } is
+    sel {
+        execution_clk,
+        space_id,
+        read_address[0],
+        write_address[0],
+        err
+    };
+

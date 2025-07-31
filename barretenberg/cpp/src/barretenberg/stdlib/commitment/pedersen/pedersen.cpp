@@ -8,8 +8,6 @@
 #include "../../hash/pedersen/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-#include "../../primitives/packed_byte_array/packed_byte_array.hpp"
-
 namespace bb::stdlib {
 
 template <typename C>

@@ -8,11 +8,11 @@
 
 #include "../bigfield/bigfield.hpp"
 #include "../bigfield/goblin_field.hpp"
-#include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"

@@ -11,7 +11,7 @@
 
 namespace bb {
 
-MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, MergeSettings settings)
+MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , settings(settings){};
 
@@ -55,11 +55,12 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
  * @param proof
- * @param t_commitments The commitments to t_j read from the transcript by the PG verifier with which the Merge
- * verifier shares a transcript
- * @return bool Verification result
+ * @param inputs_commitments The commitments used by the Merge verifier
+ * @return std::pair<bool, TableCommitments> Pair of verification result and the commitments to the merged tables as
+ * read from the proof
  */
-bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
+std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_proof(
+    const HonkProof& proof, const InputCommitments& input_commitments)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -72,10 +73,10 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
     std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
-        auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
-        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
-        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+        auto left_table = settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
+                                                             : input_commitments.T_prev_commitments[idx];
+        auto right_table = settings == MergeSettings::PREPEND ? input_commitments.T_prev_commitments[idx]
+                                                              : input_commitments.t_commitments[idx];
 
         table_commitments.emplace_back(left_table);
         table_commitments.emplace_back(right_table);
@@ -86,8 +87,9 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     }
 
     // Store T_commitments of the verifier
+    TableCommitments merged_table_commitments;
     size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
-    for (auto& commitment : T_commitments) {
+    for (auto& commitment : merged_table_commitments) {
         commitment = table_commitments[commitment_idx];
         commitment_idx += NUM_WIRES;
     }
@@ -156,6 +158,6 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     VerifierCommitmentKey pcs_vkey{};
     bool claims_verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
 
-    return degree_check_verified && claims_verified;
+    return { degree_check_verified && claims_verified, merged_table_commitments };
 }
 } // namespace bb

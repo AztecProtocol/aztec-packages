@@ -20,6 +20,7 @@ import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
+import {ExtRollupLib3} from "@aztec/core/libraries/rollup/ExtRollupLib3.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -27,7 +28,7 @@ import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {Slasher} from "@aztec/core/slashing/Slasher.sol";
+import {ISlasher} from "@aztec/core/slashing/Slasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -86,7 +87,14 @@ contract RollupCore is
     );
 
     Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
-    Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
+    ISlasher slasher = ExtRollupLib3.deploySlasher(
+      _config.slashingQuorum,
+      _config.slashingRoundSize,
+      _config.slashingLifetimeInRounds,
+      _config.slashingExecutionDelayInRounds,
+      _config.slashingVetoer
+    );
+
     StakingLib.initialize(
       _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig
     );
@@ -94,7 +102,7 @@ contract RollupCore is
 
     // If no booster specifically provided deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
-      _config.rewardConfig.booster = ExtRollupLib2.deployRewardBooster(_config.rewardBoostConfig);
+      _config.rewardConfig.booster = ExtRollupLib3.deployRewardBooster(_config.rewardBoostConfig);
     }
 
     RewardLib.setConfig(_config.rewardConfig);
@@ -195,11 +203,11 @@ contract RollupCore is
     ExtRollupLib2.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _onCanonical)
+  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
     external
     override(IStakingCore)
   {
-    ExtRollupLib2.deposit(_attester, _withdrawer, _onCanonical);
+    ExtRollupLib2.deposit(_attester, _withdrawer, _moveWithLatestRollup);
   }
 
   function flushEntryQueue() external override(IStakingCore) {
@@ -216,16 +224,15 @@ contract RollupCore is
   }
 
   function finaliseWithdraw(address _attester) external override(IStakingCore) {
-    StakingLib.finaliseWithdraw(_attester);
+    ExtRollupLib2.finaliseWithdraw(_attester);
   }
 
   function slash(address _attester, uint256 _amount) external override(IStakingCore) returns (bool) {
-    return StakingLib.trySlash(_attester, _amount);
+    return ExtRollupLib2.slash(_attester, _amount);
   }
 
   function prune() external override(IRollupCore) {
-    require(STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp)), Errors.Rollup__NothingToPrune());
-    STFLib.prune();
+    ExtRollupLib.prune();
   }
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args)
@@ -238,9 +245,27 @@ contract RollupCore is
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
+    address[] calldata _signers,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
+  }
+
+  function invalidateBadAttestation(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee,
+    uint256 _invalidIndex
+  ) external override(IRollupCore) {
+    ExtRollupLib2.invalidateBadAttestation(_blockNumber, _attestations, _committee, _invalidIndex);
+  }
+
+  function invalidateInsufficientAttestations(
+    uint256 _blockNumber,
+    CommitteeAttestations memory _attestations,
+    address[] memory _committee
+  ) external override(IRollupCore) {
+    ExtRollupLib2.invalidateInsufficientAttestations(_blockNumber, _attestations, _committee);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {

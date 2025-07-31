@@ -57,6 +57,7 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));
+    MOCK_METHOD(uint32_t, get_checkpoint_id, (), (const, override));
 };
 
 class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
@@ -76,14 +77,16 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MOCK_METHOD(bool, siloed_nullifier_exists, (const FF& nullifier), (const, override));
     MOCK_METHOD(bool, nullifier_write, (const AztecAddress& contract_address, const FF& nullifier), (override));
     MOCK_METHOD(bool, siloed_nullifier_write, (const FF& nullifier), (override));
-    MOCK_METHOD(bool, note_hash_exists, (index_t leaf_index, const FF& unique_note_hash), (const, override));
+    MOCK_METHOD(bool, note_hash_exists, (uint64_t leaf_index, const FF& unique_note_hash), (const, override));
     MOCK_METHOD(void, note_hash_write, (const AztecAddress& contract_address, const FF& note_hash), (override));
     MOCK_METHOD(void, siloed_note_hash_write, (const FF& note_hash), (override));
     MOCK_METHOD(void, unique_note_hash_write, (const FF& note_hash), (override));
+    MOCK_METHOD(bool, l1_to_l2_msg_exists, (uint64_t leaf_index, const FF& msg_hash), (const, override));
 
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));
+    MOCK_METHOD(uint32_t, get_checkpoint_id, (), (const, override));
 
     MOCK_METHOD(LowLevelMerkleDBInterface&, as_unconstrained, (), (const, override));
 };

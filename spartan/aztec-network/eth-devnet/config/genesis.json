@@ -17,6 +17,7 @@
     "terminalTotalDifficultyPassed": true,
     "shanghaiTime": 0,
     "cancunTime": 0,
+    "pragueTime": 0,
     "blobSchedule": {
       "cancun": {
         "target": 3,

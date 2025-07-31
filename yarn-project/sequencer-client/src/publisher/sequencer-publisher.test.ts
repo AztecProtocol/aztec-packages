@@ -36,7 +36,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
-import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
+import { SequencerPublisher, SignalType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -215,26 +215,26 @@ describe('SequencerPublisher', () => {
     const voteSig = Signature.random();
     publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
-      lastVote: 1n,
-      leader: govPayload.toString(),
+      lastSignalSlot: 1n,
+      payloadWithMostSignals: govPayload.toString(),
       executed: false,
     });
-    governanceProposerContract.createVoteRequestWithSignature.mockResolvedValue({
+    governanceProposerContract.createSignalRequestWithSignature.mockResolvedValue({
       to: mockGovernanceProposerAddress,
       data: encodeFunctionData({
         abi: EmpireBaseAbi,
-        functionName: 'voteWithSig',
+        functionName: 'signalWithSig',
         args: [govPayload.toString(), voteSig.toViemSignature()],
       }),
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(
-      await publisher.enqueueCastVote(
+      await publisher.enqueueCastSignal(
         2n,
         1n,
-        VoteType.GOVERNANCE,
+        SignalType.GOVERNANCE,
         EthAddress.fromString(testHarnessPrivateKey.address),
-        hash => testHarnessPrivateKey.sign({ hash }),
+        msg => testHarnessPrivateKey.signTypedData(msg),
       ),
     ).toEqual(true);
 
@@ -260,32 +260,35 @@ describe('SequencerPublisher', () => {
         txHashes: [],
       },
       RollupContract.packAttestations([]),
+      [],
       blobInput,
     ] as const;
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {
-          to: mockRollupAddress,
-          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
-        },
-        {
           to: mockGovernanceProposerAddress,
           data: encodeFunctionData({
             abi: EmpireBaseAbi,
-            functionName: 'voteWithSig',
+            functionName: 'signalWithSig',
             args: [govPayload.toString(), voteSig.toViemSignature()],
           }),
+        },
+        {
+          to: mockRollupAddress,
+          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
         },
       ],
       l1TxUtils,
       {
-        gasLimit: 2085048n,
+        gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
       },
       { blobs: expectedBlobs.map(b => b.data), kzg },
       mockRollupAddress,
       expect.anything(), // the logger
     );
+
+    expect(forwardSpy.mock.calls[0][2]?.gasLimit).toBeGreaterThan(2_000_000n);
   });
 
   it('errors if forwarder tx fails', async () => {
@@ -357,7 +360,11 @@ describe('SequencerPublisher', () => {
       action: 'propose',
       request: {
         to: mockRollupAddress,
-        data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [EthAddress.random().toString()] }),
+        data: encodeFunctionData({
+          abi: EmpireBaseAbi,
+          functionName: 'signal',
+          args: [EthAddress.random().toString()],
+        }),
       },
       lastValidL2Slot: 1n,
       checkSuccess: () => true,

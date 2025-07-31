@@ -1,6 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -22,6 +23,7 @@ class ClientIVCTests : public ::testing::Test {
 
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
+    using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = ClientIVC::ClientCircuit;
     using DeciderProvingKey = ClientIVC::DeciderProvingKey;
@@ -35,16 +37,21 @@ class ClientIVCTests : public ::testing::Test {
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
     /**
-     * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1
+     * @brief Tamper with a proof
+     *
+     * @details The first value in the proof after the public inputs is the commitment to the wire w.l (see OinkProver).
+     * We modify the commitment by adding Commitment::one().
      *
      */
-    static void tamper_with_proof(FoldProof& proof)
+    static void tamper_with_proof(FoldProof& proof, size_t public_inputs_offset)
     {
-        for (auto& val : proof) {
-            if (val > 0) {
-                val += 1;
-                break;
-            }
+        // Tamper with the commitment in the proof
+        Commitment commitment = bb::field_conversion::convert_from_bn254_frs<Commitment>(
+            std::span{ proof }.subspan(public_inputs_offset, bb::field_conversion::calc_num_bn254_frs<Commitment>()));
+        commitment = commitment + Commitment::one();
+        auto commitment_frs = bb::field_conversion::convert_to_bn254_frs<Commitment>(commitment);
+        for (size_t idx = 0; idx < 4; ++idx) {
+            proof[public_inputs_offset + idx] = commitment_frs[idx];
         }
     }
 
@@ -131,14 +138,21 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         ClientIVCMockCircuitProducer circuit_producer;
 
+        size_t num_public_inputs = 0;
+
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
 
+            if (idx == 1) {
+                num_public_inputs = circuit.num_public_inputs();
+            }
+
             if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
-                tamper_with_proof(ivc.verification_queue[0].proof); // tamper with first proof
+                EXPECT_EQ(ivc.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
+                tamper_with_proof(ivc.verification_queue[0].proof,
+                                  num_public_inputs); // tamper with first proof
             }
         }
         EXPECT_FALSE(ivc.prove_and_verify());
@@ -156,8 +170,9 @@ TEST_F(ClientIVCTests, BadProofFailure)
             ivc.accumulate(circuit);
 
             if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
-                tamper_with_proof(ivc.verification_queue[1].proof); // tamper with second proof
+                EXPECT_EQ(ivc.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
+                tamper_with_proof(ivc.verification_queue[1].proof,
+                                  circuit.num_public_inputs()); // tamper with second proof
             }
         }
         EXPECT_FALSE(ivc.prove_and_verify());
@@ -169,15 +184,22 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         ClientIVCMockCircuitProducer circuit_producer;
 
+        size_t num_public_inputs = 0;
+
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
+
+            if (idx == NUM_CIRCUITS - 1) {
+                num_public_inputs = circuit.num_public_inputs();
+            }
         }
 
         // Only a single proof should be present in the queue when verification of the IVC is performed
         EXPECT_EQ(ivc.verification_queue.size(), 1);
-        tamper_with_proof(ivc.verification_queue[0].proof); // tamper with the final fold proof
+        tamper_with_proof(ivc.verification_queue[0].proof,
+                          num_public_inputs); // tamper with the final fold proof
 
         EXPECT_FALSE(ivc.prove_and_verify());
     }
@@ -299,7 +321,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
@@ -308,7 +330,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.mega_proof = civc_proof_2.mega_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
@@ -317,7 +339,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {

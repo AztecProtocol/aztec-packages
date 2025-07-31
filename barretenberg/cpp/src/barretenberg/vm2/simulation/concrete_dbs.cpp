@@ -187,7 +187,7 @@ bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
     return !present;
 }
 
-bool MerkleDB::note_hash_exists(index_t leaf_index, const FF& unique_note_hash) const
+bool MerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const
 {
     auto leaf_value = raw_merkle_db.get_leaf_value(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
     auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
@@ -250,6 +250,14 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
     note_hash_counter++;
 }
 
+bool MerkleDB::l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const
+{
+    auto leaf_value = raw_merkle_db.get_leaf_value(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, leaf_index);
+    auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, leaf_index);
+    return l1_to_l2_msg_tree_check.exists(
+        msg_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().l1ToL2MessageTree);
+}
+
 void MerkleDB::create_checkpoint()
 {
     raw_merkle_db.create_checkpoint();
@@ -275,6 +283,11 @@ void MerkleDB::revert_checkpoint()
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_reverted();
     }
+}
+
+uint32_t MerkleDB::get_checkpoint_id() const
+{
+    return raw_merkle_db.get_checkpoint_id();
 }
 
 } // namespace bb::avm2::simulation

@@ -1,7 +1,6 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -23,6 +22,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
+import { orderAttestations } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -48,11 +48,11 @@ import type { ValidatorClient } from '@aztec/validator-client';
 import EventEmitter from 'node:events';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type Action, type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
+import { type Action, type SequencerPublisher, SignalType } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
-import { SequencerState, type SequencerStateWithSlot, orderAttestations } from './utils.js';
+import { SequencerState, type SequencerStateWithSlot } from './utils.js';
 
 export { SequencerState };
 
@@ -101,7 +101,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private metrics: SequencerMetrics;
   private l1Metrics: L1Metrics;
   private lastBlockPublished: L2Block | undefined;
-  private isFlushing: boolean = false;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
@@ -148,6 +147,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   public getValidatorAddresses() {
     return this.validatorClient?.getValidatorAddresses();
+  }
+
+  public getConfig() {
+    return this.config;
   }
 
   /**
@@ -234,7 +237,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Stops the sequencer from processing txs and moves to STOPPED state.
    */
   public async stop(): Promise<void> {
-    this.log.debug(`Stopping sequencer`);
+    this.log.info(`Stopping sequencer`);
     this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
@@ -260,11 +263,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   public status() {
     return { state: this.state };
-  }
-
-  /** Forces the sequencer to bypass all time and tx count checks for the next block and build anyway. */
-  public flush() {
-    this.isFlushing = true;
   }
 
   /**
@@ -400,20 +398,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
     );
 
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastVote(
+    const enqueueGovernanceVotePromise = this.publisher.enqueueCastSignal(
       slot,
       newGlobalVariables.timestamp,
-      VoteType.GOVERNANCE,
+      SignalType.GOVERNANCE,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
 
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
+    const enqueueSlashingVotePromise = this.publisher.enqueueCastSignal(
       slot,
       newGlobalVariables.timestamp,
-      VoteType.SLASHING,
+      SignalType.SLASHING,
       proposerAddress,
-      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
+      msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
@@ -434,11 +432,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       totalManaUsed: Fr.ZERO,
     });
 
-    let finishedFlushing = false;
     let block: L2Block | undefined;
 
     const pendingTxCount = await this.p2pClient.getPendingTxCount();
-    if (pendingTxCount >= this.minTxsPerBlock || this.isFlushing) {
+    if (pendingTxCount >= this.minTxsPerBlock) {
       // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
       // and also we may need to fetch more if we don't have enough valid txs.
       const pendingTxs = this.p2pClient.iteratePendingTxs();
@@ -456,8 +453,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         } else {
           this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
         }
-      } finally {
-        finishedFlushing = true;
       }
     } else {
       this.log.verbose(
@@ -480,9 +475,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.lastBlockPublished = block;
       this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
       this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString());
-      if (finishedFlushing) {
-        this.isFlushing = false;
-      }
     } else if (block) {
       this.emit('block-publish-failed', l1Response ?? {});
     }
@@ -544,7 +536,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
     const failedTxData = failedTxs.map(fail => fail.tx);
-    const failedTxHashes = await Tx.getHashes(failedTxData);
+    const failedTxHashes = failedTxData.map(tx => tx.getTxHash());
     this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
     await this.p2pClient.deleteTxs(failedTxHashes);
   }
@@ -586,6 +578,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
   ): Promise<L2Block> {
+    // TODO(palla/sigs): We need to simulate the previous block being removed if invalid!
     await this.publisher.validateBlockHeader(proposalHeader);
 
     const blockNumber = newGlobalVariables.blockNumber;
@@ -609,8 +602,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       const blockBuildDuration = workTimer.ms();
       await this.dropFailedTxsFromP2P(failedTxs);
 
-      const minTxsPerBlock = this.isFlushing ? 0 : this.minTxsPerBlock;
-
+      const minTxsPerBlock = this.minTxsPerBlock;
       if (numTxs < minTxsPerBlock) {
         this.log.warn(
           `Block ${blockNumber} has too few txs to be proposed (got ${numTxs} but required ${minTxsPerBlock})`,

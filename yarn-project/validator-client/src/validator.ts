@@ -14,7 +14,6 @@ import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import {
   Offense,
-  type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
@@ -22,7 +21,7 @@ import {
 } from '@aztec/slasher/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import type { IFullNodeBlockBuilder, SequencerConfig } from '@aztec/stdlib/interfaces/server';
+import type { IFullNodeBlockBuilder, SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
@@ -37,11 +36,13 @@ import {
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
+import type { TypedDataDefinition } from 'viem';
 
 import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import type { ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
+import { Web3SignerKeyStore } from './key_store/web3signer_key_store.js';
 import { ValidatorMetrics } from './metrics.js';
 
 // We maintain a set of proposers who have proposed invalid blocks.
@@ -85,7 +86,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private blockProposalValidator: BlockProposalValidator;
 
-  private proposersOfInvalidBlocks: Set<EthAddress> = new Set();
+  private proposersOfInvalidBlocks: Set<string> = new Set();
 
   protected constructor(
     private blockBuilder: IFullNodeBlockBuilder,
@@ -129,8 +130,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         const committeeSet = new Set(committee.map(v => v.toString()));
         const inCommittee = me.filter(a => committeeSet.has(a.toString()));
         if (inCommittee.length > 0) {
-          inCommittee.forEach(a =>
-            this.log.info(`Validator ${a.toString()} is on the validator committee for epoch ${epoch}`),
+          this.log.info(
+            `Validators ${inCommittee.map(a => a.toString()).join(',')} are on the validator committee for epoch ${epoch}`,
           );
         } else {
           this.log.verbose(
@@ -156,16 +157,25 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    if (!config.validatorPrivateKeys.getValue().length) {
-      throw new InvalidValidatorPrivateKeyError();
-    }
+    let keyStore: ValidatorKeyStore;
 
-    const privateKeys = config.validatorPrivateKeys.getValue().map(validatePrivateKey);
-    const localKeyStore = new LocalKeyStore(privateKeys);
+    if (config.web3SignerUrl) {
+      const addresses = config.web3SignerAddresses;
+      if (!addresses?.length) {
+        throw new Error('web3SignerAddresses is required when web3SignerUrl is provided');
+      }
+      keyStore = new Web3SignerKeyStore(addresses, config.web3SignerUrl);
+    } else {
+      const privateKeys = config.validatorPrivateKeys?.getValue().map(validatePrivateKey);
+      if (!privateKeys?.length) {
+        throw new InvalidValidatorPrivateKeyError();
+      }
+      keyStore = new LocalKeyStore(privateKeys);
+    }
 
     const validator = new ValidatorClient(
       blockBuilder,
-      localKeyStore,
+      keyStore,
       epochCache,
       p2pClient,
       blockSource,
@@ -185,8 +195,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.getAddresses();
   }
 
-  public signWithAddress(addr: EthAddress, msg: Buffer32) {
-    return this.keyStore.signWithAddress(addr, msg);
+  public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
+    return this.keyStore.signTypedDataWithAddress(addr, msg);
   }
 
   public configureSlashing(
@@ -392,7 +402,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
-      const foundTxHashes = await Promise.all(txs.map(async tx => await tx.getTxHash()));
+      const foundTxHashes = txs.map(tx => tx.getTxHash());
       const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.includes(txHash));
       throw new TransactionsNotAvailableError(missingTxHashes);
     }
@@ -448,7 +458,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.proposersOfInvalidBlocks.delete(this.proposersOfInvalidBlocks.values().next().value!);
     }
 
-    this.proposersOfInvalidBlocks.add(proposer);
+    this.proposersOfInvalidBlocks.add(proposer.toString());
 
     this.emit(WANT_TO_SLASH_EVENT, [
       {
@@ -474,7 +484,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public shouldSlash(args: WantToSlashArgs): Promise<boolean> {
     // note we don't check the offence here: we know this person is bad and we're willing to slash up to the max penalty.
     return Promise.resolve(
-      args.amount <= this.config.slashInvalidBlockMaxPenalty && this.proposersOfInvalidBlocks.has(args.validator),
+      args.amount <= this.config.slashInvalidBlockMaxPenalty &&
+        this.proposersOfInvalidBlocks.has(args.validator.toString()),
     );
   }
 
@@ -582,7 +593,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const payloadToSign = authRequest.getPayloadToSign();
-    const signature = await this.keyStore.signWithAddress(addressToUse, payloadToSign);
+    const signature = await this.keyStore.signMessageWithAddress(addressToUse, payloadToSign);
     const authResponse = new AuthResponse(statusMessage, signature);
     return authResponse.toBuffer();
   }

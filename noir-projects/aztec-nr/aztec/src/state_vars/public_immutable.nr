@@ -45,11 +45,11 @@ pub struct PublicImmutable<T, Context> {
 }
 // docs:end:public_immutable_struct
 
-/// `WithHash<T>` stores both the packed value (using N fields) and its hash (1 field), requiring N = M + 1 total
+/// `WithHash<T>` stores both the packed value (using O fields) and its hash (1 field), requiring O = M + 1 total
 /// fields.
-impl<T, Context, let M: u32, let N: u32> HasStorageSlot<N> for PublicImmutable<T, Context>
+impl<T, Context, let M: u32, let O: u32> HasStorageSlot<O> for PublicImmutable<T, Context>
 where
-    WithHash<T, M>: Packable<N>,
+    WithHash<T, M>: Packable<N = O>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
@@ -82,9 +82,9 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     /// # Panics
     /// Panics if the value is already initialized.
     // docs:start:public_immutable_struct_write
-    pub fn initialize<let T_PACKED_LEN: u32>(self, value: T)
+    pub fn initialize(self, value: T)
     where
-        T: Packable<T_PACKED_LEN> + Eq,
+        T: Packable + Eq,
     {
         // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents
         // the value from being initialized again as a nullifier can be included only once.
@@ -100,9 +100,9 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     /// # Panics
     /// Panics if the value is not initialized.
     // docs:start:public_immutable_struct_read
-    pub fn read<let T_PACKED_LEN: u32>(self) -> T
+    pub fn read(self) -> T
     where
-        T: Packable<T_PACKED_LEN> + Eq,
+        T: Packable + Eq,
     {
         assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
         WithHash::public_storage_read(*self.context, self.storage_slot)
@@ -110,9 +110,9 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     // docs:end:public_immutable_struct_read
 
     /// Reads the value without checking if the value is initialized.
-    pub fn read_unsafe<let T_PACKED_LEN: u32>(self) -> T
+    pub fn read_unsafe(self) -> T
     where
-        T: Packable<T_PACKED_LEN> + Eq,
+        T: Packable + Eq,
     {
         WithHash::public_storage_read(*self.context, self.storage_slot)
     }
@@ -124,9 +124,9 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
 }
 
 impl<T> PublicImmutable<T, UtilityContext> {
-    pub unconstrained fn read<let T_PACKED_LEN: u32>(self) -> T
+    pub unconstrained fn read(self) -> T
     where
-        T: Packable<T_PACKED_LEN> + Eq,
+        T: Packable + Eq,
     {
         // TODO(#15703): this fn should fail if the variable is not initialized
         WithHash::utility_public_storage_read(self.context, self.storage_slot)
@@ -134,9 +134,9 @@ impl<T> PublicImmutable<T, UtilityContext> {
 }
 
 impl<T> PublicImmutable<T, &mut PrivateContext> {
-    pub fn read<let T_PACKED_LEN: u32>(self) -> T
+    pub fn read(self) -> T
     where
-        T: Packable<T_PACKED_LEN> + Eq,
+        T: Packable + Eq,
     {
         // TODO(#15703): this fn should fail if the variable is not initialized
         WithHash::historical_public_storage_read(

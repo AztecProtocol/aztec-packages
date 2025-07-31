@@ -1,7 +1,7 @@
-import type { EthAddress } from '@aztec/foundation/eth-address';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import type { Hex } from 'viem';
+import { getContract } from 'viem';
 
 import type { L1ContractsConfig } from './config.js';
 import { ReadOnlyGovernanceContract } from './contracts/governance.js';
@@ -27,6 +27,8 @@ export async function getL1ContractsConfig(
   const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
   const slasherProposer = await rollup.getSlashingProposer();
+  const slasherAddress = await rollup.getSlasher();
+  const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: publicClient });
 
   const [
     l1StartBlock,
@@ -41,6 +43,9 @@ export async function getL1ContractsConfig(
     governanceProposerRoundSize,
     slashingQuorum,
     slashingRoundSize,
+    slashingLifetimeInRounds,
+    slashingExecutionDelayInRounds,
+    slashingVetoer,
     manaTarget,
     provingCostPerMana,
     rollupVersion,
@@ -59,6 +64,9 @@ export async function getL1ContractsConfig(
     governanceProposer.getRoundSize(),
     slasherProposer.getQuorumSize(),
     slasherProposer.getRoundSize(),
+    slasherProposer.getLifetimeInRounds(),
+    slasherProposer.getExecutionDelayInRounds(),
+    slasher.read.VETOER(),
     rollup.getManaTarget(),
     rollup.getProvingCostPerMana(),
     rollup.getVersion(),
@@ -79,32 +87,13 @@ export async function getL1ContractsConfig(
     minimumStake,
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
+    slashingLifetimeInRounds: Number(slashingLifetimeInRounds),
+    slashingExecutionDelayInRounds: Number(slashingExecutionDelayInRounds),
+    slashingVetoer: EthAddress.fromString(slashingVetoer),
     manaTarget: manaTarget,
     provingCostPerMana: provingCostPerMana,
     rollupVersion: Number(rollupVersion),
     genesisArchiveTreeRoot,
     exitDelaySeconds: Number(exitDelay),
   };
-}
-
-export type L2BlockProposedEvent = {
-  versionedBlobHashes: readonly Hex[];
-  archive: Hex;
-  blockNumber: bigint;
-};
-
-export async function getL2BlockProposalEvents(
-  client: ViemPublicClient,
-  blockId: Hex,
-  rollupAddress?: EthAddress,
-): Promise<L2BlockProposedEvent[]> {
-  return (
-    await client.getContractEvents({
-      abi: RollupAbi,
-      address: rollupAddress?.toString(),
-      blockHash: blockId,
-      eventName: 'L2BlockProposed',
-      strict: true,
-    })
-  ).map(log => log.args);
 }

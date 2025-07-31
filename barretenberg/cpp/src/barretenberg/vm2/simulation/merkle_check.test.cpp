@@ -1,3 +1,5 @@
+#include "barretenberg/vm2/simulation/merkle_check.hpp"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <optional>
@@ -5,7 +7,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_poseidon2.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
@@ -15,9 +17,8 @@ using testing::ElementsAre;
 
 TEST(MerkleCheckSimulationTest, AssertMembership)
 {
-    EventEmitter<Poseidon2HashEvent> hash_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
@@ -47,18 +48,13 @@ TEST(MerkleCheckSimulationTest, AssertMembership)
         .root = root2,
     };
 
-    const size_t expected_merkle_rows = sibling_path.size() + sibling_path2.size();
-
     EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event, expect_event2));
-
-    EXPECT_EQ(hash_emitter.dump_events().size(), expected_merkle_rows);
 }
 
 TEST(MerkleCheckSimulationTest, Write)
 {
-    EventEmitter<Poseidon2HashEvent> hash_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
@@ -83,14 +79,12 @@ TEST(MerkleCheckSimulationTest, Write)
 
     EXPECT_EQ(new_root, expected_new_root);
     EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event));
-    EXPECT_EQ(hash_emitter.dump_events().size(), sibling_path.size() * 2);
 }
 
 TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
@@ -108,9 +102,8 @@ TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
 
 TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
@@ -128,9 +121,8 @@ TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
 
 TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
@@ -148,9 +140,8 @@ TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
 
 TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
@@ -170,9 +161,8 @@ TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
 
 TEST(MerkleCheckSimulationTest, NegativeWrongLeafValue)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // This fake will still perform hashing but is "lightweight" for simulation-only
+    FakePoseidon2 poseidon2 = FakePoseidon2();
 
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);

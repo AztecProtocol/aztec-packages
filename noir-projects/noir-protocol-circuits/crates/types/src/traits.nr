@@ -139,28 +139,28 @@ where
 
 // pub fn is_empty<T>(item: T) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     item.eq(T::empty())
 // }
 
 // pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     array.all(|elem| is_empty(elem))
 // }
 
 // pub fn assert_empty<T>(item: T) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     assert(item.eq(T::empty()))
 // }
 
 // pub fn assert_empty_array<T, let N: u32>(array: [T; N]) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     // A cheaper option than `is_empty_array` for if you don't need to gracefully
 //     // handle a bool result.
@@ -472,10 +472,12 @@ impl<let M: u32> Deserialize for str<M> {
 /// the resulting Field array. This trait is used when storage efficiency is critical (e.g. when storing data
 /// in the contract's public storage).
 ///
-/// # Type Parameters
-/// * `N` - The length of the Field array, known at compile time.
+/// # Associated Constants
+/// * `N` - The length of the Field array, known at compile time
 #[derive_via(derive_packable)]
-pub trait Packable<let N: u32> {
+pub trait Packable {
+    let N: u32;
+
     /// Packs the current value into a compact array of `Field` elements.
     fn pack(self) -> [Field; N];
 

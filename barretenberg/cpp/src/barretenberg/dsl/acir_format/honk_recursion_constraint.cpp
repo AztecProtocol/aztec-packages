@@ -5,6 +5,7 @@
 // =====================
 
 #include "honk_recursion_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
@@ -17,6 +18,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -214,7 +216,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
     typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input, bool has_valid_witness_assignments)
-    requires IsRecursiveFlavor<Flavor>
+    requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
     using Builder = typename Flavor::CircuitBuilder;
     using RecursiveVerificationKey = Flavor::VerificationKey;
@@ -222,7 +224,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
-    ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK) == HasIPAAccumulator<Flavor>);
+    BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
@@ -252,13 +254,14 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINTS_SIZE;
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size();
+        size_t total_num_public_inputs = input.public_inputs.size();
         if constexpr (HasIPAAccumulator<Flavor>) {
-            size_of_proof_with_no_pub_inputs -= bb::IPA_CLAIM_SIZE;
-        }
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINTS_SIZE;
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            total_num_public_inputs += bb::IPA_CLAIM_SIZE;
+            size_of_proof_with_no_pub_inputs -= RollupIO::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += RollupIO::PUBLIC_INPUTS_SIZE;
+        } else {
+            size_of_proof_with_no_pub_inputs -= DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
+            total_num_public_inputs += DefaultIO<Builder>::PUBLIC_INPUTS_SIZE;
         }
 
         create_dummy_vkey_and_proof<Flavor>(

@@ -61,6 +61,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override;
 
   private:
     TreeSnapshots tree_roots;

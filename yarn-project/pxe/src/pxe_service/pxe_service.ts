@@ -367,6 +367,9 @@ export class PXEService implements PXE {
         contractAddress,
         functionSelector,
         msgSender,
+        // The sender for tags is set by contracts, typically by an account
+        // contract entrypoint
+        undefined, // senderForTags
         scopes,
       );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
@@ -900,7 +903,7 @@ export class PXEService implements PXE {
         }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-        const simulatedTx = privateSimulationResult.toSimulatedTx();
+        const simulatedTx = await privateSimulationResult.toSimulatedTx();
         let publicSimulationTime: number | undefined;
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
@@ -919,7 +922,7 @@ export class PXEService implements PXE {
           }
         }
 
-        const txHash = await simulatedTx.getTxHash();
+        const txHash = simulatedTx.getTxHash();
 
         const totalTime = totalTimer.ms();
 
@@ -974,7 +977,7 @@ export class PXEService implements PXE {
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }

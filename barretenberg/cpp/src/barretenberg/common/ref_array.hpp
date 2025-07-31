@@ -56,6 +56,21 @@ template <typename T, std::size_t N> class RefArray {
     }
 
     /**
+     * @brief Get a copy of the underlying data. Use carefully, as it allocates new data for the data pointed to by the
+     * elements in the RefArray
+     *
+     */
+    std::array<T, N> get_copy()
+    {
+        std::array<T, N> data;
+        for (size_t idx = 0; idx < N; idx++) {
+            data[idx] = *storage[idx];
+        }
+
+        return data;
+    }
+
+    /**
      * @brief Nested iterator class for RefArray, based on indexing into the pointer array.
      * Provides semantics similar to what would be expected if std::array<T&, N> was possible.
      */

@@ -1,111 +1,95 @@
 use crate::test::utils;
-use dep::aztec::oracle::{execution::get_block_number, storage::storage_read};
 use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
 
 use crate::EasyPrivateVoting;
 
 #[test]
 unconstrained fn test_initializer() {
-    let (_, voting_contract_address, admin) = utils::setup();
+    let (mut env, voting_contract_address, admin) = utils::setup();
 
-    let block_number = get_block_number();
-    let admin_slot = EasyPrivateVoting::storage_layout().admin.slot;
-    let admin_storage_value = storage_read(voting_contract_address, admin_slot, block_number);
-    assert(admin_storage_value == admin, "Vote ended should be false");
+    env.public_context_at(voting_contract_address, |context| {
+        let current_admin = context.storage_read(EasyPrivateVoting::storage_layout().admin.slot);
+        assert_eq(current_admin, admin);
+    });
 }
 
 #[test]
 unconstrained fn test_check_vote_status() {
-    let (_, voting_contract_address, _) = utils::setup();
+    let (mut env, voting_contract_address, _) = utils::setup();
 
-    let vote_ended_expected: bool = false;
-
-    let block_number = get_block_number();
-    let status_slot = EasyPrivateVoting::storage_layout().vote_ended.slot;
-    let vote_ended_read: bool = storage_read(voting_contract_address, status_slot, block_number);
-    assert(vote_ended_expected == vote_ended_read, "Vote ended should be false");
+    env.public_context_at(voting_contract_address, |context| {
+        let vote_ended = context.storage_read(EasyPrivateVoting::storage_layout().vote_ended.slot);
+        assert_eq(vote_ended, false);
+    });
 }
 
 #[test]
 unconstrained fn test_end_vote() {
     let (env, voting_contract_address, admin) = utils::setup();
 
-    env.impersonate(admin);
-    EasyPrivateVoting::at(voting_contract_address).end_vote().call(&mut env.public());
+    env.call_public(admin, EasyPrivateVoting::at(voting_contract_address).end_vote());
 
-    let vote_ended_expected = true;
-
-    let block_number = get_block_number();
-    let status_slot = EasyPrivateVoting::storage_layout().vote_ended.slot;
-    let vote_ended_read: bool = storage_read(voting_contract_address, status_slot, block_number);
-    assert(vote_ended_expected == vote_ended_read, "Vote ended should be true");
+    env.public_context_at(voting_contract_address, |context| {
+        let vote_ended = context.storage_read(EasyPrivateVoting::storage_layout().vote_ended.slot);
+        assert_eq(vote_ended, true);
+    });
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "Only admin can end votes")]
 unconstrained fn test_fail_end_vote_by_non_admin() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
 
-    env.impersonate(alice);
-    EasyPrivateVoting::at(voting_contract_address).end_vote().call(&mut env.public());
+    env.call_public(alice, EasyPrivateVoting::at(voting_contract_address).end_vote());
 }
 
 #[test]
 unconstrained fn test_cast_vote() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
-    env.impersonate(alice);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
 
     let candidate = 1;
-    env.mine_block();
-    EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 
-    // Read vote count from storage
-    let block_number = get_block_number();
-    let tally_slot = EasyPrivateVoting::storage_layout().tally.slot;
-    let candidate_tally_slot = derive_storage_slot_in_map(tally_slot, candidate);
-    let vote_count: u32 = storage_read(voting_contract_address, candidate_tally_slot, block_number);
-
-    assert(vote_count == 1, "vote tally should be incremented");
+    env.public_context_at(voting_contract_address, |context| {
+        let vote_count = context.storage_read(derive_storage_slot_in_map(
+            EasyPrivateVoting::storage_layout().tally.slot,
+            candidate,
+        ));
+        assert_eq(vote_count, 1);
+    });
 }
 
 #[test]
 unconstrained fn test_cast_vote_with_separate_accounts() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
-    let bob = env.create_account(3);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let bob = env.create_light_account();
 
     let candidate = 101;
 
-    env.impersonate(alice);
-    env.mine_block();
-    EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 
-    env.impersonate(bob);
-    env.mine_block();
-    EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
+    let _ =
+        env.call_private(bob, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 
-    // Read vote count from storage
-    let block_number = get_block_number();
-    let tally_slot = EasyPrivateVoting::storage_layout().tally.slot;
-    let candidate_tally_slot = derive_storage_slot_in_map(tally_slot, candidate);
-    let vote_count: u32 = storage_read(voting_contract_address, candidate_tally_slot, block_number);
-
-    assert(vote_count == 2, "vote tally should be 2");
+    env.public_context_at(voting_contract_address, |context| {
+        let vote_count = context.storage_read(derive_storage_slot_in_map(
+            EasyPrivateVoting::storage_layout().tally.slot,
+            candidate,
+        ));
+        assert_eq(vote_count, 2);
+    });
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "already exists")]
 unconstrained fn test_fail_vote_twice() {
-    let (env, voting_contract_address, _) = utils::setup();
-    let alice = env.create_account(2);
+    let (mut env, voting_contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
 
     let candidate = 101;
 
-    env.impersonate(alice);
-    env.mine_block();
-    EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 
-    // Vote again as alice
-    env.mine_block();
-    EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
+    env.call_private(alice, EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate));
 }

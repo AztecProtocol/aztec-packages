@@ -11,6 +11,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import {
   type GetContractEventsReturnType,
@@ -21,14 +22,7 @@ import {
   getContract,
 } from 'viem';
 
-import {
-  Offense,
-  type SlasherConfig,
-  WANT_TO_SLASH_EVENT,
-  type WantToSlashArgs,
-  type Watcher,
-  bigIntToOffense,
-} from './config.js';
+import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, bigIntToOffense } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
@@ -67,6 +61,7 @@ export class SlasherClient {
   private monitoredPayloads: MonitoredSlashPayload[] = [];
   private unwatchCallbacks: (() => void)[] = [];
   private overridePayloadActive = false;
+  private slashingExecutionDelayInRounds = 0n;
 
   static async new(
     config: Omit<SlasherConfig, 'slasherPrivateKey'>,
@@ -108,17 +103,18 @@ export class SlasherClient {
 
   //////////////////// Public methods ////////////////////
 
-  public start() {
+  public async start() {
     this.log.debug('Starting Slasher client...');
+    this.slashingExecutionDelayInRounds = await this.slashingProposer.getExecutionDelayInRounds();
 
     // detect when new payloads are created
     this.unwatchCallbacks.push(this.watchSlashFactoryEvents());
 
-    // detect when a proposal is executable
-    this.unwatchCallbacks.push(this.slashingProposer.listenToExecutableProposals(this.executeRoundIfAgree.bind(this)));
+    // detect when a payload is submittable
+    this.unwatchCallbacks.push(this.slashingProposer.listenToSubmittablePayloads(this.submitRoundIfAgree.bind(this)));
 
-    // detect when a proposal is executed
-    this.unwatchCallbacks.push(this.slashingProposer.listenToProposalExecuted(this.proposalExecuted.bind(this)));
+    // detect when a payload is submitted
+    this.unwatchCallbacks.push(this.slashingProposer.listenToPayloadSubmitted(this.payloadSubmitted.bind(this)));
 
     // start each watcher, who will signal the slasher client when they want to slash
     const wantToSlashCb = this.wantToSlash.bind(this);
@@ -159,19 +155,19 @@ export class SlasherClient {
   /**
    * Update the config of the slasher client
    *
-   * @param config - the new config. Can only update the following fields:
-   * - slashOverridePayload
-   * - slashPayloadTtlSeconds
-   * - slashProposerRoundPollingIntervalSeconds
+   * @param config - the new config. Cannot update the slasher private key.
    */
   public updateConfig(config: Partial<SlasherConfig>) {
-    const newConfig: SlasherConfig = {
+    const { slasherPrivateKey: _doNotUpdate, ...configWithoutPrivateKey } = config;
+
+    const newConfig: Omit<SlasherConfig, 'slasherPrivateKey'> = {
       ...this.config,
-      slashOverridePayload: config.slashOverridePayload ?? this.config.slashOverridePayload,
-      slashPayloadTtlSeconds: config.slashPayloadTtlSeconds ?? this.config.slashPayloadTtlSeconds,
-      slashProposerRoundPollingIntervalSeconds:
-        config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
+      ...configWithoutPrivateKey,
     };
+
+    // We keep this separate flag to tell us if we should be signal for the override payload: after the override payload is executed,
+    // the slasher goes back to using the monitored payloads to inform the sequencer publisher what payload to signal for.
+    // So we only want to flip back "on" the voting for override payload if config we just passed in re-set the override payload.
     this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
     this.config = newConfig;
   }
@@ -224,15 +220,15 @@ export class SlasherClient {
    *
    * @param {round: bigint; proposal: `0x${string}`} param0
    */
-  protected proposalExecuted({ round, proposal }: { round: bigint; proposal: `0x${string}` }) {
-    this.log.info('Proposal executed', { round, proposal });
-    const payload = EthAddress.fromString(proposal);
+  protected payloadSubmitted({ round, payload }: { round: bigint; payload: `0x${string}` }) {
+    this.log.info('Payload submitted', { round, payload });
+    const payloadAddress = EthAddress.fromString(payload);
     // Stop signaling for the override payload if it was executed
-    if (this.overridePayloadActive && this.config.slashOverridePayload?.equals(payload)) {
+    if (this.overridePayloadActive && this.config.slashOverridePayload?.equals(payloadAddress)) {
       this.overridePayloadActive = false;
     }
 
-    const index = this.monitoredPayloads.findIndex(p => p.payloadAddress.equals(payload));
+    const index = this.monitoredPayloads.findIndex(p => p.payloadAddress.equals(payloadAddress));
     if (index === -1) {
       return;
     }
@@ -450,40 +446,40 @@ export class SlasherClient {
   }
 
   /**
-   * Execute a round if we agree with the proposal.
+   * Submit a round to the Slasher if we agree with the payload.
    *
-   * Bound to the slashing proposer contract's listenToExecutableProposals method in the constructor.
+   * Bound to the slashing proposer contract's listenToSubmittablePayloads method in the constructor.
    *
    * @param {proposal: `0x${string}`; round: bigint} param0
    */
-  private async executeRoundIfAgree({ proposal, round }: { proposal: `0x${string}`; round: bigint }) {
+  private async submitRoundIfAgree({ payload, round }: { payload: `0x${string}`; round: bigint }) {
     if (!this.l1TxUtils) {
       this.log.warn(
         'Cannot execute slashing proposal: no slasher private key configured. Set SLASHER_PRIVATE_KEY environment variable.',
         {
-          proposal,
+          payload,
           round,
         },
       );
       return;
     }
-    const payload = EthAddress.fromString(proposal);
-    if (!this.monitoredPayloads.find(p => p.payloadAddress.equals(payload))) {
-      this.log.debug('Round executable, but we disagree', { proposal, round });
+    const payloadAddress = EthAddress.fromString(payload);
+    if (!this.monitoredPayloads.find(p => p.payloadAddress.equals(payloadAddress))) {
+      this.log.debug('Round executable, but we disagree', { payload, round });
       return;
     }
 
-    const nextRound = round + 1n;
-    this.log.info(`Waiting for round ${nextRound} to be reached`);
+    const executableRound = round + BigInt(this.slashingExecutionDelayInRounds) + 1n;
+    this.log.info(`Waiting for round ${executableRound} to be reached`);
     const reached = await this.slashingProposer.waitForRound(
-      nextRound,
+      executableRound,
       this.config.slashProposerRoundPollingIntervalSeconds,
     );
     if (!reached) {
-      this.log.warn('Round not reached', { proposal, round });
+      this.log.warn('Round not reached', { payload, round });
       return;
     }
-    this.log.info('Executing round', { proposal, round });
+    this.log.info('Executing round', { payload, round });
 
     await this.slashingProposer
       .executeRound(this.l1TxUtils, round)

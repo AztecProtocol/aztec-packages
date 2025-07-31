@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { recoverAddress } from '@aztec/foundation/crypto';
+import { makeEthSignDigest, recoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -59,6 +59,7 @@ export class PeerManager implements PeerManagerInterface {
   private preferredPeers: Set<string> = new Set();
   private authenticatedPeerIdToValidatorAddress: Map<string, EthAddress> = new Map();
   private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
+  private peersToBeDisconnected: Set<string> = new Set();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -153,9 +154,10 @@ export class PeerManager implements PeerManagerInterface {
   public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
-    await this.updateAuthenticatedPeers();
-
     this.cleanupExpiredTimeouts();
+
+    await this.updateAuthenticatedPeers();
+    await this.processScheduledDisconnects();
 
     this.discover();
   }
@@ -174,6 +176,29 @@ export class PeerManager implements PeerManagerInterface {
       if (now >= timedOutPeer.timeoutUntilMs) {
         this.timedOutPeers.delete(peerId);
       }
+    }
+  }
+
+  /**
+   * Processes scheduled disconnects during heartbeat.
+   *
+   * This batch processes all peers that have been marked for disconnect.
+   * preventing immediate disconnects that could cause libp2p state corruption.
+   */
+  private async processScheduledDisconnects() {
+    if (this.peersToBeDisconnected.size === 0) {
+      return;
+    }
+
+    const peersToDisconnect = Array.from(this.peersToBeDisconnected);
+    this.peersToBeDisconnected.clear();
+
+    this.logger.debug(`Processing ${peersToDisconnect.length} scheduled disconnects`);
+    try {
+      await Promise.all(peersToDisconnect.map(peerIdStr => this.disconnectPeer(peerIdFromString(peerIdStr))));
+      this.logger.verbose(`Disconnected ${peersToDisconnect.length} peers`, { peersToDisconnect });
+    } catch (error) {
+      this.logger.error('Error when disconnecting from peers', error);
     }
   }
 
@@ -314,7 +339,7 @@ export class PeerManager implements PeerManagerInterface {
 
     this.metrics.recordGoodbyeReceived(reason);
 
-    void this.disconnectPeer(peerId);
+    this.markPeerForDisconnect(peerId);
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
@@ -558,15 +583,32 @@ export class PeerManager implements PeerManagerInterface {
     } catch (error) {
       this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}: ${error}`);
     } finally {
-      await this.disconnectPeer(peer);
+      this.markPeerForDisconnect(peer);
     }
   }
 
+  /*
+   * Marks peer to be disconnected on the next heartbeat
+   * */
+  private markPeerForDisconnect(peer: PeerId) {
+    const peerIdStr = peer.toString();
+    this.logger.debug(`Scheduling peer ${peerIdStr} for disconnection`);
+    this.peersToBeDisconnected.add(peerIdStr);
+  }
+
+  /**
+   * Performs the actual disconnection of a peer.
+   * This is called during heartbeat processing to avoid immediate disconnections.
+   */
   private async disconnectPeer(peer: PeerId) {
+    const peerIdStr = peer.toString();
+
     try {
       await this.libP2PNode.hangUp(peer);
+
+      this.logger.debug(`Successfully disconnected peer ${peerIdStr}`);
     } catch (error) {
-      this.logger.debug(`Failed to disconnect peer ${peer.toString()}`, { error: inspect(error) });
+      this.logger.warn(`Failed to disconnect peer ${peerIdStr}`, { error });
     }
   }
 
@@ -578,6 +620,12 @@ export class PeerManager implements PeerManagerInterface {
     // Check that the peer has not already been banned
     const peerId = await enr.peerId();
     const peerIdString = peerId.toString();
+
+    // Don't attempt to connect to peers scheduled for disconnection
+    if (this.peersToBeDisconnected.has(peerIdString)) {
+      this.logger.trace(`Skipping peer scheduled for disconnection ${peerId}`);
+      return;
+    }
 
     // Check if peer is temporarily timed out
     const timedOutPeer = this.timedOutPeers.get(peerIdString);
@@ -723,11 +771,11 @@ export class PeerManager implements PeerManagerInterface {
         //TODO: maybe hard ban these peers in the future.
         //We could allow this to happen up to N times, and then hard ban?
         //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, {
+        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond status handshake`, {
           peerId,
           status: ReqRespStatus[status],
         });
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -735,17 +783,17 @@ export class PeerManager implements PeerManagerInterface {
       const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
       const peerStatusMessage = StatusMessage.fromBuffer(data);
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
-        await this.disconnectPeer(peerId);
+        this.logger.debug(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
+        this.markPeerForDisconnect(peerId);
         return;
       }
       this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.warn(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
+      this.logger.debug(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
         peerId,
       });
-      await this.disconnectPeer(peerId);
+      this.markPeerForDisconnect(peerId);
     }
   }
 
@@ -766,11 +814,11 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
+        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
           peerId,
           status: ReqRespStatus[status],
         });
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -781,13 +829,14 @@ export class PeerManager implements PeerManagerInterface {
 
       const peerStatusMessage = peerAuthResponse.status;
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
-        await this.disconnectPeer(peerId);
+        this.logger.debug(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
       const hashToRecover = authRequest.getPayloadToSign();
-      const sender = recoverAddress(hashToRecover, peerAuthResponse.signature);
+      const ethSignedHash = makeEthSignDigest(hashToRecover);
+      const sender = recoverAddress(ethSignedHash, peerAuthResponse.signature);
       const registeredValidators = await this.epochCache.getRegisteredValidators();
       const found = registeredValidators.find(v => v.toString() === sender.toString()) !== undefined;
       if (!found) {
@@ -798,7 +847,7 @@ export class PeerManager implements PeerManagerInterface {
             address: sender.toString(),
           },
         );
-        await this.disconnectPeer(peerId);
+        this.markPeerForDisconnect(peerId);
         return;
       }
 
@@ -807,7 +856,7 @@ export class PeerManager implements PeerManagerInterface {
       // Check to see that this validator address isn't already allocated to a different peer
       const peerForAddress = this.authenticatedValidatorAddressToPeerId.get(sender.toString());
       if (peerForAddress !== undefined && peerForAddress.toString() !== peerIdString) {
-        this.logger.warn(
+        this.logger.debug(
           `Received auth for validator ${sender.toString()} from peer ${peerIdString}, but this validator is already authenticated to peer ${peerForAddress.toString()}`,
         );
         return;
@@ -821,10 +870,10 @@ export class PeerManager implements PeerManagerInterface {
       );
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
+      this.logger.debug(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
       });
-      await this.disconnectPeer(peerId);
+      this.markPeerForDisconnect(peerId);
     }
   }
 

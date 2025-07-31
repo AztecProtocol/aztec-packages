@@ -114,27 +114,16 @@ template <typename Curve> class OpeningClaim {
     static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, IPA_CLAIM_SIZE>& ipa_claim_limbs)
         requires(std::is_same_v<Curve, curve::Grumpkin>)
     {
-        constexpr size_t NUM_LIMBS = 4;
+        size_t index = 0;
+        std::span<const bb::fr> challenge_limbs = ipa_claim_limbs.subspan(index, FQ_PUBLIC_INPUT_SIZE);
+        index += FQ_PUBLIC_INPUT_SIZE;
+        std::span<const bb::fr> evaluation_limbs = ipa_claim_limbs.subspan(index, FQ_PUBLIC_INPUT_SIZE);
+        index += FQ_PUBLIC_INPUT_SIZE;
+        std::span<const bb::fr> point_limbs = ipa_claim_limbs.subspan(index, 2 * FR_PUBLIC_INPUTS_SIZE);
 
-        const auto recover_fq_from_limbs = [](std::array<bb::fr, NUM_LIMBS> limbs) {
-            const uint256_t limb = uint256_t(limbs[0]) +
-                                   (uint256_t(limbs[1]) << stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                                   (uint256_t(limbs[2]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                                   (uint256_t(limbs[3]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
-            return typename Curve::ScalarField(limb);
-        };
-
-        std::array<bb::fr, NUM_LIMBS> challenge_limbs;
-        std::array<bb::fr, NUM_LIMBS> evaluation_limbs;
-
-        for (size_t k = 0; k < NUM_LIMBS; k++) {
-            challenge_limbs[k] = ipa_claim_limbs[k];
-            evaluation_limbs[k] = ipa_claim_limbs[NUM_LIMBS + k];
-        }
-
-        auto challenge = recover_fq_from_limbs(challenge_limbs);
-        auto evaluation = recover_fq_from_limbs(evaluation_limbs);
-        typename Curve::AffineElement commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
+        auto challenge = fq::reconstruct_from_public(challenge_limbs);
+        auto evaluation = fq::reconstruct_from_public(evaluation_limbs);
+        typename Curve::AffineElement commitment = Curve::AffineElement::reconstruct_from_public(point_limbs);
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }

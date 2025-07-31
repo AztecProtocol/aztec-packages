@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Deserialize, FromField, Packable, Serialize, ToField};
+use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize, ToField};
 use std::meta::derive;
 
 global ADMIN_FLAG: u64 = 1;
@@ -7,13 +7,15 @@ global BLACKLIST_FLAG: u64 = 4;
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct UserFlags {
-    is_admin: bool,
-    is_minter: bool,
-    is_blacklisted: bool,
+    pub is_admin: bool,
+    pub is_minter: bool,
+    pub is_blacklisted: bool,
 }
 
-impl Packable<1> for UserFlags {
-    fn pack(self) -> [Field; 1] {
+impl Packable for UserFlags {
+    let N: u32 = 1;
+
+    fn pack(self) -> [Field; Self::N] {
         let mut value: u64 = 0;
 
         if self.is_admin {
@@ -31,7 +33,7 @@ impl Packable<1> for UserFlags {
         [value.to_field()]
     }
 
-    fn unpack(fields: [Field; 1]) -> Self {
+    fn unpack(fields: [Field; Self::N]) -> Self {
         let value: u64 = fields[0] as u64;
         let is_admin = value & ADMIN_FLAG == ADMIN_FLAG;
         let is_minter = value & MINTER_FLAG == MINTER_FLAG;

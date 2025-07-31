@@ -33,8 +33,9 @@ void TranslatorProver::execute_preamble_round()
 {
     // Fiat-Shamir the vk hash
     Flavor::VerificationKey vk;
-    typename Flavor::FF vkey_hash = vk.add_hash_to_transcript("", *transcript);
-    vinfo("Translator vk hash in prover: ", vkey_hash);
+    typename Flavor::FF vk_hash = vk.hash();
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("Translator vk hash in prover: ", vk_hash);
 
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
     const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);

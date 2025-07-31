@@ -13,7 +13,6 @@ pub contract NFT {
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateContext, PublicContext},
         macros::{
-            events::event,
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
@@ -32,12 +31,12 @@ pub contract NFT {
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
-    #[event]
-    struct NFTTransfer {
-        from: AztecAddress,
-        to: AztecAddress,
-        token_id: Field,
-    }
+    // #[event]
+    // struct NFTTransfer {
+    //     from: AztecAddress,
+    //     to: AztecAddress,
+    //     token_id: Field,
+    // }
 
     // docs:start:storage_struct
     #[storage]
@@ -192,16 +191,13 @@ pub contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> PartialNFTNote {
-        let sender_and_completer = context.msg_sender();
-
         // We setup a partial note with unpopulated/zero token id for 'to'.
         let partial_note = NFTNote::partial(
             to,
             storage.private_nfts.at(to).storage_slot,
             context,
             to,
-            sender_and_completer,
-            sender_and_completer,
+            context.msg_sender(),
         );
 
         partial_note
@@ -304,7 +300,7 @@ pub contract NFT {
 
         let new_note = NFTNote::new(token_id, to);
 
-        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to, from));
+        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to));
     }
     // docs:end:transfer_in_private
 
@@ -360,7 +356,7 @@ pub contract NFT {
         let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
         for i in 0..options.limit {
             if i < notes.len() {
-                owned_nft_ids[i] = notes.get_unchecked(i).token_id;
+                owned_nft_ids[i] = notes.get_unchecked(i).get_token_id();
             }
         }
 

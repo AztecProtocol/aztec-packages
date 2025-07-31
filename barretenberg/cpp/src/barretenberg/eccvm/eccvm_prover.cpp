@@ -45,8 +45,9 @@ void ECCVMProver::execute_preamble_round()
 
     // Fiat-Shamir the vk hash
     VerificationKey vk;
-    typename Flavor::BF vkey_hash = vk.add_hash_to_transcript("", *transcript);
-    vinfo("ECCVM vk hash in prover: ", vkey_hash);
+    typename Flavor::BF vk_hash = vk.hash();
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("ECCVM vk hash in prover: ", vk_hash);
 }
 
 /**
@@ -102,8 +103,10 @@ void ECCVMProver::execute_log_derivative_commitments_round()
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
-    compute_logderivative_inverse<typename Flavor::FF, typename Flavor::LookupRelation>(
-        key->polynomials, relation_parameters, unmasked_witness_size);
+    compute_logderivative_inverse<typename Flavor::FF,
+                                  typename Flavor::LookupRelation,
+                                  typename Flavor::ProverPolynomials,
+                                  true>(key->polynomials, relation_parameters, unmasked_witness_size);
     commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
 }
 

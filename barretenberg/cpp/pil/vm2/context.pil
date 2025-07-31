@@ -70,7 +70,7 @@ namespace execution;
     pol commit prev_l1_l2_tree_size;
 
     // Next Tree State
-    pol commit note_hash_tree_root;
+    pol commit note_hash_tree_root; // TODO: Constrain root, sizes and emitted not changing unless specific opcode selectors are on
     pol commit note_hash_tree_size;
     pol commit num_note_hashes_emitted;
 
@@ -86,6 +86,13 @@ namespace execution;
 
     pol commit l1_l2_tree_root;
     pol commit l1_l2_tree_size;
+
+    // Side effects state // TODO(alvaro): Add to context stack and restore
+    pol commit num_unencrypted_logs; // TODO: Constrain counts changing unless specific opcode selectors are on
+
+
+    // Next side effects state
+    pol commit next_num_unencrypted_logs;
 
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs

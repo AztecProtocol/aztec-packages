@@ -1,4 +1,5 @@
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <gtest/gtest.h>
@@ -17,7 +18,7 @@ class EccOpsTableTest : public ::testing::Test {
         virtual Op generate_random_op() const = 0;
         std::vector<std::vector<Op>> generate_subtables(size_t num_subtables, std::vector<size_t> ops_per_table)
         {
-            ASSERT(num_subtables == ops_per_table.size());
+            BB_ASSERT_EQ(num_subtables, ops_per_table.size());
             std::vector<std::vector<Op>> subtables;
             subtables.reserve(num_subtables);
             for (size_t i = 0; i < num_subtables; ++i) {
@@ -124,6 +125,7 @@ TEST(EccOpsTableTest, UltraOpsTablePrependOnly)
         for (const auto& op : subtable_ops) {
             ultra_ops_table.push(op);
         }
+        ultra_ops_table.merge();
     }
 
     std::reverse(subtables.begin(), subtables.end());
@@ -163,10 +165,11 @@ TEST(EccOpsTableTest, UltraOpsPrependThenAppend)
                                                                 MergeSettings::PREPEND,
                                                                 MergeSettings::APPEND };
     for (const auto& [subtable_ops, setting] : zip_view(subtables, merge_settings)) {
-        ultra_ops_table.create_new_subtable(setting);
+        ultra_ops_table.create_new_subtable();
         for (const auto& op : subtable_ops) {
             ultra_ops_table.push(op);
         }
+        ultra_ops_table.merge(setting);
     }
 
     std::vector<std::vector<UltraOp>> ordered_subtables;
@@ -214,6 +217,7 @@ TEST(EccOpsTableTest, EccvmOpsTable)
         for (const auto& op : subtable_ops) {
             eccvm_ops_table.push(op);
         }
+        eccvm_ops_table.merge();
     }
 
     std::reverse(subtables.begin(), subtables.end());
@@ -254,10 +258,11 @@ TEST(EccOpsTableTest, EccvmOpsTablePrependThenAppend)
     // Construct the concatenated eccvm ops table
     EccvmOpsTable eccvm_ops_table;
     for (const auto& [subtable_ops, setting] : zip_view(subtables, merge_settings)) {
-        eccvm_ops_table.create_new_subtable(setting);
+        eccvm_ops_table.create_new_subtable();
         for (const auto& op : subtable_ops) {
             eccvm_ops_table.push(op);
         }
+        eccvm_ops_table.merge(setting);
     }
 
     std::vector<std::vector<ECCVMOperation>> ordered_subtables;

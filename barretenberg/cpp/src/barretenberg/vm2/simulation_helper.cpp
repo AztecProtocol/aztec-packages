@@ -95,10 +95,13 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
     typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
     typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    typename S::template DefaultEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    typename S::template DefaultEventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
     typename S::template DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
+    typename S::template DefaultEventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
     typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
     typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
@@ -115,15 +118,17 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
     typename S::template DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     typename S::template DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
+    typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
+    typename S::template DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
 
     ExecutionIdManager execution_id_manager(1);
-    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
-    ToRadix to_radix(to_radix_emitter);
-    Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
-    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
+    ToRadix to_radix(execution_id_manager, greater_than, to_radix_emitter, to_radix_memory_emitter);
+    Poseidon2 poseidon2(
+        execution_id_manager, greater_than, poseidon2_hash_emitter, poseidon2_perm_emitter, poseidon2_perm_mem_emitter);
+    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2,
@@ -134,11 +139,14 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
-    Alu alu(greater_than, alu_emitter);
+    L1ToL2MessageTreeCheck l1_to_l2_msg_tree_check(merkle_check, l1_to_l2_msg_tree_check_emitter);
+    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
+    Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
 
+    Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(hints);
@@ -149,10 +157,12 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                        public_data_tree_check,
                        nullifier_tree_check,
                        note_hash_tree_check,
-                       written_public_data_slots_tree_check);
+                       written_public_data_slots_tree_check,
+                       l1_to_l2_msg_tree_check);
     merkle_db.add_checkpoint_listener(note_hash_tree_check);
     merkle_db.add_checkpoint_listener(nullifier_tree_check);
     merkle_db.add_checkpoint_listener(public_data_tree_check);
+    merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
 
     UpdateCheck update_check(poseidon2, range_check, merkle_db, update_check_emitter, hints.globalVariables);
 
@@ -193,6 +203,9 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu,
                         bitwise,
                         data_copy,
+                        poseidon2,
+                        ecc,
+                        to_radix,
                         execution_components,
                         context_provider,
                         instruction_info_db,
@@ -202,8 +215,15 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         keccakf1600,
                         greater_than,
                         get_contract_instance,
+                        emit_unencrypted_log_component,
                         merkle_db);
-    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
+    TxExecution tx_execution(execution,
+                             context_provider,
+                             merkle_db,
+                             written_public_data_slots_tree_check,
+                             field_gt,
+                             poseidon2,
+                             tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
 
@@ -223,10 +243,13 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         sha256_compression_emitter.dump_events(),
         ecc_add_emitter.dump_events(),
         scalar_mul_emitter.dump_events(),
+        ecc_add_memory_emitter.dump_events(),
         poseidon2_hash_emitter.dump_events(),
         poseidon2_perm_emitter.dump_events(),
+        poseidon2_perm_mem_emitter.dump_events(),
         keccakf1600_emitter.dump_events(),
         to_radix_emitter.dump_events(),
+        to_radix_memory_emitter.dump_events(),
         field_gt_emitter.dump_events(),
         greater_than_emitter.dump_events(),
         merkle_check_emitter.dump_events(),
@@ -242,6 +265,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         written_public_data_slots_tree_check_emitter.dump_events(),
         contract_instance_retrieval_emitter.dump_events(),
         get_contract_instance_emitter.dump_events(),
+        l1_to_l2_msg_tree_check_emitter.dump_events(),
+        emit_unencrypted_log_emitter.dump_events(),
     };
 }
 

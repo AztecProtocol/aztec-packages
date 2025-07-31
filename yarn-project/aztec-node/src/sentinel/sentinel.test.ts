@@ -4,7 +4,6 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
-import type { SlasherConfig } from '@aztec/slasher/config';
 import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
@@ -14,6 +13,7 @@ import {
   getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, randomPublishedL2Block } from '@aztec/stdlib/testing';
 import type {

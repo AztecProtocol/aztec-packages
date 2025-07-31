@@ -1,9 +1,11 @@
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import { type AztecNodeAdmin, AztecNodeAdminApiSchema } from './aztec-node-admin.js';
 import type { SequencerConfig } from './configs.js';
 import type { ProverConfig } from './prover-client.js';
+import type { SlasherConfig } from './slasher.js';
 
 describe('AztecNodeAdminApiSchema', () => {
   let handler: MockAztecNodeAdmin;
@@ -26,12 +28,16 @@ describe('AztecNodeAdminApiSchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('setConfig', async () => {
-    await context.client.setConfig({ coinbase: EthAddress.random() });
+  it('getConfig', async () => {
+    const config = await context.client.getConfig();
+    expect(config).toMatchObject({
+      coinbase: expect.any(EthAddress),
+      maxTxPoolSize: expect.any(Number),
+    });
   });
 
-  it('flushTxs', async () => {
-    await context.client.flushTxs();
+  it('setConfig', async () => {
+    await context.client.setConfig({ coinbase: EthAddress.random() });
   });
 
   it('startSnapshotUpload', async () => {
@@ -53,12 +59,34 @@ describe('AztecNodeAdminApiSchema', () => {
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
   constructor() {}
-  setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
+  setConfig(config: Partial<SequencerConfig & ProverConfig & SlasherConfig>): Promise<void> {
     expect(config.coinbase).toBeInstanceOf(EthAddress);
     return Promise.resolve();
   }
-  flushTxs(): Promise<void> {
-    return Promise.resolve();
+  getConfig(): Promise<SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }> {
+    return Promise.resolve({
+      realProofs: false,
+      proverTestDelayType: 'fixed',
+      proverTestDelayMs: 100,
+      proverTestDelayFactor: 1,
+      proverAgentCount: 1,
+      coinbase: EthAddress.random(),
+      maxTxPoolSize: 1000,
+      slashPayloadTtlSeconds: 1000,
+      slashPruneEnabled: false,
+      slashPrunePenalty: 1000n,
+      slashPruneMaxPenalty: 1000n,
+      slashInvalidBlockEnabled: false,
+      slashInvalidBlockPenalty: 1000n,
+      slashInvalidBlockMaxPenalty: 1000n,
+      slashInactivityEnabled: false,
+      slashInactivityCreateTargetPercentage: 0.5,
+      slashInactivitySignalTargetPercentage: 0.5,
+      slashInactivityCreatePenalty: 1000n,
+      slashInactivityMaxPenalty: 1000n,
+      slashProposerRoundPollingIntervalSeconds: 1000,
+      slasherPrivateKey: new SecretValue<string | undefined>(undefined),
+    });
   }
   startSnapshotUpload(_location: string): Promise<void> {
     return Promise.resolve();

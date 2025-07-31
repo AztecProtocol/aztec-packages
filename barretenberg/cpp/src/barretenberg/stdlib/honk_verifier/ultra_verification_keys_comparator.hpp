@@ -32,8 +32,7 @@ static void compare_ultra_blocks_and_verification_keys(
 
     size_t block_idx = 0;
     for (auto [block_0, block_1] : zip_view(blocks[0].get(), blocks[1].get())) {
-        BB_ASSERT_EQ(block_0.selectors.size(), static_cast<size_t>(13));
-        BB_ASSERT_EQ(block_1.selectors.size(), static_cast<size_t>(13));
+        BB_ASSERT_EQ(block_0.selectors.size(), block_1.selectors.size());
         size_t selector_idx = 0;
         for (auto [p_10, p_11] : zip_view(block_0.selectors, block_1.selectors)) {
             check_eq(p_10, p_11, block_idx, selector_idx);
@@ -51,7 +50,7 @@ static void compare_ultra_blocks_and_verification_keys(
         }
     }
 
-    BB_ASSERT_EQ(verification_keys[0]->circuit_size, verification_keys[1]->circuit_size);
+    BB_ASSERT_EQ(verification_keys[0]->log_circuit_size, verification_keys[1]->log_circuit_size);
     BB_ASSERT_EQ(verification_keys[0]->num_public_inputs, verification_keys[1]->num_public_inputs);
     BB_ASSERT_EQ(verification_keys[0]->pub_inputs_offset, verification_keys[1]->pub_inputs_offset);
 

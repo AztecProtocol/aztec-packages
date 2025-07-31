@@ -14,22 +14,23 @@ contract SlashingProposer is IEmpire, EmpireBase {
   address public immutable INSTANCE;
   ISlasher public immutable SLASHER;
 
-  constructor(address _instance, ISlasher _slasher, uint256 _slashingQuorum, uint256 _roundSize)
-    EmpireBase(_slashingQuorum, _roundSize)
-  {
+  constructor(
+    address _instance,
+    ISlasher _slasher,
+    uint256 _slashingQuorum,
+    uint256 _roundSize,
+    uint256 _lifetimeInRounds,
+    uint256 _executionDelayInRounds
+  ) EmpireBase(_slashingQuorum, _roundSize, _lifetimeInRounds, _executionDelayInRounds) {
     INSTANCE = _instance;
     SLASHER = _slasher;
-  }
-
-  function getExecutor() public view override(EmpireBase, IEmpire) returns (address) {
-    return address(SLASHER);
   }
 
   function getInstance() public view override(EmpireBase, IEmpire) returns (address) {
     return INSTANCE;
   }
 
-  function _execute(IPayload _proposal) internal override(EmpireBase) returns (bool) {
-    return SLASHER.slash(_proposal);
+  function _handleRoundWinner(IPayload _payload) internal override(EmpireBase) returns (bool) {
+    return SLASHER.slash(_payload);
   }
 }
