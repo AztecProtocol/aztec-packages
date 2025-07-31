@@ -31,7 +31,7 @@ Last, copy-paste the code from the `Token` contract into `contracts/token/main.n
 ### Helper files
 
 :::info
-Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using TXE tests in this tutorial.
+Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using Noir tests in this tutorial.
 :::
 
 The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
