@@ -53,8 +53,9 @@ use dep::protocol_types::{
 ///
 /// 2. Unconstrained encryption, offchain message
 /// This combination is useful when we either trust the sender to behave or the sender is incentivised to deliver the
-/// message. Let's consider a payment app.
-///
+/// message. Let's consider a payment app. When you are buying groceries, the merchant can consider the payment successful
+/// once he receives the payment message, can successfully decrypt it and see that its contents correspond to a valid
+/// token note.
 pub struct PrivateLogContentConstraintsEnum {
     /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
     /// the private log stream and hence is submitted to L1 blobs and consumes DA.
