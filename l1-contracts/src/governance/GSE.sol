@@ -18,12 +18,14 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
+// Struct to store configuration of an attester (block producer)
+// Keep track of the actor who can initiate and control withdraws for the attester.
 struct AttesterConfig {
   address withdrawer;
 }
 
-// Struct to track the attesters on a particular rollup instance throughout time,
-// along with each attester's current config.
+// Struct to track the attesters (block producers) on a particular rollup instance
+// throughout time, along with each attester's current config.
 // Finally a flag to track if the instance exists.
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
@@ -41,7 +43,7 @@ interface IGSECore {
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
   function voteWithBonus(uint256 _proposalId, uint256 _amount, bool _support) external;
-  function finaliseHelper(uint256 _withdrawalId) external;
+  function finaliseWithdraw(uint256 _withdrawalId) external;
   function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
@@ -211,6 +213,7 @@ contract GSECore is IGSECore, Ownable {
 
   /**
    * @param __owner - The owner of the GSE.
+   *                  Initially a deployer to allow adding an initial rollup, then handed over to governance.
    * @param _stakingAsset - The asset that is used for staking.
    * @param _activationThreshold - The amount of staking asset required to deposit an attester on the rollup.
    * @param _ejectionThreshold - The minimum amount of staking asset required to be in the set to be considered an attester.
@@ -218,9 +221,12 @@ contract GSECore is IGSECore, Ownable {
    *                        a staked amount to reduce is to either withdraw the entire amount or be slashed.
    *                        If the balance falls below the minimum stake, the attester is removed from the set.
    */
-  constructor(address __owner, IERC20 _stakingAsset, uint256 _activationThreshold, uint256 _ejectionThreshold)
-    Ownable(__owner)
-  {
+  constructor(
+    address __owner,
+    IERC20 _stakingAsset,
+    uint256 _activationThreshold,
+    uint256 _ejectionThreshold
+  ) Ownable(__owner) {
     STAKING_ASSET = _stakingAsset;
     ACTIVATION_THRESHOLD = _activationThreshold;
     EJECTION_THRESHOLD = _ejectionThreshold;
@@ -390,10 +396,8 @@ contract GSECore is IGSECore, Ownable {
       delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
 
-      // Update the delegatee to address(0) when removing
-      // This reduces the voting power of the attester's delegatee by the amount withdrawn
-      // by moving it to address(0).
-      delegation.delegate(withdrawingInstance, _attester, address(0));
+      // When removing the user, remove the delegating as well.
+      delegation.undelegate(withdrawingInstance, _attester);
     }
 
     // Decrease the balance of the attester in the instance.
@@ -419,7 +423,7 @@ contract GSECore is IGSECore, Ownable {
    *
    * @param _withdrawalId - The id of the withdrawal
    */
-  function finaliseHelper(uint256 _withdrawalId) external override(IGSECore) {
+  function finaliseWithdraw(uint256 _withdrawalId) external override(IGSECore) {
     Governance gov = getGovernance();
     if (!gov.getWithdrawal(_withdrawalId).claimed) {
       gov.finaliseWithdraw(_withdrawalId);
@@ -464,7 +468,10 @@ contract GSECore is IGSECore, Ownable {
    * @notice  Delegates the voting power of `_attester` at `_instance` to `_delegatee`
    *
    *          Only callable by the `withdrawer` for the given `_attester` at the given
-   *          `_instance`.
+   *          `_instance`. This is to ensure that the depositor in poor mans delegation;
+   *          listing another entity as the `attester`, still controls his voting poewr,
+   *          even if someone else is running the node. Separately, it makes it simpler
+   *          to use cold-storage for more impactful actions.
    *
    * @dev The delegatee may use this voting power to vote on proposals in Governance.
    *
@@ -592,9 +599,12 @@ contract GSE is IGSE, GSECore {
   using Checkpoints for Checkpoints.Trace224;
   using DelegationLib for DelegationData;
 
-  constructor(address __owner, IERC20 _stakingAsset, uint256 _activationThreshold, uint256 _ejectionThreshold)
-    GSECore(__owner, _stakingAsset, _activationThreshold, _ejectionThreshold)
-  {}
+  constructor(
+    address __owner,
+    IERC20 _stakingAsset,
+    uint256 _activationThreshold,
+    uint256 _ejectionThreshold
+  ) GSECore(__owner, _stakingAsset, _activationThreshold, _ejectionThreshold) {}
 
   function getConfig(address _instance, address _attester)
     external

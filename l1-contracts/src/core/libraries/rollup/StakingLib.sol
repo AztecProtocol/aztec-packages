@@ -150,7 +150,7 @@ library StakingLib {
 
     delete store.exits[_attester];
 
-    store.gse.finaliseHelper(exit.withdrawalId);
+    store.gse.finaliseWithdraw(exit.withdrawalId);
     store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
     emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);

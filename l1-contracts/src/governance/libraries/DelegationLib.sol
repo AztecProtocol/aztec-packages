@@ -124,6 +124,10 @@ library DelegationLib {
     moveVotingPower(_self, oldDelegate, _delegatee, getBalanceOf(_self, _instance, _attester));
   }
 
+  function undelegate(DelegationData storage _self, address _instance, address _attester) internal {
+    delegate(_self, _instance, _attester, address(0));
+  }
+
   function getBalanceOf(DelegationData storage _self, address _instance, address _attester)
     internal
     view
