@@ -885,7 +885,7 @@ impl PrivateContext {
     /// * `recipient` - Ethereum address that will receive the message
     /// * `content` - Message content (32 bytes as a Field element).
     ///               This content has a very specific layout.
-    ///
+    /// docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         // docs:end:context_message_portal
         let message = L2ToL1Message { recipient, content };
