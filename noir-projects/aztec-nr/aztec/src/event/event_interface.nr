@@ -5,7 +5,7 @@ use crate::{
         logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
         offchain_messages::emit_offchain_message,
     },
-    utils::remove_constraints::{remove_constraints, remove_constraints_if},
+    utils::remove_constraints::remove_constraints_if,
 };
 use dep::protocol_types::{
     address::AztecAddress,
@@ -61,7 +61,7 @@ use dep::protocol_types::{
 ///
 /// Other combinations like unconstrained encryption, unconstrained tagging, private log stream don't seem to be
 /// meaningful because they are way costlier that combination 2 above while providing no additional guarantees.
-pub struct MessageEmissionConfigEnum {
+pub struct MessageDeliveryEnum {
     /// Constrained encryption + constrained tagging + private log stream
     ///
     /// This gives us an on-chain guarantee that a recipient is able to discover and receive a message.
@@ -82,7 +82,7 @@ pub struct MessageEmissionConfigEnum {
     pub UNCONSTRAINED_ONCHAIN: u8,
 }
 
-pub global MessageEmissionConfig: MessageEmissionConfigEnum = MessageEmissionConfigEnum {
+pub global MessageDelivery: MessageDeliveryEnum = MessageDeliveryEnum {
     CONSTRAINED_ONCHAIN: 1,
     UNCONSTRAINED_OFFCHAIN: 2,
     UNCONSTRAINED_ONCHAIN: 3,
@@ -92,8 +92,8 @@ pub global MessageEmissionConfig: MessageEmissionConfigEnum = MessageEmissionCon
 /// Emits an event in a private log, encrypting it such that only `recipient` will learn of its contents. The log will
 /// be tagged using a shared secret between `sender` and `recipient`, so that `recipient` can efficiently find the log.
 ///
-/// The `constraints` value determines what parts of this computation will be constrained. See the documentation for
-/// each value in `MessageEmissionConfigEnum` to learn more about the different variants.
+/// The `delivery_mode` value determines what parts of this computation will be constrained. See the documentation for
+/// each value in `MessageDeliveryEnum` to learn more about the different variants.
 ///
 /// Emits an event as an offchain message. Similar to private log emission but uses offchain message mechanism instead.
 ///
@@ -108,19 +108,19 @@ pub fn emit_event_in_private<Event>(
     event: Event,
     context: &mut PrivateContext,
     recipient: AztecAddress,
-    constraints: u8,
+    delivery_mode: u8,
 )
 where
     Event: EventInterface + Serialize,
 {
-    // This function relies on `constraints` being a constant in order to reduce circuit constraints when unconstrained
-    // usage is requested. If `constraints` were a runtime value then performance would suffer.
-    assert_constant(constraints);
+    // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when unconstrained
+    // usage is requested. If `delivery_mode` were a runtime value then performance would suffer.
+    assert_constant(delivery_mode);
 
     // The following maps out the 3 dimensions across which we configure message delivery.
-    let unconstrained_encryption = constraints != MessageEmissionConfig.CONSTRAINED_ONCHAIN;
-    let emit_as_offchain_message = constraints == MessageEmissionConfig.UNCONSTRAINED_OFFCHAIN;
-    let _constrained_tagging = constraints == MessageEmissionConfig.CONSTRAINED_ONCHAIN;
+    let unconstrained_encryption = delivery_mode != MessageDelivery.CONSTRAINED_ONCHAIN;
+    let emit_as_offchain_message = delivery_mode == MessageDelivery.UNCONSTRAINED_OFFCHAIN;
+    let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
 
     let (ciphertext, randomness) = remove_constraints_if(
         unconstrained_encryption,
@@ -149,6 +149,7 @@ where
     }
 }
 
+// TODO: rename to emit_event_in_public
 pub fn emit_event_in_public_log<Event>(event: Event, context: &mut PublicContext)
 where
     Event: EventInterface + Serialize,

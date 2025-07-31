@@ -3,9 +3,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract TestLog {
     use aztec::{
-        event::event_interface::{
-            emit_event_in_private, emit_event_in_public_log, MessageEmissionConfig,
-        },
+        event::event_interface::{emit_event_in_private, emit_event_in_public_log, MessageDelivery},
         macros::{events::event, functions::{private, public}, storage::storage},
         protocol_types::{address::AztecAddress, traits::FromField},
         state_vars::PrivateSet,
@@ -37,7 +35,7 @@ pub contract TestLog {
             event0,
             &mut context,
             context.msg_sender(),
-            MessageEmissionConfig.CONSTRAINED_ONCHAIN,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
         );
 
         // We duplicate the emission, but swapping the sender and recipient:
@@ -45,7 +43,7 @@ pub contract TestLog {
             event0,
             &mut context,
             other,
-            MessageEmissionConfig.CONSTRAINED_ONCHAIN,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
         );
 
         let event1 = ExampleEvent1 {
@@ -57,7 +55,7 @@ pub contract TestLog {
             event1,
             &mut context,
             context.msg_sender(),
-            MessageEmissionConfig.CONSTRAINED_ONCHAIN,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 

@@ -20,7 +20,7 @@ pub contract Token {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext, PublicContext},
-        event::event_interface::{emit_event_in_private, MessageEmissionConfig},
+        event::event_interface::{emit_event_in_private, MessageDelivery},
         macros::{
             events::event,
             functions::{authorize_once, initializer, internal, private, public, utility, view},
@@ -305,7 +305,7 @@ pub contract Token {
             Transfer { from, to, amount },
             &mut context,
             to,
-            MessageEmissionConfig.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
         // docs:end:encrypted_unconstrained
     }
