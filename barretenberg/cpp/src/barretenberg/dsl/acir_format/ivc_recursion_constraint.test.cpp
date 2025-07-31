@@ -276,7 +276,8 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/4, trace_settings);
+    // 4 ciruits and the tail kernel
+    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
 
     // construct a mock app_circuit
     Builder app_circuit_0 = construct_mock_app_circuit(ivc);
@@ -301,6 +302,12 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     EXPECT_TRUE(CircuitChecker::check(kernel_1));
     ivc->accumulate(kernel_1, construct_kernel_vk_from_acir_program(program_1, trace_settings));
 
+    // Now we add the tail kernel
+    EXPECT_EQ(ivc->verification_queue.size(), 1);
+    EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG_TAIL);
+    AcirProgram tail_program = construct_mock_kernel_program(ivc->verification_queue);
+    Builder tail_kernel = acir_format::create_circuit<Builder>(tail_program, metadata);
+    ivc->accumulate(tail_kernel, construct_kernel_vk_from_acir_program(tail_program, trace_settings));
     EXPECT_TRUE(ivc->prove_and_verify());
 }
 
