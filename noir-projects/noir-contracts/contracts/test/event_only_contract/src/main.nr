@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 #[aztec]
 contract EventOnly {
     use aztec::{
-        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
+        event::event_interface::{emit_event_in_private_log, MessageEmissionConfig},
         macros::{events::event, functions::private},
     };
 
@@ -21,7 +21,7 @@ contract EventOnly {
             TestEvent { value },
             &mut context,
             sender,
-            PrivateLogContent.NO_CONSTRAINTS,
+            MessageEmissionConfig.NO_CONSTRAINTS,
         );
     }
 }

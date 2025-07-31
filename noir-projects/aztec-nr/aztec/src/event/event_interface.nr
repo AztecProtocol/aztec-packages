@@ -61,7 +61,7 @@ use dep::protocol_types::{
 ///
 /// Other combinations like unconstrained encryption, unconstrained tagging, private log stream don't seem to be
 /// meaningful because they are way costlier that combination 2 above while providing no additional guarantees.
-pub struct PrivateLogContentConstraintsEnum {
+pub struct MessageEmissionConfigEnum {
     /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
     /// the private log stream and hence is submitted to L1 blobs and consumes DA.
     ///
@@ -88,7 +88,7 @@ pub struct PrivateLogContentConstraintsEnum {
     pub OFFCHAIN_MESSAGE: u8,
 }
 
-pub global PrivateLogContent: PrivateLogContentConstraintsEnum = PrivateLogContentConstraintsEnum {
+pub global MessageEmissionConfig: MessageEmissionConfigEnum = MessageEmissionConfigEnum {
     NO_CONSTRAINTS: 1,
     CONSTRAINED_ENCRYPTION: 2,
     OFFCHAIN_MESSAGE: 3,
@@ -99,7 +99,7 @@ pub global PrivateLogContent: PrivateLogContentConstraintsEnum = PrivateLogConte
 /// be tagged using a shared secret between `sender` and `recipient`, so that `recipient` can efficiently find the log.
 ///
 /// The `constraints` value determines what parts of this computation will be constrained. See the documentation for
-/// each value in `PrivateLogContentConstraintsEnum` to learn more about the different variants.
+/// each value in `MessageEmissionConfigEnum` to learn more about the different variants.
 pub fn emit_event_in_private_log<Event>(
     event: Event,
     context: &mut PrivateContext,
@@ -114,7 +114,7 @@ where
     assert_constant(constraints);
 
     let (ciphertext, randomness) = remove_constraints_if(
-        constraints == PrivateLogContent.NO_CONSTRAINTS,
+        constraints == MessageEmissionConfig.NO_CONSTRAINTS,
         || to_encrypted_private_event_message(event, recipient),
     );
     let log_content = prefix_with_tag(ciphertext, recipient);
