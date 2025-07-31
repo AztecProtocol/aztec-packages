@@ -43,15 +43,18 @@ use dep::protocol_types::{
 ///
 ///
 /// # Message authenticity
-/// Note that we always commit to the plaintext and the recipient is therefore always able to verify the authenticity
-/// of the message no matter the delivery mechanism.
+/// Note that we always commit to the plaintext and the recipient is therefore always able to verify
+/// the authenticity of the message no matter the delivery mechanism.
 ///
 ///
 /// # Message Delivery Variants and Their Use Cases
 ///
 /// The following section outlines the recommended delivery variants and when to use each one.
-/// Each variant represents a different tradeoff between security guarantees, gas costs, and trust assumptions.
-/// - We are currently still exploring the design space but it seems that there are only 2 meaningful combinations:
+/// Each variant represents a different tradeoff between security guarantees, gas costs, and trust
+/// assumptions.
+///
+/// We are currently still exploring the design space but it seems that there are only 2 meaningful
+/// combinations:
 ///
 /// +--------------------------------------------------------------------------------------------------------+
 /// | 1. Constrained encryption, constrained tagging, private log stream                                     |
@@ -79,9 +82,9 @@ use dep::protocol_types::{
 /// +--------------------------------------------------------------------------------------------------------+
 ///
 ///
-/// Other combinations like unconstrained encryption, unconstrained tagging, private log stream don't seem to be
-/// meaningful because they are way costlier that combination 2 above while providing no meaningful additional
-/// guarantees.
+/// Other combinations like unconstrained encryption, unconstrained tagging, private log stream don't seem
+/// to be meaningful because they are costlier than combination 2 above while providing no meaningful
+/// additional guarantees.
 pub struct MessageDeliveryEnum {
     /// Constrained encryption + constrained tagging + private log stream
     ///
