@@ -1,6 +1,7 @@
 import { chunk } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
+import { sleep } from '@aztec/foundation/sleep';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { type Tx, type TxArray, TxHash } from '@aztec/stdlib/tx';
 
@@ -19,7 +20,8 @@ const DUMB_PEERS_TO_QUERY_IN_PARALLEL = 10;
 export class BatchTxRequester {
   private readonly peers: PeerId[];
   private readonly smartPeers = new Set<string>();
-  private readonly badPeers = new Set<string>();
+  private readonly badPeers = new Map<string, number>();
+  private readonly inFlightPeers = new Set<string>();
 
   private readonly txsMetadata;
 
@@ -40,8 +42,11 @@ export class BatchTxRequester {
       missingTxs.map(txHash => [txHash.toString(), new MissingTxMetadata(txHash)]),
     );
     this.peers = this.connectionSampler.getPeerListSortedByConnectionCountAsc();
+    console.log(this.peers);
+
+    //Pinned peer is queried separately and thus always considered "in-flight" by both "dumb" and "smart" requester
     if (this.pinnedPeer) {
-      this.smartPeers.add(this.pinnedPeer.toString());
+      this.inFlightPeers.add(pinnedPeer!.toString());
     }
 
     this.deadline = Date.now() + this.timeoutMs;
@@ -85,12 +90,13 @@ export class BatchTxRequester {
   }
 
   private async smartRequester() {
-    const nextPeerIndex = this.makeRoundRobinIndexer(() => getPeers().length);
-    const getPeers = () => Array.from(this.smartPeers.difference(this.badPeers));
+    const nextPeerIndex = this.makeRoundRobinIndexer();
+    const getPeers = () => Array.from(this.smartPeers.difference(this.getBadPeers().union(this.inFlightPeers)));
 
     const nextPeer = () => {
-      const idx = nextPeerIndex();
-      return idx === undefined ? undefined : peerIdFromString(getPeers()[idx]);
+      const peers = getPeers();
+      const idx = nextPeerIndex(() => peers.length);
+      return idx === undefined ? undefined : peerIdFromString(peers[idx]);
     };
 
     const makeRequest = (pid: PeerId) => {
@@ -113,11 +119,13 @@ export class BatchTxRequester {
 
   private async dumbRequester() {
     const peers = new Set(this.peers.map(peer => peer.toString()));
-    const nextPeerIndex = this.makeRoundRobinIndexer(() => getPeers().length);
-    const nextBatchIndex = this.makeRoundRobinIndexer(() => txChunks().length);
-    const getPeers = () => Array.from(peers.difference(this.smartPeers.union(this.badPeers)));
+    const nextPeerIndex = this.makeRoundRobinIndexer();
+    const nextBatchIndex = this.makeRoundRobinIndexer();
+    const getPeers = () =>
+      Array.from(peers.difference(this.smartPeers.union(this.getBadPeers()).union(this.inFlightPeers)));
 
     const txChunks = () =>
+      //TODO: wrap around  for last batch
       chunk<string>(
         this.txsMetadata
           .getSortedByRequestedCountThenByInFlightCountAsc(Array.from(this.txsMetadata.getMissingTxHashes()))
@@ -126,19 +134,22 @@ export class BatchTxRequester {
       );
 
     const makeRequest = (_pid: PeerId) => {
-      const idx = nextBatchIndex();
+      const txsChunks = txChunks();
+      const idx = nextBatchIndex(() => txChunks().length);
       if (idx === undefined) {
         return undefined;
       }
 
       const txs = txChunks()[idx].map(t => TxHash.fromString(t));
+      console.log(`Dumb batch index: ${idx}, batches count: ${txsChunks.length}`);
       txs.forEach(tx => this.txsMetadata.markRequested(tx));
       return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
     };
 
     const nextPeer = () => {
-      const idx = nextPeerIndex();
-      return idx === undefined ? undefined : peerIdFromString(Array.from(getPeers())[idx]);
+      const peers = getPeers();
+      const idx = nextPeerIndex(() => peers.length);
+      return idx === undefined ? undefined : peerIdFromString(peers[idx]);
     };
 
     const workers = Array.from({ length: Math.min(DUMB_PEERS_TO_QUERY_IN_PARALLEL, this.peers.length) }, () =>
@@ -158,11 +169,14 @@ export class BatchTxRequester {
       await this.smartRequesterSemaphore.acquire();
     }
 
+    let count = 0;
     while (!this.shouldStop()) {
+      count++;
       const peerId = pickNextPeer();
       const weRanOutOfPeersToQuery = peerId === undefined;
       if (weRanOutOfPeersToQuery) {
         this.logger.debug(`Worker loop: ${type}: No more peers to query`);
+        console.log(`[${count}] Worker loop: ${type}: No more peers to query`);
         return;
       }
 
@@ -178,6 +192,10 @@ export class BatchTxRequester {
         return;
       }
 
+      console.log(
+        `[${count}] Worker type: ${type}: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join('\n')}`,
+      );
+
       await this.requestTxBatch(peerId, blockRequest);
       if (type === 'smart') {
         txs.forEach(tx => {
@@ -189,8 +207,11 @@ export class BatchTxRequester {
 
   private async requestTxBatch(peerId: PeerId, request: BlockTxsRequest): Promise<BlockTxsResponse | undefined> {
     try {
+      this.inFlightPeers.add(peerId.toString());
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.BLOCK_TXS, request.toBuffer());
       if (response.status !== ReqRespStatus.SUCCESS) {
+        console.log(`Peer ${peerId.toString()} failed to respond with status: ${response.status}`);
+        await this.handleFailResponseFromPeer(peerId, response.status);
         return;
       }
 
@@ -202,11 +223,15 @@ export class BatchTxRequester {
         error: err,
       });
 
-      this.handleFailResponseFromPeer(peerId);
+      console.log(`Peer ${peerId.toString()}\n${err}`);
+      await this.handleFailResponseFromPeer(peerId, ReqRespStatus.UNKNOWN);
+    } finally {
+      this.inFlightPeers.delete(peerId.toString());
     }
   }
 
   private handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
+    this.unMarkPeerAsBad(peerId);
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
     this.handleReceivedTxs(peerId, response.txs);
 
@@ -217,6 +242,7 @@ export class BatchTxRequester {
     // We mark peer as "smart" only if they have some txs we are missing
     // Otherwise we keep them as "dumb" in hope they'll receive some new txs we are missing in the future
     if (!this.peerHasSomeTxsWeAreMissing(peerId, response)) {
+      console.log(`${peerId.toString()} has no txs we are missing, skipping`);
       return;
     }
 
@@ -249,13 +275,39 @@ export class BatchTxRequester {
 
   private markTxsPeerHas(peerId: PeerId, response: BlockTxsResponse) {
     const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
+    console.log(`${peerId.toString()} has txs: ${txsPeerHas.map(tx => tx.toString()).join('\n')}`);
     this.txsMetadata.markPeerHas(peerId, txsPeerHas);
   }
 
   //TODO: are we missing something here?
   // banning the peers?
-  private handleFailResponseFromPeer(peerId: PeerId) {
-    this.badPeers.add(peerId.toString());
+  private async handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
+    if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
+      this.markPeerAsBad(peerId);
+    }
+
+    //TODO: handle this properly
+    if (responseStatus === ReqRespStatus.RATE_LIMIT_EXCEEDED) {
+      await sleep(1000);
+    }
+  }
+
+  private markPeerAsBad(peerId: PeerId) {
+    this.badPeers.set(peerId.toString(), (this.badPeers.get(peerId.toString()) ?? 0) + 1);
+  }
+
+  private unMarkPeerAsBad(peerId: PeerId) {
+    this.badPeers.delete(peerId.toString());
+  }
+
+  private getBadPeers(): Set<string> {
+    const BADE_PEER_THRESHOLD = 3;
+    return new Set(
+      this.badPeers
+        .entries()
+        .filter(([_k, v]) => v > BADE_PEER_THRESHOLD)
+        .map(([k]) => k),
+    );
   }
 
   private extractHashesPeerHasFromResponse(response: BlockTxsResponse): Array<TxHash> {
@@ -270,9 +322,9 @@ export class BatchTxRequester {
     return hashes;
   }
 
-  private makeRoundRobinIndexer(size: () => number, start = 0) {
+  private makeRoundRobinIndexer(start = 0) {
     let i = start;
-    return () => {
+    return (size: () => number) => {
       const length = size();
       if (length === 0) {
         return undefined;

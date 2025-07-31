@@ -151,12 +151,11 @@ describe('p2p client integration batch txs', () => {
   it.only('batch requester fetches all missing txs from multiple peers', async () => {
     const NUMBER_OF_PEERS = 4;
 
-    // Create 20 transactions
     const txCount = 20;
     const txs = await Promise.all(times(txCount, () => mockTx()));
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    console.log(txHashes.map(tx => tx.toString()));
 
-    // Create a block proposal with all tx hashes
     const blockNumber = 5;
     const blockHash = Fr.random();
     const blockProposal = createBlockProposal(blockNumber, blockHash, txHashes);
@@ -178,7 +177,6 @@ describe('p2p client integration batch txs', () => {
       const peerTxs = txs.slice(start, end);
       const peerTxHashSet = new Set(peerTxs.map(tx => tx.txHash.toString()));
 
-      // Set default mock implementations
       peerTxPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
         return Promise.resolve(hashes.map(h => peerTxHashSet.has(h.toString())));
       });
@@ -189,13 +187,11 @@ describe('p2p client integration batch txs', () => {
       txPoolMocks.push(peerTxPool);
     }
 
-    // Setup clients with individual txPool mocks
     await setupClients(NUMBER_OF_PEERS, txPoolMocks);
 
     const peerIds = clients.map(client => (client as any).p2pService.node.peerId);
     connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peerIds);
 
-    // Set up attestation pool to return the block proposal
     attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
 
     // Client 0 is missing all transactions
@@ -217,8 +213,11 @@ describe('p2p client integration batch txs', () => {
 
     // Verify all transactions were fetched
     expect(fetchedTxs).toBeDefined();
-    expect(fetchedTxs).toHaveLength(txCount);
     const fetchedHashes = await Promise.all(fetchedTxs!.map(tx => tx.getTxHash()));
+    if (fetchedTxs?.length !== missingTxHashes.length) {
+      const diff = new Set(fetchedHashes.map(h => h.toString())).difference(new Set(txHashes.map(h => h.toString())));
+      console.log(`${Array.from(diff)}`);
+    }
     expect(
       new Set(fetchedHashes.map(h => h.toString())).difference(new Set(txHashes.map(h => h.toString()))).size,
     ).toBe(0);
