@@ -382,7 +382,9 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/4, trace_settings);
+        // we have to set the number of circuits one more than the number of circuits we're accumulating as otherwise
+        // the last circuit will be seen as a tail
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/5, trace_settings);
 
         const ProgramMetadata metadata{ ivc };
 
