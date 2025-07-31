@@ -67,6 +67,7 @@ pub struct MessageDeliveryEnum {
     /// This gives us an on-chain guarantee that a recipient is able to discover and receive a message.
     /// Use when a smart contract needs to make decisions based on the message.
     pub CONSTRAINED_ONCHAIN: u8,
+
     /// Unconstrained encryption + offchain message
     ///
     /// Useful when we trust the sender or the sender is incentivised to deliver the message.
@@ -88,22 +89,15 @@ pub global MessageDelivery: MessageDeliveryEnum = MessageDeliveryEnum {
     UNCONSTRAINED_ONCHAIN: 3,
 };
 
-// TODO: Update the docs here
-/// Emits an event in a private log, encrypting it such that only `recipient` will learn of its contents. The log will
-/// be tagged using a shared secret between `sender` and `recipient`, so that `recipient` can efficiently find the log.
+/// Emits an event that can be delivered either via private logs or offchain messages, with configurable encryption and
+/// tagging constraints.
 ///
-/// The `delivery_mode` value determines what parts of this computation will be constrained. See the documentation for
-/// each value in `MessageDeliveryEnum` to learn more about the different variants.
-///
-/// Emits an event as an offchain message. Similar to private log emission but uses offchain message mechanism instead.
-///
-/// Unlike private log emission, encryption here is always unconstrained. This design choice stems from the nature of
-/// offchain messages - they lack guaranteed delivery, unlike private logs. Without delivery guarantees, smart
-/// contracts cannot make assumptions about a message being delivered, making constrained encryption unnecessary.
-/// However, message integrity remains protected through a cryptographic commitment stored in the nullifier tree,
-/// preventing tampering even in the absence of guaranteed delivery. See the description of the
-/// `messages::offchain_message::emit_offchain_message` function for more details on when a guaranteed delivery is
-/// valuable. If guaranteed delivery is required, the `emit_event_in_private` function should be used instead.
+/// # Arguments
+/// * `event` - The event to emit
+/// * `context` - The private context to emit the event in
+/// * `recipient` - The address that should receive this event
+/// * `delivery_mode` - Controls encryption, tagging, and delivery constraints. Must be a compile-time constant.
+///   See `MessageDeliveryEnum` for details on the available modes.
 pub fn emit_event_in_private<Event>(
     event: Event,
     context: &mut PrivateContext,
