@@ -19,9 +19,6 @@
 #include <sys/mman.h>
 #endif
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern bool slow_low_memory;
-
 template <typename T> class AlignedMemory;
 
 #ifndef __wasm__

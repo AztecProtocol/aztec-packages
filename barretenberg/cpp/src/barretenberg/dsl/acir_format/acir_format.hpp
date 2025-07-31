@@ -12,7 +12,7 @@
 #endif
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/slab_vector.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
 #include "blake2s_constraint.hpp"

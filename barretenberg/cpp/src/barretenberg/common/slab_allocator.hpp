@@ -76,9 +76,4 @@ template <typename T> class ContainerSlabAllocator {
     }
 };
 
-/**
- * @brief A vector that uses the slab allocator.
- */
-template <typename T> using SlabVector = std::vector<T, bb::ContainerSlabAllocator<T>>;
-
 } // namespace bb
