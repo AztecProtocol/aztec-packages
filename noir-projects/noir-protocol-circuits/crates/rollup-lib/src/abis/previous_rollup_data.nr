@@ -15,7 +15,7 @@ pub struct PreviousRollupData {
 impl Verifiable for PreviousRollupData {
     /// Verifies the proof against the verification key and public inputs.
     /// The vk hash is also checked in the backend to match the key.
-    fn verify(self, _: bool) {
+    fn verify(self) {
         let inputs =
             BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
         std::verify_proof_with_type(

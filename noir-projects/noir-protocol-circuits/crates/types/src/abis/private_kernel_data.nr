@@ -3,7 +3,7 @@ use crate::{
     constants::{
         MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG, PROOF_TYPE_PG_TAIL,
     },
-    proof::{traits::Verifiable, vk_data::VkData},
+    proof::vk_data::VkData,
     utils::arrays::find_index_hint,
 };
 
@@ -40,12 +40,7 @@ impl PrivateKernelData {
         // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
-}
-
-impl Verifiable for PrivateKernelData {
-    /// Verifies the proof against the verification key and public inputs.
-    /// The vk hash is also checked in the backend to match the key.
-    fn verify(self, is_last_inner_kernel: bool) {
+    pub(crate) fn verify(self, is_last_inner_kernel: bool) {
         let mut proof_type = PROOF_TYPE_PG;
         // Client IVC public inputs are linked in the backend via the databus
         if is_last_inner_kernel {
