@@ -26,12 +26,19 @@ spec:
       {{- end }}
       containers:
         - name: ethereum
-          image: "{{ .Values.images.reth.image }}"
+          image: "
+            {{- if eq .Values.ethereum.execution.client "geth" -}}
+              {{ .Values.images.geth.image }}
+            {{- else if eq .Values.ethereum.execution.client "nethermind" -}}
+              {{ .Values.images.nethermind.image }}
+            {{- else -}}
+              {{ .Values.images.reth.image }}
+            {{- end -}}"
           imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
             - |
-              exec /entrypoints/eth-execution.sh
+              exec /entrypoints/eth-execution.sh {{ .Values.ethereum.execution.client }}
           env:
             - name: K8S_MODE
               value: "true"

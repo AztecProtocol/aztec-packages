@@ -117,23 +117,18 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
 ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
 {
     ClientIVC ivc{ /* num_circuits */ 2, request.trace_settings };
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
     // We segfault if we only call accumulate once
     static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    auto [circuit_0, vk_0] =
-        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE });
-    ivc.accumulate(circuit_0, vk_0);
+    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
+    ivc.accumulate(circuit_0);
 
     // Create another circuit and accumulate
-    auto [circuit_1, vk_1] =
-        circuit_producer.create_next_circuit_and_vk(ivc,
-                                                    {
-                                                        .num_public_inputs = num_public_inputs_in_final_circuit,
-                                                        .log2_num_gates = SMALL_ARBITRARY_LOG_CIRCUIT_SIZE,
-                                                    });
-    ivc.accumulate(circuit_1, vk_1);
+    MegaCircuitBuilder circuit_1 =
+        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
+    ivc.accumulate(circuit_1);
 
     // Construct the hiding circuit and its VK (stored internally in the IVC)
     ivc.construct_hiding_circuit_key();

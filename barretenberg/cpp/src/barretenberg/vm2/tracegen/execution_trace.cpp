@@ -31,6 +31,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
@@ -194,6 +195,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_execute_nullifier_exists;
     case ExecutionOpCode::EMITNULLIFIER:
         return C::execution_sel_execute_emit_nullifier;
+    case ExecutionOpCode::SENDL2TOL1MSG:
+        return C::execution_sel_execute_send_l2_to_l1_msg;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -420,6 +423,10 @@ void ExecutionTraceBuilder::process(
                   ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
                 { C::execution_next_num_unencrypted_logs,
                   ex_event.after_context_event.side_effect_states.numUnencryptedLogs },
+                { C::execution_num_l2_to_l1_messages,
+                  ex_event.before_context_event.side_effect_states.numL2ToL1Messages },
+                { C::execution_next_num_l2_to_l1_messages,
+                  ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
                 // Other.
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Helpers for identifying parent context
@@ -667,6 +674,20 @@ void ExecutionTraceBuilder::process(
                               { C::execution_remaining_nullifiers_inv,
                                 remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
                           } });
+            } else if (exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
+                uint32_t remaining_l2_to_l1_msgs =
+                    MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.side_effect_states.numL2ToL1Messages;
+
+                trace.set(row,
+                          { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
+                              { C::execution_remaining_l2_to_l1_msgs_inv,
+                                remaining_l2_to_l1_msgs == 0 ? 0 : FF(remaining_l2_to_l1_msgs).invert() },
+                              { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !discard },
+                              {
+                                  C::execution_public_inputs_index,
+                                  AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
+                                      ex_event.before_context_event.side_effect_states.numL2ToL1Messages,
+                              } } });
             }
         }
 
@@ -703,8 +724,8 @@ void ExecutionTraceBuilder::process(
         bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
         bool propagate_discard = !enqueued_call_end && !resolves_dying_context && !nested_call_rom_undiscarded_context;
 
-        // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error than just
-        // an opcode error (i.e., it is on if there are any errors in any temporality group).
+        // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
+        // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
         bool rollback_context = (is_revert || is_err) && has_parent;
 
         trace.set(
@@ -741,10 +762,9 @@ void ExecutionTraceBuilder::process(
         } else if (sel_enter_call && discard == 0 && !is_err &&
                    failures.does_context_fail.contains(ex_event.next_context_id)) {
             // If making a nested call, and discard isn't already high...
-            // if the nested context being entered eventually dies, raise discard flag and remember which context is
-            // dying.
-            // NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the discard flag
-            // because we aren't actually entering a new context!
+            // if the nested context being entered eventually dies, raise discard flag and remember which
+            // context is dying. NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the
+            // discard flag because we aren't actually entering a new context!
             dying_context_id = ex_event.next_context_id;
             dying_context_id_inv = FF(dying_context_id).invert();
             discard = 1;
@@ -1191,6 +1211,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // Alu dispatching
         .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>();
+        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>()
+        // SendL2ToL1Msg
+        .add<lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen
