@@ -1,5 +1,7 @@
 use crate::test::helpers::test_environment::TestEnvironment;
 
+mod accounts;
+mod deployment;
 mod private_context;
 mod public_context;
 
@@ -112,6 +114,35 @@ unconstrained fn mine_block_does_not_advance_the_timestamp() {
     let last_block_timestamp = env.last_block_timestamp();
 
     assert_eq(last_block_timestamp, previous_block_timestamp);
+}
+
+#[test]
+unconstrained fn mine_block_at_mines_a_block() {
+    let env = TestEnvironment::_new();
+
+    let next_block_number_before = env.next_block_number();
+    env.mine_block_at(env.last_block_timestamp() + 1);
+    let next_block_number_after = env.next_block_number();
+
+    assert_eq(next_block_number_after, next_block_number_before + 1);
+}
+
+#[test]
+unconstrained fn mine_block_at_sets_the_block_timestamp() {
+    let env = TestEnvironment::_new();
+
+    let expected_block_timestamp = env.last_block_timestamp() + 3600 * 24 * 30; // Advance a month
+    env.mine_block_at(expected_block_timestamp);
+
+    assert_eq(env.last_block_timestamp(), expected_block_timestamp);
+}
+
+#[test(should_fail_with = "Cannot go back in time")]
+unconstrained fn mine_block_at_fails_with_past_timestamps() {
+    let env = TestEnvironment::_new();
+
+    let expected_block_timestamp = env.last_block_timestamp() - 1;
+    env.mine_block_at(expected_block_timestamp);
 }
 
 #[test]

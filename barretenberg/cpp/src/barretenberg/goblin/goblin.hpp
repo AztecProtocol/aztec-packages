@@ -40,6 +40,8 @@ class Goblin {
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
     using TableCommitments = MergeVerifier::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
+    using MergeCommitments = MergeVerifier::InputCommitments;
+    using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
     using RecursiveTranscript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<MegaBuilder>>;
 
@@ -94,31 +96,29 @@ class Goblin {
      * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the
-     * transcript by the PG verifier with which the Merge verifier shares a transcript
+     * @param inputs_commitments The commitment used by the Merge verifier
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
     std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
         MegaBuilder& builder,
-        const RecursiveTableCommitments& t_commitments,
+        const RecursiveMergeCommitments& merge_commitments,
         const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
      *
      * @param proof
-     * @param subtable_commitments The subtable commitments data, containing the commitments to t_j read from the
-     * transcript by the PG verifier with which the Merge verifier shares a transcript
+     * @param inputs_commitments The commitments used by the Merge verifier
      * @param merged_table_commitment The commitment to the merged table as read from the proof
      * @param transcript
      *
      * @return Pair of verification result and commitments to the merged tables as read from the proof by the Merge
      * verifier
      */
-    static std::pair<bool, TableCommitments> verify(const GoblinProof& proof,
-                                                    const TableCommitments& t_commitments,
-                                                    const std::shared_ptr<Transcript>& transcript);
+    static bool verify(const GoblinProof& proof,
+                       const MergeCommitments& merge_commitments,
+                       const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb

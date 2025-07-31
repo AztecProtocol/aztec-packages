@@ -102,23 +102,25 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _blobsHash - The blobs hash for this block
    * @param _flags - The flags to validate
    */
-  function validateHeader(
+  function validateHeaderWithAttestations(
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
+    address[] calldata _signers,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external override(IRollup) {
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
-    ExtRollupLib.validateHeader(
+    ExtRollupLib.validateHeaderWithAttestations(
       ValidateHeaderArgs({
         header: _header,
-        attestations: _attestations,
         digest: _digest,
         manaBaseFee: getManaBaseFeeAt(currentTime, true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
-      })
+      }),
+      _attestations,
+      _signers
     );
   }
 
@@ -181,34 +183,17 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @param _ts - The timestamp to check
    * @param _archive - The archive to check (should be the latest archive)
+   * @param _who - The address to check
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, address _who)
     external
     override(IRollup)
     returns (Slot, uint256)
   {
-    Slot slot = _ts.slotFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
-
-    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
-
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
-
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-
-    address proposer = ExtRollupLib2.getProposerAt(slot);
-    require(
-      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
-
-    return (slot, pendingBlockNumber + 1);
+    return ExtRollupLib2.canProposeAtTime(_ts, _archive, _who);
   }
 
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
@@ -365,6 +350,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       archive: rollupStore.archives[_blockNumber],
       headerHash: tempBlockLog.headerHash,
       blobCommitmentsHash: tempBlockLog.blobCommitmentsHash,
+      attestationsHash: tempBlockLog.attestationsHash,
+      payloadDigest: tempBlockLog.payloadDigest,
       slotNumber: tempBlockLog.slotNumber,
       feeHeader: tempBlockLog.feeHeader
     });
@@ -618,6 +605,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getRewardConfig() external view override(IRollup) returns (RewardConfig memory) {
     return RewardLib.getStorage().config;
+  }
+
+  function getBlockReward() external view override(IRollup) returns (uint256) {
+    return RewardLib.getBlockReward();
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {

@@ -47,12 +47,12 @@ use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
 //**********************************************************************************
 
 // TODO: Consider making this a part of the noir stdlib.
-pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
-    src: [Field; SRC_LEN],
+pub fn subarray<let SrcLen: u32, let DstLen: u32>(
+    src: [Field; SrcLen],
     offset: u32,
-) -> [Field; DST_LEN] {
-    let mut dst: [Field; DST_LEN] = std::mem::zeroed();
-    for i in 0..DST_LEN {
+) -> [Field; DstLen] {
+    let mut dst: [Field; DstLen] = std::mem::zeroed();
+    for i in 0..DstLen {
         dst[i] = src[i + offset];
     }
 

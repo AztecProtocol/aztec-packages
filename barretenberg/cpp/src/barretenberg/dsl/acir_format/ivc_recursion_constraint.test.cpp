@@ -239,8 +239,7 @@ TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
 }
 
 /**
- * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for
- the
+ * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the
  * app, specified via an ACIR RecursionConstraint.
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
@@ -268,8 +267,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 }
 
 /**
- * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification
- and
+ * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
  * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
@@ -503,8 +501,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
         // construct a mock tail kernel
         acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-        // acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
-        // program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, TraceSettings());

@@ -16,6 +16,8 @@
 using namespace bb;
 
 static constexpr size_t MAX_NUM_KERNELS = 15;
+static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
+static constexpr size_t MEDIUM_LOG_2_NUM_GATES = 16;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
@@ -61,7 +63,7 @@ class ClientIVCTests : public ::testing::Test {
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         for (size_t j = 0; j < num_circuits; ++j) {
             auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = /*log2_num_gates=*/5 });
+                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
         }
         return { ivc.prove(), ivc.get_vk() };
@@ -80,9 +82,15 @@ TEST_F(ClientIVCTests, Basic)
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
 
-    circuit_producer.accumulate_next_circuit(ivc, { .log2_num_gates = 16 });
+    // Initialize the IVC with an arbitrary circuit
+    auto [circuit_0, vk_0] =
+        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
+    ivc.accumulate(circuit_0, vk_0);
 
-    circuit_producer.accumulate_next_circuit(ivc, { .log2_num_gates = 16 });
+    // Create another circuit and accumulate
+    auto [circuit_1, vk_1] =
+        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
+    ivc.accumulate(circuit_1, vk_1);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -123,7 +131,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 5 });
+            auto [circuit, vk] =
+                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
         }
         EXPECT_TRUE(ivc.prove_and_verify());
@@ -139,7 +148,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 5 });
+            auto [circuit, vk] =
+                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
 
             if (idx == 1) {
@@ -163,7 +173,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 5 });
+            auto [circuit, vk] =
+                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
 
             if (idx == 2) {
@@ -185,7 +196,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 5 });
+            auto [circuit, vk] =
+                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
 
             if (idx == NUM_CIRCUITS - 1) {
@@ -216,7 +228,8 @@ TEST_F(ClientIVCTests, BasicStructured)
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     // Construct and accumulate some circuits of varying size
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 5 + idx });
+        auto [circuit, vk] =
+            circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES + idx });
         ivc.accumulate(circuit, vk);
     }
 
@@ -293,7 +306,8 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         ClientIVC ivc{ num_circuits, { SMALL_TEST_STRUCTURE } };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         for (size_t j = 0; j < num_circuits; ++j) {
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = 5 });
+            auto [circuit, vk] =
+                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
         }
         ivc.prove();

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: done, auditors: [suyash], date: 2025-07-23 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -18,6 +18,9 @@ template <typename Builder, typename Native> class uint {
     using FF = typename Builder::FF;
     static constexpr size_t width = sizeof(Native) * 8;
 
+    static_assert(width == 8 || width == 16 || width == 32 || width == 64,
+                  "unsupported uint width, supported uint widths are: 8, 16, 32, and 64 bits.");
+
     uint(const witness_t<Builder>& other);
     uint(const field_t<Builder>& other);
     uint(const uint256_t& value = 0);
@@ -30,26 +33,45 @@ template <typename Builder, typename Native> class uint {
         : uint(static_cast<uint256_t>(v))
     {}
 
-    std::vector<uint32_t> constrain_accumulators(Builder* ctx, const uint32_t witness_index) const;
+    std::vector<uint32_t> constrain_accumulators(Builder* context, const uint32_t witness_index) const;
 
     static constexpr size_t bits_per_limb = 12;
+    static constexpr size_t bits_in_high_limb = width % bits_per_limb == 0 ? bits_per_limb : width % bits_per_limb;
     static constexpr size_t num_accumulators() { return (width + bits_per_limb - 1) / bits_per_limb; }
 
     uint(const uint& other);
-    uint(uint&& other);
+    uint(uint&& other) noexcept;
+
+    ~uint() = default;
 
     uint& operator=(const uint& other);
-    uint& operator=(uint&& other);
+    uint& operator=(uint&& other) noexcept;
 
     explicit operator byte_array<Builder>() const;
     explicit operator field_t<Builder>() const;
 
+    // Arithmetic operations
     uint operator+(const uint& other) const;
     uint operator-(const uint& other) const;
     uint operator*(const uint& other) const;
     uint operator/(const uint& other) const;
     uint operator%(const uint& other) const;
 
+    // Bitwise operations
+    uint operator&(const uint& other) const;
+    uint operator^(const uint& other) const;
+    uint operator|(const uint& other) const;
+    uint operator~() const;
+
+    uint operator>>(const size_t shift) const;
+    uint operator<<(const size_t shift) const;
+
+    uint ror(const size_t target_rotation) const;
+    uint rol(const size_t target_rotation) const;
+    uint ror(const uint256_t target_rotation) const { return ror(static_cast<size_t>(target_rotation.data[0])); }
+    uint rol(const uint256_t target_rotation) const { return rol(static_cast<size_t>(target_rotation.data[0])); }
+
+    // Comparison operations
     bool_t<Builder> operator>(const uint& other) const;
     bool_t<Builder> operator<(const uint& other) const;
     bool_t<Builder> operator>=(const uint& other) const;
@@ -58,6 +80,7 @@ template <typename Builder, typename Native> class uint {
     bool_t<Builder> operator!=(const uint& other) const;
     bool_t<Builder> operator!() const;
 
+    // Assignment operators
     uint operator+=(const uint& other)
     {
         *this = operator+(other);
@@ -84,14 +107,40 @@ template <typename Builder, typename Native> class uint {
         return *this;
     }
 
+    uint operator&=(const uint& other)
+    {
+        *this = operator&(other);
+        return *this;
+    }
+    uint operator^=(const uint& other)
+    {
+        *this = operator^(other);
+        return *this;
+    }
+    uint operator|=(const uint& other)
+    {
+        *this = operator|(other);
+        return *this;
+    }
+
+    uint operator>>=(const size_t shift)
+    {
+        *this = operator>>(shift);
+        return *this;
+    }
+    uint operator<<=(const size_t shift)
+    {
+        *this = operator<<(shift);
+        return *this;
+    }
+
+    // Helper functions
     uint normalize() const;
 
     uint256_t get_value() const;
 
     bool is_constant() const { return witness_index == IS_CONSTANT; }
     Builder* get_context() const { return context; }
-
-    bool_t<Builder> at(const size_t bit_index) const;
 
     size_t get_width() const { return width; }
 
@@ -100,17 +149,15 @@ template <typename Builder, typename Native> class uint {
     uint256_t get_additive_constant() const { return additive_constant; }
 
     std::vector<uint32_t> get_accumulators() const { return accumulators; }
-    uint256_t get_unbounded_value() const;
 
   protected:
     Builder* context;
 
-    enum WitnessStatus { OK, NOT_NORMALIZED, WEAK_NORMALIZED };
-
     mutable uint256_t additive_constant;
-    mutable WitnessStatus witness_status;
 
     // N.B. Not an accumulator! Contains 6-bit slices of input
+    // `accumulators` are used to store 6-bit slices of the value of the uint. This is done to
+    // range-constrain the uint by constraining individual slices.
     mutable std::vector<uint32_t> accumulators;
     mutable uint32_t witness_index;
 

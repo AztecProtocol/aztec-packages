@@ -310,4 +310,11 @@ struct TreeStates {
     bool operator==(const TreeStates& other) const = default;
 };
 
+struct SideEffectStates {
+    uint32_t numUnencryptedLogs;
+    uint32_t numL2ToL1Messages;
+
+    bool operator==(const SideEffectStates& other) const = default;
+};
+
 } // namespace bb::avm2

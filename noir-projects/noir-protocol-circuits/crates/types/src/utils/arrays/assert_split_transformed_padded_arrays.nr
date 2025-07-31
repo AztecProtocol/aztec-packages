@@ -442,7 +442,8 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_after_split_index_too_small_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_after_split_index._value -= 1;
+        builder.first_after_split_index =
+            Option::some(builder.first_after_split_index.unwrap() - 1);
 
         builder.execute_with_hint();
     }
@@ -451,7 +452,8 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_after_split_index_too_large_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_after_split_index._value += 1;
+        builder.first_after_split_index =
+            Option::some(builder.first_after_split_index.unwrap() + 1);
 
         builder.execute_with_hint();
     }
@@ -460,7 +462,7 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_padded_index_too_small_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_padded_index._value -= 1;
+        builder.first_padded_index = Option::some(builder.first_padded_index.unwrap() - 1);
 
         builder.execute_with_hint();
     }
@@ -469,7 +471,7 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_padded_index_too_large_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_padded_index._value += 1;
+        builder.first_padded_index = Option::some(builder.first_padded_index.unwrap() + 1);
 
         builder.execute_with_hint();
     }
