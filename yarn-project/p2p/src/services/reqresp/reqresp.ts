@@ -62,7 +62,6 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
 export class ReqResp implements ReqRespInterface {
-  private overallRequestTimeoutMs: number = DEFAULT_OVERALL_REQUEST_TIMEOUT_MS;
   private individualRequestTimeoutMs: number = DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS;
   private dialTimeoutMs: number = DEFAULT_REQRESP_DIAL_TIMEOUT_MS;
 
@@ -102,10 +101,6 @@ export class ReqResp implements ReqRespInterface {
   }
 
   public updateConfig(config: Partial<P2PReqRespConfig>): void {
-    if (typeof config.overallRequestTimeoutMs === 'number') {
-      this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
-    }
-
     if (typeof config.individualRequestTimeoutMs === 'number') {
       this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
     }
