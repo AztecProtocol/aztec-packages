@@ -80,8 +80,8 @@ pub unconstrained fn assert_owns_private_nft(
     owner: AztecAddress,
     token_id: Field,
 ) {
-    let (private_nfts, _) = env.simulate_utility(NFT::at(nft_contract_address)
-        ._experimental_get_private_nfts(owner, 0));
+    let (private_nfts, _) =
+        env.simulate_utility(NFT::at(nft_contract_address).get_private_nfts(owner, 0));
 
     let mut nft_found = false;
     for obtained_token_id in private_nfts {

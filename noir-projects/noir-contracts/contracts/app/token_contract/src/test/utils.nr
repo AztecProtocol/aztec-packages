@@ -92,9 +92,7 @@ pub unconstrained fn check_private_balance(
     address_amount: u128,
 ) {
     assert_eq(
-        env.simulate_utility(Token::at(token_contract_address)._experimental_balance_of_private(
-            address,
-        )),
+        env.simulate_utility(Token::at(token_contract_address).balance_of_private(address)),
         address_amount,
     );
 }
