@@ -433,16 +433,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
+    await this.node.start();
 
     await this.peerManager.initializePeers();
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
-    }
-    await this.node.start();
-
-    // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicTypeForClientType(this.clientType)) {
-      this.subscribeToTopic(this.topicStrings[topic]);
     }
 
     // Create request response protocol handlers
@@ -469,6 +464,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
     }
 
+    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
+    const reqrespSubProtocolValidators = {
+      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
+      // TODO(#11336): A request validator for blocks
+      [ReqRespSubProtocol.TX]: this.validateRequestedTx.bind(this),
+    };
+    await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
+
+    // Subscribe to standard GossipSub topics by default
+    for (const topic of getTopicTypeForClientType(this.clientType)) {
+      this.subscribeToTopic(this.topicStrings[topic]);
+    }
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
 
@@ -480,13 +487,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     );
     this.discoveryRunningPromise.start();
 
-    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
-    const reqrespSubProtocolValidators = {
-      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
-      // TODO(#11336): A request validator for blocks
-      [ReqRespSubProtocol.TX]: this.validateRequestedTx.bind(this),
-    };
-    await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
     this.logger.info(`Started P2P service`, {
       listen: this.config.listenAddress,
       port: this.config.p2pPort,
