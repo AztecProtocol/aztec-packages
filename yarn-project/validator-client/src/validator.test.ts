@@ -289,7 +289,7 @@ describe('ValidatorClient', () => {
         {
           validator: proposer,
           amount: config.slashInvalidBlockPenalty,
-          offense: Offense.INVALID_BLOCK,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         },
       ]);
 
@@ -298,7 +298,7 @@ describe('ValidatorClient', () => {
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
           amount: config.slashInvalidBlockMaxPenalty,
-          offense: Offense.INVALID_BLOCK,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         }),
       ).resolves.toBe(true);
 
@@ -307,7 +307,7 @@ describe('ValidatorClient', () => {
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()),
           amount: config.slashInvalidBlockMaxPenalty + 1n,
-          offense: Offense.INVALID_BLOCK,
+          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
         }),
       ).resolves.toBe(false);
     });

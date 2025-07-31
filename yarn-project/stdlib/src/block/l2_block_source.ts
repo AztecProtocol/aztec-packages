@@ -5,6 +5,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import { BlockAttestation } from '../p2p/block_attestation.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
@@ -139,17 +140,30 @@ export interface L2BlockSource {
   syncImmediate(): Promise<void>;
 }
 
-/** Result type for validating a block attestations */
-export type ValidateBlockResult =
-  | { valid: true }
-  | { valid: false; block: PublishedL2Block; committee: EthAddress[]; reason: 'insufficient-attestations' }
+/** Subtype for invalid block validation results */
+export type ValidateBlockNegativeResult =
   | {
       valid: false;
       block: PublishedL2Block;
       committee: EthAddress[];
+      epoch: bigint;
+      seed: bigint;
+      attestations: BlockAttestation[];
+      reason: 'insufficient-attestations';
+    }
+  | {
+      valid: false;
+      block: PublishedL2Block;
+      committee: EthAddress[];
+      epoch: bigint;
+      seed: bigint;
       reason: 'invalid-attestation';
+      attestations: BlockAttestation[];
       invalidIndex: number;
     };
+
+/** Result type for validating a block attestations */
+export type ValidateBlockResult = { valid: true } | ValidateBlockNegativeResult;
 
 export const ValidateBlockResultSchema = z.union([
   z.object({ valid: z.literal(true), block: PublishedL2Block.schema.optional() }),
@@ -157,12 +171,18 @@ export const ValidateBlockResultSchema = z.union([
     valid: z.literal(false),
     block: PublishedL2Block.schema,
     committee: z.array(schemas.EthAddress),
+    epoch: schemas.BigInt,
+    seed: schemas.BigInt,
+    attestations: z.array(BlockAttestation.schema),
     reason: z.literal('insufficient-attestations'),
   }),
   z.object({
     valid: z.literal(false),
     block: PublishedL2Block.schema,
     committee: z.array(schemas.EthAddress),
+    epoch: schemas.BigInt,
+    seed: schemas.BigInt,
+    attestations: z.array(BlockAttestation.schema),
     reason: z.literal('invalid-attestation'),
     invalidIndex: z.number(),
   }),
@@ -176,6 +196,7 @@ export const ValidateBlockResultSchema = z.union([
 export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
+  [L2BlockSourceEvents.InvalidAttestationsBlockDetected]: (args: InvalidBlockDetectedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
 
@@ -222,6 +243,7 @@ export const L2TipsSchema = z.object({
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
   L2BlockProven = 'l2BlockProven',
+  InvalidAttestationsBlockDetected = 'invalidBlockDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -235,4 +257,9 @@ export type L2BlockPruneEvent = {
   type: 'l2PruneDetected';
   epochNumber: bigint;
   blocks: L2Block[];
+};
+
+export type InvalidBlockDetectedEvent = {
+  type: 'invalidBlockDetected';
+  validationResult: ValidateBlockNegativeResult;
 };

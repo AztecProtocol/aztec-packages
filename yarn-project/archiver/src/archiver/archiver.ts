@@ -819,6 +819,13 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
             l1BlockNumber: block.l1.blockNumber,
             ...pick(validationResult, 'reason'),
           });
+
+          // Emit event for invalid block detection
+          this.emit(L2BlockSourceEvents.InvalidAttestationsBlockDetected, {
+            type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+            validationResult,
+          });
+
           // We keep consuming blocks if we find an invalid one, since we do not listen for BlockInvalidated events
           // We just pretend the invalid ones are not there and keep consuming the next blocks
           continue;
