@@ -63,7 +63,7 @@ function test_cmds {
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer"
+    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer reth"
     echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer geth"
 
     # Nethermind test can be enabled once https://github.com/NethermindEth/nethermind/pull/8897 is released
