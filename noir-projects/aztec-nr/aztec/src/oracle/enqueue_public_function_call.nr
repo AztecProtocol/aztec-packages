@@ -1,6 +1,6 @@
 use dep::protocol_types::address::AztecAddress;
 
-#[oracle(notifyEnqueuedPublicFunctionCall)]
+#[oracle(pxeNotifyEnqueuedPublicFunctionCall)]
 unconstrained fn notify_enqueued_public_function_call_oracle(
     _contract_address: AztecAddress,
     _calldata_hash: Field,
@@ -39,7 +39,7 @@ pub fn notify_enqueued_public_function_call(
     }
 }
 
-#[oracle(notifySetPublicTeardownFunctionCall)]
+#[oracle(pxeNotifySetPublicTeardownFunctionCall)]
 unconstrained fn notify_set_public_teardown_function_call_oracle(
     _contract_address: AztecAddress,
     _calldata_hash: Field,

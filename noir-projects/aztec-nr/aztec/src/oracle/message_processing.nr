@@ -6,7 +6,7 @@ pub unconstrained fn fetch_tagged_logs(pending_tagged_log_array_base_slot: Field
     fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot);
 }
 
-#[oracle(fetchTaggedLogs)]
+#[oracle(utilityFetchTaggedLogs)]
 unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Field) {}
 
 // This must be a single oracle and not one for notes and one for events because the entire point is to validate
