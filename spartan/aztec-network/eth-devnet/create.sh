@@ -7,6 +7,7 @@ DIR_PATH=$(git rev-parse --show-toplevel)/spartan/aztec-network/eth-devnet
 ## Genesis path is configurable, however it defaults to the eth-devnet directory
 ## This is also the default of .Values.ethereum.genesisBasePath in values.yaml
 GENESIS_PATH="$DIR_PATH/${GENESIS_PATH:-"out"}"
+mkdir -p "$GENESIS_PATH"
 
 ## Genesis configuration values are provided as environment variables
 PREFUNDED_MNEMONIC_INDICES=${PREFUNDED_MNEMONIC_INDICES:-"0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"}
@@ -129,26 +130,16 @@ function create_beacon_genesis {
   cp "$DIR_PATH/config/mnemonics.yaml" "$tmp_dir/mnemonics.yaml"
   yq eval '.0.mnemonic = "'"$MNEMONIC"'"' -i "$tmp_dir/mnemonics.yaml"
 
-  # Run the protolamba's eth2 testnet genesis container
+  # Run the eth panda ops's eth2 testnet genesis container
 
   docker run --rm \
-    -v "$DIR_PATH/config:/app/config" \
-    -v "$tmp_dir:/app/tmp" \
-    -v "$beacon_genesis_path:/app/out" \
-    maddiaa/eth2-testnet-genesis deneb \
-      --config="./tmp/config.yaml" \
-      --eth1-config="./tmp/genesis.json" \
-      --preset-phase0=minimal \
-      --preset-altair=minimal \
-      --preset-bellatrix=minimal \
-      --preset-capella=minimal \
-      --preset-deneb=minimal \
-      --state-output="./out/genesis.ssz" \
-      --tranches-dir="./out" \
-      --mnemonics="./tmp/mnemonics.yaml" \
-      --eth1-withdrawal-address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
-      --eth1-match-genesis-time
-
+    -v "$tmp_dir:/tmp" \
+    -v "$beacon_genesis_path:/out" \
+    maddiaa/eth-beacon-genesis devnet \
+      --config="/tmp/config.yaml" \
+      --eth1-config="/tmp/genesis.json" \
+      --mnemonics="/tmp/mnemonics.yaml" \
+      --state-output="/out/genesis.ssz"
 
   cp "$tmp_dir/genesis.json" "$GENESIS_PATH/genesis.json"
   cp "$tmp_dir/config.yaml" "$GENESIS_PATH/config.yaml"
