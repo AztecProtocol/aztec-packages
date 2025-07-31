@@ -24,7 +24,7 @@ contract DepositTest is StakingBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientAllowance.selector, address(staking), 0, DEPOSIT_AMOUNT
+        IERC20Errors.ERC20InsufficientAllowance.selector, address(staking), 0, ACTIVATION_THRESHOLD
       )
     );
 
@@ -32,7 +32,7 @@ contract DepositTest is StakingBase {
   }
 
   modifier givenCallerHasSufficientAllowance() {
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
     _;
   }
 
@@ -41,7 +41,7 @@ contract DepositTest is StakingBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, DEPOSIT_AMOUNT
+        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, ACTIVATION_THRESHOLD
       )
     );
 
@@ -49,7 +49,7 @@ contract DepositTest is StakingBase {
   }
 
   modifier givenCallerHasSufficientFunds() {
-    mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), ACTIVATION_THRESHOLD);
     _;
   }
 
@@ -63,7 +63,7 @@ contract DepositTest is StakingBase {
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     staking.flushEntryQueue();
 
-    mint(address(this), DEPOSIT_AMOUNT);
+    mint(address(this), ACTIVATION_THRESHOLD);
     stakingAsset.approve(address(staking), type(uint256).max);
 
     // Now reset the next flushable epoch to 0
@@ -82,7 +82,7 @@ contract DepositTest is StakingBase {
     staking.flushEntryQueue();
 
     vm.prank(SLASHER);
-    staking.slash(ATTESTER, DEPOSIT_AMOUNT - MINIMUM_STAKE + 1);
+    staking.slash(ATTESTER, ACTIVATION_THRESHOLD - EJECTION_THRESHOLD + 1);
     assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.ZOMBIE));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
@@ -124,7 +124,7 @@ contract DepositTest is StakingBase {
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
     // the money is in the staking contract
-    assertEq(stakingAsset.balanceOf(address(staking)), DEPOSIT_AMOUNT);
+    assertEq(stakingAsset.balanceOf(address(staking)), ACTIVATION_THRESHOLD);
     // the money is not in the GSE
     assertEq(stakingAsset.balanceOf(address(staking.getGSE())), 0);
     // nor in governance

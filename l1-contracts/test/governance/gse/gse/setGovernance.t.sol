@@ -14,7 +14,7 @@ contract SetGovernanceTest is WithGSE {
 
   function setUp() public override(WithGSE) {
     gse = new GSE(
-      address(this), IERC20(address(0)), TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      address(this), IERC20(address(0)), TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
     );
   }
 

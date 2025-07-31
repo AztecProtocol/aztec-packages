@@ -166,23 +166,23 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     ProofVerificationParams calldata _params
   ) external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
 
     // If the sender is unhinged, will mint the required amount (to not impact other users).
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
-      STAKING_ASSET.mint(address(this), depositAmount);
+      STAKING_ASSET.mint(address(this), activationThreshold);
 
-      _triggerDeposit(rollup, depositAmount, _attester);
+      _triggerDeposit(rollup, activationThreshold, _attester);
     } else {
-      _topUpIfRequired(depositAmount);
+      _topUpIfRequired(activationThreshold);
 
       // Check attester has the guardian role (included in merkle tree)
       _validateMerkleProof(_attester, _merkleProof);
       _validatePassportProof(_attester, _params);
 
       // If the attester is currently exiting, we finalize the exit for him.
-      _triggerDeposit(rollup, depositAmount, _attester);
+      _triggerDeposit(rollup, activationThreshold, _attester);
     }
   }
 
@@ -199,10 +199,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(nullifiers[nullifier] != false, NoNullifier());
 
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
 
-    _topUpIfRequired(depositAmount);
-    _triggerDeposit(rollup, depositAmount, _attester);
+    _topUpIfRequired(activationThreshold);
+    _triggerDeposit(rollup, activationThreshold, _attester);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
@@ -315,15 +315,15 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     attesterToNullifier[_attester] = nullifier;
   }
 
-  function _topUpIfRequired(uint256 _depositAmount) internal {
-    if (STAKING_ASSET.balanceOf(address(this)) < _depositAmount) {
+  function _topUpIfRequired(uint256 _activationThreshold) internal {
+    if (STAKING_ASSET.balanceOf(address(this)) < _activationThreshold) {
       require(
         block.timestamp - lastMintTimestamp >= mintInterval,
         ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
       );
-      STAKING_ASSET.mint(address(this), _depositAmount * depositsPerMint);
+      STAKING_ASSET.mint(address(this), _activationThreshold * depositsPerMint);
       lastMintTimestamp = block.timestamp;
-      emit ToppedUp(_depositAmount * depositsPerMint);
+      emit ToppedUp(_activationThreshold * depositsPerMint);
     }
   }
 
@@ -333,16 +333,16 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * complete the exit for them first.
    *
    * @param _rollup - the rollup address
-   * @param _depositAmount - the deposit amount
+   * @param _activationThreshold - the deposit amount
    * @param _attester - the validator's attester address
    */
-  function _triggerDeposit(IStaking _rollup, uint256 _depositAmount, address _attester) internal {
+  function _triggerDeposit(IStaking _rollup, uint256 _activationThreshold, address _attester) internal {
     // If the attester is currently exiting, we finalize the exit for them.
     if (_rollup.getExit(_attester).exists) {
       _rollup.finaliseWithdraw(_attester);
     }
 
-    STAKING_ASSET.approve(address(_rollup), _depositAmount);
+    STAKING_ASSET.approve(address(_rollup), _activationThreshold);
     _rollup.deposit(_attester, withdrawer, true);
     emit ValidatorAdded(address(_rollup), _attester, withdrawer);
 

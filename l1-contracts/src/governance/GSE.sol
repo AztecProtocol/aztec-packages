@@ -177,8 +177,8 @@ contract GSECore is IGSECore, Ownable {
   address public constant BONUS_INSTANCE_ADDRESS =
     address(uint160(uint256(keccak256("bonus-instance"))));
 
-  uint256 public immutable DEPOSIT_AMOUNT;
-  uint256 public immutable MINIMUM_STAKE;
+  uint256 public immutable ACTIVATION_THRESHOLD;
+  uint256 public immutable EJECTION_THRESHOLD;
   IERC20 public immutable STAKING_ASSET;
 
   // The GSE's history of rollups.
@@ -212,18 +212,18 @@ contract GSECore is IGSECore, Ownable {
   /**
    * @param __owner - The owner of the GSE.
    * @param _stakingAsset - The asset that is used for staking.
-   * @param _depositAmount - The amount of staking asset required to deposit an attester on the rollup.
-   * @param _minimumStake - The minimum amount of staking asset required to be in the set to be considered an attester.
+   * @param _activationThreshold - The amount of staking asset required to deposit an attester on the rollup.
+   * @param _ejectionThreshold - The minimum amount of staking asset required to be in the set to be considered an attester.
    *                        Presently, as the rollup instance does not allow for partial withdrawals, the only way for
    *                        a staked amount to reduce is to either withdraw the entire amount or be slashed.
    *                        If the balance falls below the minimum stake, the attester is removed from the set.
    */
-  constructor(address __owner, IERC20 _stakingAsset, uint256 _depositAmount, uint256 _minimumStake)
+  constructor(address __owner, IERC20 _stakingAsset, uint256 _activationThreshold, uint256 _ejectionThreshold)
     Ownable(__owner)
   {
     STAKING_ASSET = _stakingAsset;
-    DEPOSIT_AMOUNT = _depositAmount;
-    MINIMUM_STAKE = _minimumStake;
+    ACTIVATION_THRESHOLD = _activationThreshold;
+    EJECTION_THRESHOLD = _ejectionThreshold;
     instances[BONUS_INSTANCE_ADDRESS].exists = true;
   }
 
@@ -318,13 +318,13 @@ contract GSECore is IGSECore, Ownable {
     instances[recipientInstance].configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
 
     delegation.delegate(recipientInstance, _attester, recipientInstance);
-    delegation.increaseBalance(recipientInstance, _attester, DEPOSIT_AMOUNT);
+    delegation.increaseBalance(recipientInstance, _attester, ACTIVATION_THRESHOLD);
 
-    STAKING_ASSET.transferFrom(msg.sender, address(this), DEPOSIT_AMOUNT);
+    STAKING_ASSET.transferFrom(msg.sender, address(this), ACTIVATION_THRESHOLD);
 
     Governance gov = getGovernance();
-    STAKING_ASSET.approve(address(gov), DEPOSIT_AMOUNT);
-    gov.deposit(address(this), DEPOSIT_AMOUNT);
+    STAKING_ASSET.approve(address(gov), ACTIVATION_THRESHOLD);
+    gov.deposit(address(this), ACTIVATION_THRESHOLD);
 
     emit Deposit(recipientInstance, _attester, _withdrawer);
   }
@@ -380,7 +380,7 @@ contract GSECore is IGSECore, Ownable {
     uint256 amountWithdrawn = _amount;
     // If the balance after withdrawal is less than the minimum stake,
     // we will remove the attester from the instance.
-    bool isRemoved = balance - _amount < MINIMUM_STAKE;
+    bool isRemoved = balance - _amount < EJECTION_THRESHOLD;
 
     // Note that the current implementation of the rollup does not allow for partial withdrawals,
     // via `initiateWithdraw`, so a "normal" withdrawal will always remove the attester from the instance.
@@ -592,8 +592,8 @@ contract GSE is IGSE, GSECore {
   using Checkpoints for Checkpoints.Trace224;
   using DelegationLib for DelegationData;
 
-  constructor(address __owner, IERC20 _stakingAsset, uint256 _depositAmount, uint256 _minimumStake)
-    GSECore(__owner, _stakingAsset, _depositAmount, _minimumStake)
+  constructor(address __owner, IERC20 _stakingAsset, uint256 _activationThreshold, uint256 _ejectionThreshold)
+    GSECore(__owner, _stakingAsset, _activationThreshold, _ejectionThreshold)
   {}
 
   function getConfig(address _instance, address _attester)

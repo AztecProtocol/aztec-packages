@@ -46,10 +46,10 @@ contract GSEBase is TestBase {
   function help__deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
     internal
   {
-    uint256 depositAmount = ROLLUP.getDepositAmount();
+    uint256 activationThreshold = ROLLUP.getActivationThreshold();
     vm.prank(stakingAsset.owner());
-    stakingAsset.mint(address(this), depositAmount);
-    stakingAsset.approve(address(ROLLUP), depositAmount);
+    stakingAsset.mint(address(this), activationThreshold);
+    stakingAsset.approve(address(ROLLUP), activationThreshold);
 
     uint256 balance = stakingAsset.balanceOf(address(governance));
 
@@ -61,7 +61,7 @@ contract GSEBase is TestBase {
     ROLLUP.flushEntryQueue();
 
     assertEq(
-      stakingAsset.balanceOf(address(governance)), balance + depositAmount, "invalid gov balance"
+      stakingAsset.balanceOf(address(governance)), balance + activationThreshold, "invalid gov balance"
     );
     assertEq(stakingAsset.balanceOf(address(ROLLUP)), 0, "invalid rollup balance");
   }

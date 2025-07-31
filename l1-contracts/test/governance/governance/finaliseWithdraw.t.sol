@@ -26,12 +26,12 @@ contract FinaliseWithdrawTest is GovernanceBase {
 
   // Lot of this is similar to initiateWithdraw.t.sol::test_WhenCallerHaveSufficientDeposits
   modifier whenItMatchPendingWithdrawal(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps
   ) {
-    deposit = bound(_depositAmount, 1, type(uint224).max);
+    deposit = bound(_activationThreshold, 1, type(uint224).max);
     uint256 sum = deposit;
 
     token.mint(address(this), deposit);
@@ -59,11 +59,11 @@ contract FinaliseWithdrawTest is GovernanceBase {
   }
 
   function test_GivenWithdrawanAlreadyClaimed(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps
-  ) external whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps) {
+  ) external whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps) {
     // it revert
 
     uint256 withdrawalCount = governance.withdrawalCount();
@@ -84,14 +84,14 @@ contract FinaliseWithdrawTest is GovernanceBase {
   }
 
   function test_WhenTimeIsBeforeUnlock(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps,
     uint256[WITHDRAWAL_COUNT] memory _timejumps2
   )
     external
-    whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps)
+    whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps)
     givenWithdrawanNotClaimed
   {
     // it revert
@@ -121,14 +121,14 @@ contract FinaliseWithdrawTest is GovernanceBase {
   }
 
   function test_WhenTimeIsAfterOrAtUnlock(
-    uint256 _depositAmount,
+    uint256 _activationThreshold,
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps,
     uint256[WITHDRAWAL_COUNT] memory _timejumps2
   )
     external
-    whenItMatchPendingWithdrawal(_depositAmount, _recipient, _withdrawals, _timejumps)
+    whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps)
     givenWithdrawanNotClaimed
   {
     // it mark withdrawal as claimed
