@@ -190,7 +190,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashPruneMaxPenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
   slashInactivityEnabled: true,
   slashInactivityCreateTargetPercentage: 1,
-  slashInactivitySignalTargetPercentage: 1,
+  slashInactivitySignalTargetPercentage: 0.67,
   slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
   slashInactivityMaxPenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
   slashInvalidBlockEnabled: true,
