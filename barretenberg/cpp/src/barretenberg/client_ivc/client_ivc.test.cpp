@@ -17,7 +17,7 @@ using namespace bb;
 
 static constexpr size_t MAX_NUM_KERNELS = 15;
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
-static constexpr size_t MEDIUM_LOG_2_NUM_GATES = 16;
+// static constexpr size_t MEDIUM_LOG_2_NUM_GATES = 16;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
@@ -81,16 +81,18 @@ TEST_F(ClientIVCTests, Basic)
     ClientIVC ivc{ /*num_circuits=*/2 };
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    circuit_producer.accumulate_next_circuit(ivc);
+    circuit_producer.accumulate_next_circuit(ivc);
 
-    // Initialize the IVC with an arbitrary circuit
-    auto [circuit_0, vk_0] =
-        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
-    ivc.accumulate(circuit_0, vk_0);
+    // // Initialize the IVC with an arbitrary circuit
+    // auto [circuit_0, vk_0] =
+    //     circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
+    // ivc.accumulate(circuit_0, vk_0);
 
-    // Create another circuit and accumulate
-    auto [circuit_1, vk_1] =
-        circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
-    ivc.accumulate(circuit_1, vk_1);
+    // // Create another circuit and accumulate
+    // auto [circuit_1, vk_1] =
+    //     circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = MEDIUM_LOG_2_NUM_GATES });
+    // ivc.accumulate(circuit_1, vk_1);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };

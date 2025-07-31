@@ -213,9 +213,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
     {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
         ivc.accumulate(circuit, vk);
-        // TODO: if hiding circuit do more stuff
+
         if (circuit_counter == ivc.get_num_circuits()) {
             // create and accumulate the hiding kernel
+            // note: we don't want the hiding circuit to start with an eq and reset while it's prepended
+            ClientCircuit circuit{ ivc.goblin.op_queue };
+            // this should be the hiding circuit but let's see
+            ivc.complete_kernel_circuit_logic(circuit);
         }
     }
 
