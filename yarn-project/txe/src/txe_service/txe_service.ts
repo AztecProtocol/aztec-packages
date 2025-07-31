@@ -314,6 +314,7 @@ export class TXEService {
     return toForeignCallResult([toArray(values)]);
   }
 
+  // TODO(benesjan): This is an AVM oracle. Should this be nuked?
   async storageWrite(startStorageSlot: ForeignCallSingle, values: ForeignCallArray) {
     const newValues = await this.txe.storageWrite(fromSingle(startStorageSlot), fromArray(values));
     return toForeignCallResult([toArray(newValues)]);
@@ -676,7 +677,6 @@ export class TXEService {
     }
 
     await this.txe.utilityFetchTaggedLogs(fromSingle(pendingTaggedLogArrayBaseSlot));
-    await this.txe.fetchTaggedLogs(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 
@@ -875,7 +875,7 @@ export class TXEService {
       );
     }
 
-    const instance = await this.txe.getContractInstance(addressFromSingle(address));
+    const instance = await this.txe.utilityGetContractInstance(addressFromSingle(address));
     return toForeignCallResult([
       toSingle(instance.deployer),
       // AVM requires an extra boolean indicating the instance was found
@@ -890,7 +890,7 @@ export class TXEService {
       );
     }
 
-    const instance = await this.txe.getContractInstance(addressFromSingle(address));
+    const instance = await this.txe.utilityGetContractInstance(addressFromSingle(address));
     return toForeignCallResult([
       toSingle(instance.currentContractClassId),
       // AVM requires an extra boolean indicating the instance was found
@@ -898,6 +898,7 @@ export class TXEService {
     ]);
   }
 
+  // TODO(benesjan): This is an AVM oracle. Should this be nuked?
   async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
@@ -905,7 +906,7 @@ export class TXEService {
       );
     }
 
-    const instance = await this.txe.getContractInstance(addressFromSingle(address));
+    const instance = await this.txe.utilityGetContractInstance(addressFromSingle(address));
     return toForeignCallResult([
       toSingle(instance.initializationHash),
       // AVM requires an extra boolean indicating the instance was found
@@ -963,7 +964,7 @@ export class TXEService {
       throw new Error(`Attempted to call the avmOpcodeAddress oracle while in context ${TXEContext[this.context]}`);
     }
 
-    const contractAddress = await this.txe.getContractAddress();
+    const contractAddress = await this.txe.utilityGetContractAddress();
     return toForeignCallResult([toSingle(contractAddress.toField())]);
   }
 
@@ -972,7 +973,7 @@ export class TXEService {
       throw new Error(`Attempted to call the avmOpcodeBlockNumber oracle while in context ${TXEContext[this.context]}`);
     }
 
-    const blockNumber = await this.txe.getBlockNumber();
+    const blockNumber = await this.txe.utilityGetBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
@@ -981,7 +982,7 @@ export class TXEService {
       throw new Error(`Attempted to call the avmOpcodeTimestamp oracle while in context ${TXEContext[this.context]}`);
     }
 
-    const timestamp = await this.txe.getTimestamp();
+    const timestamp = await this.txe.utilityGetTimestamp();
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
@@ -1002,7 +1003,7 @@ export class TXEService {
       throw new Error(`Attempted to call the avmOpcodeChainId oracle while in context ${TXEContext[this.context]}`);
     }
 
-    const chainId = await this.txe.getChainId();
+    const chainId = await this.txe.utilityGetChainId();
     return toForeignCallResult([toSingle(chainId)]);
   }
 
@@ -1011,7 +1012,7 @@ export class TXEService {
       throw new Error(`Attempted to call the avmOpcodeVersion oracle while in context ${TXEContext[this.context]}`);
     }
 
-    const version = await this.txe.getVersion();
+    const version = await this.txe.utilityGetVersion();
     return toForeignCallResult([toSingle(version)]);
   }
 
