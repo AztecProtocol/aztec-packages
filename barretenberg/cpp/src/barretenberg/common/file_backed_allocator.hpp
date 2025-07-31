@@ -11,6 +11,8 @@
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
+
+#ifndef __wasm__
 namespace bb {
 
 struct FileBackedAllocation {
@@ -83,5 +85,5 @@ bool operator!=(const SlabOrFileBackedAllocator<T>& /*unused*/, const SlabOrFile
 {
     return false;
 }
-
 } // namespace bb
+#endif // __wasm__

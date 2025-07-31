@@ -1,15 +1,16 @@
 #include "barretenberg/common/file_backed_allocator.hpp"
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+bool slow_low_memory =
+    std::getenv("BB_SLOW_LOW_MEMORY") == nullptr ? false : std::string(std::getenv("BB_SLOW_LOW_MEMORY")) == "1";
+
+#ifndef __wasm__
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <atomic>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
 #include <sys/mman.h>
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-bool slow_low_memory =
-    std::getenv("BB_SLOW_LOW_MEMORY") == nullptr ? false : std::string(std::getenv("BB_SLOW_LOW_MEMORY")) == "1";
-
 namespace bb {
 
 FileBackedAllocation::FileBackedAllocation(std::size_t size_bytes, const std::string& filename_prefix)
@@ -67,5 +68,5 @@ FileBackedAllocation::~FileBackedAllocation() noexcept
     close(fd);
     std::filesystem::remove(filename);
 }
-
 } // namespace bb
+#endif // __wasm__
