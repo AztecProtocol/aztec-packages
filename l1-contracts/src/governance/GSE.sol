@@ -813,9 +813,10 @@ contract GSE is IGSE, GSECore {
       require(index < totalSize, Errors.GSE__OutOfBounds(index, totalSize));
 
       if (index < storeSize) {
-        attesters[i] = instanceStore.attesters.getAddressFromIndexAtTimestamp(index, ts);
+        attesters[i] = instanceStore.attesters.unsafeGetRecentAddressFromIndexAtTimestamp(index, ts);
       } else if (isLatestRollup) {
-        attesters[i] = bonusStore.attesters.getAddressFromIndexAtTimestamp(index - storeSize, ts);
+        attesters[i] =
+          bonusStore.attesters.unsafeGetRecentAddressFromIndexAtTimestamp(index - storeSize, ts);
       } else {
         revert Errors.GSE__FatalError("SHOULD NEVER HAPPEN");
       }

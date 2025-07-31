@@ -13,9 +13,9 @@
       "setupEpoch": {
         "calls": 100,
         "min": 37714,
-        "mean": 40849,
+        "mean": 40850,
         "median": 39714,
-        "max": 108446
+        "max": 108458
       },
       "submitEpochRootProof": {
         "calls": 2,
@@ -40,9 +40,9 @@
       "setupEpoch": {
         "calls": 100,
         "min": 37714,
-        "mean": 48233,
+        "mean": 47418,
         "median": 39714,
-        "max": 354577
+        "max": 327409
       },
       "submitEpochRootProof": {
         "calls": 2,
@@ -76,9 +76,9 @@
       "setupEpoch": {
         "calls": 100,
         "min": 37714,
-        "mean": 42024,
+        "mean": 42025,
         "median": 39714,
-        "max": 110967
+        "max": 110979
       },
       "submitEpochRootProof": {
         "calls": 3,
@@ -103,9 +103,9 @@
       "setupEpoch": {
         "calls": 100,
         "min": 37714,
-        "mean": 61573,
+        "mean": 59398,
         "median": 39714,
-        "max": 599674
+        "max": 545314
       },
       "submitEpochRootProof": {
         "calls": 3,
@@ -119,7 +119,7 @@
       "aggregate3": {
         "calls": 100,
         "min": 366627,
-        "mean": 390106,
+        "mean": 390107,
         "median": 389508,
         "max": 411903
       }

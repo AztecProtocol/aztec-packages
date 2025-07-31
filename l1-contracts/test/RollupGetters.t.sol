@@ -82,6 +82,115 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(writes.length, 0, "No writes should be done");
   }
 
+  function test_getCurrentEpochCommitteeRecent() external setup(0, 48) {
+    // This test ensures that the replacement (removal and adding of new) validators
+    // which alter the size checkpoints but also the index checkpoints do not
+    // impact the gas costs unexpectedly.
+
+    timeCheater.cheat__jumpForwardEpochs(2);
+
+    uint256 depositAmount = rollup.getGSE().DEPOSIT_AMOUNT();
+
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), 10e3 * depositAmount);
+    testERC20.approve(address(rollup), type(uint256).max);
+
+    uint256 offset = 0;
+
+    for (uint256 i = 0; i < 50; i++) {
+      rollup.deposit(vm.addr(i + 1), address(this), true);
+      rollup.flushEntryQueue();
+      timeCheater.cheat__jumpForwardEpochs(2);
+    }
+
+    uint256 gasSmall = gasleft();
+
+    rollup.getCurrentEpochCommittee();
+
+    gasSmall = gasSmall - gasleft();
+
+    for (uint256 i = 0; i < 15; i++) {
+      uint256 toRemove = rollup.getActiveAttesterCount();
+
+      for (uint256 j = 0; j < toRemove; j++) {
+        rollup.initiateWithdraw(vm.addr(offset + j + 1), address(this));
+        timeCheater.cheat__jumpForwardEpochs(2);
+      }
+
+      offset += toRemove;
+
+      for (uint256 j = 0; j < toRemove; j++) {
+        rollup.deposit(vm.addr(offset + j + 1), address(this), true);
+        rollup.flushEntryQueue();
+        timeCheater.cheat__jumpForwardEpochs(2);
+      }
+    }
+
+    timeCheater.cheat__jumpForwardEpochs(10);
+
+    vm.record();
+
+    uint256 gasBig = gasleft();
+    rollup.getCurrentEpochCommittee();
+
+    gasBig = gasBig - gasleft();
+
+    (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+    assertEq(writes.length, 0, "No writes should be done");
+
+    // 16 insertions in total, so binary search should hit 4 values (3 extra).
+    // Since using recent, we should only hit 2 additional at most though, so
+    // we will compute the overhead as 2 extra (each 3K) for each of the members
+    assertGt(gasSmall + 3e3 * 2 * 48, gasBig, "growing too quickly");
+  }
+
+  function test_getCurrentEpochCommittee() external setup(0, 48) {
+    // This test ensures that the addition of a lot of new validators
+    // altering the size checkpoints do not heavily impact the gas costs.
+    timeCheater.cheat__jumpForwardEpochs(2);
+
+    uint256 depositAmount = rollup.getGSE().DEPOSIT_AMOUNT();
+
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), 10e3 * depositAmount);
+    testERC20.approve(address(rollup), type(uint256).max);
+
+    // Add a bunch of attesters to
+    for (uint256 i = 0; i < 200; i++) {
+      rollup.deposit(vm.addr(i + 1), address(this), true);
+      rollup.flushEntryQueue();
+      timeCheater.cheat__jumpForwardEpochs(2);
+    }
+
+    uint256 gasSmall = gasleft();
+
+    rollup.getCurrentEpochCommittee();
+
+    gasSmall = gasSmall - gasleft();
+
+    for (uint256 i = 0; i < 800; i++) {
+      rollup.deposit(vm.addr(i + 200), address(this), true);
+      rollup.flushEntryQueue();
+      timeCheater.cheat__jumpForwardEpochs(2);
+    }
+
+    timeCheater.cheat__jumpForwardEpochs(10);
+
+    vm.record();
+
+    uint256 gasBig = gasleft();
+    rollup.getCurrentEpochCommittee();
+
+    gasBig = gasBig - gasleft();
+
+    (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+    assertEq(writes.length, 0, "No writes should be done");
+
+    // Cost should be approx 3K extra per double, so we should fit in 7K
+    // We won't be exact with the gas measurement here, but close enough.
+    assertGt(gasSmall + 7e3, gasBig, "growing too quickly");
+  }
+
   function test_getProposerAt(uint16 _slot, bool _setup) external setup(4, 4) {
     timeCheater.cheat__jumpForwardEpochs(2);
     Slot s = Slot.wrap(timeCheater.currentSlot()) + Slot.wrap(_slot);
