@@ -74,9 +74,10 @@ TEST(SendL2ToL1MsgConstrainingTest, LimitReached)
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(trace, send_l2_to_l1_msg::SR_OPCODE_ERROR),
                               "OPCODE_ERROR");
+    trace.set(C::execution_sel_opcode_error, 0, 1);
 
     // Negative test: num l2 to l1 messages must be the same
-    trace.set(C::execution_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs + 1);
+    trace.set(C::execution_next_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
                                   trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
                               "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
