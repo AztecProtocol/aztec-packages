@@ -61,7 +61,9 @@ contract GSEBase is TestBase {
     ROLLUP.flushEntryQueue();
 
     assertEq(
-      stakingAsset.balanceOf(address(governance)), balance + activationThreshold, "invalid gov balance"
+      stakingAsset.balanceOf(address(governance)),
+      balance + activationThreshold,
+      "invalid gov balance"
     );
     assertEq(stakingAsset.balanceOf(address(ROLLUP)), 0, "invalid rollup balance");
   }

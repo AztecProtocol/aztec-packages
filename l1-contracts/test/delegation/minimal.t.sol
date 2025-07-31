@@ -86,7 +86,9 @@ contract MinimalDelegationTest is GSEBase {
     vm.warp(ts.ts4);
 
     _checkInstanceCanonical(address(ROLLUP), 0, activationThreshold, Timestamp.wrap(ts.ts1));
-    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts2));
+    _checkInstanceCanonical(
+      address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts2)
+    );
     _checkInstanceCanonical(
       address(ROLLUP), activationThreshold, activationThreshold * 2, Timestamp.wrap(ts.ts3)
     );
@@ -136,7 +138,9 @@ contract MinimalDelegationTest is GSEBase {
     _checkInstanceCanonical(address(ROLLUP), 0, activationThreshold, Timestamp.wrap(ts.ts1));
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts1));
 
-    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts2));
+    _checkInstanceCanonical(
+      address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts2)
+    );
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts2));
 
     _checkInstanceCanonical(
@@ -144,7 +148,9 @@ contract MinimalDelegationTest is GSEBase {
     );
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts3));
 
-    _checkInstanceCanonical(address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts4));
+    _checkInstanceCanonical(
+      address(ROLLUP), activationThreshold, activationThreshold, Timestamp.wrap(ts.ts4)
+    );
     _checkInstanceNonCanonical(address(dead), 0, Timestamp.wrap(ts.ts4));
 
     _checkInstanceNonCanonical(address(ROLLUP), activationThreshold, Timestamp.wrap(ts.ts5));

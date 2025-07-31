@@ -2,8 +2,10 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {
+  Checkpoints, CheckpointedUintLib
+} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 struct AttesterDelegationData {
@@ -13,18 +15,18 @@ struct AttesterDelegationData {
 
 struct InstanceDelegationData {
   mapping(address attester => AttesterDelegationData attesterData) attesterData;
-  User supply;
+  Checkpoints.Trace224 supply;
 }
 
 struct DelegateeData {
   mapping(uint256 proposalId => uint256 powerUsed) powerUsed;
-  User votingPower;
+  Checkpoints.Trace224 votingPower;
 }
 
 struct DelegationData {
   mapping(address instance => InstanceDelegationData instanceData) instanceData;
   mapping(address delegatee => DelegateeData delegateeData) delegateeData;
-  User supply;
+  Checkpoints.Trace224 supply;
 }
 
 // @todo Need to figure out a better naming here. It is not just delegation, it is a lib to deal with
@@ -34,7 +36,7 @@ struct DelegationData {
 // It mainly differs as it is a library to allow us having many accountings in the same contract
 // and the unit of time
 library DelegationLib {
-  using UserLib for User;
+  using CheckpointedUintLib for Checkpoints.Trace224;
 
   event DelegateChanged(address indexed attester, address oldDelegatee, address newDelegatee);
   event DelegateVotesChanged(address indexed delegatee, uint256 oldValue, uint256 newValue);
@@ -78,7 +80,8 @@ library DelegationLib {
   }
 
   /**
-   * @notice    Use power on a specific proposal and use its time as balance
+   * @notice    Use `_amount` of `_delegatee`'s voting power on `_proposalId`
+   *            The `_delegatee`'s voting power based on the snapshot at `_timestamp`
    *
    * @dev       If different timestamps are passed, it can cause mismatch in the amount of
    *            power that can be voted with, so it is very important that it is stable for
@@ -141,11 +144,11 @@ library DelegationLib {
     view
     returns (uint256)
   {
-    return _self.instanceData[_instance].supply.powerNow();
+    return _self.instanceData[_instance].supply.valueNow();
   }
 
   function getSupply(DelegationData storage _self) internal view returns (uint256) {
-    return _self.supply.powerNow();
+    return _self.supply.valueNow();
   }
 
   function getDelegatee(DelegationData storage _self, address _instance, address _attester)
@@ -161,7 +164,7 @@ library DelegationLib {
     view
     returns (uint256)
   {
-    return _self.delegateeData[_delegatee].votingPower.powerNow();
+    return _self.delegateeData[_delegatee].votingPower.valueNow();
   }
 
   function getVotingPowerAt(DelegationData storage _self, address _delegatee, Timestamp _timestamp)
@@ -169,7 +172,7 @@ library DelegationLib {
     view
     returns (uint256)
   {
-    return _self.delegateeData[_delegatee].votingPower.powerAt(_timestamp);
+    return _self.delegateeData[_delegatee].votingPower.valueAt(_timestamp);
   }
 
   function getPowerUsed(DelegationData storage _self, address _delegatee, uint256 _proposalId)

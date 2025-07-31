@@ -210,7 +210,9 @@ contract FlushEntryQueueTest is StakingBase {
       _moveWithLatestRollup: _moveWithLatestRollup
     });
 
-    assertEq(stakingAsset.balanceOf(address(staking)), balance + ACTIVATION_THRESHOLD, "invalid balance");
+    assertEq(
+      stakingAsset.balanceOf(address(staking)), balance + ACTIVATION_THRESHOLD, "invalid balance"
+    );
   }
 
   function _help_flushEntryQueue(uint256 _numValidators, uint256 _expectedFlushSize) internal {
@@ -233,7 +235,9 @@ contract FlushEntryQueueTest is StakingBase {
       "depositors should not be active"
     );
     assertEq(
-      stakingAsset.balanceOf(address(staking)), _numValidators * ACTIVATION_THRESHOLD, "invalid balance"
+      stakingAsset.balanceOf(address(staking)),
+      _numValidators * ACTIVATION_THRESHOLD,
+      "invalid balance"
     );
 
     uint256 flushSize = staking.getEntryQueueFlushSize();

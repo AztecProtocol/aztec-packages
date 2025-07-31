@@ -66,7 +66,10 @@ contract GSEBuilder is TestBase {
 
     if (address(config.gse) == address(0)) {
       config.gse = new GSE(
-        address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
+        address(this),
+        config.testERC20,
+        TestConstants.ACTIVATION_THRESHOLD,
+        TestConstants.EJECTION_THRESHOLD
       );
       vm.label(address(config.gse), "GSE");
     }

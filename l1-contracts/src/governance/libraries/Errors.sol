@@ -30,7 +30,7 @@ library Errors {
   error Governance__ProposalCannotBeDropped();
   error Governance__DepositNotAllowed();
 
-  error Governance__UserLib__NotInPast();
+  error Governance__CheckpointedUintLib__NotInPast();
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();
   error Governance__ConfigurationLib__LockAmountTooSmall();

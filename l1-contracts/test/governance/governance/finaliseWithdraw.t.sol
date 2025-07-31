@@ -63,7 +63,10 @@ contract FinaliseWithdrawTest is GovernanceBase {
     address[WITHDRAWAL_COUNT] memory _recipient,
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps
-  ) external whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps) {
+  )
+    external
+    whenItMatchPendingWithdrawal(_activationThreshold, _recipient, _withdrawals, _timejumps)
+  {
     // it revert
 
     uint256 withdrawalCount = governance.withdrawalCount();

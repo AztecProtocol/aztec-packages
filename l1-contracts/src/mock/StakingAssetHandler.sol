@@ -336,7 +336,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _activationThreshold - the deposit amount
    * @param _attester - the validator's attester address
    */
-  function _triggerDeposit(IStaking _rollup, uint256 _activationThreshold, address _attester) internal {
+  function _triggerDeposit(IStaking _rollup, uint256 _activationThreshold, address _attester)
+    internal
+  {
     // If the attester is currently exiting, we finalize the exit for them.
     if (_rollup.getExit(_attester).exists) {
       _rollup.finaliseWithdraw(_attester);
