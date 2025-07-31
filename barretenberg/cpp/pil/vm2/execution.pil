@@ -49,6 +49,7 @@ include "opcodes/l1_to_l2_message_exists.pil";
 include "opcodes/nullifier_exists.pil";
 include "opcodes/emit_nullifier.pil";
 include "opcodes/emit_unencrypted_log.pil";
+include "opcodes/send_l2_to_l1_msg.pil";
 
 namespace execution;
 
@@ -465,6 +466,7 @@ pol commit sel_execute_emit_notehash;
 pol commit sel_execute_l1_to_l2_message_exists;
 pol commit sel_execute_nullifier_exists;
 pol commit sel_execute_emit_nullifier;
+pol commit sel_execute_send_l2_to_l1_msg;
 sel_execute_get_env_var * (1 - sel_execute_get_env_var) = 0;
 sel_execute_mov * (1 - sel_execute_mov) = 0;
 sel_execute_jump * (1 - sel_execute_jump) = 0;
@@ -485,6 +487,7 @@ sel_execute_emit_notehash * (1 - sel_execute_emit_notehash) = 0;
 sel_execute_l1_to_l2_message_exists * (1 - sel_execute_l1_to_l2_message_exists) = 0;
 sel_execute_nullifier_exists * (1 - sel_execute_nullifier_exists) = 0;
 sel_execute_emit_nullifier * (1 - sel_execute_emit_nullifier) = 0;
+sel_execute_send_l2_to_l1_msg * (1 - sel_execute_send_l2_to_l1_msg) = 0;
 
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execute_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
@@ -506,7 +509,8 @@ sel_execute_notehash_exists * constants.AVM_EXEC_OP_ID_NOTEHASH_EXISTS +
 sel_execute_emit_notehash * constants.AVM_EXEC_OP_ID_EMIT_NOTEHASH +
 sel_execute_l1_to_l2_message_exists * constants.AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS +
 sel_execute_nullifier_exists * constants.AVM_EXEC_OP_ID_NULLIFIER_EXISTS +
-sel_execute_emit_nullifier * constants.AVM_EXEC_OP_ID_EMIT_NULLIFIER
+sel_execute_emit_nullifier * constants.AVM_EXEC_OP_ID_EMIT_NULLIFIER +
+sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
 // We force the selectors to be 0 if we are not executing an opcode
 // or when we are not in the execution subtrace.
 = sel_should_execute_opcode * sel_execute_execution * subtrace_operation_id;
