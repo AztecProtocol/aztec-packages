@@ -252,6 +252,11 @@ library FeeLib {
     });
   }
 
+  function isTxsEnabled() internal view returns (bool) {
+    // If the target is 0, the limit is 0. And no transactions can enter
+    return getManaTarget() > 0;
+  }
+
   function getManaTarget() internal view returns (uint256) {
     return getStorage().config.getManaTarget();
   }
