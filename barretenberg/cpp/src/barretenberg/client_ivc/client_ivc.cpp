@@ -101,6 +101,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
     std::vector<StdlibFF> public_inputs;
 
     switch (verifier_inputs.type) {
+    case QUEUE_TYPE::PG_TAIL:
     case QUEUE_TYPE::PG: {
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
@@ -119,6 +120,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
 
         break;
     }
+
     case QUEUE_TYPE::OINK: {
         // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
         auto verifier_accum =
@@ -315,12 +317,17 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
-        // If this is the final circuit to be folded, set queue entry type to PG_FINAL and run the decider prover
-        bool is_final_fold = (num_circuits_accumulated == num_circuits - 1);
-        if (is_final_fold) {
+        // If this is the last "inner/reset" kernel to be folded, set queue entry type to be PG_TAIL
+        bool is_last_inner_kernel = (num_circuits_accumulated == num_circuits - 2);
+        // If this is the "tail" kernel circuit to be folded, set queue entry type to PG_FINAL and run the decider
+        // prover
+        bool is_tail_kernel = (num_circuits_accumulated == num_circuits - 1);
+        if (is_tail_kernel) {
             queue_entry.type = QUEUE_TYPE::PG_FINAL;
             decider_proof = decider_prove();
             vinfo("constructed decider proof");
+        } else if (is_last_inner_kernel) {
+            queue_entry.type = QUEUE_TYPE::PG_TAIL;
         } else {
             queue_entry.type = QUEUE_TYPE::PG;
         }
