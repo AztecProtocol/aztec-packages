@@ -402,7 +402,7 @@ describe('Archiver', () => {
     const badBlock2BlobHashes = await makeVersionedBlobHashes(badBlock2);
     const badBlock2Blobs = await makeBlobsFromBlock(badBlock2);
 
-    // Return the archive root for the bad block 2 when queried
+    // Return the archive root for the bad block 2 when L1 is queried
     mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
       Promise.resolve((args[0] === 2n ? badBlock2 : blocks[Number(args[0] - 1n)]).archive.root.toString()),
     );
@@ -423,6 +423,14 @@ describe('Archiver', () => {
     await archiver.start(true);
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(1);
+    expect(await archiver.getPendingChainValidationStatus()).toEqual(
+      expect.objectContaining({
+        valid: false,
+        reason: 'invalid-attestation',
+        invalidIndex: 0,
+        committee,
+      }),
+    );
 
     // Now we go for another loop, where a proper block 2 is proposed with correct attestations
     // IRL there would be an "Invalidated" event, but we are not currently relying on it
@@ -453,6 +461,9 @@ describe('Archiver', () => {
     expect(block2.block.number).toEqual(2);
     expect(block2.block.archive.root.toString()).toEqual(blocks[1].archive.root.toString());
     expect(block2.attestations.length).toEqual(3);
+
+    // With a valid pending chain validation status
+    expect(await archiver.getPendingChainValidationStatus()).toEqual(expect.objectContaining({ valid: true }));
   }, 10_000);
 
   it('skip event search if no changes found', async () => {

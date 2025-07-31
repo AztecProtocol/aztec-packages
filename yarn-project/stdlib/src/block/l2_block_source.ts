@@ -1,4 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -9,7 +10,7 @@ import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { L2Block } from './l2_block.js';
-import type { PublishedL2Block } from './published_l2_block.js';
+import { PublishedL2Block } from './published_l2_block.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -122,9 +123,50 @@ export interface L2BlockSource {
   /** Latest synced L1 timestamp. */
   getL1Timestamp(): Promise<bigint>;
 
+  /**
+   * Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect).
+   * Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
+   */
+  isPendingChainInvalid(): Promise<boolean>;
+
+  /**
+   * Returns the status of the pending chain validation.
+   * This includes whether the chain is valid, and if not, the reason for invalidation.
+   */
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult>;
+
   /** Force a sync. */
   syncImmediate(): Promise<void>;
 }
+
+/** Result type for validating a block attestations */
+export type ValidateBlockResult =
+  | { valid: true; block?: PublishedL2Block }
+  | { valid: false; block: PublishedL2Block; committee: EthAddress[]; reason: 'insufficient-attestations' }
+  | {
+      valid: false;
+      block: PublishedL2Block;
+      committee: EthAddress[];
+      reason: 'invalid-attestation';
+      invalidIndex: number;
+    };
+
+export const ValidateBlockResultSchema = z.union([
+  z.object({ valid: z.literal(true), block: PublishedL2Block.schema.optional() }),
+  z.object({
+    valid: z.literal(false),
+    block: PublishedL2Block.schema,
+    committee: z.array(schemas.EthAddress),
+    reason: z.literal('insufficient-attestations'),
+  }),
+  z.object({
+    valid: z.literal(false),
+    block: PublishedL2Block.schema,
+    committee: z.array(schemas.EthAddress),
+    reason: z.literal('invalid-attestation'),
+    invalidIndex: z.number(),
+  }),
+]) satisfies ZodFor<ValidateBlockResult>;
 
 /**
  * L2BlockSource that emits events upon pending / proven chain changes.

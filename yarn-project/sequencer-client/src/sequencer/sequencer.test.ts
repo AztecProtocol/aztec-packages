@@ -236,6 +236,8 @@ describe('sequencer', () => {
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
+      isPendingChainInvalid: mockFn().mockResolvedValue(false),
+      getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({

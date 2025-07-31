@@ -10,6 +10,7 @@ import {
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -87,7 +88,7 @@ import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './
 import { ArchiverInstrumentation } from './instrumentation.js';
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
-import { validateBlockAttestations } from './validation.js';
+import { type ValidateBlockResult, validateBlockAttestations } from './validation.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -119,6 +120,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
+  private pendingChainValidationStatus: ValidateBlockResult = { valid: true };
   private initialSyncComplete: boolean = false;
 
   public readonly tracer: Tracer;
@@ -356,10 +358,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       // We only do this if rollup cant prune on the next submission. Otherwise we will end up
       // re-syncing the blocks we have just unwound above. We also dont do this if the last block is invalid,
       // since the archiver will rightfully refuse to sync up to it.
-      if (!rollupCanPrune && !rollupStatus.lastBlockIsInvalid) {
+      if (!rollupCanPrune && rollupStatus.lastBlockValidationResult.valid) {
         await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
       }
 
+      this.pendingChainValidationStatus = rollupStatus.lastBlockValidationResult;
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
@@ -617,7 +620,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       provenArchive,
       pendingBlockNumber: Number(pendingBlockNumber),
       pendingArchive,
-      lastBlockIsInvalid: false,
+      lastBlockValidationResult: { valid: true } as ValidateBlockResult,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingBlockNumber,
@@ -793,16 +796,19 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
       for (const block of publishedBlocks) {
         const isProven = block.block.number <= provenBlockNumber;
-        if (!isProven && !(await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log))) {
+        rollupStatus.lastBlockValidationResult = isProven
+          ? { valid: true }
+          : await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log);
+
+        if (!rollupStatus.lastBlockValidationResult.valid) {
           this.log.warn(`Skipping block ${block.block.number} due to invalid attestations`, {
             blockHash: block.block.hash(),
             l1BlockNumber: block.l1.blockNumber,
+            ...pick(rollupStatus.lastBlockValidationResult, 'reason'),
           });
-          rollupStatus.lastBlockIsInvalid = true;
           continue;
         }
 
-        rollupStatus.lastBlockIsInvalid = false;
         validBlocks.push(block);
         this.log.debug(`Ingesting new L2 block ${block.block.number} with ${block.block.body.txEffects.length} txs`, {
           blockHash: block.block.hash(),
@@ -1198,6 +1204,14 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getDebugFunctionName(address, selector);
+  }
+
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve(this.pendingChainValidationStatus);
+  }
+
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(this.pendingChainValidationStatus.valid === false);
   }
 
   async getL2Tips(): Promise<L2Tips> {

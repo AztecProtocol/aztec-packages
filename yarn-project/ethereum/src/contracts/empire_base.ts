@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 
@@ -6,6 +7,7 @@ import { type Hex, type TypedDataDefinition, encodeFunctionData } from 'viem';
 import type { L1TxRequest } from '../l1_tx_utils.js';
 
 export interface IEmpireBase {
+  get address(): EthAddress;
   getRoundInfo(
     rollupAddress: Hex,
     round: bigint,

@@ -52,13 +52,9 @@ describe('ValidatorClient', () => {
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
     blockBuilder = mock<IFullNodeBlockBuilder>();
-    blockBuilder.getConfig.mockReturnValue({
-      l1GenesisTime: 1n,
-      slotDuration: 24,
-      l1ChainId: 1,
-      rollupVersion: 1,
-    });
+    blockBuilder.getConfig.mockReturnValue({ l1GenesisTime: 1n, slotDuration: 24, l1ChainId: 1, rollupVersion: 1 });
     epochCache = mock<EpochCache>();
+    epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
