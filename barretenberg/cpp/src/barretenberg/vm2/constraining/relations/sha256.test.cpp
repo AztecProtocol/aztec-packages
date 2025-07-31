@@ -16,6 +16,7 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
+#include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
@@ -34,6 +35,8 @@ namespace {
 using ::testing::Return;
 using ::testing::StrictMock;
 
+using simulation::Bitwise;
+using simulation::BitwiseEvent;
 using simulation::EventEmitter;
 using simulation::FakeBitwise;
 using simulation::FakeGreaterThan;
@@ -48,6 +51,7 @@ using simulation::RangeCheckEvent;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
+using tracegen::BitwiseTraceBuilder;
 using tracegen::GreaterThanTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::Sha256TraceBuilder;
@@ -97,7 +101,6 @@ TEST(Sha256ConstrainingTest, Basic)
     TestTraceContainer trace;
     trace.set(C::precomputed_first_row, 0, 1);
     Sha256TraceBuilder builder;
-
     const auto sha256_event_container = sha256_event_emitter.dump_events();
     builder.process(sha256_event_container, trace);
 
@@ -109,8 +112,10 @@ TEST(Sha256ConstrainingTest, Interaction)
     MemoryStore mem;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    EventEmitter<BitwiseEvent> bitwise_event_emitter;
+
     FakeGreaterThan gt;
-    FakeBitwise bitwise;
+    Bitwise bitwise(bitwise_event_emitter);
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
@@ -137,8 +142,29 @@ TEST(Sha256ConstrainingTest, Interaction)
     precomputed_builder.process_misc(trace, 65);
     precomputed_builder.process_sha256_round_constants(trace);
 
+    BitwiseTraceBuilder bitwise_builder;
+    bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
+
     builder.process(sha256_event_emitter.get_events(), trace);
-    check_interaction<Sha256TraceBuilder, lookup_sha256_round_constant_settings>(trace);
+    // Check bitwise and round constant lookups
+    check_interaction<Sha256TraceBuilder,
+                      lookup_sha256_round_constant_settings,
+                      lookup_sha256_w_s_0_xor_0_settings,
+                      lookup_sha256_w_s_0_xor_1_settings,
+                      lookup_sha256_w_s_1_xor_0_settings,
+                      lookup_sha256_w_s_1_xor_1_settings,
+                      lookup_sha256_s_1_xor_0_settings,
+                      lookup_sha256_s_1_xor_1_settings,
+                      lookup_sha256_ch_and_0_settings,
+                      lookup_sha256_ch_and_1_settings,
+                      lookup_sha256_ch_xor_settings,
+                      lookup_sha256_s_0_xor_0_settings,
+                      lookup_sha256_s_0_xor_1_settings,
+                      lookup_sha256_maj_and_0_settings,
+                      lookup_sha256_maj_and_1_settings,
+                      lookup_sha256_maj_and_2_settings,
+                      lookup_sha256_maj_xor_0_settings,
+                      lookup_sha256_maj_xor_1_settings>(trace);
 
     check_relation<sha256>(trace);
 }
@@ -493,11 +519,12 @@ TEST(Sha256MemoryConstrainingTest, Complex)
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    EventEmitter<BitwiseEvent> bitwise_event_emitter;
 
     RangeCheck range_check(range_check_event_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
-    FakeBitwise bitwise;
+    Bitwise bitwise(bitwise_event_emitter);
 
     Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
 
@@ -588,6 +615,9 @@ TEST(Sha256MemoryConstrainingTest, Complex)
     PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_misc(trace, 65); // Enough for round constants
     precomputed_builder.process_sha256_round_constants(trace);
+
+    BitwiseTraceBuilder bitwise_builder;
+    bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
 
     if (getenv("AVM_DEBUG") != nullptr) {
         InteractiveDebugger debugger(trace);
