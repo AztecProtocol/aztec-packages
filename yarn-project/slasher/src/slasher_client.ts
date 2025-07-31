@@ -11,6 +11,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import {
   type GetContractEventsReturnType,
@@ -21,14 +22,7 @@ import {
   getContract,
 } from 'viem';
 
-import {
-  Offense,
-  type SlasherConfig,
-  WANT_TO_SLASH_EVENT,
-  type WantToSlashArgs,
-  type Watcher,
-  bigIntToOffense,
-} from './config.js';
+import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, bigIntToOffense } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
@@ -154,19 +148,17 @@ export class SlasherClient {
   /**
    * Update the config of the slasher client
    *
-   * @param config - the new config. Can only update the following fields:
-   * - slashOverridePayload
-   * - slashPayloadTtlSeconds
-   * - slashProposerRoundPollingIntervalSeconds
+   * @param config - the new config.
    */
   public updateConfig(config: Partial<SlasherConfig>) {
     const newConfig: SlasherConfig = {
       ...this.config,
-      slashOverridePayload: config.slashOverridePayload ?? this.config.slashOverridePayload,
-      slashPayloadTtlSeconds: config.slashPayloadTtlSeconds ?? this.config.slashPayloadTtlSeconds,
-      slashProposerRoundPollingIntervalSeconds:
-        config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
+      ...config,
     };
+
+    // We keep this separate flag to tell us if we should be signal for the override payload: after the override payload is executed,
+    // the slasher goes back to using the monitored payloads to inform the sequencer publisher what payload to signal for.
+    // So we only want to flip back "on" the voting for override payload if config we just passed in re-set the override payload.
     this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
     this.config = newConfig;
   }
