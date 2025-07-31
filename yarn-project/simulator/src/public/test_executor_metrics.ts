@@ -55,28 +55,30 @@ export enum PublicTxMetricsFilter {
   PROVING,
 }
 
-const EMPTY_TX_METRICS: PublicTxMetrics = {
-  // TS simulation
-  totalDurationMs: 0,
-  manaUsed: 0,
-  totalInstructionsExecuted: 0,
-  nonRevertiblePrivateInsertionsUs: undefined,
-  revertiblePrivateInsertionsUs: undefined,
-  enqueuedCalls: [],
-  revertedCode: undefined,
-  // Proving
-  proverSimulationStepMs: undefined,
-  proverProvingStepMs: undefined,
-  proverTraceGenerationStepMs: undefined,
-  // Proving (detail)
-  traceGenerationInteractionsMs: undefined,
-  traceGenerationTracesMs: undefined,
-  provingSumcheckMs: undefined,
-  provingPcsMs: undefined,
-  provingLogDerivativeInverseMs: undefined,
-  provingLogDerivativeInverseCommitmentsMs: undefined,
-  provingWireCommitmentsMs: undefined,
-};
+function createEmptyTxMetrics(): PublicTxMetrics {
+  return {
+    // TS simulation
+    totalDurationMs: 0,
+    manaUsed: 0,
+    totalInstructionsExecuted: 0,
+    nonRevertiblePrivateInsertionsUs: undefined,
+    revertiblePrivateInsertionsUs: undefined,
+    enqueuedCalls: [],
+    revertedCode: undefined,
+    // Proving
+    proverSimulationStepMs: undefined,
+    proverProvingStepMs: undefined,
+    proverTraceGenerationStepMs: undefined,
+    // Proving (detail)
+    traceGenerationInteractionsMs: undefined,
+    traceGenerationTracesMs: undefined,
+    provingSumcheckMs: undefined,
+    provingPcsMs: undefined,
+    provingLogDerivativeInverseMs: undefined,
+    provingLogDerivativeInverseCommitmentsMs: undefined,
+    provingWireCommitmentsMs: undefined,
+  };
+}
 
 export class TestExecutorMetrics implements ExecutorMetricsInterface {
   private logger: Logger;
@@ -92,7 +94,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
   startRecordingTxSimulation(txLabel: string) {
     assert(!this.currentTxLabel, 'Cannot start recording tx simulation when another is live');
     assert(!this.txMetrics.has(txLabel), 'Cannot start recording metrics for tx with duplicate label');
-    this.txMetrics.set(txLabel, { ...EMPTY_TX_METRICS }); // We need to clone the object to avoid mutating the original.
+    this.txMetrics.set(txLabel, createEmptyTxMetrics());
     this.currentTxLabel = txLabel;
     this.txTimer = new Timer();
   }
@@ -171,7 +173,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 
   recordProverMetrics(txLabel: string, metrics: Partial<PublicTxMetrics>) {
     if (!this.txMetrics.has(txLabel)) {
-      this.txMetrics.set(txLabel, { ...EMPTY_TX_METRICS }); // We need to clone the object to avoid mutating the original.
+      this.txMetrics.set(txLabel, createEmptyTxMetrics());
     }
     const txMetrics = this.txMetrics.get(txLabel)!;
     for (const [key, value] of Object.entries(metrics)) {
