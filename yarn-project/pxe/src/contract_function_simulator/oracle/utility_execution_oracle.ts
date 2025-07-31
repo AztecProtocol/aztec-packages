@@ -298,7 +298,7 @@ export class UtilityExecutionOracle extends TypedOracle {
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.executionDataProvider.validateEnqueuedNotesAndEvents(
+    await this.executionDataProvider.utilityValidateEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
@@ -315,7 +315,7 @@ export class UtilityExecutionOracle extends TypedOracle {
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.executionDataProvider.bulkRetrieveLogs(
+    await this.executionDataProvider.utilityBulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,

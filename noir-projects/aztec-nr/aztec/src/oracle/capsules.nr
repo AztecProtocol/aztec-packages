@@ -38,7 +38,7 @@ pub unconstrained fn copy(
     copy_oracle(contract_address, src_slot, dst_slot, num_entries);
 }
 
-#[oracle(storeCapsule)]
+#[oracle(utilityStoreCapsule)]
 unconstrained fn store_oracle<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,

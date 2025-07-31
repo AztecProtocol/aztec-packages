@@ -612,7 +612,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
   }
 
-  public async validateEnqueuedNotesAndEvents(
+  public async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -744,7 +744,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  public async bulkRetrieveLogs(
+  public async utilityBulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,

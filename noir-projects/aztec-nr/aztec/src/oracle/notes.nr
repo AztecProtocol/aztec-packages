@@ -72,14 +72,14 @@ unconstrained fn notify_nullified_note_oracle_wrapper(
     notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
-#[oracle(notifyNullifiedNote)]
+#[oracle(pxeNotifyNullifiedNote)]
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
 unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
     notify_created_nullifier_oracle(nullifier);
 }
 
-#[oracle(notifyCreatedNullifier)]
+#[oracle(pxeNotifyCreatedNullifier)]
 unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(getNotes)]

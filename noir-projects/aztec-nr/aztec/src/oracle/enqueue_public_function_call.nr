@@ -88,5 +88,5 @@ pub unconstrained fn notify_set_min_revertible_side_effect_counter_oracle_wrappe
     notify_set_min_revertible_side_effect_counter_oracle(counter);
 }
 
-#[oracle(notifySetMinRevertibleSideEffectCounter)]
+#[oracle(pxeNotifySetMinRevertibleSideEffectCounter)]
 unconstrained fn notify_set_min_revertible_side_effect_counter_oracle(_counter: u32) {}
