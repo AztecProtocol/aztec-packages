@@ -14,20 +14,20 @@ use dep::protocol_types::{
     traits::{Serialize, ToField},
 };
 
-/// Describes details of message delivery. There are 3 dimensions to configure:
+/// Specifies the configuration parameters for message emission across three key dimensions:
+///
 /// 1. Constrained or unconstrained encryption
-/// - When the encryption is constrained we have a guarantee that the resulting ciphertext is formed correctly. If we don't
-/// need this guarantee and we are fine with trusting the sender it has been done correctly, it is recommended to use
-/// unconstrained encryption.
+/// - When the encryption is constrained we have a guarantee that the resulting ciphertext is formed correctly. If we
+///   don't need this guarantee and we are fine with trusting the sender it has been done correctly, it is recommended
+///   to use unconstrained encryption.
 /// - Note that we always commit to the plaintext and the recipient is therefore always able to verify the authenticity
-/// of the message.
+///   of the message.
 ///
 /// 2. Delivery mechanism
-/// - The message ciphertext can be delivered either via the private log stream or via the offchain message mechanism.
-/// - The private log stream is submitted to L1 blobs and consumes DA.
-/// - The offchain message mechanism is not submitted to L1 blobs and does not consume DA.
-/// - Unlike the private log stream which is handled by the Aztec protocol, the offchain message mechanism is handled by
-/// the app.
+/// - The message ciphertext can be delivered either via the private log stream or as an offchain message.
+/// - The private log stream is handled by the Aztec protocol, is submitted to L1 blobs and consumes DA.
+/// - The offchain message mechanism is implemented by the app and hence is not expected to consume DA (e.g. imagine
+///   an app submitting all the ciphertext to cloud storage).
 ///
 /// 3. Constrained or unconstrained tagging
 /// - Tagging is a mechanism to ensure that a recipient is able to efficiently find a private log (tagging is not used
@@ -38,6 +38,7 @@ use dep::protocol_types::{
 ///
 /// # When to use which variant
 /// - We are currently still exploring the design space but it seems that there are only 2 meaningful combinations:
+///
 /// 1. Constrained encryption, constrained tagging, private log stream
 ///
 /// This combination gives us an on-chain guarantee that a recipient is able to discovery and receive a message. This
@@ -53,13 +54,13 @@ use dep::protocol_types::{
 ///
 /// 2. Unconstrained encryption, offchain message
 /// This combination is useful when we either trust the sender to behave or the sender is incentivised to deliver the
-/// message. Let's consider a payment app. When you are buying groceries, the merchant can consider the payment successful
-/// once he receives the payment message, can successfully decrypt it and see that its contents correspond to a valid
-/// token note.
+/// message. Let's consider a payment app. When you are buying groceries, the merchant can consider the payment
+/// successful once he receives the payment message, can successfully decrypt it and see that its contents correspond
+/// to a valid token note.
 ///
 ///
-/// Other combinations like unconstrained encryption, unconstrained tagging, private log stream are not that meaningful
-/// because they are way costlier that combination 2 above while providing no additional valuable guarantees.
+/// Other combinations like unconstrained encryption, unconstrained tagging, private log stream don't seem to be
+/// meaningful because they are way costlier that combination 2 above while providing no additional guarantees.
 pub struct PrivateLogContentConstraintsEnum {
     /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
     /// the private log stream and hence is submitted to L1 blobs and consumes DA.
