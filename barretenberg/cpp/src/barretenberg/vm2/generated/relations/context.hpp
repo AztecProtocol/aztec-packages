@@ -16,7 +16,7 @@ template <typename FF_> class contextImpl {
 
     static constexpr std::array<size_t, 67> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 4, 3, 4, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 6, 5, 5, 6, 5, 5, 5, 5,
-        5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4, 6, 6
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -44,9 +44,8 @@ template <typename FF_> class contextImpl {
                                        in.get(C::execution_sel_execute_jump) + in.get(C::execution_sel_execute_jumpi);
         const auto execution_NESTED_RET_REV_ONLY =
             in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_error));
-        const auto execution_NOT_ROLLBACK_CONTEXT =
-            in.get(C::execution_sel) * (FF(1) - in.get(C::execution_rollback_context));
         const auto execution_SEL_CONSUMED_ALL_GAS = in.get(C::execution_sel_error);
+        const auto execution_DEFAULT_OR_NESTED_RETURN = execution_DEFAULT_CTX_ROW + in.get(C::execution_nested_return);
         const auto execution_BASE_L2_GAS = in.get(C::execution_opcode_gas) + in.get(C::execution_addressing_gas);
         const auto execution_DYNAMIC_L2_GAS_USED =
             in.get(C::execution_dynamic_l2_gas) * in.get(C::execution_dynamic_l2_gas_factor);
@@ -451,21 +450,21 @@ template <typename FF_> class contextImpl {
         }
         { // NOTE_HASH_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                        (in.get(C::execution_note_hash_tree_root) - in.get(C::execution_prev_note_hash_tree_root_shift));
             tmp *= scaling_factor;
             std::get<54>(evals) += typename Accumulator::View(tmp);
         }
         { // NOTE_HASH_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                        (in.get(C::execution_note_hash_tree_size) - in.get(C::execution_prev_note_hash_tree_size_shift));
             tmp *= scaling_factor;
             std::get<55>(evals) += typename Accumulator::View(tmp);
         }
         { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
             using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                        (in.get(C::execution_num_note_hashes_emitted) -
                         in.get(C::execution_prev_num_note_hashes_emitted_shift));
             tmp *= scaling_factor;
@@ -473,14 +472,14 @@ template <typename FF_> class contextImpl {
         }
         { // NULLIFIER_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                        (in.get(C::execution_nullifier_tree_root) - in.get(C::execution_prev_nullifier_tree_root_shift));
             tmp *= scaling_factor;
             std::get<57>(evals) += typename Accumulator::View(tmp);
         }
         { // NULLIFIER_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                        (in.get(C::execution_nullifier_tree_size) - in.get(C::execution_prev_nullifier_tree_size_shift));
             tmp *= scaling_factor;
             std::get<58>(evals) += typename Accumulator::View(tmp);
@@ -488,7 +487,7 @@ template <typename FF_> class contextImpl {
         { // NUM_NULLIFIERS_EMITTED_CONTINUITY
             using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
             auto tmp =
-                execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+                execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                 (in.get(C::execution_num_nullifiers_emitted) - in.get(C::execution_prev_num_nullifiers_emitted_shift));
             tmp *= scaling_factor;
             std::get<59>(evals) += typename Accumulator::View(tmp);
@@ -496,7 +495,7 @@ template <typename FF_> class contextImpl {
         { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
             auto tmp =
-                execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+                execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                 (in.get(C::execution_public_data_tree_root) - in.get(C::execution_prev_public_data_tree_root_shift));
             tmp *= scaling_factor;
             std::get<60>(evals) += typename Accumulator::View(tmp);
@@ -504,14 +503,14 @@ template <typename FF_> class contextImpl {
         { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
             auto tmp =
-                execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+                execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                 (in.get(C::execution_public_data_tree_size) - in.get(C::execution_prev_public_data_tree_size_shift));
             tmp *= scaling_factor;
             std::get<61>(evals) += typename Accumulator::View(tmp);
         }
         { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
             using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                        (in.get(C::execution_written_public_data_slots_tree_root) -
                         in.get(C::execution_prev_written_public_data_slots_tree_root_shift));
             tmp *= scaling_factor;
@@ -519,7 +518,7 @@ template <typename FF_> class contextImpl {
         }
         { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                        (in.get(C::execution_written_public_data_slots_tree_size) -
                         in.get(C::execution_prev_written_public_data_slots_tree_size_shift));
             tmp *= scaling_factor;
@@ -535,7 +534,7 @@ template <typename FF_> class contextImpl {
         { // NUM_UNENCRYPTED_LOGS_CONTINUITY
             using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
             auto tmp =
-                execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+                execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                 (in.get(C::execution_num_unencrypted_logs) - in.get(C::execution_prev_num_unencrypted_logs_shift));
             tmp *= scaling_factor;
             std::get<65>(evals) += typename Accumulator::View(tmp);
@@ -543,7 +542,7 @@ template <typename FF_> class contextImpl {
         { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
             using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
             auto tmp =
-                execution_NOT_LAST_EXEC * execution_NOT_ROLLBACK_CONTEXT *
+                execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
                 (in.get(C::execution_num_l2_to_l1_messages) - in.get(C::execution_prev_num_l2_to_l1_messages_shift));
             tmp *= scaling_factor;
             std::get<66>(evals) += typename Accumulator::View(tmp);
