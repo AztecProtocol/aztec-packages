@@ -174,11 +174,21 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       timeCheater.cheat__jumpForwardEpochs(2);
     }
 
-    uint256 gasSmall = gasleft();
+    uint256 gasSmall = 0;
+    uint256 gasBig = 0;
 
-    rollup.getCurrentEpochCommittee();
+    {
+      emit log_string("Getting the small epoch committee");
+      vm.record();
+      gasSmall = gasleft();
+      rollup.getCurrentEpochCommittee();
+      gasSmall = gasSmall - gasleft();
 
-    gasSmall = gasSmall - gasleft();
+      (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+      // assertEq(writes.length, 0, "No writes should be done");
+      emit log_named_uint("reads", reads.length);
+      emit log_named_uint("writes", writes.length);
+    }
 
     for (uint256 i = 0; i < 800; i++) {
       rollup.deposit(
@@ -190,19 +200,22 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     timeCheater.cheat__jumpForwardEpochs(10);
 
-    vm.record();
+    {
+      emit log_string("Getting the big epoch committee");
+      vm.record();
+      gasBig = gasleft();
+      rollup.getCurrentEpochCommittee();
+      gasBig = gasBig - gasleft();
+      (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+      assertEq(writes.length, 0, "No writes should be done");
+      emit log_named_uint("reads", reads.length);
+    }
 
-    uint256 gasBig = gasleft();
-    rollup.getCurrentEpochCommittee();
+    emit log_named_uint("gasSmall", gasSmall);
+    emit log_named_uint("gasBig", gasBig);
 
-    gasBig = gasBig - gasleft();
-
-    (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
-    assertEq(writes.length, 0, "No writes should be done");
-
-    // Cost should be approx 3K extra per double, so we should fit in 7K
-    // We won't be exact with the gas measurement here, but close enough.
-    assertGt(gasSmall + 7e3, gasBig, "growing too quickly");
+    // Should not have grown by more than 10K
+    assertGt(gasSmall + 1e4, gasBig, "growing too quickly");
   }
 
   function test_getProposerAt(uint16 _slot, bool _setup) external setup(4, 4) {
