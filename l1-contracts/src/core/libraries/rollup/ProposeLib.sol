@@ -48,7 +48,7 @@ struct InterimProposeValues {
   bytes32 payloadDigest;
   Epoch currentEpoch;
   bool isFirstBlockOfEpoch;
-  bool isIgnition;
+  bool isTxsEnabled;
 }
 
 /**
@@ -98,8 +98,8 @@ library ProposeLib {
     }
     InterimProposeValues memory v;
 
-    v.isIgnition = FeeLib.getManaTarget() == 0;
-    if (!v.isIgnition) {
+    v.isTxsEnabled = FeeLib.isTxsEnabled();
+    if (v.isTxsEnabled) {
       // Since ignition have no TX's, we need not waste gas updating pricing oracle.
       FeeLib.updateL1GasFeeOracle();
     }
@@ -116,7 +116,7 @@ library ProposeLib {
     ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
     ManaBaseFeeComponents memory components;
-    if (!v.isIgnition) {
+    if (v.isTxsEnabled) {
       // Since ignition have no TX's, we need not waste gas computing the fee components
       components = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
     }
@@ -158,7 +158,7 @@ library ProposeLib {
     );
 
     FeeHeader memory feeHeader;
-    if (!v.isIgnition) {
+    if (v.isTxsEnabled) {
       // Since ignition have no TX's, we need not waste gas deriving the fee header
       feeHeader = FeeLib.computeFeeHeader(
         blockNumber,
@@ -186,7 +186,7 @@ library ProposeLib {
       })
     );
 
-    if (!v.isIgnition) {
+    if (v.isTxsEnabled) {
       // Since ignition will have no transactions there will be no method to consume or output message.
       // Therefore we can ignore it as long as mana target is zero.
       // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
