@@ -145,13 +145,14 @@ export class ProverNodePublisher {
   }
 
   private async validateEpochProofSubmission(args: {
+    epochNumber: number;
     fromBlock: number;
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
   }) {
-    const { fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
+    const { epochNumber, fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
@@ -165,8 +166,9 @@ export class ProverNodePublisher {
     }
 
     // Check the archive for the immediate block before the epoch
+    // If we're on the first epoch, we can't perform this check
     const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
-    if (publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
+    if (epochNumber > 1 && publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${blockLog.archive}`,
       );
