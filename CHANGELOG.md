@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/AztecProtocol/aztec-packages/compare/v1.2.0...v1.2.1) (2025-07-31)
+
+
+### Miscellaneous
+
+* backport update-slasher-config ([#16124](https://github.com/AztecProtocol/aztec-packages/issues/16124)) ([6e8fe8b](https://github.com/AztecProtocol/aztec-packages/commit/6e8fe8bb9df003dca8c406a32335ac3ae5a5b096))
+* **backport-to-master:** chore: update default signal pct ([#16134](https://github.com/AztecProtocol/aztec-packages/issues/16134)) ([#16143](https://github.com/AztecProtocol/aztec-packages/issues/16143)) ([c5b0920](https://github.com/AztecProtocol/aztec-packages/commit/c5b09203cef84d1546b49e272d62e386bac90794))
+
 ## [1.2.0](https://github.com/AztecProtocol/aztec-packages/compare/v1.1.3...v1.2.0) (2025-07-28)
 
 
