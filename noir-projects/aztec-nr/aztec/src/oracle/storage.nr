@@ -1,6 +1,6 @@
 use dep::protocol_types::{address::AztecAddress, traits::{Packable, ToField}};
 
-#[oracle(storageRead)]
+#[oracle(utilityStorageRead)]
 unconstrained fn storage_read_oracle<let N: u32>(
     address: Field,
     storage_slot: Field,
