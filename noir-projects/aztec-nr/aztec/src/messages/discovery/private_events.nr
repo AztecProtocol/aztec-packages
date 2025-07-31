@@ -46,7 +46,7 @@ pub unconstrained fn process_private_event_msg(
         GENERATOR_INDEX__EVENT_COMMITMENT,
     );
 
-    // Randomness was injected into the event payload in `emit_event_in_private_log` but we have already used it
+    // Randomness was injected into the event payload in `emit_event_in_private` but we have already used it
     // to compute the event commitment, so we can safely discard it now.
     let serialized_event = array::subbvec(
         serialized_event_with_randomness,
