@@ -132,7 +132,7 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         auto verifier_accum =
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
-        // Perform oink recursive verification to the initial verifier accumulator
+        // Perform oink recursive verification to complete the initial verifier accumulator
         OinkRecursiveVerifier verifier{ &circuit, verifier_accum, accumulation_recursive_transcript };
         verifier.verify_proof(verifier_inputs.proof);
         verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
@@ -251,9 +251,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
-        info("assert this is happening");
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
+        // preserve the hiding circuit so a proof for it can be created
+        // TODO(): reconsider approach once integration is complete
         hiding_circuit = std::make_unique<ClientCircuit>(std::move(circuit));
     } else {
         KernelIO kernel_output;
@@ -434,7 +435,6 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     BB_ASSERT_EQ(!decider_proof.empty(), true, "Decider proof is empty!");
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
     points_accumulator.aggregate(decider_pairing_points);
-
     return { points_accumulator, merged_table_commitments };
 }
 
