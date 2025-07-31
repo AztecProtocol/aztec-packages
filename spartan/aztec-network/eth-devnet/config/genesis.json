@@ -16,7 +16,8 @@
     "terminalTotalDifficulty": 0,
     "terminalTotalDifficultyPassed": true,
     "shanghaiTime": 0,
-    "cancunTime": 0
+    "cancunTime": 0,
+    "pragueTime": 0
   },
   "alloc": {
     "0x3fab184622dc19b6109349b94811493bf2a45362": {

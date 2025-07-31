@@ -47,10 +47,10 @@ images:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
   reth:
-    image: ghcr.io/paradigmxyz/reth:v1.0.8
+    image: ghcr.io/paradigmxyz/reth:v1.6.0
     pullPolicy: IfNotPresent
   lighthouse:
-    image: sigp/lighthouse:v6.0.1
+    image: sigp/lighthouse:v7.1.0
     pullPolicy: IfNotPresent
 
 aztec:
