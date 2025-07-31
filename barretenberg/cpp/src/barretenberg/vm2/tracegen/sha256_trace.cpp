@@ -499,6 +499,8 @@ void Sha256TraceBuilder::process(
             bool is_an_input_round = i < 16;
             // Used to check we non-zero rounds remaining
             FF inv = FF(64 - i).invert();
+            uint32_t round_w =
+                is_an_input_round ? event.input[i].as<uint32_t>() : compute_w_with_witness(prev_w_helpers, trace);
             trace.set(row,
                       { {
                           { C::sha256_sel, 1 },
@@ -510,24 +512,12 @@ void Sha256TraceBuilder::process(
                           // For round selectors
                           { C::sha256_xor_sel, 2 },
                           { C::sha256_perform_round, 1 },
-                          { C::sha256_is_input_round, is_an_input_round },
                           { C::sha256_round_count, i },
                           { C::sha256_rounds_remaining, 64 - i },
                           { C::sha256_rounds_remaining_inv, inv },
+                          { C::sha256_w, round_w },
+                          { C::sha256_sel_compute_w, is_an_input_round ? 0 : 1 },
                       } });
-
-            // Computing W
-            // TODO: we currently perform the w computation even for the input round
-            // This might not be what we want to do when we end up solving the xors (since it will involve lookups)
-            uint32_t round_w = compute_w_with_witness(prev_w_helpers, trace);
-            // W is set based on if we are still using the input values
-            if (is_an_input_round) {
-                trace.set(C::sha256_w, row, prev_w_helpers[0]);
-                round_w = prev_w_helpers[0];
-            } else {
-                trace.set(C::sha256_w, row, round_w);
-            }
-
             // Set the init state columns - propagated down
             set_init_state_cols(state, trace);
             // Set the state columns
@@ -614,11 +604,11 @@ void Sha256TraceBuilder::process(
 const InteractionDefinition Sha256TraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>()
-        // Memory Interactions
+        // GT Interactions
         .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_mem_check_output_addr_in_range_settings, InteractionType::LookupGeneric>()
-        // These should be permutations
+        // Memory Interactions (These should be permutations)
         .add<lookup_sha256_mem_mem_op_0_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_mem_mem_op_1_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_mem_mem_op_2_settings, InteractionType::LookupGeneric>()
@@ -629,6 +619,23 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
         .add<lookup_sha256_mem_mem_op_7_settings, InteractionType::LookupGeneric>()
         .add<lookup_sha256_mem_mem_input_read_settings, InteractionType::LookupGeneric>()
         // Dispatch Permutation
-        .add<perm_sha256_mem_dispatch_sha256_settings, InteractionType::Permutation>();
+        .add<perm_sha256_mem_dispatch_sha256_settings, InteractionType::Permutation>()
+        // Bitwise operations
+        .add<lookup_sha256_w_s_0_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_w_s_0_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_w_s_1_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_w_s_1_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_1_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_1_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_ch_and_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_ch_and_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_ch_xor_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_0_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_s_0_xor_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_and_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_and_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_and_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_xor_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_maj_xor_1_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
