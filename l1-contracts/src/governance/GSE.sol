@@ -92,11 +92,10 @@ interface IGSE is IGSECore {
     Timestamp _timestamp,
     uint256[] memory _indices
   ) external view returns (address[] memory);
-  // function getG1PublicKeysFromIndicesAtTime(
-  //   address _instance,
-  //   Timestamp _timestamp,
-  //   uint256[] memory _indices
-  // ) external view returns (uint256[2][] memory);
+  function getG1PublicKeysFromAddresses(address _instance, address[] memory _attesters)
+    external
+    view
+    returns (uint256[2][] memory);
   function getAttestersAtTime(address _instance, Timestamp _timestamp)
     external
     view
@@ -766,6 +765,26 @@ contract GSE is IGSE, GSECore {
     uint256[] memory _indices
   ) external view override(IGSE) returns (address[] memory) {
     return _getAddressFromIndicesAtTimestamp(_instance, _indices, _timestamp);
+  }
+
+  function getG1PublicKeysFromAddresses(address _instance, address[] memory _attesters)
+    external
+    view
+    override(IGSE)
+    returns (uint256[2][] memory)
+  {
+    uint256[2][] memory keys = new uint256[2][](_attesters.length);
+    for (uint256 i = 0; i < _attesters.length; i++) {
+      (InstanceStaking storage instanceStaking, bool attesterExists,) =
+        _getInstanceStoreWithAttester(_instance, _attesters[i]);
+      if (!attesterExists) {
+        keys[i] = [uint256(0), uint256(0)];
+      } else {
+        keys[i] = instanceStaking.configOf[_attesters[i]].publicKeyInG1;
+      }
+    }
+
+    return keys;
   }
 
   function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)

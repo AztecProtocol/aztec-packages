@@ -151,6 +151,14 @@ contract DepositBN254Test is WithGSE {
     stakingAsset.approve(address(gse), gse.DEPOSIT_AMOUNT());
     gse.deposit(_attester1, _withdrawer, pk1, pk2, sigma, _moveWithLatestRollup);
     vm.stopPrank();
+
+    address[] memory attesters = new address[](1);
+    attesters[0] = _attester1;
+
+    uint256[2][] memory g1Keys = gse.getG1PublicKeysFromAddresses(address(_instance), attesters);
+
+    assertEq(g1Keys[0][0], pk1[0]);
+    assertEq(g1Keys[0][1], pk1[1]);
   }
 
   function test_WhenProofOfPossessionHasNotBeenSeenBefore()
