@@ -11,6 +11,17 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## [Aztec.nr]
 
+### Private event emission API changes
+
+The private event emission API has been significantly reworked to provide clearer semantics around message delivery guarantees. The key changes are:
+
+1. `emit_event_in_private_log` has been renamed to `emit_event_in_private` and now takes a `delivery_mode` parameter instead of `constraints`
+2. `emit_event_as_offchain_message` has been removed in favor of using `emit_event_in_private` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
+3. `PrivateLogContent` enum has been replaced with `MessageDelivery` enum with the following values:
+   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees (replaces `CONSTRAINED_ENCRYPTION`)
+   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery without constraints
+   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without constraints (replaces `NO_CONSTRAINTS`)
+
 ### Notes require you to manually implement or derive Packable
 
 We have decided to drop auto-derivation of `Packable` from the `#[note]` macro because we want to make the macros less magical.
