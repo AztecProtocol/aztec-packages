@@ -290,10 +290,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
@@ -868,10 +868,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
@@ -1002,10 +1002,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPublicL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPublicL2MessageIndex = swapResult!.leafIndex;
       const swapPublicSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {

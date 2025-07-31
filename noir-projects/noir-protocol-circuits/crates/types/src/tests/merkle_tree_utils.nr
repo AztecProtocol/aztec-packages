@@ -31,13 +31,17 @@ impl<let N: u32> MerkleTree<N> {
         for _ in 0..K {
             self.nodes[node_index] = merkle_hash(left_node, right_node);
             sibling_index = merkle_tree::sibling_index(node_index);
-            let nodes = if node_index % 2 == 0 {
-                (self.nodes[node_index], self.nodes[sibling_index])
+            let (left_index, right_index) = if node_index % 2 == 0 {
+                (node_index, sibling_index)
             } else {
-                (self.nodes[sibling_index], self.nodes[node_index])
+                (sibling_index, node_index)
             };
-            left_node = nodes.0;
-            right_node = nodes.1;
+            left_node = self.nodes[left_index];
+            right_node = if right_index == N - 1 {
+                0
+            } else {
+                self.nodes[right_index]
+            };
 
             let current_index_at_layer = node_index - layer_offset;
 

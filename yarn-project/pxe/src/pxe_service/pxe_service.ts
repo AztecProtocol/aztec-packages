@@ -214,7 +214,7 @@ export class PXEService implements PXE {
     if (!result) {
       throw new Error(`L2 to L1 message not found in block ${blockNumber}`);
     }
-    return [result.l2MessageIndex, result.siblingPath];
+    return [result.leafIndex, result.siblingPath];
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {

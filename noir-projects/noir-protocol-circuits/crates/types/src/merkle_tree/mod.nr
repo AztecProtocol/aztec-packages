@@ -4,7 +4,7 @@ pub mod leaf_preimage;
 pub mod membership;
 pub mod merkle_tree;
 pub mod root;
-pub mod variable_merkle_tree;
+pub mod unbalanced_merkle_tree;
 
 pub use leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage};
 pub use membership::{
@@ -13,4 +13,4 @@ pub use membership::{
 };
 pub use merkle_tree::MerkleTree;
 pub use root::{calculate_empty_tree_root, calculate_subtree_root, root_from_sibling_path};
-pub use variable_merkle_tree::VariableMerkleTree;
+pub use unbalanced_merkle_tree::UnbalancedMerkleTree;

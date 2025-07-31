@@ -17,7 +17,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
+import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -338,25 +338,15 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const txEffects = txs.map(tx => tx.txEffect);
     const body = new Body(txEffects);
 
-    const numTxs = body.txEffects.length;
-    const outHash =
-      numTxs === 0
-        ? Fr.ZERO
-        : numTxs === 1
-          ? new Fr(body.txEffects[0].txOutHash())
-          : new Fr(
-              computeUnbalancedMerkleRoot(
-                body.txEffects.map(tx => tx.txOutHash()),
-                TxEffect.empty().txOutHash(),
-              ),
-            );
+    const txOutHashes = txEffects.map(tx => tx.txOutHash());
+    const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
-    const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
+    const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
     const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);

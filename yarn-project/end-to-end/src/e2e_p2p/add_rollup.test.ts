@@ -330,7 +330,7 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(l2OutgoingReceipt!.blockNumber!),
-              BigInt(l2ToL1MessageResult!.l2MessageIndex),
+              BigInt(l2ToL1MessageResult!.leafIndex),
               l2ToL1MessageResult!.siblingPath
                 .toBufferArray()
                 .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],

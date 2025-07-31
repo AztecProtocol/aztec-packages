@@ -104,7 +104,7 @@ pub(crate) mod tests {
         assert_eq(output.start_global_variables, left_rollup.constants.global_variables);
         assert_eq(output.end_global_variables, left_rollup.constants.global_variables);
 
-        let expected_out_hash = accumulate_sha256([left_rollup.out_hash, right_rollup.out_hash]);
+        let expected_out_hash = accumulate_sha256(left_rollup.out_hash, right_rollup.out_hash);
         assert_eq(output.out_hash, expected_out_hash);
 
         let expected_fee = FeeRecipient {

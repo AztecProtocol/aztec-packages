@@ -103,7 +103,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2TxReceipt.blockNumber!,
-      l2ToL1MessageResult!.l2MessageIndex,
+      l2ToL1MessageResult!.leafIndex,
       l2ToL1MessageResult!.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);

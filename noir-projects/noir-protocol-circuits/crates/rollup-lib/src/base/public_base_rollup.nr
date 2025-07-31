@@ -165,7 +165,8 @@ mod tests {
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
-        tests::{fixture_builder::FixtureBuilder, fixtures::merkle_tree::generate_full_sha_tree},
+        merkle_tree::MerkleTree,
+        tests::fixture_builder::FixtureBuilder,
         traits::{Empty, Hash, ToField},
         utils::field::field_from_bytes,
     };
@@ -584,7 +585,7 @@ mod tests {
         ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
+        let expected_tree = MerkleTree::new_sha(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 

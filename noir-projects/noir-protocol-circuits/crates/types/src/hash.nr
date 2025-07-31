@@ -195,32 +195,14 @@ pub fn silo_l2_to_l1_message(
     }
 }
 
-// Computes sha256 hash of 2 input hashes.
-//
-// NB: This method now takes in two 31 byte fields - it assumes that any input
-// is the result of a sha_to_field hash and => is truncated
-//
-// TODO(Jan and David): This is used for the encrypted_log hashes.
-// Can we check to see if we can just use hash_to_field or pedersen_compress here?
-//
-pub fn accumulate_sha256(input: [Field; 2]) -> Field {
-    // This is a note about the cpp code, since it takes an array of Fields
-    // instead of a u128.
-    // 4 Field elements when converted to bytes will usually
-    // occupy 4 * 32 = 128 bytes.
-    // However, this function is making the assumption that each Field
-    // only occupies 128 bits.
-    //
-    // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
-    // Concatentate two fields into 32x2 = 64 bytes
-    // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
-    let mut hash_input_flattened = [0; 64];
-    for offset in 0..input.len() {
-        let input_as_bytes: [u8; 32] = input[offset].to_be_bytes();
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
-    }
+/// Computes sha256 hash of 2 input fields.
+///
+/// @returns A truncated field (i.e., the first byte is always 0).
+pub fn accumulate_sha256(v0: Field, v1: Field) -> Field {
+    // Concatenate two fields into 32 x 2 = 64 bytes
+    let v0_as_bytes: [u8; 32] = v0.to_be_bytes();
+    let v1_as_bytes: [u8; 32] = v1.to_be_bytes();
+    let hash_input_flattened = v0_as_bytes.concat(v1_as_bytes);
 
     sha256_to_field(hash_input_flattened)
 }
