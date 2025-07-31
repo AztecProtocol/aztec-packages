@@ -39,9 +39,9 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        Builder circuit = circuit_producer.create_next_circuit(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
-        ivc.accumulate(circuit);
+        ivc.accumulate(circuit, vk);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -62,43 +62,15 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 
     // Accumulate a series of mocked circuits (app, kernel, app, kernel)
     for (size_t idx = 0; idx < NUM_CIRCUITS - 2; ++idx) {
-        Builder circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.accumulate(circuit);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
+        ivc.accumulate(circuit, vk);
     }
 
     // Cap the IVC with two more kernels (say, a 'reset' and a 'tail') without intermittent apps
-    Builder reset_kernel = circuit_producer.create_next_circuit(ivc, /*force_is_kernel=*/true);
-    ivc.accumulate(reset_kernel);
-    Builder tail_kernel = circuit_producer.create_next_circuit(ivc, /*force_is_kernel=*/true);
-    ivc.accumulate(tail_kernel);
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
- * @brief Prove and verify accumulation of a set of mocked private function execution circuits with precomputed
- * verification keys
- *
- */
-TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
-{
-    const size_t NUM_CIRCUITS = 6;
-    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
-
-    // Precompute the verification keys for each circuit in the IVC
-    std::vector<std::shared_ptr<VerificationKey>> precomputed_vks;
-    {
-        MockCircuitProducer circuit_producer;
-        precomputed_vks = circuit_producer.precompute_vks(NUM_CIRCUITS, ivc.trace_settings);
-    }
-
-    MockCircuitProducer circuit_producer;
-    // Construct and accumulate a series of mocked private function execution circuits
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        Builder circuit = circuit_producer.create_next_circuit(ivc);
-
-        ivc.accumulate(circuit, precomputed_vks[idx]);
-    }
+    auto [reset_kernel, reset_vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .force_is_kernel = true });
+    ivc.accumulate(reset_kernel, reset_vk);
+    auto [tail_kernel, tail_vk] = circuit_producer.create_next_circuit_and_vk(ivc, { .force_is_kernel = true });
+    ivc.accumulate(tail_kernel, tail_vk);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -106,9 +78,12 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 /**
  * @brief Demonstrate that a databus inconsistency leads to verification failure for the IVC
  * @details Kernel circuits contain databus consistency checks that establish that data was passed faithfully between
- * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test tampers
- * with the databus in such a way that one of the kernels receives secondary_calldata based on tampered app return data.
- * This leads to an invalid witness in the check that ensures that the two corresponding commitments are equal and thus
+ * circuits, e.g. the output (return_data) of an app was the input (secondary_calldata) of a kernel. This test
+ tampers
+ * with the databus in such a way that one of the kernels receives secondary_calldata based on tampered app return
+ data.
+ * This leads to an invalid witness in the check that ensures that the two corresponding commitments are equal and
+ thus
  * causes failure of the IVC to verify.
  *
  */
@@ -121,14 +96,14 @@ TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        Builder circuit = circuit_producer.create_next_circuit(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
         // Tamper with the return data of the second app circuit before it is processed as input to the next kernel
         if (idx == 2) {
             circuit_producer.tamper_with_databus();
         }
 
-        ivc.accumulate(circuit);
+        ivc.accumulate(circuit, vk);
     }
 
     EXPECT_FALSE(ivc.prove_and_verify());
