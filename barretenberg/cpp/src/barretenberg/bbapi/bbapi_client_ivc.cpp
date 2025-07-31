@@ -169,6 +169,7 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiReques
     // Serialize via to_field_elements() then to_buffer()
     auto field_elements = vk.to_field_elements();
     response.bytes = to_buffer(field_elements);
+    response.fields = field_elements;
 
     info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
 
