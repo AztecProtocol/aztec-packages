@@ -271,11 +271,11 @@ impl PrivateContext {
 
     /// Gets the chain ID of the current network.
     ///
-    /// This is equivalent to `block.chainid` in Solidity. Returns the unique
+    /// This is similar to `block.chainid` in Solidity. Returns the unique
     /// identifier for the blockchain network this transaction is executing on.
     ///
     /// Helps prevent cross-chain replay attacks. Useful if implementing
-    /// and multi-chain contract logic.
+    /// multi-chain contract logic.
     ///
     /// # Returns
     /// * `Field` - The chain ID as a field element
