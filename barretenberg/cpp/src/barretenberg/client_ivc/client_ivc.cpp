@@ -326,16 +326,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
-        // If this is the last "inner/reset" kernel to be folded, set queue entry type to be PG_TAIL
-        bool is_last_inner_kernel = (num_circuits_accumulated == num_circuits - 2);
-        // If this is the "tail" kernel circuit to be folded, set queue entry type to PG_FINAL and run the decider
-        // prover
-        bool is_tail_kernel = (num_circuits_accumulated == num_circuits - 1);
-        if (is_tail_kernel) {
+        if (num_circuits_accumulated == num_circuits - 1) {
+            // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
             queue_entry.type = QUEUE_TYPE::PG_FINAL;
             decider_proof = decider_prove();
             vinfo("constructed decider proof");
-        } else if (is_last_inner_kernel) {
+        } else if (num_circuits_accumulated == num_circuits - 2) {
+            // we are folding in the "Inner/Reset" kernel, so the verification_queue entry should have type PG_TAIL
             queue_entry.type = QUEUE_TYPE::PG_TAIL;
         } else {
             queue_entry.type = QUEUE_TYPE::PG;
