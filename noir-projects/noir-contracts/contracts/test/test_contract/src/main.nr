@@ -31,7 +31,7 @@ pub contract Test {
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use dep::aztec::{
-        event::event_interface::{emit_event_in_private_log, MessageEmissionConfig},
+        event::event_interface::{emit_event_in_private, MessageEmissionConfig},
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
         macros::{
@@ -340,11 +340,11 @@ pub contract Test {
             value4: fields[4],
         };
 
-        emit_event_in_private_log(
+        emit_event_in_private(
             event,
             &mut context,
             owner,
-            MessageEmissionConfig.NO_CONSTRAINTS,
+            MessageEmissionConfig.UNCONSTRAINED_ONCHAIN,
         );
 
         // this contract has reached max number of functions, so using this one fn
