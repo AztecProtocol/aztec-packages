@@ -88,15 +88,14 @@ use dep::protocol_types::{
 pub struct MessageDeliveryEnum {
     /// Constrained encryption + constrained tagging + private log stream
     ///
-    /// This gives us an on-chain guarantee that a recipient is able to discover and receive a message.
-    /// Use when a smart contract needs to make decisions based on the message.
+    /// This gives us an on-chain guarantee that a recipient is able to discover and receive a message. See
+    /// combination 1 above for details.
     pub CONSTRAINED_ONCHAIN: u8,
 
     /// Unconstrained encryption + offchain message
     ///
-    /// Useful when we trust the sender or the sender is incentivized to deliver the message.
-    /// The offchain message mechanism is not guaranteed to deliver the message and it's up to the app
-    /// to deliver the message to the recipient.
+    /// Useful when we trust the sender or the sender is incentivized to deliver the message. See combination 2
+    /// above for details.
     pub UNCONSTRAINED_OFFCHAIN: u8,
 
     /// Unconstrained encryption + unconstrained tagging + private log stream
