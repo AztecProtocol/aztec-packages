@@ -30,10 +30,31 @@ use dep::protocol_types::{
 /// the app.
 ///
 /// 3. Constrained or unconstrained tagging
-/// - Tagging is a mechanism to ensure that a recipient is able to efficiently find a private log. If the tagging is unconstrained
-/// we don't have a guarantee that it was performed correctly and hence we don't have a guarantee that the recipient
-/// is able to find the message. Use unconstrained tagging only when the recipient is trusted or is incentivised to
-/// deliver the message.
+/// - Tagging is a mechanism to ensure that a recipient is able to efficiently find a private log (tagging is not used
+/// in the offchain message mechanism). If the tagging is unconstrained we don't have a guarantee that it was performed
+/// correctly and hence we don't have a guarantee that the recipient is able to find the message. Use unconstrained
+/// tagging only when the recipient is trusted or is incentivised to deliver the message.
+///
+///
+/// # When to use which variant
+/// - We are currently still exploring the design space but it seems that there are only 2 meaningful combinations:
+/// 1. Constrained encryption, constrained tagging, private log stream
+///
+/// This combination gives us an on-chain guarantee that a recipient is able to discovery and receive a message. This
+/// is to be used when a smart contract (rather than a person) needs to make decisions based on the message. For
+/// example, consider a contract that escrows a privately-stored NFT (i.e. an NFT represented by a note) and releases
+/// it to a buyer only after receiving a payment in a specific token. Without on-chain delivery and guaranteed
+/// discoverability afforded by constrained tagging, the buyer could potentially obtain the NFT without sending the
+/// payment token message (the note hash preimage) to the seller, rugging the seller.
+///
+/// (To clarify the above, while the malicious buyer's payment token would still be deducted from their balance, they
+/// would obtain the NFT while the seller would be unable to spend the payment token, keeping the payment token note
+/// in limbo.)
+///
+/// 2. Unconstrained encryption, offchain message
+/// This combination is useful when we either trust the sender to behave or the sender is incentivised to deliver the
+/// message. Let's consider a payment app.
+///
 pub struct PrivateLogContentConstraintsEnum {
     /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
     /// the private log stream and hence is submitted to L1 blobs and consumes DA.
