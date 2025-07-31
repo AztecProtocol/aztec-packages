@@ -922,6 +922,86 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
     execution.emit_unencrypted_log(context, log_offset, log_size_offset);
 }
 
+TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(42);
+    auto content = MemoryValue::from<FF>(27);
+
+    SideEffectStates side_effects_states = {};
+    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX - 1;
+    SideEffectStates side_effects_states_after = side_effects_states;
+    side_effects_states_after.numL2ToL1Messages++;
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+
+    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+    EXPECT_CALL(context, set_side_effect_states(side_effects_states_after));
+
+    execution.send_l2_to_l1_msg(context, recipient_addr, content_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(42);
+    auto content = MemoryValue::from<FF>(27);
+
+    SideEffectStates side_effects_states = {};
+    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX - 1;
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+
+    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
+                              "SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
+}
+
+TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
+{
+    MemoryAddress recipient_addr = 10;
+    MemoryAddress content_addr = 11;
+
+    auto recipient = MemoryValue::from<FF>(42);
+    auto content = MemoryValue::from<FF>(27);
+
+    SideEffectStates side_effects_states = {};
+    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX;
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+
+    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
+                              "SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation
