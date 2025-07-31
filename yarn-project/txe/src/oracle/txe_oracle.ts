@@ -493,13 +493,13 @@ export class TXE {
     this.sideEffectCounter = counter + 1;
   }
 
-  async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
+  async pxeNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
   }
 
-  async notifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+  async pxeNotifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
     await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     await this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
   }
@@ -792,24 +792,24 @@ export class TXE {
     return Promise.resolve();
   }
 
-  public async validateEnqueuedNotesAndEvents(
+  public async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.validateEnqueuedNotesAndEvents(
+    await this.pxeOracleInterface.utilityValidateEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
     );
   }
 
-  async bulkRetrieveLogs(
+  async utilityBulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void> {
-    return await this.pxeOracleInterface.bulkRetrieveLogs(
+    return await this.pxeOracleInterface.utilityBulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
@@ -856,12 +856,12 @@ export class TXE {
     return preimage.leaf.value;
   }
 
-  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.pxeOracleInterface.storeCapsule(this.contractAddress, slot, capsule);
+    return this.pxeOracleInterface.utilityStoreCapsule(this.contractAddress, slot, capsule);
   }
 
   loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {

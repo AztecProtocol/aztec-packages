@@ -23,7 +23,7 @@ pub(crate) unconstrained fn validate_enqueued_notes_and_events(
     );
 }
 
-#[oracle(validateEnqueuedNotesAndEvents)]
+#[oracle(utilityValidateEnqueuedNotesAndEvents)]
 unconstrained fn validate_enqueued_notes_and_events_oracle(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
@@ -42,7 +42,7 @@ pub(crate) unconstrained fn bulk_retrieve_logs(
     );
 }
 
-#[oracle(bulkRetrieveLogs)]
+#[oracle(utilityBulkRetrieveLogs)]
 unconstrained fn bulk_retrieve_logs_oracle(
     contract_address: AztecAddress,
     log_retrieval_requests_array_base_slot: Field,
