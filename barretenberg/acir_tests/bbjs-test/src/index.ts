@@ -77,9 +77,9 @@ async function generateProof({
 }
 
 async function verifyProof({ directory }: { directory: string }) {
-  const { Barretenberg } = await import("@aztec/bb.js");
+  const { UltraHonkVerifierBackend } = await import("@aztec/bb.js");
 
-  const verifier = new Barretenberg();
+  const verifier = new UltraHonkVerifierBackend();
 
   const proof = await fs.readFile(proofPath(directory));
   assert(
@@ -91,11 +91,10 @@ async function verifyProof({ directory }: { directory: string }) {
     await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
   );
   logger.debug(`publicInputs: ${JSON.stringify(publicInputs)}`);
-  const vkey = await fs.readFile(vkeyPath(directory));
+  const verificationKey = await fs.readFile(vkeyPath(directory));
 
-  const verified = await verifier.verifyUltraHonkProof(
-    { proof: new Uint8Array(proof), publicInputs },
-    new Uint8Array(vkey)
+  const verified = await verifier.verifyProof(
+    { proof: new Uint8Array(proof), publicInputs, verificationKey},
   );
 
   await verifier.destroy();

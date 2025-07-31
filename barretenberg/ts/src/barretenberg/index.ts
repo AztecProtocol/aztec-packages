@@ -10,8 +10,7 @@ import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcGates, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
 
-export { BarretenbergVerifier } from './verifier.js';
-export { UltraHonkBackend, AztecClientBackend } from './backend.js';
+export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
