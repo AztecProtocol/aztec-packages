@@ -150,7 +150,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     });
 
     // Hack to make labels match.
-    const txLabelWithCount = `${txLabel}/0`;
+    const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
     // I need to cast because TS doesnt realize metrics is protected not private.
     (this as any).metrics?.recordProverMetrics(txLabelWithCount, {
       proverSimulationStepMs: times['simulation/all'],

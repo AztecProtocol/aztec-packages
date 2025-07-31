@@ -39,7 +39,7 @@ export type TestEnqueuedCall = {
  * transactions.
  */
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
-  private txCount = 0;
+  protected txCount: number = 0;
   private simulator: MeasuredPublicTxSimulator;
   private metricsPrefix?: string;
 
@@ -83,7 +83,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
-    privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount++)] } },
+    privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount)] } },
   ): Promise<Tx> {
     const setupCallRequests = await asyncMap(setupCalls, call =>
       this.#createPubicCallRequestForCall(call, call.sender ?? sender),
@@ -95,6 +95,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       ? await this.#createPubicCallRequestForCall(teardownCall, teardownCall.sender ?? sender)
       : undefined;
 
+    this.txCount++;
     return createTxForPublicCalls(
       privateInsertions,
       setupCallRequests,
@@ -120,7 +121,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     await this.setFeePayerBalance(feePayer);
 
-    const txLabelWithCount = `${txLabel}/${this.txCount}`;
+    const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
     const fullTxLabel = this.metricsPrefix ? `${this.metricsPrefix}/${txLabelWithCount}` : txLabelWithCount;
 
     const avmResult = await this.simulator.simulate(tx, fullTxLabel);

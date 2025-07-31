@@ -17,14 +17,13 @@ describe('AVM bulk test', () => {
   let tester: AvmProvingTester;
   const logger = createLogger('avm-bulk-test');
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ false, /*globals=*/ defaultGlobals(), metrics);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
       AvmTestContractArtifact,
     );
-    tester.setMetricsPrefix('bb-prover');
   });
 
   afterAll(() => {

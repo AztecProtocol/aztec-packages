@@ -92,7 +92,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
   startRecordingTxSimulation(txLabel: string) {
     assert(!this.currentTxLabel, 'Cannot start recording tx simulation when another is live');
     assert(!this.txMetrics.has(txLabel), 'Cannot start recording metrics for tx with duplicate label');
-    this.txMetrics.set(txLabel, EMPTY_TX_METRICS);
+    this.txMetrics.set(txLabel, { ...EMPTY_TX_METRICS }); // We need to clone the object to avoid mutating the original.
     this.currentTxLabel = txLabel;
     this.txTimer = new Timer();
   }
@@ -171,7 +171,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 
   recordProverMetrics(txLabel: string, metrics: Partial<PublicTxMetrics>) {
     if (!this.txMetrics.has(txLabel)) {
-      this.txMetrics.set(txLabel, EMPTY_TX_METRICS);
+      this.txMetrics.set(txLabel, { ...EMPTY_TX_METRICS }); // We need to clone the object to avoid mutating the original.
     }
     const txMetrics = this.txMetrics.get(txLabel)!;
     for (const [key, value] of Object.entries(metrics)) {
@@ -218,17 +218,40 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         pretty += `${INDENT1}Revertible: ${fmtNum(txMetrics.revertiblePrivateInsertionsUs! / 1_000, 'ms')}\n`;
       }
       if (filter === PublicTxMetricsFilter.PROVING || filter === PublicTxMetricsFilter.ALL) {
-        pretty += `${INDENT0}Proving:\n`;
-        pretty += `${INDENT1}Simulation: ${fmtNum(txMetrics.proverSimulationStepMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Proving: ${fmtNum(txMetrics.proverProvingStepMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Trace generation: ${fmtNum(txMetrics.proverTraceGenerationStepMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Trace generation interactions: ${fmtNum(txMetrics.traceGenerationInteractionsMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Trace generation traces: ${fmtNum(txMetrics.traceGenerationTracesMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Sumcheck: ${fmtNum(txMetrics.provingSumcheckMs!, 'ms')}\n`;
-        pretty += `${INDENT1}PCS: ${fmtNum(txMetrics.provingPcsMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Log derivative inverse: ${fmtNum(txMetrics.provingLogDerivativeInverseMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Log derivative inverse commitments: ${fmtNum(txMetrics.provingLogDerivativeInverseCommitmentsMs!, 'ms')}\n`;
-        pretty += `${INDENT1}Wire commitments: ${fmtNum(txMetrics.provingWireCommitmentsMs!, 'ms')}\n`;
+        let provingPretty = '';
+        if (txMetrics.proverSimulationStepMs !== undefined) {
+          provingPretty += `${INDENT1}Simulation (all): ${fmtNum(txMetrics.proverSimulationStepMs, 'ms')}\n`;
+        }
+        if (txMetrics.proverProvingStepMs !== undefined) {
+          provingPretty += `${INDENT1}Proving (all): ${fmtNum(txMetrics.proverProvingStepMs, 'ms')}\n`;
+        }
+        if (txMetrics.proverTraceGenerationStepMs !== undefined) {
+          provingPretty += `${INDENT1}Trace generation (all): ${fmtNum(txMetrics.proverTraceGenerationStepMs, 'ms')}\n`;
+        }
+        if (txMetrics.traceGenerationInteractionsMs !== undefined) {
+          provingPretty += `${INDENT1}Trace generation interactions: ${fmtNum(txMetrics.traceGenerationInteractionsMs, 'ms')}\n`;
+        }
+        if (txMetrics.traceGenerationTracesMs !== undefined) {
+          provingPretty += `${INDENT1}Trace generation traces: ${fmtNum(txMetrics.traceGenerationTracesMs, 'ms')}\n`;
+        }
+        if (txMetrics.provingSumcheckMs !== undefined) {
+          provingPretty += `${INDENT1}Sumcheck: ${fmtNum(txMetrics.provingSumcheckMs, 'ms')}\n`;
+        }
+        if (txMetrics.provingPcsMs !== undefined) {
+          provingPretty += `${INDENT1}PCS: ${fmtNum(txMetrics.provingPcsMs, 'ms')}\n`;
+        }
+        if (txMetrics.provingLogDerivativeInverseMs !== undefined) {
+          provingPretty += `${INDENT1}Log derivative inverse: ${fmtNum(txMetrics.provingLogDerivativeInverseMs, 'ms')}\n`;
+        }
+        if (txMetrics.provingLogDerivativeInverseCommitmentsMs !== undefined) {
+          provingPretty += `${INDENT1}Log derivative inverse commitments: ${fmtNum(txMetrics.provingLogDerivativeInverseCommitmentsMs, 'ms')}\n`;
+        }
+        if (txMetrics.provingWireCommitmentsMs !== undefined) {
+          provingPretty += `${INDENT1}Wire commitments: ${fmtNum(txMetrics.provingWireCommitmentsMs, 'ms')}\n`;
+        }
+        if (provingPretty.length > 0) {
+          pretty += `${INDENT0}Proving:\n${provingPretty}`;
+        }
       }
       if (filter !== PublicTxMetricsFilter.TOTALS) {
         // totals exclude enqueued calls
@@ -366,8 +389,5 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 }
 
 function fmtNum(num: number, unit?: string) {
-  if (num === undefined) {
-    return 'undefined';
-  }
   return `\`${num.toLocaleString()}${unit ? ` ${unit}` : ''}\``;
 }
