@@ -56,6 +56,10 @@ use dep::protocol_types::{
 /// message. Let's consider a payment app. When you are buying groceries, the merchant can consider the payment successful
 /// once he receives the payment message, can successfully decrypt it and see that its contents correspond to a valid
 /// token note.
+///
+///
+/// Other combinations like unconstrained encryption, unconstrained tagging, private log stream are not that meaningful
+/// because they are way costlier that combination 2 above while providing no additional valuable guarantees.
 pub struct PrivateLogContentConstraintsEnum {
     /// The contents of the log are entirely unconstrained, and could have any values. The log is delivered via
     /// the private log stream and hence is submitted to L1 blobs and consumes DA.
