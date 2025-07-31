@@ -49,8 +49,7 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
-    auto app_vk = app_vk_response.bytes;
-    auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
+    auto app_vk_fields = app_vk_response.fields;
 
     // Now create a kernel circuit that verifies the app circuit
     auto kernel_bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/true);
@@ -63,8 +62,10 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 
     // Create PrivateExecutionStepRaw for the kernel
     std::vector<PrivateExecutionStepRaw> raw_steps;
-    raw_steps.push_back(
-        { .bytecode = app_bytecode, .witness = app_witness_data, .vk = app_vk, .function_name = "app_function" });
+    raw_steps.push_back({ .bytecode = app_bytecode,
+                          .witness = app_witness_data,
+                          .vk = app_vk_response.bytes,
+                          .function_name = "app_function" });
     raw_steps.push_back({ .bytecode = kernel_bytecode,
                           .witness = kernel_witness_data,
                           .vk = kernel_vk,
@@ -95,7 +96,13 @@ class ClientIVCAPITests : public ::testing::Test {
 
 namespace bb {
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
-}
+
+namespace bbapi {
+template <typename Flavor>
+std::shared_ptr<DeciderProvingKey_<Flavor>> get_acir_program_decider_proving_key(const BBApiRequest& request,
+                                                                                 acir_format::AcirProgram& program);
+} // namespace bbapi
+} // namespace bb
 
 // Used to get a mock IVC vk.
 ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
@@ -105,7 +112,7 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
     auto app_vk = app_vk_response.bytes;
-    auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
+    auto app_vk_fields = app_vk_response.fields;
     // Use this to get the size of the vk.
     auto bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/false);
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
@@ -146,7 +153,8 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     // Helper lambda to verify VK equivalence
     auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey& vk2) {
         auto vk1_data = read_file(vk1_path);
-        auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
+        ClientIVC::MegaVerificationKey vk1;
+        vk1.from_field_elements(many_from_buffer<bb::fr>(vk1_data));
         ASSERT_TRUE(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
     };
 

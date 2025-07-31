@@ -193,6 +193,34 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     };
 
     /**
+     * @brief Deserialize verification key from field elements
+     *
+     * @param elements Field elements to deserialize from
+     * @return size_t Number of field elements read
+     */
+    virtual size_t from_field_elements(std::span<const fr> elements)
+    {
+        using namespace bb::field_conversion;
+
+        size_t read_idx = 0;
+
+        // Read circuit metadata
+        this->log_circuit_size = static_cast<uint64_t>(elements[read_idx++]);
+        this->num_public_inputs = static_cast<uint64_t>(elements[read_idx++]);
+        this->pub_inputs_offset = static_cast<uint64_t>(elements[read_idx++]);
+
+        // Read commitments
+        constexpr size_t commitment_size = calc_num_bn254_frs<Commitment>();
+
+        for (Commitment& commitment : this->get_all()) {
+            commitment = convert_from_bn254_frs<Commitment>(elements.subspan(read_idx, commitment_size));
+            read_idx += commitment_size;
+        }
+
+        return read_idx;
+    }
+
+    /**
      * @brief A model function to show how to compute the VK hash(without the Transcript abstracting things away)
      * @details Currently only used in testing.
      * @return FF
@@ -282,6 +310,36 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
         return elements;
     };
+
+    /**
+     * @brief Deserialize verification key from field elements
+     *
+     * @param builder Circuit builder for constructing witness elements
+     * @param elements Field elements to deserialize from
+     * @return size_t Number of field elements read
+     */
+    virtual size_t from_field_elements(Builder& builder, std::span<const FF> elements)
+    {
+        using namespace bb::stdlib::field_conversion;
+
+        size_t read_idx = 0;
+
+        // Read circuit metadata
+        this->log_circuit_size = elements[read_idx++];
+        this->num_public_inputs = elements[read_idx++];
+        this->pub_inputs_offset = elements[read_idx++];
+
+        // Read commitments
+        constexpr size_t commitment_size = calc_num_bn254_frs<Builder, Commitment>();
+
+        for (Commitment& commitment : this->get_all()) {
+            commitment =
+                convert_from_bn254_frs<Builder, Commitment>(builder, elements.subspan(read_idx, commitment_size));
+            read_idx += commitment_size;
+        }
+
+        return read_idx;
+    }
 
     /**
      * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).

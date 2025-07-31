@@ -121,4 +121,30 @@ std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
     return elements;
 }
 
+/**
+ * @brief Deserialize verification key from field elements
+ *
+ * @param elements Field elements to deserialize from
+ * @return size_t Number of field elements read
+ */
+size_t AvmFlavor::VerificationKey::from_field_elements(std::span<const FF> elements)
+{
+    size_t read_idx = 0;
+
+    // Read circuit metadata
+    this->log_circuit_size = static_cast<uint64_t>(elements[read_idx++]);
+    this->num_public_inputs = static_cast<size_t>(elements[read_idx++]);
+    this->pub_inputs_offset = 0; // Will be set later if needed
+
+    // Read commitments
+    constexpr size_t commitment_size = field_conversion::calc_num_bn254_frs<Commitment>();
+
+    for (Commitment& commitment : get_all()) {
+        commitment = field_conversion::convert_from_bn254_frs<Commitment>(elements.subspan(read_idx, commitment_size));
+        read_idx += commitment_size;
+    }
+
+    return read_idx;
+}
+
 } // namespace bb::avm2

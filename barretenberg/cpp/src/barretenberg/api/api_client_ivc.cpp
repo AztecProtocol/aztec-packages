@@ -77,7 +77,7 @@ void write_civc_vk(const std::string& output_format,
     // For now, we'll use the compute_civc_vk function directly as it was designed for this purpose
     bbapi::BBApiRequest request;
     auto vk = bbapi::compute_civc_vk(request, num_public_inputs_in_final_circuit);
-    const auto buf = to_buffer(vk);
+    const auto buf = to_buffer(vk.to_field_elements());
 
     const bool output_to_stdout = output_dir == "-";
 
@@ -299,7 +299,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     vinfo("writing ClientIVC proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
+    write_file(output_dir / "vk", to_buffer(ivc.get_vk().to_field_elements()));
 }
 
 } // namespace bb

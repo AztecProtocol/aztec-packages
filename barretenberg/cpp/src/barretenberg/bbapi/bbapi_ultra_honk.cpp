@@ -73,7 +73,9 @@ template <typename Flavor> std::vector<uint8_t> _compute_vk(const std::vector<ui
 {
     auto proving_key = _compute_proving_key<Flavor>(bytecode, {});
     auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    return to_buffer(*vk);
+    // Serialize via to_field_elements() then to_buffer()
+    auto field_elements = vk->to_field_elements();
+    return to_buffer(field_elements);
 }
 
 template <typename Flavor>
@@ -87,8 +89,10 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
         vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     } else {
-        vk =
-            std::make_shared<typename Flavor::VerificationKey>(from_buffer<typename Flavor::VerificationKey>(vk_bytes));
+        // Deserialize from field elements
+        auto field_elements = many_from_buffer<bb::fr>(vk_bytes);
+        vk = std::make_shared<typename Flavor::VerificationKey>();
+        vk->from_field_elements(field_elements);
     }
 
     UltraProver_<Flavor> prover{ proving_key, vk };
@@ -121,7 +125,10 @@ bool _verify(const bool ipa_accumulation,
     using VerificationKey = typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
 
-    std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
+    // Deserialize from field elements
+    auto field_elements = many_from_buffer<bb::fr>(vk_bytes);
+    auto vk = std::make_shared<VerificationKey>();
+    vk->from_field_elements(field_elements);
 
     // concatenate public inputs and proof
     std::vector<fr> complete_proof = public_inputs;
@@ -210,8 +217,8 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     auto compute_vk_and_fields = [&]<typename Flavor>() {
         auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-        vk_bytes = to_buffer(*vk);
         vk_fields = vk->to_field_elements();
+        vk_bytes = to_buffer(vk_fields);
         vk_hash_bytes = to_buffer(vk->hash());
     };
 
@@ -291,11 +298,8 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
 
 VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    std::vector<bb::fr> fields;
-
-    // Standard UltraHonk flavors
-    auto vk = from_buffer<UltraFlavor::VerificationKey>(verification_key);
-    fields = vk.to_field_elements();
+    // The input is already field elements serialized as bytes
+    auto fields = many_from_buffer<bb::fr>(verification_key);
 
     return { std::move(fields) };
 }
@@ -303,7 +307,10 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     using VK = UltraKeccakFlavor::VerificationKey;
-    auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
+    // Deserialize from field elements
+    auto field_elements = many_from_buffer<bb::fr>(verification_key);
+    auto vk = std::make_shared<VK>();
+    vk->from_field_elements(field_elements);
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
 
     return { std::move(contract) };

@@ -54,4 +54,35 @@ TEST_F(BBApiUltraHonkTest, CircuitProve)
     }
 }
 
+TEST_F(BBApiUltraHonkTest, VerificationKeySerialization)
+{
+    auto [bytecode, witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
+
+    bbapi::ProofSystemSettings settings{ .ipa_accumulation = false,
+                                         .oracle_hash_type = "poseidon2",
+                                         .disable_zk = true };
+
+    // Compute VK using CircuitComputeVk
+    auto vk_response =
+        CircuitComputeVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode }, .settings = settings }.execute();
+
+    // The response contains field elements serialized as bytes
+    // Verify we can deserialize them correctly
+    auto field_elements = many_from_buffer<bb::fr>(vk_response.bytes);
+    ASSERT_EQ(field_elements, vk_response.fields) << "Field elements from bytes and fields should match";
+
+    // Create a VK from the field elements
+    auto vk = std::make_shared<UltraFlavor::VerificationKey>();
+    vk->from_field_elements(field_elements);
+
+    // Serialize it back to field elements
+    auto reserialized_field_elements = vk->to_field_elements();
+
+    // Convert back to buffer for comparison
+    auto reserialized_buffer = to_buffer(reserialized_field_elements);
+
+    // The buffers should be identical
+    EXPECT_EQ(vk_response.bytes, reserialized_buffer);
+}
+
 } // namespace bb::bbapi

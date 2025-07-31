@@ -276,6 +276,14 @@ class AvmFlavor {
         std::vector<fr> to_field_elements() const override;
 
         /**
+         * @brief Deserialize verification key from field elements
+         *
+         * @param elements Field elements to deserialize from
+         * @return size_t Number of field elements read
+         */
+        size_t from_field_elements(std::span<const fr> elements) override;
+
+        /**
          * @brief Adds the verification key hash to the transcript and returns the hash.
          * @details Needed to make sure the Origin Tag system works. See the base class function for
          * more details.

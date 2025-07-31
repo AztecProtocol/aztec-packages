@@ -134,6 +134,56 @@ class ClientIVC {
         std::shared_ptr<TranslatorVerificationKey> translator;
 
         MSGPACK_FIELDS(mega, eccvm, translator);
+
+        /**
+         * @brief Serialize verification key to field elements
+         * @return std::vector<bb::fr> The serialized field elements
+         */
+        std::vector<bb::fr> to_field_elements() const
+        {
+            std::vector<bb::fr> elements;
+
+            // Serialize mega VK
+            auto mega_elements = mega->to_field_elements();
+            elements.insert(elements.end(), mega_elements.begin(), mega_elements.end());
+
+            // Serialize eccvm VK
+            auto eccvm_elements = eccvm->to_field_elements();
+            elements.insert(elements.end(), eccvm_elements.begin(), eccvm_elements.end());
+
+            // Serialize translator VK
+            auto translator_elements = translator->to_field_elements();
+            elements.insert(elements.end(), translator_elements.begin(), translator_elements.end());
+
+            return elements;
+        }
+
+        /**
+         * @brief Deserialize verification key from field elements
+         * @param elements The field elements to deserialize from
+         * @return size_t Number of field elements read
+         */
+        size_t from_field_elements(std::span<const bb::fr> elements)
+        {
+            size_t read_idx = 0;
+
+            // Create and deserialize mega VK
+            mega = std::make_shared<MegaVerificationKey>();
+            size_t mega_read = mega->from_field_elements(elements.subspan(read_idx));
+            read_idx += mega_read;
+
+            // Create and deserialize eccvm VK
+            eccvm = std::make_shared<ECCVMVerificationKey>();
+            size_t eccvm_read = eccvm->from_field_elements(elements.subspan(read_idx));
+            read_idx += eccvm_read;
+
+            // Create and deserialize translator VK
+            translator = std::make_shared<TranslatorVerificationKey>();
+            size_t translator_read = translator->from_field_elements(elements.subspan(read_idx));
+            read_idx += translator_read;
+
+            return read_idx;
+        }
     };
 
     enum class QUEUE_TYPE { OINK, PG, PG_FINAL }; // for specifying type of proof in the verification queue

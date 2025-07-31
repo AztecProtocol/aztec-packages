@@ -8,6 +8,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
