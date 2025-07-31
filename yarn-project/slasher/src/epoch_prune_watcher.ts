@@ -10,6 +10,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, ITxProvider, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { Offense } from '@aztec/stdlib/slashing';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -19,7 +20,7 @@ import {
 
 import EventEmitter from 'node:events';
 
-import { Offense, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './config.js';
 
 /**
  * This watcher is responsible for detecting chain prunes and creating slashing arguments for the committee.
