@@ -972,7 +972,7 @@ export class TXE {
       from,
     );
 
-    context.storeInExecutionCache(args, argsHash);
+    context.pxeStoreInExecutionCache(args, argsHash);
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
     let result: PrivateExecutionResult;
@@ -996,7 +996,7 @@ export class TXE {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await context.loadFromExecutionCache(r.calldataHash);
+          const calldata = await context.pxeLoadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
