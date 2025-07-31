@@ -10,6 +10,7 @@
 #include <iomanip>
 
 #include "../../fields/field.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
@@ -163,7 +164,7 @@ class Bn254FqParams {
     static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
 
     // A point in Fq is represented as a bigfield element in the public inputs, so 4 public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 };
 
 using fq = field<Bn254FqParams>;

@@ -11,6 +11,7 @@
 #include <ostream>
 
 #include "../../fields/field.hpp"
+#include "barretenberg/constants.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 
@@ -167,7 +168,7 @@ class Bn254FrParams {
     static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
 
     // A point in Fr is represented with 1 public input
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 1;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
 };
 
 using fr = field<Bn254FrParams>;

@@ -29,7 +29,7 @@ class PairingPoints {
     using VerifierCK = VerifierCommitmentKey<curve::BN254>;
 
   public:
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 2 * Point::PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
     Point P0 = Point::infinity();
     Point P1 = Point::infinity();

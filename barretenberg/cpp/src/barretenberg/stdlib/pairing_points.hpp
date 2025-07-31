@@ -32,7 +32,7 @@ template <typename Builder_> struct PairingPoints {
     bool has_data = false;
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = Group::PUBLIC_INPUTS_SIZE * 2;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
     PairingPoints() = default;
 

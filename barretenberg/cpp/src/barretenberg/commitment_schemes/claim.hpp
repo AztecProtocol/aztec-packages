@@ -65,12 +65,8 @@ template <typename Curve> class OpeningClaim {
 
     static constexpr bool IS_GRUMPKIN =
         std::is_same_v<Curve, curve::Grumpkin> || std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>;
-    static constexpr size_t INVALID_PUBLIC_INPUTS_SIZE = 0;
     // Size of public inputs representation of an opening claim over Grumpkin: 2 * 4 + 2 = 10
-    static constexpr size_t PUBLIC_INPUTS_SIZE = IS_GRUMPKIN ?
-                                                             /*opening_pair=*/2 * bb::fq::PUBLIC_INPUTS_SIZE +
-                                                                 /*commitment=*/Commitment::PUBLIC_INPUTS_SIZE
-                                                             : INVALID_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = IS_GRUMPKIN ? GRUMPKIN_OPENING_CLAIM_SIZE : INVALID_PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Set the witness indices for the opening claim to public
