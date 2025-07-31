@@ -13,7 +13,6 @@ pragma solidity >=0.8.27;
  */
 library ModexpInverse {
   function run(uint256 t2) internal pure returns (uint256 t0) {
-    // solium-disable-next-line security/no-inline-assembly
     assembly {
       let n := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
       t0 := mulmod(t2, t2, n)
@@ -336,7 +335,6 @@ library ModexpInverse {
  */
 library ModexpSqrt {
   function run(uint256 t6) internal pure returns (uint256 t0) {
-    // solium-disable-next-line security/no-inline-assembly
     assembly {
       let n := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
 

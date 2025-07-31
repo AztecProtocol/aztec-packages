@@ -2,20 +2,16 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {BLS} from "@aztec/governance/libraries/BLS.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 import {Test} from "forge-std/Test.sol";
 
 // solhint-disable comprehensive-interface
 
-contract BLSKeyTest is Test {
+contract BN254KeyTest is Test {
   uint256 private sk = 0x7777777;
   uint256[2] private pk1;
   uint256[4] private pk2;
   uint256[2] private sigma;
-
-  // Events from IGovernance interface
-  event BlsKeyActivated(address indexed account);
-  event BlsKeyDeactivated(address indexed account);
 
   function testProofOfPossession() public {
     setupValidSignatures();
@@ -28,7 +24,7 @@ contract BLSKeyTest is Test {
   function testInvalidPk1InProofOfPossession() public {
     setupValidSignatures();
     pk1[0]++;
-    vm.expectRevert(BLS.mulPointFail.selector);
+    vm.expectRevert(BN254.mulPointFail.selector);
     bool ok = this.proofOfPossession(pk1, pk2, sigma);
     assertFalse(ok, "proof of possession should fail");
   }
@@ -36,7 +32,7 @@ contract BLSKeyTest is Test {
   function testInvalidPk2InProofOfPossession() public {
     setupValidSignatures();
     pk2[0]++;
-    vm.expectRevert(BLS.pairingFail.selector);
+    vm.expectRevert(BN254.pairingFail.selector);
     bool ok = this.proofOfPossession(pk1, pk2, sigma);
     assertFalse(ok, "proof of possession should fail");
   }
@@ -44,65 +40,65 @@ contract BLSKeyTest is Test {
   function testInvalidSigmaInProofOfPossession() public {
     setupValidSignatures();
     sigma[0]++;
-    vm.expectRevert(BLS.addPointFail.selector);
+    vm.expectRevert(BN254.addPointFail.selector);
     bool ok = this.proofOfPossession(pk1, pk2, sigma);
     assertFalse(ok, "proof of possession should fail");
   }
 
   function testWrongPk1InProofOfPossession(uint256 newSk) public {
-    newSk = bound(newSk, 1, BLS.CURVE_ORDER - 1);
+    newSk = bound(newSk, 1, BN254.CURVE_ORDER - 1);
     vm.assume(newSk != sk);
     setupValidSignatures();
-    pk1 = BLS.ecMul([BLS.G1_X, BLS.G1_Y], newSk);
+    pk1 = BN254.g1Mul(BN254.g1Generator(), newSk);
     bool ok = this.proofOfPossession(pk1, pk2, sigma);
     assertFalse(ok, "proof of possession should fail");
   }
 
   function testWrongDomainSeparatorInProofOfPossession(bytes32 newDomainSeparator) public {
-    vm.assume(newDomainSeparator != BLS.STAKING_DOMAIN_SEPARATOR);
+    vm.assume(newDomainSeparator != BN254.STAKING_DOMAIN_SEPARATOR);
     setupValidSignatures();
 
     bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
 
-    uint256[2] memory pk1DigestPoint = BLS.hashToPoint(newDomainSeparator, pk1Bytes);
+    uint256[2] memory pk1DigestPoint = BN254.hashToPoint(newDomainSeparator, pk1Bytes);
 
-    sigma = BLS.ecMul(pk1DigestPoint, sk);
+    sigma = BN254.g1Mul(pk1DigestPoint, sk);
     bool ok = this.proofOfPossession(pk1, pk2, sigma);
     assertFalse(ok, "proof of possession should fail");
   }
 
   function testWrongSkWhenGeneratingSignature(uint256 newSk) public {
-    newSk = bound(newSk, 1, BLS.CURVE_ORDER - 1);
+    newSk = bound(newSk, 1, BN254.CURVE_ORDER - 1);
     vm.assume(newSk != sk);
     setupValidSignatures();
     bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
 
-    uint256[2] memory pk1DigestPoint = BLS.hashToPoint(BLS.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
-    sigma = BLS.ecMul(pk1DigestPoint, newSk);
+    uint256[2] memory pk1DigestPoint = BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+    sigma = BN254.g1Mul(pk1DigestPoint, newSk);
     bool ok = this.proofOfPossession(pk1, pk2, sigma);
     assertFalse(ok, "proof of possession should fail");
   }
 
   function testZeroInputs() public {
     setupValidSignatures();
-    pk1 = [uint256(0), uint256(0)];
-    vm.expectRevert(BLS.pk1Zero.selector);
+    pk1 = BN254.g1Zero();
+    vm.expectRevert(BN254.pk1Zero.selector);
     this.proofOfPossession(pk1, pk2, sigma);
 
     setupValidSignatures();
-    pk2 = [uint256(0), uint256(0), uint256(0), uint256(0)];
-    vm.expectRevert(BLS.pk2Zero.selector);
+    pk2 = BN254.g2Zero();
+    vm.expectRevert(BN254.pk2Zero.selector);
     this.proofOfPossession(pk1, pk2, sigma);
 
     setupValidSignatures();
-    sigma = [uint256(0), uint256(0)];
-    vm.expectRevert(BLS.signatureZero.selector);
+    sigma = BN254.g1Zero();
+    vm.expectRevert(BN254.signatureZero.selector);
     this.proofOfPossession(pk1, pk2, sigma);
   }
 
   function setupValidSignatures() public {
     // Generate Public Key
-    pk1 = BLS.ecMul([BLS.G1_X, BLS.G1_Y], sk);
+    pk1 = BN254.g1Mul(BN254.g1Generator(), sk);
     // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
     pk2 = [
       12000187580290590047264785709963395816646295176893602234201956783324175839805,
@@ -112,15 +108,15 @@ contract BLSKeyTest is Test {
     ];
     bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
 
-    uint256[2] memory pk1DigestPoint = BLS.hashToPoint(BLS.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+    uint256[2] memory pk1DigestPoint = BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
 
-    sigma = BLS.ecMul(pk1DigestPoint, sk);
+    sigma = BN254.g1Mul(pk1DigestPoint, sk);
   }
 
   function testPairingOfGenerators() public view {
     // The generator points are given in:
     // https://eips.ethereum.org/EIPS/eip-197#definition-of-the-groups
-    uint256[2] memory g1 = [uint256(1), uint256(2)];
+    uint256[2] memory g1 = BN254.g1Generator();
 
     uint256[4] memory g2 = [
       11559732032986387107991004021392285783925812861821192530917403151452391805634,
@@ -131,21 +127,19 @@ contract BLSKeyTest is Test {
 
     // Sanity Check
     assertTrue(
-      bn254Pairing(
-        g1, [BLS.NEG_G2_X1, BLS.NEG_G2_X0, BLS.NEG_G2_Y1, BLS.NEG_G2_Y0], [BLS.G1_X, BLS.G1_Y], g2
-      ),
+      bn254Pairing(g1, BN254.g2NegatedGenerator(), BN254.g1Generator(), g2),
       "Pairing of generators failed"
     );
   }
 
-  // wrapper for positive testing
+  // wrapper for negative testing
   function bn254Pairing(
-    uint256[2] memory _l, // G1
-    uint256[4] memory _g2a, // G2  (x1,x0,y1,y0 order for precompile!)
-    uint256[2] memory _r, // G1
-    uint256[4] memory _g2b // G2
+    uint256[2] memory _l,
+    uint256[4] memory _g2a,
+    uint256[2] memory _r,
+    uint256[4] memory _g2b
   ) public view returns (bool ok) {
-    return BLS.bn254Pairing(_l, _g2a, _r, _g2b);
+    return BN254.bn254Pairing(_l, _g2a, _r, _g2b);
   }
 
   // wrapper for negative testing
@@ -154,6 +148,6 @@ contract BLSKeyTest is Test {
     uint256[4] memory _pk2,
     uint256[2] memory _sigma
   ) public view returns (bool ok) {
-    return BLS.proofOfPossession(_pk1, _pk2, _sigma);
+    return BN254.proofOfPossession(_pk1, _pk2, _sigma);
   }
 }

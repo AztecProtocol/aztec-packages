@@ -9,7 +9,7 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
-import {BLS} from "@aztec/governance/libraries/BLS.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 import {DelegationLib, DelegationData} from "@aztec/governance/libraries/DelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
@@ -20,8 +20,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct AttesterConfig {
-  uint256[2] publicKeyInG1;
-  uint256[4] publicKeyInG2;
+  uint256[2] bn254G1PublicKey;
   address withdrawer;
 }
 
@@ -310,12 +309,10 @@ contract GSECore is IGSECore, Ownable {
   ) external override(IGSECore) onlyRollup {
     if (checkProofOfPossession) {
       require(
-        BLS.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+        BN254.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
         Errors.GSE__InvalidProofOfPossession()
       );
     }
-
-    bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1[0], _publicKeyInG1[1]));
 
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
@@ -349,17 +346,20 @@ contract GSECore is IGSECore, Ownable {
       Errors.GSE__AlreadyRegistered(recipientInstance, _attester)
     );
 
-    require(
-      instances[recipientInstance].activePK1s[hashedPk1] == false,
-      Errors.GSE__ProofOfPossessionAlreadySeen(hashedPk1)
-    );
-    instances[recipientInstance].activePK1s[hashedPk1] = true;
+    // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
+    // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
+    // so existence of Pk2 is implied by existence of Pk1.
+    if (checkProofOfPossession) {
+      bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1[0], _publicKeyInG1[1]));
+      require(
+        instances[recipientInstance].activePK1s[hashedPk1] == false,
+        Errors.GSE__ProofOfPossessionAlreadySeen(hashedPk1)
+      );
+      instances[recipientInstance].activePK1s[hashedPk1] = true;
+    }
 
-    instances[recipientInstance].configOf[_attester] = AttesterConfig({
-      withdrawer: _withdrawer,
-      publicKeyInG1: _publicKeyInG1,
-      publicKeyInG2: _publicKeyInG2
-    });
+    instances[recipientInstance].configOf[_attester] =
+      AttesterConfig({withdrawer: _withdrawer, bn254G1PublicKey: _publicKeyInG1});
 
     delegation.delegate(recipientInstance, _attester, recipientInstance);
     delegation.increaseBalance(recipientInstance, _attester, DEPOSIT_AMOUNT);
@@ -433,7 +433,7 @@ contract GSECore is IGSECore, Ownable {
       require(instanceStaking.attesters.remove(_attester), Errors.GSE__FailedToRemove(_attester));
       // Mark the attester's public key as inactive.
       delete instanceStaking.activePK1s[
-        keccak256(abi.encodePacked(instanceStaking.configOf[_attester].publicKeyInG1[0], instanceStaking.configOf[_attester].publicKeyInG1[1]))
+        keccak256(abi.encodePacked(instanceStaking.configOf[_attester].bn254G1PublicKey[0], instanceStaking.configOf[_attester].bn254G1PublicKey[1]))
       ];
       delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
@@ -654,11 +654,7 @@ contract GSE is IGSE, GSECore {
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return AttesterConfig({
-        withdrawer: address(0),
-        publicKeyInG1: [uint256(0), uint256(0)],
-        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)]
-      });
+      return AttesterConfig({withdrawer: address(0), bn254G1PublicKey: [uint256(0), uint256(0)]});
     }
 
     return instanceStaking.configOf[_attester];
@@ -780,7 +776,7 @@ contract GSE is IGSE, GSECore {
       if (!attesterExists) {
         keys[i] = [uint256(0), uint256(0)];
       } else {
-        keys[i] = instanceStaking.configOf[_attesters[i]].publicKeyInG1;
+        keys[i] = instanceStaking.configOf[_attesters[i]].bn254G1PublicKey;
       }
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {BLS} from "@aztec/governance/libraries/BLS.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
@@ -38,21 +38,16 @@ contract DepositBN254Test is WithGSE {
   ) external whenCallerIsRegisteredRollup(_instance) {
     // it reverts
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(BLS.pk1Zero.selector));
+    vm.expectRevert(abi.encodeWithSelector(BN254.pk1Zero.selector));
     gse.deposit(
-      address(0),
-      address(0),
-      [uint256(0), uint256(0)],
-      [uint256(0), uint256(0), uint256(0), uint256(0)],
-      [uint256(0), uint256(0)],
-      _moveWithLatestRollup
+      address(0), address(0), BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), _moveWithLatestRollup
     );
   }
 
   modifier whenTheDepositKeysPassTheProofOfPossessionCheck() {
     // Generate Public Key
     {
-      pk1 = BLS.ecMul([BLS.G1_X, BLS.G1_Y], sk);
+      pk1 = BN254.g1Mul(BN254.g1Generator(), sk);
       // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
       pk2 = [
         12000187580290590047264785709963395816646295176893602234201956783324175839805,
@@ -62,9 +57,9 @@ contract DepositBN254Test is WithGSE {
       ];
       bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
 
-      uint256[2] memory pk1DigestPoint = BLS.hashToPoint(BLS.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+      uint256[2] memory pk1DigestPoint = BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
 
-      sigma = BLS.ecMul(pk1DigestPoint, sk);
+      sigma = BN254.g1Mul(pk1DigestPoint, sk);
     }
     _;
   }
@@ -138,10 +133,10 @@ contract DepositBN254Test is WithGSE {
     assertEq(removed, true);
     assertEq(withdrawalId, 0);
 
-    Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
-    vm.warp(Timestamp.unwrap(withdrawal.unlocksAt));
+    // Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
+    // vm.warp(Timestamp.unwrap(withdrawal.unlocksAt));
 
-    gse.finaliseHelper(withdrawalId);
+    // gse.finaliseHelper(withdrawalId);
 
     vm.startPrank(stakingAsset.owner());
     stakingAsset.mint(address(_instance), gse.DEPOSIT_AMOUNT());

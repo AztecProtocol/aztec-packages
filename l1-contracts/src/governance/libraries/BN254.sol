@@ -2,31 +2,36 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-// Inspiration: https://gist.github.com/kobigurk/257c1783ddf556e330f31ed57febc1d9
-// Helpers taken from: https://github.com/thehubbleproject/hubble-contracts/blob/master/contracts/libs/BLS.sol
-
+/**
+ * Credit:
+ * Primary inspiration from https://hackmd.io/7B4nfNShSY2Cjln-9ViQrA, which points out the
+ * optimization of linking/using a G1 and G2 key.
+ *
+ * The hashToPoint function, and the helpers it calls are modified from
+ * https://github.com/thehubbleproject/hubble-contracts/blob/master/contracts/libs/BLS.sol
+ */
 import {ModexpInverse, ModexpSqrt} from "./ModExp.sol";
 
-library BLS {
-  uint256 public constant FIELD_SIZE =
+/**
+ * Library for registering public keys and computing BLS signatures over the BN254 curve.
+ * The BN254 curve has been chosen over the BLS12-381 curve for gas efficiency, and
+ * because the Aztec rollup's security is already reliant on BN254.
+ */
+library BN254 {
+  /**
+   * We use uint256[2] for G1 points and uint256[4] for G2 points.
+   * For G1 points, the expected order is (x, y).
+   * For G2 points, the expected order is (x_imaginary, x_real, y_imaginary, y_real)
+   * Using structs would be more readable, but it would be more expensive to use them, particularly
+   * when aggregating the public keys, since we need to convert to uint256[2] and uint256[4] anyway.
+   */
+
+  // See bn254_registration.test.ts and BLSKey.t.sol for tests which validate these constants.
+  uint256 public constant BASE_FIELD_SIZE =
     21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
   uint256 public constant CURVE_ORDER =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
-
-  // G1 Generator
-  uint256 public constant G1_X = 1;
-  uint256 public constant G1_Y = 2;
-
-  // Negated generator of G2
-  uint256 public constant NEG_G2_X1 =
-    11559732032986387107991004021392285783925812861821192530917403151452391805634;
-  uint256 public constant NEG_G2_X0 =
-    10857046999023057135944570762232829481370756359578518086990519993285655852781;
-  uint256 public constant NEG_G2_Y1 =
-    17805874995975841540914202342111839520379459829704422454583296818431106115052;
-  uint256 public constant NEG_G2_Y0 =
-    13392588948715843804641432497768002650278120570034223513918757245338268106653;
 
   bytes32 public constant STAKING_DOMAIN_SEPARATOR = bytes32("AZTEC_BLS_POP_BN254_FT_V1");
 
@@ -48,11 +53,24 @@ library BLS {
   error noPointFound();
 
   /**
-   * @notice Register a BLS signature key for the caller.
-   *      Each unique key can only be registered once across all validators.
+   * @notice Prove possession of a secret for a point in G1 and G2.
+   *
+   * Ultimately, we want to check:
+   * - That the caller knows the secret key of pk2 (to prevent rogue-key attacks)
+   * - That pk1 and pk2 have the same secret key (as an optimization)
+   *
+   * Registering two public keys is an optimization: It means we can do G1-only operations
+   * at the time of verifying a signature, which is much cheaper than G2 operations.
+   *
+   * In this function, we check:
+   * e(signature + gamma * pk1, -G2) * e(hashToPoint(pk1) + gamma * G1, pk2) == 1
+   *
+   * Which is effectively a check that:
+   * e(signature, G2) == e(hashToPoint(pk1), pk2) // a BLS signature over msg = pk1, to prove knowledge of the sk.
+   * e(pk1, G2) == e(G1, pk2) // a demonstration that pk1 and pk2 have the same sk.
    *
    * @param pk1 The G1 point of the BLS public key (x, y coordinates)
-   * @param pk2 The G2 point of the BLS public key (x1, x0, y1, y0 coordinates)
+   * @param pk2 The G2 point of the BLS public key (x_imaginary, x_real, y_imaginary, y_real coordinates)
    * @param signature The G1 point that acts as a proof of possession of the private keys corresponding to pk1 and pk2
    */
   function proofOfPossession(
@@ -68,34 +86,33 @@ library BLS {
     bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
     uint256[2] memory pk1DigestPoint = hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
 
+    // Random challenge:
     // gamma = keccak(pk1, pk2, signature) mod |Fr|
     uint256 gamma = gammaOf(pk1, pk2, signature);
     require(gamma != 0, gammaZero());
 
     // Build G1 L = signature + gamma * pk1
-    uint256[2] memory l = ecAdd(signature, ecMul(pk1, gamma));
+    uint256[2] memory left = g1Add(signature, g1Mul(pk1, gamma));
 
     // Build G1 R = pk1DigestPoint + gamma * G1
-    uint256[2] memory g1 = [G1_X, G1_Y];
-    uint256[2] memory r = ecAdd(pk1DigestPoint, ecMul(g1, gamma));
+    uint256[2] memory right = g1Add(pk1DigestPoint, g1Mul(g1Generator(), gamma));
 
     // Pairing: e(L, -G2) * e(R, pk2) == 1
-    uint256[4] memory nG2 = [NEG_G2_X1, NEG_G2_X0, NEG_G2_Y1, NEG_G2_Y0];
-    return bn254Pairing(l, nG2, r, pk2);
+    return bn254Pairing(left, g2NegatedGenerator(), right, pk2);
   }
 
   /// @dev Add two points on BN254 G1 (affine coords).
   ///      Reverts if the inputs are not on‐curve.
-  function ecAdd(uint256[2] memory p1, uint256[2] memory p2)
+  function g1Add(uint256[2] memory p1, uint256[2] memory p2)
     internal
     view
-    returns (uint256[2] memory r)
+    returns (uint256[2] memory output)
   {
     uint256[4] memory input;
-    input[0] = p1[0]; // x₁
-    input[1] = p1[1]; // y₁
-    input[2] = p2[0]; // x₂
-    input[3] = p2[1]; // y₂
+    input[0] = p1[0];
+    input[1] = p1[1];
+    input[2] = p2[0];
+    input[3] = p2[1];
 
     bool success;
     assembly {
@@ -106,21 +123,23 @@ library BLS {
           sub(gas(), 2000),
           0x06, // precompile address
           input,
-          0x80, // 4 × 32 bytes
-          r,
-          0x40 // 2 × 32 bytes
+          0x80, // input size = 4 × 32 bytes
+          output,
+          0x40 // output size = 2 × 32 bytes
         )
     }
-    require(success, addPointFail());
+
+    if (!success) revert addPointFail();
+    return output;
   }
 
   /// @dev Multiply a point by a scalar (little‑endian 256‑bit integer).
   ///      Reverts if the point is not on‐curve or the scalar ≥ p.
-  function ecMul(uint256[2] memory p, uint256 s) internal view returns (uint256[2] memory r) {
+  function g1Mul(uint256[2] memory p, uint256 s) internal view returns (uint256[2] memory output) {
     uint256[3] memory input;
-    input[0] = p[0]; // x
-    input[1] = p[1]; // y
-    input[2] = s; // scalar
+    input[0] = p[0];
+    input[1] = p[1];
+    input[2] = s;
 
     bool success;
     assembly {
@@ -129,44 +148,52 @@ library BLS {
           sub(gas(), 2000),
           0x07, // precompile address
           input,
-          0x60, // 3 × 32 bytes
-          r,
-          0x40 // 2 × 32 bytes
+          0x60, // input size = 3 × 32 bytes
+          output,
+          0x40 // output size = 2 × 32 bytes
         )
     }
-    require(success, mulPointFail());
+    if (!success) revert mulPointFail();
+    return output;
   }
 
   function bn254Pairing(
-    uint256[2] memory l, // G1
-    uint256[4] memory g2a, // G2  (x1,x0,y1,y0 order for precompile!)
-    uint256[2] memory r, // G1
-    uint256[4] memory g2b // G2
-  ) internal view returns (bool ok) {
+    uint256[2] memory g1a,
+    uint256[4] memory g2a,
+    uint256[2] memory g1b,
+    uint256[4] memory g2b
+  ) internal view returns (bool) {
     uint256[12] memory input;
 
-    input[0] = l[0]; // L.x
-    input[1] = l[1]; // L.y
-    input[2] = g2a[0]; // G2a.x1
-    input[3] = g2a[1]; // G2a.x0
-    input[4] = g2a[2]; // G2a.y1
-    input[5] = g2a[3]; // G2a.y0
+    input[0] = g1a[0];
+    input[1] = g1a[1];
+    input[2] = g2a[0];
+    input[3] = g2a[1];
+    input[4] = g2a[2];
+    input[5] = g2a[3];
 
-    input[6] = r[0]; // R.x
-    input[7] = r[1]; // R.y
-    input[8] = g2b[0]; // G2b.x1
-    input[9] = g2b[1]; // G2b.x0
-    input[10] = g2b[2]; // G2b.y1
-    input[11] = g2b[3]; // G2b.y0
+    input[6] = g1b[0];
+    input[7] = g1b[1];
+    input[8] = g2b[0];
+    input[9] = g2b[1];
+    input[10] = g2b[2];
+    input[11] = g2b[3];
 
-    uint256[1] memory out;
-    bool success;
+    uint256[1] memory result;
+    bool didCallSucceed;
     assembly {
-      // staticcall(gas, 0x08, input, 0x180 (12*32), out, 0x20)
-      success := staticcall(sub(gas(), 2000), 8, input, 0x180, out, 0x20)
+      didCallSucceed :=
+        staticcall(
+          sub(gas(), 2000),
+          8,
+          input,
+          0x180, // input size = 12 * 32 bytes
+          result,
+          0x20 // output size = 32 bytes
+        )
     }
-    require(success, pairingFail());
-    ok = (out[0] == 1);
+    require(didCallSucceed, pairingFail());
+    return result[0] == 1;
   }
 
   /**
@@ -175,73 +202,73 @@ library BLS {
   function hashToPoint(bytes32 domain, bytes memory message)
     internal
     view
-    returns (uint256[2] memory)
+    returns (uint256[2] memory output)
   {
     uint256[2] memory u = hashToField(domain, message);
     uint256[2] memory p0 = mapToPoint(u[0]);
     uint256[2] memory p1 = mapToPoint(u[1]);
 
-    return ecAdd(p0, p1);
+    return g1Add(p0, p1);
   }
 
-  function mapToPoint(uint256 _x) internal pure returns (uint256[2] memory p) {
-    require(_x < FIELD_SIZE, valueOutOfRange(_x, 0, FIELD_SIZE));
+  function mapToPoint(uint256 _x) internal pure returns (uint256[2] memory output) {
+    require(_x < BASE_FIELD_SIZE, valueOutOfRange(_x, 0, BASE_FIELD_SIZE));
     uint256 x = _x;
 
     (, bool decision) = sqrt(x);
 
-    uint256 a0 = mulmod(x, x, FIELD_SIZE);
-    a0 = addmod(a0, 4, FIELD_SIZE);
-    uint256 a1 = mulmod(x, Z0, FIELD_SIZE);
-    uint256 a2 = mulmod(a1, a0, FIELD_SIZE);
+    uint256 a0 = mulmod(x, x, BASE_FIELD_SIZE);
+    a0 = addmod(a0, 4, BASE_FIELD_SIZE);
+    uint256 a1 = mulmod(x, Z0, BASE_FIELD_SIZE);
+    uint256 a2 = mulmod(a1, a0, BASE_FIELD_SIZE);
     a2 = inverse(a2);
-    a1 = mulmod(a1, a1, FIELD_SIZE);
-    a1 = mulmod(a1, a2, FIELD_SIZE);
+    a1 = mulmod(a1, a1, BASE_FIELD_SIZE);
+    a1 = mulmod(a1, a2, BASE_FIELD_SIZE);
 
     // x1
-    a1 = mulmod(x, a1, FIELD_SIZE);
-    x = addmod(Z1, FIELD_SIZE - a1, FIELD_SIZE);
+    a1 = mulmod(x, a1, BASE_FIELD_SIZE);
+    x = addmod(Z1, BASE_FIELD_SIZE - a1, BASE_FIELD_SIZE);
     // check curve
-    a1 = mulmod(x, x, FIELD_SIZE);
-    a1 = mulmod(a1, x, FIELD_SIZE);
-    a1 = addmod(a1, 3, FIELD_SIZE);
+    a1 = mulmod(x, x, BASE_FIELD_SIZE);
+    a1 = mulmod(a1, x, BASE_FIELD_SIZE);
+    a1 = addmod(a1, 3, BASE_FIELD_SIZE);
     bool found;
     (a1, found) = sqrt(a1);
     if (found) {
       if (!decision) {
-        a1 = FIELD_SIZE - a1;
+        a1 = BASE_FIELD_SIZE - a1;
       }
       return [x, a1];
     }
 
     // x2
-    x = FIELD_SIZE - addmod(x, 1, FIELD_SIZE);
+    x = BASE_FIELD_SIZE - addmod(x, 1, BASE_FIELD_SIZE);
     // check curve
-    a1 = mulmod(x, x, FIELD_SIZE);
-    a1 = mulmod(a1, x, FIELD_SIZE);
-    a1 = addmod(a1, 3, FIELD_SIZE);
+    a1 = mulmod(x, x, BASE_FIELD_SIZE);
+    a1 = mulmod(a1, x, BASE_FIELD_SIZE);
+    a1 = addmod(a1, 3, BASE_FIELD_SIZE);
     (a1, found) = sqrt(a1);
     if (found) {
       if (!decision) {
-        a1 = FIELD_SIZE - a1;
+        a1 = BASE_FIELD_SIZE - a1;
       }
       return [x, a1];
     }
 
     // x3
-    x = mulmod(a0, a0, FIELD_SIZE);
-    x = mulmod(x, x, FIELD_SIZE);
-    x = mulmod(x, a2, FIELD_SIZE);
-    x = mulmod(x, a2, FIELD_SIZE);
-    x = addmod(x, 1, FIELD_SIZE);
+    x = mulmod(a0, a0, BASE_FIELD_SIZE);
+    x = mulmod(x, x, BASE_FIELD_SIZE);
+    x = mulmod(x, a2, BASE_FIELD_SIZE);
+    x = mulmod(x, a2, BASE_FIELD_SIZE);
+    x = addmod(x, 1, BASE_FIELD_SIZE);
     // must be on curve
-    a1 = mulmod(x, x, FIELD_SIZE);
-    a1 = mulmod(a1, x, FIELD_SIZE);
-    a1 = addmod(a1, 3, FIELD_SIZE);
+    a1 = mulmod(x, x, BASE_FIELD_SIZE);
+    a1 = mulmod(a1, x, BASE_FIELD_SIZE);
+    a1 = addmod(a1, 3, BASE_FIELD_SIZE);
     (a1, found) = sqrt(a1);
     require(found, noPointFound());
     if (!decision) {
-      a1 = FIELD_SIZE - a1;
+      a1 = BASE_FIELD_SIZE - a1;
     }
     return [x, a1];
   }
@@ -261,12 +288,12 @@ library BLS {
       u1 := and(mload(p), MASK24)
       p := add(_msg, 48)
       u0 := and(mload(p), MASK24)
-      a0 := addmod(mulmod(u1, T24, FIELD_SIZE), u0, FIELD_SIZE)
+      a0 := addmod(mulmod(u1, T24, BASE_FIELD_SIZE), u0, BASE_FIELD_SIZE)
       p := add(_msg, 72)
       u1 := and(mload(p), MASK24)
       p := add(_msg, 96)
       u0 := and(mload(p), MASK24)
-      a1 := addmod(mulmod(u1, T24, FIELD_SIZE), u0, FIELD_SIZE)
+      a1 := addmod(mulmod(u1, T24, BASE_FIELD_SIZE), u0, BASE_FIELD_SIZE)
     }
     return [a0, a1];
   }
@@ -356,7 +383,7 @@ library BLS {
 
   function sqrt(uint256 xx) internal pure returns (uint256 x, bool hasRoot) {
     x = ModexpSqrt.run(xx);
-    hasRoot = mulmod(x, x, FIELD_SIZE) == xx;
+    hasRoot = mulmod(x, x, BASE_FIELD_SIZE) == xx;
   }
 
   function inverse(uint256 a) internal pure returns (uint256) {
@@ -369,6 +396,30 @@ library BLS {
     pure
     returns (uint256)
   {
+    // QUESTION: Is this uniformly-random enough, or do we need to compute 512-bits of randomness
+    // (by concatenating two domain-separated hashes) and then compute the modulo `% CURVE_ORDER`?
+
     return uint256(keccak256(abi.encodePacked(pk1, pk2, sigmaInit))) % CURVE_ORDER;
+  }
+
+  function g1Zero() internal pure returns (uint256[2] memory) {
+    return [uint256(0), uint256(0)];
+  }
+
+  function g1Generator() internal pure returns (uint256[2] memory) {
+    return [uint256(1), uint256(2)];
+  }
+
+  function g2Zero() internal pure returns (uint256[4] memory) {
+    return [uint256(0), uint256(0), uint256(0), uint256(0)];
+  }
+
+  function g2NegatedGenerator() internal pure returns (uint256[4] memory) {
+    return [
+      11559732032986387107991004021392285783925812861821192530917403151452391805634,
+      10857046999023057135944570762232829481370756359578518086990519993285655852781,
+      17805874995975841540914202342111839520379459829704422454583296818431106115052,
+      13392588948715843804641432497768002650278120570034223513918757245338268106653
+    ];
   }
 }
