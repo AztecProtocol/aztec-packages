@@ -89,10 +89,11 @@ namespace execution;
 
     // Side effects state // TODO(alvaro): Add to context stack and restore
     pol commit num_unencrypted_logs; // TODO: Constrain counts changing unless specific opcode selectors are on
-
+    pol commit num_l2_to_l1_messages;
 
     // Next side effects state
     pol commit next_num_unencrypted_logs;
+    pol commit next_num_l2_to_l1_messages;
 
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs

@@ -666,6 +666,7 @@ pub global AVM_EXEC_OP_ID_EMIT_NOTEHASH: u32 = 2 * AVM_EXEC_OP_ID_NOTEHASH_EXIST
 pub global AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_EMIT_NOTEHASH;
 pub global AVM_EXEC_OP_ID_NULLIFIER_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS;
 pub global AVM_EXEC_OP_ID_EMIT_NULLIFIER: u32 = 2 * AVM_EXEC_OP_ID_NULLIFIER_EXISTS;
+pub global AVM_EXEC_OP_ID_SENDL2TOL1MSG: u32 = 2 * AVM_EXEC_OP_ID_EMIT_NULLIFIER;
 
 // Execution Opcode IDs for the ALU subtrace
 // Note: these are all powers of 2 to allow for binary decomposition.

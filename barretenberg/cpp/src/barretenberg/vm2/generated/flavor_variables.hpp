@@ -50,6 +50,7 @@
 #include "relations/range_check.hpp"
 #include "relations/registers.hpp"
 #include "relations/scalar_mul.hpp"
+#include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
 #include "relations/sload.hpp"
 #include "relations/sstore.hpp"
@@ -100,6 +101,7 @@
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_registers.hpp"
 #include "relations/lookups_scalar_mul.hpp"
+#include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_sload.hpp"
 #include "relations/lookups_sstore.hpp"
@@ -119,10 +121,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2640;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2649;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3040;
+    static constexpr size_t NUM_ALL_ENTITIES = 3049;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -176,6 +178,7 @@ struct AvmFlavorVariables {
         avm2::range_check<FF_>,
         avm2::registers<FF_>,
         avm2::scalar_mul<FF_>,
+        avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
         avm2::sload<FF_>,
         avm2::sstore<FF_>,
@@ -494,6 +497,7 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
+        lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,

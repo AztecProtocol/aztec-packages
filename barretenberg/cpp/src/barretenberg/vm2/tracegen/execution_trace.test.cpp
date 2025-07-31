@@ -1185,5 +1185,54 @@ TEST(ExecutionTraceGenTest, EmitNullifier)
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMIT_NULLIFIER))));
 }
 
+TEST(ExecutionTraceGenTest, SendL2ToL1Msg)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t recipient_offset = 100;
+    uint16_t content_offset = 101;
+    FF recipient = 0x123456;
+    FF content = 0xdeadbeef;
+    uint32_t prev_num_l2_to_l1_msgs = MAX_L2_TO_L1_MSGS_PER_TX - 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::SENDL2TOL1MSG)
+                           .operand<uint16_t>(recipient_offset)
+                           .operand<uint16_t>(content_offset)
+                           .build();
+
+    ExecutionEvent ex_event = { .wire_instruction = instr,
+                                .inputs = { TaggedValue::from_tag(ValueTag::FF, recipient),
+                                            TaggedValue::from_tag(ValueTag::FF, content) },
+                                .addressing_event = { .instruction = instr,
+                                                      .resolution_info = { { .resolved_operand =
+                                                                                 MemoryValue::from<FF>(recipient) },
+                                                                           { .resolved_operand =
+                                                                                 MemoryValue::from<FF>(content) } } },
+                                .before_context_event = { .side_effect_states = {
+                                                              .numL2ToL1Messages = prev_num_l2_to_l1_msgs,
+                                                          } } };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(
+        trace.as_rows(),
+        ElementsAre(
+            // First row is empty
+            AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+            // Second row is the send_l2_to_l1_msg
+            AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                  ROW_FIELD_EQ(execution_sel_execute_send_l2_to_l1_msg, 1),
+                  ROW_FIELD_EQ(execution_register_0_, recipient),
+                  ROW_FIELD_EQ(execution_register_1_, content),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF),
+                  ROW_FIELD_EQ(execution_remaining_l2_to_l1_msgs_inv,
+                               FF(MAX_L2_TO_L1_MSGS_PER_TX - prev_num_l2_to_l1_msgs).invert()),
+                  ROW_FIELD_EQ(execution_sel_write_l2_to_l1_msg, 1),
+                  ROW_FIELD_EQ(execution_public_inputs_index,
+                               AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_msgs),
+                  ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SENDL2TOL1MSG))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen

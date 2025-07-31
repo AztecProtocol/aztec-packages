@@ -34,16 +34,16 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-constexpr std::array<WireOpCode, 22> WIRE_OPCODES = {
-    WireOpCode::GETENVVAR_16,    WireOpCode::MOV_8,          WireOpCode::MOV_16,       WireOpCode::JUMP_32,
-    WireOpCode::JUMPI_32,        WireOpCode::CALL,           WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN,
-    WireOpCode::RETURN,          WireOpCode::SUCCESSCOPY,    WireOpCode::STATICCALL,   WireOpCode::REVERT_8,
-    WireOpCode::REVERT_16,       WireOpCode::RETURNDATASIZE, WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,
-    WireOpCode::SSTORE,          WireOpCode::NOTEHASHEXISTS, WireOpCode::EMITNOTEHASH, WireOpCode::L1TOL2MSGEXISTS,
-    WireOpCode::NULLIFIEREXISTS, WireOpCode::EMITNULLIFIER,
+constexpr std::array<WireOpCode, 23> WIRE_OPCODES = {
+    WireOpCode::GETENVVAR_16,    WireOpCode::MOV_8,          WireOpCode::MOV_16,        WireOpCode::JUMP_32,
+    WireOpCode::JUMPI_32,        WireOpCode::CALL,           WireOpCode::INTERNALCALL,  WireOpCode::INTERNALRETURN,
+    WireOpCode::RETURN,          WireOpCode::SUCCESSCOPY,    WireOpCode::STATICCALL,    WireOpCode::REVERT_8,
+    WireOpCode::REVERT_16,       WireOpCode::RETURNDATASIZE, WireOpCode::DEBUGLOG,      WireOpCode::SLOAD,
+    WireOpCode::SSTORE,          WireOpCode::NOTEHASHEXISTS, WireOpCode::EMITNOTEHASH,  WireOpCode::L1TOL2MSGEXISTS,
+    WireOpCode::NULLIFIEREXISTS, WireOpCode::EMITNULLIFIER,  WireOpCode::SENDL2TOL1MSG,
 };
 
-constexpr std::array<uint32_t, 22> OPERATION_IDS = {
+constexpr std::array<uint32_t, 23> OPERATION_IDS = {
     AVM_EXEC_OP_ID_GETENVVAR,
     AVM_EXEC_OP_ID_MOV,
     AVM_EXEC_OP_ID_MOV,
@@ -66,9 +66,10 @@ constexpr std::array<uint32_t, 22> OPERATION_IDS = {
     AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS,
     AVM_EXEC_OP_ID_NULLIFIER_EXISTS,
     AVM_EXEC_OP_ID_EMIT_NULLIFIER,
+    AVM_EXEC_OP_ID_SENDL2TOL1MSG,
 };
 
-constexpr std::array<C, 22> SELECTOR_COLUMNS = {
+constexpr std::array<C, 23> SELECTOR_COLUMNS = {
     C::execution_sel_execute_get_env_var,
     C::execution_sel_execute_mov,
     C::execution_sel_execute_mov,
@@ -91,6 +92,7 @@ constexpr std::array<C, 22> SELECTOR_COLUMNS = {
     C::execution_sel_execute_l1_to_l2_message_exists,
     C::execution_sel_execute_nullifier_exists,
     C::execution_sel_execute_emit_nullifier,
+    C::execution_sel_execute_send_l2_to_l1_msg,
 };
 
 // Ensure that WIRE_OPCODES contains all wire opcodes which have an execution opcode belonging
