@@ -37,82 +37,164 @@ struct StackTraces {
 };
 #endif
 
+/**
+ * @brief Abstract interface for a generic selector.
+ * @details A selector holds field elements that represent gate enable signals in circuit constraints.
+ *          This interface defines basic operations required for concrete selector implementations.
+ *
+ * @tparam FF The finite field element type.
+ */
 template <typename FF> class Selector {
   public:
+    Selector() = default;
+    virtual ~Selector() = default;
+
+    // Delete copy/move to avoid object slicing and unintended behavior
+    Selector(const Selector&) = default;
+    Selector& operator=(const Selector&) = default;
+    Selector(Selector&&) = delete;
+    Selector& operator=(Selector&&) = delete;
+
+    /**
+     * @brief Append a field element to the selector.
+     * @param value Field element to append.
+     */
     void emplace_back(const FF& value) { push_back(value); }
-    virtual void emplace_back(int) = 0;
-    virtual void push_back(const FF&) = 0;
-    virtual void resize(size_t) = 0;
-    virtual const FF& operator[](size_t) const = 0;
-    virtual size_t size() const = 0;
+
+    /**
+     * @brief Append an integer value to the selector.
+     * @param value Must be convertible to FF.
+     */
+    virtual void emplace_back(int value) = 0;
+
+    /**
+     * @brief Push a field element to the selector.
+     * @param value Field element to add.
+     */
+    virtual void push_back(const FF& value) = 0;
+
+    /**
+     * @brief Resize the selector.
+     * @param new_size The new size.
+     */
+    virtual void resize(size_t new_size) = 0;
+
+    /**
+     * @brief Get value at specified index.
+     * @param index Index of the element.
+     * @return Reference to the field element at index.
+     */
+    virtual const FF& operator[](size_t index) const = 0;
+
+    /**
+     * @brief Get the last value in the selector.
+     * @return Reference to the last field element.
+     */
     virtual const FF& back() const = 0;
+
+    /**
+     * @brief Get the number of elements.
+     */
+    virtual size_t size() const = 0;
+
+    /**
+     * @brief Check if the selector is empty.
+     */
     virtual bool empty() const = 0;
-    virtual std::vector<uint8_t> to_buffer() const = 0;
-    virtual void set(size_t, int) = 0;
-    virtual void set_back(int) = 0;
-    virtual void set(size_t, const FF&) = 0;
+
+    /**
+     * @brief Set the value at index using integer.
+     * @param idx Index.
+     * @param value Integer value.
+     */
+    virtual void set(size_t idx, int value) = 0;
+
+    /**
+     * @brief Set the last value using integer.
+     * @param value Integer value.
+     */
+    virtual void set_back(int value) = 0;
+
+    /**
+     * @brief Set the value at index using a field element.
+     * @param idx Index.
+     * @param value Field element.
+     */
+    virtual void set(size_t idx, const FF& value) = 0;
 };
 
+/**
+ * @brief Selector specialization that only allows zeros.
+ * @details Efficient representation for selectors that are guaranteed to be zero everywhere.
+ *
+ * @tparam FF The finite field element type.
+ */
 template <typename FF> class ZeroSelector : public Selector<FF> {
   public:
     using Selector<FF>::emplace_back;
+
     void emplace_back(int value) override
     {
         BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::emplace_back with a non zero value.");
         size_++;
     }
+
     void push_back(const FF& value) override
     {
         ASSERT(value.is_zero());
         size_++;
     }
+
     void set_back(int value) override
     {
         BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set_back with a non zero value.");
         BB_ASSERT_GT(size_, 0U);
     }
+
     void set(size_t idx, int value) override
     {
         BB_ASSERT_LT(idx, size_);
         BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set with a non zero value.");
     }
+
     void set(size_t idx, const FF& value) override
     {
         BB_ASSERT_LT(idx, size_);
         ASSERT(value.is_zero());
         size_++;
     }
+
     void resize(size_t new_size) override { size_ = new_size; }
 
-    bool operator==(const ZeroSelector& other) const { return size_ == other.size(); };
+    bool operator==(const ZeroSelector& other) const { return size_ == other.size(); }
+
     const FF& operator[](size_t index) const override
     {
         BB_ASSERT_LT(index, size_);
         return zero;
-    };
+    }
+
     const FF& back() const override { return zero; }
 
     size_t size() const override { return size_; }
-    bool empty() const override { return size_ == 0; }
 
-    std::vector<uint8_t> to_buffer() const override
-    {
-        using serialize::write;
-        std::vector<uint8_t> buf;
-        for (size_t i = 0; i < size_; i++) {
-            write(buf, zero);
-        }
-        return buf;
-    }
+    bool empty() const override { return size_ == 0; }
 
   private:
     static constexpr FF zero = 0;
     size_t size_ = 0;
 };
 
+/**
+ * @brief Selector backed by a slab allocator vector.
+ * @details Allows dynamic values with fast memory allocation from slabs.
+ *
+ * @tparam FF The finite field element type.
+ */
 template <typename FF> class SlabVectorSelector : public Selector<FF> {
   public:
     using Selector<FF>::emplace_back;
+
     void emplace_back(int i) override { data.emplace_back(i); }
     void push_back(const FF& value) override { data.push_back(value); }
     void set_back(int value) override { data.back() = value; }
@@ -121,13 +203,12 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
     void resize(size_t new_size) override { data.resize(new_size); }
 
     bool operator==(const SlabVectorSelector& other) const { return data == other.data; }
-    const FF& operator[](size_t i) const override { return data[i]; };
+
+    const FF& operator[](size_t i) const override { return data[i]; }
     const FF& back() const override { return data.back(); }
 
     size_t size() const override { return data.size(); }
     bool empty() const override { return data.empty(); }
-
-    std::vector<uint8_t> to_buffer() const override { return ::to_buffer(data); }
 
   private:
     SlabVector<FF> data;
@@ -138,7 +219,6 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
  *
  * @tparam FF
  * @tparam NUM_WIRES
- * @tparam NUM_SELECTORS
  */
 template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
   public:
