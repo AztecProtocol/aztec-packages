@@ -887,7 +887,7 @@ If two subsystems can contain the same configuration option, only one needs to b
   TXE
 
     --txe
-          Starts Aztec TXE with options
+          Starts Aztec TXE (Test eXecution Environment) with options
 
   FAUCET
 
