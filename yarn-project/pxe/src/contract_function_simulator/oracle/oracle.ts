@@ -37,7 +37,7 @@ export class Oracle {
   }
 
   getRandomField(): Promise<ACVMField[]> {
-    const val = this.typedOracle.getRandomField();
+    const val = this.typedOracle.utilityGetRandomField();
     return Promise.resolve([toACVMField(val)]);
   }
 
