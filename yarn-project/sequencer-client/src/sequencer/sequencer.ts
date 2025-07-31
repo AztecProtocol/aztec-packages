@@ -849,8 +849,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         return undefined;
       }
 
-      // Always get the real archive from world state (like the old system)
-      // This avoids having to handle Fr.ZERO archives throughout the sequencer
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
 
       return {

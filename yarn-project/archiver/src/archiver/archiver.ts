@@ -600,10 +600,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   private async handleL2blocks(blocksSynchedTo: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = await this.getBlockNumber();
-    const isLocalPendingBlockHeaderHashStale = await this.rollup.isBlockHeaderHashStale(
-      BigInt(localPendingBlockNumber),
-    );
 
+    // Get initial rollup status for early checks and logging
     const [
       provenBlockNumber,
       provenArchive,
@@ -720,6 +718,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
         return rollupStatus;
       }
+
+      const isLocalPendingBlockHeaderHashStale = await this.rollup.isBlockHeaderHashStale(
+        BigInt(localPendingBlockNumber),
+      );
 
       let localPendingBlockInChain = false;
 
@@ -887,9 +889,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       }
       lastRetrievedBlock = publishedBlocks.at(-1) ?? lastRetrievedBlock;
     } while (searchEndBlock < currentL1BlockNumber);
-
-    // Handle retroactive proof updates for existing blocks
-    await this.handleRetroactiveProofUpdates(currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
     await updateProvenBlock();
