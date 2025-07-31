@@ -6,6 +6,7 @@ import type { ApiSchemaFor } from '../schemas/schemas.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
+import { SlasherConfigSchema } from './slasher.js';
 
 /**
  * Aztec node admin API.
@@ -44,7 +45,10 @@ export interface AztecNodeAdmin {
 }
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
-  setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
+  setConfig: z
+    .function()
+    .args(SequencerConfigSchema.merge(ProverConfigSchema).merge(SlasherConfigSchema).partial())
+    .returns(z.void()),
   flushTxs: z.function().returns(z.void()),
   startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
   rollbackTo: z.function().args(z.number()).returns(z.void()),
