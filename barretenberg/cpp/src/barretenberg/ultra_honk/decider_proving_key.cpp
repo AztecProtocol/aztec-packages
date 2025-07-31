@@ -311,7 +311,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
                 }
                 wire.resize(fixed_block_size); // shrink the main block to its max capacity
             }
-            for (auto [selector, overflow_selector] : zip_view(block.selectors, overflow_block.selectors)) {
+            for (auto [selector, overflow_selector] : zip_view(block.get_selectors(), overflow_block.get_selectors())) {
                 for (size_t i = overflow_start; i < overflow_end; ++i) {
                     overflow_selector.push_back(selector[i]);
                 }
@@ -321,7 +321,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // ensures it can be read into by the previous gate but does not itself try to read into the next gate.
             for (auto& selector : block.get_gate_selectors()) {
                 BB_ASSERT_EQ(selector.empty(), false);
-                selector.back() = 0;
+                selector.set_back(0);
             }
         }
     }
