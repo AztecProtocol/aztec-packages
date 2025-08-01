@@ -49,7 +49,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
 
-        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS, false);
 
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
 

@@ -46,6 +46,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
     uint32_t pg_final_type = static_cast<uint32_t>(PROOF_TYPE::PG_FINAL);
+    uint32_t pg_tail_type = static_cast<uint32_t>(PROOF_TYPE::PG_TAIL);
 
     // There is a fixed set of valid combinations of IVC recursion constraints for Aztec kernel circuits:
 
@@ -55,10 +56,17 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
         return ivc;
     }
 
-    // Case: RESET or TAIL kernel; single PG recursive verification of a kernel
+    // Case: RESET kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
         ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        return ivc;
+    }
+
+    // Case: TAIL kernel; single PG recursive verification of a kernel
+    if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
+        ivc->verifier_accumulator = create_mock_decider_vk<ClientIVC::Flavor>();
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -120,6 +128,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
             break;
         case ClientIVC::QUEUE_TYPE::PG:
         case ClientIVC::QUEUE_TYPE::PG_FINAL:
+        case ClientIVC::QUEUE_TYPE::PG_TAIL:
             proof = create_mock_pg_proof<Flavor, KernelIO>();
             break;
         default:
