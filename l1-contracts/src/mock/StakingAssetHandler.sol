@@ -4,10 +4,10 @@ pragma solidity >=0.8.27;
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 /**
  * @title StakingAssetHandler

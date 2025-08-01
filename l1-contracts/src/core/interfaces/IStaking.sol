@@ -5,9 +5,9 @@ pragma solidity >=0.8.27;
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 interface IStakingCore {
   event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);

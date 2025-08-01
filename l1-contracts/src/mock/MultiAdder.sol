@@ -3,8 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct CheatDepositArgs {
   address attester;

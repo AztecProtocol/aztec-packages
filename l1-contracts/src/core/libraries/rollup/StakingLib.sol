@@ -16,6 +16,7 @@ import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 import {
   CompressedTimeMath, CompressedTimestamp
 } from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -23,7 +24,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator

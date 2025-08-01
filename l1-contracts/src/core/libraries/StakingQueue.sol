@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {Errors} from "./Errors.sol";
 import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {Errors} from "./Errors.sol";
 
 struct DepositArgs {
   address attester;

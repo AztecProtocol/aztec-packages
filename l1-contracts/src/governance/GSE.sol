@@ -9,10 +9,10 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
 import {DelegationLib, DelegationData} from "@aztec/governance/libraries/DelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -150,13 +150,6 @@ contract GSECore is IGSECore, Ownable {
   using DelegationLib for DelegationData;
   using ProposalLib for Proposal;
 
-  // the `gap` pushes the `checkProofOfPossession` into its own slot
-  // so we don't have the trouble of being in the middle of a slot
-  uint256 private gap = 0;
-
-  // @note  Always true, exists to override to false for testing only.
-  bool public checkProofOfPossession = true;
-
   /**
    * Create a special "bonus" address for use by the latest rollup.
    *
@@ -208,6 +201,13 @@ contract GSECore is IGSECore, Ownable {
   uint256 public immutable DEPOSIT_AMOUNT;
   uint256 public immutable MINIMUM_STAKE;
   IERC20 public immutable STAKING_ASSET;
+
+  // the `gap` pushes the `checkProofOfPossession` into its own slot
+  // so we don't have the trouble of being in the middle of a slot
+  uint256 private gap = 0;
+
+  // @note  Always true, exists to override to false for testing only.
+  bool public checkProofOfPossession = true;
 
   // The GSE's history of rollups.
   Checkpoints.Trace224 internal rollups;
