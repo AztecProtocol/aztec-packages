@@ -14,6 +14,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {console} from "forge-std/console.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 contract MoveTest is StakingBase {
   GSE internal gse;
@@ -72,9 +73,9 @@ contract MoveTest is StakingBase {
       oldRollup.deposit({
         _attester: address(uint160(i + 1000)),
         _withdrawer: WITHDRAWER,
-        _publicKeyInG1: [uint256(0), uint256(0)],
-        _publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
-        _proofOfPossession: [uint256(0), uint256(0)],
+        _publicKeyInG1: BN254.g1Zero(),
+        _publicKeyInG2: BN254.g2Zero(),
+        _proofOfPossession: BN254.g1Zero(),
         _moveWithLatestRollup: moveWithLatestRollup
       });
     }

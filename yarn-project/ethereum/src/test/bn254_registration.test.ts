@@ -42,47 +42,48 @@ describe('BN254 Registration', () => {
         const negativePk2 = negativePk2Weierstrass.toAffine();
 
         keys.push({
-          sk: sk.toString(),
-          pk1: { x: pk1.x.toString(), y: pk1.y.toString() },
-          negativePk1: { x: negativePk1.x.toString(), y: negativePk1.y.toString() },
-          pk2: { x0: pk2.x.c0.toString(), x1: pk2.x.c1.toString(), y0: pk2.y.c0.toString(), y1: pk2.y.c1.toString() },
+          sk: sk,
+          pk1: { x: pk1.x, y: pk1.y },
+          negativePk1: { x: negativePk1.x, y: negativePk1.y },
+          pk2: { x0: pk2.x.c0, x1: pk2.x.c1, y0: pk2.y.c0, y1: pk2.y.c1 },
           negativePk2: {
-            x0: negativePk2.x.c0.toString(),
-            x1: negativePk2.x.c1.toString(),
-            y0: negativePk2.y.c0.toString(),
-            y1: negativePk2.y.c1.toString(),
+            x0: negativePk2.x.c0,
+            x1: negativePk2.x.c1,
+            y0: negativePk2.y.c0,
+            y1: negativePk2.y.c1,
           },
         });
       }
 
-      fs.writeFileSync(
-        'bn254_constants.json',
-        JSON.stringify(
-          {
-            fpOrder: bn254.fields.Fp.ORDER.toString(),
-            frOrder: bn254.fields.Fr.ORDER.toString(),
-            g1Generator: {
-              x: g1Base.x.toString(),
-              y: g1Base.y.toString(),
-            },
-            g2Generator: {
-              x0: g2Base.x.c0.toString(),
-              x1: g2Base.x.c1.toString(),
-              y0: g2Base.y.c0.toString(),
-              y1: g2Base.y.c1.toString(),
-            },
-            negativeG2Generator: {
-              x0: negativeG2.x.c0.toString(),
-              x1: negativeG2.x.c1.toString(),
-              y0: negativeG2.y.c0.toString(),
-              y1: negativeG2.y.c1.toString(),
-            },
-            sampleKeys: keys,
+      const jsonString = JSON.stringify(
+        {
+          fpOrder: bn254.fields.Fp.ORDER,
+          frOrder: bn254.fields.Fr.ORDER,
+          g1Generator: {
+            x: g1Base.x,
+            y: g1Base.y,
           },
-          null,
-          2,
-        ),
+          g2Generator: {
+            x0: g2Base.x.c0,
+            x1: g2Base.x.c1,
+            y0: g2Base.y.c0,
+            y1: g2Base.y.c1,
+          },
+          negativeG2Generator: {
+            x0: negativeG2.x.c0,
+            x1: negativeG2.x.c1,
+            y0: negativeG2.y.c0,
+            y1: negativeG2.y.c1,
+          },
+          sampleKeys: keys,
+        },
+        (key, value) => (typeof value === 'bigint' ? `__BIGINT__${value.toString()}__BIGINT__` : value),
+        2,
       );
+
+      const unquotedJson = jsonString.replace(/"__BIGINT__(\d+)__BIGINT__"/g, '$1');
+
+      fs.writeFileSync('bn254_constants.json', unquotedJson);
     }
   });
 });

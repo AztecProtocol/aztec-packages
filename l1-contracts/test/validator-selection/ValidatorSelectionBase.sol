@@ -25,6 +25,7 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
@@ -129,9 +130,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     return CheatDepositArgs({
       attester: attester,
       withdrawer: address(this),
-      publicKeyInG1: [uint256(0), uint256(0)],
-      publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
-      proofOfPossession: [uint256(0), uint256(0)]
+      publicKeyInG1: BN254.g1Zero(),
+      publicKeyInG2: BN254.g2Zero(),
+      proofOfPossession: BN254.g1Zero()
     });
   }
 }

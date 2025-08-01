@@ -7,6 +7,7 @@ import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLi
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 interface IStakingCore {
   event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);
@@ -14,17 +15,17 @@ interface IStakingCore {
   event Deposit(
     address indexed attester,
     address indexed withdrawer,
-    uint256[2] publicKeyInG1,
-    uint256[4] publicKeyInG2,
-    uint256[2] proofOfPossession,
+    BN254.G1Point publicKeyInG1,
+    BN254.G2Point publicKeyInG2,
+    BN254.G1Point proofOfPossession,
     uint256 amount
   );
   event FailedDeposit(
     address indexed attester,
     address indexed withdrawer,
-    uint256[2] publicKeyInG1,
-    uint256[4] publicKeyInG2,
-    uint256[2] proofOfPossession
+    BN254.G1Point publicKeyInG1,
+    BN254.G2Point publicKeyInG2,
+    BN254.G1Point proofOfPossession
   );
   event WithdrawInitiated(address indexed attester, address indexed recipient, uint256 amount);
   event WithdrawFinalised(address indexed attester, address indexed recipient, uint256 amount);
@@ -35,9 +36,9 @@ interface IStakingCore {
   function deposit(
     address _attester,
     address _withdrawer,
-    uint256[2] memory _publicKeyInG1,
-    uint256[4] memory _publicKeyInG2,
-    uint256[2] memory _proofOfPossession,
+    BN254.G1Point memory _publicKeyInG1,
+    BN254.G2Point memory _publicKeyInG2,
+    BN254.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external;
   function flushEntryQueue() external;

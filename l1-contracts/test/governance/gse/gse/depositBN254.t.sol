@@ -11,9 +11,9 @@ contract DepositBN254Test is WithGSE {
   using stdStorage for StdStorage;
 
   struct ProofOfPossession {
-    uint256[2] pk1;
-    uint256[4] pk2;
-    uint256[2] sigma;
+    BN254.G1Point pk1;
+    BN254.G2Point pk2;
+    BN254.G1Point sigma;
   }
 
   uint256 private sk1 = 0x7777777;
@@ -27,20 +27,20 @@ contract DepositBN254Test is WithGSE {
     // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
     // Prefilling here, and the rest of the data will be generated using the helper
     // generateProofsOfPossession()
-    proofOfPossessions[sk1].pk2 = [
-      12000187580290590047264785709963395816646295176893602234201956783324175839805,
-      17931071651819835067098563222910421513876328033572114834306979690881549564414,
-      3847186948811352011829434621581350901968531448585779990319356482934947911409,
-      9611549517545166944736557219282359806761534888544046901025233666228290030286
-    ];
+    proofOfPossessions[sk1].pk2 = BN254.G2Point({
+      x1: 12000187580290590047264785709963395816646295176893602234201956783324175839805,
+      x0: 17931071651819835067098563222910421513876328033572114834306979690881549564414,
+      y1: 3847186948811352011829434621581350901968531448585779990319356482934947911409,
+      y0: 9611549517545166944736557219282359806761534888544046901025233666228290030286
+    });
     generateProofsOfPossession(sk1);
 
-    proofOfPossessions[sk2].pk2 = [
-      1508004737965051103384491280975170100170616215043110680634427285854533421349,
-      2276549912948331340977885552999684185609731617727385907945409014914655706355,
-      12411732771141425816085037286206083986670633222105118555909903595342512393131,
-      5774481376093013975280852628790789958927737066979135638334935597723797963109
-    ];
+    proofOfPossessions[sk2].pk2 = BN254.G2Point({
+      x1: 1508004737965051103384491280975170100170616215043110680634427285854533421349,
+      x0: 2276549912948331340977885552999684185609731617727385907945409014914655706355,
+      y1: 12411732771141425816085037286206083986670633222105118555909903595342512393131,
+      y0: 5774481376093013975280852628790789958927737066979135638334935597723797963109
+    });
     generateProofsOfPossession(sk2);
   }
 
@@ -91,14 +91,10 @@ contract DepositBN254Test is WithGSE {
       stakingAsset.mint(address(_instance), depositAmount);
       vm.startPrank(_instance);
       stakingAsset.approve(address(gse), depositAmount);
-      gse.deposit(
-        _attester1,
-        _withdrawer,
-        proofOfPossessions[sk1].pk1,
-        proofOfPossessions[sk1].pk2,
-        proofOfPossessions[sk1].sigma,
-        _moveWithLatestRollup
-      );
+      BN254.G1Point memory pk1 = proofOfPossessions[sk1].pk1;
+      BN254.G2Point memory pk2 = proofOfPossessions[sk1].pk2;
+      BN254.G1Point memory sigma = proofOfPossessions[sk1].sigma;
+      gse.deposit(_attester1, _withdrawer, pk1, pk2, sigma, _moveWithLatestRollup);
       vm.stopPrank();
     }
 
@@ -106,12 +102,12 @@ contract DepositBN254Test is WithGSE {
       emit log_string("Getting attester1's public key should work");
       address[] memory attesters = new address[](1);
       attesters[0] = _attester1;
-      uint256[2][] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+      BN254.G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
         _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
       );
       assertEq(publicKeys.length, 1);
-      assertEq(publicKeys[0][0], proofOfPossessions[sk1].pk1[0]);
-      assertEq(publicKeys[0][1], proofOfPossessions[sk1].pk1[1]);
+      assertEq(publicKeys[0].x, proofOfPossessions[sk1].pk1.x);
+      assertEq(publicKeys[0].y, proofOfPossessions[sk1].pk1.y);
     }
 
     {
@@ -124,9 +120,7 @@ contract DepositBN254Test is WithGSE {
       vm.expectRevert(
         abi.encodeWithSelector(
           Errors.GSE__ProofOfPossessionAlreadySeen.selector,
-          keccak256(
-            abi.encodePacked(proofOfPossessions[sk1].pk1[0], proofOfPossessions[sk1].pk1[1])
-          )
+          keccak256(abi.encodePacked(proofOfPossessions[sk1].pk1.x, proofOfPossessions[sk1].pk1.y))
         )
       );
       gse.deposit(
@@ -154,12 +148,12 @@ contract DepositBN254Test is WithGSE {
       emit log_string("Getting attester1's public key should work still work");
       address[] memory attesters = new address[](1);
       attesters[0] = _attester1;
-      uint256[2][] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+      BN254.G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
         _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
       );
       assertEq(publicKeys.length, 1);
-      assertEq(publicKeys[0][0], proofOfPossessions[sk1].pk1[0]);
-      assertEq(publicKeys[0][1], proofOfPossessions[sk1].pk1[1]);
+      assertEq(publicKeys[0].x, proofOfPossessions[sk1].pk1.x);
+      assertEq(publicKeys[0].y, proofOfPossessions[sk1].pk1.y);
     }
 
     {
@@ -172,9 +166,7 @@ contract DepositBN254Test is WithGSE {
       vm.expectRevert(
         abi.encodeWithSelector(
           Errors.GSE__ProofOfPossessionAlreadySeen.selector,
-          keccak256(
-            abi.encodePacked(proofOfPossessions[sk1].pk1[0], proofOfPossessions[sk1].pk1[1])
-          )
+          keccak256(abi.encodePacked(proofOfPossessions[sk1].pk1.x, proofOfPossessions[sk1].pk1.y))
         )
       );
       gse.deposit(
@@ -197,8 +189,8 @@ contract DepositBN254Test is WithGSE {
       vm.expectRevert(
         abi.encodeWithSelector(
           Errors.GSE__CannotChangePublicKeys.selector,
-          proofOfPossessions[sk1].pk1[0],
-          proofOfPossessions[sk1].pk1[1]
+          proofOfPossessions[sk1].pk1.x,
+          proofOfPossessions[sk1].pk1.y
         )
       );
       gse.deposit(
@@ -251,21 +243,21 @@ contract DepositBN254Test is WithGSE {
       address[] memory attesters = new address[](2);
       attesters[0] = _attester1;
       attesters[1] = _attester2;
-      uint256[2][] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+      BN254.G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
         _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
       );
       assertEq(publicKeys.length, 2);
-      assertEq(publicKeys[0][0], proofOfPossessions[sk1].pk1[0]);
-      assertEq(publicKeys[0][1], proofOfPossessions[sk1].pk1[1]);
-      assertEq(publicKeys[1][0], proofOfPossessions[sk2].pk1[0]);
-      assertEq(publicKeys[1][1], proofOfPossessions[sk2].pk1[1]);
+      assertEq(publicKeys[0].x, proofOfPossessions[sk1].pk1.x);
+      assertEq(publicKeys[0].y, proofOfPossessions[sk1].pk1.y);
+      assertEq(publicKeys[1].x, proofOfPossessions[sk2].pk1.x);
+      assertEq(publicKeys[1].y, proofOfPossessions[sk2].pk1.y);
     }
   }
 
   function generateProofsOfPossession(uint256 _sk) internal {
-    uint256[2] memory pk1 = BN254.g1Mul(BN254.g1Generator(), _sk);
-    uint256[2] memory sigma = BN254.g1Mul(
-      BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, abi.encodePacked(pk1[0], pk1[1])), _sk
+    BN254.G1Point memory pk1 = BN254.g1Mul(BN254.g1Generator(), _sk);
+    BN254.G1Point memory sigma = BN254.g1Mul(
+      BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, abi.encodePacked(pk1.x, pk1.y)), _sk
     );
     proofOfPossessions[_sk] = ProofOfPossession({
       pk1: pk1,

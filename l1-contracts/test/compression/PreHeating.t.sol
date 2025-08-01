@@ -72,6 +72,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 1e8;
@@ -155,9 +156,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       initialValidators[i - 1] = CheatDepositArgs({
         attester: attester,
         withdrawer: address(this),
-        publicKeyInG1: [uint256(0), uint256(0)],
-        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
-        proofOfPossession: [uint256(0), uint256(0)]
+        publicKeyInG1: BN254.g1Zero(),
+        publicKeyInG2: BN254.g2Zero(),
+        proofOfPossession: BN254.g1Zero()
       });
     }
 

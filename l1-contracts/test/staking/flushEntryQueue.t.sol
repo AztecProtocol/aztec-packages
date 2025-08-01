@@ -18,6 +18,7 @@ import {
   StakingQueueConfigLib
 } from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 contract FlushEntryQueueTest is StakingBase {
   function test_GivenTheQueueHasAlreadyBeenFlushedThisEpoch() external {
@@ -207,9 +208,9 @@ contract FlushEntryQueueTest is StakingBase {
     staking.deposit({
       _attester: _attester,
       _withdrawer: _withdrawer,
-      _publicKeyInG1: [uint256(0), uint256(0)],
-      _publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
-      _proofOfPossession: [uint256(0), uint256(0)],
+      _publicKeyInG1: BN254.g1Zero(),
+      _publicKeyInG2: BN254.g2Zero(),
+      _proofOfPossession: BN254.g1Zero(),
       _moveWithLatestRollup: _moveWithLatestRollup
     });
 
@@ -259,11 +260,7 @@ contract FlushEntryQueueTest is StakingBase {
         );
         vm.expectEmit(true, true, true, true);
         emit IStakingCore.FailedDeposit(
-          attester,
-          withdrawer,
-          [uint256(0), uint256(0)],
-          [uint256(0), uint256(0), uint256(0), uint256(0)],
-          [uint256(0), uint256(0)]
+          attester, withdrawer, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero()
         );
       } else {
         if (onCanonical) {
@@ -272,12 +269,7 @@ contract FlushEntryQueueTest is StakingBase {
         depositCount++;
         vm.expectEmit(true, true, true, true);
         emit IStakingCore.Deposit(
-          attester,
-          withdrawer,
-          [uint256(0), uint256(0)],
-          [uint256(0), uint256(0), uint256(0), uint256(0)],
-          [uint256(0), uint256(0)],
-          DEPOSIT_AMOUNT
+          attester, withdrawer, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), DEPOSIT_AMOUNT
         );
       }
     }

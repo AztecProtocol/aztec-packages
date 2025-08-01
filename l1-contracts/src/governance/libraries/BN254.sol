@@ -18,6 +18,18 @@ import {ModexpInverse, ModexpSqrt} from "./ModExp.sol";
  * because the Aztec rollup's security is already reliant on BN254.
  */
 library BN254 {
+  struct G1Point {
+    uint256 x;
+    uint256 y;
+  }
+
+  struct G2Point {
+    uint256 x0;
+    uint256 x1;
+    uint256 y0;
+    uint256 y1;
+  }
+
   /**
    * We use uint256[2] for G1 points and uint256[4] for G2 points.
    * For G1 points, the expected order is (x, y).
@@ -73,18 +85,18 @@ library BN254 {
    * @param pk2 The G2 point of the BLS public key (x_imaginary, x_real, y_imaginary, y_real coordinates)
    * @param signature The G1 point that acts as a proof of possession of the private keys corresponding to pk1 and pk2
    */
-  function proofOfPossession(
-    uint256[2] memory pk1,
-    uint256[4] memory pk2,
-    uint256[2] memory signature
-  ) internal view returns (bool) {
-    require(pk1[0] != 0 && pk1[1] != 0, pk1Zero());
-    require(pk2[0] != 0 && pk2[1] != 0 && pk2[2] != 0 && pk2[3] != 0, pk2Zero());
-    require(signature[0] != 0 && signature[1] != 0, signatureZero());
+  function proofOfPossession(G1Point memory pk1, G2Point memory pk2, G1Point memory signature)
+    internal
+    view
+    returns (bool)
+  {
+    require(pk1.x != 0 && pk1.y != 0, pk1Zero());
+    require(pk2.x0 != 0 && pk2.x1 != 0 && pk2.y0 != 0 && pk2.y1 != 0, pk2Zero());
+    require(signature.x != 0 && signature.y != 0, signatureZero());
 
     // Compute the point "digest" of the pk1 that sigma is a signature over
-    bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
-    uint256[2] memory pk1DigestPoint = hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+    bytes memory pk1Bytes = abi.encodePacked(pk1.x, pk1.y);
+    G1Point memory pk1DigestPoint = hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
 
     // Random challenge:
     // gamma = keccak(pk1, pk2, signature) mod |Fr|
@@ -92,10 +104,10 @@ library BN254 {
     require(gamma != 0, gammaZero());
 
     // Build G1 L = signature + gamma * pk1
-    uint256[2] memory left = g1Add(signature, g1Mul(pk1, gamma));
+    G1Point memory left = g1Add(signature, g1Mul(pk1, gamma));
 
     // Build G1 R = pk1DigestPoint + gamma * G1
-    uint256[2] memory right = g1Add(pk1DigestPoint, g1Mul(g1Generator(), gamma));
+    G1Point memory right = g1Add(pk1DigestPoint, g1Mul(g1Generator(), gamma));
 
     // Pairing: e(L, -G2) * e(R, pk2) == 1
     return bn254Pairing(left, g2NegatedGenerator(), right, pk2);
@@ -103,16 +115,16 @@ library BN254 {
 
   /// @dev Add two points on BN254 G1 (affine coords).
   ///      Reverts if the inputs are not on‐curve.
-  function g1Add(uint256[2] memory p1, uint256[2] memory p2)
+  function g1Add(G1Point memory p1, G1Point memory p2)
     internal
     view
-    returns (uint256[2] memory output)
+    returns (G1Point memory output)
   {
     uint256[4] memory input;
-    input[0] = p1[0];
-    input[1] = p1[1];
-    input[2] = p2[0];
-    input[3] = p2[1];
+    input[0] = p1.x;
+    input[1] = p1.y;
+    input[2] = p2.x;
+    input[3] = p2.y;
 
     bool success;
     assembly {
@@ -135,10 +147,10 @@ library BN254 {
 
   /// @dev Multiply a point by a scalar (little‑endian 256‑bit integer).
   ///      Reverts if the point is not on‐curve or the scalar ≥ p.
-  function g1Mul(uint256[2] memory p, uint256 s) internal view returns (uint256[2] memory output) {
+  function g1Mul(G1Point memory p, uint256 s) internal view returns (G1Point memory output) {
     uint256[3] memory input;
-    input[0] = p[0];
-    input[1] = p[1];
+    input[0] = p.x;
+    input[1] = p.y;
     input[2] = s;
 
     bool success;
@@ -158,26 +170,26 @@ library BN254 {
   }
 
   function bn254Pairing(
-    uint256[2] memory g1a,
-    uint256[4] memory g2a,
-    uint256[2] memory g1b,
-    uint256[4] memory g2b
+    G1Point memory g1a,
+    G2Point memory g2a,
+    G1Point memory g1b,
+    G2Point memory g2b
   ) internal view returns (bool) {
     uint256[12] memory input;
 
-    input[0] = g1a[0];
-    input[1] = g1a[1];
-    input[2] = g2a[0];
-    input[3] = g2a[1];
-    input[4] = g2a[2];
-    input[5] = g2a[3];
+    input[0] = g1a.x;
+    input[1] = g1a.y;
+    input[2] = g2a.x1;
+    input[3] = g2a.x0;
+    input[4] = g2a.y1;
+    input[5] = g2a.y0;
 
-    input[6] = g1b[0];
-    input[7] = g1b[1];
-    input[8] = g2b[0];
-    input[9] = g2b[1];
-    input[10] = g2b[2];
-    input[11] = g2b[3];
+    input[6] = g1b.x;
+    input[7] = g1b.y;
+    input[8] = g2b.x1;
+    input[9] = g2b.x0;
+    input[10] = g2b.y1;
+    input[11] = g2b.y0;
 
     uint256[1] memory result;
     bool didCallSucceed;
@@ -202,16 +214,16 @@ library BN254 {
   function hashToPoint(bytes32 domain, bytes memory message)
     internal
     view
-    returns (uint256[2] memory output)
+    returns (G1Point memory output)
   {
     uint256[2] memory u = hashToField(domain, message);
-    uint256[2] memory p0 = mapToPoint(u[0]);
-    uint256[2] memory p1 = mapToPoint(u[1]);
+    G1Point memory p0 = mapToPoint(u[0]);
+    G1Point memory p1 = mapToPoint(u[1]);
 
     return g1Add(p0, p1);
   }
 
-  function mapToPoint(uint256 _x) internal pure returns (uint256[2] memory output) {
+  function mapToPoint(uint256 _x) internal pure returns (G1Point memory output) {
     require(_x < BASE_FIELD_SIZE, valueOutOfRange(_x, 0, BASE_FIELD_SIZE));
     uint256 x = _x;
 
@@ -238,7 +250,7 @@ library BN254 {
       if (!decision) {
         a1 = BASE_FIELD_SIZE - a1;
       }
-      return [x, a1];
+      return G1Point({x: x, y: a1});
     }
 
     // x2
@@ -252,7 +264,7 @@ library BN254 {
       if (!decision) {
         a1 = BASE_FIELD_SIZE - a1;
       }
-      return [x, a1];
+      return G1Point({x: x, y: a1});
     }
 
     // x3
@@ -270,7 +282,7 @@ library BN254 {
     if (!decision) {
       a1 = BASE_FIELD_SIZE - a1;
     }
-    return [x, a1];
+    return G1Point({x: x, y: a1});
   }
 
   function hashToField(bytes32 domain, bytes memory messages)
@@ -391,7 +403,7 @@ library BN254 {
   }
 
   /// @notice γ = keccak(PK1, PK2, σ_init) mod Fr
-  function gammaOf(uint256[2] memory pk1, uint256[4] memory pk2, uint256[2] memory sigmaInit)
+  function gammaOf(G1Point memory pk1, G2Point memory pk2, G1Point memory sigmaInit)
     internal
     pure
     returns (uint256)
@@ -399,38 +411,42 @@ library BN254 {
     // QUESTION: Is this uniformly-random enough, or do we need to compute 512-bits of randomness
     // (by concatenating two domain-separated hashes) and then compute the modulo `% CURVE_ORDER`?
 
-    return uint256(keccak256(abi.encodePacked(pk1, pk2, sigmaInit))) % CURVE_ORDER;
+    return uint256(
+      keccak256(
+        abi.encodePacked(pk1.x, pk1.y, pk2.x0, pk2.x1, pk2.y0, pk2.y1, sigmaInit.x, sigmaInit.y)
+      )
+    ) % CURVE_ORDER;
   }
 
-  function g1Negate(uint256[2] memory p) internal pure returns (uint256[2] memory) {
-    if (p[0] == 0 && p[1] == 0) {
+  function g1Negate(G1Point memory p) internal pure returns (G1Point memory) {
+    if (p.x == 0 && p.y == 0) {
       // Point at infinity remains unchanged
       return p;
     }
 
     // For a point (x, y), its negation is (x, -y mod p)
     // Since we're working in the field Fp, -y mod p = p - y
-    return [p[0], BASE_FIELD_SIZE - p[1]];
+    return G1Point({x: p.x, y: BASE_FIELD_SIZE - p.y});
   }
 
-  function g1Zero() internal pure returns (uint256[2] memory) {
-    return [uint256(0), uint256(0)];
+  function g1Zero() internal pure returns (G1Point memory) {
+    return G1Point({x: 0, y: 0});
   }
 
-  function g1Generator() internal pure returns (uint256[2] memory) {
-    return [uint256(1), uint256(2)];
+  function g1Generator() internal pure returns (G1Point memory) {
+    return G1Point({x: 1, y: 2});
   }
 
-  function g2Zero() internal pure returns (uint256[4] memory) {
-    return [uint256(0), uint256(0), uint256(0), uint256(0)];
+  function g2Zero() internal pure returns (G2Point memory) {
+    return G2Point({x0: 0, x1: 0, y0: 0, y1: 0});
   }
 
-  function g2NegatedGenerator() internal pure returns (uint256[4] memory) {
-    return [
-      11559732032986387107991004021392285783925812861821192530917403151452391805634,
-      10857046999023057135944570762232829481370756359578518086990519993285655852781,
-      17805874995975841540914202342111839520379459829704422454583296818431106115052,
-      13392588948715843804641432497768002650278120570034223513918757245338268106653
-    ];
+  function g2NegatedGenerator() internal pure returns (G2Point memory) {
+    return G2Point({
+      x0: 10857046999023057135944570762232829481370756359578518086990519993285655852781,
+      x1: 11559732032986387107991004021392285783925812861821192530917403151452391805634,
+      y0: 13392588948715843804641432497768002650278120570034223513918757245338268106653,
+      y1: 17805874995975841540914202342111839520379459829704422454583296818431106115052
+    });
   }
 }

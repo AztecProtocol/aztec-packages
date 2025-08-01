@@ -20,7 +20,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct AttesterConfig {
-  uint256[2] bn254G1PublicKey;
+  BN254.G1Point publicKey;
   address withdrawer;
 }
 
@@ -45,9 +45,9 @@ interface IGSECore {
   function deposit(
     address _attester,
     address _withdrawer,
-    uint256[2] memory _publicKeyInG1,
-    uint256[4] memory _publicKeyInG2,
-    uint256[2] memory _proofOfPossession,
+    BN254.G1Point memory _publicKeyInG1,
+    BN254.G2Point memory _publicKeyInG2,
+    BN254.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external;
   function withdraw(address _attester, uint256 _amount) external returns (uint256, bool, uint256);
@@ -97,7 +97,7 @@ interface IGSE is IGSECore {
   function getG1PublicKeysFromAddresses(address _instance, address[] memory _attesters)
     external
     view
-    returns (uint256[2][] memory);
+    returns (BN254.G1Point[] memory);
   function getAttestersAtTime(address _instance, Timestamp _timestamp)
     external
     view
@@ -305,9 +305,9 @@ contract GSECore is IGSECore, Ownable {
   function deposit(
     address _attester,
     address _withdrawer,
-    uint256[2] memory _publicKeyInG1,
-    uint256[4] memory _publicKeyInG2,
-    uint256[2] memory _proofOfPossession,
+    BN254.G1Point memory _publicKeyInG1,
+    BN254.G2Point memory _publicKeyInG2,
+    BN254.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external override(IGSECore) onlyRollup {
     if (checkProofOfPossession) {
@@ -353,25 +353,25 @@ contract GSECore is IGSECore, Ownable {
     // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
     // so existence of Pk2 is implied by existence of Pk1.
     if (checkProofOfPossession) {
-      bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1[0], _publicKeyInG1[1]));
+      bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
       address owner = instances[recipientInstance].ownedPKs[hashedPk1];
       require(
         owner == address(0) || owner == _attester,
         Errors.GSE__ProofOfPossessionAlreadySeen(hashedPk1)
       );
       instances[recipientInstance].ownedPKs[hashedPk1] = _attester;
-      uint256[2] memory oldPk1 = instances[recipientInstance].configOf[_attester].bn254G1PublicKey;
+      BN254.G1Point memory oldPk1 = instances[recipientInstance].configOf[_attester].publicKey;
       // if there was an old pk1, we need to make sure it matches the proof of possession:
       // attesters cannot change their public keys.
       require(
-        (oldPk1[0] == 0 && oldPk1[1] == 0)
-          || (oldPk1[0] == _publicKeyInG1[0] && oldPk1[1] == _publicKeyInG1[1]),
-        Errors.GSE__CannotChangePublicKeys(oldPk1[0], oldPk1[1])
+        (oldPk1.x == 0 && oldPk1.y == 0)
+          || (oldPk1.x == _publicKeyInG1.x && oldPk1.y == _publicKeyInG1.y),
+        Errors.GSE__CannotChangePublicKeys(oldPk1.x, oldPk1.y)
       );
     }
 
     instances[recipientInstance].configOf[_attester] =
-      AttesterConfig({withdrawer: _withdrawer, bn254G1PublicKey: _publicKeyInG1});
+      AttesterConfig({withdrawer: _withdrawer, publicKey: _publicKeyInG1});
 
     delegation.delegate(recipientInstance, _attester, recipientInstance);
     delegation.increaseBalance(recipientInstance, _attester, DEPOSIT_AMOUNT);
@@ -666,7 +666,7 @@ contract GSE is IGSE, GSECore {
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return AttesterConfig({withdrawer: address(0), bn254G1PublicKey: [uint256(0), uint256(0)]});
+      return AttesterConfig({withdrawer: address(0), publicKey: BN254.g1Zero()});
     }
 
     return instanceStaking.configOf[_attester];
@@ -789,11 +789,11 @@ contract GSE is IGSE, GSECore {
     external
     view
     override(IGSE)
-    returns (uint256[2][] memory)
+    returns (BN254.G1Point[] memory)
   {
-    uint256[2][] memory keys = new uint256[2][](_attesters.length);
+    BN254.G1Point[] memory keys = new BN254.G1Point[](_attesters.length);
     for (uint256 i = 0; i < _attesters.length; i++) {
-      keys[i] = instances[_instance].configOf[_attesters[i]].bn254G1PublicKey;
+      keys[i] = instances[_instance].configOf[_attesters[i]].publicKey;
     }
 
     return keys;

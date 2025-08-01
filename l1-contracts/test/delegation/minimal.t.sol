@@ -15,6 +15,7 @@ import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 struct Timestamps {
   uint256 ts1;
@@ -73,36 +74,15 @@ contract MinimalDelegationTest is GSEBase {
     // Lets start
     assertEq(gse.getVotingPower(bonus), 0, "votingPowerCanonical");
 
-    help__deposit(
-      ATTESTER1,
-      WITHDRAWER,
-      [uint256(0), uint256(0)],
-      [uint256(0), uint256(0), uint256(0), uint256(0)],
-      [uint256(0), uint256(0)],
-      true
-    );
+    help__deposit(ATTESTER1, WITHDRAWER, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), true);
 
     vm.warp(ts.ts2);
 
-    help__deposit(
-      ATTESTER2,
-      WITHDRAWER,
-      [uint256(0), uint256(0)],
-      [uint256(0), uint256(0), uint256(0), uint256(0)],
-      [uint256(0), uint256(0)],
-      false
-    );
+    help__deposit(ATTESTER2, WITHDRAWER, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), false);
 
     vm.warp(ts.ts3);
 
-    help__deposit(
-      WITHDRAWER,
-      WITHDRAWER,
-      [uint256(0), uint256(0)],
-      [uint256(0), uint256(0), uint256(0), uint256(0)],
-      [uint256(0), uint256(0)],
-      true
-    );
+    help__deposit(WITHDRAWER, WITHDRAWER, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), true);
 
     vm.warp(ts.ts4);
 

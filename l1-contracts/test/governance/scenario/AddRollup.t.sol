@@ -28,6 +28,7 @@ import {FakeRollup} from "../governance/TestPayloads.sol";
 import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 contract BadRollup {
   IGSE public immutable gse;
@@ -91,9 +92,9 @@ contract AddRollupTest is TestBase {
       initialValidators[i - 1] = CheatDepositArgs({
         attester: validator,
         withdrawer: validator,
-        publicKeyInG1: [uint256(0), uint256(0)],
-        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
-        proofOfPossession: [uint256(0), uint256(0)]
+        publicKeyInG1: BN254.g1Zero(),
+        publicKeyInG2: BN254.g2Zero(),
+        proofOfPossession: BN254.g1Zero()
       });
     }
 
@@ -168,9 +169,9 @@ contract AddRollupTest is TestBase {
         rollup.deposit(
           address(uint160(val)),
           address(this),
-          [uint256(0), uint256(0)],
-          [uint256(0), uint256(0), uint256(0), uint256(0)],
-          [uint256(0), uint256(0)],
+          BN254.g1Zero(),
+          BN254.g2Zero(),
+          BN254.g1Zero(),
           false
         );
         val++;

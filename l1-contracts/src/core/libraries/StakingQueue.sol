@@ -2,13 +2,14 @@
 pragma solidity >=0.8.27;
 
 import {Errors} from "./Errors.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 struct DepositArgs {
   address attester;
   address withdrawer;
-  uint256[2] publicKeyInG1;
-  uint256[4] publicKeyInG2;
-  uint256[2] proofOfPossession;
+  BN254.G1Point publicKeyInG1;
+  BN254.G2Point publicKeyInG2;
+  BN254.G1Point proofOfPossession;
   bool moveWithLatestRollup;
 }
 
@@ -32,9 +33,9 @@ library StakingQueueLib {
     StakingQueue storage self,
     address _attester,
     address _withdrawer,
-    uint256[2] memory _publicKeyInG1,
-    uint256[4] memory _publicKeyInG2,
-    uint256[2] memory _proofOfPossession,
+    BN254.G1Point memory _publicKeyInG1,
+    BN254.G2Point memory _publicKeyInG2,
+    BN254.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) internal returns (uint256) {
     uint128 queueLocation = self.last;

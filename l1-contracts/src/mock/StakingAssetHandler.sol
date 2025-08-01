@@ -7,6 +7,7 @@ import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 /**
  * @title StakingAssetHandler
@@ -343,14 +344,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     STAKING_ASSET.approve(address(_rollup), _depositAmount);
-    _rollup.deposit(
-      _attester,
-      withdrawer,
-      [uint256(0), uint256(0)],
-      [uint256(0), uint256(0), uint256(0), uint256(0)],
-      [uint256(0), uint256(0)],
-      true
-    );
+    _rollup.deposit(_attester, withdrawer, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), true);
     emit ValidatorAdded(address(_rollup), _attester, withdrawer);
 
     // Try to flush the entry queue, but don't let it revert the deposit

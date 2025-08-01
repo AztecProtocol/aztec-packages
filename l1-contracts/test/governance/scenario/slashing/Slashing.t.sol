@@ -29,6 +29,7 @@ import {Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../../builder/RollupBuilder.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -93,9 +94,9 @@ contract SlashingTest is TestBase {
       initialValidators[i - 1] = CheatDepositArgs({
         attester: attester,
         withdrawer: address(this),
-        publicKeyInG1: [uint256(0), uint256(0)],
-        publicKeyInG2: [uint256(0), uint256(0), uint256(0), uint256(0)],
-        proofOfPossession: [uint256(0), uint256(0)]
+        publicKeyInG1: BN254.g1Zero(),
+        publicKeyInG2: BN254.g2Zero(),
+        proofOfPossession: BN254.g1Zero()
       });
     }
 

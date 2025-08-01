@@ -9,6 +9,7 @@ import {StakingLib} from "./StakingLib.sol";
 import {InvalidateLib} from "./InvalidateLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {BN254} from "@aztec/governance/libraries/BN254.sol";
 
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
@@ -24,9 +25,9 @@ library ExtRollupLib2 {
   function deposit(
     address _attester,
     address _withdrawer,
-    uint256[2] memory _publicKeyInG1,
-    uint256[4] memory _publicKeyInG2,
-    uint256[2] memory _proofOfPossession,
+    BN254.G1Point memory _publicKeyInG1,
+    BN254.G2Point memory _publicKeyInG2,
+    BN254.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external {
     StakingLib.deposit(
