@@ -15,8 +15,8 @@ template <typename FF_> class sha256Impl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 67> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 2, 5, 3, 5, 7, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 6, 6, 6, 6, 6, 6, 6
+        3, 2, 4, 3, 4, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -29,8 +29,7 @@ template <typename FF_> class sha256Impl {
 
         PROFILE_THIS_NAME("accumulate/sha256");
 
-        const auto sha256_SEL_NO_ERR = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_err)) *
-                                       (FF(1) - in.get(C::sha256_sel_invalid_input_tag_err));
+        const auto sha256_SEL_NO_ERR = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_err));
         const auto sha256_LAST = sha256_SEL_NO_ERR * in.get(C::sha256_latch);
         const auto sha256_NUM_ROUNDS = FF(64);
         const auto sha256_COMPUTED_W = in.get(C::sha256_helper_w0) + in.get(C::sha256_w_s_0) +
