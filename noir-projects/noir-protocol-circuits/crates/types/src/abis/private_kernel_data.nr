@@ -40,7 +40,7 @@ impl PrivateKernelData {
         // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
-    pub(crate) fn verify(self, is_last_inner_kernel: bool) {
+    pub fn verify(self, is_last_inner_kernel: bool) {
         let mut proof_type = PROOF_TYPE_PG;
         // Client IVC public inputs are linked in the backend via the databus
         if is_last_inner_kernel {
