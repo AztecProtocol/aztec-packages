@@ -47,6 +47,12 @@ struct DepositControl {
  * @notice A contract that implements governance logic for proposal creation, voting, and execution.
  *         Uses a snapshot-based voting model with partial vote support to enable aggregated voting.
  *
+ *         Partial vote support: Allows voters to split their voting power across multiple proposals
+ *         or options, rather than using all their votes on a single choice.
+ *
+ *         Aggregated voting: The contract collects and sums votes from multiple sources or over time,
+ *         combining them to determine the final outcome of each proposal.
+ *
  * @dev KEY CONCEPTS:
  *
  * **Power**: Funds received via `deposit` are held by Governance and tracked 1:1 as "power" for the beneficiary.
@@ -372,7 +378,7 @@ contract Governance is IGovernance {
    */
   function finaliseWithdraw(uint256 _withdrawalId) external override(IGovernance) {
     Withdrawal storage withdrawal = withdrawals[_withdrawalId];
-    require(!withdrawal.claimed, Errors.Governance__WithdrawalAlreadyclaimed());
+    require(!withdrawal.claimed, Errors.Governance__WithdrawalAlreadyClaimed());
     require(
       Timestamp.wrap(block.timestamp) >= withdrawal.unlocksAt,
       Errors.Governance__WithdrawalNotUnlockedYet(
@@ -417,8 +423,10 @@ contract Governance is IGovernance {
    * @dev We don't actually need to check available power here, since if the msg.sender does not have
    * sufficient balance, the .
    *
-   * @param _proposal The IPayload address, which is a contract that contains the proposed actions to be executed by the governance.
-   * @param _to The address that will receive the withdrawn funds when the withdrawal is finalized (see `finaliseWithdraw`)
+   * @param _proposal The IPayload address, which is a contract that contains the proposed actions to be executed by
+   * the governance.
+   * @param _to The address that will receive the withdrawn funds when the withdrawal is finalized (see
+   * `finaliseWithdraw`)
    * @return The id of the proposal
    */
   function proposeWithLock(IPayload _proposal, address _to)
@@ -488,7 +496,7 @@ contract Governance is IGovernance {
    * If it is, we mark the proposal as `Executed` and execute the actions,
    * simply looping through and calling them.
    *
-   * As far as the inidividual calls, there are 2 safety measures:
+   * As far as the individual calls, there are 2 safety measures:
    *  - The call cannot target the ASSET which underlies the governance contract
    *  - The call must succeed
    *
