@@ -354,15 +354,25 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         currentL1BlockNumber,
         currentL1Timestamp,
       );
+
+      // Update the pending chain validation status with the last block validation result.
+      // Again, we only update if validation status changed, so in a sequence of invalid blocks
+      // we keep track of the first invalid block so we can invalidate that one if needed.
+      if (
+        rollupStatus.validationResult &&
+        rollupStatus.validationResult?.valid !== this.pendingChainValidationStatus.valid
+      ) {
+        this.pendingChainValidationStatus = rollupStatus.validationResult;
+      }
+
       // And lastly we check if we are missing any L2 blocks behind us due to a possible L1 reorg.
       // We only do this if rollup cant prune on the next submission. Otherwise we will end up
       // re-syncing the blocks we have just unwound above. We also dont do this if the last block is invalid,
       // since the archiver will rightfully refuse to sync up to it.
-      if (!rollupCanPrune && rollupStatus.lastBlockValidationResult.valid) {
+      if (!rollupCanPrune && this.pendingChainValidationStatus.valid) {
         await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
       }
 
-      this.pendingChainValidationStatus = rollupStatus.lastBlockValidationResult;
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
@@ -620,7 +630,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       provenArchive,
       pendingBlockNumber: Number(pendingBlockNumber),
       pendingArchive,
-      lastBlockValidationResult: { valid: true } as ValidateBlockResult,
+      validationResult: undefined as ValidateBlockResult | undefined,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingBlockNumber,
@@ -795,17 +805,22 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const validBlocks: PublishedL2Block[] = [];
 
       for (const block of publishedBlocks) {
-        const isProven = block.block.number <= provenBlockNumber;
-        rollupStatus.lastBlockValidationResult = isProven
-          ? { valid: true }
-          : await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log);
+        const validationResult = await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log);
 
-        if (!rollupStatus.lastBlockValidationResult.valid) {
+        // Only update the validation result if it has changed, so we can keep track of the first invalid block
+        // in case there is a sequence of more than one invalid block, as we need to invalidate the first one.
+        if (rollupStatus.validationResult?.valid !== validationResult.valid) {
+          rollupStatus.validationResult = validationResult;
+        }
+
+        if (!validationResult.valid) {
           this.log.warn(`Skipping block ${block.block.number} due to invalid attestations`, {
             blockHash: block.block.hash(),
             l1BlockNumber: block.l1.blockNumber,
-            ...pick(rollupStatus.lastBlockValidationResult, 'reason'),
+            ...pick(validationResult, 'reason'),
           });
+          // We keep consuming blocks if we find an invalid one, since we do not listen for BlockInvalidated events
+          // We just pretend the invalid ones are not there and keep consuming the next blocks
           continue;
         }
 

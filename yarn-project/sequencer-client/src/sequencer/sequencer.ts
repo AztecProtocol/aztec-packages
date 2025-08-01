@@ -339,9 +339,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
+    // Check that we are a proposer for the next slot
     let proposerInNextSlot: EthAddress | undefined;
     try {
-      // Check that we are a proposer for the next slot
       proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
     } catch (e) {
       if (e instanceof NoCommitteeError) {
@@ -351,29 +351,29 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         return;
       }
     }
-    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
 
     // If get proposer in next slot is undefined, then the committee is empty and anyone may propose.
-    // If the committee is defined and not empty, but none of our validators are the proposer,
-    // then stop.
+    // If the committee is defined and not empty, but none of our validators are the proposer, then stop.
+    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
     if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
       this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
         us: validatorAddresses,
         proposer: proposerInNextSlot,
         ...syncLogData,
       });
+      // If the pending chain is invalid, we may need to invalidate the block if no one else is doing it.
+      if (!syncedTo.pendingChainValidationStatus.valid) {
+        await this.considerInvalidatingBlock(syncedTo, slot, validatorAddresses);
+      }
       return;
     }
 
-    // Double check we are good for proposing at the next block before we start operations.
-    // We should never fail this check assuming the logic above is good.
-    const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
-
-    // Prepare invalidation request if the pending chain is invalid (undefined if no need)
+    // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
     const invalidateBlock = await this.publisher.simulateInvalidateBlock(syncedTo.pendingChainValidationStatus);
 
     // Check with the rollup if we can indeed propose at the next L2 slot. This check should not fail
     // if all the previous checks are good, but we do it just in case.
+    const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
     const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(
       chainTipArchive,
       proposerAddress,
@@ -430,6 +430,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposerAddress,
       msg => this.validatorClient!.signWithAddress(proposerAddress, msg).then(s => s.toString()),
     );
+
+    if (invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
+      this.publisher.enqueueInvalidateBlock(invalidateBlock);
+    }
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
@@ -781,10 +785,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const slot = block.header.globalVariables.slotNumber.toNumber();
     const txTimeoutAt = new Date((this.getSlotStartBuildTimestamp(slot) + this.aztecSlotDuration) * 1000);
 
-    // Request to invalidate the previous block if needed
-    this.publisher.enqueueInvalidateBlock(invalidateBlock);
-
-    // And then the block proposal itself
     const enqueued = await this.publisher.enqueueProposeL2Block(block, attestations, txHashes, {
       txTimeoutAt,
       forcePendingBlockNumber: invalidateBlock?.forcePendingBlockNumber,
@@ -861,6 +861,77 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
       return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp, pendingChainValidationStatus };
     }
+  }
+
+  /**
+   * Considers invalidating a block if the pending chain is invalid. Depends on how long the invalid block
+   * has been there without being invalidated and whether the sequencer is in the committee or not. We always
+   * have the proposer try to invalidate, but if they fail, the sequencers in the committee are expected to try,
+   * and if they fail, any sequencer will try as well.
+   */
+  protected async considerInvalidatingBlock(
+    syncedTo: NonNullable<Awaited<ReturnType<Sequencer['getChainTip']>>>,
+    currentSlot: bigint,
+    ourValidatorAddresses: EthAddress[],
+  ): Promise<void> {
+    const { pendingChainValidationStatus, l1Timestamp } = syncedTo;
+    if (pendingChainValidationStatus.valid) {
+      return;
+    }
+
+    const invalidL1Timestamp = pendingChainValidationStatus.block.l1.timestamp;
+    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidL1Timestamp);
+    const invalidBlockNumber = pendingChainValidationStatus.block.block.number;
+
+    const { secondsBeforeInvalidatingBlockAsCommitteeMember, secondsBeforeInvalidatingBlockAsNonCommitteeMember } =
+      this.config;
+
+    const logData = {
+      invalidL1Timestamp,
+      l1Timestamp,
+      invalidBlock: pendingChainValidationStatus.block.block.toBlockInfo(),
+      secondsBeforeInvalidatingBlockAsCommitteeMember,
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember,
+      ourValidatorAddresses,
+      currentSlot,
+    };
+
+    const inCurrentCommittee = () =>
+      this.publisher.epochCache
+        .getCommittee(currentSlot)
+        .then(c => c?.committee?.some(member => ourValidatorAddresses.some(addr => addr.equals(member))));
+
+    const invalidateAsCommitteeMember =
+      secondsBeforeInvalidatingBlockAsCommitteeMember !== undefined &&
+      secondsBeforeInvalidatingBlockAsCommitteeMember > 0 &&
+      timeSinceChainInvalid > secondsBeforeInvalidatingBlockAsCommitteeMember &&
+      (await inCurrentCommittee());
+
+    const invalidateAsNonCommitteeMember =
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember !== undefined &&
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember > 0 &&
+      timeSinceChainInvalid > secondsBeforeInvalidatingBlockAsNonCommitteeMember;
+
+    if (!invalidateAsCommitteeMember && !invalidateAsNonCommitteeMember) {
+      this.log.debug(`Not invalidating pending chain`, logData);
+      return;
+    }
+
+    const invalidateBlock = await this.publisher.simulateInvalidateBlock(pendingChainValidationStatus);
+    if (!invalidateBlock) {
+      this.log.warn(`Failed to simulate invalidate block`, logData);
+      return;
+    }
+
+    this.log.info(
+      invalidateAsCommitteeMember
+        ? `Invalidating block ${invalidBlockNumber} as committee member`
+        : `Invalidating block ${invalidBlockNumber} as non-committee member`,
+      logData,
+    );
+
+    this.publisher.enqueueInvalidateBlock(invalidateBlock);
+    await this.publisher.sendRequests();
   }
 
   private getSlotStartBuildTimestamp(slotNumber: number | bigint): number {

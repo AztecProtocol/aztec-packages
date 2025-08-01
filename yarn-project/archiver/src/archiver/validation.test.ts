@@ -46,7 +46,6 @@ describe('validateBlockAttestations', () => {
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
 
       expect(result.valid).toBe(true);
-      expect(result.block).toBe(block);
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(0n);
     });
 
@@ -55,7 +54,6 @@ describe('validateBlockAttestations', () => {
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
 
       expect(result.valid).toBe(true);
-      expect(result.block).toBe(block);
       expect(epochCache.getCommitteeForEpoch).toHaveBeenCalledWith(0n);
     });
   });
@@ -101,7 +99,6 @@ describe('validateBlockAttestations', () => {
       const block = await makeBlock(signers.slice(0, 4), committee);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
       expect(result.valid).toBe(true);
-      expect(result.block).toBe(block);
     });
   });
 });

@@ -19,6 +19,7 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   type PublicProcessorLimits,
+  type SequencerConfig,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -254,7 +255,7 @@ describe('sequencer', () => {
 
     dateProvider = new TestDateProvider();
 
-    const config = { enforceTimeTable: true, maxTxsPerBlock: 4 };
+    const config: SequencerConfig = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSubject(
       publisher,
       // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations

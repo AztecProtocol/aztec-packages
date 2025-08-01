@@ -382,10 +382,20 @@ export class SequencerPublisher {
       return undefined;
     }
 
-    const request = this.buildInvalidateBlockRequest(validationResult);
     const { reason, block } = validationResult;
     const blockNumber = block.block.number;
     const logData = { ...block.block.toBlockInfo(), reason };
+
+    const currentBlockNumber = await this.rollupContract.getBlockNumber();
+    if (currentBlockNumber < validationResult.block.block.number) {
+      this.log.verbose(
+        `Skipping block ${blockNumber} invalidation since it has already been removed from the pending chain`,
+        { currentBlockNumber, ...logData },
+      );
+      return undefined;
+    }
+
+    const request = this.buildInvalidateBlockRequest(validationResult);
     this.log.debug(`Simulating invalidate block ${blockNumber}`, logData);
 
     try {
@@ -689,7 +699,7 @@ export class SequencerPublisher {
       throw err;
     }
 
-    this.log.debug(`Enqueuing block propose transaction`, { ...block.toBlockInfo(), ...opts });
+    this.log.verbose(`Enqueuing block propose transaction`, { ...block.toBlockInfo(), ...opts });
     await this.addProposeTx(block, proposeTxArgs, opts, ts);
     return true;
   }
@@ -699,14 +709,17 @@ export class SequencerPublisher {
       return;
     }
 
-    const logData = { ...pick(request, 'gasUsed', 'blockNumber'), opts };
-    this.log.debug(`Enqueuing invalidate block`, logData);
+    // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
+    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
+
+    const logData = { ...pick(request, 'gasUsed', 'blockNumber'), gasLimit, opts };
+    this.log.verbose(`Enqueuing invalidate block request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
       request: request.request,
-      gasConfig: { gasLimit: request.gasUsed, txTimeoutAt: opts.txTimeoutAt },
+      gasConfig: { gasLimit, txTimeoutAt: opts.txTimeoutAt },
       lastValidL2Slot: this.getCurrentL2Slot() + 2n,
-      checkSuccess: (req, result) => {
+      checkSuccess: (_req, result) => {
         const success =
           result &&
           result.receipt &&
