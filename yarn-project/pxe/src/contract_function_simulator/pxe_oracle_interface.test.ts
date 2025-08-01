@@ -633,7 +633,7 @@ describe('PXEOracleInterface', () => {
       const request = new LogRetrievalRequest(contractAddress, unsiloedTag);
 
       await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
-      await pxeOracleInterface.utilityBulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+      await pxeOracleInterface.bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
 
       expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
 
@@ -658,7 +658,7 @@ describe('PXEOracleInterface', () => {
       const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
 
       await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
-      await pxeOracleInterface.utilityBulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+      await pxeOracleInterface.bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
 
       expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
 
@@ -684,7 +684,7 @@ describe('PXEOracleInterface', () => {
       const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
 
       await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
-      await pxeOracleInterface.utilityBulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+      await pxeOracleInterface.bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
 
       expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
 

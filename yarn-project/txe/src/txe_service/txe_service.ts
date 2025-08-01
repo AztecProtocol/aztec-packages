@@ -748,18 +748,18 @@ export class TXEService {
     }
   }
 
-  async deleteCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
+  async utilityDeleteCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.txe.deleteCapsule(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
+    await this.txe.utilityDeleteCapsule(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
     return toForeignCallResult([]);
   }
 
-  async copyCapsule(
+  async utilityCopyCapsule(
     contractAddress: ForeignCallSingle,
     srcSlot: ForeignCallSingle,
     dstSlot: ForeignCallSingle,
@@ -771,7 +771,7 @@ export class TXEService {
       );
     }
 
-    await this.txe.copyCapsule(
+    await this.txe.utilityCopyCapsule(
       AztecAddress.fromField(fromSingle(contractAddress)),
       fromSingle(srcSlot),
       fromSingle(dstSlot),
@@ -806,7 +806,7 @@ export class TXEService {
     return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBVecStorage.length));
   }
 
-  async getSharedSecret(
+  async utilityGetSharedSecret(
     address: ForeignCallSingle,
     ephPKField0: ForeignCallSingle,
     ephPKField1: ForeignCallSingle,
@@ -818,7 +818,7 @@ export class TXEService {
       );
     }
 
-    const secret = await this.txe.getSharedSecret(
+    const secret = await this.txe.utilityGetSharedSecret(
       AztecAddress.fromField(fromSingle(address)),
       Point.fromFields([fromSingle(ephPKField0), fromSingle(ephPKField1), fromSingle(ephPKField2)]),
     );
@@ -1103,14 +1103,14 @@ export class TXEService {
     return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
   }
 
-  async getSenderForTags() {
+  async pxeGetSenderForTags() {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    const sender = await this.txe.getSenderForTags();
+    const sender = await this.txe.pxeGetSenderForTags();
     // Return a Noir Option struct with `some` and `value` fields
     if (sender === undefined) {
       // No sender found, return Option with some=0 and value=0
