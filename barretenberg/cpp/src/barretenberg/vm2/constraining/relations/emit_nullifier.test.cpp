@@ -70,6 +70,7 @@ TEST(EmitNullifierConstrainingTest, LimitReached)
         { C::execution_sel_execute_emit_nullifier, 1 },
         { C::execution_register_0_, /*nullifier=*/42 },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_sel_reached_max_nullifiers, 1 },
         { C::execution_remaining_nullifiers_inv, 0 },
         { C::execution_sel_write_nullifier, 0 },
         { C::execution_sel_opcode_error, 1 },
@@ -81,10 +82,17 @@ TEST(EmitNullifierConstrainingTest, LimitReached)
     } });
     check_relation<emit_nullifier>(trace);
 
+    // Negative test: sel_reached_max_nullifiers must be 1
+    trace.set(C::execution_sel_reached_max_nullifiers, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_nullifier>(trace, emit_nullifier::SR_MAX_NULLIFIER_WRITES_REACHED),
+                              "MAX_NULLIFIER_WRITES_REACHED");
+    trace.set(C::execution_sel_reached_max_nullifiers, 0, 1);
+
     // Negative test: sel_opcode_error must be on
     trace.set(C::execution_sel_opcode_error, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_nullifier>(trace, emit_nullifier::SR_OPCODE_ERROR_IF_LIMIT_ERROR),
-                              "OPCODE_ERROR_IF_LIMIT_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<emit_nullifier>(trace, emit_nullifier::SR_OPCODE_ERROR_IF_VALIDATION_ERROR),
+        "OPCODE_ERROR_IF_VALIDATION_ERROR");
     trace.set(C::execution_sel_opcode_error, 0, 1);
 
     // Negative test: nullifier tree root must be the same
