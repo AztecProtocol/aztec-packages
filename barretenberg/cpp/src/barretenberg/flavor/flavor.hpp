@@ -187,17 +187,15 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         // Create a temporary instance to get the number of precomputed entities
         PrecomputedCommitments temp;
         size_t commitments_size = temp.get_all().size() * calc_num_bn254_frs<Commitment>();
-
+        size_t metadata_size = 0;
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
-            return 3 * calc_num_bn254_frs<uint64_t>() + commitments_size;
+            metadata_size = 3 * calc_num_bn254_frs<uint64_t>();
         } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
             // 2 metadata fields + commitments
-            return 2 * calc_num_bn254_frs<uint64_t>() + commitments_size;
-        } else {
-            // Only commitments
-            return commitments_size;
+            metadata_size = 2 * calc_num_bn254_frs<uint64_t>();
         }
+        return metadata_size + commitments_size;
     }
 
     /**
@@ -319,7 +317,6 @@ inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitmen
     for (auto& element : field_elements) {
         read(it, element);
     }
-
     // Then use from_field_elements to populate the verification key
     vk.from_field_elements(field_elements);
 }
@@ -329,12 +326,15 @@ inline void write(std::vector<uint8_t>& buf,
                   NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata> const& vk)
 {
     using serialize::write;
-
+    size_t before = buf.size();
     // Convert to field elements and write them directly without length prefix
     auto field_elements = vk.to_field_elements();
     for (const auto& element : field_elements) {
         write(buf, element);
     }
+    size_t after = buf.size();
+    size_t num_frs = NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_frs();
+    BB_ASSERT_EQ(after - before, num_frs * sizeof(bb::fr), "VK serialization mismatch");
 }
 
 /**

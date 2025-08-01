@@ -2,6 +2,7 @@
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
@@ -21,6 +22,7 @@
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include <cstdint>
 #ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
@@ -214,8 +216,13 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
     auto compute_vk_and_fields = [&]<typename Flavor>() {
         auto proving_key = _compute_proving_key<Flavor>(circuit.bytecode, {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
+        std::vector<uint8_t> vk_bytes2;
+        write(vk_bytes2, *vk);
         vk_fields = vk->to_field_elements();
+        BB_ASSERT_EQ(vk_fields.size(), Flavor::VerificationKey::calc_num_frs(), "VK serialization mismatch");
         vk_bytes = to_buffer(vk_fields);
+        BB_ASSERT_EQ(vk_bytes.size(), vk_fields.size() * sizeof(fr), "VK serialization mismatch");
+        BB_ASSERT_EQ(vk_bytes.size(), to_buffer(vk).size(), "VK serialization mismatch");
         vk_hash_bytes = to_buffer(vk->hash());
     };
 
