@@ -17,12 +17,10 @@ contract IncreaseBalanceTest is WithDelegationLib {
     _;
   }
 
-  function test_GivenNoDelegatee(
-    address[2] memory _instances,
-    address _attester,
-    uint256 _amount,
-    uint256 _balance
-  ) external whenAmountGt0 {
+  function test_GivenNoDelegatee(address[2] memory _instances, address _attester, uint256 _amount, uint256 _balance)
+    external
+    whenAmountGt0
+  {
     // it increase balance by amount
     // it increase instance supply by amount
     // it increase supply by amount

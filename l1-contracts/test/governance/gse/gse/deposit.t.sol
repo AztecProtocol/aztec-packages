@@ -69,17 +69,16 @@ contract DepositTest is WithGSE {
     vm.stopPrank();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
-  function test_GivenAttesterAlreadyRegisteredOnBonus(
-    address _instance,
-    address _attester,
-    address _withdrawer
-  ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqTrue givenCallerIsLatest {
+  function test_GivenAttesterAlreadyRegisteredOnBonus(address _instance, address _attester, address _withdrawer)
+    external
+    whenCallerIsRegisteredRollup(_instance)
+    givenOnBonusEqTrue
+    givenCallerIsLatest
+  {
     // it reverts
 
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
@@ -95,17 +94,16 @@ contract DepositTest is WithGSE {
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
-  function test_GivenAttesterNotRegisteredAnywhere(
-    address _instance,
-    address _attester,
-    address _withdrawer
-  ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqTrue givenCallerIsLatest {
+  function test_GivenAttesterNotRegisteredAnywhere(address _instance, address _attester, address _withdrawer)
+    external
+    whenCallerIsRegisteredRollup(_instance)
+    givenOnBonusEqTrue
+    givenCallerIsLatest
+  {
     // it adds attester to bonus instance
     // it sets attester config with withdrawer
     // it delegates attester to bonus if not delegated
@@ -177,9 +175,7 @@ contract DepositTest is WithGSE {
     vm.stopPrank();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, _instance, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
@@ -205,9 +201,7 @@ contract DepositTest is WithGSE {
     address bonus = gse.BONUS_INSTANCE_ADDRESS();
 
     vm.prank(_instance);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__AlreadyRegistered.selector, bonus, _attester));
     gse.deposit(_attester, _withdrawer, onBonus);
   }
 
@@ -219,12 +213,7 @@ contract DepositTest is WithGSE {
     address _instance,
     address _attester,
     address _withdrawer
-  )
-    external
-    whenCallerIsRegisteredRollup(_instance)
-    givenOnBonusEqFalse
-    givenAttesterNotRegisteredOnSpecificInstance
-  {
+  ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqFalse givenAttesterNotRegisteredOnSpecificInstance {
     // it adds attester to specific instance
     // it sets attester config with withdrawer
     // it delegates attester to instance if not delegated
@@ -269,12 +258,7 @@ contract DepositTest is WithGSE {
     assertEq(gse.totalSupply(), activationThreshold);
   }
 
-  function test_GivenCallerIsNotLatest2(
-    address _instance,
-    address _instance2,
-    address _attester,
-    address _withdrawer
-  )
+  function test_GivenCallerIsNotLatest2(address _instance, address _instance2, address _attester, address _withdrawer)
     external
     whenCallerIsRegisteredRollup(_instance)
     whenCallerIsRegisteredRollup(_instance2)

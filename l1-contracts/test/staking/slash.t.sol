@@ -3,9 +3,7 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  IStakingCore, Status, AttesterView, Exit, Timestamp
-} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore, Status, AttesterView, Exit, Timestamp} from "@aztec/core/interfaces/IStaking.sol";
 
 contract SlashTest is StakingBase {
   uint256 internal slashingAmount = 1;
@@ -21,9 +19,7 @@ contract SlashTest is StakingBase {
     staking.flushEntryQueue();
 
     // it reverts
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Staking__NotSlasher.selector, SLASHER, address(this))
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotSlasher.selector, SLASHER, address(this)));
     staking.slash(ATTESTER, 1);
   }
 
@@ -55,12 +51,7 @@ contract SlashTest is StakingBase {
     _;
   }
 
-  function test_GivenTimeIsAfterUnlock()
-    external
-    whenCallerIsTheSlasher
-    whenAttesterIsRegistered
-    whenAttesterIsExiting
-  {
+  function test_GivenTimeIsAfterUnlock() external whenCallerIsTheSlasher whenAttesterIsRegistered whenAttesterIsExiting {
     // it reverts
 
     Exit memory exit = staking.getExit(ATTESTER);
@@ -106,9 +97,7 @@ contract SlashTest is StakingBase {
       bool isAlive = i != 2;
       // Prepare the status and state
       AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-      assertTrue(
-        attesterView.status == (isAlive ? Status.VALIDATING : Status.ZOMBIE), "Invalid status"
-      );
+      assertTrue(attesterView.status == (isAlive ? Status.VALIDATING : Status.ZOMBIE), "Invalid status");
       assertEq(staking.getActiveAttesterCount(), isAlive ? 1 : 0, "Invalid active attester count");
 
       uint256 balance = isAlive ? attesterView.effectiveBalance : attesterView.exit.amount;
@@ -123,9 +112,7 @@ contract SlashTest is StakingBase {
 
       if (i == 0) {
         // The first round, we are still active, not slashing enough yet!
-        assertEq(
-          attesterView.effectiveBalance, balance - slashingAmount, "Invalid effective balance"
-        );
+        assertEq(attesterView.effectiveBalance, balance - slashingAmount, "Invalid effective balance");
         assertEq(attesterView.exit.amount, 0, "Invalid exit amount");
         assertTrue(attesterView.status == Status.VALIDATING, "Invalid status after slash");
         assertEq(staking.getActiveAttesterCount(), 1, "Invalid active attester count");

@@ -26,10 +26,7 @@ library CheckpointedUintLib {
    *
    * @return - The current value and the new value
    */
-  function add(Checkpoints.Trace224 storage _self, uint256 _amount)
-    internal
-    returns (uint256, uint256)
-  {
+  function add(Checkpoints.Trace224 storage _self, uint256 _amount) internal returns (uint256, uint256) {
     uint224 current = _self.latest();
     if (_amount == 0) {
       return (current, current);
@@ -46,19 +43,13 @@ library CheckpointedUintLib {
    * @param _amount - The amount to subtract
    * @return - The current value and the new value
    */
-  function sub(Checkpoints.Trace224 storage _self, uint256 _amount)
-    internal
-    returns (uint256, uint256)
-  {
+  function sub(Checkpoints.Trace224 storage _self, uint256 _amount) internal returns (uint256, uint256) {
     uint224 current = _self.latest();
     if (_amount == 0) {
       return (current, current);
     }
     uint224 amount = _amount.toUint224();
-    require(
-      current >= amount,
-      Errors.Governance__CheckpointedUintLib__InsufficientValue(msg.sender, current, amount)
-    );
+    require(current >= amount, Errors.Governance__CheckpointedUintLib__InsufficientValue(msg.sender, current, amount));
     _self.push(block.timestamp.toUint32(), current - amount);
     return (current, current - amount);
   }
@@ -84,14 +75,8 @@ library CheckpointedUintLib {
    * @param _time - The timestamp to get the value at
    * @return - The value at the given timestamp
    */
-  function valueAt(Checkpoints.Trace224 storage _self, Timestamp _time)
-    internal
-    view
-    returns (uint256)
-  {
-    require(
-      _time < Timestamp.wrap(block.timestamp), Errors.Governance__CheckpointedUintLib__NotInPast()
-    );
+  function valueAt(Checkpoints.Trace224 storage _self, Timestamp _time) internal view returns (uint256) {
+    require(_time < Timestamp.wrap(block.timestamp), Errors.Governance__CheckpointedUintLib__NotInPast());
     return _self.upperLookupRecent(Timestamp.unwrap(_time).toUint32());
   }
 }

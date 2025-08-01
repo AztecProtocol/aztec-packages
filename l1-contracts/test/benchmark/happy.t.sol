@@ -41,12 +41,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {
-  ProposeArgs,
-  ProposePayload,
-  OracleInput,
-  ProposeLib
-} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeArgs, ProposePayload, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeLib,
@@ -57,10 +52,7 @@ import {
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  FeeModelTestPoints,
-  TestPoint,
-  FeeHeaderModel,
-  ManaBaseFeeComponentsModel
+  FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -161,12 +153,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
-      _noValidators ? 0 : TARGET_COMMITTEE_SIZE
-    ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
-      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
+      MANA_TARGET
+    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE).setStakingQueueConfig(stakingQueueConfig)
+      .setSlashingQuorum(VOTING_ROUND_SIZE).setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
@@ -250,8 +242,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint128 manaBaseFee =
-      SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+    uint128 manaBaseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
@@ -331,11 +322,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     });
   }
 
-  function createAttestation(address _signer, bytes32 _digest)
-    internal
-    view
-    returns (CommitteeAttestation memory)
-  {
+  function createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
@@ -346,12 +333,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     return CommitteeAttestation({addr: _signer, signature: signature});
   }
 
-  // This is used for attestations that are not signed - we include their address to help reconstruct the committee commitment
-  function createEmptyAttestation(address _signer)
-    internal
-    pure
-    returns (CommitteeAttestation memory)
-  {
+  // This is used for attestations that are not signed - we include their address to help reconstruct the committee
+  // commitment
+  function createEmptyAttestation(address _signer) internal pure returns (CommitteeAttestation memory) {
     Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
@@ -418,8 +402,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           calls[0] = Multicall3.Call3({
             target: address(rollup),
             callData: abi.encodeCall(
-              rollup.propose,
-              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs)
+              rollup.propose, (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.signers, b.blobInputs)
             ),
             allowFailure: false
           });

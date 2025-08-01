@@ -25,11 +25,7 @@ library ExtRollupLib3 {
     address _slashingVetoer
   ) external returns (ISlasher) {
     Slasher slasher = new Slasher(
-      _slashingQuorum,
-      _slashingRoundSize,
-      _slashingLifetimeInRounds,
-      _slashingExecutionDelayInRounds,
-      _slashingVetoer
+      _slashingQuorum, _slashingRoundSize, _slashingLifetimeInRounds, _slashingExecutionDelayInRounds, _slashingVetoer
     );
     return ISlasher(address(slasher));
   }
