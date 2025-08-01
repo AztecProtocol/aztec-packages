@@ -225,9 +225,7 @@ class ClientIVC {
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
-    void accumulate(ClientCircuit& circuit,
-                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
-                    const bool mock_vk = false);
+    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 
     Proof prove();
 
