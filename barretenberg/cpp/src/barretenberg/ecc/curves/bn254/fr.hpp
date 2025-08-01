@@ -11,7 +11,7 @@
 #include <ostream>
 
 #include "../../fields/field.hpp"
-#include "barretenberg/constants.hpp"
+#include "barretenberg/honk/types/public_inputs_type.hpp"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 
