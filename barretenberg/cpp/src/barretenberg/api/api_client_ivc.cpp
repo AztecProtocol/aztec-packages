@@ -289,8 +289,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     // Construct and accumulate a series of mocked private function execution circuits
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
-        ivc.accumulate(circuit, vk);
+        circuit_producer.accumulate_next_circuit(ivc);
     }
 
     ClientIVC::Proof proof = ivc.prove();
