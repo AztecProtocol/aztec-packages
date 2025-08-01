@@ -47,7 +47,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertTrue(attesterView.status == Status.VALIDATING);
   }
 
@@ -56,14 +56,14 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     _;
   }
 
-  modifier givenBalanceLTDepositamount() {
+  modifier givenBalanceLTactivationThreshold() {
     _;
   }
 
   function test_WhenInsufficientTimePassed(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceLTDepositamount
+    givenBalanceLTactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
@@ -83,7 +83,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_WhenSufficientTimePassed(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceLTDepositamount
+    givenBalanceLTactivationThreshold
     givenPassportProofIsValid
   {
     // it adds the validator to the queue
@@ -99,7 +99,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(ACTIVATION_THRESHOLD * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
@@ -107,7 +107,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
@@ -124,14 +124,14 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     _;
   }
 
-  modifier givenBalanceGEDepositAmount() {
+  modifier givenBalanceGEactivationThreshold() {
     _;
   }
 
   function test_WhenUserIsNew(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it exits the attester if needed
@@ -146,7 +146,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(ACTIVATION_THRESHOLD * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
@@ -154,7 +154,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
@@ -163,7 +163,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_WhenPassportProofHasBeenUsed(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
@@ -196,7 +196,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_WhenPassportProofIsInDevMode(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
@@ -217,7 +217,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_WhenPassportProofIsInThePast(address _caller, uint16 _daysInFuture)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it reverts
@@ -238,7 +238,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   function test_WhenFlushEntryQueueReverts(address _caller, address _attester)
     external
     whenCallerIsNotUnhinged(_caller)
-    givenBalanceGEDepositAmount
+    givenBalanceGEactivationThreshold
     givenPassportProofIsValid
   {
     // it deposits into the rollup
@@ -264,7 +264,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     uint256 queueLengthBefore = staking.getEntryQueueLength();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(ACTIVATION_THRESHOLD * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
@@ -285,7 +285,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     // Now validator should be active
     attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.effectiveBalance, ACTIVATION_THRESHOLD);
     assertTrue(attesterView.status == Status.VALIDATING);
   }
 }

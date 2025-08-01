@@ -11,10 +11,12 @@ import {
   Withdrawal
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {
+  Checkpoints, CheckpointedUintLib
+} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
-import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -124,7 +126,7 @@ struct DepositControl {
 contract Governance is IGovernance {
   using SafeERC20 for IERC20;
   using ProposalLib for Proposal;
-  using UserLib for User;
+  using CheckpointedUintLib for Checkpoints.Trace224;
   using ConfigurationLib for Configuration;
 
   IERC20 public immutable ASSET;
@@ -164,7 +166,7 @@ contract Governance is IGovernance {
    *
    * `users` is only updated during `deposit`, `initiateWithdraw`, and `proposeWithLock`.
    */
-  mapping(address userAddress => User user) internal users;
+  mapping(address userAddress => Checkpoints.Trace224 user) internal users;
 
   /**
    * @dev Withdrawals that have been initiated.
@@ -186,7 +188,7 @@ contract Governance is IGovernance {
    *
    * `total` is only updated during `deposit`, `initiateWithdraw`, and `proposeWithLock`.
    */
-  User internal total;
+  Checkpoints.Trace224 internal total;
 
   /**
    * @dev The count of proposals that have been made.
@@ -456,7 +458,7 @@ contract Governance is IGovernance {
     require(state == ProposalState.Active, Errors.Governance__ProposalNotActive());
 
     // Compute the power at the time where we became active
-    uint256 userPower = users[msg.sender].powerAt(proposals[_proposalId].pendingThrough());
+    uint256 userPower = users[msg.sender].valueAt(proposals[_proposalId].pendingThrough());
 
     Ballot storage userBallot = ballots[_proposalId][msg.sender];
 
@@ -559,9 +561,9 @@ contract Governance is IGovernance {
     returns (uint256)
   {
     if (_ts == Timestamp.wrap(block.timestamp)) {
-      return users[_owner].powerNow();
+      return users[_owner].valueNow();
     }
-    return users[_owner].powerAt(_ts);
+    return users[_owner].valueAt(_ts);
   }
 
   /**
@@ -578,9 +580,9 @@ contract Governance is IGovernance {
    */
   function totalPowerAt(Timestamp _ts) external view override(IGovernance) returns (uint256) {
     if (_ts == Timestamp.wrap(block.timestamp)) {
-      return total.powerNow();
+      return total.valueNow();
     }
-    return total.powerAt(_ts);
+    return total.valueAt(_ts);
   }
 
   /**
@@ -703,7 +705,7 @@ contract Governance is IGovernance {
       return ProposalState.Active;
     }
 
-    uint256 totalPower = total.powerAt(self.pendingThrough());
+    uint256 totalPower = total.valueAt(self.pendingThrough());
     (VoteTabulationReturn vtr,) = self.voteTabulation(totalPower);
     if (vtr != VoteTabulationReturn.Accepted) {
       return ProposalState.Rejected;

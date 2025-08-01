@@ -43,8 +43,8 @@ contract MoveTest is StakingBase {
     staking = IStaking(address(builder.getConfig().rollup));
     stakingAsset = builder.getConfig().testERC20;
 
-    DEPOSIT_AMOUNT = staking.getDepositAmount();
-    MINIMUM_STAKE = staking.getMinimumStake();
+    ACTIVATION_THRESHOLD = staking.getActivationThreshold();
+    EJECTION_THRESHOLD = staking.getEjectionThreshold();
     SLASHER = staking.getSlasher();
   }
 
@@ -63,8 +63,8 @@ contract MoveTest is StakingBase {
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
 
-    mint(address(this), DEPOSIT_AMOUNT * n);
-    stakingAsset.approve(address(oldRollup), DEPOSIT_AMOUNT * n);
+    mint(address(this), ACTIVATION_THRESHOLD * n);
+    stakingAsset.approve(address(oldRollup), ACTIVATION_THRESHOLD * n);
 
     for (uint256 i = 0; i < n; i++) {
       bool moveWithLatestRollup = i % 2 == 0;
@@ -168,7 +168,7 @@ contract MoveTest is StakingBase {
     vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(newRollup));
-    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, DEPOSIT_AMOUNT);
+    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, ACTIVATION_THRESHOLD);
     newRollup.finaliseWithdraw(attesterToExit);
 
     attesterView = newRollup.getAttesterView(attesterToExit);
@@ -177,6 +177,6 @@ contract MoveTest is StakingBase {
     assertTrue(attesterView.status == Status.NONE);
 
     assertEq(stakingAsset.balanceOf(address(newRollup)), 0);
-    assertEq(stakingAsset.balanceOf(RECIPIENT), DEPOSIT_AMOUNT);
+    assertEq(stakingAsset.balanceOf(RECIPIENT), ACTIVATION_THRESHOLD);
   }
 }

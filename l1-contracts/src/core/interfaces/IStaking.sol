@@ -37,8 +37,8 @@ interface IStaking is IStakingCore {
   function getAttesterAtIndex(uint256 _index) external view returns (address);
   function getSlasher() external view returns (address);
   function getStakingAsset() external view returns (IERC20);
-  function getDepositAmount() external view returns (uint256);
-  function getMinimumStake() external view returns (uint256);
+  function getActivationThreshold() external view returns (uint256);
+  function getEjectionThreshold() external view returns (uint256);
   function getExitDelay() external view returns (Timestamp);
   function getGSE() external view returns (GSE);
   function getAttesterView(address _attester) external view returns (AttesterView memory);

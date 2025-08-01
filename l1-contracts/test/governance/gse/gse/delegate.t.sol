@@ -104,6 +104,6 @@ contract DelegateTest is WithGSE {
 
     // Lookup the delegatee
     assertEq(gse.getDelegatee(addr, _attester), _delegatee);
-    assertEq(gse.getVotingPower(_delegatee), gse.DEPOSIT_AMOUNT());
+    assertEq(gse.getVotingPower(_delegatee), gse.ACTIVATION_THRESHOLD());
   }
 }

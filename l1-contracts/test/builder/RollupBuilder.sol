@@ -233,7 +233,10 @@ contract RollupBuilder is Test {
 
     if (address(config.gse) == address(0)) {
       config.gse = new GSE(
-        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+        address(this),
+        config.testERC20,
+        TestConstants.ACTIVATION_THRESHOLD,
+        TestConstants.EJECTION_THRESHOLD
       );
     }
 
@@ -300,7 +303,7 @@ contract RollupBuilder is Test {
     if (config.validators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(config.rollup), address(this));
       config.testERC20.mint(
-        address(multiAdder), config.gse.DEPOSIT_AMOUNT() * config.validators.length
+        address(multiAdder), config.gse.ACTIVATION_THRESHOLD() * config.validators.length
       );
       multiAdder.addValidators(config.validators);
     }

@@ -93,9 +93,9 @@ contract AddRollupTest is TestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    uint256 depositAmount = rollup.getDepositAmount();
+    uint256 activationThreshold = rollup.getActivationThreshold();
     vm.prank(token.owner());
-    token.mint(address(multiAdder), depositAmount * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), activationThreshold * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
     registry.transferOwnership(address(governance));
@@ -153,13 +153,13 @@ contract AddRollupTest is TestBase {
       // We need 1/3 of the total supply to be off canonical
       // So we add 1/2 of the initial supply to the specific instance
       // The result is that 1/3 of the new total supply is off canonical
-      uint256 validatorsNeeded = (gse.totalSupply() / 2) / rollup.getDepositAmount() + 1;
+      uint256 validatorsNeeded = (gse.totalSupply() / 2) / rollup.getActivationThreshold() + 1;
 
-      uint256 depositAmount = rollup.getDepositAmount();
+      uint256 activationThreshold = rollup.getActivationThreshold();
       while (val <= validatorsNeeded) {
         vm.prank(token.owner());
-        token.mint(address(this), depositAmount);
-        token.approve(address(rollup), depositAmount);
+        token.mint(address(this), activationThreshold);
+        token.approve(address(rollup), activationThreshold);
         rollup.deposit(address(uint160(val)), address(this), false);
         val++;
       }
