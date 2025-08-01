@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -183,22 +183,29 @@ library RewardLib {
         $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
       }
 
+      bool isTxsEnabled = FeeLib.isTxsEnabled();
+
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
+        if (isTxsEnabled) {
+          // During ignition there can be no txs, so there can be no fees either
+          // so we can skip the fee calculation
 
-        v.manaUsed = feeHeader.getManaUsed();
+          CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
-        uint256 fee = uint256(_args.fees[1 + i * 2]);
-        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
+          v.manaUsed = feeHeader.getManaUsed();
 
-        t.feesToClaim += fee;
-        t.totalBurn += burn;
+          uint256 fee = uint256(_args.fees[1 + i * 2]);
+          uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
 
-        // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
-        $er.rewards += v.proverFee.toUint128();
+          t.feesToClaim += fee;
+          t.totalBurn += burn;
 
-        v.sequencerFee = fee - burn - v.proverFee;
+          // Compute the proving fee in the fee asset
+          v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
+          $er.rewards += v.proverFee.toUint128();
+
+          v.sequencerFee = fee - burn - v.proverFee;
+        }
 
         {
           v.sequencer = fieldToAddress(_args.fees[i * 2]);

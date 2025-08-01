@@ -337,5 +337,142 @@ TEST(ContextConstrainingTest, GasUsedContinuity)
                               "DA_GAS_USED_CONTINUITY");
 }
 
+TEST(ContextConstrainingTest, TreeStateContinuity)
+{
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } },
+                               {
+                                   // First Row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_note_hash_tree_root, 10 },
+                                   { C::execution_note_hash_tree_size, 9 },
+                                   { C::execution_num_note_hashes_emitted, 8 },
+                                   { C::execution_nullifier_tree_root, 7 },
+                                   { C::execution_nullifier_tree_size, 6 },
+                                   { C::execution_num_nullifiers_emitted, 5 },
+                                   { C::execution_public_data_tree_root, 4 },
+                                   { C::execution_public_data_tree_size, 3 },
+                                   { C::execution_written_public_data_slots_tree_root, 2 },
+                                   { C::execution_written_public_data_slots_tree_size, 1 },
+                                   { C::execution_l1_l2_tree_root, 27 },
+                               },
+                               {
+                                   // Second row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_prev_note_hash_tree_root, 10 },
+                                   { C::execution_prev_note_hash_tree_size, 9 },
+                                   { C::execution_prev_num_note_hashes_emitted, 8 },
+                                   { C::execution_prev_nullifier_tree_root, 7 },
+                                   { C::execution_prev_nullifier_tree_size, 6 },
+                                   { C::execution_prev_num_nullifiers_emitted, 5 },
+                                   { C::execution_prev_public_data_tree_root, 4 },
+                                   { C::execution_prev_public_data_tree_size, 3 },
+                                   { C::execution_prev_written_public_data_slots_tree_root, 2 },
+                                   { C::execution_prev_written_public_data_slots_tree_size, 1 },
+                                   { C::execution_l1_l2_tree_root, 27 },
+                               } });
+
+    check_relation<context>(trace,
+                            context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY,
+                            context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_ROOT_CONTINUITY,
+                            context::SR_NULLIFIER_TREE_SIZE_CONTINUITY,
+                            context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY,
+                            context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
+                            context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
+                            context::SR_L1_L2_TREE_ROOT_CONTINUITY);
+
+    // Negative test: change note hash tree root
+    trace.set(C::execution_prev_note_hash_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_ROOT_CONTINUITY),
+                              "NOTE_HASH_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change note hash tree size
+    trace.set(C::execution_prev_note_hash_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NOTE_HASH_TREE_SIZE_CONTINUITY),
+                              "NOTE_HASH_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change num note hashes emitted
+    trace.set(C::execution_prev_num_note_hashes_emitted, 2, 10);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY),
+                              "NUM_NOTE_HASHES_EMITTED_CONTINUITY");
+
+    // Negative test: change nullifier tree root
+    trace.set(C::execution_prev_nullifier_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_ROOT_CONTINUITY),
+                              "NULLIFIER_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change nullifier tree size
+    trace.set(C::execution_prev_nullifier_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NULLIFIER_TREE_SIZE_CONTINUITY),
+                              "NULLIFIER_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change num nullifiers emitted
+    trace.set(C::execution_prev_num_nullifiers_emitted, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_NULLIFIERS_EMITTED_CONTINUITY),
+                              "NUM_NULLIFIERS_EMITTED_CONTINUITY");
+
+    // Negative test: change public data tree root
+    trace.set(C::execution_prev_public_data_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY),
+                              "PUBLIC_DATA_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change public data tree size
+    trace.set(C::execution_prev_public_data_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY),
+                              "PUBLIC_DATA_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change written public data slots tree root
+    trace.set(C::execution_prev_written_public_data_slots_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change written public data slots tree size
+    trace.set(C::execution_prev_written_public_data_slots_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<context>(trace, context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY),
+        "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY");
+
+    // Negative test: change l1 l2 tree root
+    trace.set(C::execution_l1_l2_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L1_L2_TREE_ROOT_CONTINUITY),
+                              "L1_L2_TREE_ROOT_CONTINUITY");
+}
+
+TEST(ContextConstrainingTest, SideEffectStateContinuity)
+{
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            // First Row of execution
+            { C::execution_sel, 1 },
+            { C::execution_num_unencrypted_logs, 10 },
+            { C::execution_num_l2_to_l1_messages, 11 },
+        },
+        {
+            // Second row of execution
+            { C::execution_sel, 1 },
+            { C::execution_prev_num_unencrypted_logs, 10 },
+            { C::execution_prev_num_l2_to_l1_messages, 11 },
+        },
+    });
+
+    check_relation<context>(
+        trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
+
+    // Negative test: change num unencrypted logs
+    trace.set(C::execution_prev_num_unencrypted_logs, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
+                              "NUM_UNENCRYPTED_LOGS_CONTINUITY");
+
+    // Negative test: change num l2 to l1 messages
+    trace.set(C::execution_prev_num_l2_to_l1_messages, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
+                              "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
