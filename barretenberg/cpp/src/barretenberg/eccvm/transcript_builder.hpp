@@ -46,7 +46,7 @@ class ECCVMTranscriptBuilder {
         uint32_t opcode = 0; // opcode value, in {0, .., 15}, given by 8 * q_add + 4 * q_mul + 2 * q_eq + q_reset.
 
         /////////////////////////////////////
-        // These fields are populated after converting Jacobian to affine coordinates
+        // These fields are populated after converting projective to affine coordinates
         /////////////////////////////////////
 
         // [A] is the current accumulated point, in affine coordinates, for all EC operations.
