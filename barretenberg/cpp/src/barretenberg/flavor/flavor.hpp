@@ -216,13 +216,13 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<fr> elements;
 
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL ||
+                      SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
+            serialize_to_field_buffer(this->log_circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+        }
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
-            serialize_to_field_buffer(this->log_circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
-            serialize_to_field_buffer(this->log_circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
         }
 
         for (const Commitment& commitment : this->get_all()) {

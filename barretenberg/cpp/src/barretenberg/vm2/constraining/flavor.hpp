@@ -243,9 +243,11 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
+    // Our VerificationKey, mostly defined by NativeVerificationKey. We serialize log_circuit_size, num_public_inputs
+    // but not pub_inputs_offset (hence VKSerializationMode::NO_PUB_OFFSET).
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
                                                           Transcript,
-                                                          /*SerializeMetadata=*/VKSerializationMode::NO_PUB_OFFSET> {
+                                                          VKSerializationMode::NO_PUB_OFFSET> {
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
