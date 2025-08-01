@@ -14,10 +14,10 @@ template <typename FF_> class sha256_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 47> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 4, 4, 3, 3, 3, 3,
-                                                                            5, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-                                                                            7, 7, 7, 7, 7, 7, 4, 3, 5, 3, 4, 5,
-                                                                            4, 3, 5, 7, 3, 3, 5, 3, 3, 6, 4 };
+    static constexpr std::array<size_t, 49> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 4, 4, 3, 3, 3, 3, 5,
+                                                                            3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                                                                            5, 5, 5, 5, 5, 4, 3, 5, 3, 4, 5, 4, 3,
+                                                                            5, 5, 3, 3, 3, 5, 6, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -40,10 +40,8 @@ template <typename FF_> class sha256_memImpl {
         const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
         const auto sha256_LATCH_CONDITION = in.get(C::sha256_latch) + in.get(C::precomputed_first_row);
         const auto sha256_NOT_LAST = in.get(C::sha256_sel) * (FF(1) - sha256_LATCH_CONDITION);
-        const auto sha256_MEM_OUT_OF_RANGE_ERR = (FF(1) - (FF(1) - in.get(C::sha256_sel_state_out_of_range_err)) *
-                                                              (FF(1) - in.get(C::sha256_sel_input_out_of_range_err)) *
-                                                              (FF(1) - in.get(C::sha256_sel_dst_out_of_range_err)));
-        const auto sha256_STATE_READ_CONDITION = in.get(C::sha256_start) * (FF(1) - sha256_MEM_OUT_OF_RANGE_ERR);
+        const auto sha256_STATE_READ_CONDITION =
+            in.get(C::sha256_start) * (FF(1) - in.get(C::sha256_mem_out_of_range_err));
         const auto sha256_OUTPUT_WRITE_CONDITION = in.get(C::sha256_latch) * (FF(1) - in.get(C::sha256_err));
         const auto sha256_MEM_ADDR = sha256_STATE_READ_CONDITION * in.get(C::sha256_state_addr) +
                                      sha256_OUTPUT_WRITE_CONDITION * in.get(C::sha256_output_addr);
@@ -70,6 +68,9 @@ template <typename FF_> class sha256_memImpl {
                                               FF(2097152) * sha256_STATE_TAG_DIFF_7;
         const auto sha256_INPUT_TAG_DIFF =
             in.get(C::sha256_sel_read_input_from_memory) * (in.get(C::sha256_input_tag) - constants_MEM_TAG_U32);
+        const auto sha256_LATCH_ON_ERROR = (FF(1) - (FF(1) - in.get(C::sha256_mem_out_of_range_err)) *
+                                                        (FF(1) - in.get(C::sha256_sel_invalid_state_tag_err)) *
+                                                        (FF(1) - in.get(C::sha256_sel_invalid_input_row_tag_err)));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -148,81 +149,81 @@ template <typename FF_> class sha256_memImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::sha256_u32_tag) -
-                        in.get(C::sha256_sel) * (FF(1) - sha256_MEM_OUT_OF_RANGE_ERR) * constants_MEM_TAG_U32);
+            auto tmp = (in.get(C::sha256_mem_out_of_range_err) -
+                        in.get(C::sha256_sel) * (FF(1) - (FF(1) - in.get(C::sha256_sel_state_out_of_range_err)) *
+                                                             (FF(1) - in.get(C::sha256_sel_input_out_of_range_err)) *
+                                                             (FF(1) - in.get(C::sha256_sel_dst_out_of_range_err))));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        { // START_OR_LAST_MEM
+        {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::sha256_sel_mem_state_or_output) -
-                        in.get(C::sha256_sel) * (sha256_STATE_READ_CONDITION + sha256_OUTPUT_WRITE_CONDITION));
+            auto tmp =
+                (in.get(C::sha256_u32_tag) -
+                 in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_mem_out_of_range_err)) * constants_MEM_TAG_U32);
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_OR_LAST_MEM
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_0_) - (sha256_MEM_ADDR + FF(0)));
+            auto tmp = (in.get(C::sha256_sel_mem_state_or_output) -
+                        in.get(C::sha256_sel) * (sha256_STATE_READ_CONDITION + sha256_OUTPUT_WRITE_CONDITION));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_1_) - (sha256_MEM_ADDR + FF(1)));
+                       (in.get(C::sha256_memory_address_0_) - (sha256_MEM_ADDR + FF(0)));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_2_) - (sha256_MEM_ADDR + FF(2)));
+                       (in.get(C::sha256_memory_address_1_) - (sha256_MEM_ADDR + FF(1)));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_3_) - (sha256_MEM_ADDR + FF(3)));
+                       (in.get(C::sha256_memory_address_2_) - (sha256_MEM_ADDR + FF(2)));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_4_) - (sha256_MEM_ADDR + FF(4)));
+                       (in.get(C::sha256_memory_address_3_) - (sha256_MEM_ADDR + FF(3)));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_5_) - (sha256_MEM_ADDR + FF(5)));
+                       (in.get(C::sha256_memory_address_4_) - (sha256_MEM_ADDR + FF(4)));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_6_) - (sha256_MEM_ADDR + FF(6)));
+                       (in.get(C::sha256_memory_address_5_) - (sha256_MEM_ADDR + FF(5)));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
-                       (in.get(C::sha256_memory_address_7_) - (sha256_MEM_ADDR + FF(7)));
+                       (in.get(C::sha256_memory_address_6_) - (sha256_MEM_ADDR + FF(6)));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_0_) - in.get(C::sha256_init_a)) +
-                 sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_0_) - in.get(C::sha256_output_a_rhs)));
+            auto tmp = in.get(C::sha256_sel_mem_state_or_output) *
+                       (in.get(C::sha256_memory_address_7_) - (sha256_MEM_ADDR + FF(7)));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
@@ -230,9 +231,9 @@ template <typename FF_> class sha256_memImpl {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_1_) - in.get(C::sha256_init_b)) +
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_0_) - in.get(C::sha256_init_a)) +
                  sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_1_) - in.get(C::sha256_output_b_rhs)));
+                     (in.get(C::sha256_memory_register_0_) - in.get(C::sha256_output_a_rhs)));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
@@ -240,9 +241,9 @@ template <typename FF_> class sha256_memImpl {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_2_) - in.get(C::sha256_init_c)) +
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_1_) - in.get(C::sha256_init_b)) +
                  sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_2_) - in.get(C::sha256_output_c_rhs)));
+                     (in.get(C::sha256_memory_register_1_) - in.get(C::sha256_output_b_rhs)));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
@@ -250,9 +251,9 @@ template <typename FF_> class sha256_memImpl {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_3_) - in.get(C::sha256_init_d)) +
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_2_) - in.get(C::sha256_init_c)) +
                  sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_3_) - in.get(C::sha256_output_d_rhs)));
+                     (in.get(C::sha256_memory_register_2_) - in.get(C::sha256_output_c_rhs)));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
@@ -260,9 +261,9 @@ template <typename FF_> class sha256_memImpl {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_4_) - in.get(C::sha256_init_e)) +
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_3_) - in.get(C::sha256_init_d)) +
                  sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_4_) - in.get(C::sha256_output_e_rhs)));
+                     (in.get(C::sha256_memory_register_3_) - in.get(C::sha256_output_d_rhs)));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
@@ -270,9 +271,9 @@ template <typename FF_> class sha256_memImpl {
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_5_) - in.get(C::sha256_init_f)) +
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_4_) - in.get(C::sha256_init_e)) +
                  sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_5_) - in.get(C::sha256_output_f_rhs)));
+                     (in.get(C::sha256_memory_register_4_) - in.get(C::sha256_output_e_rhs)));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
@@ -280,9 +281,9 @@ template <typename FF_> class sha256_memImpl {
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_6_) - in.get(C::sha256_init_g)) +
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_5_) - in.get(C::sha256_init_f)) +
                  sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_6_) - in.get(C::sha256_output_g_rhs)));
+                     (in.get(C::sha256_memory_register_5_) - in.get(C::sha256_output_f_rhs)));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
@@ -290,139 +291,153 @@ template <typename FF_> class sha256_memImpl {
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::sha256_sel_mem_state_or_output) *
-                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_7_) - in.get(C::sha256_init_h)) +
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_6_) - in.get(C::sha256_init_g)) +
                  sha256_OUTPUT_WRITE_CONDITION *
-                     (in.get(C::sha256_memory_register_7_) - in.get(C::sha256_output_h_rhs)));
+                     (in.get(C::sha256_memory_register_6_) - in.get(C::sha256_output_g_rhs)));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::sha256_rw) - in.get(C::sha256_sel_mem_state_or_output) * in.get(C::sha256_latch) *
-                                                   (FF(1) - in.get(C::sha256_err)));
+            auto tmp =
+                in.get(C::sha256_sel_mem_state_or_output) *
+                (sha256_STATE_READ_CONDITION * (in.get(C::sha256_memory_register_7_) - in.get(C::sha256_init_h)) +
+                 sha256_OUTPUT_WRITE_CONDITION *
+                     (in.get(C::sha256_memory_register_7_) - in.get(C::sha256_output_h_rhs)));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_sel_invalid_state_tag_err) * (FF(1) - in.get(C::sha256_sel_invalid_state_tag_err));
+            auto tmp = (in.get(C::sha256_rw) - in.get(C::sha256_sel_mem_state_or_output) * in.get(C::sha256_latch) *
+                                                   (FF(1) - in.get(C::sha256_err)));
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
         }
-        { // BATCH_ZERO_CHECK
+        {
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::sha256_sel_invalid_state_tag_err) * (FF(1) - in.get(C::sha256_sel_invalid_state_tag_err));
+            tmp *= scaling_factor;
+            std::get<32>(evals) += typename Accumulator::View(tmp);
+        }
+        { // BATCH_ZERO_CHECK
+            using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
             auto tmp = (sha256_BATCHED_TAG_CHECK * ((FF(1) - in.get(C::sha256_sel_invalid_state_tag_err)) *
                                                         (FF(1) - in.get(C::sha256_batch_tag_inv)) +
                                                     in.get(C::sha256_batch_tag_inv)) -
                         in.get(C::sha256_sel_invalid_state_tag_err));
             tmp *= scaling_factor;
-            std::get<32>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel_is_input_round) * (FF(1) - in.get(C::sha256_sel_is_input_round));
-            tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_IS_INPUT_ROUND_START_COND
+        {
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel) * in.get(C::sha256_start) * (in.get(C::sha256_sel_is_input_round) - FF(1));
+            auto tmp = in.get(C::sha256_sel_is_input_round) * (FF(1) - in.get(C::sha256_sel_is_input_round));
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_IS_INPUT_END
+        { // SEL_IS_INPUT_ROUND_START_COND
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
+            auto tmp = in.get(C::sha256_sel) * in.get(C::sha256_start) * (in.get(C::sha256_sel_is_input_round) - FF(1));
+            tmp *= scaling_factor;
+            std::get<35>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SEL_IS_INPUT_END
+            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
             auto tmp = (FF(1) - sha256_LATCH_CONDITION) *
                        (in.get(C::sha256_input_rounds_rem) * ((FF(1) - in.get(C::sha256_sel_is_input_round)) *
                                                                   (FF(1) - in.get(C::sha256_input_rounds_rem_inv)) +
                                                               in.get(C::sha256_input_rounds_rem_inv)) -
                         in.get(C::sha256_sel_is_input_round));
             tmp *= scaling_factor;
-            std::get<35>(evals) += typename Accumulator::View(tmp);
+            std::get<36>(evals) += typename Accumulator::View(tmp);
         }
         { // SEL_IS_INPUT_PROPAGATE
-            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
             auto tmp = (FF(1) - sha256_LATCH_CONDITION) * (FF(1) - in.get(C::sha256_sel_is_input_round)) *
                        in.get(C::sha256_sel_is_input_round_shift);
             tmp *= scaling_factor;
-            std::get<36>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INPUT_ROUND_CTR_START_COND
-            using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_start) * (in.get(C::sha256_input_rounds_rem) - FF(16));
-            tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
-        { // INPUT_ROUND_CTR_DECR_COND
+        { // INPUT_ROUND_CTR_START_COND
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_err)) * (FF(1) - sha256_LATCH_CONDITION) *
-                       (in.get(C::sha256_input_rounds_rem_shift) -
-                        (in.get(C::sha256_input_rounds_rem) - in.get(C::sha256_sel_is_input_round)));
+            auto tmp = in.get(C::sha256_start) * (in.get(C::sha256_input_rounds_rem) - FF(16));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INPUT_ROUND_CTR_DECR_COND
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::sha256_sel_read_input_from_memory) -
-                 in.get(C::sha256_sel) * (FF(1) - sha256_MEM_OUT_OF_RANGE_ERR) * in.get(C::sha256_sel_is_input_round) *
-                     (FF(1) - in.get(C::sha256_sel_invalid_state_tag_err)));
+            auto tmp = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_err)) * (FF(1) - sha256_LATCH_CONDITION) *
+                       (in.get(C::sha256_input_rounds_rem_shift) -
+                        (in.get(C::sha256_input_rounds_rem) - in.get(C::sha256_sel_is_input_round)));
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel_is_input_round) * (in.get(C::sha256_input) - in.get(C::sha256_w));
+            auto tmp =
+                (in.get(C::sha256_sel_read_input_from_memory) -
+                 in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_mem_out_of_range_err)) *
+                     in.get(C::sha256_sel_is_input_round) * (FF(1) - in.get(C::sha256_sel_invalid_state_tag_err)));
             tmp *= scaling_factor;
             std::get<40>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::sha256_sel_invalid_input_tag_err) * (FF(1) - in.get(C::sha256_sel_invalid_input_tag_err));
+            auto tmp = in.get(C::sha256_sel_is_input_round) * (in.get(C::sha256_input) - in.get(C::sha256_w));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
-        { // INPUT_TAG_DIFF_CHECK
+        {
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::sha256_sel_invalid_input_tag_err) * (FF(1) - in.get(C::sha256_sel_invalid_input_tag_err));
+            tmp *= scaling_factor;
+            std::get<42>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
+            auto tmp = in.get(C::sha256_sel_invalid_input_row_tag_err) *
+                       (FF(1) - in.get(C::sha256_sel_invalid_input_row_tag_err));
+            tmp *= scaling_factor;
+            std::get<43>(evals) += typename Accumulator::View(tmp);
+        }
+        { // INPUT_TAG_DIFF_CHECK
+            using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
             auto tmp = (sha256_INPUT_TAG_DIFF * ((FF(1) - in.get(C::sha256_sel_invalid_input_row_tag_err)) *
                                                      (FF(1) - in.get(C::sha256_input_tag_diff_inv)) +
                                                  in.get(C::sha256_input_tag_diff_inv)) -
                         in.get(C::sha256_sel_invalid_input_row_tag_err));
             tmp *= scaling_factor;
-            std::get<42>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TAG_ERROR_INIT
-            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
-            auto tmp = sha256_LATCH_CONDITION *
-                       (in.get(C::sha256_sel_invalid_input_tag_err) - in.get(C::sha256_sel_invalid_input_row_tag_err));
-            tmp *= scaling_factor;
-            std::get<43>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TAG_ERROR_PROPAGATION
-            using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - sha256_LATCH_CONDITION) * (in.get(C::sha256_sel_invalid_input_tag_err) -
-                                                           in.get(C::sha256_sel_invalid_input_tag_err_shift));
-            tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::sha256_err) - (FF(1) - (FF(1) - in.get(C::sha256_sel_state_out_of_range_err)) *
-                                                      (FF(1) - in.get(C::sha256_sel_input_out_of_range_err)) *
-                                                      (FF(1) - in.get(C::sha256_sel_dst_out_of_range_err)) *
-                                                      (FF(1) - in.get(C::sha256_sel_invalid_state_tag_err)) *
-                                                      (FF(1) - in.get(C::sha256_sel_invalid_input_row_tag_err))));
+            auto tmp = in.get(C::sha256_sel) * sha256_LATCH_ON_ERROR * (in.get(C::sha256_latch) - FF(1));
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // TAG_ERROR_INIT
             using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
-            auto tmp = in.get(C::sha256_sel) * in.get(C::sha256_err) * (in.get(C::sha256_latch) - FF(1));
+            auto tmp = sha256_LATCH_CONDITION *
+                       (in.get(C::sha256_sel_invalid_input_tag_err) - in.get(C::sha256_sel_invalid_input_row_tag_err));
             tmp *= scaling_factor;
             std::get<46>(evals) += typename Accumulator::View(tmp);
+        }
+        { // TAG_ERROR_PROPAGATION
+            using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
+            auto tmp = (FF(1) - sha256_LATCH_CONDITION) * (in.get(C::sha256_sel_invalid_input_tag_err) -
+                                                           in.get(C::sha256_sel_invalid_input_tag_err_shift));
+            tmp *= scaling_factor;
+            std::get<47>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::sha256_err) - (FF(1) - (FF(1) - in.get(C::sha256_mem_out_of_range_err)) *
+                                                             (FF(1) - in.get(C::sha256_sel_invalid_state_tag_err)) *
+                                                             (FF(1) - in.get(C::sha256_sel_invalid_input_tag_err))));
+            tmp *= scaling_factor;
+            std::get<48>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -444,25 +459,25 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
             return "CONTINUITY_SPACE_ID";
         case 7:
             return "CONTINUITY_DST_ADDR";
-        case 13:
+        case 14:
             return "START_OR_LAST_MEM";
-        case 32:
+        case 33:
             return "BATCH_ZERO_CHECK";
-        case 34:
-            return "SEL_IS_INPUT_ROUND_START_COND";
         case 35:
-            return "SEL_IS_INPUT_END";
+            return "SEL_IS_INPUT_ROUND_START_COND";
         case 36:
-            return "SEL_IS_INPUT_PROPAGATE";
+            return "SEL_IS_INPUT_END";
         case 37:
-            return "INPUT_ROUND_CTR_START_COND";
+            return "SEL_IS_INPUT_PROPAGATE";
         case 38:
+            return "INPUT_ROUND_CTR_START_COND";
+        case 39:
             return "INPUT_ROUND_CTR_DECR_COND";
-        case 42:
-            return "INPUT_TAG_DIFF_CHECK";
-        case 43:
-            return "TAG_ERROR_INIT";
         case 44:
+            return "INPUT_TAG_DIFF_CHECK";
+        case 46:
+            return "TAG_ERROR_INIT";
+        case 47:
             return "TAG_ERROR_PROPAGATION";
         }
         return std::to_string(index);
@@ -474,16 +489,16 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
     static constexpr size_t SR_CONTINUITY_EXEC_CLK = 5;
     static constexpr size_t SR_CONTINUITY_SPACE_ID = 6;
     static constexpr size_t SR_CONTINUITY_DST_ADDR = 7;
-    static constexpr size_t SR_START_OR_LAST_MEM = 13;
-    static constexpr size_t SR_BATCH_ZERO_CHECK = 32;
-    static constexpr size_t SR_SEL_IS_INPUT_ROUND_START_COND = 34;
-    static constexpr size_t SR_SEL_IS_INPUT_END = 35;
-    static constexpr size_t SR_SEL_IS_INPUT_PROPAGATE = 36;
-    static constexpr size_t SR_INPUT_ROUND_CTR_START_COND = 37;
-    static constexpr size_t SR_INPUT_ROUND_CTR_DECR_COND = 38;
-    static constexpr size_t SR_INPUT_TAG_DIFF_CHECK = 42;
-    static constexpr size_t SR_TAG_ERROR_INIT = 43;
-    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 44;
+    static constexpr size_t SR_START_OR_LAST_MEM = 14;
+    static constexpr size_t SR_BATCH_ZERO_CHECK = 33;
+    static constexpr size_t SR_SEL_IS_INPUT_ROUND_START_COND = 35;
+    static constexpr size_t SR_SEL_IS_INPUT_END = 36;
+    static constexpr size_t SR_SEL_IS_INPUT_PROPAGATE = 37;
+    static constexpr size_t SR_INPUT_ROUND_CTR_START_COND = 38;
+    static constexpr size_t SR_INPUT_ROUND_CTR_DECR_COND = 39;
+    static constexpr size_t SR_INPUT_TAG_DIFF_CHECK = 44;
+    static constexpr size_t SR_TAG_ERROR_INIT = 46;
+    static constexpr size_t SR_TAG_ERROR_PROPAGATION = 47;
 };
 
 } // namespace bb::avm2

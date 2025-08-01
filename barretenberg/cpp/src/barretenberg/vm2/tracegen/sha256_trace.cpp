@@ -326,6 +326,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_sel_state_out_of_range_err, state_out_of_range ? 1 : 0 },
                           { C::sha256_sel_input_out_of_range_err, input_out_of_range ? 1 : 0 },
                           { C::sha256_sel_dst_out_of_range_err, dst_out_of_range ? 1 : 0 },
+                          { C::sha256_mem_out_of_range_err, 1 },
                           { C::sha256_err, 1 },   // Set the error flag
                           { C::sha256_latch, 1 }, // Latch is set on error
                       } });
@@ -422,7 +423,7 @@ void Sha256TraceBuilder::process(
 
         // Note that if we encountered an invalid tag error, the row that loaded the invalid tag needs to contain
         // sel_invalid_input_ROW_tag_err. And all the rows before need to contain sel_invalid_input_tag_err.
-        // The former enables is used to constrain the specific error, while the latter is used to propagate the error
+        // The former is used to constrain the specific error, while the latter is used to propagate the error
         // to the start row (to communicate back to execution) and to turn off any computation constraints.
         for (uint32_t i = 0; i < event.input.size(); i++) {
             uint32_t input_rounds_rem = 16 - i;
@@ -459,7 +460,7 @@ void Sha256TraceBuilder::process(
                           { C::sha256_sel_invalid_input_tag_err, invalid_tag_err ? 1 : 0 },
                           // Invalid Row Tag Error Columns
                           { C::sha256_sel_invalid_input_row_tag_err, (is_last && invalid_tag_err) ? 1 : 0 },
-                          { C::sha256_err, (is_last && invalid_tag_err) ? 1 : 0 },
+                          { C::sha256_err, invalid_tag_err ? 1 : 0 },
                           { C::sha256_latch, (is_last && invalid_tag_err) ? 1 : 0 },
                       } });
         }
