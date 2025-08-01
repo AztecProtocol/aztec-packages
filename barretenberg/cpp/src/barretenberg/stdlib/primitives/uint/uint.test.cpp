@@ -189,8 +189,6 @@ template <typename TestType> class stdlib_uint : public testing::Test {
                                 witness_ct(&builder, true),
                             });
 
-        EXPECT_EQ(a.at(0).get_value(), false);
-        EXPECT_EQ(a.at(7).get_value(), true);
         EXPECT_EQ(static_cast<uint32_t>(a.get_value()), 128U);
     }
 
@@ -1035,6 +1033,13 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
+
+            // If both dividend and divisor are constants and divisor is zero, we expect an exception to be thrown.
+            if (divisor_zero && (lhs_constant && rhs_constant)) {
+                EXPECT_THROW_OR_ABORT(c / d, "divide by zero with constant dividend and divisor");
+                return;
+            }
+
             uint_ct e = c / d;
             e = e.normalize();
 
@@ -1730,39 +1735,6 @@ template <typename TestType> class stdlib_uint : public testing::Test {
         bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
-
-    /**
-     * @brief Test the function uint_ct::at used to extract bits.
-     */
-    static void test_at()
-    {
-        Builder builder = Builder();
-
-        const auto bit_test = [&builder](const bool is_constant) {
-            // construct a sum of uint_ct's, where at least one is a constant,
-            // and validate its correctness bitwise
-            uint_native const_a = get_random();
-            uint_native a_val = get_random();
-            uint_native c_val = const_a + a_val;
-            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
-            uint_ct a_shift = uint_ct(&builder, const_a);
-            uint_ct c = a + a_shift;
-            for (size_t i = 0; i < uint_native_width; ++i) {
-                bool_ct result = c.at(i);
-                bool expected = (((c_val >> i) & 1UL) == 1UL) ? true : false;
-                EXPECT_EQ(result.get_value(), expected);
-                EXPECT_EQ(result.get_context(), c.get_context());
-            }
-        };
-
-        bit_test(false);
-        bit_test(true);
-
-        printf("builder gates = %zu\n", builder.get_estimated_num_finalized_gates());
-
-        bool proof_result = CircuitChecker::check(builder);
-        EXPECT_EQ(proof_result, true);
-    }
 };
 
 // Define the test types for all combinations
@@ -1937,8 +1909,4 @@ TYPED_TEST(stdlib_uint, test_ror)
 TYPED_TEST(stdlib_uint, test_rol)
 {
     TestFixture::test_rol();
-}
-TYPED_TEST(stdlib_uint, test_at)
-{
-    TestFixture::test_at();
 }

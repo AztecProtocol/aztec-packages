@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: done, auditors: [suyash], date: 2025-07-23 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -47,55 +47,64 @@ uint<Builder, Native> uint<Builder, Native>::operator>>(const size_t shift) cons
         return uint(context, (additive_constant >> shift) & MASK);
     }
 
-    if (witness_status != WitnessStatus::OK) {
-        normalize();
-    }
+    // Normalize before shifting.
+    normalize();
 
     if (shift == 0) {
         return *this;
     }
 
-    uint64_t bits_per_hi_limb;
-    // last limb will not likely bit `bits_per_limb`. Need to be careful with our range check
-    if (shift >= ((width / bits_per_limb) * bits_per_limb)) {
-        bits_per_hi_limb = width % bits_per_limb;
-    } else {
-        bits_per_hi_limb = bits_per_limb;
-    }
-    const uint64_t slice_bit_position = shift % bits_per_limb;
+    // Example for uint32_t:
+    //
+    //      |<------  acc[2]  ------>||<-----------   acc[1]  ----------->||<-------  acc[0]  ------->|
+    // val: [ 31 30 29 28 27 26 25 24  23 22 21 20 19 18 17 16 15 14 13 12  11 10 9 8 7 6 5 4 3 2 1 0 ]
+    //                                                         ↑
+    //      [<---------------        keep        --------------->][<--------     discard     -------->]
+    //
+    // out: [ 31 30 29 28 27 26 25 24  23 22 21 20 19 18 17 16 15 ]
+    //      |<------  acc[2]  ------>||<-----   acc[1].hi   ----->|
+    //
+    // Suppose the shift is 15, then we must discard the 15 least significant bits of the accumulator.
+    // The accumulator is split into three parts, so we clearly need to split acc[1]. On splitting, we must
+    // discard the lower slice of acc[1] and keep the upper slice. Thus, the updated uint value will be:
+    //
+    // acc[1].hi + (acc[2] << (24 - 15))
+    //
+    // Let us first fetch the accumlator that needs to be sliced.
     const size_t accumulator_index = shift / bits_per_limb;
-    const uint32_t slice_index = accumulators[accumulator_index];
-    const uint64_t slice_value = uint256_t(context->get_variable(slice_index)).data[0];
+    const uint32_t slice_witness_index = accumulators[accumulator_index];
+    const field_t<Builder> acc_to_be_sliced = field_t<Builder>::from_witness_index(context, slice_witness_index);
 
-    const uint64_t slice_lo = slice_value % (1ULL << slice_bit_position);
-    const uint64_t slice_hi = slice_value >> slice_bit_position;
-    const uint32_t slice_lo_idx = slice_bit_position ? context->add_variable(slice_lo) : context->zero_idx;
-    const uint32_t slice_hi_idx =
-        (slice_bit_position != bits_per_limb) ? context->add_variable(slice_hi) : context->zero_idx;
+    // Now, lets calculate:
+    // (i) bit position (from lsb) at which we need to slice.
+    // (ii) number of bits in the slice based on whether it is the highest slice or not.
+    const size_t slice_bit_position = shift % bits_per_limb;
+    const bool is_slice_hi = (accumulator_index == num_accumulators() - 1);
+    const uint8_t num_bits_per_limb = is_slice_hi ? bits_in_high_limb : bits_per_limb;
 
-    context->create_big_add_gate(
-        { slice_index, slice_lo_idx, context->zero_idx, slice_hi_idx, -1, 1, 0, (1 << slice_bit_position), 0 });
+    // Finally, we can slice the accumulator.
+    // The slice_hi will be the upper slice of the accumulator, which we will keep.
+    // The slice_lo will be the lower slice of the accumulator, which we will discard.
+    // Its important to note that although slice_lo is not used here, it is still created and properly constrained
+    // in the split_at function.
+    field_t<Builder> slice_hi = acc_to_be_sliced.split_at(slice_bit_position, num_bits_per_limb).second;
 
-    if (slice_bit_position != 0) {
-        context->create_new_range_constraint(slice_lo_idx, (1ULL << slice_bit_position) - 1);
-    }
-    context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_hi_limb - slice_bit_position)) - 1);
+    // Now we reconstruct the shifted uint value.
     std::vector<field_t<Builder>> sublimbs;
-    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_hi_idx));
+    sublimbs.emplace_back(slice_hi);
 
     const size_t start = accumulator_index + 1;
     field_t<Builder> coefficient(context, uint64_t(1ULL << (start * bits_per_limb - shift)));
     field_t<Builder> shifter(context, uint64_t(1ULL << bits_per_limb));
     for (size_t i = accumulator_index + 1; i < num_accumulators(); ++i) {
-        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
-                              field_t<Builder>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) * coefficient);
         coefficient *= shifter;
     }
 
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint result(context);
     result.witness_index = result_index;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
     return result;
 }
 
@@ -109,70 +118,69 @@ uint<Builder, Native> uint<Builder, Native>::operator<<(const size_t shift) cons
         return uint(context, (additive_constant << shift) & MASK);
     }
 
-    if (witness_status != WitnessStatus::OK) {
-        normalize();
-    }
+    // Normalize before shifting.
+    normalize();
 
     if (shift == 0) {
         return *this;
     }
 
-    uint64_t slice_bit_position;
-    size_t accumulator_index;
-    size_t bits_per_hi_limb;
-    // most significant limb is only 2 bits long (for u32), need to be careful about which slice we index,
-    // and how large the range check is on our hi limb
-    if (shift < (width - ((width / bits_per_limb) * bits_per_limb))) {
-        bits_per_hi_limb = width % bits_per_limb;
-        slice_bit_position = bits_per_hi_limb - (shift % bits_per_hi_limb);
-        accumulator_index = num_accumulators() - 1;
-    } else {
-        const size_t offset = width % bits_per_limb;
-        slice_bit_position = bits_per_limb - ((shift - offset) % bits_per_limb);
-        accumulator_index = num_accumulators() - 2 - ((shift - offset) / bits_per_limb);
-        bits_per_hi_limb = bits_per_limb;
-    }
+    // Example for uint32_t:
+    //
+    //      |<------  acc[2]  ------->||<-----------   acc[1]  ----------->||<-------  acc[0]  ------->|
+    // val: [ 31 30 29 28 27 26 25  24  23 22 21 20 19 18 17 16 15 14 13 12  11 10 9 8 7 6 5 4 3 2 1 0 ]
+    //                          ↑
+    //      [<----  discard  ---->][<----------------------        keep        ----------------------->]
+    //
+    // out: [       24        23 22 21 20 19 18 17 16 15 14 13 12  11 10 9 8 7 6 5 4 3 2 1 0 ]
+    //      [<- acc[2].lo ->||<-----------   acc[1]  ----------->||<-------  acc[0]  ------->|
+    //
+    // Suppose the shift is 7, then we must discard the 7 most significant bits of the accumulator, and move
+    // the remaining bits to the left. The accumulator is split into three parts, so in this case we clearly
+    // need to split acc[2]. On splitting, we must discard the higher slice of acc[2] and keep the lower slice.
+    // Thus, the updated uint value will be:
+    //
+    // (acc[2].lo << (24 + 7))  +  (acc[1] << (12 + 7))  +  (acc[0] << 7)
+    //
+    // Let us first fetch the accumulator that needs to be sliced.
+    // We will do so by adjusting the shift from the most-significant bit.
+    size_t adjusted_shift = width - shift;
+    const size_t accumulator_index = adjusted_shift / bits_per_limb;
+    const uint32_t slice_witness_index = accumulators[accumulator_index];
+    const field_t<Builder> acc_to_be_sliced = field_t<Builder>::from_witness_index(context, slice_witness_index);
 
-    const uint32_t slice_index = accumulators[accumulator_index];
-    const uint64_t slice_value = uint256_t(context->get_variable(slice_index)).data[0];
+    // Now, lets calculate:
+    // (i) bit position (from lsb) at which we need to slice.
+    // (ii) number of bits in the slice based on whether it is the highest slice or not.
+    const bool is_slice_hi = (accumulator_index == num_accumulators() - 1);
+    const size_t slice_bit_position = adjusted_shift % bits_per_limb;
+    const uint8_t num_bits_per_limb = is_slice_hi ? bits_in_high_limb : bits_per_limb;
 
-    const uint64_t slice_lo = slice_value % (1ULL << slice_bit_position);
-    const uint64_t slice_hi = slice_value >> slice_bit_position;
-    const uint32_t slice_lo_idx = slice_bit_position ? context->add_variable(slice_lo) : context->zero_idx;
-    const uint32_t slice_hi_idx =
-        (slice_bit_position != bits_per_hi_limb) ? context->add_variable(slice_hi) : context->zero_idx;
+    // We can now slice the accumulator.
+    field_t<Builder> slice_lo = acc_to_be_sliced.split_at(slice_bit_position, num_bits_per_limb).first;
 
-    context->create_big_add_gate(
-        { slice_index, slice_lo_idx, context->zero_idx, slice_hi_idx, -1, 1, 0, (1 << slice_bit_position), 0 });
-
-    context->create_new_range_constraint(slice_lo_idx, (1ULL << slice_bit_position) - 1);
-
-    if (slice_bit_position != bits_per_limb) {
-        context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_hi_limb - slice_bit_position)) - 1);
-    }
-
+    // Now we reconstruct the shifted uint value.
     std::vector<field_t<Builder>> sublimbs;
-    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_lo_idx) *
-                          field_t<Builder>(context, 1ULL << ((accumulator_index)*bits_per_limb + shift)));
+    sublimbs.emplace_back(slice_lo * field_t<Builder>(context, 1ULL << ((accumulator_index * bits_per_limb) + shift)));
 
     field_t<Builder> coefficient(context, uint64_t(1ULL << shift));
     field_t<Builder> shifter(context, uint64_t(1ULL << bits_per_limb));
     for (size_t i = 0; i < accumulator_index; ++i) {
-        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
-                              field_t<Builder>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) * coefficient);
         coefficient *= shifter;
     }
 
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint result(context);
     result.witness_index = result_index;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
     return result;
 }
 
 template <typename Builder, typename Native>
 uint<Builder, Native> uint<Builder, Native>::ror(const size_t target_rotation) const
 {
+    // Note: width is always a power of two, so we can use bitwise AND.
     const size_t rotation = target_rotation & (width - 1);
 
     const auto rotate = [](const uint256_t input, const uint64_t rot) {
@@ -185,64 +193,69 @@ uint<Builder, Native> uint<Builder, Native>::ror(const size_t target_rotation) c
         return uint(context, rotate(additive_constant, rotation));
     }
 
-    if (witness_status != WitnessStatus::OK) {
-        normalize();
-    }
+    // Normalize before ror.
+    normalize();
 
     if (rotation == 0) {
         return *this;
     }
 
-    const size_t shift = rotation;
-    uint64_t bits_per_hi_limb;
-    // last limb will not likely bit `bits_per_limb`. Need to be careful with our range check
-    if (shift >= ((width / bits_per_limb) * bits_per_limb)) {
-        bits_per_hi_limb = width % bits_per_limb;
-    } else {
-        bits_per_hi_limb = bits_per_limb;
-    }
-    const uint64_t slice_bit_position = shift % bits_per_limb;
+    // Example for uint32_t:
+    //
+    //      |<------  acc[2]  ------>||<-----------   acc[1]  ----------->||<-------  acc[0]  ------->|
+    // val: [ 31 30 29 28 27 26 25 24  23 22 21 20 19 18 17 16 15 14 13 12  11 10 9 8 7 6 5 4 3 2 1 0 ]
+    //                                                         ↑
+    //      [<---------------        keep        --------------->][<--------  right rotate   -------->]
+    //
+    // out: [  14   13   12   11 10 9 8 7 6 5 4 3 2 1 0 ] [ 31 30 29 28 27 26 25 24  23 22 21 20 19 18 17 16 15 ]
+    //      [<- acc[1].lo ->||<-------  acc[0]  ------->| |<------  acc[2]  ------>||<-----   acc[1].hi  ------>]
+    //
+    // Suppose the right-rotation is 15 (i.e., rotate = 15), then we must right-rotate the 15 least
+    // significant bits of the accumulator. The accumulator is split into three parts, so in this case we need to split
+    // acc[1]. On splitting, we must "rotate" the lower slice of acc[1] and keep the upper slice. Thus, the updated uint
+    // value will be:
+    //
+    // acc[1].hi + (acc[2] << (24 - 15)) + (acc[0] >> (32 - 15)) + (acc[1].lo >> (32 - 15 + 12))
+    //
+    // Let us first fetch the accumlator that needs to be sliced.
+    size_t shift = rotation;
     const size_t accumulator_index = shift / bits_per_limb;
-    const uint32_t slice_index = accumulators[accumulator_index];
-    const uint64_t slice_value = uint256_t(context->get_variable(slice_index)).data[0];
+    const uint32_t slice_witness_index = accumulators[accumulator_index];
+    const field_t<Builder> acc_to_be_sliced = field_t<Builder>::from_witness_index(context, slice_witness_index);
 
-    const uint64_t slice_lo = slice_value % (1ULL << slice_bit_position);
-    const uint64_t slice_hi = slice_value >> slice_bit_position;
-    const uint32_t slice_lo_idx = slice_bit_position ? context->add_variable(slice_lo) : context->zero_idx;
-    const uint32_t slice_hi_idx =
-        (slice_bit_position != bits_per_limb) ? context->add_variable(slice_hi) : context->zero_idx;
+    // Now, lets calculate:
+    // (i) bit position (from lsb) at which we need to slice.
+    // (ii) number of bits in the slice based on whether it is the highest slice or not.
+    const size_t slice_bit_position = shift % bits_per_limb;
+    const bool is_slice_hi = (accumulator_index == num_accumulators() - 1);
+    const uint8_t num_bits_per_limb = is_slice_hi ? bits_in_high_limb : bits_per_limb;
 
-    context->create_big_add_gate(
-        { slice_index, slice_lo_idx, context->zero_idx, slice_hi_idx, -1, 1, 0, (1 << slice_bit_position), 0 });
+    // Finally, we can slice the accumulator.
+    auto [slice_lo, slice_hi] = acc_to_be_sliced.split_at(slice_bit_position, num_bits_per_limb);
 
-    if (slice_bit_position != 0) {
-        context->create_new_range_constraint(slice_lo_idx, (1ULL << slice_bit_position) - 1);
-    }
-    context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_hi_limb - slice_bit_position)) - 1);
+    // Now we reconstruct the shifted uint value.
     std::vector<field_t<Builder>> sublimbs;
-    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_hi_idx));
+    sublimbs.emplace_back(slice_hi);
 
     const size_t start = accumulator_index + 1;
     field_t<Builder> coefficient(context, uint64_t(1ULL << (start * bits_per_limb - shift)));
     field_t<Builder> shifter(context, uint64_t(1ULL << bits_per_limb));
     for (size_t i = accumulator_index + 1; i < num_accumulators(); ++i) {
-        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
-                              field_t<Builder>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) * coefficient);
         coefficient *= shifter;
     }
 
     coefficient = field_t<Builder>(context, uint64_t(1ULL << (width - shift)));
     for (size_t i = 0; i < accumulator_index; ++i) {
-        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
-                              field_t<Builder>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) * coefficient);
         coefficient *= shifter;
     }
-    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_lo_idx) * field_t<Builder>(coefficient));
+    sublimbs.emplace_back(slice_lo * field_t<Builder>(coefficient));
 
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint result(context);
     result.witness_index = result_index;
-    result.witness_status = WitnessStatus::WEAK_NORMALIZED;
+    result.normalize();
     return result;
 }
 
@@ -348,8 +361,8 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
         }
     }
 
+    // Since we reconstruct accumulators from the lookup table, we don't need to normalize them here.
     result.witness_index = lookup[ColumnIdx::C3][0].get_witness_index();
-    result.witness_status = WitnessStatus::OK;
     return result;
 }
 

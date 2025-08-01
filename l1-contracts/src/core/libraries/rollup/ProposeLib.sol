@@ -48,6 +48,7 @@ struct InterimProposeValues {
   bytes32 payloadDigest;
   Epoch currentEpoch;
   bool isFirstBlockOfEpoch;
+  bool isTxsEnabled;
 }
 
 /**
@@ -95,9 +96,13 @@ library ProposeLib {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
-    FeeLib.updateL1GasFeeOracle();
-
     InterimProposeValues memory v;
+
+    v.isTxsEnabled = FeeLib.isTxsEnabled();
+    if (v.isTxsEnabled) {
+      // Since ignition have no TX's, we need not waste gas updating pricing oracle.
+      FeeLib.updateL1GasFeeOracle();
+    }
 
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly similar to blobCommitmentsHash,
     // see comment in BlobLib.sol -> validateBlobs().
@@ -110,8 +115,11 @@ library ProposeLib {
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setupEpoch(v.currentEpoch);
 
-    ManaBaseFeeComponents memory components =
-      getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+    ManaBaseFeeComponents memory components;
+    if (v.isTxsEnabled) {
+      // Since ignition have no TX's, we need not waste gas computing the fee components
+      components = getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
+    }
 
     v.payloadDigest = digest(
       ProposePayload({
@@ -149,13 +157,17 @@ library ProposeLib {
       STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, v.isFirstBlockOfEpoch
     );
 
-    FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
-      blockNumber,
-      _args.oracleInput.feeAssetPriceModifier,
-      header.totalManaUsed,
-      components.congestionCost,
-      components.proverCost
-    );
+    FeeHeader memory feeHeader;
+    if (v.isTxsEnabled) {
+      // Since ignition have no TX's, we need not waste gas deriving the fee header
+      feeHeader = FeeLib.computeFeeHeader(
+        blockNumber,
+        _args.oracleInput.feeAssetPriceModifier,
+        header.totalManaUsed,
+        components.congestionCost,
+        components.proverCost
+      );
+    }
 
     // Compute attestationsHash from the attestations
     v.attestationsHash = keccak256(abi.encode(_attestations));
@@ -174,14 +186,20 @@ library ProposeLib {
       })
     );
 
-    // @note  The block number here will always be >=1 as the genesis block is at 0
-    v.inHash = rollupStore.config.inbox.consume(blockNumber);
-    require(
-      header.contentCommitment.inHash == v.inHash,
-      Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
-    );
+    if (v.isTxsEnabled) {
+      // Since ignition will have no transactions there will be no method to consume or output message.
+      // Therefore we can ignore it as long as mana target is zero.
+      // Since the inbox is async, it must enforce its own check to not try to insert if ignition.
 
-    rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
+      // @note  The block number here will always be >=1 as the genesis block is at 0
+      v.inHash = rollupStore.config.inbox.consume(blockNumber);
+      require(
+        header.contentCommitment.inHash == v.inHash,
+        Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
+      );
+
+      rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
+    }
 
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }

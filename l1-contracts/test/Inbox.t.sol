@@ -26,6 +26,8 @@ contract InboxTest is Test {
   uint256 internal blockNumber = Constants.INITIAL_L2_BLOCK_NUM;
   bytes32 internal emptyTreeRoot;
 
+  uint256 internal manaTarget = 1e8;
+
   function setUp() public {
     address rollup = address(this);
     IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
@@ -44,6 +46,10 @@ contract InboxTest is Test {
       secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
       index: 0x01
     });
+  }
+
+  function getManaTarget() public view returns (uint256) {
+    return manaTarget;
   }
 
   function _divideAndRoundUp(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -76,6 +82,13 @@ contract InboxTest is Test {
   modifier checkInvariant() {
     _;
     assertLt(blockNumber, inbox.getInProgress());
+  }
+
+  function testRevertIfIgnition() public {
+    manaTarget = 0;
+
+    vm.expectRevert(Errors.Inbox__Ignition.selector);
+    inbox.sendL2Message(DataStructures.L2Actor({actor: 0, version: version}), 0, 0);
   }
 
   function testRevertIfNotConsumingFromRollup() public {
