@@ -137,12 +137,12 @@ class ClientIVC {
          * @brief Calculate the number of field elements needed for serialization
          * @return size_t Number of field elements
          */
-        size_t calc_num_frs() const
+        static size_t calc_num_frs()
         {
             size_t total = 0;
-            total += mega->calc_num_frs();
-            total += eccvm->calc_num_frs();
-            total += translator->calc_num_frs();
+            total += MegaVerificationKey::calc_num_frs();
+            total += ECCVMVerificationKey::calc_num_frs();
+            total += TranslatorVerificationKey::calc_num_frs();
             return total;
         }
 
@@ -312,13 +312,7 @@ inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
 {
     using serialize::read;
 
-    // Create a populated VK to get the correct size
-    // ClientIVC VK always has all three components
-    vk.mega = std::make_shared<ClientIVC::MegaVerificationKey>();
-    vk.eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>();
-    vk.translator = std::make_shared<ClientIVC::TranslatorVerificationKey>();
-
-    size_t num_frs = vk.calc_num_frs();
+    size_t num_frs = ClientIVC::VerificationKey::calc_num_frs();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<bb::fr> field_elements(num_frs);
