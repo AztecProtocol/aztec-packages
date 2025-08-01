@@ -493,30 +493,6 @@ class UltraFlavor {
         }
     };
 
-    // Serialization methods for UltraFlavor::VerificationKey
-    inline void read(uint8_t const*& it, UltraFlavor::VerificationKey& vk)
-    {
-        using serialize::read;
-
-        // First, read the field elements from the buffer
-        std::vector<bb::fr> field_elements;
-        read(it, field_elements);
-
-        // Then use from_field_elements to populate the verification key
-        vk.from_field_elements(field_elements);
-    }
-
-    inline void write(std::vector<uint8_t>& buf, UltraFlavor::VerificationKey const& vk)
-    {
-        using serialize::write;
-
-        // First, convert the verification key to field elements
-        auto field_elements = vk.to_field_elements();
-
-        // Then write the field elements to the buffer
-        write(buf, field_elements);
-    }
-
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
@@ -672,5 +648,29 @@ class UltraFlavor {
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
+
+// Serialization methods for UltraFlavor::VerificationKey
+inline void read(uint8_t const*& it, UltraFlavor::VerificationKey& vk)
+{
+    using serialize::read;
+
+    // First, read the field elements from the buffer
+    std::vector<bb::fr> field_elements;
+    read(it, field_elements);
+
+    // Then use from_field_elements to populate the verification key
+    vk.from_field_elements(field_elements);
+}
+
+inline void write(std::vector<uint8_t>& buf, UltraFlavor::VerificationKey const& vk)
+{
+    using serialize::write;
+
+    // First, convert the verification key to field elements
+    auto field_elements = vk.to_field_elements();
+
+    // Then write the field elements to the buffer
+    write(buf, field_elements);
+}
 
 } // namespace bb

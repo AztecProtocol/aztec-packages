@@ -197,7 +197,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     Response response;
     response.valid = true;
     std::string error_message = "Precomputed vk does not match computed vk for function " + circuit.name;
-    if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+    if (*computed_vk != *precomputed_vk) {
         response.valid = false;
         // Serialize via to_field_elements() then to_buffer()
         auto field_elements = computed_vk->to_field_elements();
