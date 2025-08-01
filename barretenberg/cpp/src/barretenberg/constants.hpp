@@ -37,7 +37,7 @@ static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
 // extra evaluations
 static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
 
-static constexpr uint32_t MERGE_PROOF_SIZE = 65; // used to ensure mock proofs are generated correctly
+static constexpr uint32_t MERGE_PROOF_SIZE = 49; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator

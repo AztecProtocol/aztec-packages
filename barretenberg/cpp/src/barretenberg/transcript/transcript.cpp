@@ -7,8 +7,8 @@
 #include "transcript.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 
-bb::NativeTranscriptParams::TranscriptType bb::NativeTranscriptParams::hash(
-    const std::vector<bb::NativeTranscriptParams::TranscriptType>& data)
+bb::NativeTranscriptParams::DataType bb::NativeTranscriptParams::hash(
+    const std::vector<bb::NativeTranscriptParams::DataType>& data)
 {
     return crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(data);
 }

@@ -13,6 +13,5 @@ pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
     let voting_contract_address =
         env.deploy("EasyPrivateVoting").with_public_initializer(admin, initializer_call_interface);
 
-    env.mine_block();
     (env, voting_contract_address, admin)
 }

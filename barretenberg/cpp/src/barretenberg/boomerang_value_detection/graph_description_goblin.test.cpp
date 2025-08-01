@@ -23,15 +23,16 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
+    using MergeCommitments = MergeVerifier::InputCommitments;
     using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
-    using MergeCommitments = GoblinRecursiveVerifier::MergeVerifier::WitnessCommitments;
+    using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ProverOutput {
         GoblinProof proof;
         Goblin::VerificationKey verifier_input;
-        std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments;
+        MergeCommitments merge_commitments;
     };
 
     /**
@@ -58,17 +59,19 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         GoblinMockCircuits::construct_simple_circuit(builder);
         goblin_final.op_queue->merge();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
-        std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments;
+        MergeCommitments merge_commitments;
         auto t_current = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();
+        auto T_prev = goblin_final.op_queue->construct_previous_ultra_ops_table_columns();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin_final.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
+            merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
+            merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
         return { goblin_final.prove(),
                  { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() },
-                 t_commitments };
+                 merge_commitments };
     }
 };
 
@@ -78,20 +81,21 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 {
-    auto [proof, verifier_input, t_commitments] = create_goblin_prover_output();
+    auto [proof, verifier_input, merge_commitments] = create_goblin_prover_output();
 
     Builder builder;
 
     // Merge commitments
-    MergeCommitments recursive_merge_commitments;
+    RecursiveMergeCommitments recursive_merge_commitments;
     for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
         recursive_merge_commitments.t_commitments[idx] =
-            RecursiveCommitment::from_witness(&builder, t_commitments[idx]);
+            RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
+        recursive_merge_commitments.T_prev_commitments[idx] =
+            RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
     }
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output =
-        verifier.verify(proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments);
     output.points_accumulator.set_public();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {

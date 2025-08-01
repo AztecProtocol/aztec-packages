@@ -42,7 +42,7 @@ template <typename T> constexpr size_t calc_num_bn254_frs()
  * @tparam T
  * @return constexpr size_t
  */
-template <typename T> constexpr size_t calc_num_uint256_t()
+template <typename T> constexpr size_t calc_num_uint256_ts()
 {
     if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bool, grumpkin::fr, bb::fr>) {
         return 1;
@@ -104,7 +104,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
     }
 }
 
-template <typename T> T convert_from_uint256_t(std::span<const uint256_t> uint256_vec)
+template <typename T> T convert_from_uint256_ts(std::span<const uint256_t> uint256_vec)
 {
     if constexpr (IsAnyOf<T, bool>) {
         BB_ASSERT_EQ(uint256_vec.size(), static_cast<size_t>(1));
@@ -114,11 +114,11 @@ template <typename T> T convert_from_uint256_t(std::span<const uint256_t> uint25
         return static_cast<T>(uint256_vec[0]);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
         using BaseField = typename T::Fq;
-        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_uint256_t<BaseField>();
-        BB_ASSERT_EQ(uint256_vec.size(), 2 * BASE_FIELD_SCALAR_SIZE);
+        constexpr size_t NUMBER_OF_ELEMENTS = calc_num_uint256_ts<BaseField>();
+        BB_ASSERT_EQ(uint256_vec.size(), 2 * NUMBER_OF_ELEMENTS);
         T val;
-        val.x = convert_from_uint256_t<BaseField>(uint256_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
-        val.y = convert_from_uint256_t<BaseField>(uint256_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
+        val.x = convert_from_uint256_ts<BaseField>(uint256_vec.subspan(0, NUMBER_OF_ELEMENTS));
+        val.y = convert_from_uint256_ts<BaseField>(uint256_vec.subspan(NUMBER_OF_ELEMENTS, NUMBER_OF_ELEMENTS));
         if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
             val.self_set_infinity();
         }
@@ -127,12 +127,11 @@ template <typename T> T convert_from_uint256_t(std::span<const uint256_t> uint25
     } else {
         // Array or Univariate
         T val;
-        constexpr size_t FieldScalarSize = calc_num_uint256_t<typename T::value_type>();
-        BB_ASSERT_EQ(uint256_vec.size(), FieldScalarSize * std::tuple_size<T>::value);
+        constexpr size_t ElementSize = calc_num_uint256_ts<typename T::value_type>();
+        BB_ASSERT_EQ(uint256_vec.size(), ElementSize * std::tuple_size<T>::value);
         size_t i = 0;
         for (auto& x : val) {
-            x = convert_from_uint256_t<typename T::value_type>(
-                uint256_vec.subspan(FieldScalarSize * i, FieldScalarSize));
+            x = convert_from_uint256_ts<typename T::value_type>(uint256_vec.subspan(ElementSize * i, ElementSize));
             ++i;
         }
         return val;

@@ -102,6 +102,11 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
         .subtrace_operation_id = AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS } },
     // EC
     { ExecutionOpCode::ECADD, { .subtrace_selector = SubtraceSel::ECC, .subtrace_operation_id = 0 } },
+    // Side effects
+    { ExecutionOpCode::EMITUNENCRYPTEDLOG,
+      { .subtrace_selector = SubtraceSel::EMITUNENCRYPTEDLOG, .subtrace_operation_id = 0 } },
+    { ExecutionOpCode::SENDL2TOL1MSG,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SENDL2TOL1MSG } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
@@ -129,6 +134,8 @@ FF get_subtrace_id(SubtraceSel subtrace_sel)
         return AVM_SUBTRACE_ID_KECCAKF1600;
     case SubtraceSel::GETCONTRACTINSTANCE:
         return AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
+    case SubtraceSel::EMITUNENCRYPTEDLOG:
+        return AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
     }
 
     // clangd will complain if we miss a case.
@@ -163,6 +170,8 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
         return C::execution_sel_execute_keccakf1600;
     case SubtraceSel::GETCONTRACTINSTANCE:
         return C::execution_sel_execute_get_contract_instance;
+    case SubtraceSel::EMITUNENCRYPTEDLOG:
+        return C::execution_sel_execute_emit_unencrypted_log;
     }
 
     // clangd will complain if we miss a case.

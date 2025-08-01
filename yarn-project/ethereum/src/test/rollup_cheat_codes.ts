@@ -5,7 +5,15 @@ import { createLogger } from '@aztec/foundation/log';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
+import {
+  type GetContractReturnType,
+  type Hex,
+  createPublicClient,
+  fallback,
+  getContract,
+  hexToBigInt,
+  http,
+} from 'viem';
 import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
@@ -174,10 +182,7 @@ export class RollupCheatCodes {
 
       // @note @LHerskind this is heavily dependent on the storage layout and size of values
       // The rollupStore is a struct and if the size of elements or the struct changes, this can break
-
-      // Convert string to bytes and then compute keccak256
-      const storageSlot = keccak256(Buffer.from('aztec.stf.storage', 'utf-8'));
-      const provenBlockNumberSlot = BigInt(storageSlot);
+      const provenBlockNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
 
       // Need to pack it as a single 32 byte word
       const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);

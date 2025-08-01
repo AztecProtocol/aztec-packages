@@ -66,7 +66,7 @@ void AvmProver::execute_log_derivative_inverse_round()
     bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {
         using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
         tasks.push_back([&]() {
-            AVM_TRACK_TIME(std::string("prove/execute_log_derivative_inverse_round/") + std::string(Relation::NAME),
+            AVM_TRACK_TIME(std::string("prove/log_derivative_inverse_round/") + std::string(Relation::NAME),
                            (compute_logderivative_inverse<FF, Relation>(
                                prover_polynomials, relation_parameters, key->circuit_size)));
         });
@@ -137,20 +137,20 @@ HonkProof AvmProver::construct_proof()
     execute_preamble_round();
 
     // Compute wire commitments.
-    AVM_TRACK_TIME("prove/execute_wire_commitments_round", execute_wire_commitments_round());
+    AVM_TRACK_TIME("prove/wire_commitments_round", execute_wire_commitments_round());
 
     // Compute log derivative inverses.
-    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_round", execute_log_derivative_inverse_round());
+    AVM_TRACK_TIME("prove/log_derivative_inverse_round", execute_log_derivative_inverse_round());
 
     // Compute commitments to logderivative inverse polynomials.
-    AVM_TRACK_TIME("prove/execute_log_derivative_inverse_commitments_round",
+    AVM_TRACK_TIME("prove/log_derivative_inverse_commitments_round",
                    execute_log_derivative_inverse_commitments_round());
 
     // Run sumcheck subprotocol.
-    AVM_TRACK_TIME("prove/execute_relation_check_rounds", execute_relation_check_rounds());
+    AVM_TRACK_TIME("prove/sumcheck", execute_relation_check_rounds());
 
     // Execute PCS.
-    AVM_TRACK_TIME("prove/execute_pcs_rounds", execute_pcs_rounds());
+    AVM_TRACK_TIME("prove/pcs_rounds", execute_pcs_rounds());
 
     return export_proof();
 }

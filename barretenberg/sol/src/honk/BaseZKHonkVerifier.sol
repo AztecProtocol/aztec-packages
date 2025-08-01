@@ -274,9 +274,12 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         */
         mem.batchedEvaluation = proof.geminiMaskingEval;
         mem.batchingChallenge = tp.rho;
-        scalars[1] = mem.unshiftedScalar.neg();
+        mem.unshiftedScalarNeg = mem.unshiftedScalar.neg();
+        mem.shiftedScalarNeg = mem.shiftedScalar.neg();
+
+        scalars[1] = mem.unshiftedScalarNeg;
         for (uint256 i = 0; i < NUMBER_UNSHIFTED; ++i) {
-            scalars[i + 2] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
+            scalars[i + 2] = mem.unshiftedScalarNeg * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
@@ -290,7 +293,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             uint256 scalarOff = i + SHIFTED_COMMITMENTS_START;
             uint256 evaluationOff = i + NUMBER_UNSHIFTED;
 
-            scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalar.neg() * mem.batchingChallenge);
+            scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalarNeg * mem.batchingChallenge);
             mem.batchedEvaluation =
                 mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
