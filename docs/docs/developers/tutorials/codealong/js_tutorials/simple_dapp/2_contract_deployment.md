@@ -42,12 +42,13 @@ Add this `balance_set.nr` file at `token/src/types/balance_set.nr`.
 
 ## Compile your contract
 
-We'll now use `aztec-nargo` to compile.
+We'll now compile and process our contract for use with Aztec.
 
-Now run the following from your contract folder (containing Nargo.toml):
+Run the following commands from your contract folder (containing Nargo.toml):
 
 ```sh
 aztec-nargo compile
+aztec-compile-contract
 ```
 
 ## Deploy your contracts

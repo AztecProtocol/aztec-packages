@@ -49,6 +49,7 @@ This will install the following tools:
 
 - **aztec** - launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
+- **aztec-compile-contract** - postprocessing tool for Aztec contracts (transpilation and VK generation).
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
 - **aztec-wallet** - a tool for interacting with the aztec network
 

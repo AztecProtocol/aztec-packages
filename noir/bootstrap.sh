@@ -16,8 +16,9 @@ export js_projects="
 "
 export js_include=$(printf " --include %s" $js_projects)
 
-# Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
-export GIT_COMMIT="0000000000000000000000000000000000000000"
+# Get the actual commit hash from the noir-repo-ref file
+#export GIT_COMMIT="$(git rev-parse --verify HEAD)-aztec"
+export GIT_COMMIT="$(git rev-parse --verify HEAD)"
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
