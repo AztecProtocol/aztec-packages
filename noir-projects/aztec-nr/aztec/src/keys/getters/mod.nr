@@ -84,7 +84,7 @@ mod test {
         random_keys_and_partial_address[12] =
             0x236703e2cb00a182e024e98e9f759231b556d25ff19f98896cebb69e9e678cc9;
 
-        let _ = OracleMock::mock("getPublicKeysAndPartialAddress").returns(
+        let _ = OracleMock::mock("utilityGetPublicKeysAndPartialAddress").returns(
             random_keys_and_partial_address.serialize(),
         );
         let _ = get_public_keys(account);
