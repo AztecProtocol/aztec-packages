@@ -343,7 +343,7 @@ function release {
   #   aztec-up => upload scripts to prod if dist tag is latest
   #   playground => publish if dist tag is latest.
   #   release-image => push docker image to dist tag.
-  #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
+  #   boxes/l1-contracts/aztec-nr => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
   echo_header "release all"
   set -x
@@ -359,6 +359,7 @@ function release {
     barretenberg/ts
     noir
     l1-contracts
+    noir-projects/aztec-nr
     yarn-project
     boxes
     aztec-up
