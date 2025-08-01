@@ -62,8 +62,8 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     read_return_data(read_idx);
 
     // add dummy mul accum op and an equality op
-    this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2);
-    this->queue_ecc_eq();
+    this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
+    this->queue_ecc_eq(/*in_finalize=*/true);
 }
 
 /**
@@ -107,13 +107,15 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_add_accum
  * @return ecc_op_tuple encoding the point and scalar inputs to the mul accum
  */
 template <typename FF>
-ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point, const FF& scalar)
+ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point,
+                                                          const FF& scalar,
+                                                          bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->mul_accumulate(point, scalar);
 
     // Add corresponding gates for the operation
-    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op, in_finalize);
     return op_tuple;
 }
 
@@ -123,13 +125,13 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_e
  *
  * @return ecc_op_tuple encoding the point to which equality has been asserted
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq()
+template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->eq_and_reset();
 
     // Add corresponding gates for the operation
-    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op, in_finalize);
     op_tuple.return_is_infinity = ultra_op.return_is_infinity;
     return op_tuple;
 }
@@ -155,7 +157,8 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
  * @param ultra_op Operation data expressed in the ultra format
  * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location.
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op)
+template <typename FF>
+ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize)
 {
     ecc_op_tuple op_tuple;
     op_tuple.op = get_ecc_op_idx(ultra_op.op_code);
@@ -166,6 +169,7 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     op_tuple.z_1 = this->add_variable(ultra_op.z_1);
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
+<<<<<<< HEAD
     // Set the indices for the op values for each of the two rows
     uint32_t op_val_idx_1 = op_tuple.op;    // genuine op code value
     uint32_t op_val_idx_2 = this->zero_idx; // second row value always set to 0
@@ -177,6 +181,15 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
 
     this->blocks.ecc_op.populate_wires(op_val_idx_1, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
+=======
+    if (in_finalize) {
+        update_vector_used_witnesses(
+            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
+    }
+
+    this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
+    for (auto& selector : this->blocks.ecc_op.selectors) {
+>>>>>>> 36b9cbc7e1 (protogalaxy for MegaCircuitBuilder)
         selector.emplace_back(0);
     }
 
