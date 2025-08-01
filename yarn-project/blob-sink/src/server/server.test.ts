@@ -183,7 +183,7 @@ describe('BlobSinkService', () => {
         {
           args: {
             versionedBlobHashes: [bufferToHex(blob.getEthVersionedBlobHash())],
-            archive: '0x5678',
+            headerHash: '0x5678',
             blockNumber: 1234n,
           } satisfies L2BlockProposedEvent,
         } as any,

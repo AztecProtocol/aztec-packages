@@ -54,7 +54,7 @@ export class InMemoryAttestationPool implements AttestationPool {
       // Perf: order and group by slot before insertion
       const slotNumber = attestation.payload.header.slotNumber;
 
-      const proposalId = attestation.archive.toString();
+      const proposalId = attestation.payload.header.hash().toString();
       const address = attestation.getSender();
 
       const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
@@ -144,7 +144,7 @@ export class InMemoryAttestationPool implements AttestationPool {
       const slotNumber = attestation.payload.header.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
       if (slotAttestationMap) {
-        const proposalId = attestation.archive.toString();
+        const proposalId = attestation.payload.header.hash().toString();
         const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
         if (proposalAttestationMap) {
           const address = attestation.getSender();
@@ -160,9 +160,9 @@ export class InMemoryAttestationPool implements AttestationPool {
     // We initialize slot-proposal mapping if it does not exist
     // This is important to ensure we can delete this proposal if there were not attestations for it
     const slotProposalMapping = getSlotOrDefault(this.attestations, blockProposal.slotNumber.toBigInt());
-    slotProposalMapping.set(blockProposal.payload.archive.toString(), new Map<string, BlockAttestation>());
+    slotProposalMapping.set(blockProposal.payload.header.hash().toString(), new Map<string, BlockAttestation>());
 
-    this.proposals.set(blockProposal.payload.archive.toString(), blockProposal);
+    this.proposals.set(blockProposal.payload.header.hash().toString(), blockProposal);
     return Promise.resolve();
   }
 

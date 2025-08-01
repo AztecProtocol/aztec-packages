@@ -1,4 +1,5 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import {
   BlockTagTooOldError,
   InboxContract,
@@ -9,7 +10,7 @@ import {
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
@@ -73,6 +74,7 @@ import {
   retrieveBlocksFromRollup,
   retrieveL1ToL2Message,
   retrieveL1ToL2Messages,
+  retrieveL2ProofsFromRollup,
   retrievedBlockToPublishedL2Block,
 } from './data_retrieval.js';
 import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
@@ -104,6 +106,13 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
   private initialSyncComplete: boolean = false;
+
+  /**
+   * Maximum expected L1 re-org depth based on Ethereum finality rules.
+   * Ethereum finality occurs after 2 epochs (~12.8 min = ~64 L1 blocks at 12s avg).
+   * We add a conservative buffer for edge cases and network conditions.
+   */
+  private static readonly MAX_L1_REORG_DEPTH = 80; // ~2 epochs + buffer
 
   public readonly tracer: Tracer;
 
@@ -340,6 +349,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
+
+    // Handle retroactive proof updates for existing blocks (always check, even if no new blocks)
+    await this.handleRetroactiveProofUpdates(currentL1BlockNumber);
 
     // After syncing has completed, update the current l1 block number and timestamp,
     // otherwise we risk announcing to the world that we've synced to a given point,
@@ -588,19 +600,30 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   private async handleL2blocks(blocksSynchedTo: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = await this.getBlockNumber();
-    const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
-      await this.rollup.status(BigInt(localPendingBlockNumber), { blockNumber: currentL1BlockNumber });
+
+    // Get initial rollup status for early checks and logging
+    const [
+      provenBlockNumber,
+      provenArchive,
+      pendingBlockNumber,
+      pendingHeaderHash,
+      headerHashForLocalPendingBlockNumber,
+      _, // provenEpochNumber - not used here
+      isLocalPendingBlockStale,
+    ] = (await this.rollup.status(BigInt(localPendingBlockNumber), {
+      blockNumber: currentL1BlockNumber,
+    })) as unknown as [bigint, string, bigint, string, string, bigint, boolean];
     const rollupStatus = {
       provenBlockNumber: Number(provenBlockNumber),
       provenArchive,
       pendingBlockNumber: Number(pendingBlockNumber),
-      pendingArchive,
+      pendingHeaderHash,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingBlockNumber,
       blocksSynchedTo,
       currentL1BlockNumber,
-      archiveForLocalPendingBlockNumber,
+      headerHashForLocalPendingBlockNumber,
       ...rollupStatus,
     });
 
@@ -616,35 +639,40 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         }
       }
 
-      const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
+      const localBlockAtTargetProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
 
       // Sanity check. I've hit what seems to be a state where the proven block is set to a value greater than the latest
       // synched block when requesting L2Tips from the archiver. This is the only place where the proven block is set.
       const synched = await this.store.getSynchedL2BlockNumber();
-      if (localBlockForDestinationProvenBlockNumber && synched < localBlockForDestinationProvenBlockNumber?.number) {
+      if (localBlockAtTargetProvenBlockNumber && synched < localBlockAtTargetProvenBlockNumber?.number) {
         this.log.error(
-          `Hit local block greater than last synched block: ${localBlockForDestinationProvenBlockNumber.number} > ${synched}`,
+          `Hit local block greater than last synched block: ${localBlockAtTargetProvenBlockNumber.number} > ${synched}`,
         );
       }
 
       this.log.trace(
-        `Local block for remote proven block ${provenBlockNumber} is ${
-          localBlockForDestinationProvenBlockNumber?.archive.root.toString() ?? 'undefined'
+        `Header hash of local block at remote proven block #${provenBlockNumber} is ${
+          localBlockAtTargetProvenBlockNumber?.header.toPropose().hash().toString() ?? 'undefined'
         }`,
       );
-
-      if (
-        localBlockForDestinationProvenBlockNumber &&
-        provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
-      ) {
+      if (localBlockAtTargetProvenBlockNumber) {
+        this.log.trace(
+          `Archive root of local block at remote proven block #${provenBlockNumber} is ${localBlockAtTargetProvenBlockNumber.archive.root.toString()}`,
+        );
+        this.log.trace(`Remote proven archive root is ${provenArchive}`);
+      }
+      const localArchiveRootMatch =
+        localBlockAtTargetProvenBlockNumber &&
+        provenArchive === localBlockAtTargetProvenBlockNumber.archive.root.toString();
+      this.log.trace(`Archive root comparison result: ${localArchiveRootMatch}`);
+      if (localArchiveRootMatch) {
         const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
         if (localProvenBlockNumber !== Number(provenBlockNumber)) {
           await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
           this.log.info(`Updated proven chain to block ${provenBlockNumber}`, {
             provenBlockNumber,
           });
-          const provenSlotNumber =
-            localBlockForDestinationProvenBlockNumber.header.globalVariables.slotNumber.toBigInt();
+          const provenSlotNumber = localBlockAtTargetProvenBlockNumber.header.globalVariables.slotNumber.toBigInt();
           const provenEpochNumber = getEpochAtSlot(provenSlotNumber, this.l1constants);
           this.emit(L2BlockSourceEvents.L2BlockProven, {
             type: L2BlockSourceEvents.L2BlockProven,
@@ -673,19 +701,20 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     await updateProvenBlock();
 
     // Related to the L2 reorgs of the pending chain. We are only interested in actually addressing a reorg if there
-    // are any state that could be impacted by it. If we have no blocks, there is no impact.
+    // is any state that could be impacted by it. If we have no blocks, there is no impact.
     if (localPendingBlockNumber > 0) {
       const localPendingBlock = await this.getBlock(localPendingBlockNumber);
       if (localPendingBlock === undefined) {
         throw new Error(`Missing block ${localPendingBlockNumber}`);
       }
 
-      const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingBlock.archive.root.toString();
+      const noBlockSinceLast =
+        localPendingBlock && pendingHeaderHash === localPendingBlock.header.toPropose().hash().toString();
       if (noBlockSinceLast) {
         // We believe the following line causes a problem when we encounter L1 re-orgs.
-        // Basically, by setting the synched L1 block number here, we are saying that we have
-        // processed all blocks up to the current L1 block number and we will not attempt to retrieve logs from
-        // this block again (or any blocks before).
+        // Basically, by setting the synched L1 block number here, we are saying that we have processed
+        // all blocks up to the current L1 block number and we will not attempt
+        // to retrieve logs from this block again (or any blocks before).
         // However, in the re-org scenario, our L1 node is temporarily lying to us and we end up potentially missing blocks
         // We must only set this block number based on actually retrieved logs.
         // TODO(#8621): Tackle this properly when we handle L1 Re-orgs.
@@ -694,7 +723,38 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         return rollupStatus;
       }
 
-      const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingBlock.archive.root.toString();
+      let localPendingBlockInChain = false;
+
+      if (!isLocalPendingBlockStale) {
+        // Use status() result for re-org detection when header hash is not stale
+        localPendingBlockInChain =
+          headerHashForLocalPendingBlockNumber === localPendingBlock.header.toPropose().hash().toString();
+      } else {
+        // If the header hash is stale, we can't reliably check for re-orgs using status().
+        // Instead, use L2BlockProposed events with parent header hash to detect chain continuity.
+        //
+        // When header hash is stale, it means:
+        // 1. We haven't hit a prune yet (circular storage is long enough for recent blocks)
+        // 2. But the specific block is too old to be in circular storage
+        // However, we can still detect L1 re-orgs by checking if recent L2BlockProposed events
+        // have parent header hashes that match our local chain
+
+        this.log.debug(
+          `Header hash is stale for block ${localPendingBlockNumber}, checking re-org via parent header hashes in last ${Archiver.MAX_L1_REORG_DEPTH} L1 blocks`,
+        );
+
+        // Look for L2BlockProposed events within maximum expected L1 re-org depth
+        const searchRangeStart = Math.max(0, Number(currentL1BlockNumber) - Archiver.MAX_L1_REORG_DEPTH);
+        const searchRangeEnd = Number(currentL1BlockNumber);
+
+        localPendingBlockInChain = await this.checkForReorgUsingL2Events(
+          localPendingBlockNumber,
+          localPendingBlock,
+          BigInt(searchRangeStart),
+          BigInt(searchRangeEnd),
+        );
+      }
+
       if (!localPendingBlockInChain) {
         // If our local pending block tip is not in the chain on L1 a "prune" must have happened
         // or the L1 have reorged.
@@ -709,9 +769,13 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
             break;
           }
 
-          const archiveAtContract = await this.rollup.archiveAt(BigInt(candidateBlock.number));
+          // Use header hash comparison instead of archive root comparison
+          const [, , , , headerHashAtContract, , isBlockStale] = (await this.rollup.status(
+            BigInt(candidateBlock.number),
+          )) as unknown as [bigint, string, bigint, string, string, bigint, boolean];
 
-          if (archiveAtContract === candidateBlock.archive.root.toString()) {
+          // If header hash is stale, we can't reliably compare, so we assume it doesn't match
+          if (!isBlockStale && headerHashAtContract === candidateBlock.header.toPropose().hash().toString()) {
             break;
           }
           tipAfterUnwind--;
@@ -749,6 +813,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         this.log,
       );
 
+      this.log.trace(
+        `Retrieved blocks header hashes: ${retrievedBlocks.map(b => b.header.hash().toString()).join(', ')}`,
+      );
+
       if (retrievedBlocks.length === 0) {
         // We are not calling `setBlockSynchedL1BlockNumber` because it may cause sync issues if based off infura.
         // See further details in earlier comments.
@@ -761,12 +829,25 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         `Retrieved ${retrievedBlocks.length} new L2 blocks between L1 blocks ${searchStartBlock} and ${searchEndBlock} with last processed L1 block ${lastProcessedL1BlockNumber}.`,
       );
 
-      const publishedBlocks = retrievedBlocks.map(b => retrievedBlockToPublishedL2Block(b));
+      // Find all proven blocks in the range
+      const provenBlocks = await retrieveL2ProofsFromRollup(
+        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+        this.publicClient,
+        searchStartBlock,
+        searchEndBlock,
+      );
+
+      const publishedBlocks = retrievedBlocks.map(b => {
+        const provenBlock = provenBlocks.retrievedData.find(pb => pb.l2BlockNumber === b.l2BlockNumber);
+        const archive = provenBlock?.archiveRoot;
+        return retrievedBlockToPublishedL2Block(b, archive);
+      });
 
       for (const block of publishedBlocks) {
         this.log.debug(`Ingesting new L2 block ${block.block.number} with ${block.block.body.txEffects.length} txs`, {
           blockHash: block.block.hash(),
           l1BlockNumber: block.l1.blockNumber,
+          headerHash: block.block.header.toPropose().hash().toString(),
           ...block.block.header.globalVariables.toInspect(),
           ...block.block.getStats(),
         });
@@ -1016,7 +1097,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /**
-   * Gets an l2 block.
+   * Gets an l2 block from local storage.
    * @param number - The block number to return.
    * @returns The requested L2 block.
    */
@@ -1245,6 +1326,202 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     //   this.log.info(`Clearing finalized L2 block number`);
     //   await this.store.setFinalizedL2BlockNumber(0);
     // }
+  }
+
+  /**
+   * Checks for L1/L2 re-orgs by examining L2BlockProposed events and reconstructing the chain.
+   * This is used when the header hash is stale and we can't rely on status() for re-org detection.
+   */
+  private async checkForReorgUsingL2Events(
+    localPendingBlockNumber: number,
+    localPendingBlock: L2Block,
+    fromL1Block: bigint,
+    toL1Block: bigint,
+  ): Promise<boolean> {
+    try {
+      // Get recent L2BlockProposed events
+      const l2BlockProposedLogs = await this.rollup.getContract().getEvents.L2BlockProposed(
+        {},
+        {
+          fromBlock: fromL1Block,
+          toBlock: toL1Block,
+        },
+      );
+
+      if (l2BlockProposedLogs.length === 0) {
+        this.log.debug(
+          `No L2BlockProposed events found for re-org check between L1 blocks ${fromL1Block}-${toL1Block}`,
+        );
+        return true; // Assume no re-org if no events found in recent range
+      }
+
+      // Sort events by block number (ascending) to build chain from genesis
+      const sortedLogs = l2BlockProposedLogs.sort((a, b) => Number(a.args.blockNumber) - Number(b.args.blockNumber));
+
+      // Build a map of block number to most recent event (in case of multiple events for same block)
+      const blockEvents = new Map<number, (typeof sortedLogs)[0]>();
+      for (const log of sortedLogs) {
+        const blockNum = Number(log.args.blockNumber);
+        const existing = blockEvents.get(blockNum);
+        if (!existing || log.blockNumber! > existing.blockNumber!) {
+          blockEvents.set(blockNum, log);
+        }
+      }
+
+      // Find the event for our local pending block
+      const ourBlockEvent = blockEvents.get(localPendingBlockNumber);
+      if (!ourBlockEvent) {
+        this.log.debug(
+          `No L2BlockProposed event found for our block ${localPendingBlockNumber}, checking parent chain`,
+        );
+        return await this.checkParentChainContinuity(localPendingBlockNumber, localPendingBlock, blockEvents);
+      }
+
+      // Check if our local block's header hash matches what's on L1
+      const ourLocalHeaderHash = localPendingBlock.header.toPropose().hash().toString();
+      const l1HeaderHash = ourBlockEvent.args.headerHash;
+
+      if (ourLocalHeaderHash !== l1HeaderHash) {
+        this.log.warn(`L2 re-org detected: header hash mismatch for block ${localPendingBlockNumber}`, {
+          localPendingBlockNumber,
+          ourLocalHeaderHash,
+          l1HeaderHash,
+          l1BlockNumber: ourBlockEvent.blockNumber,
+        });
+        return false;
+      }
+
+      // Verify parent chain continuity
+      return await this.checkParentChainContinuity(localPendingBlockNumber, localPendingBlock, blockEvents);
+    } catch (error) {
+      this.log.warn(`Error checking for re-org using L2 events, assuming re-org occurred`, { error });
+      return false; // Conservative: assume re-org if we can't check
+    }
+  }
+
+  /**
+   * Verifies that the parent chain is consistent by checking parent header hashes.
+   */
+  private async checkParentChainContinuity(
+    localPendingBlockNumber: number,
+    localPendingBlock: L2Block,
+    blockEvents: Map<number, any>,
+  ): Promise<boolean> {
+    // Special case: block 1 should have GENESIS_BLOCK_HEADER_HASH as parent
+    if (localPendingBlockNumber === 1) {
+      const block1Event = blockEvents.get(1);
+      if (block1Event) {
+        const expectedGenesisHash = new Fr(GENESIS_BLOCK_HEADER_HASH).toString();
+        const actualParentHash = block1Event.args.parentHeaderHash;
+
+        if (actualParentHash !== expectedGenesisHash) {
+          this.log.warn(`Block 1 parent header hash mismatch`, {
+            expected: expectedGenesisHash,
+            actual: actualParentHash,
+          });
+          return false;
+        }
+      }
+      return true; // Block 1 is valid if it exists and has correct parent
+    }
+
+    // For other blocks, check if any subsequent block references our block as parent
+    const ourLocalHeaderHash = localPendingBlock.header.toPropose().hash().toString();
+
+    // Look for the next block that should reference our block as parent
+    const nextBlockEvent = blockEvents.get(localPendingBlockNumber + 1);
+    if (nextBlockEvent) {
+      const nextBlockParentHash = nextBlockEvent.args.parentHeaderHash;
+
+      if (nextBlockParentHash !== ourLocalHeaderHash) {
+        this.log.warn(`Parent chain discontinuity detected`, {
+          localPendingBlockNumber,
+          ourLocalHeaderHash,
+          nextBlockNumber: localPendingBlockNumber + 1,
+          nextBlockParentHash,
+        });
+        return false;
+      }
+    }
+
+    // Also check if our block's expected parent exists and matches
+    if (localPendingBlockNumber > 1) {
+      const parentBlock = await this.getBlock(localPendingBlockNumber - 1);
+      const parentEvent = blockEvents.get(localPendingBlockNumber - 1);
+
+      if (parentBlock && parentEvent) {
+        const expectedParentHash = parentBlock.header.toPropose().hash().toString();
+        const ourBlockEvent = blockEvents.get(localPendingBlockNumber);
+
+        if (ourBlockEvent && ourBlockEvent.args.parentHeaderHash !== expectedParentHash) {
+          this.log.warn(`Our block's parent header hash doesn't match expected parent`, {
+            localPendingBlockNumber,
+            expectedParentHash,
+            actualParentHash: ourBlockEvent.args.parentHeaderHash,
+          });
+          return false;
+        }
+      }
+    }
+
+    return true; // Chain continuity verified
+  }
+
+  /**
+   * Handles retroactive proof updates for blocks that were synced before they were proven.
+   * When blocks are initially synced without proofs, they get stored with archive.root = Fr.ZERO.
+   * Later when they get proven, we need to update the stored blocks with the real archive roots.
+   */
+  private async handleRetroactiveProofUpdates(currentL1BlockNumber: bigint): Promise<void> {
+    try {
+      // Start searching from the last proven block's L1 location, since we want to find
+      // proofs for blocks that were synced but not yet proven
+      const lastProvenL2BlockNumber = await this.store.getProvenL2BlockNumber();
+      let searchFromL1Block: bigint;
+
+      if (lastProvenL2BlockNumber > 0) {
+        // Get the L1 block number where the last proven L2 block was published
+        const lastProvenBlock = await this.store.getPublishedBlock(lastProvenL2BlockNumber);
+        searchFromL1Block = lastProvenBlock?.l1.blockNumber ?? this.l1constants.l1StartBlock;
+      } else {
+        // No blocks proven yet, start from L1 genesis
+        searchFromL1Block = this.l1constants.l1StartBlock;
+      }
+
+      // Get all proof events from the L1 range starting after the last proven block
+      const provenBlocks = await retrieveL2ProofsFromRollup(
+        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+        this.publicClient,
+        searchFromL1Block,
+        currentL1BlockNumber,
+      );
+
+      if (provenBlocks.retrievedData.length === 0) {
+        return;
+      }
+
+      this.log.debug(`Found ${provenBlocks.retrievedData.length} proof events, checking for retroactive updates`);
+
+      // Check each proven block to see if we need to update it
+      for (const provenBlock of provenBlocks.retrievedData) {
+        const existingBlock = await this.store.getPublishedBlock(provenBlock.l2BlockNumber);
+
+        if (existingBlock && existingBlock.block.archive.root.equals(Fr.ZERO)) {
+          // Block exists but has zero archive - update it with the proven archive
+          await this.store.updateBlockArchive(provenBlock.l2BlockNumber, provenBlock.archiveRoot);
+
+          this.log.info(
+            `Updated block ${provenBlock.l2BlockNumber} with proven archive root ${provenBlock.archiveRoot.toString()}`,
+            {
+              blockNumber: provenBlock.l2BlockNumber,
+              archiveRoot: provenBlock.archiveRoot.toString(),
+            },
+          );
+        }
+      }
+    } catch (error) {
+      this.log.warn(`Error handling retroactive proof updates`, { error });
+    }
   }
 }
 
@@ -1579,5 +1856,9 @@ export class ArchiverStoreHelper
   }
   getLastL1ToL2Message(): Promise<InboxMessage | undefined> {
     return this.store.getLastL1ToL2Message();
+  }
+
+  updateBlockArchive(blockNumber: number, archiveRoot: Fr): Promise<boolean> {
+    return this.store.updateBlockArchive(blockNumber, archiveRoot);
   }
 }

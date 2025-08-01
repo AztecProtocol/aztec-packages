@@ -56,11 +56,11 @@ export interface Validator {
   createBlockProposal(
     blockNumber: number,
     header: ProposedBlockHeader,
-    archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
+    parentHeaderHash: Fr,
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
 
@@ -309,17 +309,30 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         return undefined;
       }
 
-      if (!proposal.payload.header.lastArchiveRoot.equals(parentBlock.archive.root)) {
-        this.log.warn(`Parent block archive root for proposal does not match, skipping attestation`, {
-          proposalLastArchiveRoot: proposal.payload.header.lastArchiveRoot.toString(),
-          parentBlockArchiveRoot: parentBlock.archive.root.toString(),
+      const parentHeaderHash = parentBlock.header.toPropose().hash();
+      if (proposal.parentHeaderHash && !proposal.parentHeaderHash.equals(parentHeaderHash)) {
+        this.log.warn(`Parent block header hash mismatch, skipping attestation`, {
+          proposalParentHeaderHash: proposal.parentHeaderHash.toString(),
+          localParentHeaderHash: parentHeaderHash.toString(),
+          parentBlockNumber: parentBlock.number,
           ...proposalInfo,
         });
         if (partOfCommittee) {
-          this.metrics.incFailedAttestations(1, 'parent_block_does_not_match');
+          this.metrics.incFailedAttestations(1, 'parent_header_hash_mismatch');
         }
         return undefined;
+      } else if (!proposal.parentHeaderHash && blockNumber > 1) {
+        this.log.warn(`Parent block header hash not found, skipping attestation`, {
+          parentBlockNumber: parentBlock.number,
+          ...proposalInfo,
+        });
+        return undefined;
       }
+      this.log.debug(`Parent block header hash validation successful`, {
+        parentBlockNumber: parentBlock.number,
+        parentHeaderHash: parentHeaderHash.toString(),
+        ...proposalInfo,
+      });
     }
 
     // Check that I have the same set of l1ToL2Messages as the proposal
@@ -424,13 +437,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
-
     // This function will throw an error if state updates do not match
-    if (!block.archive.root.equals(proposal.archive)) {
+    if (!block.header.toPropose().hash().equals(proposal.payload.header.hash())) {
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError(
-        proposal.archive,
-        block.archive.root,
+        proposal.payload.header.hash(),
+        block.header.toPropose().hash(),
         proposal.payload.stateReference,
         block.header.state,
       );
@@ -481,11 +493,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async createBlockProposal(
     blockNumber: number,
     header: ProposedBlockHeader,
-    archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
+    parentHeaderHash: Fr,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
@@ -495,11 +507,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const newProposal = await this.validationService.createBlockProposal(
       blockNumber,
       header,
-      archive,
       stateReference,
       txs,
       proposerAddress,
       options,
+      parentHeaderHash,
     );
     this.previousProposal = newProposal;
     return newProposal;
@@ -521,7 +533,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       throw new AttestationTimeoutError(0, required, slot);
     }
 
-    const proposalId = proposal.archive.toString();
+    const proposalId = proposal.payload.header.hash().toString();
     // adds attestations for all of my addresses locally
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
     await this.doAttestToProposal(proposal, inCommittee);

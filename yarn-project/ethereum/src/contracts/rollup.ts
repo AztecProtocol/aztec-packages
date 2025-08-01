@@ -485,12 +485,12 @@ export class RollupContract {
    *
    * @dev     Throws if unable to propose
    *
-   * @param archive - The archive that we expect to be current state
+   * @param lastHeaderHash - The hash of the last header that we expect to be current state
    * @return [slot, blockNumber] - If you can propose, the L2 slot number and L2 block number of the next Ethereum block,
    * @throws otherwise
    */
   public async canProposeAtNextEthBlock(
-    archive: Buffer,
+    lastHeaderHash: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
   ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
@@ -507,7 +507,7 @@ export class RollupContract {
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        args: [timeOfNextL1Slot, `0x${lastHeaderHash.toString('hex')}`],
         account,
       });
 
@@ -541,10 +541,6 @@ export class RollupContract {
   async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
     await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.canPruneAtTime([timestamp], options);
-  }
-
-  archive() {
-    return this.rollup.read.archive();
   }
 
   archiveAt(blockNumber: bigint) {

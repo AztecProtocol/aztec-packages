@@ -78,6 +78,14 @@ export interface ArchiverDataStore {
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
 
   /**
+   * Updates an existing block with its archive root when it gets proven.
+   * @param blockNumber - The block number to update.
+   * @param archiveRoot - The proven archive root.
+   * @returns True if the operation is successful.
+   */
+  updateBlockArchive(blockNumber: number, archiveRoot: Fr): Promise<boolean>;
+
+  /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).

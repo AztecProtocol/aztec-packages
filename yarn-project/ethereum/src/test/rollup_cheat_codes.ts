@@ -73,7 +73,6 @@ export class RollupCheatCodes {
     const provenNum = await rollup.getProvenBlockNumber();
     const validators = await rollup.getAttesters();
     const committee = await rollup.getCurrentEpochCommittee();
-    const archive = await rollup.archive();
     const slot = await this.getSlot();
     const epochNum = await rollup.getEpochNumberForSlotNumber(slot);
 
@@ -81,7 +80,6 @@ export class RollupCheatCodes {
     this.logger.info(`Proven block num: ${provenNum}`);
     this.logger.info(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
-    this.logger.info(`Archive: ${archive}`);
     this.logger.info(`Epoch num: ${epochNum}`);
     this.logger.info(`Slot: ${slot}`);
   }
@@ -191,6 +189,29 @@ export class RollupCheatCodes {
       this.logger.info(
         `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
       );
+    });
+  }
+
+  /**
+   * Sets the archive for a specific block number in the rollup storage.
+   * @param blockNumber - The block number to set the archive for
+   * @param archive - The archive value
+   */
+  public async setArchiveForBlock(blockNumber: number, archive: `0x${string}`) {
+    await this.ethCheatCodes.execWithPausedAnvil(async () => {
+      // Get the base storage slot for the rollup store
+      const storageSlot = keccak256(Buffer.from('aztec.stf.storage', 'utf-8'));
+      const baseSlot = BigInt(storageSlot);
+
+      // The archives mapping is at offset 1 in the RollupStore struct
+      // (after CompressedChainTips tips at offset 0)
+      const archivesMapSlot = baseSlot + 1n;
+
+      // Calculate the storage slot for archives[blockNumber]
+      const archiveSlot = this.ethCheatCodes.keccak256(archivesMapSlot, BigInt(blockNumber));
+
+      // Set the archive value
+      await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), archiveSlot, BigInt(archive));
     });
   }
 

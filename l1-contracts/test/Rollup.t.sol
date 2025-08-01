@@ -705,7 +705,6 @@ contract RollupTest is RollupBase {
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     ProposedHeader memory header = data.header;
-    bytes32 archive = data.archive;
 
     Timestamp realTs = header.timestamp;
     Timestamp badTs = realTs + Timestamp.wrap(1);
@@ -728,7 +727,6 @@ contract RollupTest is RollupBase {
   function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     ProposedHeader memory header = data.header;
-    bytes32 archive = data.archive;
 
     Timestamp realTs = header.timestamp;
 

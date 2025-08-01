@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,
   BlockProposal,
@@ -30,11 +30,11 @@ export class ValidationService {
   async createBlockProposal(
     blockNumber: number,
     header: ProposedBlockHeader,
-    archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
     proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
+    parentHeaderHash?: Fr,
   ): Promise<BlockProposal> {
     let payloadSigner: (payload: Buffer32) => Promise<Signature>;
     if (proposerAttesterAddress !== undefined) {
@@ -49,7 +49,8 @@ export class ValidationService {
 
     return BlockProposal.createProposalFromSigner(
       blockNumber,
-      new ConsensusPayload(header, archive, stateReference),
+      new ConsensusPayload(header, stateReference),
+      parentHeaderHash ?? Fr.ZERO,
       txHashes,
       options.publishFullTxs ? txs : undefined,
       payloadSigner,

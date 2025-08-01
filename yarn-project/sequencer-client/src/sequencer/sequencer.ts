@@ -288,7 +288,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     this.setState(SequencerState.PROPOSER_CHECK, undefined);
 
-    const chainTipArchive = syncedTo.archive;
     const newBlockNumber = syncedTo.blockNumber + 1;
 
     const { slot, ts, now } = this.publisher.epochCache.getEpochAndSlotInNextL1Slot();
@@ -362,28 +361,35 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
 
-    const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
-    if (canProposeCheck === undefined) {
-      this.log.warn(
-        `Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`,
-        syncLogData,
+    // Skip L1 validation for genesis case (no previous block to validate against)
+    if (syncedTo.block) {
+      const chainTipHeaderHash = syncedTo.block.header.toPropose().hash();
+      const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(
+        chainTipHeaderHash.toBuffer(),
+        proposerAddress,
       );
-      this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed' });
-      return;
-    } else if (canProposeCheck.slot !== slot) {
-      this.log.warn(
-        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${canProposeCheck.slot}.`,
-        { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
-      return;
-    } else if (canProposeCheck.blockNumber !== BigInt(newBlockNumber)) {
-      this.log.warn(
-        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.blockNumber}.`,
-        { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
-      return;
+      if (canProposeCheck === undefined) {
+        this.log.warn(
+          `Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`,
+          syncLogData,
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed' });
+        return;
+      } else if (canProposeCheck.slot !== slot) {
+        this.log.warn(
+          `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${canProposeCheck.slot}.`,
+          { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
+        return;
+      } else if (canProposeCheck.blockNumber !== BigInt(newBlockNumber)) {
+        this.log.warn(
+          `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.blockNumber}.`,
+          { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
+        return;
+      }
     }
 
     this.log.debug(
@@ -420,7 +426,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       proposer: proposerInNextSlot?.toString(),
       globalVariables: newGlobalVariables.toInspect(),
-      chainTipArchive,
+      chainTipHeaderHash: syncedTo.block?.header.toPropose().hash().toString(),
       blockNumber: newBlockNumber,
       slot,
     });
@@ -429,7 +435,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const proposalHeader = ProposedBlockHeader.from({
       ...newGlobalVariables,
       timestamp: newGlobalVariables.timestamp,
-      lastArchiveRoot: chainTipArchive,
+      lastArchiveRoot: syncedTo.archive,
       contentCommitment: ContentCommitment.empty(),
       totalManaUsed: Fr.ZERO,
     });
@@ -462,7 +468,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     } else {
       this.log.verbose(
         `Not enough txs to build block ${newBlockNumber} at slot ${slot} (got ${pendingTxCount} txs, need ${this.minTxsPerBlock})`,
-        { chainTipArchive, blockNumber: newBlockNumber, slot },
+        {
+          chainTipArchive: syncedTo.archive,
+          chainTipHeaderHash: syncedTo.block?.header.toPropose().hash().toString(),
+          blockNumber: newBlockNumber,
+          slot,
+        },
       );
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
@@ -697,15 +708,33 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
+
+    let parentHeaderHash: Fr | undefined;
+    const blockNumber = block.header.globalVariables.blockNumber;
+    if (blockNumber > 1) {
+      const parentBlock = await this.l2BlockSource.getBlock(blockNumber - 1);
+      if (parentBlock) {
+        parentHeaderHash = parentBlock.header.toPropose().hash();
+        this.log.debug(`Including parent header hash in proposal`, {
+          parentBlockNumber: blockNumber - 1,
+          parentHeaderHash: parentHeaderHash.toString(),
+        });
+      } else {
+        throw new Error(`Parent block ${blockNumber - 1} not found when creating proposal`);
+      }
+    } else {
+      parentHeaderHash = Fr.ZERO;
+    }
+
     const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
     const proposal = await this.validatorClient.createBlockProposal(
-      block.header.globalVariables.blockNumber,
+      blockNumber,
       block.header.toPropose(),
-      block.archive.root,
       block.header.state,
       txs,
       proposerAddress,
       blockProposalOptions,
+      parentHeaderHash,
     );
     if (!proposal) {
       const msg = `Failed to create block proposal`;
@@ -820,10 +849,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         return undefined;
       }
 
+      const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+
       return {
         block,
         blockNumber: block.number,
-        archive: block.archive.root,
+        archive,
         l1Timestamp,
       };
     } else {

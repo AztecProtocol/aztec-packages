@@ -1,6 +1,7 @@
 // Serde test for the block proposal type
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { makeBlockProposal } from '../tests/mocks.js';
@@ -11,11 +12,11 @@ import { ConsensusPayload } from './consensus_payload.js';
 
 class BackwardsCompatibleBlockProposal extends BlockProposal {
   constructor(payload: ConsensusPayload, signature: Signature) {
-    super(1, payload, signature, [], undefined);
+    super(1, payload, signature, Fr.ZERO, [], undefined);
   }
 
   oldToBuffer(): Buffer {
-    return serializeToBuffer([this.blockNumber, this.payload, this.signature, 0, []]);
+    return serializeToBuffer([this.blockNumber, this.payload, this.signature, Fr.ZERO, 0, []]);
   }
 
   static oldFromBuffer(buf: Buffer | BufferReader): BlockProposal {
@@ -24,6 +25,7 @@ class BackwardsCompatibleBlockProposal extends BlockProposal {
       reader.readNumber(),
       reader.readObject(ConsensusPayload),
       reader.readObject(Signature),
+      Fr.ZERO,
       reader.readArray(0, TxHash),
     );
   }
@@ -52,16 +54,21 @@ describe('Block Proposal serialization / deserialization', () => {
 
     const serializedWithTxs = proposalWithTxs.toBuffer();
     const serializedWithoutTxs = oldProposal.oldToBuffer();
-
     const deserializedWithTxs = BlockProposal.fromBuffer(serializedWithTxs);
     const deserializedWithoutTxs = BlockProposal.fromBuffer(serializedWithoutTxs);
 
     const oldDeserializedWithTxs = BackwardsCompatibleBlockProposal.oldFromBuffer(serializedWithTxs);
     const oldDeserializedWithoutTxs = BackwardsCompatibleBlockProposal.oldFromBuffer(serializedWithoutTxs);
 
-    expect(deserializedWithTxs.archive).toEqual(deserializedWithoutTxs.archive);
-    expect(deserializedWithoutTxs.archive).toEqual(oldDeserializedWithTxs.archive);
-    expect(oldDeserializedWithTxs.archive).toEqual(oldDeserializedWithoutTxs.archive);
+    expect(deserializedWithTxs.payload.header.hash().toString()).toEqual(
+      deserializedWithoutTxs.payload.header.hash().toString(),
+    );
+    expect(deserializedWithoutTxs.payload.header.hash().toString()).toEqual(
+      oldDeserializedWithTxs.payload.header.hash().toString(),
+    );
+    expect(oldDeserializedWithTxs.payload.header.hash().toString()).toEqual(
+      oldDeserializedWithoutTxs.payload.header.hash().toString(),
+    );
   });
 
   it('Should serialize / deserialize + recover sender', async () => {

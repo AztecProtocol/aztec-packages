@@ -305,7 +305,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   function getBlock() internal returns (Block memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
-    bytes32 archiveRoot = getFakeArchive(rollup.getPendingBlockNumber() + 1);
 
     ProposedHeader memory header = full.block.header;
 

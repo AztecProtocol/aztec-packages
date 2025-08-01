@@ -65,7 +65,7 @@ export class KvAttestationPool implements AttestationPool {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
-        const proposalId = attestation.archive;
+        const proposalId = attestation.payload.header.hash();
         const address = attestation.getSender().toString();
 
         await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
@@ -175,7 +175,7 @@ export class KvAttestationPool implements AttestationPool {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
-        const proposalId = attestation.archive;
+        const proposalId = attestation.payload.header.hash();
         const address = attestation.getSender().toString();
         const key = this.getAttestationKey(slotNumber, proposalId, address);
 
@@ -208,8 +208,9 @@ export class KvAttestationPool implements AttestationPool {
 
   public async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
     await this.store.transactionAsync(async () => {
-      await this.proposalsForSlot.set(blockProposal.slotNumber.toString(), blockProposal.archive.toString());
-      await this.proposals.set(blockProposal.payload.archive.toString(), blockProposal.toBuffer());
+      const proposalId = blockProposal.payload.header.hash().toString();
+      await this.proposalsForSlot.set(blockProposal.slotNumber.toString(), proposalId);
+      await this.proposals.set(proposalId, blockProposal.toBuffer());
     });
   }
 }

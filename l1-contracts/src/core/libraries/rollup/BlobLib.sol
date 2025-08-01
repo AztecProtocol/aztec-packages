@@ -60,7 +60,7 @@ library BlobLib {
    * input[0] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
-   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.
+   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overridden in tests.
    * Returns for proposal:
    * @return blobHashes - All of the blob hashes included in this block, to be emitted in L2BlockProposed event.
    * @return blobsHashesCommitment - A hash of all blob hashes in this block, to be included in the block header. See comment at the end of this fn for more info.
