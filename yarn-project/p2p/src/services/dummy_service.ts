@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { Gossipable, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -122,6 +123,9 @@ export class DummyP2PService implements P2PService {
   handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
     return Promise.resolve(StatusMessage.random());
   }
+
+  //this is no-op
+  registerThisValidatorAddresses(_address: EthAddress[]): void {}
 }
 
 /**
@@ -192,10 +196,9 @@ export class DummyPeerManager implements PeerManagerInterface {
       }));
   }
 
-  public initializePeers(): void {
-    return;
+  public initializePeers(): Promise<void> {
+    return Promise.resolve();
   }
-
   public getPeerScore(_peerId: string): number {
     return 0;
   }
@@ -218,6 +221,9 @@ export class DummyPeerManager implements PeerManagerInterface {
   public handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
     return Promise.resolve(StatusMessage.random());
   }
+
+  //this is no-op
+  registerThisValidatorAddresses(_address: EthAddress[]): void {}
 }
 
 export class DummyReqResp implements ReqRespInterface {

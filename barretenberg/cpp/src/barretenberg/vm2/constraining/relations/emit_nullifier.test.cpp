@@ -85,6 +85,13 @@ TEST(EmitNullifierConstrainingTest, LimitReached)
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_nullifier>(trace, emit_nullifier::SR_OPCODE_ERROR_IF_LIMIT_ERROR),
                               "OPCODE_ERROR_IF_LIMIT_ERROR");
+    trace.set(C::execution_sel_opcode_error, 0, 1);
+
+    // Negative test: nullifier tree root must be the same
+    trace.set(C::execution_nullifier_tree_root, 0, 28);
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<emit_nullifier>(trace, emit_nullifier::SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED),
+        "EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED");
 
     // Negative test: tree size must be the same
     trace.set(C::execution_nullifier_tree_size, 0, 2);

@@ -173,6 +173,27 @@ library AddressSnapshotLib {
   }
 
   /**
+   * @notice Gets the address at a specific index and timestamp
+   *
+   * @dev     The caller MUST have ensure that `_index` < `size`
+   *          at the `_timestamp` provided.
+   * @dev     Primed for recent checkpoints in the address history.
+   *
+   * @param _self The storage reference to the set
+   * @param _index The index to query
+   * @param _timestamp The timestamp to query
+   * @return address The address at the given index and timestamp
+   */
+  function unsafeGetRecentAddressFromIndexAtTimestamp(
+    SnapshottedAddressSet storage _self,
+    uint256 _index,
+    uint32 _timestamp
+  ) internal view returns (address) {
+    uint224 addr = _self.indexToAddressHistory[_index].upperLookupRecent(_timestamp);
+    return address(addr.toUint160());
+  }
+
+  /**
    * @notice Gets the current size of the set
    * @param _self The storage reference to the set
    * @return uint256 The number of addresses in the set

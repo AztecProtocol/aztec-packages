@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -15,15 +16,16 @@ import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
-import type { Libp2p, PeerId } from '@libp2p/interface';
-import { peerIdFromPrivateKey, peerIdFromString } from '@libp2p/peer-id';
+import type { PeerId } from '@libp2p/interface';
+import { peerIdFromString } from '@libp2p/peer-id';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
-import { createSecp256k1PeerId, createSecp256k1PrivateKey } from '../../util.js';
+import type { FullLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { AuthRequest, AuthResponse, GoodByeReason, StatusMessage } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
@@ -42,7 +44,6 @@ describe('PeerManager', () => {
   };
 
   const mockEpochCache = mock<EpochCache>();
-  mockEpochCache.getRegisteredValidators.mockResolvedValue([]);
 
   let mockReqResp: MockProxy<ReqResp>;
 
@@ -61,6 +62,8 @@ describe('PeerManager', () => {
     mockLibP2PNode.getDialQueue.mockReturnValue([]);
     mockLibP2PNode.getConnections.mockReturnValue([]);
 
+    mockEpochCache.getRegisteredValidators.mockResolvedValue([]);
+
     // Capture the callback for discovered peers
     mockPeerDiscoveryService.on.mockImplementation((event: string, callback: any) => {
       if ((event as PeerEvent) === PeerEvent.DISCOVERED) {
@@ -78,8 +81,8 @@ describe('PeerManager', () => {
   });
 
   const createMockENR = async () => {
-    const privateKey = await createSecp256k1PrivateKey();
-    const enr = SignableENR.createFromPrivateKey(privateKey);
+    const peerId = await createSecp256k1PeerId();
+    const enr = SignableENR.createFromPeerId(peerId);
     // Add required TCP multiaddr
     enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
     return enr.toENR();
@@ -262,7 +265,7 @@ describe('PeerManager', () => {
 
     it('should include timed out peers in getPeers when includePending is true', async () => {
       const enr = await createMockENR();
-      const peerId = enr.peerId;
+      const peerId = await enr.peerId();
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));
 
       // Fail three times to trigger timeout
@@ -279,8 +282,8 @@ describe('PeerManager', () => {
     it('should handle multiple peer discoveries and timeouts', async () => {
       const enr1 = await createMockENR();
       const enr2 = await createMockENR();
-      const peerId1 = enr1.peerId;
-      const peerId2 = enr2.peerId;
+      const peerId1 = await enr1.peerId();
+      const peerId2 = await enr2.peerId();
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));
 
       // Fail peer1 three times
@@ -799,14 +802,13 @@ describe('PeerManager', () => {
     });
 
     it('should initialize private peers from config', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [enr]);
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       const isPrivatePeer = (newPeerManager as any).isPrivatePeer.bind(newPeerManager);
 
@@ -910,14 +912,16 @@ describe('PeerManager', () => {
     });
 
     it('should initialize preferred peers from config', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
+      const validatorAddress = [EthAddress.random()];
+      mockEpochCache.getRegisteredValidators.mockResolvedValue(validatorAddress);
       const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [enr]);
 
-      newPeerManager.initializePeers();
+      newPeerManager.registerThisValidatorAddresses(validatorAddress);
+      await newPeerManager.heartbeat();
 
       const isPreferredPeer = (newPeerManager as any).isPreferredPeer.bind(newPeerManager);
 
@@ -938,13 +942,15 @@ describe('PeerManager', () => {
     });
 
     it('should accept auth from preferred peer', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
       const blockHash = randomBytes(32).toString('hex');
+
+      const validatorAddress = [EthAddress.random()];
+      mockEpochCache.getRegisteredValidators.mockResolvedValue(validatorAddress);
 
       const newPeerManager = createMockPeerManager(
         'test',
@@ -958,7 +964,9 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      newPeerManager.registerThisValidatorAddresses(validatorAddress);
+
+      await newPeerManager.heartbeat();
 
       // We should return a valid status message as this is a preferred peer
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
@@ -969,8 +977,8 @@ describe('PeerManager', () => {
     });
 
     it('should not accept auth from non-preferred peer', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
@@ -988,7 +996,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       const someOtherPeer = await createSecp256k1PeerId();
 
@@ -1001,10 +1009,8 @@ describe('PeerManager', () => {
       const protocolVersion = '1.2.3';
       const blockHash = randomBytes(32).toString('hex');
 
-      const privateKey = await createSecp256k1PrivateKey();
-      const privatePeerId = peerIdFromPrivateKey(privateKey);
-      const privatePeerEnr = SignableENR.createFromPrivateKey(privateKey);
-
+      const privatePeerId = await createSecp256k1PeerId();
+      const privatePeerEnr = SignableENR.createFromPeerId(privatePeerId);
       privatePeerEnr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8001'));
 
       const newPeerManager = createMockPeerManager(
@@ -1019,7 +1025,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1059,10 +1065,8 @@ describe('PeerManager', () => {
       const protocolVersion = '1.2.3';
       const blockHash = randomBytes(32).toString('hex');
 
-      const privateKey = await createSecp256k1PrivateKey();
-      const trustedPeerId = peerIdFromPrivateKey(privateKey);
-      const trustedPeerEnr = SignableENR.createFromPrivateKey(privateKey);
-
+      const trustedPeerId = await createSecp256k1PeerId();
+      const trustedPeerEnr = SignableENR.createFromPeerId(trustedPeerId);
       trustedPeerEnr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8001'));
 
       const newPeerManager = createMockPeerManager(
@@ -1077,7 +1081,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1117,11 +1121,12 @@ describe('PeerManager', () => {
       const protocolVersion = '1.2.3';
       const blockHash = randomBytes(32).toString('hex');
 
-      const privateKey = await createSecp256k1PrivateKey();
-      const preferredPeerId = peerIdFromPrivateKey(privateKey);
-      const preferredPeerEnr = SignableENR.createFromPrivateKey(privateKey);
-
+      const preferredPeerId = await createSecp256k1PeerId();
+      const preferredPeerEnr = SignableENR.createFromPeerId(preferredPeerId);
       preferredPeerEnr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8001'));
+
+      const validatorAddress = [EthAddress.random()];
+      mockEpochCache.getRegisteredValidators.mockResolvedValue(validatorAddress);
 
       const newPeerManager = createMockPeerManager(
         'test',
@@ -1135,7 +1140,8 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      newPeerManager.registerThisValidatorAddresses(validatorAddress);
+      await newPeerManager.heartbeat();
 
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
@@ -1172,9 +1178,8 @@ describe('PeerManager', () => {
     });
 
     it('should send auth request', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
@@ -1192,7 +1197,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       let receivedAuth: AuthRequest | undefined;
 
@@ -1226,9 +1231,8 @@ describe('PeerManager', () => {
     });
 
     it('should not authenticate peer if auth handshake request fails', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
@@ -1246,7 +1250,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       // Mock the auth request to fail
       mockReqResp.sendRequestToPeer.mockImplementation(
@@ -1279,9 +1283,8 @@ describe('PeerManager', () => {
     });
 
     it('should authenticate peer if auth handshake succeeds', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
@@ -1299,7 +1302,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1351,9 +1354,8 @@ describe('PeerManager', () => {
     });
 
     it('should fail to authenticate peer if signer address is not a validator', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
@@ -1371,7 +1373,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1422,9 +1424,8 @@ describe('PeerManager', () => {
     });
 
     it('should remove authentication if peer is no longer a registered validator', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
@@ -1442,7 +1443,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1502,9 +1503,8 @@ describe('PeerManager', () => {
     });
 
     it('should remove authentication if peer is disconnected', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       const protocolVersion = '1.2.3';
@@ -1522,7 +1522,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1595,15 +1595,13 @@ describe('PeerManager', () => {
     });
 
     it('only one peer can authenticate with a given validator key', async () => {
-      const privateKey = await createSecp256k1PrivateKey();
-      const peerId = peerIdFromPrivateKey(privateKey);
-      const enr = SignableENR.createFromPrivateKey(privateKey);
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
       enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
 
       // This second peer will attempt to use the same validator key
-      const privateKey2 = await createSecp256k1PrivateKey();
-      const peerId2 = peerIdFromPrivateKey(privateKey2);
-      const enr2 = SignableENR.createFromPrivateKey(privateKey2);
+      const peerId2 = await createSecp256k1PeerId();
+      const enr2 = SignableENR.createFromPeerId(peerId2);
       enr2.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8001'));
 
       const protocolVersion = '1.2.3';
@@ -1621,7 +1619,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
-      newPeerManager.initializePeers();
+      await newPeerManager.initializePeers();
 
       // create an ethereum private key and sign the challenge using it
       const ethPrivateKey = generatePrivateKey();
@@ -1705,6 +1703,249 @@ describe('PeerManager', () => {
     });
   });
 
+  describe('auth handshake failure limiting', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should allow connection when failed attempts are below threshold', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Mark auth handshake as failed once (should be below threshold)
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(true);
+      expect(peerManager.isNodeAllowedToConnect('192.168.1.100')).toBe(true);
+    });
+
+    it('should deny connection when failed attempts exceed threshold', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      // Mock connection to provide IP address
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const peerManager = createMockPeerManager('test', mockLibP2PNode, 3);
+
+      // Mark auth handshake as failed 4 times (exceeding default threshold of 3)
+      for (let i = 0; i < 4; i++) {
+        (peerManager as any).markAuthHandshakeFailed(peerId);
+      }
+
+      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
+      expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+    });
+
+    it('should increment failure counters on subsequent failures', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Mark auth handshake as failed multiple times
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.get(peerIdStr).count).toBe(3);
+      expect(failedHandshakes.get(ipAddress).count).toBe(3);
+    });
+
+    it('should clear failure counters on successful auth handshake', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Mark auth handshake as failed
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      // Verify counters are set
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.has(peerIdStr)).toBe(true);
+      expect(failedHandshakes.has(ipAddress)).toBe(true);
+
+      // Mark auth handshake as successful
+      (peerManager as any).markAuthHandshakeSuccess(peerId);
+
+      // Verify counters are cleared
+      expect(failedHandshakes.has(peerIdStr)).toBe(false);
+      expect(failedHandshakes.has(ipAddress)).toBe(false);
+    });
+
+    it('should allow connection after failure entries expire', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress = '192.168.1.100';
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const configuredPeerManager = createMockPeerManager('test', mockLibP2PNode, 3);
+
+      // Fail auth handshake enough times to trigger denial
+      for (let i = 0; i < 4; i++) {
+        (configuredPeerManager as any).markAuthHandshakeFailed(peerId);
+      }
+
+      // Should be denied
+      expect(configuredPeerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
+      expect(configuredPeerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+
+      // Advance time past expiry (1 hour + 1 minute)
+      jest.advanceTimersByTime(61 * 60 * 1000);
+
+      // Should now be allowed again
+      expect(configuredPeerManager.isNodeAllowedToConnect(peerIdStr)).toBe(true);
+      expect(configuredPeerManager.isNodeAllowedToConnect(ipAddress)).toBe(true);
+
+      // Verify entries were cleaned up
+      const failedHandshakes = (configuredPeerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.has(peerIdStr)).toBe(false);
+      expect(failedHandshakes.has(ipAddress)).toBe(false);
+    });
+
+    it('should handle multiple IP addresses for same peer', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+      const ipAddress1 = '192.168.1.100';
+      const ipAddress2 = '192.168.1.101';
+
+      // First failure from IP1
+      mockLibP2PNode.getConnections.mockReturnValue([
+        {
+          remoteAddr: { nodeAddress: () => ({ address: ipAddress1 }) },
+        },
+      ]);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      // Second failure from IP2
+      mockLibP2PNode.getConnections.mockReturnValue([
+        {
+          remoteAddr: { nodeAddress: () => ({ address: ipAddress2 }) },
+        },
+      ]);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      expect(failedHandshakes.get(peerIdStr).count).toBe(2);
+      expect(failedHandshakes.get(ipAddress1).count).toBe(1);
+      expect(failedHandshakes.get(ipAddress2).count).toBe(1);
+    });
+
+    it('should update timestamp on repeated failures', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      // Mock connection
+      mockLibP2PNode.getConnections.mockReturnValue([
+        {
+          remoteAddr: { nodeAddress: () => ({ address: '192.168.1.100' }) },
+        },
+      ]);
+
+      // First failure
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const failedHandshakes = (peerManager as any).failedAuthHandshakes;
+      const firstTimestamp = failedHandshakes.get(peerIdStr).lastFailureTimestamp;
+
+      // Advance time
+      jest.advanceTimersByTime(10000);
+
+      // Second failure
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const secondTimestamp = failedHandshakes.get(peerIdStr).lastFailureTimestamp;
+
+      expect(secondTimestamp).toBeGreaterThan(firstTimestamp);
+      expect(failedHandshakes.get(peerIdStr).count).toBe(2);
+    });
+
+    it('should handle auth failure during actual handshake process', async () => {
+      jest.useRealTimers(); // needed here to allow sleep couple of lines below
+      const peerId = await createSecp256k1PeerId();
+      const ipAddress = '1.2.3.4';
+
+      const ethPrivateKey = generatePrivateKey();
+      const signer = new Secp256k1Signer(Buffer32.fromString(ethPrivateKey));
+
+      mockEpochCache.getRegisteredValidators.mockResolvedValue([signer.address]);
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: ipAddress }),
+        },
+        remotePeer: peerId,
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const peerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [], {
+        p2pAllowOnlyValidators: true,
+        p2pMaxFailedAuthAttemptsAllowed: 2,
+      });
+
+      await peerManager.initializePeers();
+      await peerManager.heartbeat();
+
+      mockReqResp.sendRequestToPeer.mockImplementation(
+        (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, _payload: Buffer, _dialTimeout?: number) => {
+          return Promise.resolve({
+            status: ReqRespStatus.FAILURE,
+            data: Buffer.alloc(0),
+          });
+        },
+      );
+
+      for (let i = 0; i < 3; i++) {
+        const ev = { detail: peerId };
+        (peerManager as any).handleConnectedPeerEvent(ev);
+        // Sleep a bit to allow processing of auth handshake
+        await sleep(1000);
+      }
+
+      // Should now be blocked
+      expect(peerManager.isNodeAllowedToConnect(peerId)).toBe(false);
+      expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
+
+      // Peer should not be authenticated
+      expect(peerManager.isAuthenticatedPeer(peerId)).toBe(false);
+    });
+  });
+
   describe('goodbye metrics', () => {
     it('should record metrics when receiving goodbye messages', async () => {
       const peerId = await createSecp256k1PeerId();
@@ -1760,12 +2001,13 @@ describe('PeerManager', () => {
       peerStore: { merge: jest.fn() },
       dial: jest.fn().mockImplementation(() => Promise.resolve()),
       hangUp: jest.fn(),
+      services: { pubsub: { direct: new Set() } },
     };
   }
 
   function createMockPeerManager(
     name: string,
-    node: Libp2p,
+    node: FullLibp2p,
     maxPeerCount: number,
     trustedPeers?: SignableENR[],
     privatePeers?: SignableENR[],
@@ -1773,6 +2015,7 @@ describe('PeerManager', () => {
     additionalConfig: Partial<P2PConfig> = {},
     protocolVersion = 'Version 1.2',
     latestBlockHash = '0x1234567890abcdef',
+    epochCache = mockEpochCache,
   ): PeerManager {
     const config = {
       ...getP2PDefaultConfig(),
@@ -1806,7 +2049,7 @@ describe('PeerManager', () => {
       mockReqResp,
       mockWorldStateSynchronizer as WorldStateSynchronizer,
       protocolVersion,
-      mockEpochCache,
+      epochCache,
     );
   }
 });

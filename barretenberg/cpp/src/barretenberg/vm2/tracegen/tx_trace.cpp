@@ -75,7 +75,6 @@ std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree
         // TODO: Written public data slots tree roots
         // L1 to L2 Message Tree Roots
         { Column::tx_prev_l1_l2_tree_root, prev_tree_state.l1ToL2MessageTree.tree.root },
-        { Column::tx_prev_l1_l2_tree_size, prev_tree_state.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
 
         // Next Tree State
         { Column::tx_next_note_hash_tree_root, next_tree_state.noteHashTree.tree.root },
@@ -91,7 +90,29 @@ std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree
         // TODO: Written public data slots tree roots
         // L1 to L2 Message Tree Roots
         { Column::tx_next_l1_l2_tree_root, next_tree_state.l1ToL2MessageTree.tree.root },
-        { Column::tx_next_l1_l2_tree_size, next_tree_state.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
+    };
+}
+
+std::vector<std::pair<Column, FF>> insert_side_effect_states(const SideEffectStates& prev_side_effect_states,
+                                                             const SideEffectStates& next_side_effect_states)
+{
+    return {
+        {
+            Column::tx_prev_num_unencrypted_logs,
+            prev_side_effect_states.numUnencryptedLogs,
+        },
+        {
+            Column::tx_prev_num_l2_to_l1_messages,
+            prev_side_effect_states.numL2ToL1Messages,
+        },
+        {
+            Column::tx_next_num_unencrypted_logs,
+            next_side_effect_states.numUnencryptedLogs,
+        },
+        {
+            Column::tx_next_num_l2_to_l1_messages,
+            next_side_effect_states.numL2ToL1Messages,
+        },
     };
 }
 
@@ -369,6 +390,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(
                 row,
                 insert_tree_state(tx_phase_event->state_before.tree_states, tx_phase_event->state_after.tree_states));
+            trace.set(row,
+                      insert_side_effect_states(tx_phase_event->state_before.side_effect_states,
+                                                tx_phase_event->state_after.side_effect_states));
             trace.set(row,
                       { {
                           { C::tx_sel, 1 },

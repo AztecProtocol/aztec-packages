@@ -16,7 +16,7 @@ namespace bb::stdlib::recursion::honk {
  */
 ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const StdlibProof& proof)
 {
-    using MergeCommitments = ClientIVCRecursiveVerifier::GoblinVerifier::MergeVerifier::WitnessCommitments;
+    using MergeCommitments = GoblinVerifier::MergeVerifier::InputCommitments;
     std::shared_ptr<Transcript> civc_rec_verifier_transcript(std::make_shared<Transcript>());
     // Construct stdlib Mega verification key
     auto stdlib_mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(*builder, ivc_verification_key.mega);
@@ -27,11 +27,14 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
 
     // Perform Goblin recursive verification
     GoblinVerificationKey goblin_verification_key{};
-    MergeCommitments merge_commitments;
-    merge_commitments.set_t_commitments(verifier.key->witness_commitments.get_ecc_op_wires());
+    MergeCommitments merge_commitments{
+        .t_commitments = verifier.key->witness_commitments.get_ecc_op_wires()
+                             .get_copy(), // Commitments to subtables added by the hiding kernel
+        .T_prev_commitments = std::move(mega_output.ecc_op_tables) // Commitments to the state of the ecc op_queue as
+                                                                   // computed insided the hiding kernel
+    };
     GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key, civc_rec_verifier_transcript };
-    GoblinRecursiveVerifierOutput output =
-        goblin_verifier.verify(proof.goblin_proof, merge_commitments, merge_commitments.T_commitments);
+    GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof, merge_commitments);
     output.points_accumulator.aggregate(mega_output.points_accumulator);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers
     return { output };

@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -13,7 +14,7 @@ template <typename FF_> class sstoreImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 3 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 3, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -29,6 +30,8 @@ template <typename FF_> class sstoreImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        PROFILE_THIS_NAME("accumulate/sstore");
 
         const auto constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = FF(63);
         const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
@@ -70,6 +73,36 @@ template <typename FF_> class sstoreImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
+        { // SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED
+            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_sstore) * in.get(C::execution_sel_opcode_error) *
+                       (in.get(C::execution_prev_written_public_data_slots_tree_root) -
+                        in.get(C::execution_written_public_data_slots_tree_root));
+            tmp *= scaling_factor;
+            std::get<4>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_sstore) * in.get(C::execution_sel_opcode_error) *
+                       (in.get(C::execution_prev_written_public_data_slots_tree_size) -
+                        in.get(C::execution_written_public_data_slots_tree_size));
+            tmp *= scaling_factor;
+            std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_sstore) * in.get(C::execution_sel_opcode_error) *
+                       (in.get(C::execution_prev_public_data_tree_root) - in.get(C::execution_public_data_tree_root));
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_sstore) * in.get(C::execution_sel_opcode_error) *
+                       (in.get(C::execution_prev_public_data_tree_size) - in.get(C::execution_public_data_tree_size));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -84,6 +117,14 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
             return "SSTORE_MAX_DATA_WRITES_REACHED";
         case 2:
             return "SSTORE_ERROR_TOO_MANY_WRITES";
+        case 4:
+            return "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED";
+        case 5:
+            return "SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED";
+        case 6:
+            return "SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED";
+        case 7:
+            return "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED";
         }
         return std::to_string(index);
     }
@@ -91,6 +132,10 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SSTORE_MAX_DATA_WRITES_REACHED = 1;
     static constexpr size_t SR_SSTORE_ERROR_TOO_MANY_WRITES = 2;
+    static constexpr size_t SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED = 4;
+    static constexpr size_t SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED = 5;
+    static constexpr size_t SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED = 6;
+    static constexpr size_t SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED = 7;
 };
 
 } // namespace bb::avm2

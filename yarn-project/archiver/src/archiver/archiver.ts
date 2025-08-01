@@ -1,4 +1,5 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockTagTooOldError,
   InboxContract,
@@ -9,13 +10,14 @@ import {
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
-import { Timer, elapsed } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import type { CustomRange } from '@aztec/kv-store';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -61,7 +63,14 @@ import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxSc
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
 import groupBy from 'lodash.groupby';
@@ -79,11 +88,19 @@ import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './
 import { ArchiverInstrumentation } from './instrumentation.js';
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
+import { type ValidateBlockResult, validateBlockAttestations } from './validation.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
  */
 export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
+
+export type ArchiverDeps = {
+  telemetry?: TelemetryClient;
+  blobSinkClient: BlobSinkClientInterface;
+  epochCache?: EpochCache;
+  dateProvider?: DateProvider;
+};
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -103,6 +120,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
+  private pendingChainValidationStatus: ValidateBlockResult = { valid: true };
   private initialSyncComplete: boolean = false;
 
   public readonly tracer: Tracer;
@@ -123,6 +141,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
     private readonly blobSinkClient: BlobSinkClientInterface,
+    private readonly epochCache: EpochCache,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants & { l1StartBlockHash: Buffer32 },
     private readonly log: Logger = createLogger('archiver'),
@@ -146,7 +165,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
-    deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
+    deps: ArchiverDeps,
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
@@ -185,13 +204,17 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       batchSize: config.archiverBatchSize ?? 100,
     };
 
+    const epochCache = deps.epochCache ?? (await EpochCache.create(config.l1Contracts.rollupAddress, config, deps));
+    const telemetry = deps.telemetry ?? getTelemetryClient();
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts,
       archiverStore,
       opts,
       deps.blobSinkClient,
-      await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
+      epochCache,
+      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
       l1Constants,
     );
     await archiver.start(blockUntilSynced);
@@ -333,11 +356,13 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       );
       // And lastly we check if we are missing any L2 blocks behind us due to a possible L1 reorg.
       // We only do this if rollup cant prune on the next submission. Otherwise we will end up
-      // re-syncing the blocks we have just unwound above.
-      if (!rollupCanPrune) {
+      // re-syncing the blocks we have just unwound above. We also dont do this if the last block is invalid,
+      // since the archiver will rightfully refuse to sync up to it.
+      if (!rollupCanPrune && rollupStatus.lastBlockValidationResult.valid) {
         await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
       }
 
+      this.pendingChainValidationStatus = rollupStatus.lastBlockValidationResult;
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
@@ -595,6 +620,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       provenArchive,
       pendingBlockNumber: Number(pendingBlockNumber),
       pendingArchive,
+      lastBlockValidationResult: { valid: true } as ValidateBlockResult,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingBlockNumber,
@@ -680,7 +706,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         throw new Error(`Missing block ${localPendingBlockNumber}`);
       }
 
-      const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingBlock.archive.root.toString();
+      const localPendingArchiveRoot = localPendingBlock.archive.root.toString();
+      const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingArchiveRoot;
       if (noBlockSinceLast) {
         // We believe the following line causes a problem when we encounter L1 re-orgs.
         // Basically, by setting the synched L1 block number here, we are saying that we have
@@ -694,13 +721,16 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         return rollupStatus;
       }
 
-      const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingBlock.archive.root.toString();
+      const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingArchiveRoot;
       if (!localPendingBlockInChain) {
         // If our local pending block tip is not in the chain on L1 a "prune" must have happened
         // or the L1 have reorged.
         // In any case, we have to figure out how far into the past the action will take us.
         // For simplicity here, we will simply rewind until we end in a block that is also on the chain on L1.
-        this.log.debug(`L2 prune has been detected.`);
+        this.log.debug(
+          `L2 prune has been detected due to local pending block ${localPendingBlockNumber} not in chain`,
+          { localPendingBlockNumber, localPendingArchiveRoot, archiveForLocalPendingBlockNumber },
+        );
 
         let tipAfterUnwind = localPendingBlockNumber;
         while (true) {
@@ -762,8 +792,24 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       );
 
       const publishedBlocks = retrievedBlocks.map(b => retrievedBlockToPublishedL2Block(b));
+      const validBlocks: PublishedL2Block[] = [];
 
       for (const block of publishedBlocks) {
+        const isProven = block.block.number <= provenBlockNumber;
+        rollupStatus.lastBlockValidationResult = isProven
+          ? { valid: true }
+          : await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log);
+
+        if (!rollupStatus.lastBlockValidationResult.valid) {
+          this.log.warn(`Skipping block ${block.block.number} due to invalid attestations`, {
+            blockHash: block.block.hash(),
+            l1BlockNumber: block.l1.blockNumber,
+            ...pick(rollupStatus.lastBlockValidationResult, 'reason'),
+          });
+          continue;
+        }
+
+        validBlocks.push(block);
         this.log.debug(`Ingesting new L2 block ${block.block.number} with ${block.block.body.txEffects.length} txs`, {
           blockHash: block.block.hash(),
           l1BlockNumber: block.l1.blockNumber,
@@ -773,10 +819,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       }
 
       try {
-        const [processDuration] = await elapsed(() => this.store.addBlocks(publishedBlocks));
+        const [processDuration] = await elapsed(() => this.store.addBlocks(validBlocks));
         this.instrumentation.processNewBlocks(
-          processDuration / publishedBlocks.length,
-          publishedBlocks.map(b => b.block),
+          processDuration / validBlocks.length,
+          validBlocks.map(b => b.block),
         );
       } catch (err) {
         if (err instanceof InitialBlockNumberNotSequentialError) {
@@ -799,7 +845,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         throw err;
       }
 
-      for (const block of publishedBlocks) {
+      for (const block of validBlocks) {
         this.log.info(`Downloaded L2 block ${block.block.number}`, {
           blockHash: await block.block.hash(),
           blockNumber: block.block.number,
@@ -809,7 +855,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           archiveNextLeafIndex: block.block.archive.nextAvailableLeafIndex,
         });
       }
-      lastRetrievedBlock = publishedBlocks.at(-1) ?? lastRetrievedBlock;
+      lastRetrievedBlock = validBlocks.at(-1) ?? lastRetrievedBlock;
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
@@ -1158,6 +1204,14 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getDebugFunctionName(address, selector);
+  }
+
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve(this.pendingChainValidationStatus);
+  }
+
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(this.pendingChainValidationStatus.valid === false);
   }
 
   async getL2Tips(): Promise<L2Tips> {
