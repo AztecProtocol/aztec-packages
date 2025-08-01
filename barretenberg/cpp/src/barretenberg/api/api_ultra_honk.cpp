@@ -56,8 +56,8 @@ std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(const std::stri
 }
 
 template <typename Flavor>
-PubInputsProofAndKey<typename Flavor::VerificationKey, typename Flavor::Transcript> _compute_vk(
-    const std::filesystem::path& bytecode_path, const std::filesystem::path& witness_path)
+PubInputsProofAndKey<Flavor> _compute_vk(const std::filesystem::path& bytecode_path,
+                                         const std::filesystem::path& witness_path)
 {
     using Proof = typename Flavor::Transcript::Proof;
 
@@ -67,11 +67,10 @@ PubInputsProofAndKey<typename Flavor::VerificationKey, typename Flavor::Transcri
 }
 
 template <typename Flavor>
-PubInputsProofAndKey<typename Flavor::VerificationKey, typename Flavor::Transcript> _prove(
-    const bool compute_vk,
-    const std::filesystem::path& bytecode_path,
-    const std::filesystem::path& witness_path,
-    const std::filesystem::path& vk_path)
+PubInputsProofAndKey<Flavor> _prove(const bool compute_vk,
+                                    const std::filesystem::path& bytecode_path,
+                                    const std::filesystem::path& witness_path,
+                                    const std::filesystem::path& vk_path)
 {
     using Proof = typename Flavor::Transcript::Proof;
 
@@ -100,7 +99,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey, typename Flavor::Transcri
     }
     // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
     // the "proof" refers to everything except the inner public inputs.
-    PublicInputsAndProof<typename Flavor::Transcript> public_inputs_and_proof{
+    PublicInputsAndProof<Proof> public_inputs_and_proof{
         PublicInputsVector(concat_pi_and_proof.begin(),
                            concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
         Proof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
@@ -118,14 +117,14 @@ bool _verify(const bool ipa_accumulation,
     using VerificationKey = typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
     using Transcript = typename Flavor::Transcript;
-    using TranscriptType = typename Transcript::TranscriptType;
+    using DataType = typename Transcript::DataType;
     using Proof = typename Transcript::Proof;
 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    auto public_inputs = many_from_buffer<TranscriptType>(read_file(public_inputs_path));
-    auto proof = many_from_buffer<TranscriptType>(read_file(proof_path));
+    auto public_inputs = many_from_buffer<DataType>(read_file(public_inputs_path));
+    auto proof = many_from_buffer<DataType>(read_file(proof_path));
     // concatenate public inputs and proof
-    std::vector<TranscriptType> complete_proof = public_inputs;
+    std::vector<DataType> complete_proof = public_inputs;
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;

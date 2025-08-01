@@ -88,11 +88,11 @@ class TranscriptManifest {
 };
 
 struct NativeTranscriptParams {
-    using TranscriptType = bb::fr;
+    using DataType = bb::fr;
     using Proof = HonkProof;
 
-    static TranscriptType hash(const std::vector<TranscriptType>& data);
-    template <typename T> static inline T convert_challenge(const TranscriptType& challenge)
+    static DataType hash(const std::vector<DataType>& data);
+    template <typename T> static inline T convert_challenge(const DataType& challenge)
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
@@ -104,26 +104,26 @@ struct NativeTranscriptParams {
      * @param challenge
      * @return std::array<Fr, 2>
      */
-    static inline std::array<TranscriptType, 2> split_challenge(const TranscriptType& challenge)
+    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
         // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-        static constexpr size_t LO_BITS = TranscriptType::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        static constexpr size_t HI_BITS = TranscriptType::modulus.get_msb() + 1 - LO_BITS;
+        static constexpr size_t LO_BITS = DataType::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+        static constexpr size_t HI_BITS = DataType::modulus.get_msb() + 1 - LO_BITS;
 
         auto converted = static_cast<uint256_t>(challenge);
         uint256_t lo = converted.slice(0, LO_BITS);
         uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
-        return std::array<TranscriptType, 2>{ TranscriptType(lo), TranscriptType(hi) };
+        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
     }
-    template <typename T> static constexpr size_t calc_transcript_type_size()
+    template <typename T> static constexpr size_t calc_num_data_types()
     {
         return bb::field_conversion::calc_num_bn254_frs<T>();
     }
-    template <typename T> static inline T deserialize(std::span<const TranscriptType> frs)
+    template <typename T> static inline T deserialize(std::span<const DataType> frs)
     {
         return bb::field_conversion::convert_from_bn254_frs<T>(frs);
     }
-    template <typename T> static inline std::vector<TranscriptType> serialize(const T& element)
+    template <typename T> static inline std::vector<DataType> serialize(const T& element)
     {
         return bb::field_conversion::convert_to_bn254_frs(element);
     }
@@ -153,11 +153,11 @@ inline std::atomic<size_t> unique_transcript_index{ 0 };
  */
 template <typename TranscriptParams> class BaseTranscript {
   public:
-    using TranscriptType = TranscriptParams::TranscriptType;
+    using DataType = TranscriptParams::DataType;
     using Proof = typename TranscriptParams::Proof;
 
     // Detects whether the transcript is in-circuit or not
-    static constexpr bool in_circuit = InCircuit<TranscriptType>;
+    static constexpr bool in_circuit = InCircuit<DataType>;
 
     // The unique index of the transcript
     size_t transcript_index = 0;
@@ -185,11 +185,11 @@ template <typename TranscriptParams> class BaseTranscript {
     size_t round_number = 0;    // current round for manifest
 
   private:
-    bool is_first_challenge = true;      // indicates if this is the first challenge this transcript is generating
-    TranscriptType previous_challenge{}; // default-initialized to zeros
-    std::vector<TranscriptType>
+    bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
+    DataType previous_challenge{};  // default-initialized to zeros
+    std::vector<DataType>
         current_round_data; // the data for the current round that will be hashed to generate challenges
-    std::vector<TranscriptType>
+    std::vector<DataType>
         independent_hash_buffer; // data that will be independently hashed to get the hash of an object
 
     bool use_manifest = false; // indicates whether the manifest is turned on, currently only on for manifest tests.
@@ -205,7 +205,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * to the current challenge buffer to set up next function call.
      * @return std::array<Fr, HASH_OUTPUT_SIZE>
      */
-    [[nodiscard]] std::array<TranscriptType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
+    [[nodiscard]] std::array<DataType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
         // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
         BB_ASSERT_LTE(num_challenges, 2U);
@@ -219,7 +219,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
         // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from
         // having to domain separate all the data. (See https://safe-hash.dev)
-        std::vector<TranscriptType> full_buffer;
+        std::vector<DataType> full_buffer;
         if (!is_first_challenge) {
             // if not the first challenge, we can use the previous_challenge
             full_buffer.emplace_back(previous_challenge);
@@ -238,8 +238,8 @@ template <typename TranscriptParams> class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a
         // random oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we
         // previously did with Pedersen and Blake3s.
-        TranscriptType new_challenge = TranscriptParams::hash(full_buffer);
-        std::array<TranscriptType, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
+        DataType new_challenge = TranscriptParams::hash(full_buffer);
+        std::array<DataType, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
@@ -254,7 +254,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param label of the element sent
      * @param element_frs serialized
      */
-    void add_element_frs_to_hash_buffer(const std::string& label, std::span<const TranscriptType> element_frs)
+    void add_element_frs_to_hash_buffer(const std::string& label, std::span<const DataType> element_frs)
     {
         if (use_manifest) {
             // Add an entry to the current round of the manifest
@@ -288,7 +288,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = TranscriptParams::template calc_transcript_type_size<T>();
+        constexpr size_t element_fr_size = TranscriptParams::template calc_num_data_types<T>();
         BB_ASSERT_LTE(offset + element_fr_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
@@ -307,16 +307,16 @@ template <typename TranscriptParams> class BaseTranscript {
      * export_proof at the end of each provers' code returns the slices T_1, T_2 of the transcript that must be loaded
      * by the verifiers via load_proof.
      */
-    std::vector<TranscriptType> export_proof()
+    std::vector<DataType> export_proof()
     {
-        std::vector<TranscriptType> result(num_frs_written);
+        std::vector<DataType> result(num_frs_written);
         std::copy_n(proof_data.begin() + proof_start, num_frs_written, result.begin());
         proof_start += static_cast<std::ptrdiff_t>(num_frs_written);
         num_frs_written = 0;
         return result;
     };
 
-    void load_proof(const std::vector<TranscriptType>& proof)
+    void load_proof(const std::vector<DataType>& proof)
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
@@ -455,9 +455,9 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param label Human-readable name for the challenge.
      * @return Fr The hash of the independent hash buffer.
      */
-    TranscriptType hash_independent_buffer(const std::string& label)
+    DataType hash_independent_buffer(const std::string& label)
     {
-        TranscriptType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
+        DataType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         add_to_hash_buffer(label, buffer_hash);
         return buffer_hash;
@@ -558,7 +558,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        const size_t element_size = TranscriptParams::template calc_transcript_type_size<T>();
+        const size_t element_size = TranscriptParams::template calc_num_data_types<T>();
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
@@ -621,7 +621,7 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         auto verifier_transcript = std::make_shared<BaseTranscript>();
         verifier_transcript->load_proof(transcript->proof_data);
-        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<TranscriptType>("Init");
+        [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
         return verifier_transcript;
     };
 
@@ -738,36 +738,36 @@ inline bb::fr keccak_hash_uint256(std::vector<bb::fr> const& data)
 
 struct KeccakTranscriptParams {
     using Fr = bb::fr;
-    using TranscriptType = Fr;
+    using DataType = Fr;
     using Proof = std::vector<Fr>;
 
-    static inline Fr hash(const std::vector<TranscriptType>& data) { return keccak_hash_uint256(data); }
+    static inline Fr hash(const std::vector<DataType>& data) { return keccak_hash_uint256(data); }
 
-    template <typename T> static inline T convert_challenge(const TranscriptType& challenge)
+    template <typename T> static inline T convert_challenge(const DataType& challenge)
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
 
-    template <typename T> static constexpr size_t calc_transcript_type_size()
+    template <typename T> static constexpr size_t calc_num_data_types()
     {
         // return bb::field_conversion::calc_num_uint256_t<T>();
         return bb::field_conversion::calc_num_bn254_frs<T>();
     }
-    template <typename T> static inline T deserialize(std::span<const TranscriptType> elements)
+    template <typename T> static inline T deserialize(std::span<const DataType> elements)
     {
         // return bb::field_conversion::convert_from_uint256_t<T>(elements);
         return bb::field_conversion::convert_from_bn254_frs<T>(elements);
     }
-    template <typename T> static inline std::vector<TranscriptType> serialize(const T& element)
+    template <typename T> static inline std::vector<DataType> serialize(const T& element)
     {
         // Move to appropiate place
         // return bb::field_conversion::convert_to_uint256(element);
         return bb::field_conversion::convert_to_bn254_frs(element);
 
         // wont work as returning a vector
-        // return from_buffer<TranscriptType>(to_buffer(element));
+        // return from_buffer<DataType>(to_buffer(element));
     }
-    static inline std::array<TranscriptType, 2> split_challenge(const TranscriptType& challenge)
+    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
         // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
         static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
@@ -776,7 +776,7 @@ struct KeccakTranscriptParams {
         auto converted = static_cast<uint256_t>(challenge);
         uint256_t lo = converted.slice(0, LO_BITS);
         uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
-        return std::array<TranscriptType, 2>{ TranscriptType(lo), TranscriptType(hi) };
+        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
     }
 };
 

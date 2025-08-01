@@ -254,9 +254,8 @@ WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t
 {
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraKeccakFlavor>;
-    using TranscriptType = UltraKeccakFlavor::Transcript::TranscriptType;
 
-    auto proof = many_from_buffer<TranscriptType>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
     Verifier verifier{ verification_key };
@@ -268,9 +267,8 @@ WASM_EXPORT void acir_verify_ultra_keccak_zk_honk(uint8_t const* proof_buf, uint
 {
     using VerificationKey = UltraKeccakZKFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraKeccakZKFlavor>;
-    using TranscriptType = UltraKeccakZKFlavor::Transcript::TranscriptType;
 
-    auto proof = many_from_buffer<TranscriptType>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
 
     Verifier verifier{ verification_key };
