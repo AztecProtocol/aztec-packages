@@ -124,10 +124,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2730;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2762;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 293;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3149;
+    static constexpr size_t NUM_ALL_ENTITIES = 3181;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -502,6 +502,14 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
         lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_relation<FF_>,
+        lookup_sha256_ch_and_0_relation<FF_>,
+        lookup_sha256_ch_and_1_relation<FF_>,
+        lookup_sha256_ch_xor_relation<FF_>,
+        lookup_sha256_maj_and_0_relation<FF_>,
+        lookup_sha256_maj_and_1_relation<FF_>,
+        lookup_sha256_maj_and_2_relation<FF_>,
+        lookup_sha256_maj_xor_0_relation<FF_>,
+        lookup_sha256_maj_xor_1_relation<FF_>,
         lookup_sha256_mem_check_input_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_output_addr_in_range_relation<FF_>,
         lookup_sha256_mem_check_state_addr_in_range_relation<FF_>,
@@ -515,6 +523,14 @@ struct AvmFlavorVariables {
         lookup_sha256_mem_mem_op_6_relation<FF_>,
         lookup_sha256_mem_mem_op_7_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
+        lookup_sha256_s_0_xor_0_relation<FF_>,
+        lookup_sha256_s_0_xor_1_relation<FF_>,
+        lookup_sha256_s_1_xor_0_relation<FF_>,
+        lookup_sha256_s_1_xor_1_relation<FF_>,
+        lookup_sha256_w_s_0_xor_0_relation<FF_>,
+        lookup_sha256_w_s_0_xor_1_relation<FF_>,
+        lookup_sha256_w_s_1_xor_0_relation<FF_>,
+        lookup_sha256_w_s_1_xor_1_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,
         lookup_sstore_storage_write_relation<FF_>,
