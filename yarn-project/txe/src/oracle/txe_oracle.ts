@@ -149,7 +149,7 @@ export class TXE {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
-  // Used by setSenderForTags and pxeGetSenderForTags oracles.
+  // Used by pxeSetSenderForTags and pxeGetSenderForTags oracles.
   private senderForTags?: AztecAddress;
 
   private constructor(
@@ -953,6 +953,7 @@ export class TXE {
 
     const noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
+    // TODO(benesjan): Fix stale 'context' name.
     const context = new PrivateExecutionOracle(
       argsHash,
       txContext,

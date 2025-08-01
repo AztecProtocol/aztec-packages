@@ -42,12 +42,6 @@ class OracleMethodNotAvailableError extends Error {
  * Oracle with typed parameters and typed return values.
  * Methods that require read and/or write will have to be implemented based on the context (public, private, or view)
  * and are unavailable by default.
- *
- * Oracle methods are now prefixed to clearly indicate their availability:
- * - avm*: AVM oracles (transpiled to avm opcodes, handled by txe during public_context testing)
- * - txe*: TXE oracles (only available in txe top level context, manage environment state)
- * - pxe*: PXE oracles (stateful operations like notify_created_note)
- * - utility*: Utility oracles (typically don't need private execution, like blockNumber)
  */
 export abstract class TypedOracle {
   utilityGetRandomField(): Fr {
