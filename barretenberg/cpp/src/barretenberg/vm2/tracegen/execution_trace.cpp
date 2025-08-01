@@ -642,9 +642,10 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
+                              { C::execution_sel_reached_max_note_hashes, remaining_note_hashes == 0 },
                               { C::execution_remaining_note_hashes_inv,
                                 remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
-                              { C::execution_sel_write_note_hash, remaining_note_hashes != 0 },
+                              { C::execution_sel_write_note_hash, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
                 uint64_t leaf_index = registers[1].as<uint64_t>();
@@ -664,9 +665,11 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
-                              { C::execution_sel_write_nullifier, remaining_nullifiers != 0 ? 1 : 0 },
+                              { C::execution_sel_reached_max_nullifiers, remaining_nullifiers == 0 },
                               { C::execution_remaining_nullifiers_inv,
                                 remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+                              { C::execution_sel_write_nullifier,
+                                remaining_nullifiers != 0 && !ex_event.before_context_event.is_static },
                           } });
             } else if (exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
                 uint32_t remaining_l2_to_l1_msgs =

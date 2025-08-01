@@ -14,7 +14,7 @@ template <typename FF_> class emit_nullifierImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 5, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,50 +36,67 @@ template <typename FF_> class emit_nullifierImpl {
         const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);
         const auto execution_REMAINING_NULLIFIER_WRITES =
             (constants_MAX_NULLIFIERS_PER_TX - in.get(C::execution_prev_num_nullifiers_emitted));
-        const auto execution_LIMIT_ERROR = (FF(1) - in.get(C::execution_sel_write_nullifier));
         const auto execution_SUCCESSFUL_WRITE =
             in.get(C::execution_sel_write_nullifier) * (FF(1) - in.get(C::execution_sel_opcode_error));
 
-        { // EMIT_NULLIFIER_MAX_NULLIFIER_WRITES_REACHED
+        {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_emit_nullifier) *
-                       ((execution_REMAINING_NULLIFIER_WRITES *
-                             (execution_LIMIT_ERROR * (FF(1) - in.get(C::execution_remaining_nullifiers_inv)) +
-                              in.get(C::execution_remaining_nullifiers_inv)) -
-                         FF(1)) +
-                        execution_LIMIT_ERROR);
+            auto tmp = in.get(C::execution_sel_reached_max_nullifiers) *
+                       (FF(1) - in.get(C::execution_sel_reached_max_nullifiers));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        { // OPCODE_ERROR_IF_LIMIT_ERROR
+        { // MAX_NULLIFIER_WRITES_REACHED
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_emit_nullifier) * execution_LIMIT_ERROR *
-                       (FF(1) - in.get(C::execution_sel_opcode_error));
+            auto tmp =
+                in.get(C::execution_sel_execute_emit_nullifier) *
+                ((execution_REMAINING_NULLIFIER_WRITES * (in.get(C::execution_sel_reached_max_nullifiers) *
+                                                              (FF(1) - in.get(C::execution_remaining_nullifiers_inv)) +
+                                                          in.get(C::execution_remaining_nullifiers_inv)) -
+                  FF(1)) +
+                 in.get(C::execution_sel_reached_max_nullifiers));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        { // EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED
+        { // VALIDATION_ERROR_DISABLE_WRITE
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_emit_nullifier) * in.get(C::execution_sel_opcode_error) *
-                       (in.get(C::execution_prev_nullifier_tree_root) - in.get(C::execution_nullifier_tree_root));
+            auto tmp =
+                in.get(C::execution_sel_execute_emit_nullifier) *
+                ((FF(1) - in.get(C::execution_sel_reached_max_nullifiers)) * (FF(1) - in.get(C::execution_is_static)) -
+                 in.get(C::execution_sel_write_nullifier));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // EMIT_NULLIFIER_TREE_SIZE_INCREASE
+        { // OPCODE_ERROR_IF_VALIDATION_ERROR
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_emit_nullifier) *
+                       (FF(1) - in.get(C::execution_sel_write_nullifier)) *
+                       (FF(1) - in.get(C::execution_sel_opcode_error));
+            tmp *= scaling_factor;
+            std::get<3>(evals) += typename Accumulator::View(tmp);
+        }
+        { // EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED
+            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_emit_nullifier) * in.get(C::execution_sel_opcode_error) *
+                       (in.get(C::execution_prev_nullifier_tree_root) - in.get(C::execution_nullifier_tree_root));
+            tmp *= scaling_factor;
+            std::get<4>(evals) += typename Accumulator::View(tmp);
+        }
+        { // EMIT_NULLIFIER_TREE_SIZE_INCREASE
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_emit_nullifier) *
                        ((in.get(C::execution_prev_nullifier_tree_size) + execution_SUCCESSFUL_WRITE) -
                         in.get(C::execution_nullifier_tree_size));
             tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
+            std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         { // EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_emit_nullifier) *
                        ((in.get(C::execution_prev_num_nullifiers_emitted) + execution_SUCCESSFUL_WRITE) -
                         in.get(C::execution_num_nullifiers_emitted));
             tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
+            std::get<6>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -91,26 +108,29 @@ template <typename FF> class emit_nullifier : public Relation<emit_nullifierImpl
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
-            return "EMIT_NULLIFIER_MAX_NULLIFIER_WRITES_REACHED";
         case 1:
-            return "OPCODE_ERROR_IF_LIMIT_ERROR";
+            return "MAX_NULLIFIER_WRITES_REACHED";
         case 2:
-            return "EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED";
+            return "VALIDATION_ERROR_DISABLE_WRITE";
         case 3:
-            return "EMIT_NULLIFIER_TREE_SIZE_INCREASE";
+            return "OPCODE_ERROR_IF_VALIDATION_ERROR";
         case 4:
+            return "EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED";
+        case 5:
+            return "EMIT_NULLIFIER_TREE_SIZE_INCREASE";
+        case 6:
             return "EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_EMIT_NULLIFIER_MAX_NULLIFIER_WRITES_REACHED = 0;
-    static constexpr size_t SR_OPCODE_ERROR_IF_LIMIT_ERROR = 1;
-    static constexpr size_t SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED = 2;
-    static constexpr size_t SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE = 3;
-    static constexpr size_t SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE = 4;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 1;
+    static constexpr size_t SR_VALIDATION_ERROR_DISABLE_WRITE = 2;
+    static constexpr size_t SR_OPCODE_ERROR_IF_VALIDATION_ERROR = 3;
+    static constexpr size_t SR_EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED = 4;
+    static constexpr size_t SR_EMIT_NULLIFIER_TREE_SIZE_INCREASE = 5;
+    static constexpr size_t SR_EMIT_NULLIFIER_NUM_NULLIFIERS_EMITTED_INCREASE = 6;
 };
 
 } // namespace bb::avm2
