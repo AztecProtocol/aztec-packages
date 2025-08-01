@@ -785,6 +785,17 @@ class TranslatorFlavor {
         }
 
         /**
+         * @brief Calculate the number of field elements needed for serialization
+         * @return size_t Number of field elements
+         */
+        static size_t calc_num_frs()
+        {
+            using namespace bb::field_conversion;
+            // Translator only serializes commitments, no metadata
+            return NUM_PRECOMPUTED_ENTITIES * calc_num_bn254_frs<Commitment>();
+        }
+
+        /**
          * @brief Serialize verification key to field elements
          *
          * @return std::vector<FF>
@@ -1042,9 +1053,14 @@ inline void read(uint8_t const*& it, TranslatorFlavor::VerificationKey& vk)
 {
     using serialize::read;
 
-    // First, read the field elements from the buffer
-    std::vector<bb::fr> field_elements;
-    read(it, field_elements);
+    // Get the size directly from the static method
+    size_t num_frs = TranslatorFlavor::VerificationKey::calc_num_frs();
+
+    // Read exactly num_frs field elements from the buffer
+    std::vector<bb::fr> field_elements(num_frs);
+    for (auto& element : field_elements) {
+        read(it, element);
+    }
 
     // Then use from_field_elements to populate the verification key
     vk.from_field_elements(field_elements);
@@ -1054,11 +1070,11 @@ inline void write(std::vector<uint8_t>& buf, TranslatorFlavor::VerificationKey c
 {
     using serialize::write;
 
-    // First, convert the verification key to field elements
+    // Convert to field elements and write them directly without length prefix
     auto field_elements = vk.to_field_elements();
-
-    // Then write the field elements to the buffer
-    write(buf, field_elements);
+    for (const auto& element : field_elements) {
+        write(buf, element);
+    }
 }
 
 } // namespace bb

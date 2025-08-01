@@ -1,7 +1,10 @@
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
 #include "barretenberg/client_ivc/acir_bincode_mocks.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include <gtest/gtest.h>
 
 namespace bb::bbapi {
@@ -23,16 +26,10 @@ TEST_F(BBApiClientIvcTest, StandaloneVerificationKeySerialization)
     auto vk_response =
         ClientIvcComputeStandaloneVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
 
-    // The response contains field elements serialized as bytes
-    // Verify we can deserialize them correctly
-    auto field_elements = many_from_buffer<bb::fr>(vk_response.bytes);
-    ASSERT_EQ(field_elements, vk_response.fields) << "Field elements from bytes and fields should match";
-
     // Create a VK from the field elements
-    auto vk = std::make_shared<MegaFlavor::VerificationKey>();
-    size_t read_count = vk->from_field_elements(field_elements);
-    EXPECT_EQ(read_count, field_elements.size()) << "Should read all field elements";
-    EXPECT_EQ(vk->to_field_elements(), field_elements)
+    auto vk =
+        std::make_shared<MegaFlavor::VerificationKey>(from_buffer<MegaFlavor::VerificationKey>(vk_response.bytes));
+    EXPECT_EQ(vk->to_field_elements(), vk_response.fields)
         << "Serialized field elements should match original field elements";
 }
 
@@ -41,16 +38,9 @@ TEST_F(BBApiClientIvcTest, ClientIvcVkSerialization)
     auto [bytecode, _witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
     auto vk_response = ClientIvcComputeIvcVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
 
-    // The response contains field elements serialized as bytes
-    // Verify we can deserialize them correctly
-    auto field_elements = many_from_buffer<bb::fr>(vk_response.bytes);
-    ASSERT_EQ(field_elements, vk_response.fields) << "Field elements from bytes and fields should match";
-
     // Create a VK from the field elements
-    ClientIVC::VerificationKey vk;
-    size_t read_count = vk.from_field_elements(field_elements);
-    EXPECT_EQ(read_count, field_elements.size()) << "Should read all field elements";
-    EXPECT_EQ(vk.to_field_elements(), field_elements)
+    ClientIVC::VerificationKey vk = from_buffer<ClientIVC::VerificationKey>(vk_response.bytes);
+    EXPECT_EQ(vk.to_field_elements(), vk_response.fields)
         << "Serialized field elements should match original field elements";
 }
 

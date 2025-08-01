@@ -53,11 +53,9 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
     if (!request.loaded_circuit_vk.empty()) {
-        // Deserialize from field elements
-        auto field_elements = many_from_buffer<bb::fr>(request.loaded_circuit_vk);
-        auto vk = std::make_shared<ClientIVC::MegaVerificationKey>();
-        vk->from_field_elements(field_elements);
-        precomputed_vk = vk;
+        // Deserialize directly from buffer
+        auto deserialized_vk = from_buffer<ClientIVC::MegaVerificationKey>(request.loaded_circuit_vk);
+        precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(std::move(deserialized_vk));
     }
 
     info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
@@ -100,10 +98,8 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 
 ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request*/) &&
 {
-    // Deserialize the verification key from field elements
-    auto field_elements = many_from_buffer<bb::fr>(vk);
-    ClientIVC::VerificationKey verification_key;
-    verification_key.from_field_elements(field_elements);
+    // Deserialize the verification key directly from buffer
+    ClientIVC::VerificationKey verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
 
     // Verify the proof using ClientIVC's static verify method
     const bool verified = ClientIVC::verify(proof, verification_key);
@@ -189,10 +185,9 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
         throw_or_abort("Missing precomputed VK");
     }
 
-    // Deserialize from field elements
-    auto field_elements = many_from_buffer<bb::fr>(circuit.verification_key);
-    auto precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>();
-    precomputed_vk->from_field_elements(field_elements);
+    // Deserialize directly from buffer
+    auto deserialized_vk = from_buffer<ClientIVC::MegaVerificationKey>(circuit.verification_key);
+    auto precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(std::move(deserialized_vk));
 
     Response response;
     response.valid = true;

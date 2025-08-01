@@ -89,10 +89,9 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
         vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     } else {
-        // Deserialize from field elements
-        auto field_elements = many_from_buffer<bb::fr>(vk_bytes);
-        vk = std::make_shared<typename Flavor::VerificationKey>();
-        vk->from_field_elements(field_elements);
+        // Deserialize directly from buffer
+        auto deserialized_vk = from_buffer<typename Flavor::VerificationKey>(vk_bytes);
+        vk = std::make_shared<typename Flavor::VerificationKey>(std::move(deserialized_vk));
     }
 
     UltraProver_<Flavor> prover{ proving_key, vk };
@@ -125,10 +124,8 @@ bool _verify(const bool ipa_accumulation,
     using VerificationKey = typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
 
-    // Deserialize from field elements
-    auto field_elements = many_from_buffer<bb::fr>(vk_bytes);
-    auto vk = std::make_shared<VerificationKey>();
-    vk->from_field_elements(field_elements);
+    // Deserialize directly from buffer
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_bytes));
 
     // concatenate public inputs and proof
     std::vector<fr> complete_proof = public_inputs;
@@ -307,10 +304,8 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     using VK = UltraKeccakFlavor::VerificationKey;
-    // Deserialize from field elements
-    auto field_elements = many_from_buffer<bb::fr>(verification_key);
-    auto vk = std::make_shared<VK>();
-    vk->from_field_elements(field_elements);
+    // Deserialize directly from buffer
+    auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
 
     return { std::move(contract) };

@@ -166,6 +166,19 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     };
 
     /**
+     * @brief Calculate the number of field elements needed for serialization
+     * @return size_t Number of field elements
+     */
+    static size_t calc_num_frs()
+    {
+        using namespace bb::field_conversion;
+        // 3 metadata fields + commitments
+        // Create a temporary instance to get the number of precomputed entities
+        PrecomputedCommitments temp;
+        return 3 * calc_num_bn254_frs<uint64_t>() + temp.get_all().size() * calc_num_bn254_frs<Commitment>();
+    }
+
+    /**
      * @brief Serialize verification key to field elements
      *
      * @return std::vector<FF>

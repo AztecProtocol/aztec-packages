@@ -120,9 +120,7 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
     api.write_vk(write_vk_flags, bytecode_path, test_dir);
 
     auto buffer = read_file(test_dir / "vk");
-    ClientIVC::MegaVerificationKey ivc_vk;
-    ivc_vk.from_field_elements(many_from_buffer<bb::fr>(buffer));
-    return ivc_vk;
+    return from_buffer<ClientIVC::MegaVerificationKey>(buffer);
 };
 
 // Test the ClientIVCAPI::prove flow, making sure --write_vk
