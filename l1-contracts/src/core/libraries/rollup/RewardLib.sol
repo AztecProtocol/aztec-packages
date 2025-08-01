@@ -19,7 +19,7 @@ type Bps is uint32;
 
 library BpsLib {
   function mul(uint256 _a, Bps _b) internal pure returns (uint256) {
-    return _a * uint256(Bps.unwrap(_b)) / 10000;
+    return _a * uint256(Bps.unwrap(_b)) / 10_000;
   }
 }
 
@@ -92,10 +92,7 @@ library RewardLib {
     return amount;
   }
 
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
-    internal
-    returns (uint256)
-  {
+  function claimProverRewards(address _recipient, Epoch[] memory _epochs) internal returns (uint256) {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -165,9 +162,8 @@ library RewardLib {
           IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
 
           if (address(this) == distributor.canonicalRollup()) {
-            uint256 amountToClaim = Math.min(
-              blockRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor))
-            );
+            uint256 amountToClaim =
+              Math.min(blockRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor)));
 
             if (amountToClaim > 0) {
               distributor.claim(address(this), amountToClaim);
@@ -176,8 +172,7 @@ library RewardLib {
           }
         }
 
-        uint256 sequencerShare =
-          BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
+        uint256 sequencerShare = BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
         v.sequencerBlockReward = sequencerShare / added;
 
         $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
@@ -237,11 +232,7 @@ library RewardLib {
     return getStorage().epochRewards[_epoch].rewards;
   }
 
-  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover)
-    internal
-    view
-    returns (bool)
-  {
+  function getHasSubmitted(Epoch _epoch, uint256 _length, address _prover) internal view returns (bool) {
     return getStorage().epochRewards[_epoch].subEpoch[_length].shares[_prover] > 0;
   }
 
@@ -253,11 +244,7 @@ library RewardLib {
     return getStorage().config.blockReward;
   }
 
-  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
-    internal
-    view
-    returns (uint256)
-  {
+  function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover) internal view returns (uint256) {
     RewardStorage storage rewardStorage = getStorage();
 
     if (rewardStorage.proverClaimed[_prover].get(Epoch.unwrap(_epoch))) {

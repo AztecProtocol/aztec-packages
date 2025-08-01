@@ -3,8 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {
-  DepositDelegationLib,
-  DepositAndDelegationAccounting
+  DepositDelegationLib, DepositAndDelegationAccounting
 } from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
@@ -25,9 +24,7 @@ contract StakeDelegationLibWrapper {
     self.delegate(_instance, _attester, _newDelegatee);
   }
 
-  function usePower(address _delegatee, uint256 _proposalId, Timestamp _timestamp, uint256 _amount)
-    external
-  {
+  function usePower(address _delegatee, uint256 _proposalId, Timestamp _timestamp, uint256 _amount) external {
     self.usePower(_delegatee, _proposalId, _timestamp, _amount);
   }
 
@@ -55,11 +52,7 @@ contract StakeDelegationLibWrapper {
     return self.getVotingPower(_delegatee);
   }
 
-  function getVotingPowerAt(address _delegatee, Timestamp _timestamp)
-    external
-    view
-    returns (uint256)
-  {
+  function getVotingPowerAt(address _delegatee, Timestamp _timestamp) external view returns (uint256) {
     return self.getVotingPowerAt(_delegatee, _timestamp);
   }
 }

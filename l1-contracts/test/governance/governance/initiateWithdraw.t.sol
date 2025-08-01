@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {
-  IGovernance, Configuration, Withdrawal
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Configuration, Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
@@ -22,11 +20,7 @@ contract InitiateWithdrawTest is GovernanceBase {
   function test_GivenNoCheckpoints(uint256 _amount) external whenCallerHaveInsufficientDeposits {
     // it revert
     uint256 amount = bound(_amount, 1, type(uint224).max);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector, address(this), 0, amount
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__InsufficientPower.selector, address(this), 0, amount));
     governance.initiateWithdraw(address(this), amount);
   }
 
@@ -44,10 +38,7 @@ contract InitiateWithdrawTest is GovernanceBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector,
-        address(this),
-        activationThreshold,
-        withdrawalAmount
+        Errors.Governance__InsufficientPower.selector, address(this), activationThreshold, withdrawalAmount
       )
     );
     governance.initiateWithdraw(address(this), withdrawalAmount);
@@ -93,11 +84,7 @@ contract InitiateWithdrawTest is GovernanceBase {
 
       Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
       assertEq(withdrawal.amount, amount, "invalid amount");
-      assertEq(
-        withdrawal.unlocksAt,
-        Timestamp.wrap(block.timestamp) + config.withdrawalDelay(),
-        "Invalid timestamp"
-      );
+      assertEq(withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + config.withdrawalDelay(), "Invalid timestamp");
       assertEq(withdrawal.recipient, recipient, "invalid recipient");
       assertFalse(withdrawal.claimed, "already claimed");
       assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), sum);

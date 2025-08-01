@@ -130,8 +130,7 @@ library ProposalLib {
     }
 
     uint256 requiredApprovalVotesFraction = Math.ceilDiv(1e18 + _self.config.requiredYeaMargin, 2);
-    uint256 requiredApprovalVotes =
-      Math.mulDiv(votesCast, requiredApprovalVotesFraction, 1e18, Math.Rounding.Ceil);
+    uint256 requiredApprovalVotes = Math.mulDiv(votesCast, requiredApprovalVotesFraction, 1e18, Math.Rounding.Ceil);
 
     /*if (requiredApprovalVotes == 0) {
       // It should be impossible to hit this case as `requiredApprovalVotesFraction` cannot be 0,

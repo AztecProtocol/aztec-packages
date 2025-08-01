@@ -21,9 +21,7 @@ contract WithGSE is TestBase {
     governance = Governance(address(gse.getGovernance()));
   }
 
-  function cheat_deposit(address _instance, address _attester, address _withdrawer, bool _onBonus)
-    public
-  {
+  function cheat_deposit(address _instance, address _attester, address _withdrawer, bool _onBonus) public {
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());

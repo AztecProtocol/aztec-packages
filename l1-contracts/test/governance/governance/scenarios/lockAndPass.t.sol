@@ -4,12 +4,7 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {GovernanceBase} from "../base.t.sol";
-import {
-  IGovernance,
-  Proposal,
-  ProposalState,
-  Configuration
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Proposal, ProposalState, Configuration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {UpgradePayload, FakeRollup} from "../TestPayloads.sol";

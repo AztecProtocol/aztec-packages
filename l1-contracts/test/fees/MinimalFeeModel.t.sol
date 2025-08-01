@@ -59,9 +59,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         points[i].outputs.fee_asset_price_at_execution,
         "Computed fee asset price does not match expected value"
       );
-      model.addSlot(
-        OracleInput({feeAssetPriceModifier: points[i].oracle_input.fee_asset_price_modifier})
-      );
+      model.addSlot(OracleInput({feeAssetPriceModifier: points[i].oracle_input.fee_asset_price_modifier}));
     }
   }
 
@@ -93,9 +91,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         L1FeesModel memory fees = model.getCurrentL1Fees();
 
         assertEq(expected.block_header.l1_block_number, block.number, "invalid l1 block number");
-        assertEq(
-          expected.block_header.block_number, Slot.unwrap(nextSlot), "invalid l2 block number"
-        );
+        assertEq(expected.block_header.block_number, Slot.unwrap(nextSlot), "invalid l2 block number");
         assertEq(expected.block_header.slot_number, Slot.unwrap(nextSlot), "invalid l2 slot number");
         assertEq(expected.outputs.l1_fee_oracle_output.base_fee, fees.base_fee, "baseFee mismatch");
         assertEq(expected.outputs.l1_fee_oracle_output.blob_fee, fees.blob_fee, "blobFee mismatch");
@@ -124,8 +120,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
         // 3 blobs because that can fit ~360 txs, or 10 tps.
         ManaBaseFeeComponentsModel memory components = model.manaBaseFeeComponents(false);
         ManaBaseFeeComponentsModel memory componentsFeeAsset = model.manaBaseFeeComponents(true);
-        FeeHeaderModel memory parentFeeHeader =
-          model.getFeeHeader(point.block_header.slot_number - 1);
+        FeeHeaderModel memory parentFeeHeader = model.getFeeHeader(point.block_header.slot_number - 1);
 
         model.addSlot(
           OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
@@ -145,15 +140,11 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
 
         assertEq(point.fee_header, feeHeader);
 
-        assertEq(
-          point.outputs.fee_asset_price_at_execution, feeAssetPrice, "feeAssetPrice mismatch"
-        );
+        assertEq(point.outputs.fee_asset_price_at_execution, feeAssetPrice, "feeAssetPrice mismatch");
         assertEq(point.outputs.l1_fee_oracle_output, fees, "l1 fee oracle output");
         assertEq(point.outputs.l1_gas_oracle_values, model.getL1GasOracleValues());
         assertEq(point.outputs.mana_base_fee_components_in_wei, components, "in_wei");
-        assertEq(
-          point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset"
-        );
+        assertEq(point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset");
 
         assertEq(point.parent_fee_header, parentFeeHeader);
 
