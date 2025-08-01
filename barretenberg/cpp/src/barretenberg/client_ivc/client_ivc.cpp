@@ -273,17 +273,16 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * this case, just produce a Honk proof for that circuit and do no folding.
  * @param precomputed_vk
  */
-void ClientIVC::accumulate(ClientCircuit& circuit,
-                           const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
-                           const bool mock_vk)
+void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
-
     if (circuit.is_kernel) {
         // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
         accumulation_transcript = std::make_shared<Transcript>();
     }
+
+    ASSERT(precomputed_vk != nullptr, "ClientIVC::acumulate - VK expected for the provided circuit");
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
@@ -296,22 +295,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         goblin.commitment_key = bn254_commitment_key;
     }
     proving_key->commitment_key = bn254_commitment_key;
-
-    vinfo("getting honk vk... precomputed?: ", precomputed_vk);
-    // Update the accumulator trace usage based on the present circuit
     trace_usage_tracker.update(circuit);
 
-    // Set the verification key from precomputed if available, else compute it
-    {
-        PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
-        honk_vk =
-            precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
-    }
-    // mock_vk is used in benchmarks to avoid any VK construction.
-    if (mock_vk) {
-        honk_vk->set_metadata(proving_key->get_metadata());
-        vinfo("set honk vk metadata");
-    }
+    honk_vk = precomputed_vk;
 
     VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.is_kernel };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
