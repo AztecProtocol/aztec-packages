@@ -39,7 +39,7 @@ function installUltraHonkGlobals() {
     );
     logger.debug(`verified: ${verified}`);
 
-    await backend.destroyp();
+    await backend.destroy();
 
     logger.debug("test complete.");
     return verified;
