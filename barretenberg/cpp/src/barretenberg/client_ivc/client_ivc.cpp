@@ -254,8 +254,8 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
-        // TODO(): reconsider approach once integration is complete
-        hiding_circuit = std::make_unique<ClientCircuit>(std::move(circuit));
+        // TODO(Mara): reconsider approach once integration is complete
+        hiding_circuit = std::make_unique<ClientCircuit>(circuit);
     } else {
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
@@ -338,7 +338,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
             // Deallocate the last PG prover accumulator after constructing a decider proof for it in order to free
             // memory
             // use reset?
-            fold_output.accumulator = nullptr;
+            // fold_output.accumulator = nullptr;
             vinfo("constructed decider proof");
         } else {
             queue_entry.type = QUEUE_TYPE::PG;
@@ -438,6 +438,13 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::comp
     return { points_accumulator, merged_table_commitments };
 }
 
+std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::get_hiding_circuit_proving_key()
+{
+    auto hiding_decider_pk =
+        std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
+    return hiding_decider_pk;
+}
+
 /**
  * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding, merge
  * and decider proof.
@@ -448,8 +455,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Assert somewhere the verication queue is 1 before constructing the hiding circuit
     ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
-    auto hiding_decider_pk =
-        std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
+    auto hiding_decider_pk = get_hiding_circuit_proving_key();
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
     // key during proving. Precompute instead.

@@ -135,10 +135,14 @@ ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t n
                                                     });
     ivc.accumulate(circuit_1, vk_1);
 
+    ClientIVC::ClientCircuit circuit{ ivc.goblin.op_queue };
+    ivc.complete_kernel_circuit_logic(circuit);
     // Construct the hiding circuit and its VK (stored internally in the IVC)
-    ivc.construct_hiding_circuit_key();
-
-    return ivc.get_vk();
+    auto hiding_decider_pk = ivc.get_hiding_circuit_proving_key();
+    auto hiding_honk_vk = std::make_shared<ClientIVC::MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
+    return { hiding_honk_vk,
+             std::make_shared<ClientIVC::ECCVMVerificationKey>(),
+             std::make_shared<ClientIVC::TranslatorVerificationKey>() };
 }
 
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_UNUSED const BBApiRequest& request) &&
