@@ -2,10 +2,10 @@ use crate::{
     context::{PrivateContext, PublicContext},
     event::event_selector::EventSelector,
     messages::{
-        logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
+        logs::{event::to_encrypted_private_event_message_unconstrained, utils::prefix_with_tag},
         offchain_messages::emit_offchain_message,
     },
-    utils::remove_constraints::{remove_constraints, remove_constraints_if},
+    utils::remove_constraints::remove_constraints_if,
 };
 use dep::protocol_types::{
     address::AztecAddress,
@@ -53,9 +53,15 @@ where
     // usage is requested. If `constraints` were a runtime value then performance would suffer.
     assert_constant(constraints);
 
+    crate::oracle::debug_log::debug_log_format("constraints: {0}", [constraints as Field]);
     let (ciphertext, randomness) = remove_constraints_if(
         constraints == PrivateLogContent.NO_CONSTRAINTS,
-        || to_encrypted_private_event_message(event, recipient),
+        || {
+            // Safety: testing
+            unsafe {
+                to_encrypted_private_event_message_unconstrained(event, recipient)
+            }
+        },
     );
     let log_content = prefix_with_tag(ciphertext, recipient);
 
@@ -93,7 +99,7 @@ where
 {
     // Safety: as explained above, this function places no constraints on the content of the message.
     let (message_ciphertext, randomness) =
-        unsafe { remove_constraints(|| to_encrypted_private_event_message(event, recipient)) };
+        unsafe { to_encrypted_private_event_message_unconstrained(event, recipient) };
 
     // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery. Note
     // that the commitment is made from the (constrained) event content, and not the (unconstrained) ciphertext.

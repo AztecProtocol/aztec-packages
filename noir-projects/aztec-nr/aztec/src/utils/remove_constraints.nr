@@ -12,7 +12,12 @@ pub fn remove_constraints_if<Env, T>(condition: bool, f: fn[Env]() -> T) -> T {
     // If `condition` is not a compile-time constant, then the compiler won't optimize away the branch not taken in the
     // if statement below, and we may end up with constraints for `f` regardless of the runtime value of `condition`.
     assert_constant(condition);
-
+    crate::oracle::debug_log::debug_log_format("condition: {0}", [condition as Field]);
+    let is_unconstrained = std::runtime::is_unconstrained();
+    crate::oracle::debug_log::debug_log_format(
+        "is_unconstrained: {0}",
+        [is_unconstrained as Field],
+    );
     if condition {
         // Safety: the purpose of this function is to execute `f` with no constraints when `condition` is true.
         unsafe {
