@@ -41,8 +41,8 @@ TEST(SendL2ToL1MsgConstrainingTest, Positive)
         { C::execution_sel_opcode_error, 0 },
         { C::execution_public_inputs_index,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_msgs },
-        { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
-        { C::execution_next_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs + 1 },
+        { C::execution_prev_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
+        { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs + 1 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SENDL2TOL1MSG },
 
     } });
@@ -64,8 +64,8 @@ TEST(SendL2ToL1MsgConstrainingTest, LimitReached)
         { C::execution_sel_opcode_error, 1 },
         { C::execution_public_inputs_index,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_msgs },
+        { C::execution_prev_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
         { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
-        { C::execution_next_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SENDL2TOL1MSG },
     } });
     check_relation<send_l2_to_l1_msg>(trace);
@@ -77,7 +77,7 @@ TEST(SendL2ToL1MsgConstrainingTest, LimitReached)
     trace.set(C::execution_sel_opcode_error, 0, 1);
 
     // Negative test: num l2 to l1 messages must be the same
-    trace.set(C::execution_next_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs + 1);
+    trace.set(C::execution_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
                                   trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
                               "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
@@ -98,14 +98,14 @@ TEST(SendL2ToL1MsgConstrainingTest, Discard)
         { C::execution_public_inputs_index,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_msgs },
         { C::execution_discard, 1 },
-        { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
-        { C::execution_next_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs + 1 },
+        { C::execution_prev_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
+        { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs + 1 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SENDL2TOL1MSG },
     } });
     check_relation<send_l2_to_l1_msg>(trace);
 
     // Negative test: num l2 to l1 messages should increase when discarding
-    trace.set(C::execution_next_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs);
+    trace.set(C::execution_num_l2_to_l1_messages, 0, prev_num_l2_to_l1_msgs);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
                                   trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
                               "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");
@@ -145,8 +145,8 @@ TEST(SendL2ToL1MsgConstrainingTest, Interactions)
         { C::execution_public_inputs_index,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_msgs },
         { C::execution_contract_address, address },
-        { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
-        { C::execution_next_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs + 1 },
+        { C::execution_prev_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs },
+        { C::execution_num_l2_to_l1_messages, prev_num_l2_to_l1_msgs + 1 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SENDL2TOL1MSG },
     } });
 
@@ -200,14 +200,14 @@ TEST(SendL2ToL1MsgConstrainingTest, NegativeShouldNumL2ToL1MessagesIncrease)
     TestTraceContainer trace({ {
         { C::execution_sel_execute_send_l2_to_l1_msg, 1 },
         { C::execution_sel_opcode_error, 0 },
-        { C::execution_num_l2_to_l1_messages, 0 },
-        { C::execution_next_num_l2_to_l1_messages, 1 },
+        { C::execution_prev_num_l2_to_l1_messages, 0 },
+        { C::execution_num_l2_to_l1_messages, 1 },
     } });
     check_relation<send_l2_to_l1_msg>(trace,
                                       send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE);
 
     // Negative test: num_l2_to_l1_messages must increase
-    trace.set(C::execution_num_l2_to_l1_messages, 0, 1);
+    trace.set(C::execution_prev_num_l2_to_l1_messages, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<send_l2_to_l1_msg>(
                                   trace, send_l2_to_l1_msg::SR_EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE),
                               "EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE");

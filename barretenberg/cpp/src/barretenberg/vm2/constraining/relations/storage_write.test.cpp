@@ -128,6 +128,48 @@ TEST(SStoreConstrainingTest, ErrorTooManyWrites)
                               "SSTORE_ERROR_TOO_MANY_WRITES");
 }
 
+TEST(SStoreConstrainingTest, TreeStateNotChangedOnError)
+{
+    TestTraceContainer trace({ {
+        { C::execution_sel_execute_sstore, 1 },
+        { C::execution_prev_public_data_tree_root, 27 },
+        { C::execution_prev_public_data_tree_size, 5 },
+        { C::execution_prev_written_public_data_slots_tree_root, 28 },
+        { C::execution_prev_written_public_data_slots_tree_size, 6 },
+        { C::execution_public_data_tree_root, 27 },
+        { C::execution_public_data_tree_size, 5 },
+        { C::execution_written_public_data_slots_tree_root, 28 },
+        { C::execution_written_public_data_slots_tree_size, 6 },
+        { C::execution_sel_opcode_error, 1 },
+    } });
+
+    check_relation<sstore>(trace,
+                           sstore::SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED,
+                           sstore::SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED,
+                           sstore::SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED,
+                           sstore::SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED);
+
+    // Negative test: written slots tree root must be the same
+    trace.set(C::execution_written_public_data_slots_tree_root, 0, 29);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED),
+                              "SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED");
+
+    // Negative test: written slots tree size must be the same
+    trace.set(C::execution_written_public_data_slots_tree_size, 0, 7);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED),
+                              "SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED");
+
+    // Negative test: public data tree root must be the same
+    trace.set(C::execution_public_data_tree_root, 0, 29);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED),
+                              "SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED");
+
+    // Negative test: public data tree size must be the same
+    trace.set(C::execution_public_data_tree_size, 0, 7);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED),
+                              "SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED");
+}
+
 TEST(SStoreConstrainingTest, Interactions)
 {
     NiceMock<MockPoseidon2> poseidon2;

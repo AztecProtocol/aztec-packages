@@ -49,6 +49,9 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         note_hash_tree_check.next_root
     };
 
+    #[EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED]
+    sel_execute_emit_notehash * sel_opcode_error * (prev_note_hash_tree_root - note_hash_tree_root) = 0;
+
     #[EMIT_NOTEHASH_TREE_SIZE_INCREASE]
     sel_execute_emit_notehash * (prev_note_hash_tree_size + sel_write_note_hash - note_hash_tree_size) = 0;
 
