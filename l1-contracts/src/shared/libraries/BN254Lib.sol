@@ -5,12 +5,9 @@ pragma solidity >=0.8.27;
 /**
  * Credit:
  * Primary inspiration from https://hackmd.io/7B4nfNShSY2Cjln-9ViQrA, which points out the
- * optimization of linking/using a G1 and G2 key.
- *
- * The hashToPoint function, and the helpers it calls are modified from
- * https://github.com/thehubbleproject/hubble-contracts/blob/master/contracts/libs/BLS.sol
+ * optimization of linking/using a G1 and G2 key and provides an implementation for
+ * the hashToPoint and sqrt functions.
  */
-import {ModExpInverse, ModExpSqrt} from "./ModExp.sol";
 
 /**
  * Library for registering public keys and computing BLS signatures over the BN254 curve.
@@ -45,7 +42,7 @@ library BN254Lib {
   uint256 public constant GROUP_ORDER =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
-  bytes32 public constant STAKING_DOMAIN_SEPARATOR = bytes32("AZTEC_BLS_POP_BN254_FT_V1");
+  bytes32 public constant STAKING_DOMAIN_SEPARATOR = bytes32("AZTEC_BLS_POP_BN254_V1");
 
   // sqrt(-3)
   uint256 private constant Z0 = 0x0000000000000000b3c4d79d41a91759a9e4c7e359b6b89eaec68e62effffffd;
@@ -60,6 +57,8 @@ library BN254Lib {
   error addPointFail();
   error mulPointFail();
   error gammaZero();
+  error inverseFail();
+  error sqrtFail();
   error pairingFail();
   error valueOutOfRange(uint256 value, uint256 min, uint256 max);
   error noPointFound();
@@ -214,198 +213,63 @@ library BN254Lib {
     return result[0] == 1;
   }
 
-  /**
-   * @notice Fouque-Tibouchi Hash to Curve
-   */
   function hashToPoint(bytes32 domain, bytes memory message)
     internal
     view
     returns (G1Point memory output)
   {
-    uint256[2] memory u = hashToField(domain, message);
-    G1Point memory p0 = mapToPoint(u[0]);
-    G1Point memory p1 = mapToPoint(u[1]);
-
-    return g1Add(p0, p1);
-  }
-
-  function mapToPoint(uint256 _x) internal pure returns (G1Point memory output) {
-    require(_x < BASE_FIELD_ORDER, valueOutOfRange(_x, 0, BASE_FIELD_ORDER));
-    uint256 x = _x;
-
-    (, bool decision) = sqrt(x);
-
-    uint256 a0 = mulmod(x, x, BASE_FIELD_ORDER);
-    a0 = addmod(a0, 4, BASE_FIELD_ORDER);
-    uint256 a1 = mulmod(x, Z0, BASE_FIELD_ORDER);
-    uint256 a2 = mulmod(a1, a0, BASE_FIELD_ORDER);
-    a2 = inverse(a2);
-    a1 = mulmod(a1, a1, BASE_FIELD_ORDER);
-    a1 = mulmod(a1, a2, BASE_FIELD_ORDER);
-
-    // x1
-    a1 = mulmod(x, a1, BASE_FIELD_ORDER);
-    x = addmod(Z1, BASE_FIELD_ORDER - a1, BASE_FIELD_ORDER);
-    // check curve
-    a1 = mulmod(x, x, BASE_FIELD_ORDER);
-    a1 = mulmod(a1, x, BASE_FIELD_ORDER);
-    a1 = addmod(a1, 3, BASE_FIELD_ORDER);
-    bool found;
-    (a1, found) = sqrt(a1);
-    if (found) {
-      if (!decision) {
-        a1 = BASE_FIELD_ORDER - a1;
+    bytes32 hashed = keccak256(abi.encode(domain, message));
+    uint256 x = uint256(hashed) % BASE_FIELD_ORDER;
+    uint256 y;
+    bool found = false;
+    while (true) {
+      y = mulmod(x, x, BASE_FIELD_ORDER);
+      y = mulmod(y, x, BASE_FIELD_ORDER);
+      y = addmod(y, 3, BASE_FIELD_ORDER);
+      (y, found) = sqrt(y);
+      if (found) {
+        output = G1Point({x: x, y: y});
+        break;
       }
-      return G1Point({x: x, y: a1});
+      x = addmod(x, 1, BASE_FIELD_ORDER);
     }
-
-    // x2
-    x = BASE_FIELD_ORDER - addmod(x, 1, BASE_FIELD_ORDER);
-    // check curve
-    a1 = mulmod(x, x, BASE_FIELD_ORDER);
-    a1 = mulmod(a1, x, BASE_FIELD_ORDER);
-    a1 = addmod(a1, 3, BASE_FIELD_ORDER);
-    (a1, found) = sqrt(a1);
-    if (found) {
-      if (!decision) {
-        a1 = BASE_FIELD_ORDER - a1;
-      }
-      return G1Point({x: x, y: a1});
-    }
-
-    // x3
-    x = mulmod(a0, a0, BASE_FIELD_ORDER);
-    x = mulmod(x, x, BASE_FIELD_ORDER);
-    x = mulmod(x, a2, BASE_FIELD_ORDER);
-    x = mulmod(x, a2, BASE_FIELD_ORDER);
-    x = addmod(x, 1, BASE_FIELD_ORDER);
-    // must be on curve
-    a1 = mulmod(x, x, BASE_FIELD_ORDER);
-    a1 = mulmod(a1, x, BASE_FIELD_ORDER);
-    a1 = addmod(a1, 3, BASE_FIELD_ORDER);
-    (a1, found) = sqrt(a1);
     require(found, noPointFound());
-    if (!decision) {
-      a1 = BASE_FIELD_ORDER - a1;
-    }
-    return G1Point({x: x, y: a1});
+    return output;
   }
 
-  function hashToField(bytes32 domain, bytes memory messages)
-    internal
-    pure
-    returns (uint256[2] memory)
-  {
-    bytes memory _msg = expandMsgTo96(domain, messages);
-    uint256 u0;
-    uint256 u1;
-    uint256 a0;
-    uint256 a1;
+  function sqrt(uint256 xx) internal view returns (uint256 x, bool hasRoot) {
+    bool callSuccess;
     assembly {
-      let p := add(_msg, 24)
-      u1 := and(mload(p), MASK24)
-      p := add(_msg, 48)
-      u0 := and(mload(p), MASK24)
-      a0 := addmod(mulmod(u1, T24, BASE_FIELD_ORDER), u0, BASE_FIELD_ORDER)
-      p := add(_msg, 72)
-      u1 := and(mload(p), MASK24)
-      p := add(_msg, 96)
-      u0 := and(mload(p), MASK24)
-      a1 := addmod(mulmod(u1, T24, BASE_FIELD_ORDER), u0, BASE_FIELD_ORDER)
+      let freeMem := mload(0x40)
+      mstore(freeMem, 0x20)
+      mstore(add(freeMem, 0x20), 0x20)
+      mstore(add(freeMem, 0x40), 0x20)
+      mstore(add(freeMem, 0x60), xx)
+      // (N + 1) / 4 = 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52
+      mstore(add(freeMem, 0x80), 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52)
+      // N = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+      mstore(add(freeMem, 0xA0), 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+      callSuccess := staticcall(sub(gas(), 2000), 5, freeMem, 0xC0, freeMem, 0x20)
+      x := mload(freeMem)
+      hasRoot := eq(xx, mulmod(x, x, BASE_FIELD_ORDER))
     }
-    return [a0, a1];
+    require(callSuccess, sqrtFail());
   }
 
-  function expandMsgTo96(bytes32 domain, bytes memory message) internal pure returns (bytes memory) {
-    // zero<64>|msg<var>|lib_str<2>|I2OSP(0, 1)<1>|dst<var>|dst_len<1>
-    uint256 t0 = message.length;
-    bytes memory msg0 = new bytes(32 + t0 + 64 + 4);
-    bytes memory out = new bytes(96);
-    // b0
+  function inverse(uint256 a) internal view returns (uint256 result) {
+    bool success;
     assembly {
-      let p := add(msg0, 96)
-      for { let z := 0 } lt(z, t0) { z := add(z, 32) } {
-        mstore(add(p, z), mload(add(message, add(z, 32))))
-      }
-      p := add(p, t0)
-
-      mstore8(p, 0)
-      p := add(p, 1)
-      mstore8(p, 96)
-      p := add(p, 1)
-      mstore8(p, 0)
-      p := add(p, 1)
-
-      mstore(p, domain)
-      p := add(p, 32)
-      mstore8(p, 32)
+      let freeMem := mload(0x40)
+      mstore(freeMem, 0x20)
+      mstore(add(freeMem, 0x20), 0x20)
+      mstore(add(freeMem, 0x40), 0x20)
+      mstore(add(freeMem, 0x60), a)
+      mstore(add(freeMem, 0x80), sub(BASE_FIELD_ORDER, 2))
+      mstore(add(freeMem, 0xa0), BASE_FIELD_ORDER)
+      success := staticcall(gas(), 0x05, freeMem, 0xc0, 0x00, 0x20)
+      result := mload(0x00)
     }
-    bytes32 b0 = sha256(msg0);
-    bytes32 bi;
-    t0 = 32 + 34;
-
-    // resize intermediate message
-    assembly {
-      mstore(msg0, t0)
-    }
-
-    // b1
-
-    assembly {
-      mstore(add(msg0, 32), b0)
-      mstore8(add(msg0, 64), 1)
-      mstore(add(msg0, 65), domain)
-      mstore8(add(msg0, add(32, 65)), 32)
-    }
-
-    bi = sha256(msg0);
-
-    assembly {
-      mstore(add(out, 32), bi)
-    }
-
-    // b2
-
-    assembly {
-      let t := xor(b0, bi)
-      mstore(add(msg0, 32), t)
-      mstore8(add(msg0, 64), 2)
-      mstore(add(msg0, 65), domain)
-      mstore8(add(msg0, add(32, 65)), 32)
-    }
-
-    bi = sha256(msg0);
-
-    assembly {
-      mstore(add(out, 64), bi)
-    }
-
-    // b3
-
-    assembly {
-      let t := xor(b0, bi)
-      mstore(add(msg0, 32), t)
-      mstore8(add(msg0, 64), 3)
-      mstore(add(msg0, 65), domain)
-      mstore8(add(msg0, add(32, 65)), 32)
-    }
-
-    bi = sha256(msg0);
-
-    assembly {
-      mstore(add(out, 96), bi)
-    }
-
-    return out;
-  }
-
-  function sqrt(uint256 xx) internal pure returns (uint256 x, bool hasRoot) {
-    x = ModExpSqrt.run(xx);
-    hasRoot = mulmod(x, x, BASE_FIELD_ORDER) == xx;
-  }
-
-  function inverse(uint256 a) internal pure returns (uint256) {
-    return ModExpInverse.run(a);
+    if (!success) revert inverseFail();
   }
 
   /// @notice γ = keccak(PK1, PK2, σ_init) mod Fr

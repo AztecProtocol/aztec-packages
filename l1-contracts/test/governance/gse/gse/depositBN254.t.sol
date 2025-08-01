@@ -71,23 +71,14 @@ contract DepositBN254Test is WithGSE {
     );
   }
 
-  modifier whenTheDepositKeysPassTheProofOfPossessionCheck() {
-    // Generate Public Key
-    {}
-    _;
-  }
-
-  function test_WhenProofOfPossessionHasBeenSeenBefore(
+  function test_WhenTheDepositKeysPassTheProofOfPossessionCheck(
     address _instance,
     address _attester1,
     address _attester2,
     address _withdrawer,
     bool _moveWithLatestRollup
-  )
-    external
-    whenCallerIsRegisteredRollup(_instance)
-    whenTheDepositKeysPassTheProofOfPossessionCheck
-  {
+  ) external whenCallerIsRegisteredRollup(_instance) {
+    // it adds the keys if they are new
     uint256 depositAmount = gse.DEPOSIT_AMOUNT();
 
     {
