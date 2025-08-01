@@ -43,7 +43,41 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
     DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
         : vk(vk)
     {}
-
-    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_accumulator, gate_challenges, target_sum, witness_commitments);
 };
+
+// Serialization methods for DeciderVerificationKey_
+template <IsUltraOrMegaHonk Flavor> inline void read(uint8_t const*& it, DeciderVerificationKey_<Flavor>& dvk)
+{
+    using serialize::read;
+
+    // Read the underlying verification key
+    dvk.vk = std::make_shared<typename Flavor::VerificationKey>();
+    read(it, *dvk.vk);
+
+    // Read other members
+    read(it, dvk.is_accumulator);
+    read(it, dvk.alphas);
+    read(it, dvk.relation_parameters);
+    read(it, dvk.gate_challenges);
+    read(it, dvk.target_sum);
+    read(it, dvk.witness_commitments);
+}
+
+template <IsUltraOrMegaHonk Flavor>
+inline void write(std::vector<uint8_t>& buf, DeciderVerificationKey_<Flavor> const& dvk)
+{
+    using serialize::write;
+
+    // Write the underlying verification key
+    write(buf, *dvk.vk);
+
+    // Write other members
+    write(buf, dvk.is_accumulator);
+    write(buf, dvk.alphas);
+    write(buf, dvk.relation_parameters);
+    write(buf, dvk.gate_challenges);
+    write(buf, dvk.target_sum);
+    write(buf, dvk.witness_commitments);
+}
+
 } // namespace bb

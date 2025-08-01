@@ -47,6 +47,59 @@ export type UltraHonkBackendOptions = {
   starknetZK?: boolean;
 };
 
+
+function getProofSettingsFromOptions(
+  options?: UltraHonkBackendOptions,
+): { ipaAccumulation: boolean; oracleHashType: string; disableZk: boolean } {
+  return {
+    ipaAccumulation: false,
+    oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : (options?.starknet || options?.starknetZK ? 'starknet' : 'poseidon2'),
+    // TODO no current way to target non-zk poseidon2 hash
+    disableZk: options?.keccak || options?.starknet ? true : false,
+  };
+}
+
+export class UltraHonkVerifierBackend {
+  protected api!: Barretenberg;
+
+  constructor(
+    protected backendOptions: BackendOptions = { threads: 1 },
+    protected circuitOptions: CircuitOptions = { recursive: false },
+  ) {}
+  /** @ignore */
+  private async instantiate(): Promise<void> {
+    if (!this.api) {
+      const api = await Barretenberg.new(this.backendOptions);
+      const honkRecursion = true;
+      await api.initSRSForCircuitSize(0);
+
+      this.api = api;
+    }
+  }
+
+  async verifyProof(proofData: ProofData & { verificationKey: Uint8Array }, options?: UltraHonkBackendOptions): Promise<boolean> {
+    await this.instantiate();
+
+    const proofFrs: Uint8Array[] = [];
+    for (let i = 0; i < proofData.proof.length; i += 32) {
+      proofFrs.push(proofData.proof.slice(i, i + 32));
+    }
+    const { verified } = await this.api.circuitVerify({
+      verificationKey: proofData.verificationKey,
+      publicInputs: proofData.publicInputs.map(hexToUint8Array),
+      proof: proofFrs,
+      settings: getProofSettingsFromOptions(options),
+    });
+    return verified;
+  }
+  destroy(): Promise<void> {
+    if (!this.api) {
+      return Promise.resolve();
+    }
+    return this.api.destroy();
+  }
+}
+
 export class UltraHonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` in the constructor.
@@ -74,17 +127,6 @@ export class UltraHonkBackend {
     }
   }
 
-  private getProofSettingsFromOptions(
-    options?: UltraHonkBackendOptions,
-  ): { ipaAccumulation: boolean; oracleHashType: string; disableZk: boolean } {
-    return {
-      ipaAccumulation: false,
-      oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : (options?.starknet || options?.starknetZK ? 'starknet' : 'poseidon2'),
-      // TODO no current way to target non-zk poseidon2 hash
-      disableZk: options?.keccak || options?.starknet ? true : false,
-    };
-  }
-
   async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
     await this.instantiate();
 
@@ -96,7 +138,7 @@ export class UltraHonkBackend {
         bytecode: Buffer.from(this.acirUncompressedBytecode),
         verificationKey: Buffer.from([]), // Empty VK - lower performance.
       },
-      settings: this.getProofSettingsFromOptions(options)
+      settings: getProofSettingsFromOptions(options)
     });
     console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
 
@@ -122,13 +164,13 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: this.acirUncompressedBytecode,
       },
-      settings: this.getProofSettingsFromOptions(options),
+      settings: getProofSettingsFromOptions(options),
     });
     const {verified} = await this.api.circuitVerify({
       verificationKey: vkResult.bytes,
       publicInputs: proofData.publicInputs.map(hexToUint8Array),
       proof: proofFrs,
-      settings: this.getProofSettingsFromOptions(options),
+      settings: getProofSettingsFromOptions(options),
     });
     return verified;
   }
@@ -141,7 +183,7 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-      settings: this.getProofSettingsFromOptions(options),
+      settings: getProofSettingsFromOptions(options),
     });
     return vkResult.bytes;
   }
@@ -176,7 +218,7 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-      settings: this.getProofSettingsFromOptions({}),
+      settings: getProofSettingsFromOptions({}),
     });
 
     return {

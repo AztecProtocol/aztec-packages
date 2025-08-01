@@ -53,7 +53,9 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
     if (!request.loaded_circuit_vk.empty()) {
-        precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+        // Deserialize directly from buffer
+        auto deserialized_vk = from_buffer<ClientIVC::MegaVerificationKey>(request.loaded_circuit_vk);
+        precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(std::move(deserialized_vk));
     }
 
     info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
@@ -96,8 +98,8 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 
 ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request*/) &&
 {
-    // Deserialize the verification key from the byte buffer
-    const auto verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
+    // Deserialize the verification key directly from buffer
+    ClientIVC::VerificationKey verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
 
     // Verify the proof using ClientIVC's static verify method
     const bool verified = ClientIVC::verify(proof, verification_key);
@@ -146,7 +148,9 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
     auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
 
-    return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
+    // Serialize via to_field_elements() then to_buffer()
+    auto field_elements = verification_key->to_field_elements();
+    return { .bytes = to_buffer(field_elements), .fields = field_elements };
 }
 
 ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiRequest& request) &&
@@ -158,7 +162,10 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiReques
     auto vk = compute_civc_vk(request, constraint_system.public_inputs.size());
 
     Response response;
-    response.bytes = to_buffer(vk);
+    // Serialize via to_field_elements() then to_buffer()
+    auto field_elements = vk.to_field_elements();
+    response.bytes = to_buffer(field_elements);
+    response.fields = field_elements;
 
     info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
 
@@ -178,14 +185,18 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
         throw_or_abort("Missing precomputed VK");
     }
 
-    auto precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(circuit.verification_key);
+    // Deserialize directly from buffer
+    auto deserialized_vk = from_buffer<ClientIVC::MegaVerificationKey>(circuit.verification_key);
+    auto precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(std::move(deserialized_vk));
 
     Response response;
     response.valid = true;
     std::string error_message = "Precomputed vk does not match computed vk for function " + circuit.name;
-    if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+    if (*computed_vk != *precomputed_vk) {
         response.valid = false;
-        response.actual_vk = to_buffer(computed_vk);
+        // Serialize via to_field_elements() then to_buffer()
+        auto field_elements = computed_vk->to_field_elements();
+        response.actual_vk = to_buffer(field_elements);
     }
     return response;
 }
