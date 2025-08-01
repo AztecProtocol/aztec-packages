@@ -753,8 +753,7 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript, /*SerializeMetadata=*/false> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()

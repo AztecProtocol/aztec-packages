@@ -321,8 +321,10 @@ inline void write(std::vector<uint8_t>& buf,
  * @tparam Builder
  * @tparam FF
  * @tparam PrecomputedCommitments
+ * @tparam SerializeMetadata If true, includes circuit metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
+ * in serialization
  */
-template <typename Builder_, typename PrecomputedCommitments>
+template <typename Builder_, typename PrecomputedCommitments, bool SerializeMetadata = true>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
     using Builder = Builder_;
@@ -358,9 +360,11 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<FF> elements;
 
-        serialize_to_field_buffer(this->log_circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        if constexpr (SerializeMetadata) {
+            serialize_to_field_buffer(this->log_circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        }
 
         for (const Commitment& commitment : this->get_all()) {
             serialize_to_field_buffer(commitment, elements);
