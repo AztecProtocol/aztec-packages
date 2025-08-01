@@ -392,10 +392,11 @@ A getter function for checking the private balance of the provided Aztec account
 
 Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../../reference/environment_reference/index.md) for instructions on setting it up.
 
-Run the following command in the directory where your `Nargo.toml` file is located:
+Run the following commands in the directory where your `Nargo.toml` file is located:
 
 ```bash
 aztec-nargo compile
+aztec-compile-contract
 ```
 
 Once your contract is compiled, optionally generate a typescript interface with the following command:

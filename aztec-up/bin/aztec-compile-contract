@@ -15,11 +15,11 @@ if [ -t 0 ]; then
   fi
 fi
 
-# Pass through directly to vanilla nargo
+# Run the aztec-compile-contract script from within the container
 docker run ${args:-} \
   --user $(id -u):$(id -g) \
   -v $HOME:$HOME \
   -e HOME=$HOME \
   --workdir="$PWD" \
-  --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
+  --entrypoint=/usr/src/aztec-compile-contract/transpile_contract_and_gen_vks.sh \
   aztecprotocol/aztec "$@"
