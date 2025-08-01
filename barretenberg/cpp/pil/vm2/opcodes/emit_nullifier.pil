@@ -30,25 +30,27 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // =========== VALIDATION ===========
 
-    // TODO(dbanks12): error if in static context
-
     pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX -
         prev_num_nullifiers_emitted;
 
-    pol commit sel_write_nullifier;
-    // LIMIT_ERROR implies that we do NOT write the nullifier via the lookup later
-    pol LIMIT_ERROR = 1 - sel_write_nullifier;
+    pol commit sel_reached_max_nullifiers;
+    sel_reached_max_nullifiers * (1 - sel_reached_max_nullifiers) = 0;
 
     pol commit remaining_nullifiers_inv;
     // Limit error if REMAINING_NULLIFIER_WRITES is 0
-    #[EMIT_NULLIFIER_MAX_NULLIFIER_WRITES_REACHED]
-    sel_execute_emit_nullifier * (REMAINING_NULLIFIER_WRITES * (LIMIT_ERROR * (1 - remaining_nullifiers_inv) + remaining_nullifiers_inv) - 1 + LIMIT_ERROR) = 0;
+    #[MAX_NULLIFIER_WRITES_REACHED]
+    sel_execute_emit_nullifier * (REMAINING_NULLIFIER_WRITES * (sel_reached_max_nullifiers * (1 - remaining_nullifiers_inv) + remaining_nullifiers_inv) - 1 + sel_reached_max_nullifiers) = 0;
 
-    // A limit error must cause an "opcode error".
-    //     if LIMIT_ERROR == 1, sel_opcode_error must be 1
+    pol commit sel_write_nullifier;
+    // Validation errors if we've reached the max nullifiers or if we're in a static context
+    #[VALIDATION_ERROR_DISABLE_WRITE]
+    sel_execute_emit_nullifier * ((1 - sel_reached_max_nullifiers) * (1 - is_static) - sel_write_nullifier) = 0;
+
+    // A validation error must cause an "opcode error".
+    //     if sel_write_nullifier == 0, sel_opcode_error must be 1
     //     but otherwise, we don't force a value for sel_opcode_error and instead let the lookup below set it.
-    #[OPCODE_ERROR_IF_LIMIT_ERROR]
-    sel_execute_emit_nullifier * LIMIT_ERROR * (1 - sel_opcode_error) = 0;
+    #[OPCODE_ERROR_IF_VALIDATION_ERROR]
+    sel_execute_emit_nullifier * (1 - sel_write_nullifier) * (1 - sel_opcode_error) = 0;
 
     // =========== OPCODE EXECUTION ===========
 
