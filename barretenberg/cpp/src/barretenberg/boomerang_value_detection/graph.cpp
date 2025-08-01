@@ -139,10 +139,10 @@ inline std::vector<std::vector<uint32_t>> StaticAnalyzer_<FF, CircuitBuilder>::g
             }
         }
     }
-    gate_variables = this->to_real(gate_variables);
-    minigate_variables = this->to_real(minigate_variables);
-    this->process_gate_variables(gate_variables, index, block_idx);
-    this->process_gate_variables(minigate_variables, index, block_idx);
+    gate_variables = to_real(gate_variables);
+    minigate_variables = to_real(minigate_variables);
+    process_gate_variables(gate_variables, index, block_idx);
+    process_gate_variables(minigate_variables, index, block_idx);
     all_gates_variables.emplace_back(gate_variables);
     if (!minigate_variables.empty()) {
         all_gates_variables.emplace_back(minigate_variables);
@@ -167,29 +167,39 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_elliptic_g
 {
     std::vector<uint32_t> gate_variables;
     if (!blk.q_elliptic()[index].is_zero()) {
+        std::vector<uint32_t> first_row_variables;
+        std::vector<uint32_t> second_row_variables;
         gate_variables.reserve(6);
         bool is_elliptic_add_gate = !blk.q_1()[index].is_zero() && blk.q_m()[index].is_zero();
         bool is_elliptic_dbl_gate = blk.q_1()[index].is_zero() && blk.q_m()[index] == FF::one();
         auto right_idx = blk.w_r()[index];
         auto out_idx = blk.w_o()[index];
-        gate_variables.emplace_back(right_idx);
-        gate_variables.emplace_back(out_idx);
+        first_row_variables.emplace_back(right_idx);
+        first_row_variables.emplace_back(out_idx);
         if (index != blk.size() - 1) {
             if (is_elliptic_add_gate) {
                 // if this gate is ecc_add_gate, we have to get indices x2, x3, y3, y2 from the next gate
-                gate_variables.emplace_back(blk.w_l()[index + 1]);
-                gate_variables.emplace_back(blk.w_r()[index + 1]);
-                gate_variables.emplace_back(blk.w_o()[index + 1]);
-                gate_variables.emplace_back(blk.w_4()[index + 1]);
+                second_row_variables.emplace_back(blk.w_l()[index + 1]);
+                second_row_variables.emplace_back(blk.w_r()[index + 1]);
+                second_row_variables.emplace_back(blk.w_o()[index + 1]);
+                second_row_variables.emplace_back(blk.w_4()[index + 1]);
             }
             if (is_elliptic_dbl_gate) {
                 // if this gate is ecc_dbl_gate, we have to indices x3, y3 from right and output wires
-                gate_variables.emplace_back(blk.w_r()[index + 1]);
-                gate_variables.emplace_back(blk.w_o()[index + 1]);
+                second_row_variables.emplace_back(blk.w_r()[index + 1]);
+                second_row_variables.emplace_back(blk.w_o()[index + 1]);
             }
         }
-        gate_variables = this->to_real(gate_variables);
-        this->process_gate_variables(gate_variables, index, block_idx);
+        if (!first_row_variables.empty()) {
+            first_row_variables = to_real(first_row_variables);
+            process_gate_variables(first_row_variables, index, block_idx);
+            gate_variables.insert(gate_variables.end(), first_row_variables.cbegin(), first_row_variables.cend());
+        }
+        if (!second_row_variables.empty()) {
+            second_row_variables = to_real(second_row_variables);
+            process_gate_variables(second_row_variables, index + 1, block_idx);
+            gate_variables.insert(gate_variables.end(), second_row_variables.cbegin(), second_row_variables.cend());
+        }
     }
     return gate_variables;
 }
@@ -217,8 +227,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_sort_const
             gate_variables.emplace_back(block.w_l()[index + 1]);
         }
     }
-    gate_variables = this->to_real(gate_variables);
-    this->process_gate_variables(gate_variables, index, blk_idx);
+    gate_variables = to_real(gate_variables);
+    process_gate_variables(gate_variables, index, blk_idx);
     return gate_variables;
 }
 
@@ -259,8 +269,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_plookup_ga
                 gate_variables.emplace_back(block.w_o()[index + 1]);
             }
         }
-        gate_variables = this->to_real(gate_variables);
-        this->process_gate_variables(gate_variables, index, blk_idx);
+        gate_variables = to_real(gate_variables);
+        process_gate_variables(gate_variables, index, blk_idx);
     }
     return gate_variables;
 }
@@ -294,8 +304,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_poseido2s_
             gate_variables.emplace_back(block.w_o()[index + 1]);
             gate_variables.emplace_back(block.w_4()[index + 1]);
         }
-        gate_variables = this->to_real(gate_variables);
-        this->process_gate_variables(gate_variables, index, blk_idx);
+        gate_variables = to_real(gate_variables);
+        process_gate_variables(gate_variables, index, blk_idx);
     }
     return gate_variables;
 }
@@ -445,8 +455,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_non_native_field_gate_conn
             }
         }
     }
-    gate_variables = this->to_real(gate_variables);
-    this->process_gate_variables(gate_variables, index, blk_idx);
+    gate_variables = to_real(gate_variables);
+    process_gate_variables(gate_variables, index, blk_idx);
     return gate_variables;
 }
 
@@ -498,8 +508,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_rom_table_
             }
             gate_variables.emplace_back(record_witness);
         }
-        gate_variables = this->to_real(gate_variables);
-        this->process_gate_variables(gate_variables, gate_index, block_index);
+        gate_variables = to_real(gate_variables);
+        process_gate_variables(gate_variables, gate_index, block_index);
         // after process_gate_variables function gate_variables constists of real variables indexes, so we can add all
         // this variables in the final vector to connect all of them
         if (!gate_variables.empty()) {
@@ -552,8 +562,8 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_ram_table_
             }
             gate_variables.emplace_back(record_witness);
         }
-        gate_variables = this->to_real(gate_variables);
-        this->process_gate_variables(gate_variables, gate_index, block_index);
+        gate_variables = to_real(gate_variables);
+        process_gate_variables(gate_variables, gate_index, block_index);
         // after process_gate_variables function gate_variables constists of real variables indexes, so we can add all
         // these variables in the final vector to connect all of them
         ram_table_variables.insert(ram_table_variables.end(), gate_variables.begin(), gate_variables.end());
@@ -569,26 +579,42 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_databus_co
     std::vector<uint32_t> gate_variables;
     if (!blk.q_busread()[index].is_zero()) {
         gate_variables.insert(gate_variables.end(), { blk.w_l()[index], blk.w_r()[index] });
-        gate_variables = this->to_real(gate_variables);
-        this->process_gate_variables(gate_variables, index, block_idx);
+        gate_variables = to_real(gate_variables);
+        process_gate_variables(gate_variables, index, block_idx);
     }
     return gate_variables;
 }
 
 template <typename FF, typename CircuitBuilder>
-inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part_connected_component(
-    size_t index, size_t block_idx, auto& blk)
+inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_eccop_part_connected_component(size_t index,
+                                                                                                     size_t block_idx,
+                                                                                                     auto& blk)
 {
     std::vector<uint32_t> gate_variables;
-    auto w1 = blk.w_l()[index]; // get opcode of operation, because function get_ecc_op_idx returns type uint32_t and it adds as w1
+    std::vector<uint32_t> first_row_variables;
+    std::vector<uint32_t> second_row_variables;
+    auto w1 = blk.w_l()[index]; // get opcode of operation, because function get_ecc_op_idx returns type uint32_t and it
+                                // adds as w1
     if (w1 != circuit_builder.zero_idx) {
         // this is opcode and start of the UltraOp element
-        gate_variables.insert(gate_variables.end(), { w1, blk.w_r()[index], blk.w_o()[index], blk.w_4()[index] }); // add op, x_lo, x_hi, y_lo
+        first_row_variables.insert(
+            first_row_variables.end(),
+            { w1, blk.w_r()[index], blk.w_o()[index], blk.w_4()[index] }); // add op, x_lo, x_hi, y_lo
         if (index < blk.size() - 1) {
-            gate_variables.insert(gate_variables.end(), { blk.w_r()[index + 1], blk.w_o()[index + 1], blk.w_4()[index + 1] }); // add y_hi, z1, z2
+            second_row_variables.insert(
+                second_row_variables.end(),
+                { blk.w_r()[index + 1], blk.w_o()[index + 1], blk.w_4()[index + 1] }); // add y_hi, z1, z2
         }
-        gate_variables = this->to_real(gate_variables);
-        this->process_gate_variables(gate_variables, index, block_idx);
+        first_row_variables = to_real(first_row_variables);
+        second_row_variables = to_real(second_row_variables);
+        process_gate_variables(first_row_variables, index, block_idx);
+        process_gate_variables(second_row_variables, index + 1, block_idx);
+    }
+    if (!first_row_variables.empty()) {
+        gate_variables.insert(gate_variables.end(), first_row_variables.cbegin(), first_row_variables.cend());
+    }
+    if (!second_row_variables.empty()) {
+        gate_variables.insert(gate_variables.end(), second_row_variables.cbegin(), second_row_variables.cend());
     }
     return gate_variables;
 }
@@ -613,6 +639,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
             continue;
         }
         std::vector<uint32_t> sorted_variables;
+        std::vector<uint32_t> eccop_variables;
         for (size_t gate_idx = 0; gate_idx < block_data[blk_idx].size(); gate_idx++) {
             auto arithmetic_gates_variables =
                 get_arithmetic_gate_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
@@ -645,8 +672,8 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
                 connect_all_variables_in_vector(delta_range_variables);
             }
             if constexpr (std::is_same_v<CircuitBuilder, bb::MegaCircuitBuilder>) {
-                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they are databus or eccop
-                std::vector<uint32_t> eccop_variables;
+                // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they are databus or
+                // eccop
                 auto databus_variables = get_databus_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
                 if (connect_variables) {
                     connect_all_variables_in_vector(databus_variables);
@@ -654,10 +681,11 @@ void StaticAnalyzer_<FF, CircuitBuilder>::process_execution_trace(bool connect_v
                 auto eccop_gate_variables = get_eccop_part_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
                 if (connect_variables) {
                     if (!eccop_gate_variables.empty()) {
-                        //The gotten vector of variables contains all variables from UltraOp element of the table
-                        eccop_variables.insert(eccop_variables.end(), eccop_gate_variables.begin(), eccop_gate_variables.end());
-                        //if a current opcode is responsible for equality and reset, we have to connect all variables in
-                        //global vector and clear it for the next parts
+                        // The gotten vector of variables contains all variables from UltraOp element of the table
+                        eccop_variables.insert(
+                            eccop_variables.end(), eccop_gate_variables.begin(), eccop_gate_variables.end());
+                        // if a current opcode is responsible for equality and reset, we have to connect all variables
+                        // in global vector and clear it for the next parts
                         if (eccop_gate_variables[0] == circuit_builder.equality_op_idx) {
                             connect_all_variables_in_vector(eccop_variables);
                             eccop_variables.clear();
