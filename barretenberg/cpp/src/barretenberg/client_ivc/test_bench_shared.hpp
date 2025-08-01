@@ -38,7 +38,7 @@ bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
 void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
                                      ClientIVC& ivc,
                                      auto& precomputed_vks,
-                                     const bool& mock_vk = false,
+
                                      const bool large_first_app = true)
 {
     BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
@@ -52,20 +52,24 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 
-        ivc.accumulate(circuit, precomputed_vks[circuit_idx], mock_vk);
+        ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
     }
 }
 
-std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_vks(const size_t num_circuits)
+std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_vks(const size_t num_circuits,
+                                                                            const bool large_first_app = true)
 {
+    // Create an app and kernel vk with metadata set
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer{ large_first_app };
+    ClientIVC ivc{ 2, { AZTEC_TRACE_STRUCTURE } };
+    auto [app_circuit, app_vk] = circuit_producer.create_next_circuit_and_vk(ivc);
+    ivc.accumulate(app_circuit, app_vk);
+    auto [kernel_circuit, kernel_vk] = circuit_producer.create_next_circuit_and_vk(ivc);
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
 
     for (size_t idx = 0; idx < num_circuits; ++idx) {
-        auto key = std::make_shared<typename MegaFlavor::VerificationKey>();
-        for (auto& commitment : key->get_all()) {
-            commitment = MegaFlavor::Commitment::random_element();
-        }
+        auto key = idx % 2 == 0 ? app_vk : kernel_vk; // alternate between app and kernel vks
         vkeys.push_back(key);
     }
 
