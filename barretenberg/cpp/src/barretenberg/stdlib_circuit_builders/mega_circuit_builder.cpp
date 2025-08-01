@@ -168,12 +168,12 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
     this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
     this->blocks.ecc_op.populate_wires(this->zero_idx, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
-    for (auto& selector : this->blocks.ecc_op.selectors) {
+    for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
     }
 
