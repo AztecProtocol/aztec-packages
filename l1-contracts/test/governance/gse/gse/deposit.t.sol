@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {WithGSE} from "./base.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IGSECore} from "@aztec/governance/GSE.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract DepositTest is WithGSE {
   address internal caller;

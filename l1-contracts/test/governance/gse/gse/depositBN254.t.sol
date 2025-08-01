@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {AttesterConfig} from "@aztec/governance/GSE.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
@@ -11,9 +11,9 @@ contract DepositBN254Test is WithGSE {
   using stdStorage for StdStorage;
 
   struct ProofOfPossession {
-    BN254Lib.G1Point pk1;
-    BN254Lib.G2Point pk2;
-    BN254Lib.G1Point sigma;
+    G1Point pk1;
+    G2Point pk2;
+    G1Point sigma;
   }
 
   uint256 private sk1 = 0x7777777;
@@ -27,7 +27,7 @@ contract DepositBN254Test is WithGSE {
     // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
     // Prefilling here, and the rest of the data will be generated using the helper
     // generateProofsOfPossession()
-    proofOfPossessions[sk1].pk2 = BN254Lib.G2Point({
+    proofOfPossessions[sk1].pk2 = G2Point({
       x1: 12000187580290590047264785709963395816646295176893602234201956783324175839805,
       x0: 17931071651819835067098563222910421513876328033572114834306979690881549564414,
       y1: 3847186948811352011829434621581350901968531448585779990319356482934947911409,
@@ -35,7 +35,7 @@ contract DepositBN254Test is WithGSE {
     });
     generateProofsOfPossession(sk1);
 
-    proofOfPossessions[sk2].pk2 = BN254Lib.G2Point({
+    proofOfPossessions[sk2].pk2 = G2Point({
       x1: 1508004737965051103384491280975170100170616215043110680634427285854533421349,
       x0: 2276549912948331340977885552999684185609731617727385907945409014914655706355,
       y1: 12411732771141425816085037286206083986670633222105118555909903595342512393131,
@@ -87,9 +87,9 @@ contract DepositBN254Test is WithGSE {
       stakingAsset.mint(address(_instance), depositAmount);
       vm.startPrank(_instance);
       stakingAsset.approve(address(gse), depositAmount);
-      BN254Lib.G1Point memory pk1 = proofOfPossessions[sk1].pk1;
-      BN254Lib.G2Point memory pk2 = proofOfPossessions[sk1].pk2;
-      BN254Lib.G1Point memory sigma = proofOfPossessions[sk1].sigma;
+      G1Point memory pk1 = proofOfPossessions[sk1].pk1;
+      G2Point memory pk2 = proofOfPossessions[sk1].pk2;
+      G1Point memory sigma = proofOfPossessions[sk1].sigma;
       gse.deposit(_attester1, _withdrawer, pk1, pk2, sigma, _moveWithLatestRollup);
       vm.stopPrank();
     }
@@ -98,7 +98,7 @@ contract DepositBN254Test is WithGSE {
       emit log_string("Getting attester1's public key should work");
       address[] memory attesters = new address[](1);
       attesters[0] = _attester1;
-      BN254Lib.G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
         _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
       );
       assertEq(publicKeys.length, 1);
@@ -144,7 +144,7 @@ contract DepositBN254Test is WithGSE {
       emit log_string("Getting attester1's public key should work still work");
       address[] memory attesters = new address[](1);
       attesters[0] = _attester1;
-      BN254Lib.G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
         _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
       );
       assertEq(publicKeys.length, 1);
@@ -239,7 +239,7 @@ contract DepositBN254Test is WithGSE {
       address[] memory attesters = new address[](2);
       attesters[0] = _attester1;
       attesters[1] = _attester2;
-      BN254Lib.G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
+      G1Point[] memory publicKeys = gse.getG1PublicKeysFromAddresses(
         _moveWithLatestRollup ? gse.BONUS_INSTANCE_ADDRESS() : _instance, attesters
       );
       assertEq(publicKeys.length, 2);
@@ -251,8 +251,8 @@ contract DepositBN254Test is WithGSE {
   }
 
   function generateProofsOfPossession(uint256 _sk) internal {
-    BN254Lib.G1Point memory pk1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), _sk);
-    BN254Lib.G1Point memory sigma = BN254Lib.g1Mul(
+    G1Point memory pk1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), _sk);
+    G1Point memory sigma = BN254Lib.g1Mul(
       BN254Lib.hashToPoint(BN254Lib.STAKING_DOMAIN_SEPARATOR, abi.encodePacked(pk1.x, pk1.y)), _sk
     );
     proofOfPossessions[_sk] = ProofOfPossession({

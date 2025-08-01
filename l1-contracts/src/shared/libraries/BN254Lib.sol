@@ -2,6 +2,18 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+struct G1Point {
+  uint256 x;
+  uint256 y;
+}
+
+struct G2Point {
+  uint256 x0;
+  uint256 x1;
+  uint256 y0;
+  uint256 y1;
+}
+
 /**
  * Credit:
  * Primary inspiration from https://hackmd.io/7B4nfNShSY2Cjln-9ViQrA, which points out the
@@ -15,18 +27,6 @@ pragma solidity >=0.8.27;
  * because the Aztec rollup's security is already reliant on BN254Lib
  */
 library BN254Lib {
-  struct G1Point {
-    uint256 x;
-    uint256 y;
-  }
-
-  struct G2Point {
-    uint256 x0;
-    uint256 x1;
-    uint256 y0;
-    uint256 y1;
-  }
-
   /**
    * We use uint256[2] for G1 points and uint256[4] for G2 points.
    * For G1 points, the expected order is (x, y).

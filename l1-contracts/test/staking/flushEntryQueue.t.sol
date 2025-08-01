@@ -18,7 +18,7 @@ import {
   StakingQueueConfigLib
 } from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract FlushEntryQueueTest is StakingBase {
   function test_GivenTheQueueHasAlreadyBeenFlushedThisEpoch() external {

@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {Timestamp, Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingBase} from "./base.t.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract FinaliseWithdrawTest is StakingBase {
   function test_GivenStatusIsNotExiting() external {

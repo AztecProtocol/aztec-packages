@@ -7,7 +7,7 @@ import {TestBase} from "@test/base/Base.sol";
 import {GSEBuilder} from "@test/builder/GseBuilder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract WithGSE is TestBase {
   GSE internal gse;

@@ -15,7 +15,7 @@ import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 struct Timestamps {
   uint256 ts1;

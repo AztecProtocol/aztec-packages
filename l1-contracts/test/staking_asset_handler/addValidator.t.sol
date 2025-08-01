@@ -7,7 +7,7 @@ import {AttesterView, Exit, Status, IStakingCore} from "@aztec/core/interfaces/I
 import {ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase

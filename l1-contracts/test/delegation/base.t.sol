@@ -6,7 +6,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Rollup, GSE, RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract GSEBase is TestBase {
   Rollup internal ROLLUP;
@@ -47,9 +47,9 @@ contract GSEBase is TestBase {
   function help__deposit(
     address _attester,
     address _withdrawer,
-    BN254Lib.G1Point memory _publicKeyInG1,
-    BN254Lib.G2Point memory _publicKeyInG2,
-    BN254Lib.G1Point memory _proofOfPossession,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) internal {
     uint256 depositAmount = ROLLUP.getDepositAmount();

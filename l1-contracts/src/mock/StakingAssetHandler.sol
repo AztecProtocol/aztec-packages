@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
-import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
@@ -62,15 +62,15 @@ interface IStakingAssetHandler {
     address _attester,
     bytes32[] memory _merkleProof,
     ProofVerificationParams memory _params,
-    BN254Lib.G1Point memory _publicKeyG1,
-    BN254Lib.G2Point memory _publicKeyG2,
-    BN254Lib.G1Point memory _signature
+    G1Point memory _publicKeyG1,
+    G2Point memory _publicKeyG2,
+    G1Point memory _signature
   ) external;
   function reenterExitedValidator(
     address _attester,
-    BN254Lib.G1Point calldata _publicKeyG1,
-    BN254Lib.G2Point calldata _publicKeyG2,
-    BN254Lib.G1Point calldata _signature
+    G1Point calldata _publicKeyG1,
+    G2Point calldata _publicKeyG2,
+    G1Point calldata _signature
   ) external;
 
   // Admin methods
@@ -173,9 +173,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     address _attester,
     bytes32[] memory _merkleProof,
     ProofVerificationParams calldata _params,
-    BN254Lib.G1Point calldata _publicKeyG1,
-    BN254Lib.G2Point calldata _publicKeyG2,
-    BN254Lib.G1Point calldata _signature
+    G1Point calldata _publicKeyG1,
+    G2Point calldata _publicKeyG2,
+    G1Point calldata _signature
   ) external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getDepositAmount();
@@ -206,9 +206,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    */
   function reenterExitedValidator(
     address _attester,
-    BN254Lib.G1Point calldata _publicKeyG1,
-    BN254Lib.G2Point calldata _publicKeyG2,
-    BN254Lib.G1Point calldata _signature
+    G1Point calldata _publicKeyG1,
+    G2Point calldata _publicKeyG2,
+    G1Point calldata _signature
   ) external override(IStakingAssetHandler) {
     // Check that the validator has an associated nullifier
     bytes32 nullifier = attesterToNullifier[_attester];
@@ -357,9 +357,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     IStaking _rollup,
     uint256 _depositAmount,
     address _attester,
-    BN254Lib.G1Point memory _publicKeyG1,
-    BN254Lib.G2Point memory _publicKeyG2,
-    BN254Lib.G1Point memory _signature
+    G1Point memory _publicKeyG1,
+    G2Point memory _publicKeyG2,
+    G1Point memory _signature
   ) internal {
     // If the attester is currently exiting, we finalize the exit for them.
     if (_rollup.getExit(_attester).exists) {
