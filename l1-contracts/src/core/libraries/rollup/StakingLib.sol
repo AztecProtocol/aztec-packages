@@ -23,7 +23,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator

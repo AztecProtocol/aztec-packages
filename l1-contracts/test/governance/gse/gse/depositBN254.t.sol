@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {AttesterConfig} from "@aztec/governance/GSE.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";

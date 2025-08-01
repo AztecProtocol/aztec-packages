@@ -6,7 +6,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   IStakingCore, Status, AttesterView, Exit, Timestamp
 } from "@aztec/core/interfaces/IStaking.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 contract SlashTest is StakingBase {
   uint256 internal slashingAmount = 1;

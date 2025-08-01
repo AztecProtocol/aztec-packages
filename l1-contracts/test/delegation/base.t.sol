@@ -6,7 +6,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Rollup, GSE, RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 contract GSEBase is TestBase {
   Rollup internal ROLLUP;

@@ -24,7 +24,7 @@ import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest

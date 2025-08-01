@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 contract GettersTest is StakingBase {
   function setUp() public override {

@@ -13,7 +13,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 contract Test15050 is StakingBase {
   using stdStorage for StdStorage;

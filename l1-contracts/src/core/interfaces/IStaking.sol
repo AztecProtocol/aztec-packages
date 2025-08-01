@@ -7,7 +7,7 @@ import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLi
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 interface IStakingCore {
   event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);

@@ -11,7 +11,7 @@ pragma solidity >=0.8.27;
  *     @dev the function body is generated with the modified addchain script
  *     see https://github.com/kobigurk/addchain/commit/2c37a2ace567a9bdc680b4e929c94aaaa3ec700f
  */
-library ModexpInverse {
+library ModExpInverse {
   function run(uint256 t2) internal pure returns (uint256 t0) {
     assembly {
       let n := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
@@ -333,7 +333,7 @@ library ModexpInverse {
  *     Where           N = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
  *     and   (N + 1) / 4 = 0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f52
  */
-library ModexpSqrt {
+library ModExpSqrt {
   function run(uint256 t6) internal pure returns (uint256 t0) {
     assembly {
       let n := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47

@@ -10,7 +10,7 @@ pragma solidity >=0.8.27;
  * The hashToPoint function, and the helpers it calls are modified from
  * https://github.com/thehubbleproject/hubble-contracts/blob/master/contracts/libs/BLS.sol
  */
-import {ModexpInverse, ModexpSqrt} from "./ModExp.sol";
+import {ModExpInverse, ModExpSqrt} from "./ModExp.sol";
 
 /**
  * Library for registering public keys and computing BLS signatures over the BN254 curve.
@@ -400,12 +400,12 @@ library BN254 {
   }
 
   function sqrt(uint256 xx) internal pure returns (uint256 x, bool hasRoot) {
-    x = ModexpSqrt.run(xx);
+    x = ModExpSqrt.run(xx);
     hasRoot = mulmod(x, x, BASE_FIELD_SIZE) == xx;
   }
 
   function inverse(uint256 a) internal pure returns (uint256) {
-    return ModexpInverse.run(a);
+    return ModExpInverse.run(a);
   }
 
   /// @notice γ = keccak(PK1, PK2, σ_init) mod Fr

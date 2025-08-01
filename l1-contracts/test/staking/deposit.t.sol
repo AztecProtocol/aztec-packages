@@ -12,7 +12,7 @@ import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Status, IStakingCore, AttesterView, IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 contract DepositTest is StakingBase {
   using stdStorage for StdStorage;

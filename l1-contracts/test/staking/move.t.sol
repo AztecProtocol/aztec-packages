@@ -14,7 +14,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {console} from "forge-std/console.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 contract MoveTest is StakingBase {
   GSE internal gse;

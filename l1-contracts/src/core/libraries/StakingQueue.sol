@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {Errors} from "./Errors.sol";
-import {BN254} from "@aztec/governance/libraries/BN254.sol";
+import {BN254} from "@aztec/shared/libraries/BN254.sol";
 
 struct DepositArgs {
   address attester;
