@@ -13,6 +13,7 @@ library ConfigurationLib {
   uint256 internal constant REQUIRED_YEA_MARGIN_UPPER = 1e18;
 
   uint256 internal constant VOTES_LOWER = 1;
+  uint256 internal constant LOCK_AMOUNT_LOWER = 2;
 
   Timestamp internal constant TIME_LOWER = Timestamp.wrap(60);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
@@ -44,7 +45,9 @@ library ConfigurationLib {
     );
 
     require(_self.minimumVotes >= VOTES_LOWER, Errors.Governance__ConfigurationLib__InvalidMinimumVotes());
-    require(_self.proposeConfig.lockAmount >= VOTES_LOWER, Errors.Governance__ConfigurationLib__LockAmountTooSmall());
+    require(
+      _self.proposeConfig.lockAmount >= LOCK_AMOUNT_LOWER, Errors.Governance__ConfigurationLib__LockAmountTooSmall()
+    );
 
     // Beyond checking the bounds like this, it might be useful to ensure that the value is larger than the withdrawal
     // delay
