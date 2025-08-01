@@ -12,16 +12,20 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX -
         prev_num_note_hashes_emitted;
 
-    // TODO(dbanks12): error if in static context
+    pol commit sel_reached_max_note_hashes;
+    sel_reached_max_note_hashes * (1 - sel_reached_max_note_hashes) = 0;
 
     pol commit remaining_note_hashes_inv;
-    // Opcode errors if REMAINING_NOTE_HASH_WRITES is 0
-    #[EMIT_NOTEHASH_MAX_NOTE_HASH_WRITES_REACHED]
-    sel_execute_emit_notehash * (REMAINING_NOTE_HASH_WRITES * (sel_opcode_error * (1 - remaining_note_hashes_inv) + remaining_note_hashes_inv) - 1 + sel_opcode_error) = 0;
+    // We reached the max note hashes if REMAINING_NOTE_HASH_WRITES is 0
+    #[MAX_NOTE_HASHES_REACHED]
+    sel_execute_emit_notehash * (REMAINING_NOTE_HASH_WRITES * (sel_reached_max_note_hashes * (1 - remaining_note_hashes_inv) + remaining_note_hashes_inv) - 1 + sel_reached_max_note_hashes) = 0;
+
+    // Opcode errors if we've reached the max note hashes or if we're in a static context
+    #[OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC]
+    sel_execute_emit_notehash * ((1 - sel_reached_max_note_hashes) * (1 - is_static) - (1 - sel_opcode_error)) = 0;
 
     // Commited since it's used in the lookup
     pol commit sel_write_note_hash;
-    #[EMIT_NOTEHASH_LIMIT_REACHED]
     sel_execute_emit_notehash * ((1 - sel_opcode_error) - sel_write_note_hash) = 0;
 
     // =========== OPCODE EXECUTION ===========

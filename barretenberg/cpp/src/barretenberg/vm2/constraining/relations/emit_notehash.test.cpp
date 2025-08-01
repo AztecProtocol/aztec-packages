@@ -66,9 +66,10 @@ TEST(EmitNoteHashConstrainingTest, LimitReached)
         { C::execution_sel_execute_emit_notehash, 1 },
         { C::execution_register_0_, /*note_hash=*/42 },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
+        { C::execution_sel_reached_max_note_hashes, 1 },
         { C::execution_remaining_note_hashes_inv, 0 },
-        { C::execution_sel_write_note_hash, 0 },
         { C::execution_sel_opcode_error, 1 },
+        { C::execution_sel_write_note_hash, 0 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMIT_NOTEHASH },
         { C::execution_prev_note_hash_tree_size, 1 },
         { C::execution_prev_note_hash_tree_root, 27 },
@@ -79,10 +80,17 @@ TEST(EmitNoteHashConstrainingTest, LimitReached)
     } });
     check_relation<emit_notehash>(trace);
 
+    // Negative test: sel_reached_max_note_hashes must be 1
+    trace.set(C::execution_sel_reached_max_note_hashes, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_notehash>(trace, emit_notehash::SR_MAX_NOTE_HASHES_REACHED),
+                              "MAX_NOTE_HASHES_REACHED");
+    trace.set(C::execution_sel_reached_max_note_hashes, 0, 1);
+
     // Negative test: sel_opcode_error must be on
     trace.set(C::execution_sel_opcode_error, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_LIMIT_REACHED),
-                              "EMIT_NOTEHASH_LIMIT_REACHED");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<emit_notehash>(trace, emit_notehash::SR_OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC),
+        "OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC");
     trace.set(C::execution_sel_opcode_error, 0, 1);
 
     // Negative test: note hash tree root must be the same
