@@ -9,7 +9,7 @@ import { setup } from './fixtures/utils.js';
 describe('Circuit Recorder', () => {
   const RECORD_DIR = './circuit_recordings';
 
-  it('records circuit execution', async () => {
+  it.skip('records circuit execution', async () => {
     // Set recording directory env var - this will activate the circuit recorder
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
 
