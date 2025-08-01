@@ -729,14 +729,17 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async loadCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
+  async utilityLoadCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    const values = await this.txe.loadCapsule(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
+    const values = await this.txe.utilityLoadCapsule(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(slot),
+    );
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
@@ -785,7 +788,7 @@ export class TXEService {
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
   // existence of a txe_oracle method?
-  async aes128Decrypt(
+  async utilityAes128Decrypt(
     ciphertextBVecStorage: ForeignCallArray,
     ciphertextLength: ForeignCallSingle,
     iv: ForeignCallArray,
@@ -801,7 +804,7 @@ export class TXEService {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    const plaintextBuffer = await this.txe.aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+    const plaintextBuffer = await this.txe.utilityAes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
 
     return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBVecStorage.length));
   }
@@ -1121,14 +1124,14 @@ export class TXEService {
     }
   }
 
-  async setSenderForTags(senderForTags: ForeignCallSingle) {
+  async pxeSetSenderForTags(senderForTags: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    await this.txe.setSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
+    await this.txe.pxeSetSenderForTags(AztecAddress.fromField(fromSingle(senderForTags)));
     return toForeignCallResult([]);
   }
 }
