@@ -96,12 +96,6 @@ class ClientIVCAPITests : public ::testing::Test {
 
 namespace bb {
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
-
-namespace bbapi {
-template <typename Flavor>
-std::shared_ptr<DeciderProvingKey_<Flavor>> get_acir_program_decider_proving_key(const BBApiRequest& request,
-                                                                                 acir_format::AcirProgram& program);
-} // namespace bbapi
 } // namespace bb
 
 // Used to get a mock IVC vk.

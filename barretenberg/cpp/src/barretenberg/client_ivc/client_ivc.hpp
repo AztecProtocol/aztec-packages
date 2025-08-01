@@ -133,8 +133,6 @@ class ClientIVC {
         std::shared_ptr<ECCVMVerificationKey> eccvm;
         std::shared_ptr<TranslatorVerificationKey> translator;
 
-        MSGPACK_FIELDS(mega, eccvm, translator);
-
         /**
          * @brief Serialize verification key to field elements
          * @return std::vector<bb::fr> The serialized field elements
@@ -185,6 +183,30 @@ class ClientIVC {
             return read_idx;
         }
     };
+
+    // Serialization methods for ClientIVC::VerificationKey
+    inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
+    {
+        using serialize::read;
+
+        // First, read the field elements from the buffer
+        std::vector<bb::fr> field_elements;
+        read(it, field_elements);
+
+        // Then use from_field_elements to populate the verification key
+        vk.from_field_elements(field_elements);
+    }
+
+    inline void write(std::vector<uint8_t>& buf, ClientIVC::VerificationKey const& vk)
+    {
+        using serialize::write;
+
+        // First, convert the verification key to field elements
+        auto field_elements = vk.to_field_elements();
+
+        // Then write the field elements to the buffer
+        write(buf, field_elements);
+    }
 
     enum class QUEUE_TYPE { OINK, PG, PG_FINAL }; // for specifying type of proof in the verification queue
 

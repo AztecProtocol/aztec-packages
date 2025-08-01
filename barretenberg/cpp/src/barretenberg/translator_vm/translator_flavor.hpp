@@ -837,23 +837,31 @@ class TranslatorFlavor {
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-
-        MSGPACK_FIELDS(num_public_inputs,
-                       pub_inputs_offset,
-                       ordered_extra_range_constraints_numerator,
-                       lagrange_first,
-                       lagrange_last,
-                       lagrange_odd_in_minicircuit,
-                       lagrange_even_in_minicircuit,
-                       lagrange_result_row,
-                       lagrange_last_in_minicircuit,
-                       lagrange_masking,
-                       lagrange_mini_masking,
-                       lagrange_real_last);
     };
+
+    // Serialization methods for TranslatorFlavor::VerificationKey
+    inline void read(uint8_t const*& it, TranslatorFlavor::VerificationKey& vk)
+    {
+        using serialize::read;
+
+        // First, read the field elements from the buffer
+        std::vector<bb::fr> field_elements;
+        read(it, field_elements);
+
+        // Then use from_field_elements to populate the verification key
+        vk.from_field_elements(field_elements);
+    }
+
+    inline void write(std::vector<uint8_t>& buf, TranslatorFlavor::VerificationKey const& vk)
+    {
+        using serialize::write;
+
+        // First, convert the verification key to field elements
+        auto field_elements = vk.to_field_elements();
+
+        // Then write the field elements to the buffer
+        write(buf, field_elements);
+    }
 
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.

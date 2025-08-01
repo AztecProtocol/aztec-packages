@@ -51,43 +51,31 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                 commitment = commitment_key.commit(polynomial);
             }
         }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-
-        // For serialising and deserialising data
-        MSGPACK_FIELDS(log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       q_m,
-                       q_c,
-                       q_l,
-                       q_r,
-                       q_o,
-                       q_4,
-                       q_lookup,
-                       q_arith,
-                       q_delta_range,
-                       q_elliptic,
-                       q_memory,
-                       q_nnf,
-                       q_poseidon2_external,
-                       q_poseidon2_internal,
-                       sigma_1,
-                       sigma_2,
-                       sigma_3,
-                       sigma_4,
-                       id_1,
-                       id_2,
-                       id_3,
-                       id_4,
-                       table_1,
-                       table_2,
-                       table_3,
-                       table_4,
-                       lagrange_first,
-                       lagrange_last);
     };
+
+    // Serialization methods for UltraRollupFlavor::VerificationKey
+    inline void read(uint8_t const*& it, UltraRollupFlavor::VerificationKey& vk)
+    {
+        using serialize::read;
+
+        // First, read the field elements from the buffer
+        std::vector<bb::fr> field_elements;
+        read(it, field_elements);
+
+        // Then use from_field_elements to populate the verification key
+        vk.from_field_elements(field_elements);
+    }
+
+    inline void write(std::vector<uint8_t>& buf, UltraRollupFlavor::VerificationKey const& vk)
+    {
+        using serialize::write;
+
+        // First, convert the verification key to field elements
+        auto field_elements = vk.to_field_elements();
+
+        // Then write the field elements to the buffer
+        write(buf, field_elements);
+    }
 
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
