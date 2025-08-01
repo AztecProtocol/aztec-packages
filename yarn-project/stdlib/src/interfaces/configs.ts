@@ -44,6 +44,8 @@ export interface SequencerConfig {
   fakeProcessingDelayPerTxMs?: number;
   /** How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way) */
   attestationPropagationTime?: number;
+  /** Skip collecting attestations (for testing only) */
+  skipCollectingAttestations?: boolean;
 }
 
 export const SequencerConfigSchema = z.object({
@@ -64,4 +66,5 @@ export const SequencerConfigSchema = z.object({
   enforceTimeTable: z.boolean().optional(),
   fakeProcessingDelayPerTxMs: z.number().optional(),
   attestationPropagationTime: z.number().optional(),
+  skipCollectingAttestations: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;

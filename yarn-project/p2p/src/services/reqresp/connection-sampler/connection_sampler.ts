@@ -1,6 +1,5 @@
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
 
 import type { Libp2p, PeerId, Stream } from '@libp2p/interface';
 
@@ -28,8 +27,6 @@ export class ConnectionSampler {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected readonly streams: Set<Stream> = new Set();
 
-  // Serial queue to ensure that we only dial one peer at a time
-  private dialQueue: SerialQueue = new SerialQueue();
   private abortOnStop: AbortController = new AbortController();
 
   constructor(
@@ -42,8 +39,6 @@ export class ConnectionSampler {
       () => void this.cleanupStaleConnections(),
       this.opts.cleanupIntervalMs ?? 60_000,
     );
-
-    this.dialQueue.start();
   }
 
   /**
@@ -53,8 +48,6 @@ export class ConnectionSampler {
     this.logger.info('Stopping connection sampler');
     this.abortOnStop.abort(new AbortError('Connection sampler stopped'));
     clearInterval(this.cleanupInterval);
-
-    await this.dialQueue.end();
 
     // Close all active streams
     const closePromises = Array.from(this.streams.values()).map(stream => this.close(stream));
@@ -190,18 +183,12 @@ export class ConnectionSampler {
    * @returns The stream
    */
   async dialProtocol(peerId: PeerId, protocol: string, timeout?: number): Promise<Stream> {
-    // Dialling at the same time can cause race conditions where two different streams
-    // end up with the same id, hence a serial queue
-    this.logger.debug(`Dial queue length: ${this.dialQueue.length()}`);
-
-    const stream = await this.dialQueue.put(() =>
-      this.libp2p.dialProtocol(peerId, protocol, {
-        signal: AbortSignal.any(
-          timeout ? [this.abortOnStop.signal, AbortSignal.timeout(timeout!)] : [this.abortOnStop.signal],
-        ),
-        negotiateFully: !this.opts.p2pOptimisticNegotiation,
-      }),
-    );
+    const stream = await this.libp2p.dialProtocol(peerId, protocol, {
+      signal: AbortSignal.any(
+        timeout ? [this.abortOnStop.signal, AbortSignal.timeout(timeout!)] : [this.abortOnStop.signal],
+      ),
+      negotiateFully: !this.opts.p2pOptimisticNegotiation,
+    });
     stream.metadata.peerId = peerId;
     this.streams.add(stream);
 

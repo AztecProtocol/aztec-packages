@@ -120,6 +120,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
   },
+  skipCollectingAttestations: {
+    description: 'Whether to skip collecting attestations from validators and only use self-attestations.',
+    ...booleanConfigHelper(false),
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 
