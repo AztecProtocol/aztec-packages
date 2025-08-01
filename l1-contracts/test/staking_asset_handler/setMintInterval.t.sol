@@ -27,10 +27,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     assertEq(stakingAssetHandler.mintInterval(), _newMintInterval);
   }
 
-  function test_WhenOwnerTriesToMintBeforeTheNewIntervalHasPassed(
-    uint256 _newMintInterval,
-    uint256 _jump
-  ) external {
+  function test_WhenOwnerTriesToMintBeforeTheNewIntervalHasPassed(uint256 _newMintInterval, uint256 _jump) external {
     // the "last mint timestamp" is 0 before the first mint
 
     _newMintInterval = bound(_newMintInterval, mintInterval + 1, 1e18);
@@ -44,8 +41,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     // it reverts
     vm.expectRevert(
       abi.encodeWithSelector(
-        IStakingAssetHandler.ValidatorQuotaFilledUntil.selector,
-        lastMintTimestamp + _newMintInterval
+        IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + _newMintInterval
       )
     );
     vm.prank(address(0xbeefdeef));

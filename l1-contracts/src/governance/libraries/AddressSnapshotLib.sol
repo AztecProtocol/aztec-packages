@@ -38,7 +38,8 @@ error AddressSnapshotLib__AddressNotInSet(address addr);
  *
  * The SnapshottedAddressSet is maintained such that the you can take a timestamp, and from it:
  * 1. Get the `size` of the set at that timestamp
- * 2. Query the first `size` indices in `indexToAddressHistory` at that timestamp to get a set of addresses of size `size`
+ * 2. Query the first `size` indices in `indexToAddressHistory` at that timestamp to get a set of addresses of size
+ * `size`
  */
 library AddressSnapshotLib {
   using SafeCast for *;
@@ -102,10 +103,7 @@ library AddressSnapshotLib {
    * @param _index The index of the validator to remove
    * @return bool True if the validator was removed, reverts otherwise
    */
-  function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address)
-    internal
-    returns (bool)
-  {
+  function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address) internal returns (bool) {
     uint224 currentSize = _self.size.latest();
     if (_index >= currentSize) {
       revert AddressSnapshotLib__IndexOutOfBounds(_index, currentSize);
@@ -158,11 +156,11 @@ library AddressSnapshotLib {
    * @param _timestamp The timestamp to query
    * @return address The address at the given index and timestamp
    */
-  function getAddressFromIndexAtTimestamp(
-    SnapshottedAddressSet storage _self,
-    uint256 _index,
-    uint32 _timestamp
-  ) internal view returns (address) {
+  function getAddressFromIndexAtTimestamp(SnapshottedAddressSet storage _self, uint256 _index, uint32 _timestamp)
+    internal
+    view
+    returns (address)
+  {
     uint256 size = lengthAtTimestamp(_self, _timestamp);
     require(_index < size, AddressSnapshotLib__IndexOutOfBounds(_index, size));
 
@@ -210,11 +208,7 @@ library AddressSnapshotLib {
    *
    * @dev Note, the values returned from this function are in flux if the timestamp is in the future.
    */
-  function lengthAtTimestamp(SnapshottedAddressSet storage _self, uint32 _timestamp)
-    internal
-    view
-    returns (uint256)
-  {
+  function lengthAtTimestamp(SnapshottedAddressSet storage _self, uint32 _timestamp) internal view returns (uint256) {
     return _self.size.upperLookup(_timestamp);
   }
 
@@ -259,11 +253,7 @@ library AddressSnapshotLib {
     return vals;
   }
 
-  function contains(SnapshottedAddressSet storage _self, address _address)
-    internal
-    view
-    returns (bool)
-  {
+  function contains(SnapshottedAddressSet storage _self, address _address) internal view returns (bool) {
     return _self.addressToCurrentIndex[_address].exists;
   }
 }

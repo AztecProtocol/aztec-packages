@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {CheckpointedUintLibBase} from "./base.t.sol";
-import {
-  Checkpoints, CheckpointedUintLib
-} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 import {Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -29,10 +27,7 @@ contract AddTest is CheckpointedUintLibBase {
     assertEq(writes.length, 0);
   }
 
-  function test_GivenUserHaveNoCheckpoints(uint256 _amount, uint32 _time)
-    external
-    whenAmountGt0(_amount)
-  {
+  function test_GivenUserHaveNoCheckpoints(uint256 _amount, uint32 _time) external whenAmountGt0(_amount) {
     // it adds checkpoint with amount
     // it increases num checkpoints
 

@@ -33,9 +33,7 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
     assertEq(stakingAssetHandler.withdrawer(), _newWithdrawer);
   }
 
-  function test_WhenOwnerCallsAddValidatorAfterSettingTheWithdrawer(address _newWithdrawer)
-    external
-  {
+  function test_WhenOwnerCallsAddValidatorAfterSettingTheWithdrawer(address _newWithdrawer) external {
     // it uses the new withdrawer
     vm.assume(_newWithdrawer != address(0));
 

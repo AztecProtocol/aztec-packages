@@ -54,26 +54,26 @@ library BlobLib {
   /**
    * @notice  Validate an L2 block's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
    *
-   *          We assume that the Aztec related blobs will be first in the propose transaction, additional blobs can be at the end.
+   *          We assume that the Aztec related blobs will be first in the propose transaction, additional blobs can be
+   * at the end.
    *
    * Input bytes:
    * input[0] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
    * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
-   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.
+   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob),
+   * exists only to be overriden in tests.
    * Returns for proposal:
    * @return blobHashes - All of the blob hashes included in this block, to be emitted in L2BlockProposed event.
-   * @return blobsHashesCommitment - A hash of all blob hashes in this block, to be included in the block header. See comment at the end of this fn for more info.
-   * @return blobCommitments - All of the blob commitments included in this block, to be stored then validated against those used in the rollup in epoch proof verification.
+   * @return blobsHashesCommitment - A hash of all blob hashes in this block, to be included in the block header. See
+   * comment at the end of this fn for more info.
+   * @return blobCommitments - All of the blob commitments included in this block, to be stored then validated against
+   * those used in the rollup in epoch proof verification.
    */
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     internal
     view
-    returns (
-      bytes32[] memory blobHashes,
-      bytes32 blobsHashesCommitment,
-      bytes[] memory blobCommitments
-    )
+    returns (bytes32[] memory blobHashes, bytes32 blobsHashesCommitment, bytes[] memory blobCommitments)
   {
     // We cannot input the incorrect number of blobs below, as the blobsHash
     // and epoch proof verification will fail.
@@ -85,9 +85,8 @@ library BlobLib {
     uint256 blobInputStart = 1;
     for (uint256 i = 0; i < numBlobs; i++) {
       // Commitments = arrays of bytes48 compressed points
-      blobCommitments[i] = abi.encodePacked(
-        _blobsInput[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]
-      );
+      blobCommitments[i] =
+        abi.encodePacked(_blobsInput[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]);
       blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
 
       bytes32 blobHashCheck = calculateBlobHash(blobCommitments[i]);
@@ -102,32 +101,40 @@ library BlobLib {
       blobHashes[i] = blobHash;
     }
     // Hash the EVM blob hashes for the block header
-    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name blobsHashesCommitment is confusingly similar to blobCommitmentsHash
+    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name
+    // blobsHashesCommitment is confusingly similar to blobCommitmentsHash
     // which are different values:
-    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
-    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
+    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs
+    // inserted into the header, exists so a user can cross check blobs.
+    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob
+    // commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
     //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
-    // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
+    // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0),
+    // blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
     blobsHashesCommitment = Hash.sha256ToField(abi.encodePacked(blobHashes));
   }
 
   /**
    * @notice  Validate a batched blob.
    * Input bytes:
-   * input[:32]     - versioned_hash - NB for a batched blob, this is simply the versioned hash of the batched commitment
+   * input[:32]     - versioned_hash - NB for a batched blob, this is simply the versioned hash of the batched
+   * commitment
    * input[32:64]   - z = poseidon2( ...poseidon2(poseidon2(z_0, z_1), z_2) ... z_n)
    * input[64:96]   - y = y_0 + gamma * y_1 + gamma^2 * y_2 + ... + gamma^n * y_n
    * input[96:144]  - commitment C = C_0 + gamma * C_1 + gamma^2 * C_2 + ... + gamma^n * C_n
-   * input[144:192] - proof (a commitment to the quotient polynomial q(X)) = Q_0 + gamma * Q_1 + gamma^2 * Q_2 + ... + gamma^n * Q_n
+   * input[144:192] - proof (a commitment to the quotient polynomial q(X)) = Q_0 + gamma * Q_1 + gamma^2 * Q_2 + ... +
+   * gamma^n * Q_n
    * @param _blobInput - The above bytes to verify a batched blob
    *
    * If this function passes where the values of z, y, and C are valid public inputs to the final epoch root proof, then
    * we know that the data in each blob of the epoch corresponds to the tx effects of all our proven txs in the epoch.
    *
-   * The rollup circuits calculate each z_i and y_i as above, so if this function passes but they do not match the values from the
+   * The rollup circuits calculate each z_i and y_i as above, so if this function passes but they do not match the
+   * values from the
    * circuit, then proof verification will fail.
    *
-   * Each commitment C_i is injected into the circuits and their correctness is validated using the blobCommitmentsHash, as
+   * Each commitment C_i is injected into the circuits and their correctness is validated using the blobCommitmentsHash,
+   * as
    * explained below in calculateBlobCommitmentsHash().
    *
    */
@@ -175,8 +182,7 @@ library BlobLib {
       currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(_blobCommitments[i++]));
     }
     for (i; i < _blobCommitments.length; i++) {
-      currentblobCommitmentsHash =
-        Hash.sha256ToField(abi.encodePacked(currentblobCommitmentsHash, _blobCommitments[i]));
+      currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(currentblobCommitmentsHash, _blobCommitments[i]));
     }
   }
 
@@ -191,10 +197,8 @@ library BlobLib {
    */
   function calculateBlobHash(bytes memory _blobCommitment) internal pure returns (bytes32) {
     return bytes32(
-      (
-        uint256(sha256(_blobCommitment))
-          & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-      ) | VERSIONED_HASH_VERSION_KZG
+      (uint256(sha256(_blobCommitment)) & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        | VERSIONED_HASH_VERSION_KZG
     );
   }
 }

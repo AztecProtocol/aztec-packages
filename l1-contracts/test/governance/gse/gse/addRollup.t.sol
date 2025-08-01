@@ -37,11 +37,7 @@ contract AddRollupTest is WithGSE {
     _;
   }
 
-  function test_GivenRollupAlreadyRegistered(address _rollup)
-    external
-    whenCallerEqOwner
-    givenRollupNeq0(_rollup)
-  {
+  function test_GivenRollupAlreadyRegistered(address _rollup) external whenCallerEqOwner givenRollupNeq0(_rollup) {
     // it reverts
 
     // We add it once
@@ -54,12 +50,12 @@ contract AddRollupTest is WithGSE {
     gse.addRollup(_rollup);
   }
 
-  function test_GivenRollupNotRegistered(
-    address _rollup,
-    address _rollup2,
-    uint256 _ts1,
-    uint256 _ts2
-  ) external whenCallerEqOwner givenRollupNeq0(_rollup) givenRollupNeq0(_rollup2) {
+  function test_GivenRollupNotRegistered(address _rollup, address _rollup2, uint256 _ts1, uint256 _ts2)
+    external
+    whenCallerEqOwner
+    givenRollupNeq0(_rollup)
+    givenRollupNeq0(_rollup2)
+  {
     // it adds rollup to instances
     // it sets rollup exists to true
     // it pushes rollup to latest with timestamp

@@ -2,9 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {CheckpointedUintLibBase} from "./base.t.sol";
-import {
-  Checkpoints, CheckpointedUintLib
-} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
@@ -19,9 +17,7 @@ contract PowerAtTest is CheckpointedUintLibBase {
 
   function test_WhenTimeNotInPast() external {
     // it revert
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__CheckpointedUintLib__NotInPast.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CheckpointedUintLib__NotInPast.selector));
     this.callPowerAt();
   }
 
