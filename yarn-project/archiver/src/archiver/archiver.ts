@@ -608,7 +608,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       pendingBlockNumber,
       pendingHeaderHash,
       headerHashForLocalPendingBlockNumber,
-    ] = await this.rollup.status(BigInt(localPendingBlockNumber), { blockNumber: currentL1BlockNumber });
+      _, // provenEpochNumber - not used here
+      isLocalPendingBlockStale,
+    ] = (await this.rollup.status(BigInt(localPendingBlockNumber), {
+      blockNumber: currentL1BlockNumber,
+    })) as unknown as [bigint, string, bigint, string, string, bigint, boolean];
     const rollupStatus = {
       provenBlockNumber: Number(provenBlockNumber),
       provenArchive,
@@ -719,13 +723,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         return rollupStatus;
       }
 
-      const isLocalPendingBlockHeaderHashStale = await this.rollup.isBlockHeaderHashStale(
-        BigInt(localPendingBlockNumber),
-      );
-
       let localPendingBlockInChain = false;
 
-      if (!isLocalPendingBlockHeaderHashStale) {
+      if (!isLocalPendingBlockStale) {
         // Use status() result for re-org detection when header hash is not stale
         localPendingBlockInChain =
           headerHashForLocalPendingBlockNumber === localPendingBlock.header.toPropose().hash().toString();
@@ -770,9 +770,12 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           }
 
           // Use header hash comparison instead of archive root comparison
-          const [, , , , headerHashAtContract] = await this.rollup.status(BigInt(candidateBlock.number));
+          const [, , , , headerHashAtContract, , isBlockStale] = (await this.rollup.status(
+            BigInt(candidateBlock.number),
+          )) as unknown as [bigint, string, bigint, string, string, bigint, boolean];
 
-          if (headerHashAtContract === candidateBlock.header.toPropose().hash().toString()) {
+          // If header hash is stale, we can't reliably compare, so we assume it doesn't match
+          if (!isBlockStale && headerHashAtContract === candidateBlock.header.toPropose().hash().toString()) {
             break;
           }
           tipAfterUnwind--;

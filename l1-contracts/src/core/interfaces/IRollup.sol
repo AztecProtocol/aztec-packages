@@ -153,10 +153,9 @@ interface IRollup is IRollupCore, IHaveVersion {
       uint256 pendingBlockNumber,
       bytes32 pendingHeaderHash,
       bytes32 headerHashOfMyBlock,
-      Epoch provenEpochNumber
+      Epoch provenEpochNumber,
+      bool isBlockHeaderHashStale
     );
-
-  function isBlockHeaderHashStale(uint256 _blockNumber) external view returns (bool);
 
   function getEpochProofPublicInputs(
     uint256 _start,

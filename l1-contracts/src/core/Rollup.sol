@@ -277,11 +277,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       uint256 pendingBlockNumber,
       bytes32 pendingHeaderHash,
       bytes32 headerHashOfMyBlock,
-      Epoch provenEpochNumber
+      Epoch provenEpochNumber,
+      bool isBlockHeaderHashStale
     )
   {
     RollupStore storage rollupStore = STFLib.getStorage();
     ChainTips memory tips = ChainTipsLib.decompress(rollupStore.tips);
+
+    bool isStale = STFLib.isTempStale(_myHeaderBlockNumber);
+    bytes32 headerHash = isStale ? bytes32(0) : STFLib.getHeaderHash(_myHeaderBlockNumber);
 
     return (
       tips.provenBlockNumber,
@@ -289,18 +293,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       rollupStore.archives[tips.provenBlockNumber],
       tips.pendingBlockNumber,
       STFLib.getHeaderHash(tips.pendingBlockNumber),
-      STFLib.getHeaderHash(_myHeaderBlockNumber),
-      getEpochForBlock(tips.provenBlockNumber)
+      headerHash,
+      getEpochForBlock(tips.provenBlockNumber),
+      isStale
     );
-  }
-
-  function isBlockHeaderHashStale(uint256 _blockNumber)
-    external
-    view
-    override(IRollup)
-    returns (bool)
-  {
-    return STFLib.isTempStale(_blockNumber);
   }
 
   /**

@@ -409,10 +409,6 @@ export class RollupContract {
     }
   }
 
-  public async isBlockHeaderHashStale(blockNumber: bigint) {
-    return await this.rollup.read.isBlockHeaderHashStale([blockNumber]);
-  }
-
   /**
    * Packs an array of committee attestations into the format expected by the Solidity contract
    *
