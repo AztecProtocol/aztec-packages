@@ -46,7 +46,7 @@ export class TXEService {
     const store = await openTmpStore('test');
     const txe = await TXE.create(logger, store, protocolContracts);
     const service = new TXEService(logger, txe);
-    await service.advanceBlocksBy(toSingle(new Fr(1n)));
+    await service.txeAdvanceBlocksBy(toSingle(new Fr(1n)));
     return service;
   }
 
@@ -54,15 +54,15 @@ export class TXEService {
 
   // Temporary workaround - once all tests migrate to calling the new flow, in which this oracle is called at the
   // beginning of a txe test, we'll make the context check be mandatory
-  enableContextChecks() {
+  txeEnableContextChecks() {
     this.contextChecksEnabled = true;
     return toForeignCallResult([]);
   }
 
-  setTopLevelTXEContext() {
+  txeSetTopLevelTXEContext() {
     if (this.contextChecksEnabled) {
       if (this.context == TXEContext.TOP_LEVEL) {
-        throw new Error(`Call to setTopLevelTXEContext while in context ${TXEContext[this.context]}`);
+        throw new Error(`Call to txeSetTopLevelTXEContext while in context ${TXEContext[this.context]}`);
       }
     }
 
@@ -70,10 +70,10 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  setPrivateTXEContext() {
+  txeSetPrivateTXEContext() {
     if (this.contextChecksEnabled) {
       if (this.context != TXEContext.TOP_LEVEL) {
-        throw new Error(`Call to setPrivateTXEContext while in context ${TXEContext[this.context]}`);
+        throw new Error(`Call to txeSetPrivateTXEContext while in context ${TXEContext[this.context]}`);
       }
     }
 
@@ -81,10 +81,10 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  setPublicTXEContext() {
+  txeSetPublicTXEContext() {
     if (this.contextChecksEnabled) {
       if (this.context != TXEContext.TOP_LEVEL) {
-        throw new Error(`Call to setPublicTXEContext while in context ${TXEContext[this.context]}`);
+        throw new Error(`Call to txeSetPublicTXEContext while in context ${TXEContext[this.context]}`);
       }
     }
 
@@ -92,10 +92,10 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  setUtilityTXEContext() {
+  txeSetUtilityTXEContext() {
     if (this.contextChecksEnabled) {
       if (this.context != TXEContext.TOP_LEVEL) {
-        throw new Error(`Call to setUtilityTXEContext while in context ${TXEContext[this.context]}`);
+        throw new Error(`Call to txeSetUtilityTXEContext while in context ${TXEContext[this.context]}`);
       }
     }
 
@@ -105,10 +105,10 @@ export class TXEService {
 
   // Cheatcodes
 
-  async getPrivateContextInputs(blockNumberIsSome: ForeignCallSingle, blockNumberValue: ForeignCallSingle) {
+  async txeGetPrivateContextInputs(blockNumberIsSome: ForeignCallSingle, blockNumberValue: ForeignCallSingle) {
     const blockNumber = fromSingle(blockNumberIsSome).toBool() ? fromSingle(blockNumberValue).toNumber() : null;
 
-    const inputs = await this.txe.getPrivateContextInputs(blockNumber);
+    const inputs = await this.txe.txeGetPrivateContextInputs(blockNumber);
 
     this.logger.info(
       `Created private context for block ${inputs.historicalHeader.globalVariables.blockNumber} (requested ${blockNumber})`,
@@ -117,7 +117,7 @@ export class TXEService {
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
-  async advanceBlocksBy(blocks: ForeignCallSingle) {
+  async txeAdvanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
 
@@ -129,20 +129,20 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  advanceTimestampBy(duration: ForeignCallSingle) {
+  txeAdvanceTimestampBy(duration: ForeignCallSingle) {
     const durationBigInt = fromSingle(duration).toBigInt();
     this.logger.debug(`time traveling ${durationBigInt} seconds`);
-    this.txe.advanceTimestampBy(durationBigInt);
+    this.txe.txeAdvanceTimestampBy(durationBigInt);
     return toForeignCallResult([]);
   }
 
-  setContractAddress(address: ForeignCallSingle) {
+  txeSetContractAddress(address: ForeignCallSingle) {
     const typedAddress = addressFromSingle(address);
-    this.txe.setContractAddress(typedAddress);
+    this.txe.txeSetContractAddress(typedAddress);
     return toForeignCallResult([]);
   }
 
-  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
+  async txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     // Emit deployment nullifier
     await this.txe.noteCache.nullifierCreated(
       AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
@@ -155,7 +155,7 @@ export class TXEService {
     this.txe.setBlockNumber(blockNumber + 1);
 
     if (!fromSingle(secret).equals(Fr.ZERO)) {
-      await this.addAccount(artifact, instance, secret);
+      await this.txeAddAccount(artifact, instance, secret);
     } else {
       await this.txe.addContractInstance(instance);
       await this.txe.addContractArtifact(instance.currentContractClassId, artifact);
@@ -173,7 +173,7 @@ export class TXEService {
     ]);
   }
 
-  async createAccount(secret: ForeignCallSingle) {
+  async txeCreateAccount(secret: ForeignCallSingle) {
     const keyStore = this.txe.getKeyStore();
     const secretFr = fromSingle(secret);
     // This is a footgun !
@@ -189,7 +189,7 @@ export class TXEService {
     ]);
   }
 
-  async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
+  async txeAddAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await this.txe.addContractInstance(instance);
     await this.txe.addContractArtifact(instance.currentContractClassId, artifact);
@@ -207,8 +207,8 @@ export class TXEService {
     ]);
   }
 
-  async addAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
-    await this.txe.addAuthWitness(addressFromSingle(address), fromSingle(messageHash));
+  async txeAddAuthWitness(address: ForeignCallSingle, messageHash: ForeignCallSingle) {
+    await this.txe.txeAddAuthWitness(addressFromSingle(address), fromSingle(messageHash));
     return toForeignCallResult([]);
   }
 
@@ -231,7 +231,7 @@ export class TXEService {
       this.context != TXEContext.UTILITY &&
       this.context != TXEContext.PRIVATE
     ) {
-      throw new Error(`Attempted to call getContractAddress while in context ${TXEContext[this.context]}`);
+      throw new Error(`Attempted to call utilityGetContractAddress while in context ${TXEContext[this.context]}`);
     }
 
     const contractAddress = await this.txe.utilityGetContractAddress();
@@ -240,7 +240,7 @@ export class TXEService {
 
   async utilityGetBlockNumber() {
     if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL && this.context != TXEContext.UTILITY) {
-      throw new Error(`Attempted to call getBlockNumber while in context ${TXEContext[this.context]}`);
+      throw new Error(`Attempted to call utilityGetBlockNumber while in context ${TXEContext[this.context]}`);
     }
 
     const blockNumber = await this.txe.utilityGetBlockNumber();
@@ -250,19 +250,19 @@ export class TXEService {
   // seems to be used to mean the timestamp of the last mined block in txe (but that's not what is done here)
   async utilityGetTimestamp() {
     if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL && this.context != TXEContext.UTILITY) {
-      throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
+      throw new Error(`Attempted to call utilityGetTimestamp while in context ${TXEContext[this.context]}`);
     }
 
     const timestamp = await this.txe.utilityGetTimestamp();
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
-  async getLastBlockTimestamp() {
+  async txeGetLastBlockTimestamp() {
     if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL) {
-      throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
+      throw new Error(`Attempted to call txeGetLastBlockTimestamp while in context ${TXEContext[this.context]}`);
     }
 
-    const timestamp = await this.txe.getLastBlockTimestamp();
+    const timestamp = await this.txe.txeGetLastBlockTimestamp();
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
@@ -1058,7 +1058,7 @@ export class TXEService {
     );
   }
 
-  async privateCallNewFlow(
+  async txePrivateCallNewFlow(
     from: ForeignCallSingle,
     targetContractAddress: ForeignCallSingle,
     functionSelector: ForeignCallSingle,
@@ -1067,7 +1067,7 @@ export class TXEService {
     argsHash: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    const result = await this.txe.privateCallNewFlow(
+    const result = await this.txe.txePrivateCallNewFlow(
       addressFromSingle(from),
       addressFromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
@@ -1093,14 +1093,14 @@ export class TXEService {
     return toForeignCallResult([toSingle(result)]);
   }
 
-  async publicCallNewFlow(
+  async txePublicCallNewFlow(
     from: ForeignCallSingle,
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     calldata: ForeignCallArray,
     isStaticCall: ForeignCallSingle,
   ) {
-    const result = await this.txe.publicCallNewFlow(
+    const result = await this.txe.txePublicCallNewFlow(
       addressFromSingle(from),
       addressFromSingle(address),
       fromArray(calldata),
