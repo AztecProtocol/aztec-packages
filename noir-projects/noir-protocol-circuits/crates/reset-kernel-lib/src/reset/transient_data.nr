@@ -24,20 +24,20 @@ use validate_transient_data_squashing_hints::validate_transient_data_squashing_h
 ///
 /// This function checks that note hashes, nullifiers, and logs are squashed correctly according to user-provided hints
 /// and expectations. It allows some transient data to be intentionally preserved across iterations when needed.
-pub fn validate_squashed_transient_data<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
+pub fn validate_squashed_transient_data<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
     min_revertible_side_effect_counter: u32,
     // Hints provided by the user to specify what to squash.
     // These are not derived automatically in this function like other hints, because the user can choose to not squash
     // a pair even if it's squashable. Sometimes the transient data might be useful in later iterations. For example, a
     // note hash must be kept to be used for a note hash read request created in a later iteration, and can only be
     // squashed after the read request is validated.
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
 ) {
     // Safety: The hints are verified below by validate_squashed_transient_data_with_derived_hints.
     let derived_hints = unsafe {
@@ -69,16 +69,16 @@ pub fn validate_squashed_transient_data<let NOTE_HASHES_LEN: u32, let NULLIFIERS
 /// - Squashing hints are well-formed: active hints must reference unique and in-bounds note hash and nullifier indices.
 /// - Note hashes and nullifiers are squashed or kept appropriately.
 /// - Private logs are squashed or propagated, and note logs are correctly linked to the note hashes.
-fn validate_squashed_transient_data_with_derived_hints<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
+fn validate_squashed_transient_data_with_derived_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
     min_revertible_side_effect_counter: u32,
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-    derived_hints: DerivedHints<SQUASHING_HINTS_LEN, NOTE_HASHES_LEN, NULLIFIERS_LEN, LOGS_LEN>,
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
+    derived_hints: DerivedHints<SquashingHintsLen, NoteHashesLen, NullifiersLen, LogsLen>,
 ) {
     validate_transient_data_squashing_hints(
         note_hashes,
@@ -140,15 +140,15 @@ pub(crate) mod tests {
         )
     }
 
-    pub struct TransientDataFixtureBuilder<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32> {
-        pub note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-        pub nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-        pub logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-        pub expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-        pub expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-        pub expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
+    pub struct TransientDataFixtureBuilder<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32> {
+        pub note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+        pub nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+        pub logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+        pub expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+        pub expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+        pub expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
         pub min_revertible_side_effect_counter: u32,
-        pub transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
+        pub transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
         num_transient_data_squashing_hints: u32,
     }
 
@@ -159,7 +159,7 @@ pub(crate) mod tests {
         }
     }
 
-    impl<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32> TransientDataFixtureBuilder<NOTE_HASHES_LEN, NULLIFIERS_LEN, LOGS_LEN, SQUASHING_HINTS_LEN> {
+    impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32> TransientDataFixtureBuilder<NoteHashesLen, NullifiersLen, LogsLen, SquashingHintsLen> {
         pub fn empty() -> Self {
             TransientDataFixtureBuilder {
                 note_hashes: ClaimedLengthArray::empty(),
@@ -170,8 +170,8 @@ pub(crate) mod tests {
                 expected_kept_logs: ClaimedLengthArray::empty(),
                 min_revertible_side_effect_counter: 0,
                 transient_data_squashing_hints: [
-                    TransientDataSquashingHint::skip(NOTE_HASHES_LEN, NULLIFIERS_LEN);
-                         SQUASHING_HINTS_LEN
+                    TransientDataSquashingHint::skip(NoteHashesLen, NullifiersLen);
+                         SquashingHintsLen
                     ],
                 num_transient_data_squashing_hints: 0,
             }
@@ -220,12 +220,12 @@ pub(crate) mod tests {
         }
 
         pub fn get_skip_index_hint(_self: Self) -> TransientDataSquashingHint {
-            TransientDataSquashingHint::skip(NOTE_HASHES_LEN, NULLIFIERS_LEN)
+            TransientDataSquashingHint::skip(NoteHashesLen, NullifiersLen)
         }
 
         pub fn build_derived_hints(
             self,
-        ) -> DerivedHints<SQUASHING_HINTS_LEN, NOTE_HASHES_LEN, NULLIFIERS_LEN, LOGS_LEN> {
+        ) -> DerivedHints<SquashingHintsLen, NoteHashesLen, NullifiersLen, LogsLen> {
             // Safety: This is only used in tests.
             unsafe {
                 build_derived_hints(
@@ -253,7 +253,7 @@ pub(crate) mod tests {
 
         pub fn validate_with_derived_hints(
             self,
-            derived_hints: DerivedHints<SQUASHING_HINTS_LEN, NOTE_HASHES_LEN, NULLIFIERS_LEN, LOGS_LEN>,
+            derived_hints: DerivedHints<SquashingHintsLen, NoteHashesLen, NullifiersLen, LogsLen>,
         ) {
             validate_squashed_transient_data_with_derived_hints(
                 self.note_hashes,

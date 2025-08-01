@@ -13,6 +13,8 @@ use crate::{
     test::helpers::{txe_oracles, utils::ContractDeployment},
 };
 
+mod test;
+
 struct Counter {
     next_value: Field,
 }
