@@ -348,6 +348,8 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
+  // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you
+  // change the name here.
   async pxeCallPrivateFunction(
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
