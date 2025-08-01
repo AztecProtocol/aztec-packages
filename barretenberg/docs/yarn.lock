@@ -4123,32 +4123,32 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@noir-lang/acvm_js@1.0.0-beta.7":
-  version "1.0.0-beta.7"
-  resolved "https://registry.yarnpkg.com/@noir-lang/acvm_js/-/acvm_js-1.0.0-beta.7.tgz#22056bb5e726dd17c308b9785998ecd97a013b98"
-  integrity sha512-AKm2fm9FphUIf5+GNNWHc3vehr0lpyt0rulM1JP307Awb7jQcsMOK+s6NqdrTii+iPOL1pA8b++UEe+tSpCsSQ==
+"@noir-lang/acvm_js@1.0.0-beta.8":
+  version "1.0.0-beta.8"
+  resolved "https://registry.yarnpkg.com/@noir-lang/acvm_js/-/acvm_js-1.0.0-beta.8.tgz#29fc40123cbc60882b276896a6627f1dcea01e19"
+  integrity sha512-gSJgRlgwR74oTuJiyxYYiZUms0JmnO2cyTgOHYzElwScEGfkeWI8si1NJDidmxZsD7xKD/YqHZwdnuRFIuflhw==
 
-"@noir-lang/noir_js@1.0.0-beta.7":
-  version "1.0.0-beta.7"
-  resolved "https://registry.yarnpkg.com/@noir-lang/noir_js/-/noir_js-1.0.0-beta.7.tgz#0c5e3486d547aae233da48c85a71311d6f501c8c"
-  integrity sha512-5U/NlFyXyn05+RSRtfi24BrTL3oLIz8Nzpdaq8c8YbYEzRLt1//q6j2HZQzcsnM42Bp9rCyH1v9j7ZO8ApeosQ==
+"@noir-lang/noir_js@1.0.0-beta.8":
+  version "1.0.0-beta.8"
+  resolved "https://registry.yarnpkg.com/@noir-lang/noir_js/-/noir_js-1.0.0-beta.8.tgz#cef10673b486f20ee5c270bd153bffbb9bcbe2e1"
+  integrity sha512-OwgQGezLH5jhRIOkU8T5Cii1skIWnDC7CFUmEY9Ns//kgBMRqUxWzd7JvVIiV1gUjynJlOcv4rMQlsc7NCzPMA==
   dependencies:
-    "@noir-lang/acvm_js" "1.0.0-beta.7"
-    "@noir-lang/noirc_abi" "1.0.0-beta.7"
-    "@noir-lang/types" "1.0.0-beta.7"
+    "@noir-lang/acvm_js" "1.0.0-beta.8"
+    "@noir-lang/noirc_abi" "1.0.0-beta.8"
+    "@noir-lang/types" "1.0.0-beta.8"
     pako "^2.1.0"
 
-"@noir-lang/noirc_abi@1.0.0-beta.7":
-  version "1.0.0-beta.7"
-  resolved "https://registry.yarnpkg.com/@noir-lang/noirc_abi/-/noirc_abi-1.0.0-beta.7.tgz#6b94b1a9db76c6fdf22e00fc68d8241596a88dcc"
-  integrity sha512-nXHm6maBXIuivobBnmv1E6Q6SYog3kxUzZ19DU5bWM/UUj43xfQLaDQ8kdtGUyvZYj1HOR0Q9S05EsKyxPhFuA==
+"@noir-lang/noirc_abi@1.0.0-beta.8":
+  version "1.0.0-beta.8"
+  resolved "https://registry.yarnpkg.com/@noir-lang/noirc_abi/-/noirc_abi-1.0.0-beta.8.tgz#e16ff1978a271560a75a9e66a574447670a0b343"
+  integrity sha512-ytCJwKtDp0VWjevtmi8P7r6iO//+mx9UgCqyk36bZCNmOtIE59GgFtOfmyzgWAXsjUQmHZe2MJ+krtQA0UFdAA==
   dependencies:
-    "@noir-lang/types" "1.0.0-beta.7"
+    "@noir-lang/types" "1.0.0-beta.8"
 
-"@noir-lang/types@1.0.0-beta.7":
-  version "1.0.0-beta.7"
-  resolved "https://registry.yarnpkg.com/@noir-lang/types/-/types-1.0.0-beta.7.tgz#af540b290a65c77236e8c1ab39f2c3beca0493c9"
-  integrity sha512-2ddzdvATakxfozHeH0lpbJ6k/l4jzq/0djd7QNMG9dUmR9uSBbCxnRDZiK8cD/UVMMJBCL2DDlv5AguuoHeM3A==
+"@noir-lang/types@1.0.0-beta.8":
+  version "1.0.0-beta.8"
+  resolved "https://registry.yarnpkg.com/@noir-lang/types/-/types-1.0.0-beta.8.tgz#8242ead8e58bcebff6c9e3591b02948dc95ecb0a"
+  integrity sha512-2ey2Axo5DpqwPLPsBg/3Rj6cxMIiIxrf80SSYe58q/4375uEYSZj7BM3TNMcdkZJKf1oJ4UwBNArn4BPCulRPA==
 
 "@octokit/auth-token@^4.0.0":
   version "4.0.0"
