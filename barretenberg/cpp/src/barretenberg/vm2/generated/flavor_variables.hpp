@@ -124,72 +124,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 126;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2656;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 287;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2730;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 293;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3069;
-=======
-=======
->>>>>>> c51f9cc720 (feat: happy path working)
-=======
->>>>>>> 9c49ea15b2 (wip)
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2649;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3049;
-=======
-=======
->>>>>>> 117933a04d (feat: happy path working)
-=======
->>>>>>> 4072f93e1f (wip)
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2640;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 274;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3040;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2659;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 261;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3046;
->>>>>>> db25bd772e (feat!(avm): mem aware and err handling sha256)
-<<<<<<< HEAD
->>>>>>> 7fb3d9ba15 (feat!(avm): mem aware and err handling sha256)
-<<<<<<< HEAD
->>>>>>> 2d1cb79a43 (feat!(avm): mem aware and err handling sha256)
-=======
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2660;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 265;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3051;
->>>>>>> 1fbcb75b2a (feat: happy path working)
-<<<<<<< HEAD
->>>>>>> 117933a04d (feat: happy path working)
-<<<<<<< HEAD
->>>>>>> c51f9cc720 (feat: happy path working)
-=======
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2659;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 265;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3050;
->>>>>>> c86f6277a8 (wip)
->>>>>>> 4072f93e1f (wip)
->>>>>>> 9c49ea15b2 (wip)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2722;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 280;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3128;
->>>>>>> 2a8ba6aa19 (feat: initial tests)
+    static constexpr size_t NUM_ALL_ENTITIES = 3149;
 
     // Need to be templated for recursive verifier
     template <typename FF_>

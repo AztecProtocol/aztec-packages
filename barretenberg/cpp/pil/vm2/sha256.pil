@@ -5,8 +5,10 @@ include "sha256_mem.pil";
 
 namespace sha256;
 
-    // sel_invalid_input_tag_err is not part of err, hence the two separate conditions
-    pol SEL_NO_ERR = sel * (1 - err) * (1 - sel_invalid_input_tag_err);
+    #[skippable_if]
+    sel = 0; // from sha256_mem.pil
+
+    pol SEL_NO_ERR = sel * (1 - err);
 
     // Initial state values loaded from state_offset;
     pol commit init_a;
@@ -47,7 +49,7 @@ namespace sha256;
     pol commit and_sel;
     and_sel = 0;
 
-    // We perform a compression operation if we are not at a latched row
+    // We perform a compression operation if we are not at a latched row, or there is not an err
     pol commit perform_round;
     perform_round = (1 - latch) * SEL_NO_ERR;
     pol LAST = SEL_NO_ERR * latch;

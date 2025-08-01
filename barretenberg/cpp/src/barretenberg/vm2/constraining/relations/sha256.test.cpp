@@ -370,6 +370,10 @@ TEST(Sha256MemoryConstrainingTest, InvalidInputTagErr)
     builder.process(sha256_event_container, trace);
     GreaterThanTraceBuilder gt_builder;
     gt_builder.process(gt_event_emitter.dump_events(), trace);
+    if (getenv("AVM_DEBUG") != nullptr) {
+        InteractiveDebugger debugger(trace);
+        debugger.run();
+    }
 
     check_relation<sha256_mem>(trace);
     check_relation<sha256>(trace);
@@ -377,6 +381,105 @@ TEST(Sha256MemoryConstrainingTest, InvalidInputTagErr)
                       lookup_sha256_mem_check_state_addr_in_range_settings,
                       lookup_sha256_mem_check_input_addr_in_range_settings,
                       lookup_sha256_mem_check_output_addr_in_range_settings>(trace);
+}
+
+TEST(Sha256MemoryConstrainingTest, PropagateError)
+{
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
+
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    EventEmitter<GreaterThanEvent> gt_event_emitter;
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+
+    RangeCheck range_check(range_check_event_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+    GreaterThan gt(field_gt, range_check, gt_event_emitter);
+    FakeBitwise bitwise;
+
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, sha256_event_emitter);
+
+    MemoryAddress state_addr = 0;
+    MemoryAddress input_addr = 8;
+    MemoryAddress output_addr = 25;
+
+    // Set up execution trace
+    TestTraceContainer trace({
+        {
+            { C::precomputed_first_row, 1 },
+            // First invocation fails
+            { C::execution_sel, 1 },
+            { C::execution_context_id, mem.get_space_id() },
+            { C::execution_sel_execute_sha256_compression, 1 },
+            { C::execution_rop_0_, output_addr },
+            { C::execution_rop_1_, state_addr },
+            { C::execution_rop_2_, input_addr },
+            { C::execution_sel_opcode_error, 1 },
+        },
+    });
+    // Add the state values to memory and the memory trace
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    for (uint32_t i = 0; i < state.size(); ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+        trace.set(i,
+                  { {
+                      { C::memory_sel, 1 },
+                      { C::memory_space_id, mem.get_space_id() },
+                      { C::memory_address, state_addr + i },
+                      { C::memory_value, state[i] },
+                      { C::memory_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                  } });
+    }
+
+    // Add the input values to memory and the memory trace
+    std::array<uint32_t, 13> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    for (uint32_t i = 0; i < input.size(); ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+        trace.set(i + state.size(),
+                  { {
+                      { C::memory_sel, 1 },
+                      { C::memory_space_id, mem.get_space_id() },
+                      { C::memory_address, input_addr + i },
+                      { C::memory_value, input[i] },
+                      { C::memory_tag, static_cast<uint8_t>(MemoryTag::U32) },
+                  } });
+    }
+
+    // Add a 14th input that has an invalid tag
+    mem.set(input_addr + 13, MemoryValue::from<uint64_t>(13));
+    trace.set(state.size() + input.size(),
+              { {
+                  { C::memory_sel, 1 },
+                  { C::memory_space_id, mem.get_space_id() },
+                  { C::memory_address, input_addr + 13 },
+                  { C::memory_value, 13 },
+                  { C::memory_tag, static_cast<uint8_t>(MemoryTag::U64) }, // Invalid tag
+              } });
+
+    EXPECT_THROW(sha256_gadget.compression(mem, state_addr, input_addr, output_addr),
+                 std::runtime_error); // This will be out of range and throw an error
+
+    Sha256TraceBuilder builder;
+    const auto sha256_event_container = sha256_event_emitter.dump_events();
+    builder.process(sha256_event_container, trace);
+
+    GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    PrecomputedTraceBuilder precomputed_builder;
+    precomputed_builder.process_misc(trace, 65); // Enough for round constants
+    precomputed_builder.process_sha256_round_constants(trace);
+
+    if (getenv("AVM_DEBUG") != nullptr) {
+        InteractiveDebugger debugger(trace);
+        debugger.run();
+    }
+
+    check_relation<sha256_mem>(trace);
+    check_relation<sha256>(trace);
+    check_all_interactions<Sha256TraceBuilder>(trace);
 }
 
 TEST(Sha256MemoryConstrainingTest, Complex)
