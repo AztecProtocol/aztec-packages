@@ -402,6 +402,17 @@ library BN254 {
     return uint256(keccak256(abi.encodePacked(pk1, pk2, sigmaInit))) % CURVE_ORDER;
   }
 
+  function g1Negate(uint256[2] memory p) internal pure returns (uint256[2] memory) {
+    if (p[0] == 0 && p[1] == 0) {
+      // Point at infinity remains unchanged
+      return p;
+    }
+
+    // For a point (x, y), its negation is (x, -y mod p)
+    // Since we're working in the field Fp, -y mod p = p - y
+    return [p[0], BASE_FIELD_SIZE - p[1]];
+  }
+
   function g1Zero() internal pure returns (uint256[2] memory) {
     return [uint256(0), uint256(0)];
   }

@@ -1,25 +1,22 @@
 import { bn254 } from '@noble/curves/bn254.js';
+import fs from 'fs';
+
+const UPDATE_FIXTURES = true;
 
 describe('BN254 Registration', () => {
   it('should generate the same constants as the solidity code', () => {
     expect(bn254.fields.Fp.ORDER).toBe(21888242871839275222246405745257275088696311157297823662689037894645226208583n);
     expect(bn254.fields.Fr.ORDER).toBe(21888242871839275222246405745257275088548364400416034343698204186575808495617n);
 
-    expect(bn254.G1.Point.BASE.toAffine().x).toBe(1n);
-    expect(bn254.G1.Point.BASE.toAffine().y).toBe(2n);
+    const g1Base = bn254.G1.Point.BASE.toAffine();
+    expect(g1Base.x).toBe(1n);
+    expect(g1Base.y).toBe(2n);
 
-    expect(bn254.G2.Point.BASE.toAffine().x.c0).toBe(
-      10857046999023057135944570762232829481370756359578518086990519993285655852781n,
-    );
-    expect(bn254.G2.Point.BASE.toAffine().x.c1).toBe(
-      11559732032986387107991004021392285783925812861821192530917403151452391805634n,
-    );
-    expect(bn254.G2.Point.BASE.toAffine().y.c0).toBe(
-      8495653923123431417604973247489272438418190587263600148770280649306958101930n,
-    );
-    expect(bn254.G2.Point.BASE.toAffine().y.c1).toBe(
-      4082367875863433681332203403145435568316851327593401208105741076214120093531n,
-    );
+    const g2Base = bn254.G2.Point.BASE.toAffine();
+    expect(g2Base.x.c0).toBe(10857046999023057135944570762232829481370756359578518086990519993285655852781n);
+    expect(g2Base.x.c1).toBe(11559732032986387107991004021392285783925812861821192530917403151452391805634n);
+    expect(g2Base.y.c0).toBe(8495653923123431417604973247489272438418190587263600148770280649306958101930n);
+    expect(g2Base.y.c1).toBe(4082367875863433681332203403145435568316851327593401208105741076214120093531n);
 
     const negativeG2 = bn254.G2.Point.ZERO.subtract(bn254.G2.Point.BASE).toAffine();
     expect(negativeG2.x.c0).toBe(10857046999023057135944570762232829481370756359578518086990519993285655852781n);
@@ -27,21 +24,65 @@ describe('BN254 Registration', () => {
     expect(negativeG2.y.c0).toBe(13392588948715843804641432497768002650278120570034223513918757245338268106653n);
     expect(negativeG2.y.c1).toBe(17805874995975841540914202342111839520379459829704422454583296818431106115052n);
 
-    const sk1 = 0x7777777n;
-    const pk1G2 = bn254.G2.Point.BASE.multiply(sk1).toAffine();
+    if (UPDATE_FIXTURES) {
+      const startingScalar = 0x7777777n;
+      const keysToGenerate = 50;
 
-    expect(pk1G2.x.c0).toBe(17931071651819835067098563222910421513876328033572114834306979690881549564414n);
-    expect(pk1G2.x.c1).toBe(12000187580290590047264785709963395816646295176893602234201956783324175839805n);
-    expect(pk1G2.y.c0).toBe(9611549517545166944736557219282359806761534888544046901025233666228290030286n);
-    expect(pk1G2.y.c1).toBe(3847186948811352011829434621581350901968531448585779990319356482934947911409n);
+      const keys = [];
+      for (let i = 0; i < keysToGenerate; i++) {
+        const sk = startingScalar + BigInt(i);
+        const pk1Weierstrass = bn254.G1.Point.BASE.multiply(sk);
+        const negativePk1Weierstrass = bn254.G1.Point.ZERO.subtract(pk1Weierstrass);
+        const pk2Weierstrass = bn254.G2.Point.BASE.multiply(sk);
+        const negativePk2Weierstrass = bn254.G2.Point.ZERO.subtract(pk2Weierstrass);
 
-    const sk2 = 0x8888888n;
-    const pk2G2 = bn254.G2.Point.BASE.multiply(sk2).toAffine();
-    console.log(pk2G2.x.c1, pk2G2.x.c0, pk2G2.y.c1, pk2G2.y.c0);
+        const pk1 = pk1Weierstrass.toAffine();
+        const negativePk1 = negativePk1Weierstrass.toAffine();
+        const pk2 = pk2Weierstrass.toAffine();
+        const negativePk2 = negativePk2Weierstrass.toAffine();
 
-    // expect(pk2G2.x.c0).toBe(17931071651819835067098563222910421513876328033572114834306979690881549564414n);
-    // expect(pk2G2.x.c1).toBe(12000187580290590047264785709963395816646295176893602234201956783324175839805n);
-    // expect(pk2G2.y.c0).toBe(9611549517545166944736557219282359806761534888544046901025233666228290030286n);
-    // expect(pk2G2.y.c1).toBe(3847186948811352011829434621581350901968531448585779990319356482934947911409n);
+        keys.push({
+          sk: sk.toString(),
+          pk1: { x: pk1.x.toString(), y: pk1.y.toString() },
+          negativePk1: { x: negativePk1.x.toString(), y: negativePk1.y.toString() },
+          pk2: { x0: pk2.x.c0.toString(), x1: pk2.x.c1.toString(), y0: pk2.y.c0.toString(), y1: pk2.y.c1.toString() },
+          negativePk2: {
+            x0: negativePk2.x.c0.toString(),
+            x1: negativePk2.x.c1.toString(),
+            y0: negativePk2.y.c0.toString(),
+            y1: negativePk2.y.c1.toString(),
+          },
+        });
+      }
+
+      fs.writeFileSync(
+        'bn254_constants.json',
+        JSON.stringify(
+          {
+            fpOrder: bn254.fields.Fp.ORDER.toString(),
+            frOrder: bn254.fields.Fr.ORDER.toString(),
+            g1Generator: {
+              x: g1Base.x.toString(),
+              y: g1Base.y.toString(),
+            },
+            g2Generator: {
+              x0: g2Base.x.c0.toString(),
+              x1: g2Base.x.c1.toString(),
+              y0: g2Base.y.c0.toString(),
+              y1: g2Base.y.c1.toString(),
+            },
+            negativeG2Generator: {
+              x0: negativeG2.x.c0.toString(),
+              x1: negativeG2.x.c1.toString(),
+              y0: negativeG2.y.c0.toString(),
+              y1: negativeG2.y.c1.toString(),
+            },
+            sampleKeys: keys,
+          },
+          null,
+          2,
+        ),
+      );
+    }
   });
 });

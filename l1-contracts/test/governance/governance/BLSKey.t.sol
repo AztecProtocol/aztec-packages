@@ -8,10 +8,53 @@ import {Test} from "forge-std/Test.sol";
 // solhint-disable comprehensive-interface
 
 contract BN254KeyTest is Test {
+  struct FixtureData {
+    uint256 fpOrder;
+    uint256 frOrder;
+    G1Point g1Generator;
+    G2Point g2Generator;
+    G2Point negativeG2Generator;
+    FixtureKey[] sampleKeys;
+  }
+
+  struct G1Point {
+    uint256 x;
+    uint256 y;
+  }
+
+  struct G2Point {
+    uint256 x0;
+    uint256 x1;
+    uint256 y0;
+    uint256 y1;
+  }
+
+  struct FixtureKey {
+    G1Point pk1;
+    G2Point pk2;
+    uint256 sk;
+  }
+
+  FixtureData private fixtureData;
   uint256 private sk = 0x7777777;
   uint256[2] private pk1;
   uint256[4] private pk2;
   uint256[2] private sigma;
+
+  function setUp() public {
+    loadFixtureData();
+  }
+
+  function testG1Negate() public {
+    setupValidSignatures();
+    uint256[2] memory negPk1 = BN254.g1Negate(pk1);
+    assertEq(
+      negPk1[0], 14040631920337037677709966437409651072288616613076825157749168159693185460400
+    );
+    assertEq(
+      negPk1[1], 15603454431192162606608260818640008567921080203618567739032051225096946447435
+    );
+  }
 
   function testProofOfPossession() public {
     setupValidSignatures();
@@ -49,22 +92,27 @@ contract BN254KeyTest is Test {
     newSk = bound(newSk, 1, BN254.CURVE_ORDER - 1);
     vm.assume(newSk != sk);
     setupValidSignatures();
+
+    pk1 = BN254.g1Negate(pk1);
+    assertFalse(this.proofOfPossession(pk1, pk2, sigma), "proof of possession should fail");
+
     pk1 = BN254.g1Mul(BN254.g1Generator(), newSk);
-    bool ok = this.proofOfPossession(pk1, pk2, sigma);
-    assertFalse(ok, "proof of possession should fail");
+    assertFalse(this.proofOfPossession(pk1, pk2, sigma), "proof of possession should fail");
   }
 
   function testWrongDomainSeparatorInProofOfPossession(bytes32 newDomainSeparator) public {
     vm.assume(newDomainSeparator != BN254.STAKING_DOMAIN_SEPARATOR);
     setupValidSignatures();
 
+    sigma = BN254.g1Negate(sigma);
+    assertFalse(this.proofOfPossession(pk1, pk2, sigma), "proof of possession should fail");
+
     bytes memory pk1Bytes = abi.encodePacked(pk1[0], pk1[1]);
 
     uint256[2] memory pk1DigestPoint = BN254.hashToPoint(newDomainSeparator, pk1Bytes);
 
     sigma = BN254.g1Mul(pk1DigestPoint, sk);
-    bool ok = this.proofOfPossession(pk1, pk2, sigma);
-    assertFalse(ok, "proof of possession should fail");
+    assertFalse(this.proofOfPossession(pk1, pk2, sigma), "proof of possession should fail");
   }
 
   function testWrongSkWhenGeneratingSignature(uint256 newSk) public {
@@ -116,7 +164,6 @@ contract BN254KeyTest is Test {
   function testPairingOfGenerators() public view {
     // The generator points are given in:
     // https://eips.ethereum.org/EIPS/eip-197#definition-of-the-groups
-    uint256[2] memory g1 = BN254.g1Generator();
 
     uint256[4] memory g2 = [
       11559732032986387107991004021392285783925812861821192530917403151452391805634,
@@ -127,7 +174,7 @@ contract BN254KeyTest is Test {
 
     // Sanity Check
     assertTrue(
-      bn254Pairing(g1, BN254.g2NegatedGenerator(), BN254.g1Generator(), g2),
+      bn254Pairing(BN254.g1Generator(), BN254.g2NegatedGenerator(), BN254.g1Generator(), g2),
       "Pairing of generators failed"
     );
   }
@@ -149,5 +196,13 @@ contract BN254KeyTest is Test {
     uint256[2] memory _sigma
   ) public view returns (bool ok) {
     return BN254.proofOfPossession(_pk1, _pk2, _sigma);
+  }
+
+  function loadFixtureData() internal view {
+    string memory root = vm.projectRoot();
+    string memory path = string.concat(root, "/test/fixtures/bn254_constants.json");
+    string memory json = vm.readFile(path);
+    bytes memory jsonBytes = vm.parseJson(json);
+    FixtureData memory data = abi.decode(jsonBytes, (FixtureData));
   }
 }
