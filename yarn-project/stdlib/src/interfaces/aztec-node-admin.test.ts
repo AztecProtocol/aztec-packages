@@ -86,6 +86,8 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashInactivityMaxPenalty: 1000n,
       slashProposerRoundPollingIntervalSeconds: 1000,
       slasherPrivateKey: new SecretValue<string | undefined>(undefined),
+      secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
+      secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {
