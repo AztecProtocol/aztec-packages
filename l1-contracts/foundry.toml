@@ -25,7 +25,7 @@ gas_reports = [
   "RollupCore",
   "Slasher",
   "SlashingProposer",
-  "BLSKeyTest",
+  "BN254KeyTest",
 ]
 
 remappings = [
