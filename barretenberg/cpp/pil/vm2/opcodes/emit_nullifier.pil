@@ -78,6 +78,9 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     pol SUCCESSFUL_WRITE = sel_write_nullifier * (1 - sel_opcode_error);
 
+    #[EMIT_NULLIFIER_TREE_ROOT_NOT_CHANGED]
+    sel_execute_emit_nullifier * sel_opcode_error * (prev_nullifier_tree_root - nullifier_tree_root) = 0;
+
     #[EMIT_NULLIFIER_TREE_SIZE_INCREASE]
     sel_execute_emit_nullifier * (prev_nullifier_tree_size + SUCCESSFUL_WRITE - nullifier_tree_size) = 0;
 
