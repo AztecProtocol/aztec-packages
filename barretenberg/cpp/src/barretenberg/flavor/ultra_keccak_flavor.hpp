@@ -45,8 +45,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     // VerificationKey from UltraFlavor can be used
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        static constexpr size_t VERIFICATION_KEY_LENGTH = UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH;
-
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
@@ -90,32 +88,5 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
-
-inline void read(uint8_t const*& it, UltraKeccakFlavor::VerificationKey& vk)
-{
-    using serialize::read;
-
-    // Get the size directly from the static method
-    size_t num_frs = UltraKeccakFlavor::VerificationKey::calc_num_frs();
-
-    // Read exactly num_frs field elements from the buffer
-    std::vector<bb::fr> field_elements(num_frs);
-    for (auto& element : field_elements) {
-        read(it, element);
-    }
-
-    // Then use from_field_elements to populate the verification key
-    vk.from_field_elements(field_elements);
-}
-inline void write(std::vector<uint8_t>& buf, UltraKeccakFlavor::VerificationKey const& vk)
-{
-    using serialize::write;
-
-    // Convert to field elements and write them directly without length prefix
-    auto field_elements = vk.to_field_elements();
-    for (const auto& element : field_elements) {
-        write(buf, element);
-    }
-}
 
 } // namespace bb

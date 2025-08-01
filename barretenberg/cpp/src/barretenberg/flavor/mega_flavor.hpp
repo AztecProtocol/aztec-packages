@@ -432,11 +432,6 @@ class MegaFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. Metadata (log_circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
-            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
@@ -605,32 +600,4 @@ class MegaFlavor {
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
 
-// Serialization methods for MegaFlavor::VerificationKey
-inline void read(uint8_t const*& it, MegaFlavor::VerificationKey& vk)
-{
-    using serialize::read;
-
-    // Get the size directly from the static method
-    size_t num_frs = MegaFlavor::VerificationKey::calc_num_frs();
-
-    // Read exactly num_frs field elements from the buffer
-    std::vector<bb::fr> field_elements(num_frs);
-    for (auto& element : field_elements) {
-        read(it, element);
-    }
-
-    // Then use from_field_elements to populate the verification key
-    vk.from_field_elements(field_elements);
-}
-
-inline void write(std::vector<uint8_t>& buf, MegaFlavor::VerificationKey const& vk)
-{
-    using serialize::write;
-
-    // Convert to field elements and write them directly without length prefix
-    auto field_elements = vk.to_field_elements();
-    for (const auto& element : field_elements) {
-        write(buf, element);
-    }
-}
 } // namespace bb
