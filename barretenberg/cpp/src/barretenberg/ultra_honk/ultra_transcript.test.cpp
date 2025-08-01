@@ -63,12 +63,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
         size_t round = 0;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
-        if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-            manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
-        } else {
-            manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
-        }
+        manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
