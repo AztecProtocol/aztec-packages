@@ -182,11 +182,6 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('utilityStorageRead'));
   }
 
-  // TODO(benesjan): This is an AVM oracle. Should this be nuked?
-  storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('storageWrite'));
-  }
-
   pxeNotifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
     throw new OracleMethodNotAvailableError('pxeNotifyCreatedContractClassLog');
   }

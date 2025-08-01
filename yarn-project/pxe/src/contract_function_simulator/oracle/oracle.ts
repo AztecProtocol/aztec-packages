@@ -328,11 +328,6 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  // async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
-  //   const newValues = await this.typedOracle.storageWrite(Fr.fromString(startStorageSlot), values.map(Fr.fromString));
-  //   return newValues.map(toACVMField);
-  // }
-
   pxeNotifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
     message: ACVMField[],
