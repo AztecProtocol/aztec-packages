@@ -37,7 +37,7 @@ contract BN254KeyTest is Test {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       key.pk1.x++;
       BN254Lib.G1Point memory sigma = this.signRegistrationDigest(key.sk);
-      vm.expectRevert(BN254Lib.mulPointFail.selector);
+      vm.expectRevert(BN254Lib.MulPointFail.selector);
       // need to set the gas since the precompile uses everything given to it
       // if it fails
       this.proofOfPossession{gas: 100000}(key.pk1, key.pk2, sigma);
@@ -49,7 +49,7 @@ contract BN254KeyTest is Test {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       key.pk2.x0++;
       BN254Lib.G1Point memory sigma = signRegistrationDigest(key.sk);
-      vm.expectRevert(BN254Lib.pairingFail.selector);
+      vm.expectRevert(BN254Lib.PairingFail.selector);
       this.proofOfPossession{gas: 100000}(key.pk1, key.pk2, sigma);
     }
   }
@@ -59,7 +59,7 @@ contract BN254KeyTest is Test {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       BN254Lib.G1Point memory sigma = signRegistrationDigest(key.sk);
       sigma.x++;
-      vm.expectRevert(BN254Lib.addPointFail.selector);
+      vm.expectRevert(BN254Lib.AddPointFail.selector);
       this.proofOfPossession{gas: 100000}(key.pk1, key.pk2, sigma);
     }
   }
@@ -70,13 +70,13 @@ contract BN254KeyTest is Test {
 
       BN254Lib.G1Point memory sigma = signRegistrationDigest(key.sk);
 
-      vm.expectRevert(BN254Lib.pk1Zero.selector);
+      vm.expectRevert(BN254Lib.Pk1Zero.selector);
       this.proofOfPossession(BN254Lib.g1Zero(), key.pk2, sigma);
 
-      vm.expectRevert(BN254Lib.pk2Zero.selector);
+      vm.expectRevert(BN254Lib.Pk2Zero.selector);
       this.proofOfPossession(key.pk1, BN254Lib.g2Zero(), sigma);
 
-      vm.expectRevert(BN254Lib.signatureZero.selector);
+      vm.expectRevert(BN254Lib.SignatureZero.selector);
       this.proofOfPossession(key.pk1, key.pk2, BN254Lib.g1Zero());
 
       assertFalse(

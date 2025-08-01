@@ -51,17 +51,17 @@ library BN254Lib {
   uint256 private constant T24 = 0x1000000000000000000000000000000000000000000000000;
   uint256 private constant MASK24 = 0xffffffffffffffffffffffffffffffffffffffffffffffff;
 
-  error pk1Zero();
-  error pk2Zero();
-  error signatureZero();
-  error addPointFail();
-  error mulPointFail();
-  error gammaZero();
-  error inverseFail();
-  error sqrtFail();
-  error pairingFail();
-  error valueOutOfRange(uint256 value, uint256 min, uint256 max);
-  error noPointFound();
+  error Pk1Zero();
+  error Pk2Zero();
+  error SignatureZero();
+  error AddPointFail();
+  error MulPointFail();
+  error GammaZero();
+  error InverseFail();
+  error SqrtFail();
+  error PairingFail();
+  error ValueOutOfRange(uint256 value, uint256 min, uint256 max);
+  error NoPointFound();
 
   /**
    * @notice Prove possession of a secret for a point in G1 and G2.
@@ -89,9 +89,9 @@ library BN254Lib {
     view
     returns (bool)
   {
-    require(pk1.x != 0 && pk1.y != 0, pk1Zero());
-    require(pk2.x0 != 0 && pk2.x1 != 0 && pk2.y0 != 0 && pk2.y1 != 0, pk2Zero());
-    require(signature.x != 0 && signature.y != 0, signatureZero());
+    require(pk1.x != 0 && pk1.y != 0, Pk1Zero());
+    require(pk2.x0 != 0 && pk2.x1 != 0 && pk2.y0 != 0 && pk2.y1 != 0, Pk2Zero());
+    require(signature.x != 0 && signature.y != 0, SignatureZero());
 
     // Compute the point "digest" of the pk1 that sigma is a signature over
     G1Point memory pk1DigestPoint = g1ToDigestPoint(pk1);
@@ -99,7 +99,7 @@ library BN254Lib {
     // Random challenge:
     // gamma = keccak(pk1, pk2, signature) mod |Fr|
     uint256 gamma = gammaOf(pk1, pk2, signature);
-    require(gamma != 0, gammaZero());
+    require(gamma != 0, GammaZero());
 
     // Build G1 L = signature + gamma * pk1
     G1Point memory left = g1Add(signature, g1Mul(pk1, gamma));
@@ -146,7 +146,7 @@ library BN254Lib {
         )
     }
 
-    if (!success) revert addPointFail();
+    if (!success) revert AddPointFail();
     return output;
   }
 
@@ -170,7 +170,7 @@ library BN254Lib {
           0x40 // output size = 2 × 32 bytes
         )
     }
-    if (!success) revert mulPointFail();
+    if (!success) revert MulPointFail();
     return output;
   }
 
@@ -209,7 +209,7 @@ library BN254Lib {
           0x20 // output size = 32 bytes
         )
     }
-    require(didCallSucceed, pairingFail());
+    require(didCallSucceed, PairingFail());
     return result[0] == 1;
   }
 
@@ -233,7 +233,7 @@ library BN254Lib {
       }
       x = addmod(x, 1, BASE_FIELD_ORDER);
     }
-    require(found, noPointFound());
+    require(found, NoPointFound());
     return output;
   }
 
@@ -253,7 +253,7 @@ library BN254Lib {
       x := mload(freeMem)
       hasRoot := eq(xx, mulmod(x, x, BASE_FIELD_ORDER))
     }
-    require(callSuccess, sqrtFail());
+    require(callSuccess, SqrtFail());
   }
 
   function inverse(uint256 a) internal view returns (uint256 result) {
@@ -266,10 +266,10 @@ library BN254Lib {
       mstore(add(freeMem, 0x60), a)
       mstore(add(freeMem, 0x80), sub(BASE_FIELD_ORDER, 2))
       mstore(add(freeMem, 0xa0), BASE_FIELD_ORDER)
-      success := staticcall(gas(), 0x05, freeMem, 0xc0, 0x00, 0x20)
-      result := mload(0x00)
+      success := staticcall(gas(), 0x05, freeMem, 0xc0, freeMem, 0x20)
+      result := mload(freeMem)
     }
-    if (!success) revert inverseFail();
+    if (!success) revert InverseFail();
   }
 
   /// @notice γ = keccak(PK1, PK2, σ_init) mod Fr

@@ -60,7 +60,7 @@ contract DepositBN254Test is WithGSE {
   ) external whenCallerIsRegisteredRollup(_instance) {
     // it reverts
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(BN254Lib.pk1Zero.selector));
+    vm.expectRevert(abi.encodeWithSelector(BN254Lib.Pk1Zero.selector));
     gse.deposit(
       address(0),
       address(0),
