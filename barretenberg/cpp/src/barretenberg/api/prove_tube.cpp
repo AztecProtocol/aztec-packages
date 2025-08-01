@@ -1,8 +1,10 @@
 #include "prove_tube.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include <memory>
 
 namespace bb {
 /**
@@ -22,7 +24,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Read the proof  and verification data from given files
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
-    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
+    ClientIVC::VerificationKey vk;
+    vk.from_field_elements(many_from_buffer<fr>(read_file(vk_path)));
 
     auto builder = std::make_shared<Builder>();
 
@@ -83,10 +86,10 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = output_path + "/vk";
-    write_file(tubeVkPath, to_buffer(tube_verification_key));
+    auto field_els = tube_verification_key->to_field_elements();
+    write_file(tubeVkPath, to_buffer(field_els));
 
     std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
-    auto field_els = tube_verification_key->to_field_elements();
     info("verificaton key length in fields:", field_els.size());
     auto data = to_json(field_els);
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
