@@ -3,14 +3,15 @@
 pragma solidity >=0.8.27;
 
 import {
-  StakeDelegationLib, StakeAccounting
-} from "@aztec/governance/libraries/StakeDelegationLib.sol";
+  DepositDelegationLib,
+  DepositAndDelegationAccounting
+} from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 contract StakeDelegationLibWrapper {
-  using StakeDelegationLib for StakeAccounting;
+  using DepositDelegationLib for DepositAndDelegationAccounting;
 
-  StakeAccounting internal self;
+  DepositAndDelegationAccounting internal self;
 
   function increaseBalance(address _instance, address _attester, uint256 _amount) external {
     self.increaseBalance(_instance, _attester, _amount);

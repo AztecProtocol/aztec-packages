@@ -78,7 +78,7 @@ library Errors {
   error GSE__NotLatestRollup(address);
   error GSE__AlreadyRegistered(address, address);
   error GSE__NothingToExit(address);
-  error GSE__InsufficientStake(uint256, uint256);
+  error GSE__InsufficientBalance(uint256, uint256);
   error GSE__FailedToRemove(address);
   error GSE__InstanceDoesNotExist(address);
   error GSE__NotWithdrawer(address, address);

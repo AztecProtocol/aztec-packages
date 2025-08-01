@@ -9,14 +9,14 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 // A struct storing balance and delegatee for an attester
-struct StakePosition {
+struct DepositPosition {
   uint256 balance;
   address delegatee;
 }
 
-// A struct storing all the stake positions for an instance along with a supply
-struct StakeBook {
-  mapping(address attester => StakePosition position) positions;
+// A struct storing all the positions for an instance along with a supply
+struct DepositLedger {
+  mapping(address attester => DepositPosition position) positions;
   Checkpoints.Trace224 supply;
 }
 
@@ -27,10 +27,10 @@ struct VotingAccount {
   Checkpoints.Trace224 votingPower;
 }
 
-// A struct storing the StakeBooks the individual rollup instances, the voting
-// account for delegates and the total supply.
-struct StakeAccounting {
-  mapping(address instance => StakeBook book) instanceBooks;
+// A struct storing the ledgers the individual rollup instances, the voting
+// account for delegatees and the total supply.
+struct DepositAndDelegationAccounting {
+  mapping(address instance => DepositLedger ledger) ledgers;
   mapping(address delegatee => VotingAccount votingAccount) votingAccounts;
   Checkpoints.Trace224 supply;
 }
@@ -38,14 +38,14 @@ struct StakeAccounting {
 // This library have a lot of overlap with `Votes.sol` from Openzeppelin,
 // It mainly differs as it is a library to allow us having many accountings in the same contract
 // the unit of time and allowing multiple uses of power.
-library StakeDelegationLib {
+library DepositDelegationLib {
   using CheckpointedUintLib for Checkpoints.Trace224;
 
   event DelegateChanged(address indexed attester, address oldDelegatee, address newDelegatee);
   event DelegateVotesChanged(address indexed delegatee, uint256 oldValue, uint256 newValue);
 
   function increaseBalance(
-    StakeAccounting storage _self,
+    DepositAndDelegationAccounting storage _self,
     address _instance,
     address _attester,
     uint256 _amount
@@ -54,7 +54,7 @@ library StakeDelegationLib {
       return;
     }
 
-    StakeBook storage instance = _self.instanceBooks[_instance];
+    DepositLedger storage instance = _self.ledgers[_instance];
 
     instance.positions[_attester].balance += _amount;
     moveVotingPower(_self, address(0), instance.positions[_attester].delegatee, _amount);
@@ -64,7 +64,7 @@ library StakeDelegationLib {
   }
 
   function decreaseBalance(
-    StakeAccounting storage _self,
+    DepositAndDelegationAccounting storage _self,
     address _instance,
     address _attester,
     uint256 _amount
@@ -73,7 +73,7 @@ library StakeDelegationLib {
       return;
     }
 
-    StakeBook storage instance = _self.instanceBooks[_instance];
+    DepositLedger storage instance = _self.ledgers[_instance];
 
     instance.positions[_attester].balance -= _amount;
     moveVotingPower(_self, instance.positions[_attester].delegatee, address(0), _amount);
@@ -97,7 +97,7 @@ library StakeDelegationLib {
    * @param _amount     - The amount of power to use
    */
   function usePower(
-    StakeAccounting storage _self,
+    DepositAndDelegationAccounting storage _self,
     address _delegatee,
     uint256 _proposalId,
     Timestamp _timestamp,
@@ -115,7 +115,7 @@ library StakeDelegationLib {
   }
 
   function delegate(
-    StakeAccounting storage _self,
+    DepositAndDelegationAccounting storage _self,
     address _instance,
     address _attester,
     address _delegatee
@@ -124,45 +124,49 @@ library StakeDelegationLib {
     if (oldDelegate == _delegatee) {
       return;
     }
-    _self.instanceBooks[_instance].positions[_attester].delegatee = _delegatee;
+    _self.ledgers[_instance].positions[_attester].delegatee = _delegatee;
     emit DelegateChanged(_attester, oldDelegate, _delegatee);
 
     moveVotingPower(_self, oldDelegate, _delegatee, getBalanceOf(_self, _instance, _attester));
   }
 
-  function undelegate(StakeAccounting storage _self, address _instance, address _attester) internal {
+  function undelegate(
+    DepositAndDelegationAccounting storage _self,
+    address _instance,
+    address _attester
+  ) internal {
     delegate(_self, _instance, _attester, address(0));
   }
 
-  function getBalanceOf(StakeAccounting storage _self, address _instance, address _attester)
+  function getBalanceOf(
+    DepositAndDelegationAccounting storage _self,
+    address _instance,
+    address _attester
+  ) internal view returns (uint256) {
+    return _self.ledgers[_instance].positions[_attester].balance;
+  }
+
+  function getSupplyOf(DepositAndDelegationAccounting storage _self, address _instance)
     internal
     view
     returns (uint256)
   {
-    return _self.instanceBooks[_instance].positions[_attester].balance;
+    return _self.ledgers[_instance].supply.valueNow();
   }
 
-  function getSupplyOf(StakeAccounting storage _self, address _instance)
-    internal
-    view
-    returns (uint256)
-  {
-    return _self.instanceBooks[_instance].supply.valueNow();
-  }
-
-  function getSupply(StakeAccounting storage _self) internal view returns (uint256) {
+  function getSupply(DepositAndDelegationAccounting storage _self) internal view returns (uint256) {
     return _self.supply.valueNow();
   }
 
-  function getDelegatee(StakeAccounting storage _self, address _instance, address _attester)
-    internal
-    view
-    returns (address)
-  {
-    return _self.instanceBooks[_instance].positions[_attester].delegatee;
+  function getDelegatee(
+    DepositAndDelegationAccounting storage _self,
+    address _instance,
+    address _attester
+  ) internal view returns (address) {
+    return _self.ledgers[_instance].positions[_attester].delegatee;
   }
 
-  function getVotingPower(StakeAccounting storage _self, address _delegatee)
+  function getVotingPower(DepositAndDelegationAccounting storage _self, address _delegatee)
     internal
     view
     returns (uint256)
@@ -170,24 +174,24 @@ library StakeDelegationLib {
     return _self.votingAccounts[_delegatee].votingPower.valueNow();
   }
 
-  function getVotingPowerAt(StakeAccounting storage _self, address _delegatee, Timestamp _timestamp)
-    internal
-    view
-    returns (uint256)
-  {
+  function getVotingPowerAt(
+    DepositAndDelegationAccounting storage _self,
+    address _delegatee,
+    Timestamp _timestamp
+  ) internal view returns (uint256) {
     return _self.votingAccounts[_delegatee].votingPower.valueAt(_timestamp);
   }
 
-  function getPowerUsed(StakeAccounting storage _self, address _delegatee, uint256 _proposalId)
-    internal
-    view
-    returns (uint256)
-  {
+  function getPowerUsed(
+    DepositAndDelegationAccounting storage _self,
+    address _delegatee,
+    uint256 _proposalId
+  ) internal view returns (uint256) {
     return _self.votingAccounts[_delegatee].powerUsed[_proposalId];
   }
 
   function moveVotingPower(
-    StakeAccounting storage _self,
+    DepositAndDelegationAccounting storage _self,
     address _from,
     address _to,
     uint256 _amount

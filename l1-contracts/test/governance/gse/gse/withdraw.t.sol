@@ -111,7 +111,9 @@ contract WithdrawTest is WithGSE {
     amount = bound(_amount, balance + 1, type(uint256).max);
 
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__InsufficientStake.selector, balance, amount));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount)
+    );
     gse.withdraw(_attester, amount);
   }
 
@@ -242,7 +244,9 @@ contract WithdrawTest is WithGSE {
     amount = bound(_amount, balance + 1, type(uint256).max);
 
     vm.prank(_instance);
-    vm.expectRevert(abi.encodeWithSelector(Errors.GSE__InsufficientStake.selector, balance, amount));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.GSE__InsufficientBalance.selector, balance, amount)
+    );
     gse.withdraw(_attester, amount);
   }
 

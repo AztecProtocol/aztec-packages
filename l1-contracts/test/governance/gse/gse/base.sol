@@ -17,7 +17,7 @@ contract WithGSE is TestBase {
     GSEBuilder builder = new GSEBuilder().deploy();
     gse = builder.getConfig().gse;
     vm.label(address(gse), "GSE");
-    stakingAsset = TestERC20(address(gse.STAKING_ASSET()));
+    stakingAsset = TestERC20(address(gse.ASSET()));
     governance = Governance(address(gse.getGovernance()));
   }
 

@@ -9,11 +9,12 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
+import {
+  DepositDelegationLib,
+  DepositAndDelegationAccounting
+} from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
-import {
-  StakeDelegationLib, StakeAccounting
-} from "@aztec/governance/libraries/StakeDelegationLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -29,7 +30,7 @@ struct AttesterConfig {
 // Struct to track the attesters (block producers) on a particular rollup instance
 // throughout time, along with each attester's current config.
 // Finally a flag to track if the instance exists.
-struct InstanceStaking {
+struct InstanceAttesterRegistry {
   SnapshottedAddressSet attesters;
   mapping(address attester => AttesterConfig config) configOf;
   bool exists;
@@ -100,16 +101,16 @@ interface IGSE is IGSECore {
 /**
  * @title GSECore
  * @author Aztec Labs
- * @notice The core Governance Staking Escrow contract that handles the staking of attesters on rollup instances.
+ * @notice The core Governance Staking Escrow contract that handles the deposits of attesters on rollup instances.
  *         It is responsible for:
  *         - depositing/withdrawing attesters on rollup instances
  *         - providing rollup instances with historical views of their attesters
  *         - allowing depositors to delegate their voting power
  *         - allowing delegatees to vote at governance
- *         - maintaining a set of "bonus" attesters which are always staked on the latest rollup
+ *         - maintaining a set of "bonus" attesters which are always deposited on behalf of the latest rollup
  *
  * NB: The "bonus" attesters are thus automatically "moved along" whenever the latest rollup changes.
- * That is, at the point of the rollup getting added, the bonus stake is immediately available.
+ * That is, at the point of the rollup getting added, the bonus is immediately available.
  * This allows the latest rollup to start with a set of attesters, rather than requiring them to exit
  * the old rollup and deposit in the new one.
  *
@@ -130,13 +131,13 @@ contract GSECore is IGSECore, Ownable {
   using SafeCast for uint256;
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
-  using StakeDelegationLib for StakeAccounting;
+  using DepositDelegationLib for DepositAndDelegationAccounting;
   using ProposalLib for Proposal;
 
   /**
    * Create a special "bonus" address for use by the latest rollup.
    *
-   * As far as terminology, the GSE tracks staking and voting/delegation data for "instances",
+   * As far as terminology, the GSE tracks deposits and voting/delegation data for "instances",
    * and an "instance" is either the address of a "true" rollup contract which was added via `addRollup`,
    * or (ONLY IN THIS CONTRACT) this special "bonus" address, which has its own accounting.
    *
@@ -181,14 +182,20 @@ contract GSECore is IGSECore, Ownable {
   address public constant BONUS_INSTANCE_ADDRESS =
     address(uint160(uint256(keccak256("bonus-instance"))));
 
+  // The amount of ASSET needed to add an attester to the set
   uint256 public immutable ACTIVATION_THRESHOLD;
+
+  // The amount of ASSET needed to keep an attester in the set, if the attester balance fall below this threshold
+  // the attester will be ejected from the set.
   uint256 public immutable EJECTION_THRESHOLD;
-  IERC20 public immutable STAKING_ASSET;
+
+  // The asset used for sybil resistance and power in governance. Must match the ASSET in `Governance` to work as intended.
+  IERC20 public immutable ASSET;
 
   // The GSE's history of rollups.
   Checkpoints.Trace224 internal rollups;
-  // Mapping from instance address to its historical staking information.
-  mapping(address instanceAddress => InstanceStaking instance) internal instances;
+  // Mapping from instance address to its historical attester information.
+  mapping(address instanceAddress => InstanceAttesterRegistry instance) internal instances;
 
   /**
    * Contains state for:
@@ -202,7 +209,7 @@ contract GSECore is IGSECore, Ownable {
    *   proposal ID => { power used }
    * }
    */
-  StakeAccounting internal delegation;
+  DepositAndDelegationAccounting internal delegation;
   Governance internal governance;
 
   /**
@@ -216,27 +223,25 @@ contract GSECore is IGSECore, Ownable {
   /**
    * @param __owner - The owner of the GSE.
    *                  Initially a deployer to allow adding an initial rollup, then handed over to governance.
-   * @param _stakingAsset - The asset that is used for staking.
-   * @param _activationThreshold - The amount of staking asset required to deposit an attester on the rollup.
-   * @param _ejectionThreshold - The minimum amount of staking asset required to be in the set to be considered an attester.
-   *                        Presently, as the rollup instance does not allow for partial withdrawals, the only way for
-   *                        a staked amount to reduce is to either withdraw the entire amount or be slashed.
-   *                        If the balance falls below the minimum stake, the attester is removed from the set.
+   * @param _asset - The asset used in governance and for sybil resistance
+   * @param _activationThreshold - The amount of asset required to deposit an attester on the rollup.
+   * @param _ejectionThreshold - The minimum amount of asset required to be in the set to be considered an attester.
+   *                        If the balance falls below this threshold, the attester is ejected from the set.
    */
   constructor(
     address __owner,
-    IERC20 _stakingAsset,
+    IERC20 _asset,
     uint256 _activationThreshold,
     uint256 _ejectionThreshold
   ) Ownable(__owner) {
-    STAKING_ASSET = _stakingAsset;
+    ASSET = _asset;
     ACTIVATION_THRESHOLD = _activationThreshold;
     EJECTION_THRESHOLD = _ejectionThreshold;
     instances[BONUS_INSTANCE_ADDRESS].exists = true;
   }
 
   function setGovernance(Governance _governance) external override(IGSECore) onlyOwner {
-    // Once again desparate times calls for desparate measures.
+    // Once again desperate times calls for desperate measures.
     require(address(governance) == address(0), Errors.GSE__GovernanceAlreadySet());
     governance = _governance;
   }
@@ -261,7 +266,7 @@ contract GSECore is IGSECore, Ownable {
    *
    * @dev msg.sender must be a registered rollup.
    *
-   * @dev Transfers STAKING_ASSET from msg.sender to the GSE, and then into Governance.
+   * @dev Transfers ASSET from msg.sender to the GSE, and then into Governance.
    *
    * @dev if _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
    *
@@ -328,10 +333,10 @@ contract GSECore is IGSECore, Ownable {
     delegation.delegate(recipientInstance, _attester, recipientInstance);
     delegation.increaseBalance(recipientInstance, _attester, ACTIVATION_THRESHOLD);
 
-    STAKING_ASSET.transferFrom(msg.sender, address(this), ACTIVATION_THRESHOLD);
+    ASSET.transferFrom(msg.sender, address(this), ACTIVATION_THRESHOLD);
 
     Governance gov = getGovernance();
-    STAKING_ASSET.approve(address(gov), ACTIVATION_THRESHOLD);
+    ASSET.approve(address(gov), ACTIVATION_THRESHOLD);
     gov.deposit(address(this), ACTIVATION_THRESHOLD);
 
     emit Deposit(recipientInstance, _attester, _withdrawer);
@@ -365,28 +370,27 @@ contract GSECore is IGSECore, Ownable {
     // We need to figure out where the attester is effectively located
     // we start by looking at the instance that is withdrawing the attester
     address withdrawingInstance = msg.sender;
-    InstanceStaking storage instanceStaking = instances[msg.sender];
-    bool foundAttester = instanceStaking.attesters.contains(_attester);
+    InstanceAttesterRegistry storage attesterRegistry = instances[msg.sender];
+    bool foundAttester = attesterRegistry.attesters.contains(_attester);
 
-    // If we haven't found the attester in the rollup instance staking,
-    // and we are latest rollup, go look in the "bonus" instance.
+    // If we haven't found the attester in the rollup instance, and we are latest rollup, go look in the "bonus" instance.
     if (
       !foundAttester && getLatestRollup() == msg.sender
         && instances[BONUS_INSTANCE_ADDRESS].attesters.contains(_attester)
     ) {
       withdrawingInstance = BONUS_INSTANCE_ADDRESS;
-      instanceStaking = instances[BONUS_INSTANCE_ADDRESS];
+      attesterRegistry = instances[BONUS_INSTANCE_ADDRESS];
       foundAttester = true;
     }
 
     require(foundAttester, Errors.GSE__NothingToExit(_attester));
 
     uint256 balance = delegation.getBalanceOf(withdrawingInstance, _attester);
-    require(balance >= _amount, Errors.GSE__InsufficientStake(balance, _amount));
+    require(balance >= _amount, Errors.GSE__InsufficientBalance(balance, _amount));
 
     // First assume we are only withdrawing the amount specified.
     uint256 amountWithdrawn = _amount;
-    // If the balance after withdrawal is less than the minimum stake,
+    // If the balance after withdrawal is less than the ejection threshold,
     // we will remove the attester from the instance.
     bool isRemoved = balance - _amount < EJECTION_THRESHOLD;
 
@@ -394,8 +398,8 @@ contract GSECore is IGSECore, Ownable {
     // via `initiateWithdraw`, so a "normal" withdrawal will always remove the attester from the instance.
     // However, if the attester is slashed, we might just reduce the balance.
     if (isRemoved) {
-      require(instanceStaking.attesters.remove(_attester), Errors.GSE__FailedToRemove(_attester));
-      delete instanceStaking.configOf[_attester];
+      require(attesterRegistry.attesters.remove(_attester), Errors.GSE__FailedToRemove(_attester));
+      delete attesterRegistry.configOf[_attester];
       amountWithdrawn = balance;
 
       // When removing the user, remove the delegating as well.
@@ -438,7 +442,7 @@ contract GSECore is IGSECore, Ownable {
    * @dev It is required to expose this on the GSE, since it is assumed that only the GSE can hold
    * power in Governance (see the comment at the top of Governance.sol).
    *
-   * @dev Transfers governance's configured `lockAmount` of STAKING_ASSET from msg.sender to the GSE,
+   * @dev Transfers governance's configured `lockAmount` of ASSET from msg.sender to the GSE,
    * and then into Governance.
    *
    * @dev Immediately creates a withdrawal from Governance for the `lockAmount`.
@@ -458,8 +462,8 @@ contract GSECore is IGSECore, Ownable {
     Governance gov = getGovernance();
     uint256 amount = gov.getConfiguration().proposeConfig.lockAmount;
 
-    STAKING_ASSET.transferFrom(msg.sender, address(this), amount);
-    STAKING_ASSET.approve(address(gov), amount);
+    ASSET.transferFrom(msg.sender, address(this), amount);
+    ASSET.approve(address(gov), amount);
 
     gov.deposit(address(this), amount);
 
@@ -471,7 +475,7 @@ contract GSECore is IGSECore, Ownable {
    *
    *          Only callable by the `withdrawer` for the given `_attester` at the given
    *          `_instance`. This is to ensure that the depositor in poor mans delegation;
-   *          listing another entity as the `attester`, still controls his voting poewr,
+   *          listing another entity as the `attester`, still controls his voting power,
    *          even if someone else is running the node. Separately, it makes it simpler
    *          to use cold-storage for more impactful actions.
    *
@@ -482,9 +486,9 @@ contract GSECore is IGSECore, Ownable {
    * See `Governance.getProposalState` for more details.
    *
    * @param _instance   - The address of the rollup instance (or bonus instance address)
-   *                    - to which the `_attester` stake is pledged.
+   *                      to which the `_attester` deposit is pledged.
    * @param _attester   - The address of the attester to delegate on behalf of
-   * @param _delegatee  - The degelegatee that should receive the power
+   * @param _delegatee  - The delegatee that should receive the power
    */
   function delegate(address _instance, address _attester, address _delegatee)
     external
@@ -599,14 +603,14 @@ contract GSE is IGSE, GSECore {
   using SafeCast for uint256;
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
-  using StakeDelegationLib for StakeAccounting;
+  using DepositDelegationLib for DepositAndDelegationAccounting;
 
   constructor(
     address __owner,
-    IERC20 _stakingAsset,
+    IERC20 _asset,
     uint256 _activationThreshold,
     uint256 _ejectionThreshold
-  ) GSECore(__owner, _stakingAsset, _activationThreshold, _ejectionThreshold) {}
+  ) GSECore(__owner, _asset, _activationThreshold, _ejectionThreshold) {}
 
   function getConfig(address _instance, address _attester)
     external
@@ -614,14 +618,14 @@ contract GSE is IGSE, GSECore {
     override(IGSE)
     returns (AttesterConfig memory)
   {
-    (InstanceStaking storage instanceStaking, bool attesterExists,) =
+    (InstanceAttesterRegistry storage attesterRegistry, bool attesterExists,) =
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
       return AttesterConfig({withdrawer: address(0)});
     }
 
-    return instanceStaking.configOf[_attester];
+    return attesterRegistry.configOf[_attester];
   }
 
   function getWithdrawer(address _instance, address _attester)
@@ -630,15 +634,15 @@ contract GSE is IGSE, GSECore {
     override(IGSE)
     returns (address withdrawer, bool attesterExists, address instanceAddress)
   {
-    InstanceStaking storage instanceStaking;
-    (instanceStaking, attesterExists, instanceAddress) =
+    InstanceAttesterRegistry storage attesterRegistry;
+    (attesterRegistry, attesterExists, instanceAddress) =
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
       return (address(0), false, address(0));
     }
 
-    return (instanceStaking.configOf[_attester].withdrawer, true, instanceAddress);
+    return (attesterRegistry.configOf[_attester].withdrawer, true, instanceAddress);
   }
 
   function balanceOf(address _instance, address _attester)
@@ -709,7 +713,6 @@ contract GSE is IGSE, GSECore {
     override(IGSE)
     returns (address[] memory)
   {
-    // @todo Throw me in jail for this crime against humanity
     uint256 count = getAttesterCountAtTime(_instance, _timestamp);
     uint256[] memory indices = new uint256[](count);
     for (uint256 i = 0; i < count; i++) {
@@ -775,7 +778,7 @@ contract GSE is IGSE, GSECore {
     override(IGSE)
     returns (uint256)
   {
-    InstanceStaking storage store = instances[_instance];
+    InstanceAttesterRegistry storage store = instances[_instance];
     uint32 timestamp = Timestamp.unwrap(_timestamp).toUint32();
 
     uint256 count = store.attesters.lengthAtTimestamp(timestamp);
@@ -807,8 +810,8 @@ contract GSE is IGSE, GSECore {
     // Note: This function could get called where _instance is the bonus instance.
     // This is okay, because we know that in this case, `isLatestRollup` will be false.
     // So we won't double count.
-    InstanceStaking storage instanceStore = instances[_instance];
-    InstanceStaking storage bonusStore = instances[BONUS_INSTANCE_ADDRESS];
+    InstanceAttesterRegistry storage instanceStore = instances[_instance];
+    InstanceAttesterRegistry storage bonusStore = instances[BONUS_INSTANCE_ADDRESS];
     bool isLatestRollup = getLatestRollupAt(_timestamp) == _instance;
 
     uint32 ts = Timestamp.unwrap(_timestamp).toUint32();
@@ -837,13 +840,12 @@ contract GSE is IGSE, GSECore {
     return attesters;
   }
 
-  // @todo I think we can clean this up more, don't think we need the instances being passed around nearly as much now.
   function _getInstanceStoreWithAttester(address _instance, address _attester)
     internal
     view
-    returns (InstanceStaking storage, bool, address)
+    returns (InstanceAttesterRegistry storage, bool, address)
   {
-    InstanceStaking storage store = instances[_instance];
+    InstanceAttesterRegistry storage store = instances[_instance];
     bool attesterExists = store.attesters.contains(_attester);
     address instanceAddress = _instance;
 
