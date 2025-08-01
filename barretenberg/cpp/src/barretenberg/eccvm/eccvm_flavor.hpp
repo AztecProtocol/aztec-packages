@@ -817,6 +817,58 @@ class ECCVMFlavor {
         }
 
         /**
+         * @brief Calculate the number of field elements needed for serialization
+         * @return size_t Number of field elements
+         */
+        static size_t calc_num_frs()
+        {
+            using namespace bb::field_conversion;
+            // ECCVM only serializes commitments, no metadata
+            return NUM_PRECOMPUTED_ENTITIES * calc_num_bn254_frs<Commitment>();
+        }
+
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<fr> to_field_elements() const override
+        {
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
+                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<fr> elements;
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+            return elements;
+        }
+
+        /**
+         * @brief Deserialize verification key from field elements
+         *
+         * @param elements Field elements to deserialize from
+         * @return size_t Number of field elements read
+         */
+        size_t from_field_elements(std::span<const fr> elements) override
+        {
+            using namespace bb::field_conversion;
+
+            size_t read_idx = 0;
+            constexpr size_t commitment_size = calc_num_bn254_frs<Commitment>();
+
+            for (Commitment& commitment : this->get_all()) {
+                commitment = convert_from_bn254_frs<Commitment>(elements.subspan(read_idx, commitment_size));
+                read_idx += commitment_size;
+            }
+
+            return read_idx;
+        }
+        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
@@ -1043,6 +1095,32 @@ class ECCVMFlavor {
     }
 };
 
-// NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
+// Serialization methods for ECCVMFlavor::VerificationKey
+inline void read(uint8_t const*& it, ECCVMFlavor::VerificationKey& vk)
+{
+    using serialize::read;
 
+    // Get the size directly from the static method
+    size_t num_frs = ECCVMFlavor::VerificationKey::calc_num_frs();
+
+    // Read exactly num_frs field elements from the buffer
+    std::vector<bb::fr> field_elements(num_frs);
+    for (auto& element : field_elements) {
+        read(it, element);
+    }
+
+    // Then use from_field_elements to populate the verification key
+    vk.from_field_elements(field_elements);
+}
+
+inline void write(std::vector<uint8_t>& buf, ECCVMFlavor::VerificationKey const& vk)
+{
+    using serialize::write;
+
+    // Convert to field elements and write them directly without length prefix
+    auto field_elements = vk.to_field_elements();
+    for (const auto& element : field_elements) {
+        write(buf, element);
+    }
+}
 } // namespace bb
