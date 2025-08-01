@@ -611,6 +611,32 @@ sel_execute_returndata_size * (register[0] - last_child_returndata_size) = 0; //
 #[RETURNDATA_SIZE_U32_TAG]
 sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // Write Tag must be U32
 
+// Tree and sideffect state can only change in specific opcodes.
+#[PUBLIC_DATA_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_public_data_tree_root - public_data_tree_root) = 0;
+#[PUBLIC_DATA_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_public_data_tree_size - public_data_tree_size) = 0;
+#[WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_written_public_data_slots_tree_root - written_public_data_slots_tree_root) = 0;
+#[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_written_public_data_slots_tree_size - written_public_data_slots_tree_size) = 0;
+#[NOTE_HASH_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_emit_notehash) * (prev_note_hash_tree_root - note_hash_tree_root) = 0;
+#[NOTE_HASH_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_emit_notehash) * (prev_note_hash_tree_size - note_hash_tree_size) = 0;
+#[NUM_NOTE_HASHES_EMITTED_NOT_CHANGED]
+sel * (1 - sel_execute_emit_notehash) * (prev_num_note_hashes_emitted - num_note_hashes_emitted) = 0;
+#[NULLIFIER_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_emit_nullifier) * (prev_nullifier_tree_root - nullifier_tree_root) = 0;
+#[NULLIFIER_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_emit_nullifier) * (prev_nullifier_tree_size - nullifier_tree_size) = 0;
+#[NUM_NULLIFIERS_EMITTED_NOT_CHANGED]
+sel * (1 - sel_execute_emit_nullifier) * (prev_num_nullifiers_emitted - num_nullifiers_emitted) = 0;
+#[NUM_UNENCRYPTED_LOGS_NOT_CHANGED]
+sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_logs - num_unencrypted_logs) = 0;
+#[NUM_L2_TO_L1_MESSAGES_NOT_CHANGED]
+sel * (1 - sel_execute_send_l2_to_l1_msg) * (prev_num_l2_to_l1_messages - num_l2_to_l1_messages) = 0;
+
 /**************************************************************************************************
  *  Temporality group 6: Register write.
  **************************************************************************************************/
@@ -629,3 +655,4 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 pol commit sel_error;
 // Observe that the errors are mutually exclusive.
 sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
+

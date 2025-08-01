@@ -45,7 +45,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     l1_to_l2_msg_leaf_in_range {
         register[0], // msg_hash input
         register[1], // leaf_index input
-        prev_l1_l2_tree_root,
+        l1_l2_tree_root,
         register[2] // exists output
     } in l1_to_l2_message_tree_check.sel {
         l1_to_l2_message_tree_check.msg_hash,
