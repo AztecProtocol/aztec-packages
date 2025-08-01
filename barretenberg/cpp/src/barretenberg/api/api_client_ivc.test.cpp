@@ -96,12 +96,6 @@ class ClientIVCAPITests : public ::testing::Test {
 
 namespace bb {
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
-
-namespace bbapi {
-template <typename Flavor>
-std::shared_ptr<DeciderProvingKey_<Flavor>> get_acir_program_decider_proving_key(const BBApiRequest& request,
-                                                                                 acir_format::AcirProgram& program);
-} // namespace bbapi
 } // namespace bb
 
 // Used to get a mock IVC vk.
@@ -126,9 +120,7 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
     api.write_vk(write_vk_flags, bytecode_path, test_dir);
 
     auto buffer = read_file(test_dir / "vk");
-    ClientIVC::MegaVerificationKey ivc_vk;
-    ivc_vk.from_field_elements(many_from_buffer<bb::fr>(buffer));
-    return ivc_vk;
+    return from_buffer<ClientIVC::MegaVerificationKey>(buffer);
 };
 
 // Test the ClientIVCAPI::prove flow, making sure --write_vk
@@ -156,9 +148,8 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     // Helper lambda to verify VK equivalence
     auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey& vk2) {
         auto vk1_data = read_file(vk1_path);
-        ClientIVC::MegaVerificationKey vk1;
-        vk1.from_field_elements(many_from_buffer<bb::fr>(vk1_data));
-        ASSERT_TRUE(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
+        auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
+        ASSERT_EQ(vk1, vk2);
     };
 
     // Helper lambda to verify proof

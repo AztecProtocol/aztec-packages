@@ -144,29 +144,6 @@ class TranslatorRecursiveFlavor {
         }
 
         /**
-         * @brief Deserialize verification key from field elements
-         *
-         * @param builder Circuit builder for constructing witness elements
-         * @param elements Field elements to deserialize from
-         * @return size_t Number of field elements read
-         */
-        size_t from_field_elements(CircuitBuilder& builder, std::span<const FF> elements) override
-        {
-            using namespace bb::stdlib::field_conversion;
-
-            size_t read_idx = 0;
-            constexpr size_t commitment_size = calc_num_bn254_frs<CircuitBuilder, Commitment>();
-
-            for (Commitment& commitment : this->get_all()) {
-                commitment = convert_from_bn254_frs<CircuitBuilder, Commitment>(
-                    builder, elements.subspan(read_idx, commitment_size));
-                read_idx += commitment_size;
-            }
-
-            return read_idx;
-        }
-
-        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator

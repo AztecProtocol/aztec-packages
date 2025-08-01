@@ -24,8 +24,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Read the proof  and verification data from given files
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
-    ClientIVC::VerificationKey vk;
-    vk.from_field_elements(many_from_buffer<fr>(read_file(vk_path)));
+    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
     auto builder = std::make_shared<Builder>();
 

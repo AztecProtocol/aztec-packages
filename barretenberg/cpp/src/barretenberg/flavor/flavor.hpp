@@ -166,6 +166,19 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     };
 
     /**
+     * @brief Calculate the number of field elements needed for serialization
+     * @return size_t Number of field elements
+     */
+    static size_t calc_num_frs()
+    {
+        using namespace bb::field_conversion;
+        // 3 metadata fields + commitments
+        // Create a temporary instance to get the number of precomputed entities
+        PrecomputedCommitments temp;
+        return 3 * calc_num_bn254_frs<uint64_t>() + temp.get_all().size() * calc_num_bn254_frs<Commitment>();
+    }
+
+    /**
      * @brief Serialize verification key to field elements
      *
      * @return std::vector<FF>
@@ -257,6 +270,37 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     };
 };
 
+// Serialization methods for NativeVerificationKey_
+template <typename PrecomputedCommitments, typename Transcript>
+inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitments, Transcript>& vk)
+{
+    using serialize::read;
+
+    // Get the size directly from the static method
+    size_t num_frs = NativeVerificationKey_<PrecomputedCommitments, Transcript>::calc_num_frs();
+
+    // Read exactly num_frs field elements from the buffer
+    std::vector<bb::fr> field_elements(num_frs);
+    for (auto& element : field_elements) {
+        read(it, element);
+    }
+
+    // Then use from_field_elements to populate the verification key
+    vk.from_field_elements(field_elements);
+}
+
+template <typename PrecomputedCommitments, typename Transcript>
+inline void write(std::vector<uint8_t>& buf, NativeVerificationKey_<PrecomputedCommitments, Transcript> const& vk)
+{
+    using serialize::write;
+
+    // Convert to field elements and write them directly without length prefix
+    auto field_elements = vk.to_field_elements();
+    for (const auto& element : field_elements) {
+        write(buf, element);
+    }
+}
+
 /**
  * @brief Base Stdlib verification key class.
  *
@@ -310,36 +354,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
         return elements;
     };
-
-    /**
-     * @brief Deserialize verification key from field elements
-     *
-     * @param builder Circuit builder for constructing witness elements
-     * @param elements Field elements to deserialize from
-     * @return size_t Number of field elements read
-     */
-    virtual size_t from_field_elements(Builder& builder, std::span<const FF> elements)
-    {
-        using namespace bb::stdlib::field_conversion;
-
-        size_t read_idx = 0;
-
-        // Read circuit metadata
-        this->log_circuit_size = elements[read_idx++];
-        this->num_public_inputs = elements[read_idx++];
-        this->pub_inputs_offset = elements[read_idx++];
-
-        // Read commitments
-        constexpr size_t commitment_size = calc_num_bn254_frs<Builder, Commitment>();
-
-        for (Commitment& commitment : this->get_all()) {
-            commitment =
-                convert_from_bn254_frs<Builder, Commitment>(builder, elements.subspan(read_idx, commitment_size));
-            read_idx += commitment_size;
-        }
-
-        return read_idx;
-    }
 
     /**
      * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).
