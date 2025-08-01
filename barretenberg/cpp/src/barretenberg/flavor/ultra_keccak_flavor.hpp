@@ -35,8 +35,8 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
 
     // Override as proof length is different
-    static constexpr size_t num_elements_comm = bb::field_conversion::calc_num_uint256_t<Commitment>();
-    static constexpr size_t num_elements_fr = bb::field_conversion::calc_num_uint256_t<FF>();
+    static constexpr size_t num_elements_comm = bb::field_conversion::calc_num_uint256_ts<Commitment>();
+    static constexpr size_t num_elements_fr = bb::field_conversion::calc_num_uint256_ts<FF>();
     // Proof length formula
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_elements_comm);
