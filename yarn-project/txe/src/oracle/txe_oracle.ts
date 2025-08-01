@@ -255,7 +255,7 @@ export class TXE {
     return this.msgSender;
   }
 
-  setContractAddress(contractAddress: AztecAddress) {
+  txeSetContractAddress(contractAddress: AztecAddress) {
     this.contractAddress = contractAddress;
   }
 
@@ -264,7 +264,7 @@ export class TXE {
     this.blockNumber = blockNumber;
   }
 
-  advanceTimestampBy(duration: UInt64) {
+  txeAdvanceTimestampBy(duration: UInt64) {
     this.timestamp = this.timestamp + duration;
   }
 
@@ -292,7 +292,7 @@ export class TXE {
     await this.contractDataProvider.addContractArtifact(contractClassId, artifact);
   }
 
-  async getPrivateContextInputs(
+  async txeGetPrivateContextInputs(
     blockNumber: number | null,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
@@ -319,7 +319,7 @@ export class TXE {
     return inputs;
   }
 
-  async addAuthWitness(address: AztecAddress, messageHash: Fr) {
+  async txeAddAuthWitness(address: AztecAddress, messageHash: Fr) {
     const account = await this.accountDataProvider.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
@@ -367,7 +367,7 @@ export class TXE {
     return Promise.resolve(this.timestamp);
   }
 
-  getLastBlockTimestamp() {
+  txeGetLastBlockTimestamp() {
     return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
@@ -757,7 +757,7 @@ export class TXE {
 
     const historicalBlockNumber = this.blockNumber - 1; // i.e. last
 
-    const privateContextInputs = await this.getPrivateContextInputs(
+    const privateContextInputs = await this.txeGetPrivateContextInputs(
       historicalBlockNumber,
       sideEffectCounter,
       isStaticCall,
@@ -912,7 +912,7 @@ export class TXE {
     return Promise.resolve();
   }
 
-  async privateCallNewFlow(
+  async txePrivateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
     functionSelector: FunctionSelector = FunctionSelector.empty(),
@@ -1127,7 +1127,7 @@ export class TXE {
     };
   }
 
-  async publicCallNewFlow(
+  async txePublicCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
