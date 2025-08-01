@@ -12,7 +12,7 @@ import {
 import {DelegationLib, DelegationData} from "@aztec/governance/libraries/DelegationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -20,7 +20,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct AttesterConfig {
-  BN254.G1Point publicKey;
+  BN254Lib.G1Point publicKey;
   address withdrawer;
 }
 
@@ -45,9 +45,9 @@ interface IGSECore {
   function deposit(
     address _attester,
     address _withdrawer,
-    BN254.G1Point memory _publicKeyInG1,
-    BN254.G2Point memory _publicKeyInG2,
-    BN254.G1Point memory _proofOfPossession,
+    BN254Lib.G1Point memory _publicKeyInG1,
+    BN254Lib.G2Point memory _publicKeyInG2,
+    BN254Lib.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external;
   function withdraw(address _attester, uint256 _amount) external returns (uint256, bool, uint256);
@@ -65,10 +65,10 @@ interface IGSECore {
 }
 
 interface IGSE is IGSECore {
-  function getRegistrationDigest(BN254.G1Point memory _publicKey)
+  function getRegistrationDigest(BN254Lib.G1Point memory _publicKey)
     external
     view
-    returns (BN254.G1Point memory);
+    returns (BN254Lib.G1Point memory);
   function getDelegatee(address _instance, address _attester) external view returns (address);
   function getVotingPower(address _attester) external view returns (uint256);
   function getVotingPowerAt(address _attester, Timestamp _timestamp)
@@ -101,7 +101,7 @@ interface IGSE is IGSECore {
   function getG1PublicKeysFromAddresses(address _instance, address[] memory _attesters)
     external
     view
-    returns (BN254.G1Point[] memory);
+    returns (BN254Lib.G1Point[] memory);
   function getAttestersAtTime(address _instance, Timestamp _timestamp)
     external
     view
@@ -309,14 +309,14 @@ contract GSECore is IGSECore, Ownable {
   function deposit(
     address _attester,
     address _withdrawer,
-    BN254.G1Point memory _publicKeyInG1,
-    BN254.G2Point memory _publicKeyInG2,
-    BN254.G1Point memory _proofOfPossession,
+    BN254Lib.G1Point memory _publicKeyInG1,
+    BN254Lib.G2Point memory _publicKeyInG2,
+    BN254Lib.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external override(IGSECore) onlyRollup {
     if (checkProofOfPossession) {
       require(
-        BN254.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+        BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
         Errors.GSE__InvalidProofOfPossession()
       );
     }
@@ -355,7 +355,7 @@ contract GSECore is IGSECore, Ownable {
 
     // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
     // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
-    // so existence of Pk2 is implied by existence of Pk1.
+    // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
     if (checkProofOfPossession) {
       bytes32 hashedPk1 = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
       address owner = instances[recipientInstance].ownedPKs[hashedPk1];
@@ -364,7 +364,7 @@ contract GSECore is IGSECore, Ownable {
         Errors.GSE__ProofOfPossessionAlreadySeen(hashedPk1)
       );
       instances[recipientInstance].ownedPKs[hashedPk1] = _attester;
-      BN254.G1Point memory oldPk1 = instances[recipientInstance].configOf[_attester].publicKey;
+      BN254Lib.G1Point memory oldPk1 = instances[recipientInstance].configOf[_attester].publicKey;
       // if there was an old pk1, we need to make sure it matches the proof of possession:
       // attesters cannot change their public keys.
       require(
@@ -660,13 +660,13 @@ contract GSE is IGSE, GSECore {
     GSECore(__owner, _stakingAsset, _depositAmount, _minimumStake)
   {}
 
-  function getRegistrationDigest(BN254.G1Point memory _publicKey)
+  function getRegistrationDigest(BN254Lib.G1Point memory _publicKey)
     external
     view
     override(IGSE)
-    returns (BN254.G1Point memory)
+    returns (BN254Lib.G1Point memory)
   {
-    return BN254.g1ToDigestPoint(_publicKey);
+    return BN254Lib.g1ToDigestPoint(_publicKey);
   }
 
   function getConfig(address _instance, address _attester)
@@ -679,7 +679,7 @@ contract GSE is IGSE, GSECore {
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return AttesterConfig({withdrawer: address(0), publicKey: BN254.g1Zero()});
+      return AttesterConfig({withdrawer: address(0), publicKey: BN254Lib.g1Zero()});
     }
 
     return instanceStaking.configOf[_attester];
@@ -802,9 +802,9 @@ contract GSE is IGSE, GSECore {
     external
     view
     override(IGSE)
-    returns (BN254.G1Point[] memory)
+    returns (BN254Lib.G1Point[] memory)
   {
-    BN254.G1Point[] memory keys = new BN254.G1Point[](_attesters.length);
+    BN254Lib.G1Point[] memory keys = new BN254Lib.G1Point[](_attesters.length);
     for (uint256 i = 0; i < _attesters.length; i++) {
       keys[i] = instances[_instance].configOf[_attesters[i]].publicKey;
     }

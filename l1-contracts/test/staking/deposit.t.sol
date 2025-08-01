@@ -12,7 +12,7 @@ import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Status, IStakingCore, AttesterView, IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract DepositTest is StakingBase {
   using stdStorage for StdStorage;
@@ -29,9 +29,9 @@ contract DepositTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
   }
@@ -53,9 +53,9 @@ contract DepositTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
   }
@@ -75,9 +75,9 @@ contract DepositTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
     staking.flushEntryQueue();
@@ -92,9 +92,9 @@ contract DepositTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
 
@@ -105,7 +105,7 @@ contract DepositTest is StakingBase {
     // );
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.FailedDeposit(
-      ATTESTER, WITHDRAWER, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero()
+      ATTESTER, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
     staking.flushEntryQueue();
 
@@ -117,9 +117,9 @@ contract DepositTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
 
@@ -129,9 +129,9 @@ contract DepositTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
   }
@@ -167,9 +167,9 @@ contract DepositTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
     // the money is in the staking contract

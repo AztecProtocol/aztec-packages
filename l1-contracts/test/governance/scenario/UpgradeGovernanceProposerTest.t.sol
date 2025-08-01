@@ -24,7 +24,7 @@ import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -63,9 +63,9 @@ contract UpgradeGovernanceProposerTest is TestBase {
       initialValidators[i - 1] = CheatDepositArgs({
         attester: validator,
         withdrawer: validator,
-        publicKeyInG1: BN254.g1Zero(),
-        publicKeyInG2: BN254.g2Zero(),
-        proofOfPossession: BN254.g1Zero()
+        publicKeyInG1: BN254Lib.g1Zero(),
+        publicKeyInG2: BN254Lib.g2Zero(),
+        proofOfPossession: BN254Lib.g1Zero()
       });
     }
 

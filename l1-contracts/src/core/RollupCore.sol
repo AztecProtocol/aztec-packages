@@ -39,7 +39,7 @@ import {
   FeeConfigLib,
   CompressedFeeConfig
 } from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * @title Rollup
@@ -207,9 +207,9 @@ contract RollupCore is
   function deposit(
     address _attester,
     address _withdrawer,
-    BN254.G1Point memory _publicKeyInG1,
-    BN254.G2Point memory _publicKeyInG2,
-    BN254.G1Point memory _proofOfPossession,
+    BN254Lib.G1Point memory _publicKeyInG1,
+    BN254Lib.G2Point memory _publicKeyInG2,
+    BN254Lib.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) external override(IStakingCore) {
     ExtRollupLib2.deposit(

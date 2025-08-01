@@ -15,9 +15,9 @@ import {ModExpInverse, ModExpSqrt} from "./ModExp.sol";
 /**
  * Library for registering public keys and computing BLS signatures over the BN254 curve.
  * The BN254 curve has been chosen over the BLS12-381 curve for gas efficiency, and
- * because the Aztec rollup's security is already reliant on BN254.
+ * because the Aztec rollup's security is already reliant on BN254Lib
  */
-library BN254 {
+library BN254Lib {
   struct G1Point {
     uint256 x;
     uint256 y;
@@ -39,10 +39,10 @@ library BN254 {
    */
 
   // See bn254_registration.test.ts and BLSKey.t.sol for tests which validate these constants.
-  uint256 public constant BASE_FIELD_SIZE =
+  uint256 public constant BASE_FIELD_ORDER =
     21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
-  uint256 public constant CURVE_ORDER =
+  uint256 public constant GROUP_ORDER =
     21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
   bytes32 public constant STAKING_DOMAIN_SEPARATOR = bytes32("AZTEC_BLS_POP_BN254_FT_V1");
@@ -82,7 +82,7 @@ library BN254 {
    * e(pk1, G2) == e(G1, pk2) // a demonstration that pk1 and pk2 have the same sk.
    *
    * @param pk1 The G1 point of the BLS public key (x, y coordinates)
-   * @param pk2 The G2 point of the BLS public key (x_imaginary, x_real, y_imaginary, y_real coordinates)
+   * @param pk2 The G2 point of the BLS public key (x_1, x_0, y_1, y_0 coordinates)
    * @param signature The G1 point that acts as a proof of possession of the private keys corresponding to pk1 and pk2
    */
   function proofOfPossession(G1Point memory pk1, G2Point memory pk2, G1Point memory signature)
@@ -230,63 +230,63 @@ library BN254 {
   }
 
   function mapToPoint(uint256 _x) internal pure returns (G1Point memory output) {
-    require(_x < BASE_FIELD_SIZE, valueOutOfRange(_x, 0, BASE_FIELD_SIZE));
+    require(_x < BASE_FIELD_ORDER, valueOutOfRange(_x, 0, BASE_FIELD_ORDER));
     uint256 x = _x;
 
     (, bool decision) = sqrt(x);
 
-    uint256 a0 = mulmod(x, x, BASE_FIELD_SIZE);
-    a0 = addmod(a0, 4, BASE_FIELD_SIZE);
-    uint256 a1 = mulmod(x, Z0, BASE_FIELD_SIZE);
-    uint256 a2 = mulmod(a1, a0, BASE_FIELD_SIZE);
+    uint256 a0 = mulmod(x, x, BASE_FIELD_ORDER);
+    a0 = addmod(a0, 4, BASE_FIELD_ORDER);
+    uint256 a1 = mulmod(x, Z0, BASE_FIELD_ORDER);
+    uint256 a2 = mulmod(a1, a0, BASE_FIELD_ORDER);
     a2 = inverse(a2);
-    a1 = mulmod(a1, a1, BASE_FIELD_SIZE);
-    a1 = mulmod(a1, a2, BASE_FIELD_SIZE);
+    a1 = mulmod(a1, a1, BASE_FIELD_ORDER);
+    a1 = mulmod(a1, a2, BASE_FIELD_ORDER);
 
     // x1
-    a1 = mulmod(x, a1, BASE_FIELD_SIZE);
-    x = addmod(Z1, BASE_FIELD_SIZE - a1, BASE_FIELD_SIZE);
+    a1 = mulmod(x, a1, BASE_FIELD_ORDER);
+    x = addmod(Z1, BASE_FIELD_ORDER - a1, BASE_FIELD_ORDER);
     // check curve
-    a1 = mulmod(x, x, BASE_FIELD_SIZE);
-    a1 = mulmod(a1, x, BASE_FIELD_SIZE);
-    a1 = addmod(a1, 3, BASE_FIELD_SIZE);
+    a1 = mulmod(x, x, BASE_FIELD_ORDER);
+    a1 = mulmod(a1, x, BASE_FIELD_ORDER);
+    a1 = addmod(a1, 3, BASE_FIELD_ORDER);
     bool found;
     (a1, found) = sqrt(a1);
     if (found) {
       if (!decision) {
-        a1 = BASE_FIELD_SIZE - a1;
+        a1 = BASE_FIELD_ORDER - a1;
       }
       return G1Point({x: x, y: a1});
     }
 
     // x2
-    x = BASE_FIELD_SIZE - addmod(x, 1, BASE_FIELD_SIZE);
+    x = BASE_FIELD_ORDER - addmod(x, 1, BASE_FIELD_ORDER);
     // check curve
-    a1 = mulmod(x, x, BASE_FIELD_SIZE);
-    a1 = mulmod(a1, x, BASE_FIELD_SIZE);
-    a1 = addmod(a1, 3, BASE_FIELD_SIZE);
+    a1 = mulmod(x, x, BASE_FIELD_ORDER);
+    a1 = mulmod(a1, x, BASE_FIELD_ORDER);
+    a1 = addmod(a1, 3, BASE_FIELD_ORDER);
     (a1, found) = sqrt(a1);
     if (found) {
       if (!decision) {
-        a1 = BASE_FIELD_SIZE - a1;
+        a1 = BASE_FIELD_ORDER - a1;
       }
       return G1Point({x: x, y: a1});
     }
 
     // x3
-    x = mulmod(a0, a0, BASE_FIELD_SIZE);
-    x = mulmod(x, x, BASE_FIELD_SIZE);
-    x = mulmod(x, a2, BASE_FIELD_SIZE);
-    x = mulmod(x, a2, BASE_FIELD_SIZE);
-    x = addmod(x, 1, BASE_FIELD_SIZE);
+    x = mulmod(a0, a0, BASE_FIELD_ORDER);
+    x = mulmod(x, x, BASE_FIELD_ORDER);
+    x = mulmod(x, a2, BASE_FIELD_ORDER);
+    x = mulmod(x, a2, BASE_FIELD_ORDER);
+    x = addmod(x, 1, BASE_FIELD_ORDER);
     // must be on curve
-    a1 = mulmod(x, x, BASE_FIELD_SIZE);
-    a1 = mulmod(a1, x, BASE_FIELD_SIZE);
-    a1 = addmod(a1, 3, BASE_FIELD_SIZE);
+    a1 = mulmod(x, x, BASE_FIELD_ORDER);
+    a1 = mulmod(a1, x, BASE_FIELD_ORDER);
+    a1 = addmod(a1, 3, BASE_FIELD_ORDER);
     (a1, found) = sqrt(a1);
     require(found, noPointFound());
     if (!decision) {
-      a1 = BASE_FIELD_SIZE - a1;
+      a1 = BASE_FIELD_ORDER - a1;
     }
     return G1Point({x: x, y: a1});
   }
@@ -306,12 +306,12 @@ library BN254 {
       u1 := and(mload(p), MASK24)
       p := add(_msg, 48)
       u0 := and(mload(p), MASK24)
-      a0 := addmod(mulmod(u1, T24, BASE_FIELD_SIZE), u0, BASE_FIELD_SIZE)
+      a0 := addmod(mulmod(u1, T24, BASE_FIELD_ORDER), u0, BASE_FIELD_ORDER)
       p := add(_msg, 72)
       u1 := and(mload(p), MASK24)
       p := add(_msg, 96)
       u0 := and(mload(p), MASK24)
-      a1 := addmod(mulmod(u1, T24, BASE_FIELD_SIZE), u0, BASE_FIELD_SIZE)
+      a1 := addmod(mulmod(u1, T24, BASE_FIELD_ORDER), u0, BASE_FIELD_ORDER)
     }
     return [a0, a1];
   }
@@ -401,7 +401,7 @@ library BN254 {
 
   function sqrt(uint256 xx) internal pure returns (uint256 x, bool hasRoot) {
     x = ModExpSqrt.run(xx);
-    hasRoot = mulmod(x, x, BASE_FIELD_SIZE) == xx;
+    hasRoot = mulmod(x, x, BASE_FIELD_ORDER) == xx;
   }
 
   function inverse(uint256 a) internal pure returns (uint256) {
@@ -414,14 +414,9 @@ library BN254 {
     pure
     returns (uint256)
   {
-    // QUESTION: Is this uniformly-random enough, or do we need to compute 512-bits of randomness
-    // (by concatenating two domain-separated hashes) and then compute the modulo `% CURVE_ORDER`?
-
     return uint256(
-      keccak256(
-        abi.encodePacked(pk1.x, pk1.y, pk2.x0, pk2.x1, pk2.y0, pk2.y1, sigmaInit.x, sigmaInit.y)
-      )
-    ) % CURVE_ORDER;
+      keccak256(abi.encode(pk1.x, pk1.y, pk2.x0, pk2.x1, pk2.y0, pk2.y1, sigmaInit.x, sigmaInit.y))
+    ) % GROUP_ORDER;
   }
 
   function g1Negate(G1Point memory p) internal pure returns (G1Point memory) {
@@ -432,7 +427,7 @@ library BN254 {
 
     // For a point (x, y), its negation is (x, -y mod p)
     // Since we're working in the field Fp, -y mod p = p - y
-    return G1Point({x: p.x, y: BASE_FIELD_SIZE - p.y});
+    return G1Point({x: p.x, y: BASE_FIELD_ORDER - p.y});
   }
 
   function g1Zero() internal pure returns (G1Point memory) {

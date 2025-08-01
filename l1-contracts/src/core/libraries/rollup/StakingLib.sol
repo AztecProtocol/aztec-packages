@@ -16,7 +16,7 @@ import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 import {
   CompressedTimeMath, CompressedTimestamp
 } from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -221,9 +221,9 @@ library StakingLib {
   function deposit(
     address _attester,
     address _withdrawer,
-    BN254.G1Point memory _publicKeyInG1,
-    BN254.G2Point memory _publicKeyInG2,
-    BN254.G1Point memory _proofOfPossession,
+    BN254Lib.G1Point memory _publicKeyInG1,
+    BN254Lib.G2Point memory _publicKeyInG2,
+    BN254Lib.G1Point memory _proofOfPossession,
     bool _moveWithLatestRollup
   ) internal {
     require(

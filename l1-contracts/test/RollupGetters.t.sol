@@ -15,7 +15,7 @@ import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelecti
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * Testing the things that should be getters are not updating state!
@@ -100,7 +100,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     for (uint256 i = 0; i < 50; i++) {
       rollup.deposit(
-        vm.addr(i + 1), address(this), BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), true
+        vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
       );
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
@@ -126,9 +126,9 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
         rollup.deposit(
           vm.addr(offset + j + 1),
           address(this),
-          BN254.g1Zero(),
-          BN254.g2Zero(),
-          BN254.g1Zero(),
+          BN254Lib.g1Zero(),
+          BN254Lib.g2Zero(),
+          BN254Lib.g1Zero(),
           true
         );
         rollup.flushEntryQueue();
@@ -168,7 +168,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     // Add a bunch of attesters to
     for (uint256 i = 0; i < 200; i++) {
       rollup.deposit(
-        vm.addr(i + 1), address(this), BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), true
+        vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
       );
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);
@@ -192,7 +192,12 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     for (uint256 i = 0; i < 800; i++) {
       rollup.deposit(
-        vm.addr(i + 200), address(this), BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), true
+        vm.addr(i + 200),
+        address(this),
+        BN254Lib.g1Zero(),
+        BN254Lib.g2Zero(),
+        BN254Lib.g1Zero(),
+        true
       );
       rollup.flushEntryQueue();
       timeCheater.cheat__jumpForwardEpochs(2);

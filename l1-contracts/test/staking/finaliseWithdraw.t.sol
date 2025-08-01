@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {Timestamp, Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingBase} from "./base.t.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract FinaliseWithdrawTest is StakingBase {
   function test_GivenStatusIsNotExiting() external {
@@ -20,9 +20,9 @@ contract FinaliseWithdrawTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
     staking.flushEntryQueue();
@@ -46,9 +46,9 @@ contract FinaliseWithdrawTest is StakingBase {
     staking.deposit({
       _attester: ATTESTER,
       _withdrawer: WITHDRAWER,
-      _publicKeyInG1: BN254.g1Zero(),
-      _publicKeyInG2: BN254.g2Zero(),
-      _proofOfPossession: BN254.g1Zero(),
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
       _moveWithLatestRollup: true
     });
     staking.flushEntryQueue();

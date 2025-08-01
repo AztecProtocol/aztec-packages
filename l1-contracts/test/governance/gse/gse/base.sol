@@ -7,7 +7,7 @@ import {TestBase} from "@test/base/Base.sol";
 import {GSEBuilder} from "@test/builder/GseBuilder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract WithGSE is TestBase {
   GSE internal gse;
@@ -32,7 +32,9 @@ contract WithGSE is TestBase {
 
     vm.startPrank(_instance);
     stakingAsset.approve(address(gse), depositAmount);
-    gse.deposit(_attester, _withdrawer, BN254.g1Zero(), BN254.g2Zero(), BN254.g1Zero(), _onBonus);
+    gse.deposit(
+      _attester, _withdrawer, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), _onBonus
+    );
     vm.stopPrank();
   }
 }

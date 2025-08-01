@@ -3,15 +3,15 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
-import {BN254} from "@aztec/shared/libraries/BN254.sol";
+import {BN254Lib} from "@aztec/shared/libraries/BN254Lib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct CheatDepositArgs {
   address attester;
   address withdrawer;
-  BN254.G1Point publicKeyInG1;
-  BN254.G2Point publicKeyInG2;
-  BN254.G1Point proofOfPossession;
+  BN254Lib.G1Point publicKeyInG1;
+  BN254Lib.G2Point publicKeyInG2;
+  BN254Lib.G1Point proofOfPossession;
 }
 
 interface IMultiAdder {
