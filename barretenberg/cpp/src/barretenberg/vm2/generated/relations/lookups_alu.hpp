@@ -68,7 +68,7 @@ struct lookup_alu_range_check_mul_u128_a_lo_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_U128_A_LO";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_u128;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_div_u128;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_u128_a_lo_counts;
     static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_u128_a_lo_inv;
@@ -90,7 +90,7 @@ struct lookup_alu_range_check_mul_u128_a_hi_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_U128_A_HI";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_u128;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_div_u128;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_u128_a_hi_counts;
     static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_u128_a_hi_inv;
@@ -112,7 +112,7 @@ struct lookup_alu_range_check_mul_u128_b_lo_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_U128_B_LO";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_u128;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_div_u128;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_u128_b_lo_counts;
     static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_u128_b_lo_inv;
@@ -134,7 +134,7 @@ struct lookup_alu_range_check_mul_u128_b_hi_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_U128_B_HI";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_u128;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_div_u128;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_u128_b_hi_counts;
     static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_u128_b_hi_inv;
@@ -156,7 +156,7 @@ struct lookup_alu_range_check_mul_u128_c_hi_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_U128_C_HI";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_u128;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_div_u128;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_u128_c_hi_counts;
     static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_u128_c_hi_inv;
@@ -171,6 +171,28 @@ using lookup_alu_range_check_mul_u128_c_hi_settings = lookup_settings<lookup_alu
 template <typename FF_>
 using lookup_alu_range_check_mul_u128_c_hi_relation =
     lookup_relation_base<FF_, lookup_alu_range_check_mul_u128_c_hi_settings>;
+
+/////////////////// lookup_alu_gt_div_remainder ///////////////////
+
+struct lookup_alu_gt_div_remainder_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_GT_DIV_REMAINDER";
+    static constexpr std::string_view RELATION_NAME = "alu";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_op_div;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_alu_gt_div_remainder_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_gt_div_remainder_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_ib,
+                                                                                    ColumnAndShifts::alu_helper1,
+                                                                                    ColumnAndShifts::alu_sel_op_div };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
+};
+
+using lookup_alu_gt_div_remainder_settings = lookup_settings<lookup_alu_gt_div_remainder_settings_>;
+template <typename FF_>
+using lookup_alu_gt_div_remainder_relation = lookup_relation_base<FF_, lookup_alu_gt_div_remainder_settings>;
 
 /////////////////// lookup_alu_ff_gt ///////////////////
 

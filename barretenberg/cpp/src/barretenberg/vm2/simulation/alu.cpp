@@ -43,7 +43,7 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
         if (tag == MemoryTag::U128) {
             // For u128, we decompose a and b into 64 bit chunks and discard the highest bits given by the product:
             auto a_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
-            auto b_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
+            auto b_decomp = decompose(static_cast<uint128_t>(b.as_ff()));
             range_check.assert_range(a_decomp.lo, 64);
             range_check.assert_range(a_decomp.hi, 64);
             range_check.assert_range(b_decomp.lo, 64);
@@ -58,6 +58,42 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
     } catch (const TagMismatchException& e) {
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException("MUL, " + std::string(e.what()));
+    }
+}
+
+MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a / b; // This will throw if the tags do not match.
+        MemoryValue remainder = a - c * b;
+
+        // TODO add div 0 error
+
+        uint256_t c_int = static_cast<uint256_t>(c.as_ff());
+        uint256_t b_int = static_cast<uint256_t>(b.as_ff());
+        MemoryTag tag = a.get_tag();
+
+        // Check remainder < b:
+        greater_than.gt(b, remainder);
+        if (tag == MemoryTag::U128) {
+            // For u128, we decompose c and b into 64 bit chunks and discard the highest bits given by the product:
+            auto c_decomp = decompose(static_cast<uint128_t>(c.as_ff()));
+            auto b_decomp = decompose(static_cast<uint128_t>(b.as_ff()));
+            range_check.assert_range(c_decomp.lo, 64);
+            range_check.assert_range(c_decomp.hi, 64);
+            range_check.assert_range(b_decomp.lo, 64);
+            range_check.assert_range(b_decomp.hi, 64);
+            auto hi_operand = static_cast<uint256_t>(c_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+            // a - r = b * c --> split into res_hi_full * 2^128 + res
+            // res_hi = (res_hi_full - c_hi * b_hi) % 2^64
+            uint256_t res_hi = (((c_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64);
+            range_check.assert_range(static_cast<uint128_t>(res_hi), 64);
+        }
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("DIV, " + std::string(e.what()));
     }
 }
 
