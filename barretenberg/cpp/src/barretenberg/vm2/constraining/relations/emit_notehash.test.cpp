@@ -71,7 +71,9 @@ TEST(EmitNoteHashConstrainingTest, LimitReached)
         { C::execution_sel_opcode_error, 1 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMIT_NOTEHASH },
         { C::execution_prev_note_hash_tree_size, 1 },
+        { C::execution_prev_note_hash_tree_root, 27 },
         { C::execution_note_hash_tree_size, 1 },
+        { C::execution_note_hash_tree_root, 27 },
         { C::execution_prev_num_note_hashes_emitted, prev_num_note_hashes_emitted },
         { C::execution_num_note_hashes_emitted, prev_num_note_hashes_emitted },
     } });
@@ -81,6 +83,13 @@ TEST(EmitNoteHashConstrainingTest, LimitReached)
     trace.set(C::execution_sel_opcode_error, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_LIMIT_REACHED),
                               "EMIT_NOTEHASH_LIMIT_REACHED");
+    trace.set(C::execution_sel_opcode_error, 0, 1);
+
+    // Negative test: note hash tree root must be the same
+    trace.set(C::execution_note_hash_tree_root, 0, 28);
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<emit_notehash>(trace, emit_notehash::SR_EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED),
+        "EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED");
 
     // Negative test: tree size must be the same
     trace.set(C::execution_note_hash_tree_size, 0, 2);
