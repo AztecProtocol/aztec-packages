@@ -26,3 +26,22 @@ namespace context_stack;
 
     pol commit parent_l2_gas_used;
     pol commit parent_da_gas_used;
+
+    // Tree State
+    pol commit note_hash_tree_root;
+    pol commit note_hash_tree_size;
+    pol commit num_note_hashes_emitted;
+
+    pol commit nullifier_tree_root;
+    pol commit nullifier_tree_size;
+    pol commit num_nullifiers_emitted;
+
+    pol commit public_data_tree_root;
+    pol commit public_data_tree_size;
+
+    pol commit written_public_data_slots_tree_root;
+    pol commit written_public_data_slots_tree_size;
+
+    // Side effects state
+    pol commit num_unencrypted_logs;
+    pol commit num_l2_to_l1_messages;

@@ -14,7 +14,7 @@ template <typename FF_> class emit_notehashImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 5, 3, 3, 3 };
+    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 5, 3, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -56,21 +56,28 @@ template <typename FF_> class emit_notehashImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        { // EMIT_NOTEHASH_TREE_SIZE_INCREASE
+        { // EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_emit_notehash) * in.get(C::execution_sel_opcode_error) *
+                       (in.get(C::execution_prev_note_hash_tree_root) - in.get(C::execution_note_hash_tree_root));
+            tmp *= scaling_factor;
+            std::get<2>(evals) += typename Accumulator::View(tmp);
+        }
+        { // EMIT_NOTEHASH_TREE_SIZE_INCREASE
+            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_emit_notehash) *
                        ((in.get(C::execution_prev_note_hash_tree_size) + in.get(C::execution_sel_write_note_hash)) -
                         in.get(C::execution_note_hash_tree_size));
             tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
+            std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         { // EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_emit_notehash) *
                        ((in.get(C::execution_prev_num_note_hashes_emitted) + in.get(C::execution_sel_write_note_hash)) -
                         in.get(C::execution_num_note_hashes_emitted));
             tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
+            std::get<4>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -87,8 +94,10 @@ template <typename FF> class emit_notehash : public Relation<emit_notehashImpl<F
         case 1:
             return "EMIT_NOTEHASH_LIMIT_REACHED";
         case 2:
-            return "EMIT_NOTEHASH_TREE_SIZE_INCREASE";
+            return "EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED";
         case 3:
+            return "EMIT_NOTEHASH_TREE_SIZE_INCREASE";
+        case 4:
             return "EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE";
         }
         return std::to_string(index);
@@ -97,8 +106,9 @@ template <typename FF> class emit_notehash : public Relation<emit_notehashImpl<F
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_EMIT_NOTEHASH_MAX_NOTE_HASH_WRITES_REACHED = 0;
     static constexpr size_t SR_EMIT_NOTEHASH_LIMIT_REACHED = 1;
-    static constexpr size_t SR_EMIT_NOTEHASH_TREE_SIZE_INCREASE = 2;
-    static constexpr size_t SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE = 3;
+    static constexpr size_t SR_EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED = 2;
+    static constexpr size_t SR_EMIT_NOTEHASH_TREE_SIZE_INCREASE = 3;
+    static constexpr size_t SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE = 4;
 };
 
 } // namespace bb::avm2

@@ -163,6 +163,42 @@ TEST_F(ExecutionSimulationTest, Call)
     MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
     MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot = AppendOnlyTreeSnapshot{
+        .root = 0x12345678,
+        .nextAvailableLeafIndex = 10,
+    };
+    TreeStates tree_states = TreeStates {
+        .noteHashTree = {
+            .tree = {
+                .root = 10,
+                .nextAvailableLeafIndex = 9,
+            },
+            .counter = 8,
+        },
+        .nullifierTree = {
+            .tree = {
+                .root = 7,
+                .nextAvailableLeafIndex = 6,
+            },
+            .counter = 5,
+        },
+        .l1ToL2MessageTree = {
+            .tree = {
+                .root = 4,
+                .nextAvailableLeafIndex = 3,
+            },
+            .counter = 0,
+        },
+        .publicDataTree = {
+            .tree = {
+                .root = 2,
+                .nextAvailableLeafIndex = 1,
+            },
+            .counter = 1,
+        }
+    };
+
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
 
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -177,6 +213,11 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_transaction_fee).WillOnce(ReturnRef(zero));
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
+    EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
+        .WillOnce(Return(written_public_data_slots_tree_snapshot));
+    EXPECT_CALL(context, get_side_effect_states).WillRepeatedly(ReturnRef(side_effect_states));
+
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
@@ -188,9 +229,6 @@ TEST_F(ExecutionSimulationTest, Call)
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
-
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
-    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effect_states));
 
     EXPECT_CALL(context_provider,
                 make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }, side_effect_states))

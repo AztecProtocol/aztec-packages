@@ -1027,15 +1027,19 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
-    ctx_stack_events.emit({ .id = parent_context.get_context_id(),
-                            .parent_id = parent_context.get_parent_id(),
-                            .entered_context_id = context_provider.get_next_context_id(),
-                            .next_pc = parent_context.get_next_pc(),
-                            .msg_sender = parent_context.get_msg_sender(),
-                            .contract_addr = parent_context.get_address(),
-                            .is_static = parent_context.get_is_static(),
-                            .parent_gas_used = parent_context.get_parent_gas_used(),
-                            .parent_gas_limit = parent_context.get_parent_gas_limit() });
+    ctx_stack_events.emit(
+        { .id = parent_context.get_context_id(),
+          .parent_id = parent_context.get_parent_id(),
+          .entered_context_id = context_provider.get_next_context_id(),
+          .next_pc = parent_context.get_next_pc(),
+          .msg_sender = parent_context.get_msg_sender(),
+          .contract_addr = parent_context.get_address(),
+          .is_static = parent_context.get_is_static(),
+          .parent_gas_used = parent_context.get_parent_gas_used(),
+          .parent_gas_limit = parent_context.get_parent_gas_limit(),
+          .tree_states = merkle_db.get_tree_state(),
+          .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
+          .side_effect_states = parent_context.get_side_effect_states() });
 
     external_call_stack.push(std::move(child_context));
 }

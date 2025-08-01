@@ -92,4 +92,14 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         public_data_check.clk
     };
 
+    #[SSTORE_WRITTEN_SLOTS_ROOT_NOT_CHANGED]
+    sel_execute_sstore * sel_opcode_error * (prev_written_public_data_slots_tree_root - written_public_data_slots_tree_root) = 0;
 
+    #[SSTORE_WRITTEN_SLOTS_SIZE_NOT_CHANGED]
+    sel_execute_sstore * sel_opcode_error * (prev_written_public_data_slots_tree_size - written_public_data_slots_tree_size) = 0;
+
+    #[SSTORE_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED]
+    sel_execute_sstore * sel_opcode_error * (prev_public_data_tree_root - public_data_tree_root) = 0;
+
+    #[SSTORE_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED]
+    sel_execute_sstore * sel_opcode_error * (prev_public_data_tree_size - public_data_tree_size) = 0;

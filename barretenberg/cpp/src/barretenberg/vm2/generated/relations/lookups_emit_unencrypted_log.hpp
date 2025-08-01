@@ -135,8 +135,8 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
         ColumnAndShifts::execution_rop_0_,
         ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_contract_address,
+        ColumnAndShifts::execution_prev_num_unencrypted_logs,
         ColumnAndShifts::execution_num_unencrypted_logs,
-        ColumnAndShifts::execution_next_num_unencrypted_logs,
         ColumnAndShifts::execution_is_static,
         ColumnAndShifts::execution_sel_opcode_error,
         ColumnAndShifts::execution_discard
