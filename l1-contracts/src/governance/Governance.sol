@@ -211,7 +211,7 @@ contract Governance is IGovernance {
   /**
    * @dev Modifier to ensure that the caller is the governance contract itself.
    *
-   * Protects functions that allow the governance contract to modify its own state, via a proposal.
+   * The caller will only be the governance itself if executed via a proposal.
    */
   modifier onlySelf() {
     require(msg.sender == address(this), Errors.Governance__CallerNotSelf(msg.sender, address(this)));
@@ -271,7 +271,8 @@ contract Governance is IGovernance {
   /**
    * @notice Update the governance proposer.
    * @dev The governance proposer is the address that is allowed to use `propose`.
-   * only callable by the governance contract itself.
+   *
+   * @dev only callable by the governance contract itself.
    *
    * @dev causes all proposals proposed by the previous governance proposer to be `Droppable`.
    *
@@ -313,8 +314,8 @@ contract Governance is IGovernance {
    * the beneficiary must be allowed to hold power in the governance contract, according to `depositControl`.
    *
    * It is worth pointing out that someone could attempt to spam the deposit function, and increase the cost to vote
-   * as a result of creating many checkpoints. In reality though, at ethereum's current block time of 12s, it would
-   * take ~36 years of continuous spamming to increase the cost to vote by ~66K gas, so we accept this risk.
+   * as a result of creating many checkpoints. In reality though, as the checkpoints are using time as a key it would
+   * take ~36 years of continuous spamming to increase the cost to vote by ~66K gas with 12 second block times.
    *
    * @param _beneficiary The beneficiary to increase the power of.
    * @param _amount The amount of funds to deposit, which is converted to power 1:1.
@@ -426,7 +427,9 @@ contract Governance is IGovernance {
     ProposalState state = getProposalState(_proposalId);
     require(state == ProposalState.Active, Errors.Governance__ProposalNotActive());
 
-    // Compute the power at the time where we became active
+    // Compute the power at the time the proposals goes from pending to active.
+    // This is the last second before active, and NOT the first second active, because it would then be possible to
+    // alter the power while the proposal is active since all txs in a block have the same timestamp.
     uint256 userPower = users[msg.sender].valueAt(proposals[_proposalId].pendingThrough());
 
     Ballot storage userBallot = ballots[_proposalId][msg.sender];
@@ -566,10 +569,26 @@ contract Governance is IGovernance {
     return configuration;
   }
 
+  /**
+   * @notice Get a proposal by its id.
+   *
+   * @dev   Will return default values (0) for non-existing proposals
+   *
+   * @param _proposalId The id of the proposal to get.
+   * @return The proposal.
+   */
   function getProposal(uint256 _proposalId) external view override(IGovernance) returns (Proposal memory) {
     return proposals[_proposalId];
   }
 
+  /**
+   * @notice Get a withdrawal by its id.
+   *
+   * @dev   Will return default values (0) for non-existing withdrawals
+   *
+   * @param _withdrawalId The id of the withdrawal to get.
+   * @return The withdrawal.
+   */
   function getWithdrawal(uint256 _withdrawalId) external view override(IGovernance) returns (Withdrawal memory) {
     return withdrawals[_withdrawalId];
   }
@@ -689,8 +708,10 @@ contract Governance is IGovernance {
   /**
    * @dev create a new proposal. In it we store:
    *
-   *  - a copy of the current configuration, because it can be updated on the Governance contract
-   *  - the summed ballot to avoid recomputing it when determining the proposal state
+   *  - a copy of the current governance configuration, effectively "freezing" the config for the proposal.
+   *      This is done to ensure that in progress proposals that alter the delays etc won't take effect on existing
+   *      proposals.
+   *  - the summed ballots
    *  - the proposer, which can be:
    *    - the current governanceProposer (which can be updated on the Governance contract), if created via `propose`
    *    - the governance contract itself, if created via `proposeWithLock`

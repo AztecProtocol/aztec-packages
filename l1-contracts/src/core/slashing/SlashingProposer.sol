@@ -14,6 +14,20 @@ contract SlashingProposer is IEmpire, EmpireBase {
   address public immutable INSTANCE;
   ISlasher public immutable SLASHER;
 
+  /**
+   * @notice Constructor for the SlashingProposer contract.
+   *
+   * @param _instance - The specific rollup that the proposer will be used for
+   * @param _slasher - The entity that can slash on the _instance
+   *                    The SlashingProposer `address(this)` should be able to use the slasher for this contract to
+   *                    make sense.
+   * @param _slashingQuorum The number of signals needed in a round for a slash to pass.
+   * @param _roundSize The number of signals that can be cast in a round.
+   * @param _lifetimeInRounds - A deadline for when the passing proposal must have been executed.
+   * @param _executionDelayInRounds - A delay for how quickly a passing proposal can be executed.
+   *                                  When used together with a `_slasher` that has VETO functionality this is the time
+   *                                  that the vetoer have to act.
+   */
   constructor(
     address _instance,
     ISlasher _slasher,
