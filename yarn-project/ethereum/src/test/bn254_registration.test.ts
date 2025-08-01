@@ -1,10 +1,11 @@
 import { bn254 } from '@noble/curves/bn254.js';
-import fs from 'fs';
+import { writeFile } from 'fs/promises';
 
-const UPDATE_FIXTURES = true;
+// To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
+const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
 describe('BN254 Registration', () => {
-  it('should generate the same constants as the solidity code', () => {
+  it('should generate the same constants as the solidity code', async () => {
     expect(bn254.fields.Fp.ORDER).toBe(21888242871839275222246405745257275088696311157297823662689037894645226208583n);
     expect(bn254.fields.Fr.ORDER).toBe(21888242871839275222246405745257275088548364400416034343698204186575808495617n);
 
@@ -24,7 +25,7 @@ describe('BN254 Registration', () => {
     expect(negativeG2.y.c0).toBe(13392588948715843804641432497768002650278120570034223513918757245338268106653n);
     expect(negativeG2.y.c1).toBe(17805874995975841540914202342111839520379459829704422454583296818431106115052n);
 
-    if (UPDATE_FIXTURES) {
+    if (AZTEC_GENERATE_TEST_DATA) {
       const startingScalar = 0x7777777n;
       const keysToGenerate = 50;
 
@@ -77,13 +78,16 @@ describe('BN254 Registration', () => {
           },
           sampleKeys: keys,
         },
+        // We need the bigints to be written as literal big integers (no quotes)
+        // By default, JSON.stringify will write them as strings.
         (key, value) => (typeof value === 'bigint' ? `__BIGINT__${value.toString()}__BIGINT__` : value),
         2,
       );
 
       const unquotedJson = jsonString.replace(/"__BIGINT__(\d+)__BIGINT__"/g, '$1');
 
-      fs.writeFileSync('bn254_constants.json', unquotedJson);
+      const path = `../../l1-contracts/test/fixtures/bn254_constants.json`;
+      await writeFile(path, unquotedJson, 'utf8');
     }
   });
 });

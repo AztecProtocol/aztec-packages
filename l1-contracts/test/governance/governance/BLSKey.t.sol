@@ -31,24 +31,6 @@ contract BN254KeyTest is Test {
     loadFixtureData();
   }
 
-  function testG1Negate() public {
-    for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
-      FixtureKey memory key = fixtureData.sampleKeys[i];
-      BN254.G1Point memory negPk1 = BN254.g1Negate(key.pk1);
-      assertEq(negPk1.x, key.negativePk1.x);
-      assertEq(negPk1.y, key.negativePk1.y);
-    }
-  }
-
-  function testProofOfPossession() public {
-    for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
-      FixtureKey memory key = fixtureData.sampleKeys[i];
-      BN254.G1Point memory sigma = signRegistrationDigest(key.sk);
-      bool ok = this.proofOfPossession(key.pk1, key.pk2, sigma);
-      assertTrue(ok, "proof of possession failed");
-    }
-  }
-
   function testInvalidPk1InProofOfPossession() public {
     for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
       FixtureKey memory key = fixtureData.sampleKeys[i];
@@ -81,8 +63,7 @@ contract BN254KeyTest is Test {
     }
   }
 
-  /// forge-config: default.fuzz.runs = 2
-  function testWrongInputsInProofOfPossession(uint256 newSk) public {
+  function testZeroAndNegativeInputsInProofOfPossession() public {
     for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
       FixtureKey memory key = fixtureData.sampleKeys[i];
 
@@ -115,6 +96,47 @@ contract BN254KeyTest is Test {
         this.proofOfPossession(key.negativePk1, key.negativePk2, BN254.g1Negate(sigma)),
         "proof of possession should fail"
       );
+    }
+  }
+
+  function testConstants() public view {
+    assertEq(BN254.BASE_FIELD_SIZE, fixtureData.fpOrder);
+    assertEq(BN254.CURVE_ORDER, fixtureData.frOrder);
+
+    BN254.G1Point memory g1Generator = BN254.g1Generator();
+    assertEq(g1Generator.x, fixtureData.g1Generator.x);
+    assertEq(g1Generator.y, fixtureData.g1Generator.y);
+
+    BN254.G2Point memory negativeG2Generator = BN254.g2NegatedGenerator();
+    assertEq(negativeG2Generator.x0, fixtureData.negativeG2Generator.x0);
+    assertEq(negativeG2Generator.x1, fixtureData.negativeG2Generator.x1);
+    assertEq(negativeG2Generator.y0, fixtureData.negativeG2Generator.y0);
+    assertEq(negativeG2Generator.y1, fixtureData.negativeG2Generator.y1);
+  }
+
+  function testG1Negate() public view {
+    for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
+      FixtureKey memory key = fixtureData.sampleKeys[i];
+      BN254.G1Point memory negPk1 = BN254.g1Negate(key.pk1);
+      assertEq(negPk1.x, key.negativePk1.x);
+      assertEq(negPk1.y, key.negativePk1.y);
+    }
+  }
+
+  function testProofOfPossession() public view {
+    for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
+      FixtureKey memory key = fixtureData.sampleKeys[i];
+      BN254.G1Point memory sigma = signRegistrationDigest(key.sk);
+      assertTrue(this.proofOfPossession(key.pk1, key.pk2, sigma), "proof of possession failed");
+    }
+  }
+
+  /// forge-config: default.fuzz.runs = 8
+  function testWrongSkInProofOfPossession(uint256 newSk) public view {
+    for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
+      FixtureKey memory key = fixtureData.sampleKeys[i];
+
+      BN254.G1Point memory sigma = signRegistrationDigest(key.sk);
 
       newSk = bound(newSk, 1, BN254.CURVE_ORDER - 1);
       // It may happen that we get very unlucky and draw the same secret key.
@@ -135,7 +157,7 @@ contract BN254KeyTest is Test {
   }
 
   /// forge-config: default.fuzz.runs = 4
-  function testWrongDomainSeparatorInProofOfPossession(bytes32 newDomainSeparator) public {
+  function testWrongDomainSeparatorInProofOfPossession(bytes32 newDomainSeparator) public view {
     vm.assume(newDomainSeparator != BN254.STAKING_DOMAIN_SEPARATOR);
     for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
       FixtureKey memory key = fixtureData.sampleKeys[i];
@@ -146,17 +168,6 @@ contract BN254KeyTest is Test {
         this.proofOfPossession(key.pk1, key.pk2, sigma), "proof of possession should fail"
       );
     }
-  }
-
-  function signRegistrationDigest(uint256 sk) public view returns (BN254.G1Point memory) {
-    BN254.G1Point memory pk1 = BN254.g1Mul(BN254.g1Generator(), sk);
-    bytes memory pk1Bytes = abi.encodePacked(pk1.x, pk1.y);
-
-    BN254.G1Point memory pk1DigestPoint =
-      BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
-
-    BN254.G1Point memory sigma = BN254.g1Mul(pk1DigestPoint, sk);
-    return sigma;
   }
 
   function testPairingOfGenerators() public view {
@@ -170,11 +181,31 @@ contract BN254KeyTest is Test {
       y0: 8495653923123431417604973247489272438418190587263600148770280649306958101930
     });
 
+    assertEq(g2.x0, fixtureData.g2Generator.x0);
+    assertEq(g2.x1, fixtureData.g2Generator.x1);
+    assertEq(g2.y0, fixtureData.g2Generator.y0);
+    assertEq(g2.y1, fixtureData.g2Generator.y1);
+
     // Sanity Check
     assertTrue(
       bn254Pairing(BN254.g1Generator(), BN254.g2NegatedGenerator(), BN254.g1Generator(), g2),
       "Pairing of generators failed"
     );
+  }
+
+  //############################//
+  //      Helper Functions      //
+  //############################//
+
+  function signRegistrationDigest(uint256 sk) public view returns (BN254.G1Point memory) {
+    BN254.G1Point memory pk1 = BN254.g1Mul(BN254.g1Generator(), sk);
+    bytes memory pk1Bytes = abi.encodePacked(pk1.x, pk1.y);
+
+    BN254.G1Point memory pk1DigestPoint =
+      BN254.hashToPoint(BN254.STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+
+    BN254.G1Point memory sigma = BN254.g1Mul(pk1DigestPoint, sk);
+    return sigma;
   }
 
   // wrapper for negative testing
@@ -207,8 +238,11 @@ contract BN254KeyTest is Test {
     fixtureData.g1Generator = data.g1Generator;
     fixtureData.g2Generator = data.g2Generator;
     fixtureData.negativeG2Generator = data.negativeG2Generator;
+
+    // you cannot copy memory arrays, so we need to push each element
     for (uint256 i = 0; i < data.sampleKeys.length; i++) {
       fixtureData.sampleKeys.push(data.sampleKeys[i]);
     }
+    assertEq(fixtureData.sampleKeys.length, 50, "sampleKeys length mismatch");
   }
 }
