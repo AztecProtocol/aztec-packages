@@ -149,7 +149,7 @@ export class TXE {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
-  // Used by setSenderForTags and getSenderForTags oracles.
+  // Used by setSenderForTags and pxeGetSenderForTags oracles.
   private senderForTags?: AztecAddress;
 
   private constructor(
@@ -779,7 +779,7 @@ export class TXE {
     this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
-  async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
+  async pxeIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<void> {
     await this.pxeOracleInterface.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
@@ -803,7 +803,7 @@ export class TXE {
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    await this.pxeOracleInterface.utilityValidateEnqueuedNotesAndEvents(
+    await this.pxeOracleInterface.validateEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
@@ -815,7 +815,7 @@ export class TXE {
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void> {
-    return await this.pxeOracleInterface.utilityBulkRetrieveLogs(
+    return await this.pxeOracleInterface.bulkRetrieveLogs(
       contractAddress,
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
@@ -878,7 +878,7 @@ export class TXE {
     return this.pxeOracleInterface.loadCapsule(this.contractAddress, slot);
   }
 
-  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -886,7 +886,7 @@ export class TXE {
     return this.pxeOracleInterface.deleteCapsule(this.contractAddress, slot);
   }
 
-  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  utilityCopyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -899,11 +899,11 @@ export class TXE {
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
-  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+  utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  getSenderForTags(): Promise<AztecAddress | undefined> {
+  pxeGetSenderForTags(): Promise<AztecAddress | undefined> {
     return Promise.resolve(this.senderForTags);
   }
 

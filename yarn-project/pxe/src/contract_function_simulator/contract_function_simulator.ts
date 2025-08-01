@@ -81,7 +81,7 @@ export class ContractFunctionSimulator {
    * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
    * or a specific account.
    * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
-   * the `getSenderForTags` oracle.
+   * the `pxeGetSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns The result of the execution.
    */
