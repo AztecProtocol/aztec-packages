@@ -147,8 +147,10 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
  * have a native equivalent, and Builder also doesn't have a native equivalent.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
+ * @tparam SerializeMetadata If true, includes circuit metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
+ * in serialization
  */
-template <typename PrecomputedCommitments, typename Transcript>
+template <typename PrecomputedCommitments, typename Transcript, bool SerializeMetadata = true>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
@@ -172,10 +174,17 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     static size_t calc_num_frs()
     {
         using namespace bb::field_conversion;
-        // 3 metadata fields + commitments
         // Create a temporary instance to get the number of precomputed entities
         PrecomputedCommitments temp;
-        return 3 * calc_num_bn254_frs<uint64_t>() + temp.get_all().size() * calc_num_bn254_frs<Commitment>();
+        size_t commitments_size = temp.get_all().size() * calc_num_bn254_frs<Commitment>();
+
+        if constexpr (SerializeMetadata) {
+            // 3 metadata fields + commitments
+            return 3 * calc_num_bn254_frs<uint64_t>() + commitments_size;
+        } else {
+            // Only commitments
+            return commitments_size;
+        }
     }
 
     /**
@@ -194,9 +203,11 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<fr> elements;
 
-        serialize_to_field_buffer(this->log_circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        if constexpr (SerializeMetadata) {
+            serialize_to_field_buffer(this->log_circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        }
 
         for (const Commitment& commitment : this->get_all()) {
             serialize_to_field_buffer(commitment, elements);
@@ -217,10 +228,12 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         size_t read_idx = 0;
 
-        // Read circuit metadata
-        this->log_circuit_size = static_cast<uint64_t>(elements[read_idx++]);
-        this->num_public_inputs = static_cast<uint64_t>(elements[read_idx++]);
-        this->pub_inputs_offset = static_cast<uint64_t>(elements[read_idx++]);
+        if constexpr (SerializeMetadata) {
+            // Read circuit metadata
+            this->log_circuit_size = static_cast<uint64_t>(elements[read_idx++]);
+            this->num_public_inputs = static_cast<uint64_t>(elements[read_idx++]);
+            this->pub_inputs_offset = static_cast<uint64_t>(elements[read_idx++]);
+        }
 
         // Read commitments
         constexpr size_t commitment_size = calc_num_bn254_frs<Commitment>();
@@ -271,13 +284,13 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 };
 
 // Serialization methods for NativeVerificationKey_
-template <typename PrecomputedCommitments, typename Transcript>
-inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitments, Transcript>& vk)
+template <typename PrecomputedCommitments, typename Transcript, bool SerializeMetadata>
+inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>& vk)
 {
     using serialize::read;
 
     // Get the size directly from the static method
-    size_t num_frs = NativeVerificationKey_<PrecomputedCommitments, Transcript>::calc_num_frs();
+    size_t num_frs = NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_frs();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<bb::fr> field_elements(num_frs);
@@ -289,8 +302,9 @@ inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitmen
     vk.from_field_elements(field_elements);
 }
 
-template <typename PrecomputedCommitments, typename Transcript>
-inline void write(std::vector<uint8_t>& buf, NativeVerificationKey_<PrecomputedCommitments, Transcript> const& vk)
+template <typename PrecomputedCommitments, typename Transcript, bool SerializeMetadata>
+inline void write(std::vector<uint8_t>& buf,
+                  NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata> const& vk)
 {
     using serialize::write;
 
