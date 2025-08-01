@@ -13,6 +13,7 @@ enum class AluOperation {
     ADD,
     SUB,
     MUL,
+    DIV,
     EQ,
     LT,
     LTE,
