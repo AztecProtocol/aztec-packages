@@ -101,6 +101,7 @@ library AddressSnapshotLib {
    * @notice Removes a validator from the set
    * @param _self The storage reference to the set
    * @param _index The index of the validator to remove
+   * @param _address The address to remove
    * @return bool True if the validator was removed, reverts otherwise
    */
   function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address) internal returns (bool) {
