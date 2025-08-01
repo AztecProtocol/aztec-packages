@@ -199,6 +199,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     fr hash() const
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1498): should hash be dependent on transcript?
         fr vk_hash = Transcript::hash(this->to_field_elements());
         return vk_hash;
     }
