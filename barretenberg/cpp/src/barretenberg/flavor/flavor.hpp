@@ -99,6 +99,15 @@
 
 namespace bb {
 
+/**
+ * @brief Enum to control verification key metadata serialization
+ */
+enum class VKSerializationMode {
+    FULL,         // Serialize all metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
+    NO_METADATA,  // Serialize only commitments, no metadata
+    NO_PUB_OFFSET // Serialize log_circuit_size and num_public_inputs, but not pub_inputs_offset
+};
+
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
     void add_range(const size_t start, const size_t end)
@@ -147,10 +156,11 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
  * have a native equivalent, and Builder also doesn't have a native equivalent.
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
- * @tparam SerializeMetadata If true, includes circuit metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
- * in serialization
+ * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA, NO_PUB_OFFSET)
  */
-template <typename PrecomputedCommitments, typename Transcript, bool SerializeMetadata = true>
+template <typename PrecomputedCommitments,
+          typename Transcript,
+          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
@@ -178,9 +188,12 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         PrecomputedCommitments temp;
         size_t commitments_size = temp.get_all().size() * calc_num_bn254_frs<Commitment>();
 
-        if constexpr (SerializeMetadata) {
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
             return 3 * calc_num_bn254_frs<uint64_t>() + commitments_size;
+        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
+            // 2 metadata fields + commitments
+            return 2 * calc_num_bn254_frs<uint64_t>() + commitments_size;
         } else {
             // Only commitments
             return commitments_size;
@@ -203,10 +216,13 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<fr> elements;
 
-        if constexpr (SerializeMetadata) {
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             serialize_to_field_buffer(this->log_circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
+            serialize_to_field_buffer(this->log_circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
         }
 
         for (const Commitment& commitment : this->get_all()) {
@@ -228,11 +244,15 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
 
         size_t read_idx = 0;
 
-        if constexpr (SerializeMetadata) {
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // Read circuit metadata
             this->log_circuit_size = static_cast<uint64_t>(elements[read_idx++]);
             this->num_public_inputs = static_cast<uint64_t>(elements[read_idx++]);
             this->pub_inputs_offset = static_cast<uint64_t>(elements[read_idx++]);
+        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
+            // Read circuit metadata (without pub_inputs_offset)
+            this->log_circuit_size = static_cast<uint64_t>(elements[read_idx++]);
+            this->num_public_inputs = static_cast<uint64_t>(elements[read_idx++]);
         }
 
         // Read commitments
@@ -283,8 +303,10 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     };
 };
 
-// Serialization methods for NativeVerificationKey_
-template <typename PrecomputedCommitments, typename Transcript, bool SerializeMetadata>
+// Serialization methods for NativeVerificationKey_.
+// These should cover all base classes that do not need additional members, as long as the appropriate SerializeMetadata
+// is set in the template parameters.
+template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
 inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>& vk)
 {
     using serialize::read;
@@ -302,7 +324,7 @@ inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitmen
     vk.from_field_elements(field_elements);
 }
 
-template <typename PrecomputedCommitments, typename Transcript, bool SerializeMetadata>
+template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
 inline void write(std::vector<uint8_t>& buf,
                   NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata> const& vk)
 {
@@ -321,10 +343,11 @@ inline void write(std::vector<uint8_t>& buf,
  * @tparam Builder
  * @tparam FF
  * @tparam PrecomputedCommitments
- * @tparam SerializeMetadata If true, includes circuit metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
- * in serialization
+ * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA, NO_PUB_OFFSET)
  */
-template <typename Builder_, typename PrecomputedCommitments, bool SerializeMetadata = true>
+template <typename Builder_,
+          typename PrecomputedCommitments,
+          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
     using Builder = Builder_;
@@ -360,10 +383,13 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<FF> elements;
 
-        if constexpr (SerializeMetadata) {
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             serialize_to_field_buffer(this->log_circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
+            serialize_to_field_buffer(this->log_circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
         }
 
         for (const Commitment& commitment : this->get_all()) {

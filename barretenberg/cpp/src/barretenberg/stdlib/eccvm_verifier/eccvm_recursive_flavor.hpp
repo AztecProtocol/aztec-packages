@@ -98,7 +98,7 @@ class ECCVMRecursiveFlavor {
      */
     class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
                                                           ECCVMFlavor::PrecomputedEntities<Commitment>,
-                                                          /*SerializeMetadata=*/false> {
+                                                          /*SerializeMetadata=*/VKSerializationMode::NO_METADATA> {
       public:
         VerifierCommitmentKey pcs_verification_key;
 
