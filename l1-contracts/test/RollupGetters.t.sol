@@ -125,7 +125,7 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     vm.record();
 
     vm.prank(proposer);
-    rollup.canProposeAtTime(t, log.archive);
+    rollup.canProposeAtTime(t, log.headerHash);
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
