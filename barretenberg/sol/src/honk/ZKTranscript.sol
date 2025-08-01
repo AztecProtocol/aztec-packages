@@ -9,7 +9,7 @@ import {
     PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
-import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
+import {bytesToG1Point, bytesToFr} from "./utils.sol";
 
 // ZKTranscript library to generate fiat shamir challenges, the ZK transcript only differest
 struct ZKTranscript {
@@ -87,7 +87,7 @@ library ZKTranscriptLib {
         uint256 publicInputsSize,
         uint256 pubInputsOffset
     ) internal pure returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge) {
-        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
+        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 6);
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
@@ -100,18 +100,12 @@ library ZKTranscriptLib {
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[3 + publicInputsSize] = bytes32(proof.w1.x_0);
-        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.x_1);
-        round0[3 + publicInputsSize + 2] = bytes32(proof.w1.y_0);
-        round0[3 + publicInputsSize + 3] = bytes32(proof.w1.y_1);
-        round0[3 + publicInputsSize + 4] = bytes32(proof.w2.x_0);
-        round0[3 + publicInputsSize + 5] = bytes32(proof.w2.x_1);
-        round0[3 + publicInputsSize + 6] = bytes32(proof.w2.y_0);
-        round0[3 + publicInputsSize + 7] = bytes32(proof.w2.y_1);
-        round0[3 + publicInputsSize + 8] = bytes32(proof.w3.x_0);
-        round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
-        round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
-        round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
+        round0[3 + publicInputsSize] = bytes32(proof.w1.x);
+        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.y);
+        round0[3 + publicInputsSize + 2] = bytes32(proof.w2.x);
+        round0[3 + publicInputsSize + 3] = bytes32(proof.w2.y);
+        round0[3 + publicInputsSize + 4] = bytes32(proof.w3.x);
+        round0[3 + publicInputsSize + 5] = bytes32(proof.w3.y);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -125,20 +119,14 @@ library ZKTranscriptLib {
         pure
         returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
     {
-        bytes32[13] memory round1;
+        bytes32[7] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
-        round1[1] = bytes32(proof.lookupReadCounts.x_0);
-        round1[2] = bytes32(proof.lookupReadCounts.x_1);
-        round1[3] = bytes32(proof.lookupReadCounts.y_0);
-        round1[4] = bytes32(proof.lookupReadCounts.y_1);
-        round1[5] = bytes32(proof.lookupReadTags.x_0);
-        round1[6] = bytes32(proof.lookupReadTags.x_1);
-        round1[7] = bytes32(proof.lookupReadTags.y_0);
-        round1[8] = bytes32(proof.lookupReadTags.y_1);
-        round1[9] = bytes32(proof.w4.x_0);
-        round1[10] = bytes32(proof.w4.x_1);
-        round1[11] = bytes32(proof.w4.y_0);
-        round1[12] = bytes32(proof.w4.y_1);
+        round1[1] = bytes32(proof.lookupReadCounts.x);
+        round1[2] = bytes32(proof.lookupReadCounts.y);
+        round1[3] = bytes32(proof.lookupReadTags.x);
+        round1[4] = bytes32(proof.lookupReadTags.y);
+        round1[5] = bytes32(proof.w4.x);
+        round1[6] = bytes32(proof.w4.y);
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
         (beta, gamma) = splitChallenge(nextPreviousChallenge);
@@ -151,16 +139,12 @@ library ZKTranscriptLib {
         returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
-        uint256[9] memory alpha0;
+        uint256[5] memory alpha0;
         alpha0[0] = Fr.unwrap(previousChallenge);
-        alpha0[1] = proof.lookupInverses.x_0;
-        alpha0[2] = proof.lookupInverses.x_1;
-        alpha0[3] = proof.lookupInverses.y_0;
-        alpha0[4] = proof.lookupInverses.y_1;
-        alpha0[5] = proof.zPerm.x_0;
-        alpha0[6] = proof.zPerm.x_1;
-        alpha0[7] = proof.zPerm.y_0;
-        alpha0[8] = proof.zPerm.y_1;
+        alpha0[1] = proof.lookupInverses.x;
+        alpha0[2] = proof.lookupInverses.y;
+        alpha0[3] = proof.zPerm.x;
+        alpha0[4] = proof.zPerm.y;
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
         (alphas[0], alphas[1]) = splitChallenge(nextPreviousChallenge);
@@ -194,14 +178,12 @@ library ZKTranscriptLib {
         pure
         returns (Fr libraChallenge, Fr nextPreviousChallenge)
     {
-        // 4 comm, 1 sum, 1 challenge
-        uint256[6] memory challengeData;
+        // 2 comm, 1 sum, 1 challenge
+        uint256[4] memory challengeData;
         challengeData[0] = Fr.unwrap(previousChallenge);
-        challengeData[1] = proof.libraCommitments[0].x_0;
-        challengeData[2] = proof.libraCommitments[0].x_1;
-        challengeData[3] = proof.libraCommitments[0].y_0;
-        challengeData[4] = proof.libraCommitments[0].y_1;
-        challengeData[5] = Fr.unwrap(proof.libraSum);
+        challengeData[1] = proof.libraCommitments[0].x;
+        challengeData[2] = proof.libraCommitments[0].y;
+        challengeData[3] = Fr.unwrap(proof.libraSum);
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(challengeData)));
         (libraChallenge,) = splitChallenge(nextPreviousChallenge);
     }
@@ -232,7 +214,7 @@ library ZKTranscriptLib {
         pure
         returns (Fr rho, Fr nextPreviousChallenge)
     {
-        uint256[NUMBER_OF_ENTITIES + 15] memory rhoChallengeElements;
+        uint256[NUMBER_OF_ENTITIES + 9] memory rhoChallengeElements;
         rhoChallengeElements[0] = Fr.unwrap(prevChallenge);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
         uint256 i;
@@ -242,22 +224,16 @@ library ZKTranscriptLib {
         rhoChallengeElements[i] = Fr.unwrap(proof.libraEvaluation);
 
         i += 1;
-        rhoChallengeElements[i] = proof.libraCommitments[1].x_0;
-        rhoChallengeElements[i + 1] = proof.libraCommitments[1].x_1;
-        rhoChallengeElements[i + 2] = proof.libraCommitments[1].y_0;
-        rhoChallengeElements[i + 3] = proof.libraCommitments[1].y_1;
-        i += 4;
-        rhoChallengeElements[i] = proof.libraCommitments[2].x_0;
-        rhoChallengeElements[i + 1] = proof.libraCommitments[2].x_1;
-        rhoChallengeElements[i + 2] = proof.libraCommitments[2].y_0;
-        rhoChallengeElements[i + 3] = proof.libraCommitments[2].y_1;
-        i += 4;
-        rhoChallengeElements[i] = proof.geminiMaskingPoly.x_0;
-        rhoChallengeElements[i + 1] = proof.geminiMaskingPoly.x_1;
-        rhoChallengeElements[i + 2] = proof.geminiMaskingPoly.y_0;
-        rhoChallengeElements[i + 3] = proof.geminiMaskingPoly.y_1;
+        rhoChallengeElements[i] = proof.libraCommitments[1].x;
+        rhoChallengeElements[i + 1] = proof.libraCommitments[1].y;
+        i += 2;
+        rhoChallengeElements[i] = proof.libraCommitments[2].x;
+        rhoChallengeElements[i + 1] = proof.libraCommitments[2].y;
+        i += 2;
+        rhoChallengeElements[i] = proof.geminiMaskingPoly.x;
+        rhoChallengeElements[i + 1] = proof.geminiMaskingPoly.y;
 
-        i += 4;
+        i += 2;
         rhoChallengeElements[i] = Fr.unwrap(proof.geminiMaskingEval);
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
@@ -269,14 +245,12 @@ library ZKTranscriptLib {
         pure
         returns (Fr geminiR, Fr nextPreviousChallenge)
     {
-        uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 4 + 1] memory gR;
+        uint256[(CONST_PROOF_SIZE_LOG_N - 1) * 2 + 1] memory gR;
         gR[0] = Fr.unwrap(prevChallenge);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            gR[1 + i * 4] = proof.geminiFoldComms[i].x_0;
-            gR[2 + i * 4] = proof.geminiFoldComms[i].x_1;
-            gR[3 + i * 4] = proof.geminiFoldComms[i].y_0;
-            gR[4 + i * 4] = proof.geminiFoldComms[i].y_1;
+            gR[1 + i * 2] = proof.geminiFoldComms[i].x;
+            gR[2 + i * 2] = proof.geminiFoldComms[i].y;
         }
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(gR)));
@@ -311,13 +285,11 @@ library ZKTranscriptLib {
         pure
         returns (Fr shplonkZ, Fr nextPreviousChallenge)
     {
-        uint256[5] memory shplonkZChallengeElements;
+        uint256[3] memory shplonkZChallengeElements;
         shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
 
-        shplonkZChallengeElements[1] = proof.shplonkQ.x_0;
-        shplonkZChallengeElements[2] = proof.shplonkQ.x_1;
-        shplonkZChallengeElements[3] = proof.shplonkQ.y_0;
-        shplonkZChallengeElements[4] = proof.shplonkQ.y_1;
+        shplonkZChallengeElements[1] = proof.shplonkQ.x;
+        shplonkZChallengeElements[2] = proof.shplonkQ.y;
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(shplonkZChallengeElements)));
         (shplonkZ,) = splitChallenge(nextPreviousChallenge);
@@ -333,26 +305,26 @@ library ZKTranscriptLib {
             boundary += 0x20;
         }
         // Commitments
-        p.w1 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.w2 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.w3 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
+        p.w1 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.w2 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.w3 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
 
         // Lookup / Permutation Helper Commitments
-        p.lookupReadCounts = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.lookupReadTags = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.w4 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.lookupInverses = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.zPerm = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.libraCommitments[0] = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
+        p.lookupReadCounts = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.lookupReadTags = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.w4 = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.lookupInverses = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.zPerm = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.libraCommitments[0] = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
 
         p.libraSum = bytesToFr(proof[boundary:boundary + 0x20]);
         boundary += 0x20;
@@ -373,20 +345,20 @@ library ZKTranscriptLib {
         p.libraEvaluation = bytesToFr(proof[boundary:boundary + 0x20]);
         boundary += 0x20;
 
-        p.libraCommitments[1] = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.libraCommitments[2] = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
-        p.geminiMaskingPoly = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
+        p.libraCommitments[1] = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.libraCommitments[2] = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
+        p.geminiMaskingPoly = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
         p.geminiMaskingEval = bytesToFr(proof[boundary:boundary + 0x20]);
         boundary += 0x20;
 
         // Gemini
         // Read gemini fold univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; i++) {
-            p.geminiFoldComms[i] = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-            boundary += 0x80;
+            p.geminiFoldComms[i] = bytesToG1Point(proof[boundary:boundary + 0x40]);
+            boundary += 0x40;
         }
 
         // Read gemini a evaluations
@@ -401,9 +373,9 @@ library ZKTranscriptLib {
         }
 
         // Shplonk
-        p.shplonkQ = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
-        boundary += 0x80;
+        p.shplonkQ = bytesToG1Point(proof[boundary:boundary + 0x40]);
+        boundary += 0x40;
         // KZG
-        p.kzgQuotient = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        p.kzgQuotient = bytesToG1Point(proof[boundary:boundary + 0x40]);
     }
 }
