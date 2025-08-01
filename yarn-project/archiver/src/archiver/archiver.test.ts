@@ -610,9 +610,9 @@ describe('Archiver', () => {
     mockRollup.read.status
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_HEADER_HASH, GENESIS_HEADER_HASH, 0n, false])
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false])
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, true])
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false]) // Fr.ZERO = mismatch, not stale
       // Additional status calls for unwinding logic:
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, true]) // status(2) → block 2 doesn't exist
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false]) // status(2) → block 2 doesn't exist but not stale
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), headerHashes[0].toString(), 0n, false]); // status(1) → block 1 exists
 
     makeMessageSentEvent(66n, 1, 0n);
@@ -1066,7 +1066,7 @@ describe('Archiver', () => {
             contractPendingHeaderHash,
             Fr.ZERO.toString(),
             0n,
-            true,
+            false,
           ]);
         }
       } else {
