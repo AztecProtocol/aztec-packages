@@ -95,8 +95,7 @@ library BN254 {
     require(signature.x != 0 && signature.y != 0, signatureZero());
 
     // Compute the point "digest" of the pk1 that sigma is a signature over
-    bytes memory pk1Bytes = abi.encodePacked(pk1.x, pk1.y);
-    G1Point memory pk1DigestPoint = hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
+    G1Point memory pk1DigestPoint = g1ToDigestPoint(pk1);
 
     // Random challenge:
     // gamma = keccak(pk1, pk2, signature) mod |Fr|
@@ -111,6 +110,13 @@ library BN254 {
 
     // Pairing: e(L, -G2) * e(R, pk2) == 1
     return bn254Pairing(left, g2NegatedGenerator(), right, pk2);
+  }
+
+  /// @notice Convert a G1 point (public key) to the digest point that must be signed to prove possession.
+  /// @dev exposed as public to allow clients not to have implemented the hashToPoint function.
+  function g1ToDigestPoint(G1Point memory pk1) internal view returns (G1Point memory) {
+    bytes memory pk1Bytes = abi.encodePacked(pk1.x, pk1.y);
+    return hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
   }
 
   /// @dev Add two points on BN254 G1 (affine coords).

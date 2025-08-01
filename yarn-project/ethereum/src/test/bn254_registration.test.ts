@@ -13,6 +13,10 @@ describe('BN254 Registration', () => {
     expect(g1Base.x).toBe(1n);
     expect(g1Base.y).toBe(2n);
 
+    const negativeG1 = bn254.G1.Point.ZERO.subtract(bn254.G1.Point.BASE).toAffine();
+    expect(negativeG1.x).toBe(1n);
+    expect(negativeG1.y).toBe(21888242871839275222246405745257275088696311157297823662689037894645226208581n);
+
     const g2Base = bn254.G2.Point.BASE.toAffine();
     expect(g2Base.x.c0).toBe(10857046999023057135944570762232829481370756359578518086990519993285655852781n);
     expect(g2Base.x.c1).toBe(11559732032986387107991004021392285783925812861821192530917403151452391805634n);
@@ -69,6 +73,10 @@ describe('BN254 Registration', () => {
             x1: g2Base.x.c1,
             y0: g2Base.y.c0,
             y1: g2Base.y.c1,
+          },
+          negativeG1Generator: {
+            x: negativeG1.x,
+            y: negativeG1.y,
           },
           negativeG2Generator: {
             x0: negativeG2.x.c0,

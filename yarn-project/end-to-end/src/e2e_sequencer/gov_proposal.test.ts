@@ -47,7 +47,7 @@ describe('e2e_gov_proposal', () => {
     ({ teardown, logger, wallet, aztecNodeAdmin, deployL1ContractsValues, cheatCodes, dateProvider } = await setup(1, {
       anvilAccounts: 100,
       aztecTargetCommitteeSize: 48,
-      initialValidators: validators,
+      initialValidators: validators.map(v => ({ ...v, bn254SecretKey: Fr.random().toBigInt() })),
       validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)), // sequencer runs with all validator keys
       governanceProposerRoundSize: ROUND_SIZE,
       governanceProposerQuorum: QUORUM_SIZE,

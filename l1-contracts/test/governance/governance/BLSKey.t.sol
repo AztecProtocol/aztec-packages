@@ -13,6 +13,7 @@ contract BN254KeyTest is Test {
     uint256 frOrder;
     BN254.G1Point g1Generator;
     BN254.G2Point g2Generator;
+    BN254.G1Point negativeG1Generator;
     BN254.G2Point negativeG2Generator;
     FixtureKey[] sampleKeys;
   }
@@ -115,6 +116,14 @@ contract BN254KeyTest is Test {
   }
 
   function testG1Negate() public view {
+    BN254.G1Point memory negatedZero = BN254.g1Negate(BN254.g1Zero());
+    assertEq(negatedZero.x, 0);
+    assertEq(negatedZero.y, 0);
+
+    BN254.G1Point memory negatedGenerator = BN254.g1Negate(BN254.g1Generator());
+    assertEq(negatedGenerator.x, fixtureData.negativeG1Generator.x);
+    assertEq(negatedGenerator.y, fixtureData.negativeG1Generator.y);
+
     for (uint256 i = 0; i < fixtureData.sampleKeys.length; i++) {
       FixtureKey memory key = fixtureData.sampleKeys[i];
       BN254.G1Point memory negPk1 = BN254.g1Negate(key.pk1);
@@ -237,6 +246,7 @@ contract BN254KeyTest is Test {
     fixtureData.frOrder = data.frOrder;
     fixtureData.g1Generator = data.g1Generator;
     fixtureData.g2Generator = data.g2Generator;
+    fixtureData.negativeG1Generator = data.negativeG1Generator;
     fixtureData.negativeG2Generator = data.negativeG2Generator;
 
     // you cannot copy memory arrays, so we need to push each element

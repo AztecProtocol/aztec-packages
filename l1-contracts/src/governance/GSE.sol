@@ -65,6 +65,10 @@ interface IGSECore {
 }
 
 interface IGSE is IGSECore {
+  function getRegistrationDigest(BN254.G1Point memory _publicKey)
+    external
+    view
+    returns (BN254.G1Point memory);
   function getDelegatee(address _instance, address _attester) external view returns (address);
   function getVotingPower(address _attester) external view returns (uint256);
   function getVotingPowerAt(address _attester, Timestamp _timestamp)
@@ -655,6 +659,15 @@ contract GSE is IGSE, GSECore {
   constructor(address __owner, IERC20 _stakingAsset, uint256 _depositAmount, uint256 _minimumStake)
     GSECore(__owner, _stakingAsset, _depositAmount, _minimumStake)
   {}
+
+  function getRegistrationDigest(BN254.G1Point memory _publicKey)
+    external
+    view
+    override(IGSE)
+    returns (BN254.G1Point memory)
+  {
+    return BN254.g1ToDigestPoint(_publicKey);
+  }
 
   function getConfig(address _instance, address _attester)
     external
