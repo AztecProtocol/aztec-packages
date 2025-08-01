@@ -3,7 +3,7 @@ ALIAS=$1
 section "Creating a funded account (alias: $ALIAS)"
 
 aztec-wallet create-account -a $ALIAS --register-only
-aztec-wallet bridge-fee-juice 1000000000000000000 $ALIAS --mint --no-wait
+aztec-wallet bridge-fee-juice $ALIAS --no-wait
 
 # The following produces two blocks, allowing the claim to be used in the next block.
 source $flows/shared/deploy_token.sh tmp-token-$ALIAS $ALIAS

@@ -6,14 +6,12 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 export async function bridgeL1FeeJuice(
-  amount: bigint,
   recipient: AztecAddress,
   pxe: PXE,
   l1RpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
-  mint: boolean,
   json: boolean,
   wait: boolean,
   interval = 60_000,
@@ -30,11 +28,7 @@ export async function bridgeL1FeeJuice(
 
   // Setup portal manager
   const portal = await L1FeeJuicePortalManager.new(pxe, client, debugLogger);
-  const { claimAmount, claimSecret, messageHash, messageLeafIndex } = await portal.bridgeTokensPublic(
-    recipient,
-    amount,
-    mint,
-  );
+  const { claimAmount, claimSecret, messageHash, messageLeafIndex } = await portal.bridgeTokensFromFaucet(recipient);
 
   if (json) {
     const out = {
@@ -44,11 +38,7 @@ export async function bridgeL1FeeJuice(
     };
     log(prettyPrintJSON(out));
   } else {
-    if (mint) {
-      log(`Minted ${claimAmount} fee juice on L1 and pushed to L2 portal`);
-    } else {
-      log(`Bridged ${claimAmount} fee juice to L2 portal`);
-    }
+    log(`Minted ${claimAmount} fee juice on L1 and pushed to L2 portal`);
     log(
       `claimAmount=${claimAmount},claimSecret=${claimSecret},messageHash=${messageHash},messageLeafIndex=${messageLeafIndex}\n`,
     );
@@ -84,5 +74,5 @@ export async function bridgeL1FeeJuice(
     }
   }
 
-  return [claimSecret, messageLeafIndex] as const;
+  return [claimSecret, messageLeafIndex, claimAmount] as const;
 }
