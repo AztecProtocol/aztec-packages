@@ -11,7 +11,7 @@ use std::meta::type_of;
 /// 1. A parameters struct containing all the function parameters
 /// 2. An ABI struct containing the parameters struct and return type (if any)
 ///
-/// # Example
+/// ## Example
 /// Given a function:
 /// ```noir
 /// fn increment(owner: AztecAddress) -> Field { ... }
@@ -29,6 +29,10 @@ use std::meta::type_of;
 ///     return_type: Field
 /// }
 /// ```
+///
+/// ## The #[abi(functions)] Attribute
+/// The `#[abi(functions)]` is a custom attribute that is then used by the toolchain to generate the contract ABI.
+/// TODO: Is this responsible for the `abi` item in the function artifact?
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let mut parameters =
