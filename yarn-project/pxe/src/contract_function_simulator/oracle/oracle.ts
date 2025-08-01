@@ -26,14 +26,34 @@ export class Oracle {
   }
 
   toACIRCallback(): ACIRCallback {
-    return Object.getOwnPropertyNames(Oracle.prototype)
-      .filter(
-        name => name !== 'constructor' && name != 'toACIRCallback' && typeof this[name as keyof Oracle] === 'function',
-      )
-      .reduce((acc, name) => {
-        acc[name] = this[name as keyof Omit<Oracle, 'toACIRCallback' | 'typedOracle' | 'constructor'>].bind(this);
-        return acc;
-      }, {} as ACIRCallback);
+    const excludedProps = ['typedOracle', 'constructor', 'toACIRCallback'] as const;
+
+    // Get all the oracle function names
+    const oracleNames = Object.getOwnPropertyNames(Oracle.prototype).filter(
+      name => !excludedProps.includes(name as (typeof excludedProps)[number]),
+    );
+
+    // Validate oracle names - these must be prefixed with either "pxe" or "utility" to indicate their scope and must
+    // correspond to a function on the Oracle class.
+    oracleNames.forEach(name => {
+      if (!name.startsWith('pxe') && !name.startsWith('utility')) {
+        throw new Error(
+          `Oracle function "${name}" must be prefixed with either "pxe" or "utility" to indicate its scope`,
+        );
+      }
+
+      const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
+      if (typeof method !== 'function') {
+        throw new Error(`Oracle property "${name}" must be a function`);
+      }
+    });
+
+    // Build callback object and return it
+    return oracleNames.reduce((acc, name) => {
+      const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
+      acc[name] = method.bind(this);
+      return acc;
+    }, {} as ACIRCallback);
   }
 
   utilityGetRandomField(): Promise<ACVMField[]> {
@@ -176,7 +196,7 @@ export class Oracle {
   }
 
   // TODO: This doesn't map to the underlying oracle name which is just ugly.
-  async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
+  async utilityGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
     const { publicKeys, partialAddress } = await this.typedOracle.utilityGetCompleteAddress(parsedAddress);
 
@@ -308,10 +328,10 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
-    const newValues = await this.typedOracle.storageWrite(Fr.fromString(startStorageSlot), values.map(Fr.fromString));
-    return newValues.map(toACVMField);
-  }
+  // async storageWrite([startStorageSlot]: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
+  //   const newValues = await this.typedOracle.storageWrite(Fr.fromString(startStorageSlot), values.map(Fr.fromString));
+  //   return newValues.map(toACVMField);
+  // }
 
   pxeNotifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
