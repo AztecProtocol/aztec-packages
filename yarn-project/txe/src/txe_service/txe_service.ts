@@ -314,12 +314,6 @@ export class TXEService {
     return toForeignCallResult([toArray(values)]);
   }
 
-  // TODO(benesjan): This is an AVM oracle. Should this be nuked?
-  async storageWrite(startStorageSlot: ForeignCallSingle, values: ForeignCallArray) {
-    const newValues = await this.txe.storageWrite(fromSingle(startStorageSlot), fromArray(values));
-    return toForeignCallResult([toArray(newValues)]);
-  }
-
   async utilityGetPublicDataWitness(blockNumber: ForeignCallSingle, leafSlot: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
@@ -495,7 +489,7 @@ export class TXEService {
     );
   }
 
-  async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {
+  async utilityGetPublicKeysAndPartialAddress(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context == TXEContext.TOP_LEVEL) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
@@ -898,7 +892,6 @@ export class TXEService {
     ]);
   }
 
-  // TODO(benesjan): This is an AVM oracle. Should this be nuked?
   async avmOpcodeGetContractInstanceInitializationHash(address: ForeignCallSingle) {
     if (this.contextChecksEnabled && this.context != TXEContext.PUBLIC) {
       throw new Error(
