@@ -9,6 +9,30 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec Tools]
+
+### Contract compilation now requires two steps
+
+The `aztec-nargo` command is now a direct pass-through to vanilla nargo, without any special compilation flags or postprocessing. Contract compilation for Aztec now requires two explicit steps:
+
+1. Compile your contracts with `aztec-nargo compile`
+2. Run postprocessing with the new `aztec-compile-contract` command
+
+The postprocessing step includes:
+- Transpiling functions for the Aztec VM
+- Generating verification keys for private functions
+- Caching verification keys for faster subsequent compilations
+
+Update your build scripts accordingly:
+
+```diff
+- aztec-nargo compile
++ aztec-nargo compile
++ aztec-compile-contract
+```
+
+If you're using the `aztec-up` installer, the `aztec-compile-contract` command will be automatically installed alongside `aztec-nargo`.
+
 ## [Aztec.nr]
 
 ### Notes require you to manually implement or derive Packable
