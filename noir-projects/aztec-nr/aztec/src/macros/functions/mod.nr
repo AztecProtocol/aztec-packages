@@ -124,9 +124,12 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         );
     }
 
+    // The abi export function is expected to be executed before the function is transformed.
+    let fn_abi_export = create_fn_abi_export(f);
+
     transform_private(f);
 
-    create_fn_abi_export(f)
+    fn_abi_export
 }
 
 /// Public functions are executed sequencer-side and do not preserve privacy, similar to the EVM.
@@ -147,9 +150,12 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
             panic(f"#[public] functions must not be unconstrained - {name} is");
         }
 
+        // The abi export function is expected to be executed before the function is transformed.
+        let fn_abi_export = create_fn_abi_export(f);
+
         transform_public(f);
 
-        create_fn_abi_export(f)
+        fn_abi_export
     }
 }
 
@@ -169,7 +175,10 @@ pub comptime fn utility(f: FunctionDefinition) -> Quoted {
         panic(f"#[utility] must be unconstrained - {name} isn't");
     }
 
+    // The abi export function is expected to be executed before the function is transformed.
+    let fn_abi_export = create_fn_abi_export(f);
+
     transform_utility(f);
 
-    create_fn_abi_export(f)
+    fn_abi_export
 }
