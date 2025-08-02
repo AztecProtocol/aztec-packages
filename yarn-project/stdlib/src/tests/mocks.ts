@@ -94,6 +94,7 @@ export const mockTx = async (
     version = Fr.ZERO,
     vkTreeRoot = Fr.ZERO,
     protocolContractTreeRoot = Fr.ZERO,
+    mockTxHash = true,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -107,6 +108,7 @@ export const mockTx = async (
     version?: Fr;
     vkTreeRoot?: Fr;
     protocolContractTreeRoot?: Fr;
+    mockTxHash?: boolean;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -166,12 +168,25 @@ export const mockTx = async (
       .build();
   }
 
-  return await Tx.create({
-    data,
-    clientIvcProof,
-    contractClassLogFields: [],
-    publicFunctionCalldata,
-  });
+  if (mockTxHash) {
+    // generate a random TxHash. This is a lot faster than computing the real thing
+    const txHash = TxHash.fromField(new Fr(seed + 0x103));
+    return Tx.from({
+      txHash,
+      data,
+      clientIvcProof,
+      contractClassLogFields: [],
+      publicFunctionCalldata,
+    });
+  } else {
+    // Tx.create computes the correct TxHash based on the tx's data
+    return await Tx.create({
+      data,
+      clientIvcProof,
+      contractClassLogFields: [],
+      publicFunctionCalldata,
+    });
+  }
 };
 
 export const mockTxForRollup = (seed = 1, opts: Parameters<typeof mockTx>[1] = {}) =>
