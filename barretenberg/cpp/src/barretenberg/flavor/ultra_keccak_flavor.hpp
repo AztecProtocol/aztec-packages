@@ -34,6 +34,8 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
     using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
 
+    static constexpr bool USE_PADDING = false;
+
     // Override as proof length is different
     static constexpr size_t num_elements_comm = bb::field_conversion::calc_num_uint256_t<Commitment>();
     static constexpr size_t num_elements_fr = bb::field_conversion::calc_num_uint256_t<FF>();
