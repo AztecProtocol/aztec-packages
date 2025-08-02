@@ -7,8 +7,8 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 

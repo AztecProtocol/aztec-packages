@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"

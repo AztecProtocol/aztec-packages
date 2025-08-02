@@ -1,4 +1,4 @@
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <gtest/gtest.h>
 
