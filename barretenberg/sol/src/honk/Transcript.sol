@@ -11,6 +11,8 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1Point, bytesToFr} from "./utils.sol";
 
+import {logFr, logG} from "./Debug.sol";
+
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     // Oink
@@ -34,7 +36,7 @@ library TranscriptLib {
         uint256 circuitSize,
         uint256 publicInputsSize,
         uint256 pubInputsOffset
-    ) internal pure returns (Transcript memory t) {
+    ) internal view returns (Transcript memory t) {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
             proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge
@@ -72,11 +74,17 @@ library TranscriptLib {
         uint256 publicInputsSize,
         uint256 pubInputsOffset,
         Fr previousChallenge
-    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
+    ) internal view returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
             generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
+
+        logFr("eta", rp.eta);
+        logFr("etaTwo", rp.etaTwo);
+        logFr("etaThree", rp.etaThree);
+        logFr("beta", rp.beta);
+        logFr("gamma", rp.gamma);
     }
 
     function generateEtaChallenge(
@@ -283,6 +291,10 @@ library TranscriptLib {
         p.w3 = bytesToG1Point(proof[boundary:boundary + 0x40]);
         boundary += 0x40;
 
+        logG("w1", p.w1);
+        logG("w2", p.w2);
+        logG("w3", p.w3);
+
         // Lookup / Permutation Helper Commitments
         p.lookupReadCounts = bytesToG1Point(proof[boundary:boundary + 0x40]);
         boundary += 0x40;
@@ -294,6 +306,12 @@ library TranscriptLib {
         boundary += 0x40;
         p.zPerm = bytesToG1Point(proof[boundary:boundary + 0x40]);
         boundary += 0x40;
+
+        logG("lookupReadCounts", p.lookupReadCounts);
+        logG("lookupReadTags", p.lookupReadTags);
+        logG("w4", p.w4);
+        logG("lookupInverses", p.lookupInverses);
+        logG("zPerm", p.zPerm);
 
         // Sumcheck univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {

@@ -164,11 +164,6 @@ def print_loc(pointer: int, name: str):
 def print_fr(pointer:int , name: str):
     print_loc(pointer, name)
 
-# Smalle g1 is releavant to the points in the verification key
-def print_small_g1(pointer:int, name: str):
-    print_loc(pointer, name + "_X_LOC")
-    print_loc(pointer + 32, name + "_Y_LOC")
-
 def print_g1(pointer: int, name: str):
     print_loc(pointer, name + "_X_LOC")
     print_loc(pointer + 32, name + "_Y_LOC")
@@ -180,8 +175,8 @@ def print_vk(pointer: int):
         pointer += 32
 
     for item in vk_g1:
-        print_small_g1(pointer, item)
-        pointer += (4*32)
+        print_g1(pointer, item)
+        pointer += (2*32)
 
     return pointer
 
@@ -190,13 +185,9 @@ def print_proof(pointer: int):
         print_fr(pointer, item)
         pointer += 32
 
-    # for item in proof_fr:
-    #     print_fr(pointer, item)
-    #     pointer += 32
-
     for item in proof_g1:
         print_g1(pointer, item)
-        pointer += (4*32)
+        pointer += (2*32)
 
     return pointer
 
@@ -229,7 +220,7 @@ def print_shplemini(pointer: int):
     print_header_centered("PROOF INDICIES - GEMINI FOLDING COMMS")
     for size in range(0, PROOF_SIZE_LOG_N - 1):
         print_g1(pointer, "GEMINI_FOLD_UNIVARIATE_" + str(size))
-        pointer += (4*32)
+        pointer += (2*32)
 
     print_header_centered("PROOF INDICIES - GEMINI FOLDING EVALUATIONS")
     for size in range(0, PROOF_SIZE_LOG_N):
@@ -237,9 +228,9 @@ def print_shplemini(pointer: int):
         pointer += 32
 
     print_g1(pointer, "SHPLONK_Q")
-    pointer += (4*32)
+    pointer += (2*32)
     print_g1(pointer, "KZG_QUOTIENT")
-    pointer += (4*32)
+    pointer += (2*32)
 
     return pointer
 
