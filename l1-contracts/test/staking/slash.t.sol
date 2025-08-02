@@ -6,6 +6,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   IStakingCore, Status, AttesterView, Exit, Timestamp
 } from "@aztec/core/interfaces/IStaking.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract SlashTest is StakingBase {
   uint256 internal slashingAmount = 1;
@@ -17,7 +18,14 @@ contract SlashTest is StakingBase {
   function test_WhenCallerIsNotTheSlasher() external {
     mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     staking.flushEntryQueue();
 
     // it reverts
@@ -43,7 +51,14 @@ contract SlashTest is StakingBase {
     mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     staking.flushEntryQueue();
     _;
   }

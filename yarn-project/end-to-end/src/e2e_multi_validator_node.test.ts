@@ -59,6 +59,7 @@ describe('e2e_multi_validator_node', () => {
         attester: EthAddress.fromString(account.address),
         withdrawer: EthAddress.fromString(account.address),
         privateKey: pk,
+        bn254SecretKey: Fr.random().toBigInt(),
       };
     });
     const { aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();

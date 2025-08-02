@@ -37,6 +37,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 import {
   BlockLog, PublicInputArgs, SubmitEpochRootProofArgs
@@ -122,7 +123,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.prank(testERC20.owner());
     testERC20.mint(address(this), depositAmount);
     testERC20.approve(address(rollup), depositAmount);
-    rollup.deposit(address(0xdead), address(0xdead), true);
+    rollup.deposit(
+      address(0xdead),
+      address(0xdead),
+      BN254Lib.g1Zero(),
+      BN254Lib.g2Zero(),
+      BN254Lib.g1Zero(),
+      true
+    );
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
@@ -171,7 +179,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.prank(testERC20.owner());
     testERC20.mint(address(this), depositAmount);
     testERC20.approve(address(rollup), depositAmount);
-    rollup.deposit(address(0xdead), address(0xdead), true);
+    rollup.deposit(
+      address(0xdead),
+      address(0xdead),
+      BN254Lib.g1Zero(),
+      BN254Lib.g2Zero(),
+      BN254Lib.g1Zero(),
+      true
+    );
     rollup.flushEntryQueue();
 
     assertEq(rollup.getCurrentEpoch(), epoch);

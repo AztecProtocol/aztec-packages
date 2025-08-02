@@ -39,6 +39,7 @@ import {
   FeeConfigLib,
   CompressedFeeConfig
 } from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * @title Rollup
@@ -203,11 +204,22 @@ contract RollupCore is
     ExtRollupLib2.vote(_proposalId);
   }
 
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup)
-    external
-    override(IStakingCore)
-  {
-    ExtRollupLib2.deposit(_attester, _withdrawer, _moveWithLatestRollup);
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) external override(IStakingCore) {
+    ExtRollupLib2.deposit(
+      _attester,
+      _withdrawer,
+      _publicKeyInG1,
+      _publicKeyInG2,
+      _proofOfPossession,
+      _moveWithLatestRollup
+    );
   }
 
   function flushEntryQueue() external override(IStakingCore) {

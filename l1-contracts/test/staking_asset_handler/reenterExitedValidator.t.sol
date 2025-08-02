@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -20,7 +21,9 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     vm.expectRevert(
       abi.encodeWithSelector(IStakingAssetHandler.AttesterDoesNotExist.selector, _attester)
     );
-    stakingAssetHandler.reenterExitedValidator(_attester);
+    stakingAssetHandler.reenterExitedValidator(
+      _attester, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
   }
 
   function test_WhenAttesterHasProvidedAValidDeposit(
@@ -40,7 +43,14 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     // 1. Perform a valid deposit
     vm.prank(_caller);
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      _attester,
+      validMerkleProof,
+      realProof,
+      BN254Lib.g1Zero(),
+      BN254Lib.g2Zero(),
+      BN254Lib.g1Zero()
+    );
 
     // 2. Exit the validator
     vm.prank(WITHDRAWER);
@@ -52,7 +62,9 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     // 3. Reenter the validator
     vm.prank(_caller);
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
-    stakingAssetHandler.reenterExitedValidator(_attester);
+    stakingAssetHandler.reenterExitedValidator(
+      _attester, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
     vm.prank(_caller);
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);

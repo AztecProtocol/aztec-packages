@@ -6,6 +6,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   Timestamp, Status, AttesterView, Exit, IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract InitiateWithdrawTest is StakingBase {
   function test_WhenAttesterIsNotRegistered() external {
@@ -18,7 +19,14 @@ contract InitiateWithdrawTest is StakingBase {
   modifier whenAttesterIsRegistered() {
     mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     staking.flushEntryQueue();
     _;
   }

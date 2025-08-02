@@ -93,6 +93,7 @@ describe('SlasherClient', () => {
         {
           attester: EthAddress.fromString(slasherL1Client.account.address),
           withdrawer: EthAddress.fromString(slasherL1Client.account.address),
+          bn254SecretKey: Fr.random().toBigInt(),
         },
       ],
       realVerifier: false,

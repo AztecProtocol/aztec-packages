@@ -69,6 +69,9 @@ interface IGovernance {
   event WithdrawInitiated(uint256 indexed withdrawalId, address indexed recipient, uint256 amount);
   event WithdrawFinalised(uint256 indexed withdrawalId);
 
+  event BlsKeyActivated(address indexed account);
+  event BlsKeyDeactivated(address indexed account);
+
   function addBeneficiary(address _beneficiary) external;
   function openFloodgates() external;
 

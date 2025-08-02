@@ -8,13 +8,11 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Errors as GSEErrors} from "@aztec/governance/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Status, IStakingCore, AttesterView, IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {IGSE, IGSECore} from "@aztec/governance/GSE.sol";
-import {Epoch} from "@aztec/shared/libraries/TimeMath.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract DepositTest is StakingBase {
   using stdStorage for StdStorage;
@@ -28,7 +26,14 @@ contract DepositTest is StakingBase {
       )
     );
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
   }
 
   modifier givenCallerHasSufficientAllowance() {
@@ -45,7 +50,14 @@ contract DepositTest is StakingBase {
       )
     );
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
   }
 
   modifier givenCallerHasSufficientFunds() {
@@ -60,7 +72,14 @@ contract DepositTest is StakingBase {
   {
     // it reverts
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     staking.flushEntryQueue();
 
     mint(address(this), DEPOSIT_AMOUNT);
@@ -70,7 +89,14 @@ contract DepositTest is StakingBase {
     stdstore.enable_packed_slots().target(address(staking)).sig(
       IStaking.getNextFlushableEpoch.selector
     ).depth(0).checked_write(uint256(0));
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
 
     // The real error gets caught by the flushEntryQueue call
     // address magicAddress = address(staking.getGSE().getCanonicalMagicAddress());
@@ -78,7 +104,9 @@ contract DepositTest is StakingBase {
     //   abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, magicAddress, ATTESTER)
     // );
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStakingCore.FailedDeposit(ATTESTER, WITHDRAWER);
+    emit IStakingCore.FailedDeposit(
+      ATTESTER, WITHDRAWER, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
     staking.flushEntryQueue();
 
     vm.prank(SLASHER);
@@ -86,12 +114,26 @@ contract DepositTest is StakingBase {
     assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.ZOMBIE));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, WITHDRAWER);
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
   }
 
   modifier givenAttesterIsNotRegistered() {
@@ -122,7 +164,14 @@ contract DepositTest is StakingBase {
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.ValidatorQueued(ATTESTER, WITHDRAWER);
 
-    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _moveWithLatestRollup: true});
+    staking.deposit({
+      _attester: ATTESTER,
+      _withdrawer: WITHDRAWER,
+      _publicKeyInG1: BN254Lib.g1Zero(),
+      _publicKeyInG2: BN254Lib.g2Zero(),
+      _proofOfPossession: BN254Lib.g1Zero(),
+      _moveWithLatestRollup: true
+    });
     // the money is in the staking contract
     assertEq(stakingAsset.balanceOf(address(staking)), DEPOSIT_AMOUNT);
     // the money is not in the GSE
