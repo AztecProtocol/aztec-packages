@@ -12,7 +12,8 @@ import {
   FeeAssetPerEthE9,
   BlockHeaderValidationFlags,
   FeeHeader,
-  RollupConfigInput
+  RollupConfigInput,
+  RollupStatus
 } from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking, AttesterConfig, Exit, AttesterView, Status
@@ -271,15 +272,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     external
     view
     override(IRollup)
-    returns (
-      uint256 provenBlockNumber,
-      bytes32 provenArchive,
-      uint256 pendingBlockNumber,
-      bytes32 pendingHeaderHash,
-      bytes32 headerHashOfMyBlock,
-      Epoch provenEpochNumber,
-      bool isBlockHeaderHashStale
-    )
+    returns (RollupStatus memory)
   {
     RollupStore storage rollupStore = STFLib.getStorage();
     ChainTips memory tips = ChainTipsLib.decompress(rollupStore.tips);
@@ -287,16 +280,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bool isStale = STFLib.isTempStale(_myHeaderBlockNumber);
     bytes32 headerHash = isStale ? bytes32(0) : STFLib.getHeaderHash(_myHeaderBlockNumber);
 
-    return (
-      tips.provenBlockNumber,
-      // Archive for proven block should be populated
-      rollupStore.archives[tips.provenBlockNumber],
-      tips.pendingBlockNumber,
-      STFLib.getHeaderHash(tips.pendingBlockNumber),
-      headerHash,
-      getEpochForBlock(tips.provenBlockNumber),
-      isStale
-    );
+    return RollupStatus({
+      provenBlockNumber: tips.provenBlockNumber,
+      provenArchive: rollupStore.archives[tips.provenBlockNumber],
+      pendingBlockNumber: tips.pendingBlockNumber,
+      pendingHeaderHash: STFLib.getHeaderHash(tips.pendingBlockNumber),
+      headerHashOfMyBlock: headerHash,
+      provenEpochNumber: getEpochForBlock(tips.provenBlockNumber),
+      isBlockHeaderHashStale: isStale
+    });
   }
 
   /**

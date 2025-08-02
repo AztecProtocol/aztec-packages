@@ -50,6 +50,26 @@ struct BlockHeaderValidationFlags {
   bool ignoreSignatures;
 }
 
+/**
+ * @notice Struct for rollup status information
+ * @param provenBlockNumber - The latest proven block number
+ * @param provenArchive - Archive root of the latest proven block
+ * @param pendingBlockNumber - The latest pending block number
+ * @param pendingHeaderHash - Header hash of the latest pending block
+ * @param headerHashOfMyBlock - Header hash of the requested block number
+ * @param provenEpochNumber - Epoch number of the latest proven block
+ * @param isBlockHeaderHashStale - Whether the header hash for the requested block is stale
+ */
+struct RollupStatus {
+  uint256 provenBlockNumber;
+  bytes32 provenArchive;
+  uint256 pendingBlockNumber;
+  bytes32 pendingHeaderHash;
+  bytes32 headerHashOfMyBlock;
+  Epoch provenEpochNumber;
+  bool isBlockHeaderHashStale;
+}
+
 struct GenesisState {
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
@@ -144,18 +164,7 @@ interface IRollup is IRollupCore, IHaveVersion {
 
   function getTips() external view returns (ChainTips memory);
 
-  function status(uint256 _myHeaderBlockNumber)
-    external
-    view
-    returns (
-      uint256 provenBlockNumber,
-      bytes32 provenArchive,
-      uint256 pendingBlockNumber,
-      bytes32 pendingHeaderHash,
-      bytes32 headerHashOfMyBlock,
-      Epoch provenEpochNumber,
-      bool isBlockHeaderHashStale
-    );
+  function status(uint256 _myHeaderBlockNumber) external view returns (RollupStatus memory);
 
   function getEpochProofPublicInputs(
     uint256 _start,

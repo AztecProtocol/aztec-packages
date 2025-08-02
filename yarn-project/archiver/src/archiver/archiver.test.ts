@@ -139,6 +139,24 @@ describe('Archiver', () => {
   const GENESIS_HEADER_HASH = new Fr(GENESIS_BLOCK_HEADER_HASH).toString();
   const ETHEREUM_SLOT_DURATION = BigInt(DefaultL1ContractsConfig.ethereumSlotDuration);
 
+  const createMockRollupStatus = (
+    provenBlockNumber: bigint,
+    provenArchive: string,
+    pendingBlockNumber: bigint,
+    pendingHeaderHash: string,
+    headerHashOfMyBlock: string,
+    provenEpochNumber: bigint,
+    isBlockHeaderHashStale: boolean,
+  ) => ({
+    provenBlockNumber,
+    provenArchive,
+    pendingBlockNumber,
+    pendingHeaderHash,
+    headerHashOfMyBlock,
+    provenEpochNumber,
+    isBlockHeaderHashStale,
+  });
+
   beforeEach(async () => {
     logger = createLogger('archiver:test');
     messagesRollingHash = Buffer16.ZERO;
@@ -316,16 +334,20 @@ describe('Archiver', () => {
     mockL1BlockNumbers(2500n, 2510n, 2520n);
 
     mockRollup.read.status
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), GENESIS_HEADER_HASH, 0n, false])
-      .mockResolvedValue([
-        1n,
-        blocks[0].archive.root.toString(),
-        3n,
-        headerHashes[2].toString(),
-        headerHashes[0].toString(),
-        0n,
-        false,
-      ]);
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), GENESIS_HEADER_HASH, 0n, false),
+      )
+      .mockResolvedValue(
+        createMockRollupStatus(
+          1n,
+          blocks[0].archive.root.toString(),
+          3n,
+          headerHashes[2].toString(),
+          headerHashes[0].toString(),
+          0n,
+          false,
+        ),
+      );
 
     const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
     blobsFromBlocks.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
@@ -467,15 +489,9 @@ describe('Archiver', () => {
 
     // Mock status to indicate only blocks 1-2 are valid (pendingBlockNumber = 2)
     // No blocks are proven (provenBlockNumber = 0, provenArchive = GENESIS_ROOT)
-    mockRollup.read.status.mockResolvedValue([
-      0n,
-      GENESIS_ROOT,
-      2n,
-      headerHashes[1].toString(),
-      GENESIS_HEADER_HASH,
-      0n,
-      false,
-    ]);
+    mockRollup.read.status.mockResolvedValue(
+      createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
+    );
 
     publicClient.getTransaction.mockImplementation(((args: { hash?: `0x${string}` }) => {
       const indexAndType = args.hash?.split('-');
@@ -542,8 +558,12 @@ describe('Archiver', () => {
     );
     makeL2ProofVerifiedEvent(81n, 2, proverIds[1]);
     mockRollup.read.status
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_HEADER_HASH, GENESIS_HEADER_HASH, 0n, false])
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false]);
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_HEADER_HASH, GENESIS_HEADER_HASH, 0n, false),
+      )
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
+      );
 
     makeMessageSentEvent(66n, 1, 0n);
     makeMessageSentEvent(68n, 1, 1n);
@@ -608,12 +628,22 @@ describe('Archiver', () => {
     // We will return status at first to have an empty round, then as if we have 2 pending blocks, and finally
     // Just a single pending block returning a "failure" for the expected pending block
     mockRollup.read.status
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_HEADER_HASH, GENESIS_HEADER_HASH, 0n, false])
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false])
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false]) // Fr.ZERO = mismatch, not stale
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_HEADER_HASH, GENESIS_HEADER_HASH, 0n, false),
+      )
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
+      )
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false),
+      ) // Fr.ZERO = mismatch, not stale
       // Additional status calls for unwinding logic:
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false]) // status(2) → block 2 doesn't exist but not stale
-      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), headerHashes[0].toString(), 0n, false]); // status(1) → block 1 exists
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), Fr.ZERO.toString(), 0n, false),
+      ) // status(2) → block 2 doesn't exist but not stale
+      .mockResolvedValueOnce(
+        createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), headerHashes[0].toString(), 0n, false),
+      ); // status(1) → block 1 exists
 
     makeMessageSentEvent(66n, 1, 0n);
     makeMessageSentEvent(68n, 1, 1n);
@@ -665,7 +695,9 @@ describe('Archiver', () => {
     let l1BlockNumber = 110n;
     publicClient.getBlockNumber.mockImplementation(() => Promise.resolve(l1BlockNumber++));
 
-    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false]);
+    mockRollup.read.status.mockResolvedValue(
+      createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false),
+    );
 
     // Creates messages for L2 blocks 1 and 3, across L1 blocks 100 and 101
     makeMessageSentEvent(100n, 1, 0n);
@@ -751,15 +783,9 @@ describe('Archiver', () => {
     );
 
     // No proof events yet - blocks will be stored with Fr.ZERO archive roots
-    mockRollup.read.status.mockResolvedValue([
-      0n,
-      GENESIS_ROOT,
-      2n,
-      headerHashes[1].toString(),
-      GENESIS_HEADER_HASH,
-      0n,
-      false,
-    ]);
+    mockRollup.read.status.mockResolvedValue(
+      createMockRollupStatus(0n, GENESIS_ROOT, 2n, headerHashes[1].toString(), GENESIS_HEADER_HASH, 0n, false),
+    );
 
     makeMessageSentEvent(140n, 1, 0n);
     makeMessageSentEvent(145n, 1, 1n);
@@ -846,15 +872,9 @@ describe('Archiver', () => {
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
-    mockRollup.read.status.mockResolvedValueOnce([
-      0n,
-      GENESIS_ROOT,
-      1n,
-      headerHashes[0].toString(),
-      GENESIS_HEADER_HASH,
-      0n,
-      false,
-    ]);
+    mockRollup.read.status.mockResolvedValueOnce(
+      createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), GENESIS_HEADER_HASH, 0n, false),
+    );
     makeL2BlockProposedEvent(
       l1BlockForL2Block,
       1n,
@@ -892,15 +912,9 @@ describe('Archiver', () => {
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
-    mockRollup.read.status.mockResolvedValueOnce([
-      0n,
-      GENESIS_ROOT,
-      1n,
-      headerHashes[0].toString(),
-      GENESIS_HEADER_HASH,
-      0n,
-      false,
-    ]);
+    mockRollup.read.status.mockResolvedValueOnce(
+      createMockRollupStatus(0n, GENESIS_ROOT, 1n, headerHashes[0].toString(), GENESIS_HEADER_HASH, 0n, false),
+    );
     makeL2BlockProposedEvent(
       l1BlockForL2Block,
       1n,
@@ -932,7 +946,9 @@ describe('Archiver', () => {
 
     logger.info(`Syncing archiver to L1 block ${notLastL1BlockForEpoch}`);
     publicClient.getBlockNumber.mockResolvedValue(notLastL1BlockForEpoch);
-    mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false]);
+    mockRollup.read.status.mockResolvedValueOnce(
+      createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false),
+    );
 
     await archiver.start(true);
     expect(await archiver.isEpochComplete(0n)).toBe(false);
@@ -945,7 +961,9 @@ describe('Archiver', () => {
 
     logger.info(`Syncing archiver to L1 block ${lastL1BlockForEpoch}`);
     publicClient.getBlockNumber.mockResolvedValue(lastL1BlockForEpoch);
-    mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false]);
+    mockRollup.read.status.mockResolvedValueOnce(
+      createMockRollupStatus(0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT, 0n, false),
+    );
 
     await archiver.start(true);
     expect(await archiver.isEpochComplete(0n)).toBe(true);
