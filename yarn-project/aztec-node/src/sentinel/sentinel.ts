@@ -17,6 +17,7 @@ import {
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
+  SingleValidatorStats,
   ValidatorStats,
   ValidatorStatusHistory,
   ValidatorStatusInSlot,
@@ -373,6 +374,35 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
     return {
       stats: result,
+      lastProcessedSlot: this.lastProcessedSlot,
+      initialSlot: this.initialSlot,
+      slotWindow: this.store.getHistoryLength(),
+    };
+  }
+
+  /** Computes stats for a single validator. */
+  public async getValidatorStats(
+    validatorAddress: string,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined> {
+    const ethAddress = EthAddress.fromString(validatorAddress);
+    const history = await this.store.getHistory(ethAddress);
+
+    if (!history || history.length === 0) {
+      return undefined;
+    }
+
+    const slotNow = this.epochCache.getEpochAndSlotNow().slot;
+    const effectiveFromSlot = fromSlot ?? (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const effectiveToSlot = toSlot ?? this.lastProcessedSlot ?? slotNow;
+
+    const validator = this.computeStatsForValidator(validatorAddress as `0x${string}`, history, effectiveFromSlot, effectiveToSlot);
+    const provenPerformance = await this.store.getProvenPerformance(ethAddress);
+
+    return {
+      validator,
+      provenPerformance,
       lastProcessedSlot: this.lastProcessedSlot,
       initialSlot: this.initialSlot,
       slotWindow: this.store.getHistoryLength(),
