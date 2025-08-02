@@ -394,13 +394,13 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
         }
 
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+        for (uint256 i = 0; i < $LOG_N - 1; ++i) {
             commitments[NUMBER_UNSHIFTED + 1 + i] = proof.geminiFoldComms[i];
         }
 
         // Finalise the batch opening claim
-        commitments[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
-        scalars[NUMBER_UNSHIFTED + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
+        commitments[NUMBER_UNSHIFTED + $LOG_N] = Honk.G1Point({x: 1, y: 2});
+        scalars[NUMBER_UNSHIFTED + $LOG_N] = mem.constantTermAccumulator;
 
         Honk.G1Point memory quotient_commitment = proof.kzgQuotient;
 
