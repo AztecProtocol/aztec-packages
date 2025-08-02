@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 #[aztec]
 contract OffchainEffect {
     use aztec::{
-        event::event_interface::emit_event_as_offchain_message,
+        event::event_interface::{emit_event_in_private, MessageDelivery},
         macros::{events::event, functions::{private, utility}, storage::storage},
         messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message,
         note::note_viewer_options::NoteViewerOptions,
@@ -51,7 +51,12 @@ contract OffchainEffect {
 
     #[private]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        emit_event_as_offchain_message(TestEvent { a, b, c }, &mut context, context.msg_sender());
+        emit_event_in_private(
+            TestEvent { a, b, c },
+            &mut context,
+            context.msg_sender(),
+            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
+        );
     }
 
     #[private]

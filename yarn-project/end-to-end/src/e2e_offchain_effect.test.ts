@@ -72,7 +72,7 @@ describe('e2e_offchain_effect', () => {
     expect(offchainEffects).toHaveLength(1);
     const offchainEffect = offchainEffects[0];
 
-    // The data contains the cyphertext, an identifier and the recipient
+    // The data contains the ciphertext, an identifier and the recipient
     expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
 
     const identifier = offchainEffect.data[0];
@@ -83,14 +83,14 @@ describe('e2e_offchain_effect', () => {
     const recipient = wallets[0].getAddress();
     expect(recipient.toField()).toEqual(recipientAddressFr);
 
-    const cyphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
+    const ciphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
 
     const txEffect = (await aztecNode.getTxEffect(txHash))!.data;
 
     const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
 
     // Process the message
-    await contract1.methods.process_message(cyphertext, messageContext.toNoirStruct()).simulate();
+    await contract1.methods.process_message(ciphertext, messageContext.toNoirStruct()).simulate();
 
     // Get the event from PXE
     const events = await pxe.getPrivateEvents<TestEvent>(
@@ -119,7 +119,7 @@ describe('e2e_offchain_effect', () => {
     expect(offchainEffects).toHaveLength(1);
     const offchainEffect = offchainEffects[0];
 
-    // The data contains the cyphertext, an identifier, and the recipient
+    // The data contains the ciphertext, an identifier, and the recipient
     expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
 
     const identifier = offchainEffect.data[0];
@@ -130,14 +130,14 @@ describe('e2e_offchain_effect', () => {
     const recipient = wallets[0].getAddress();
     expect(recipient.toField()).toEqual(recipientAddressFr);
 
-    const cyphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
+    const ciphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
 
     const txEffect = (await aztecNode.getTxEffect(txHash))!.data;
 
     const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
 
     // Process the message
-    await contract1.methods.process_message(cyphertext, messageContext.toNoirStruct()).simulate();
+    await contract1.methods.process_message(ciphertext, messageContext.toNoirStruct()).simulate();
 
     // Get the note value
     const noteValue = await contract1.methods.get_note_value(owner).simulate();

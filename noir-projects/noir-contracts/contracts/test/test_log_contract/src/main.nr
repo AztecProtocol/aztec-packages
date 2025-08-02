@@ -3,9 +3,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract TestLog {
     use aztec::{
-        event::event_interface::{
-            emit_event_in_private_log, emit_event_in_public_log, PrivateLogContent,
-        },
+        event::event_interface::{emit_event_in_private, emit_event_in_public_log, MessageDelivery},
         macros::{events::event, functions::{private, public}, storage::storage},
         protocol_types::{address::AztecAddress, traits::FromField},
         state_vars::PrivateSet,
@@ -33,19 +31,19 @@ pub contract TestLog {
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        emit_event_in_private_log(
+        emit_event_in_private(
             event0,
             &mut context,
             context.msg_sender(),
-            PrivateLogContent.CONSTRAINED_ENCRYPTION,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
         );
 
         // We duplicate the emission, but swapping the sender and recipient:
-        emit_event_in_private_log(
+        emit_event_in_private(
             event0,
             &mut context,
             other,
-            PrivateLogContent.CONSTRAINED_ENCRYPTION,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
         );
 
         let event1 = ExampleEvent1 {
@@ -53,11 +51,11 @@ pub contract TestLog {
             value3: preimages[3] as u8,
         };
 
-        emit_event_in_private_log(
+        emit_event_in_private(
             event1,
             &mut context,
             context.msg_sender(),
-            PrivateLogContent.CONSTRAINED_ENCRYPTION,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
