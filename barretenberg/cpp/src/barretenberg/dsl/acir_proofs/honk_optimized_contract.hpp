@@ -384,16 +384,6 @@ inline std::string generate_memory_offsets(int log_n)
     out << "// Aliases\n";
     out << "// Aliases for wire values (Elliptic curve gadget)\n";
     print_header_centered("SUMCHECK - MEMORY ALIASES");
-    out << "uint256 internal constant EC_X_1 = W2_EVAL_LOC;\n";
-    out << "uint256 internal constant EC_Y_1 = W3_EVAL_LOC;\n";
-    out << "uint256 internal constant EC_X_2 = W1_SHIFT_EVAL_LOC;\n";
-    out << "uint256 internal constant EC_Y_2 = W4_SHIFT_EVAL_LOC;\n";
-    out << "uint256 internal constant EC_Y_3 = W3_SHIFT_EVAL_LOC;\n";
-    out << "uint256 internal constant EC_X_3 = W2_SHIFT_EVAL_LOC;\n";
-    out << "\n";
-    out << "// Aliases for selectors (Elliptic curve gadget)\n";
-    out << "uint256 internal constant EC_Q_SIGN = QL_EVAL_LOC;\n";
-    out << "uint256 internal constant EC_Q_IS_DOUBLE = QM_EVAL_LOC;\n";
 
     return out.str();
 }
@@ -412,7 +402,6 @@ interface IVerifier {
 
 
 
-uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
 uint256 constant NUMBER_OF_SUBRELATIONS = 28;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
 uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
@@ -448,9 +437,22 @@ contract HonkVerifier is IVerifier {
      * **
      */
 
-     {{ SECTION_START MEMORY_LAYOUT}}
-     {{ SECTION_END MEMORY_LAYOUT}}
+    // {{ SECTION_START MEMORY_LAYOUT }}
+    // {{ SECTION_END MEMORY_LAYOUT }}
 
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                 SUMCHECK - MEMORY ALIASES                  */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    uint256 internal constant EC_X_1 = W2_EVAL_LOC;
+    uint256 internal constant EC_Y_1 = W3_EVAL_LOC;
+    uint256 internal constant EC_X_2 = W1_SHIFT_EVAL_LOC;
+    uint256 internal constant EC_Y_2 = W4_SHIFT_EVAL_LOC;
+    uint256 internal constant EC_Y_3 = W3_SHIFT_EVAL_LOC;
+    uint256 internal constant EC_X_3 = W2_SHIFT_EVAL_LOC;
+
+    // Aliases for selectors (Elliptic curve gadget)
+    uint256 internal constant EC_Q_SIGN = QL_EVAL_LOC;
+    uint256 internal constant EC_Q_IS_DOUBLE = QM_EVAL_LOC;
 
     // -1/2 mod p
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -655,10 +657,6 @@ contract HonkVerifier is IVerifier {
                 let eta_three := and(prev_challenge, LOWER_128_MASK)
                 mstore(ETA_THREE_CHALLENGE, eta_three)
 
-                log0(ETA_CHALLENGE, 0x20)
-                log0(ETA_TWO_CHALLENGE, 0x20)
-                log0(ETA_THREE_CHALLENGE, 0x20)
-
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                  LOAD PROOF INTO MEMORY                    */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -828,12 +826,16 @@ contract HonkVerifier is IVerifier {
                 // The Gemini R challenge contains a of all of commitments to all of the univariates
                 // evaluated in the Gemini Protocol
                 // So for multivariate polynomials in l variables, we will hash l - 1 commitments.
-                // For this implementation, we have a fixed number of of rounds and thus 27 committments
+                // For this implementation, we have logN number of of rounds and thus logN - 1 committments
                 // The format of these commitments are proof points, which are explained above
-                // 0x40 * 27 = 0x6c0
-                mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, 0x6c0)
+                // 0x40 * (logN - 1)
 
-                prev_challenge := mod(keccak256(0x00, 0x6e0), p)
+                ///////////////////
+                // TODO: CALCUALTE AT GENERATION TIME THIS SIZE
+                ///////////////////
+                mcopy(0x20, GEMINI_FOLD_UNIVARIATE_0_X_LOC, {{ GEMINI_FOLD_UNIVARIATE_LENGTH }})
+
+                prev_challenge := mod(keccak256(0x00, {{ GEMINI_FOLD_UNIVARIATE_HASH_LENGTH }}), p)
                 mstore(0x00, prev_challenge)
 
                 let geminiR := and(prev_challenge, LOWER_128_MASK)
@@ -844,9 +846,13 @@ contract HonkVerifier is IVerifier {
                 /*                    SHPLONK NU CHALLENGE                    */
                 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
                 // The shplonk nu challenge hashes the evaluations of the above gemini univariates
-                // 0x20 * 28 = 0x380
-                mcopy(0x20, GEMINI_A_EVAL_0, 0x380)
-                prev_challenge := mod(keccak256(0x00, 0x3a0), p)
+                // 0x20 * logN = 0x20 * 15 = 0x1e0
+
+                ///////////////////
+                // TODO: CALCUALTE AT GENERATION TIME THIS SIZE
+                ///////////////////
+                mcopy(0x20, GEMINI_A_EVAL_0, {{ GEMINI_EVALS_LENGTH }})
+                prev_challenge := mod(keccak256(0x00, {{ GEMINI_EVALS_HASH_LENGTH }}), p)
                 mstore(0x00, prev_challenge)
 
                 let shplonkNu := and(prev_challenge, LOWER_128_MASK)
@@ -2225,7 +2231,13 @@ contract HonkVerifier is IVerifier {
             let cache := mload(GEMINI_R_CHALLENGE)
             let off := POWERS_OF_EVALUATION_CHALLENGE_0_LOC
             mstore(off, cache)
-            for { let i := 1 } lt(i, CONST_PROOF_SIZE_LOG_N) { i := add(i, 1) } {
+
+            ////////////////////////////////////////////
+            ////////////////////////////////////////////
+            // TODO: remove pointer???
+            ////////////////////////////////////////////
+            ////////////////////////////////////////////
+            for { let i := 1 } lt(i, LOG_N) { i := add(i, 1) } {
                 off := add(off, 0x20)
                 cache := mulmod(cache, cache, p)
                 mstore(off, cache)
@@ -2761,33 +2773,8 @@ contract HonkVerifier is IVerifier {
                 success_flag := and(success_flag, validateProofPointOnCurve(Z_PERM_X_LOC, q))
 
                 // Gemini commitments - validate up to log n
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_0_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_1_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_2_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_3_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_4_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_5_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_6_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_7_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_8_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_9_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_10_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_11_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_12_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_13_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_14_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_15_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_16_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_17_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_18_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_19_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_20_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_21_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_22_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_23_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_24_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_25_X_LOC, q))
-                success_flag := and(success_flag, validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_26_X_LOC, q))
+                /// {{ UNROLL_SECTION_START GEMINI_FOLD_UNIVARIATE_ON_CURVE }}
+                /// {{ UNROLL_SECTION_END GEMINI_FOLD_UNIVARIATE_ON_CURVE }}
 
                 // Shlponk
                 success_flag := and(success_flag, validateProofPointOnCurve(SHPLONK_Q_X_LOC, q))
@@ -3111,229 +3098,8 @@ contract HonkVerifier is IVerifier {
                 // Accumulate these LOG_N scalars with the gemini fold univariates
                 {
                     {
-                        // accumulator = accumulator + scalar[37] * gemini_fold_univariates[0]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_0_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_37_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[38] * gemini_fold_univariates[1]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_1_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_38_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[39] * gemini_fold_univariates[2]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_2_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_39_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[40] * gemini_fold_univariates[3]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_3_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_40_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[41] * gemini_fold_univariates[4]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_4_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_41_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                    }
-
-                    {
-                        // accumulator = accumulator + scalar[42] * gemini_fold_univariates[5]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_5_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_42_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[43] * gemini_fold_univariates[6]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_6_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_43_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[44] * gemini_fold_univariates[7]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_7_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_44_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[45] * gemini_fold_univariates[8]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_8_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_45_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[46] * gemini_fold_univariates[9]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_9_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_46_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[47] * gemini_fold_univariates[10]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_10_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_47_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                    }
-
-                    {
-                        // accumulator = accumulator + scalar[48] * gemini_fold_univariates[11]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_11_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_48_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[49] * gemini_fold_univariates[12]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_12_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_49_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[50] * gemini_fold_univariates[13]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_13_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_50_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[51] * gemini_fold_univariates[14]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_14_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_51_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[52] * gemini_fold_univariates[15]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_15_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_52_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                    }
-
-                    {
-                        // accumulator = accumulator + scalar[53] * gemini_fold_univariates[16]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_16_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_53_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[54] * gemini_fold_univariates[17]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_17_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_54_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[55] * gemini_fold_univariates[18]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_18_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_55_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[56] * gemini_fold_univariates[19]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_19_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_56_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[57] * gemini_fold_univariates[20]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_20_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_57_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-                    }
-
-                    {
-                        // accumulator = accumulator + scalar[58] * gemini_fold_univariates[21]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_21_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_58_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[59] * gemini_fold_univariates[22]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_22_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_59_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[60] * gemini_fold_univariates[23]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_23_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_60_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[61] * gemini_fold_univariates[24]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_24_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_61_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[62] * gemini_fold_univariates[25]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_25_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_62_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
-
-                        // accumulator = accumulator + scalar[63] * gemini_fold_univariates[26]
-                        writeProofPointIntoScratchSpace(GEMINI_FOLD_UNIVARIATE_26_X_LOC)
-                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_63_LOC))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40))
-                        precomp_success_flag :=
-                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40))
+                        /// {{ UNROLL_SECTION_START ACCUMULATE_GEMINI_FOLD_UNIVARIATE }}
+                        /// {{ UNROLL_SECTION_END ACCUMULATE_GEMINI_FOLD_UNIVARIATE }}
                     }
                 }
 
@@ -3498,6 +3264,13 @@ template <typename Field> std::string field_to_hex(const Field& f)
     return os.str();
 }
 
+inline std::string int_to_hex(size_t i)
+{
+    std::ostringstream os;
+    os << "0x" << std::hex << i;
+    return os.str();
+}
+
 inline std::string get_optimized_honk_solidity_verifier(auto const& verification_key)
 {
     std::string template_str = HONK_CONTRACT_OPT_SOURCE;
@@ -3517,6 +3290,16 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
     set_template_param("NUM_PUBLIC_INPUTS", std::to_string(verification_key->num_public_inputs));
     set_template_param("LOG_N_MINUS_ONE", std::to_string(verification_key->log_circuit_size - 1));
     set_template_param("NUMBER_OF_BARYCENTRIC_INVERSES", std::to_string(verification_key->log_circuit_size * 8));
+
+    size_t gemini_fold_univariate_length = (verification_key->log_circuit_size - 1) * 0x40;
+    size_t gemini_fold_univariate_hash_length = gemini_fold_univariate_length + 0x20;
+    size_t gemini_evals_length = verification_key->log_circuit_size * 0x20;
+    size_t gemini_evals_hash_length = gemini_evals_length + 0x20;
+
+    set_template_param("GEMINI_FOLD_UNIVARIATE_LENGTH", int_to_hex(gemini_fold_univariate_length));
+    set_template_param("GEMINI_FOLD_UNIVARIATE_HASH_LENGTH", int_to_hex(gemini_fold_univariate_hash_length));
+    set_template_param("GEMINI_EVALS_LENGTH", int_to_hex(gemini_evals_length));
+    set_template_param("GEMINI_EVALS_HASH_LENGTH", int_to_hex(gemini_evals_hash_length));
 
     // Verification Key
     set_template_param("Q_L_X_LOC", field_to_hex(verification_key->q_l.x));
@@ -3689,8 +3472,8 @@ inline std::string get_optimized_honk_solidity_verifier(auto const& verification
 
     // Replace Memory Layout
     {
-        std::string::size_type start_pos = template_str.find("/// {{ SECTION_START MEMORY_LAYOUT }}");
-        std::string::size_type end_pos = template_str.find("/// {{ SECTION_END MEMORY_LAYOUT }}");
+        std::string::size_type start_pos = template_str.find("// {{ SECTION_START MEMORY_LAYOUT }}");
+        std::string::size_type end_pos = template_str.find("// {{ SECTION_END MEMORY_LAYOUT }}");
         if (start_pos != std::string::npos && end_pos != std::string::npos) {
             std::string::size_type start_line_end = template_str.find("\n", start_pos);
             std::string generated_code = generate_memory_offsets(log_n);
