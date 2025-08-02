@@ -102,6 +102,7 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
+    using Proof = typename Flavor::Transcript::Proof;
 
     auto builder = typename Flavor::CircuitBuilder{};
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
@@ -109,7 +110,7 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
-    HonkProof ultra_proof = prover.construct_proof();
+    Proof ultra_proof = prover.construct_proof();
     size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE;
     if (HasIPAAccumulator<Flavor>) {
         expected_proof_length += IPA_CLAIM_SIZE;

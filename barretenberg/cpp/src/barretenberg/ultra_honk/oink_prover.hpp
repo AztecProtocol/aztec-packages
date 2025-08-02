@@ -43,6 +43,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
+    using Proof = typename Transcript::Proof;
 
   public:
     std::shared_ptr<DeciderPK> proving_key;
@@ -67,7 +68,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     {}
 
     void prove();
-    HonkProof export_proof();
+    Proof export_proof();
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();

@@ -98,7 +98,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     vinfo("computed opening proof");
 }
 
-template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> DeciderProver_<Flavor>::Proof DeciderProver_<Flavor>::export_proof()
 {
     return transcript->export_proof();
 }

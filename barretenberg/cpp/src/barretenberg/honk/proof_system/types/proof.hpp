@@ -13,9 +13,9 @@ namespace bb {
 
 using PublicInputsVector = std::vector<fr>;
 using HonkProof = std::vector<fr>;
-struct PublicInputsAndProof {
+template <typename Proof> struct PublicInputsAndProof {
     PublicInputsVector public_inputs;
-    HonkProof proof;
+    Proof proof;
 
     MSGPACK_FIELDS(public_inputs, proof);
     bool operator==(const PublicInputsAndProof&) const = default;

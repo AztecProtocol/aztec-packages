@@ -25,6 +25,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
+    using Proof = typename Flavor::Transcript::Proof;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
     CircuitBuilder builder = Circuit::generate(inputs);
@@ -38,7 +39,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     Prover prover(instance, verification_key);
     Verifier verifier(verification_key);
 
-    HonkProof proof = prover.construct_proof();
+    Proof proof = prover.construct_proof();
     {
         if (!verifier.verify_proof(proof)) {
             throw_or_abort("Verification failed");
