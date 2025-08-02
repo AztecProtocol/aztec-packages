@@ -33,11 +33,13 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     uint256 immutable $N;
     uint256 immutable $LOG_N;
+    uint256 immutable $VK_HASH;
     uint256 immutable $NUM_PUBLIC_INPUTS;
 
-    constructor(uint256 _N, uint256 _logN, uint256 _numPublicInputs) {
+    constructor(uint256 _N, uint256 _logN, uint256 _vkHash, uint256 _numPublicInputs) {
         $N = _N;
         $LOG_N = _logN;
+        $VK_HASH = _vkHash;
         $NUM_PUBLIC_INPUTS = _numPublicInputs;
     }
 
@@ -75,9 +77,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(
-            p, publicInputs, vk.circuitSize, $NUM_PUBLIC_INPUTS, /*pubInputsOffset=*/ 1
-        );
+        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, $VK_HASH, $NUM_PUBLIC_INPUTS);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.

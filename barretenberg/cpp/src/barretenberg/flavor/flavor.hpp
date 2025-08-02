@@ -197,9 +197,10 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @details Currently only used in testing.
      * @return FF
      */
-    fr hash()
+    fr hash() const
     {
-        fr vk_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1498): should hash be dependent on transcript?
+        fr vk_hash = Transcript::hash(this->to_field_elements());
         return vk_hash;
     }
 
