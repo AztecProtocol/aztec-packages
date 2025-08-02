@@ -10,8 +10,8 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include <barretenberg/common/container.hpp>
 #include <cstdint>
@@ -46,10 +46,9 @@ class ProofSurgeon {
 
         // Get public inputs by cutting them out of the proof
         size_t num_public_inputs_to_extract =
-            static_cast<uint32_t>(verification_key->num_public_inputs) - bb::PAIRING_POINTS_SIZE;
-        if (ipa_accumulation) {
-            num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
-        }
+            ipa_accumulation
+                ? static_cast<uint32_t>(verification_key->num_public_inputs) - bb::RollupIO::PUBLIC_INPUTS_SIZE
+                : static_cast<uint32_t>(verification_key->num_public_inputs) - bb::DefaultIO::PUBLIC_INPUTS_SIZE;
         debug("proof size: ", proof.size());
         debug("number of public inputs to extract: ", num_public_inputs_to_extract);
         std::vector<FF> public_inputs =

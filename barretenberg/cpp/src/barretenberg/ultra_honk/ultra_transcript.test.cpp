@@ -74,15 +74,12 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         }
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
-        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        constexpr size_t PUBLIC_INPUTS_SIZE =
+            HasIPAAccumulator<Flavor> ? RollupIO::PUBLIC_INPUTS_SIZE : DefaultIO::PUBLIC_INPUTS_SIZE;
+        for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
-                manifest_expected.add_entry(
-                    round, "public_input_" + std::to_string(1 + PAIRING_POINTS_SIZE + i), frs_per_Fr);
-            }
-        }
+
         manifest_expected.add_entry(round, "W_L", frs_per_G);
         manifest_expected.add_entry(round, "W_R", frs_per_G);
         manifest_expected.add_entry(round, "W_O", frs_per_G);
